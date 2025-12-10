@@ -35,8 +35,15 @@ jobs:
           distribution: graalvm
           java-version: '21'
 
-      - name: Install Native Image
+      - name: Install Native Image (Unix)
+        if: runner.os != 'Windows'
         run: gu install native-image
+
+      - name: Install Native Image (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $env:PATH = "${env:JAVA_HOME}\bin;$env:PATH"
+          & "${env:JAVA_HOME}\bin\gu.cmd" install native-image
 
       - name: Cache Maven repository
         uses: actions/cache@v4
