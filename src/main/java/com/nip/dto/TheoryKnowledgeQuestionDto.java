@@ -1,0 +1,41 @@
+package com.nip.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * @version v1.0.01
+ * @Author：BBB
+ * @Date:Create 2022/1/19 14:41
+ */
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class TheoryKnowledgeQuestionDto {
+  private String id;
+  /**
+   * 测验类型，1、单选题，2、多选题，3、判断题，4、填空题，5、简答题
+   */
+  private Integer type;
+  /**
+   * 题目
+   */
+  private String topic;
+  /**
+   * 选项
+   */
+  private String options;
+  /**
+   * 答案
+   */
+  private String answer;
+  /**
+   * 解析
+   */
+  private String analysis;
+  /**
+   * 节点ip
+   */
+  private String levelId;
+}

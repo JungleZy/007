@@ -1,0 +1,57 @@
+quarkus:
+  analytics:
+    disabled: true
+  banner:
+    path: banner.txt
+  http:
+    host: 0.0.0.0
+    port: 18001
+    cors:
+      ~: true
+      headers: '*'
+      origins: '*'
+      methods: OPTIONS, GET, POST, DELETE, PUT, PATCH
+  datasource:
+    username: root
+    password: root
+    db-kind: mysql
+    jdbc:
+      url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+#      url: jdbc:mysql://localhost:3307/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+      max-size: 200
+      min-size: 20
+  hibernate-orm:
+    jdbc:
+      statement-batch-size: 100
+    fetch:
+      size: 50  # 新增批量抓取
+    log:
+      sql: false
+    database:
+      generation: none
+    physical-naming-strategy: com.nip.common.utils.CustomPhysicalNamingStrategy
+  ssl:
+    native: false
+  swagger-ui:
+    enable: true
+    theme: newspaper
+  websocket:
+    dispatch-to-worker: true
+  log:
+    level: INFO
+    file:
+      path: ./logs/info.log
+      enable: true
+      level: WARN
+      format: '%d{yyyy-MM-dd HH:mm:ss,SSS}  %h %N[%i] %-5p [%c{3.}] (%t) %s%e%n %l %F'
+      rotation: # 新增日志轮转
+        max-file-size: 10M
+        max-backup-index: 10
+    console:
+      level: INFO
+      enable: true
+      stderr: true
+  native:
+    resources:
+      includes: resources/**
+#    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json

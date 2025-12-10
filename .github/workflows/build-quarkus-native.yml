@@ -1,0 +1,59 @@
+name: Build Quarkus Native
+
+on:
+  push:
+    branches: ['main', 'master']
+  pull_request:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }} / ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x86_64
+            runner: ubuntu-22.04
+          - os: ubuntu-22.04
+            arch: arm64
+            runner: ubuntu-22.04-arm64
+          - os: windows-2022
+            arch: x86_64
+            runner: windows-2022
+          - os: windows-2022
+            arch: arm64
+            runner: windows-2022-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up GraalVM (Java 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: graalvm
+          java-version: '21'
+
+      - name: Install Native Image
+        run: gu install native-image
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build Native Binary
+        run: mvn -B -Pnative package
+
+      - name: Upload Native Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarkus-native-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            target/*-runner*
+            target/*-runner.exe
+          if-no-files-found: error

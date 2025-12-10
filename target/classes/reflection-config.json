@@ -1,0 +1,12 @@
+[
+  {
+    "name": "com.example.SourceObj",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.example.TargetObj",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  }
+]
