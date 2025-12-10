@@ -14,11 +14,21 @@ jobs:
         include:
           - os: ubuntu-22.04
             arch: x86_64
+            runner: ubuntu-22.04
             setup_arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            setup_arch: arm64
           - os: windows-2022
             arch: x86_64
+            runner: windows-2022
             setup_arch: x64
-    runs-on: ${{ matrix.os }}
+          - os: windows-11-arm
+            arch: arm64
+            runner: windows-11-arm
+            setup_arch: arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,50 +56,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: quarkus-native-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            target/*-runner*
-            target/*-runner.exe
-          if-no-files-found: error
-
-  build-arm64:
-    name: Build (self-hosted ARM64 ${{ matrix.os }})
-    if: ${{ vars.ENABLE_ARM64 == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            labels: ['self-hosted', 'Linux', 'ARM64']
-          - os: windows-2022
-            labels: ['self-hosted', 'Windows', 'ARM64']
-    runs-on: ${{ matrix.labels }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up GraalVM (Java 21 with Native Image)
-        uses: graalvm/setup-graalvm@v1
-        with:
-          distribution: graalvm
-          java-version: '21'
-          architecture: arm64
-          components: native-image
-
-      - name: Cache Maven repository
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Build Native Binary
-        run: mvn -B -Pnative package
-
-      - name: Upload Native Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: quarkus-native-${{ matrix.os }}-arm64
           path: |
             target/*-runner*
             target/*-runner.exe
