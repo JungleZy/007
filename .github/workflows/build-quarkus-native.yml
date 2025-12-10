@@ -15,35 +15,31 @@ jobs:
           - os: ubuntu-22.04
             arch: x86_64
             runner: ubuntu-22.04
+            setup_arch: x64
           - os: ubuntu-22.04
             arch: arm64
             runner: ubuntu-22.04-arm64
+            setup_arch: arm64
           - os: windows-2022
             arch: x86_64
             runner: windows-2022
+            setup_arch: x64
           - os: windows-2022
             arch: arm64
             runner: windows-2022-arm64
+            setup_arch: arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up GraalVM (Java 21)
-        uses: actions/setup-java@v4
+      - name: Set up GraalVM (Java 21 with Native Image)
+        uses: graalvm/setup-graalvm@v1
         with:
           distribution: graalvm
           java-version: '21'
-
-      - name: Install Native Image (Unix)
-        if: runner.os != 'Windows'
-        run: gu install native-image
-
-      - name: Install Native Image (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          $env:PATH = "${env:JAVA_HOME}\bin;$env:PATH"
-          & "${env:JAVA_HOME}\bin\gu.cmd" install native-image
+          architecture: ${{ matrix.setup_arch }}
+          components: native-image
 
       - name: Cache Maven repository
         uses: actions/cache@v4
