@@ -15,19 +15,12 @@ jobs:
           - os: ubuntu-22.04
             arch: x86_64
             runner: ubuntu-22.04
-            setup_arch: x64
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04
             arch: arm64
-            runner: ubuntu-24.04-arm
-            setup_arch: arm64
+            runner: ubuntu-22.04-arm64
           - os: windows-2022
             arch: x86_64
             runner: windows-2022
-            setup_arch: x64
-          - os: windows-11-arm
-            arch: arm64
-            runner: windows-11-arm
-            setup_arch: arm64
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -38,7 +31,6 @@ jobs:
         with:
           distribution: graalvm
           java-version: '21'
-          architecture: ${{ matrix.setup_arch }}
           components: native-image
 
       - name: Cache Maven repository
