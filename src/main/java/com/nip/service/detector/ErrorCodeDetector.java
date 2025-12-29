@@ -1,7 +1,5 @@
 package com.nip.service.detector;
 
-import com.google.gson.reflect.TypeToken;
-import com.nip.common.utils.JSONUtils;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.service.builder.MessageResultBuilder;
@@ -14,7 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Objects;
 
-import static com.nip.service.constants.MessageComparisonConstants.*;
+import static com.nip.service.constants.MessageComparisonConstants.STANDARD_GROUP_LENGTH;
+import static com.nip.service.constants.MessageComparisonConstants.WORD_GAP_MARKER;
 
 /**
  * 错码检测器

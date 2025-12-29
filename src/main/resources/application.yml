@@ -16,8 +16,8 @@ quarkus:
     password: root
     db-kind: mysql
     jdbc:
-      url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
-#      url: jdbc:mysql://localhost:3307/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+#      url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+      url: jdbc:mysql://localhost:3307/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
       max-size: 200
       min-size: 20
   hibernate-orm:

@@ -4,18 +4,22 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.UserInfoDto;
+import com.nip.dto.vo.UserTrainDurationStatVO;
 import com.nip.entity.UserEntity;
 import com.nip.service.UserService;
+import com.nip.service.UserTrainStatisticsService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.Map;
 
 import static com.nip.common.constants.BaseConstants.DEVICE_ID;
+import static com.nip.common.constants.BaseConstants.USER_ID;
 
 @Path("/user")
 @ApplicationScoped
@@ -24,6 +28,9 @@ public class UserController {
 
   @Inject
   UserService userService;
+
+  @Inject
+  UserTrainStatisticsService userTrainStatisticsService;
 
   @POST
   @Path("/login")
@@ -47,5 +54,16 @@ public class UserController {
   @Path("/test")
   public Response<UserEntity> test() {
     return ResponseResult.success(userService.getUserById(""));
+  }
+
+  @POST
+  @Path("/getUserTrainDurationStat")
+  @Operation(summary = "统计当前用户训练时长")
+  public Response<UserTrainDurationStatVO> getUserTrainDurationStat(Map<String, String> map) {
+    return ResponseResult.success(
+        userTrainStatisticsService.getUserTrainDurationStat(
+            map.get(USER_ID),
+            map.getOrDefault("startTime", null),
+            map.getOrDefault("endTime", null)));
   }
 }

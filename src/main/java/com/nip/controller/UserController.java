@@ -11,6 +11,7 @@ import com.nip.dto.sql.FindUserByRoleIdDto;
 import com.nip.dto.sql.FindUserByStatusDescDto;
 import com.nip.entity.UserEntity;
 import com.nip.service.UserService;
+import com.nip.service.UserTrainStatisticsService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -36,7 +37,7 @@ public class UserController {
   private final UserService userService;
 
   @Inject
-  public UserController(UserService userService) {
+  public UserController(UserService userService, UserTrainStatisticsService userTrainStatisticsService) {
     this.userService = userService;
   }
 
@@ -95,7 +96,8 @@ public class UserController {
   @POST
   @Path("/getAllUserByContent")
   @Operation(summary = "获取全部用户")
-  public Response getAllUserByContent(@RestQuery("userName") String userName, @RestQuery("userAccount") String userAccount) {
+  public Response getAllUserByContent(@RestQuery("userName") String userName,
+      @RestQuery("userAccount") String userAccount) {
     return userService.getAllUserByContent(userName, userAccount);
   }
 
@@ -168,10 +170,12 @@ public class UserController {
   public Response<Boolean> delete(@RestQuery(USER_ID) String userId) {
     return ResponseResult.success(userService.delete(userId));
   }
+
   @GET
   @Path(value = "resetPassword")
   @Operation(summary = "重置用户密码")
   public Response<String> resetPassword(@RestQuery(USER_ID) String userId) {
     return ResponseResult.success(userService.resetPassword(userId));
   }
+
 }

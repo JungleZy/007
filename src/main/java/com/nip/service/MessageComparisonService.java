@@ -22,7 +22,8 @@ import java.util.Objects;
 
 import static com.nip.common.utils.TickerPatUtils.checkDotLineGap;
 import static com.nip.common.utils.TickerPatUtils.resolverMessage;
-import static com.nip.service.constants.MessageComparisonConstants.*;
+import static com.nip.service.constants.MessageComparisonConstants.GROUPS_PER_LINE;
+import static com.nip.service.constants.MessageComparisonConstants.MAX_SIGN_VALUE;
 
 /**
  * 报文对比服务

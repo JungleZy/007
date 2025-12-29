@@ -7,11 +7,11 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import static com.nip.service.constants.MessageComparisonConstants.*;
+import static com.nip.service.constants.MessageComparisonConstants.EMPTY_JSON_ARRAY;
+import static com.nip.service.constants.MessageComparisonConstants.JSON_CACHE_MAX_SIZE;
 
 /**
  * 报文结果构建器

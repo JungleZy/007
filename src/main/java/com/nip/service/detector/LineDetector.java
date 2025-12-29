@@ -8,7 +8,6 @@ import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.service.builder.MessageResultBuilder;
 import com.nip.service.context.ComparisonContext;
 import com.nip.service.enums.DetectionResult;
-import com.nip.service.enums.DetectionType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;

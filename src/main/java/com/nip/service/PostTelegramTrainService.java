@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 import static com.nip.common.constants.PostTelegramTrainEnum.*;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.NUMBER_MESSAGE;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.STRING_MESSAGE;
-import static com.nip.common.utils.TickerPatUtils.*;
+import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.calculateScore;
 import static com.nip.common.utils.ToolUtil.calculateTS;
 import static com.nip.service.general.GeneralKeyPatService.REGEX;

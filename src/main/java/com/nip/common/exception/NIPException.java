@@ -18,6 +18,12 @@ public class NIPException extends RuntimeException {
     this.message = message;
   }
 
+  public NIPException(String message, Throwable cause) {
+    super(message, cause);
+    this.code = 500;
+    this.message = message;
+  }
+
   public Integer getCode() {
     return code;
   }

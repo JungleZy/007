@@ -2,13 +2,11 @@ package com.nip.service.detector;
 
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.PostTelegramTrainRule;
-import com.nip.dto.vo.PostTelegramTrainResolverDetailVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.service.builder.MessageResultBuilder;
 import com.nip.service.context.ComparisonContext;
 import com.nip.service.enums.DetectionResult;
-import com.nip.service.enums.DetectionType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -16,7 +14,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.nip.common.utils.TickerPatUtils.checkDotLineGap;
-import static com.nip.service.constants.MessageComparisonConstants.*;
+import static com.nip.service.constants.MessageComparisonConstants.EXTENDED_SEARCH_RANGE;
+import static com.nip.service.constants.MessageComparisonConstants.STANDARD_SEARCH_RANGE;
 
 /**
  * 多组少组检测器

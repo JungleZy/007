@@ -14,12 +14,11 @@ import com.nip.dao.general.ticker.GeneralTickerPatTrainUserDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainUserValueDao;
 import com.nip.dto.GeneralTickerPatTrainUserDto;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
+import com.nip.dto.general.*;
 import com.nip.dto.general.GeneralTickerPatTrainUserInfoVO;
 import com.nip.dto.general.GeneralTickerPatTrainVO;
-import com.nip.dto.general.*;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.score.SpeedDeduct;
-import com.nip.dto.vo.PostTelegramTrainResolverDetailVO;
 import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
@@ -52,7 +51,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
-import static com.nip.common.utils.TickerPatUtils.*;
+import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.*;
 
 @Slf4j
