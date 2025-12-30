@@ -2,7 +2,7 @@ package com.nip.common.constants;
 
 public class BaseConstants {
   private BaseConstants() {
-    throw new UnsupportedOperationException("这是一个工具类，不能被实例化");
+    throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
   }
 
   public static final String ID = "id";

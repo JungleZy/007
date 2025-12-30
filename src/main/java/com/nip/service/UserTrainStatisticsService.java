@@ -7,6 +7,7 @@ import com.nip.dao.TickerTapeTrainDao;
 import com.nip.dao.general.key.GeneralKeyPatUserDao;
 import com.nip.dao.general.telex.GeneralTelexPatUserDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainUserDao;
+import com.nip.dto.vo.HandKeyRecentTrainVO;
 import com.nip.dto.vo.UserTrainDurationStatVO;
 import com.nip.entity.PostEnteringExerciseEntity;
 import com.nip.entity.PostTelexPatTrainEntity;
@@ -176,5 +177,41 @@ public class UserTrainStatisticsService {
     if (end != null && time.isAfter(end))
       return false;
     return true;
+  }
+
+  public List<HandKeyRecentTrainVO> getRecentHandKeyTrains(String userId) {
+    List<GeneralTickerPatTrainUserEntity> list = tickerUserDao
+        .find("userId = ?1 and role = 0 and isFinish = 1 ORDER BY finishTime DESC LIMIT 10", userId)
+        .list();
+    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    return list.stream().map(e -> {
+      int trainTime = 0;
+      if (e.getCreateTime() != null && e.getFinishTime() != null) {
+        trainTime = (int) Duration.between(e.getCreateTime(), e.getFinishTime()).getSeconds();
+      }
+      return new HandKeyRecentTrainVO()
+          .setStartTime(e.getFinishTime() == null ? e.getCreateTime().format(fmt) : e.getFinishTime().format(fmt))
+          .setTrainTime(trainTime)
+          .setScore(e.getScore())
+          .setSpeed(e.getSpeed());
+    }).toList();
+  }
+
+  public List<HandKeyRecentTrainVO> getRecentElectronicKeyTrains(String userId) {
+    List<GeneralKeyPatUserEntity> list = keyUserDao
+        .find("userId = ?1 and role = 0 and isFinish = 1 ORDER BY finishTime DESC LIMIT 10", userId)
+        .list();
+    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    return list.stream().map(e -> {
+      int trainTime = 0;
+      if (e.getCreateTime() != null && e.getFinishTime() != null) {
+        trainTime = (int) Duration.between(e.getCreateTime(), e.getFinishTime()).getSeconds();
+      }
+      return new HandKeyRecentTrainVO()
+          .setStartTime(e.getCreateTime() == null ? null : e.getCreateTime().format(fmt))
+          .setTrainTime(trainTime)
+          .setScore(e.getScore())
+          .setSpeed(e.getSpeed());
+    }).toList();
   }
 }

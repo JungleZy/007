@@ -4,6 +4,7 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.UserInfoDto;
+import com.nip.dto.vo.HandKeyRecentTrainVO;
 import com.nip.dto.vo.UserTrainDurationStatVO;
 import com.nip.entity.UserEntity;
 import com.nip.service.UserService;
@@ -16,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.nip.common.constants.BaseConstants.DEVICE_ID;
@@ -65,5 +67,19 @@ public class UserController {
             map.get(USER_ID),
             map.getOrDefault("startTime", null),
             map.getOrDefault("endTime", null)));
+  }
+
+  @POST
+  @Path("/getRecentHandKeyTrains")
+  @Operation(summary = "最近十次手键拍发数据（训练时间、得分、速率）")
+  public Response<List<HandKeyRecentTrainVO>> getRecentHandKeyTrains(Map<String, String> map) {
+    return ResponseResult.success(userTrainStatisticsService.getRecentHandKeyTrains(map.get(USER_ID)));
+  }
+
+  @POST
+  @Path("/getRecentElectronicKeyTrains")
+  @Operation(summary = "最近十次电子键拍发数据（训练开始时间、训练时间、得分、速率）")
+  public Response<List<HandKeyRecentTrainVO>> getRecentElectronicKeyTrains(Map<String, String> map) {
+    return ResponseResult.success(userTrainStatisticsService.getRecentElectronicKeyTrains(map.get(USER_ID)));
   }
 }
