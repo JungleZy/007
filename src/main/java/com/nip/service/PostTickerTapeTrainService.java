@@ -51,10 +51,10 @@ public class PostTickerTapeTrainService {
 
   @Inject
   public PostTickerTapeTrainService(PostTickerTapeTrainDao tickerTapeTrainDao,
-                                    UserService userService,
-                                    PostTickerTapeTrainPageDao pageDao,
-                                    PostTickerTapeTrainPageValueDao valueDao,
-                                    CableFloorService cableFloorService) {
+      UserService userService,
+      PostTickerTapeTrainPageDao pageDao,
+      PostTickerTapeTrainPageValueDao valueDao,
+      CableFloorService cableFloorService) {
     this.tickerTapeTrainDao = tickerTapeTrainDao;
     this.userService = userService;
     this.pageDao = pageDao;
@@ -69,10 +69,10 @@ public class PostTickerTapeTrainService {
     String codeMessage = JSONUtils.toJson(param.getCodeMessageBody());
     PostTickerTapeTrainEntity entity = PojoUtils.convertOne(param, PostTickerTapeTrainEntity.class);
     entity.setUserId(userEntity.getId());
-    //状体设为未开始
+    // 状体设为未开始
     entity.setStatus(NOT_STARTED.getCode());
     entity.setCodeMessageBody(codeMessage);
-    //有效时长
+    // 有效时长
     entity.setValidTime("0");
     entity.setMoreCode(0);
     entity.setMoreGroup(0);
@@ -81,7 +81,7 @@ public class PostTickerTapeTrainService {
     entity.setErrorCode(0);
     PostTickerTapeTrainEntity save = tickerTapeTrainDao.saveAndFlush(entity);
     if (entity.getIsCable() == 0) {
-      //生成报底
+      // 生成报底
       Integer generateNumber = 200;
       if (param.getTotalNumber() < 200) {
         generateNumber = param.getTotalNumber();
@@ -89,7 +89,8 @@ public class PostTickerTapeTrainService {
       int index = save.getType().compareTo(1) == 0 ? 65 : 0;
       generateMessageBody(generateNumber, 1, index, save);
     } else {
-      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
+      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
+          param.getStartPage());
       int totalPage = param.getTotalNumber() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
       List<PostTickerTapeTrainPageEntity> list = new ArrayList<>();
@@ -120,7 +121,8 @@ public class PostTickerTapeTrainService {
   public PageInfo<PostTickerTapeTrainVo> listPage(Page page, HttpServerRequest request) {
     String token = request.getHeader(BaseConstants.TOKEN);
     UserEntity userEntity = userService.getUserByToken(token);
-    PanacheQuery<PostTickerTapeTrainEntity> pageInfo = tickerTapeTrainDao.find("userId = ?1 ", Sort.by("createTime").descending(), userEntity.getId())
+    PanacheQuery<PostTickerTapeTrainEntity> pageInfo = tickerTapeTrainDao
+        .find("userId = ?1 ", Sort.by("createTime").descending(), userEntity.getId())
         .page(page.getPage() - 1, page.getRows());
     return PojoUtils.convertPage(pageInfo, PostTickerTapeTrainVo.class);
   }
@@ -129,14 +131,14 @@ public class PostTickerTapeTrainService {
     PostTickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
         .orElse(new PostTickerTapeTrainEntity());
 
-    //查询images
+    // 查询images
     List<PostTickerTapeTrainPageValueEntity> valueEntities = valueDao.findByTrainId(id);
     List<String> images = valueEntities.stream()
         .map(PostTickerTapeTrainPageValueEntity::getImage)
         .toList();
 
     return PojoUtils.convertOne(entity, PostTickerTapeTrainVo.class, (e, v) -> {
-      //查询第一页的数据
+      // 查询第一页的数据
       List<Map<String, Object>> maps = JSONUtils.fromJson(e.getCodeMessageBody(), new TypeToken<>() {
       });
       v.setCodeMessageBody(maps);
@@ -174,7 +176,7 @@ public class PostTickerTapeTrainService {
     PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findById(id);
     Optional.ofNullable(entity)
         .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
-    //状态校验
+    // 状态校验
     if (entity.getStatus().compareTo(TickerTapeTrainStatusEnum.NOT_STARTED.getCode()) == 0) {
       throw new IllegalArgumentException("训练状态不是未开始");
     }
@@ -182,7 +184,6 @@ public class PostTickerTapeTrainService {
     entity.setStartTime(null);
     tickerTapeTrainDao.save(entity);
   }
-
 
   @Transactional
   public PostTickerTapeTrainVo uploadResult(PostTickerTapeTrainUploadResultParam param) {
@@ -197,13 +198,14 @@ public class PostTickerTapeTrainService {
 
     for (int i = 0; i < param.getResult().size(); i++) {
       List<String> userPage = param.getResult().get(i);
-      //查询出本页的内容
-      List<PostTickerTapeTrainPageEntity> pageEntities = pageDao.findByTrainIdAndPageNumberOrderBySort(param.getId(), i + 1);
+      // 查询出本页的内容
+      List<PostTickerTapeTrainPageEntity> pageEntities = pageDao.findByTrainIdAndPageNumberOrderBySort(param.getId(),
+          i + 1);
       for (int j = 0; j < userPage.size(); j++) {
         String group = userPage.get(j);
-        //查询报底是否有是否有内容
+        // 查询报底是否有是否有内容
         if (pageEntities.size() - 1 >= j) {
-          PostTickerTapeTrainPageEntity pageEntity = pageEntities.get(j);//判断是否填报是否有内容
+          PostTickerTapeTrainPageEntity pageEntity = pageEntities.get(j);// 判断是否填报是否有内容
           if (!Objects.equals(pageEntity.getKey(), group)) {
             if (Objects.equals("", group)) {
               lackGroup++;
@@ -218,7 +220,7 @@ public class PostTickerTapeTrainService {
           pageEntity.setValue(group);
 
         } else {
-          //如报底没有内容，但填写了报文内容，则是多组
+          // 如报底没有内容，但填写了报文内容，则是多组
           if (!Objects.equals("", group)) {
             moreGroup++;
           }
@@ -240,10 +242,10 @@ public class PostTickerTapeTrainService {
       lackGroup += Math.abs(userTotalGroup - entity.getTotalNumber());
     }
 
-    //计算分数
+    // 计算分数
     score = score - moreGroup - lackGroup - moreCode - lackCode - errorNumber;
 
-    //保存分数
+    // 保存分数
     entity.setScore(String.valueOf(score));
     entity.setErrorCode(errorNumber);
     entity.setMoreCode(moreCode);
@@ -259,7 +261,7 @@ public class PostTickerTapeTrainService {
   public PostTickerTapeTrainPageValueVO findPage(String trainId, Integer pageNumber) {
     PostTickerTapeTrainEntity trainEntity = Optional.ofNullable(tickerTapeTrainDao.findById(trainId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    //判断页码是否正确
+    // 判断页码是否正确
     Integer totalNumber = trainEntity.getTotalNumber();
     int totalPage = totalNumber / 100;
     if (totalNumber % 100 > 0) {
@@ -269,9 +271,10 @@ public class PostTickerTapeTrainService {
       throw new IllegalArgumentException("页码不正确");
     }
 
-    //先查询是否有内容
-    List<PostTickerTapeTrainPageEntity> pageEntities = pageDao.findByTrainIdAndPageNumberOrderBySort(trainEntity.getId(), pageNumber);
-    //查询是由有填报内容
+    // 先查询是否有内容
+    List<PostTickerTapeTrainPageEntity> pageEntities = pageDao
+        .findByTrainIdAndPageNumberOrderBySort(trainEntity.getId(), pageNumber);
+    // 查询是由有填报内容
     List<String> value = Optional.ofNullable(valueDao.findByTrainIdAndPageNumber(trainId, pageNumber))
         .map(PostTickerTapeTrainPageValueEntity::getValue)
         .map(v -> JSONUtils.fromJson(v, new TypeToken<List<String>>() {
@@ -283,7 +286,7 @@ public class PostTickerTapeTrainService {
       if (pageNumber == totalPage) {
         generateNumber = totalNumber - ((pageNumber - 1) * 100);
       }
-      //根据类型找出上一次最后一个字符
+      // 根据类型找出上一次最后一个字符
       int index = 0;
       if (trainEntity.getIsRandom().compareTo(0) == 0 || trainEntity.getIsAvg().compareTo(1) == 0) {
         if (trainEntity.getType().compareTo(1) == 0) {
@@ -295,6 +298,7 @@ public class PostTickerTapeTrainService {
       pageEntities = generateMessageBody(generateNumber, pageNumber, index, trainEntity);
     }
     List<PostTickerTapeTrainPageVO> pageVo = PojoUtils.convert(pageEntities, PostTickerTapeTrainPageVO.class);
+    pageVo.sort(Comparator.comparing(PostTickerTapeTrainPageVO::getSort));
     PostTickerTapeTrainPageValueVO ret = new PostTickerTapeTrainPageValueVO();
     ret.setMessageBody(pageVo);
     ret.setValue(value);
@@ -324,7 +328,8 @@ public class PostTickerTapeTrainService {
    * @param train          训练对象
    */
   @Transactional
-  public List<PostTickerTapeTrainPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index, PostTickerTapeTrainEntity train) {
+  public List<PostTickerTapeTrainPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index,
+      PostTickerTapeTrainEntity train) {
     List<PostTickerTapeTrainPageEntity> ret = new ArrayList<>();
     int pageNum = pageNumber;
     Integer isAvg = train.getIsAvg();
@@ -332,7 +337,7 @@ public class PostTickerTapeTrainService {
     Random random = new Random();
     List<String> avgB = new ArrayList<>();
     switch (train.getType()) {
-      //数字报
+      // 数字报
       case 0:
         int numberIndex = 0;
         for (int i = 0; i < generateNumber; i++) {
@@ -374,7 +379,7 @@ public class PostTickerTapeTrainService {
           }
         }
         break;
-      //字码报
+      // 字码报
       case 1:
         int charIndex = index;
         for (int i = 0; i < generateNumber; i++) {
@@ -419,7 +424,7 @@ public class PostTickerTapeTrainService {
           }
         }
         break;
-      //混合报
+      // 混合报
       case 2:
         int charAndNumberIndex = index;
         for (int i = 0; i < generateNumber; i++) {

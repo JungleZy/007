@@ -17,13 +17,12 @@ import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 public class PostTickerTapeTrainPageDao extends BaseRepository<PostTickerTapeTrainPageEntity, String> {
 
   public List<PostTickerTapeTrainPageEntity> findByTrainIdAndPageNumberOrderBySort(String trainId, Integer pageNumber) {
-    return find("trainId = ?1 and pageNumber = ?2", trainId, pageNumber).list();
+    return find("trainId = ?1 and pageNumber = ?2 order by sort ASC", trainId, pageNumber).list();
   }
 
   public Integer findMaxPageNumber(String trainId) {
     return entityManager.createQuery(
         "select max(pageNumber) from t_post_ticker_tape_train_page where trainId =:trainId",
-        Integer.class
-    ).setParameter(TRAIN_ID, trainId).setMaxResults(1).getSingleResult();
+        Integer.class).setParameter(TRAIN_ID, trainId).setMaxResults(1).getSingleResult();
   }
 }

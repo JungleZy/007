@@ -1,6 +1,5 @@
 package com.nip.controller;
 
-
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.entity.GradingRuleEntity;
@@ -68,5 +67,12 @@ public class GradingRuleController {
   @Operation(summary = "更新默认项")
   public Response<Void> changeGradingRuleIsDefault(Map<String, Object> data) {
     return gradingRuleService.changeGradingRuleIsDefault(data.get(ID).toString());
+  }
+
+  @Path("/deleteGradingRule")
+  @POST
+  @Operation(summary = "删除评分规则")
+  public Response<Void> deleteGradingRule(Map<String, String> data) {
+    return gradingRuleService.deleteGradingRule(data.get(ID));
   }
 }

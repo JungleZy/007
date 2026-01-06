@@ -1,6 +1,5 @@
 package com.nip.service;
 
-
 import cn.hutool.core.util.ObjectUtil;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -40,7 +39,8 @@ public class TestPaperService {
   private final TheoryKnowledgeQuestionLevelDao theoryKnowledgeQuestionLevelDao;
 
   @Inject
-  public TestPaperService(UserService userService, TestPaperDao testPaperDao, TestPaperQuestionDao testPaperQuestionDao, TheoryKnowledgeQuestionLevelDao theoryKnowledgeQuestionLevelDao) {
+  public TestPaperService(UserService userService, TestPaperDao testPaperDao, TestPaperQuestionDao testPaperQuestionDao,
+      TheoryKnowledgeQuestionLevelDao theoryKnowledgeQuestionLevelDao) {
     this.userService = userService;
     this.testPaperDao = testPaperDao;
     this.testPaperQuestionDao = testPaperQuestionDao;
@@ -53,8 +53,8 @@ public class TestPaperService {
    * @param token        用户令牌，用于验证用户身份
    * @param testPaperDto 试卷数据传输对象，包含试卷的相关信息
    * @return 返回保存结果，成功或失败
-   * <p>
-   * 本方法首先根据传入的试卷DTO创建或更新试卷实体，然后根据试卷类型保存试卷题目
+   *         <p>
+   *         本方法首先根据传入的试卷DTO创建或更新试卷实体，然后根据试卷类型保存试卷题目
    */
   @Transactional
   public Response<Void> saveTestPaper(String token, TestPaperDto testPaperDto) {
@@ -129,7 +129,8 @@ public class TestPaperService {
           typeToListMap.put(5, testPaperDto.getShortAnswer());
           int type = questionEntity.getType();
           if (typeToListMap.containsKey(type)) {
-            TestPaperQuestionDto testPaperQuestionDto = PojoUtils.convertOne(questionEntity, TestPaperQuestionDto.class);
+            TestPaperQuestionDto testPaperQuestionDto = PojoUtils.convertOne(questionEntity,
+                TestPaperQuestionDto.class);
             typeToListMap.get(type).add(testPaperQuestionDto);
           }
         }
@@ -210,7 +211,7 @@ public class TestPaperService {
    * 此方法旨在通过层级ID和/或名称来筛选测试卷它首先根据输入参数的是否存在来决定使用哪种查询策略
    * 如果ID为空，那么将根据名称进行模糊查询如果ID不为空，那么将根据ID进行查询，同时如果名称也不空，则增加名称的模糊查询条件
    *
-   * @param id 层级ID，用于筛选测试卷如果为空，将不作为筛选条件
+   * @param id   层级ID，用于筛选测试卷如果为空，将不作为筛选条件
    * @param name 测试卷名称，用于模糊筛选如果为空，将不作为筛选条件
    * @return 返回一个包含测试卷列表的响应对象
    */
@@ -242,6 +243,17 @@ public class TestPaperService {
     List<TheoryKnowledgeQuestionLevelEntity> entityList = theoryKnowledgeQuestionLevelDao.findAllByParentId(id);
     if (!entityList.isEmpty()) {
       entityList.forEach(a -> findAllLevel(a.getId()));
+    }
+  }
+
+  @Transactional
+  public Response<Void> deleteTestPaper(String id) {
+    try {
+      testPaperQuestionDao.deleteAllByTestPaperId(id);
+      testPaperDao.deleteById(id);
+      return ResponseResult.success();
+    } catch (Exception e) {
+      return ResponseResult.error();
     }
   }
 

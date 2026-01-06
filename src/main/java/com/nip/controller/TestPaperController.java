@@ -57,4 +57,10 @@ public class TestPaperController {
   public Response<List<TestPaperDto>> findTestPaperByLevelIdAndName(Map<String, String> map) {
     return testPaperService.findTestPaperByLevelIdAndName(map.get("levelId"), map.get("name"));
   }
+
+  @POST
+  @Path("/deleteTestPaper")
+  public Response<Void> deleteTestPaper(Map<String, String> map) {
+    return testPaperService.deleteTestPaper(map.get(ID));
+  }
 }

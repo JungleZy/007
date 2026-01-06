@@ -4,7 +4,10 @@ import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.jboss.logging.Logger;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * LifecycleApplication
@@ -19,6 +22,16 @@ public class LifecycleApplication {
 
   void onStart(@Observes StartupEvent event) {
     LOG.info("The Application Is Starting...");
+    try {
+      InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("banner.txt");
+      if (is != null) {
+        String banner = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        String version = ConfigProvider.getConfig().getOptionalValue("version", String.class).orElse("");
+        banner = banner.replace("${version}", version);
+        LOG.info("\n" + banner);
+      }
+    } catch (Exception ignored) {
+    }
   }
 
   void onStop(@Observes ShutdownEvent event) {

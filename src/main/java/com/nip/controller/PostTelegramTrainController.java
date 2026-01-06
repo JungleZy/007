@@ -1,6 +1,5 @@
 package com.nip.controller;
 
-
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -96,7 +95,6 @@ public class PostTelegramTrainController {
     return ResponseResult.success();
   }
 
-
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
@@ -118,6 +116,7 @@ public class PostTelegramTrainController {
   public Response<List<Integer>> addContentValue(PostTelegramTrainAddContentValueVO vo) {
     return ResponseResult.success((postTelegramTrainService.addContentValue(vo)));
   }
+
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")

@@ -8,7 +8,10 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.eclipse.microprofile.config.ConfigProvider;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +34,44 @@ public class ToolsController {
   @Operation(summary = "获取当前服务器时间")
   public Response<Long> getNowTime() {
     return ResponseResult.success(DateTime.now().getTime());
+  }
+
+  @GET
+  @Path("/system")
+  @Operation(summary = "获取系统与版本信息")
+  public Response<Map<String, Object>> getSystemAndVersionInfo() {
+    Map<String, Object> info = new HashMap<>(16);
+    String osName = System.getProperty("os.name");
+    String osArch = System.getProperty("os.arch");
+    String osVersion = System.getProperty("os.version");
+    String javaVersion = System.getProperty("java.version");
+    String javaVendor = System.getProperty("java.vendor");
+    int processors = Runtime.getRuntime().availableProcessors();
+    long totalMemory = Runtime.getRuntime().totalMemory();
+    long freeMemory = Runtime.getRuntime().freeMemory();
+    long totalMemoryMB = totalMemory / (1024 * 1024);
+    long freeMemoryMB = freeMemory / (1024 * 1024);
+    String hostname = "unknown";
+    String ip = "unknown";
+    try {
+      InetAddress localHost = InetAddress.getLocalHost();
+      hostname = localHost.getHostName();
+      ip = localHost.getHostAddress();
+    } catch (UnknownHostException ignored) {
+    }
+    String version = ConfigProvider.getConfig().getOptionalValue("version", String.class).orElse(null);
+    info.put("软件版本", version);
+    info.put("操作系统", osName);
+    info.put("系统架构", osArch);
+    info.put("系统版本", osVersion);
+    info.put("Java版本", javaVersion);
+    info.put("Java厂商", javaVendor);
+    info.put("CPU核心数", processors);
+    info.put("总内存(MB)", totalMemoryMB);
+    info.put("空闲内存(MB)", freeMemoryMB);
+    info.put("主机名", hostname);
+    info.put("IP地址", ip);
+    return ResponseResult.success(info);
   }
 
   @GET

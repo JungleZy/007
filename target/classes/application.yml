@@ -1,8 +1,10 @@
+version: 4.0.1
 quarkus:
   analytics:
     disabled: true
   banner:
     path: banner.txt
+    enabled: false
   http:
     host: 0.0.0.0
     port: 18001
@@ -16,15 +18,15 @@ quarkus:
     password: root
     db-kind: mysql
     jdbc:
-      url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
-#      url: jdbc:mysql://localhost:3307/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+      # url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+        url: jdbc:mysql://localhost:3307/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
       max-size: 200
       min-size: 20
   hibernate-orm:
     jdbc:
       statement-batch-size: 100
     fetch:
-      size: 50  # 新增批量抓取
+      size: 50 # 新增批量抓取
     log:
       sql: false
     database:

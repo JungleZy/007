@@ -50,14 +50,15 @@ public class TheoryKnowledgeExamController {
   @Path("/saveTheoryKnowledgeExamSelfTesting")
   @Operation(summary = "添加自测考试")
   public Response<TheoryKnowledgeExamEntity> saveTheoryKnowledgeExamSelfTesting(@RestHeader(TOKEN) String token,
-                                                                                TheoryKnowledgeExamDto dto) throws Exception {
+      TheoryKnowledgeExamDto dto) throws Exception {
     return ResponseResult.success(theoryKnowledgeExamService.saveTheoryKnowledgeExamSelfTesting(token, dto));
   }
 
   @POST
   @Path("/listPageSelfTesting")
   @Operation(summary = "自测列表")
-  public Response<List<TheoryKnowledgeExamUserSelfVO>> listPageSelfTesting(@RestHeader(TOKEN) String token) throws Exception {
+  public Response<List<TheoryKnowledgeExamUserSelfVO>> listPageSelfTesting(@RestHeader(TOKEN) String token)
+      throws Exception {
     return ResponseResult.success(theoryKnowledgeExamService.listPageSelfTesting(token));
   }
 
@@ -101,9 +102,9 @@ public class TheoryKnowledgeExamController {
   @POST
   @Path("/studentChangeExamState")
   public Response<Map<String, Object>> studentChangeExamState(Map<String, String> map) {
-    return theoryKnowledgeExamService.studentChangeExamState(map.get(EXAM_ID), map.get(USER_ID), Integer.parseInt(map.get(TYPE)), map.get("content"));
+    return theoryKnowledgeExamService.studentChangeExamState(map.get(EXAM_ID), map.get(USER_ID),
+        Integer.parseInt(map.get(TYPE)), map.get("content"));
   }
-
 
   /**
    * 學員提交实时答案
@@ -127,5 +128,12 @@ public class TheoryKnowledgeExamController {
   @Operation(summary = "考核分析")
   public Response<TheoryKnowLedgeExamAnalyseVO> examineAnalyse(Map<String, String> body) {
     return ResponseResult.success(theoryKnowledgeExamService.examineAnalyse(body.get(EXAM_ID)));
+  }
+
+  @POST
+  @Path("/deleteTheoryKnowledgeExam")
+  @Operation(summary = "删除理论测试")
+  public Response<Void> deleteTheoryKnowledgeExam(Map<String, String> map) {
+    return theoryKnowledgeExamService.deleteTheoryKnowledgeExam(map.get(EXAM_ID));
   }
 }

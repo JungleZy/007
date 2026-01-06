@@ -1,9 +1,14 @@
 package com.nip.service;
 
-
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dao.GradingRuleDao;
+import com.nip.dao.PostTelegramTrainDao;
+import com.nip.dao.PostTelexPatTrainDao;
+import com.nip.dao.PostTelegraphKeyPatTrainDao;
+import com.nip.dao.general.key.GeneralKeyPatDao;
+import com.nip.dao.general.telex.GeneralTelexPatDao;
+import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
 import com.nip.entity.GradingRuleEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,6 +29,18 @@ import java.util.Optional;
 @ApplicationScoped
 public class GradingRuleService {
   private final GradingRuleDao gradingRuleDao;
+  @Inject
+  PostTelegramTrainDao postTelegramTrainDao;
+  @Inject
+  PostTelexPatTrainDao postTelexPatTrainDao;
+  @Inject
+  PostTelegraphKeyPatTrainDao postTelegraphKeyPatTrainDao;
+  @Inject
+  GeneralTelexPatDao generalTelexPatDao;
+  @Inject
+  GeneralKeyPatDao generalKeyPatDao;
+  @Inject
+  GeneralTickerPatTrainDao generalTickerPatTrainDao;
 
   @Inject
   public GradingRuleService(GradingRuleDao gradingRuleDao) {
@@ -101,6 +118,25 @@ public class GradingRuleService {
           e.setIsDefault(0);
         }
       });
+      return ResponseResult.success();
+    } catch (Exception e) {
+      return ResponseResult.error();
+    }
+  }
+
+  @Transactional
+  public Response<Void> deleteGradingRule(String id) {
+    try {
+      long c1 = postTelegramTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      long c2 = postTelexPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      long c3 = postTelegraphKeyPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      long c4 = generalTelexPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      long c5 = generalKeyPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      long c6 = generalTickerPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+      if (c1 + c2 + c3 + c4 + c5 + c6 > 0) {
+        return ResponseResult.error("存在未开始或进行中的训练引用该评分规则，禁止删除");
+      }
+      gradingRuleDao.deleteById(id);
       return ResponseResult.success();
     } catch (Exception e) {
       return ResponseResult.error();

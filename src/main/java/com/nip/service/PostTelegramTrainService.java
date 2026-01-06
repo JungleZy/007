@@ -126,13 +126,13 @@ public class PostTelegramTrainService {
 
   @Inject
   public PostTelegramTrainService(PostTelegramTrainDao postTelegramTrainDao,
-                                  UserService userService,
-                                  PostTelegramTrainFloorContentDao floorContentDao,
-                                  PostTelegramTrainContentValueDao contentValueDao,
-                                  GradingRuleDao gradingRuleDao,
-                                  AsyncSavePostTelegramTrainService asyncSavePostTelegramTrainService,
-                                  CableFloorService cableFloorService,
-                                  MessageComparisonService messageComparisonService) {
+      UserService userService,
+      PostTelegramTrainFloorContentDao floorContentDao,
+      PostTelegramTrainContentValueDao contentValueDao,
+      GradingRuleDao gradingRuleDao,
+      AsyncSavePostTelegramTrainService asyncSavePostTelegramTrainService,
+      CableFloorService cableFloorService,
+      MessageComparisonService messageComparisonService) {
     this.postTelegramTrainDao = postTelegramTrainDao;
     this.userService = userService;
     this.floorContentDao = floorContentDao;
@@ -228,9 +228,9 @@ public class PostTelegramTrainService {
   }
 
   private PostTelegramTrainFloorContentEntity handleContentEntity(PostTelegramTrainEntity entity,
-                                                                  int floorNumber,
-                                                                  int sortNumber,
-                                                                  List<String> moresKey) {
+      int floorNumber,
+      int sortNumber,
+      List<String> moresKey) {
     PostTelegramTrainFloorContentEntity contentEntity = new PostTelegramTrainFloorContentEntity();
     contentEntity.setTrainId(entity.getId());
     contentEntity.setMoresValue(EMPTY_JSON_ARRAY);
@@ -249,8 +249,8 @@ public class PostTelegramTrainService {
    * @param trainId 训练id
    */
   private List<PostTelegramTrainFloorContentEntity> generateMessage(PostTelegramTrainEntity param,
-                                                                    Integer generateNumber, int index, int floorNumber,
-                                                                    String trainId) {
+      Integer generateNumber, int index, int floorNumber,
+      String trainId) {
     List<PostTelegramTrainFloorContentEntity> floorContentEntities = new ArrayList<>();
     // 是否随机
     if (param.getIsRandom().compareTo(1) == 0) {
@@ -856,6 +856,7 @@ public class PostTelegramTrainService {
     Map<String, Integer> deductMap = new HashMap<>();
 
     // 得到评分规则
+
     GradingRuleEntity ruleEntity = gradingRuleDao.findByIdOptional(entity.getRuleId())
         .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
     // 基础分数
@@ -919,12 +920,12 @@ public class PostTelegramTrainService {
       List<PostTelegramTrainFloorContentEntity> floorContentEntities = floorContentDao
           .findByFloorNumberAndTrainIdOrderBySort(floorNumber, entity.getId());
       List<String> sources = floorContentEntities.stream().map(PostTelegramTrainFloorContentEntity::getMoresKey).map(
-              item -> item.substring(1).replaceAll(REGEX, ""))
+          item -> item.substring(1).replaceAll(REGEX, ""))
           .toList();
       List<String> patKeys = null;
       if (userContents != null) {
         patKeys = userContents.stream().map(PostTelegramTrainContentAddParam::getPatKeys).map(
-                item -> item.substring(1).replaceAll(REGEX, ""))
+            item -> item.substring(1).replaceAll(REGEX, ""))
             .toList();
       }
       PostTelegramTrainResolverVO comparison = messageComparisonService.comparison(
@@ -1155,7 +1156,7 @@ public class PostTelegramTrainService {
    * @param groupTotalTime 组
    */
   private void statisticsAllAvg(PostTelegramTrainStatisticsVO statisticsVO, int dotTotalTime, int lineTotalTime,
-                                int codeTotalTime, int wordTotalTime, int groupTotalTime) {
+      int codeTotalTime, int wordTotalTime, int groupTotalTime) {
     // 计算点划间隔的平均时长
     if (statisticsVO.getDotMaxNumber() + statisticsVO.getDotMinNumber() + statisticsVO.getDotPerfectNumber() != 0) {
       statisticsVO.setDotAvg(calculateTS(dotTotalTime, statisticsVO.getDotMaxNumber(), statisticsVO.getDotMinNumber(),
