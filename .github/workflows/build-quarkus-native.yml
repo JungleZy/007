@@ -45,15 +45,11 @@ jobs:
       - name: Build Native Binary (Linux - GLIBC 2.17/2.23 Compatible)
         if: runner.os == 'Linux'
         run: |
-          # Determine architecture for GraalVM download
           GRAAL_ARCH="linux-x64"
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             GRAAL_ARCH="linux-aarch64"
           fi
-          
-          echo "Building for architecture: $GRAAL_ARCH"
-          
-          docker build --build-arg GRAALVM_ARCH=$GRAAL_ARCH -t quarkus-builder -f src/main/docker/Dockerfile.glibc-builder .
+          docker build --build-arg GRAALVM_ARCH=$GRAAL_ARCH -t quarkus-builder -f src/main/docker/Dockerfile.glibc-builder-ubuntu16 .
           docker run --rm -v ${{ github.workspace }}:/project -v ~/.m2:/root/.m2 quarkus-builder mvn -B -Pnative package -DskipTests
 
       - name: Build Native Binary (Windows)

@@ -1,0 +1,37 @@
+FROM ubuntu:16.04
+
+# Fix EOL apt sources to use old-releases
+RUN sed -i 's|http://archive.ubuntu.com|http://old-releases.ubuntu.com|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com|http://old-releases.ubuntu.com|g' /etc/apt/sources.list && \
+    apt-get update
+
+# Install build tools and dependencies for Native Image
+RUN apt-get install -y --no-install-recommends \
+      ca-certificates curl build-essential zlib1g-dev \
+      libstdc++6 binutils && \
+    rm -rf /var/lib/apt/lists/*
+
+# Define versions
+ENV JAVA_VERSION=21.0.2
+ARG GRAALVM_ARCH=linux-aarch64
+ENV GRAALVM_PKG=https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-${JAVA_VERSION}/graalvm-community-jdk-${JAVA_VERSION}_${GRAALVM_ARCH}_bin.tar.gz
+
+# Install GraalVM JDK 21
+RUN curl -L ${GRAALVM_PKG} -o graalvm.tar.gz && \
+    mkdir -p /opt/graalvm && \
+    tar -xzf graalvm.tar.gz -C /opt/graalvm --strip-components=1 && \
+    rm graalvm.tar.gz
+
+# Install Maven
+ENV MAVEN_VERSION=3.9.6
+ENV MAVEN_PKG=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+RUN curl -L ${MAVEN_PKG} -o maven.tar.gz && \
+    mkdir -p /opt/maven && \
+    tar -xzf maven.tar.gz -C /opt/maven --strip-components=1 && \
+    rm maven.tar.gz
+
+# Set environment variables
+ENV JAVA_HOME=/opt/graalvm
+ENV PATH=/opt/maven/bin:${JAVA_HOME}/bin:${PATH}
+
+WORKDIR /project
