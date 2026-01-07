@@ -17,7 +17,7 @@
     <skipITs>true</skipITs>
     <surefire-plugin.version>3.5.0</surefire-plugin.version>
     <hutool.version>5.8.12</hutool.version>
-    <commons-lang3.version>3.8</commons-lang3.version>
+    <commons-lang3.version>3.20.0</commons-lang3.version>
     <commons-codec.version>1.13</commons-codec.version>
     <commons-beanutils.version>1.9.4</commons-beanutils.version>
     <fastjson.version>1.2.78</fastjson.version>
