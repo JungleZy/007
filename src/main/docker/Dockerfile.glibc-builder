@@ -19,7 +19,18 @@ RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
     sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 
 # gcc, glibc-devel, zlib-devel are required for native compilation
-RUN yum install -y unzip zip tar gzip gcc glibc-devel zlib-devel libstdc++-static freetype-devel && yum clean all
+# Install SCL for newer GCC (GCC 10) required by GraalVM 21 on aarch64
+RUN yum install -y centos-release-scl && \
+    sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-SCLo* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo*
+
+# Install base deps and devtoolset-10
+RUN yum install -y unzip zip tar gzip glibc-devel zlib-devel libstdc++-static freetype-devel \
+    devtoolset-10-gcc devtoolset-10-gcc-c++ devtoolset-10-binutils && \
+    yum clean all
+
+# Enable devtoolset-10 by default
+ENV PATH=/opt/rh/devtoolset-10/root/usr/bin:$PATH
 
 # Install GraalVM JDK 21
 RUN curl -L ${GRAALVM_PKG} -o graalvm.tar.gz \
