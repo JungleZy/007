@@ -22,7 +22,8 @@ RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
 # Install SCL for newer GCC (GCC 10) required by GraalVM 21 on aarch64
 RUN yum install -y centos-release-scl && \
     sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-SCLo* && \
-    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo*
+    sed -i 's|#baseurl=|baseurl=|g' /etc/yum.repos.d/CentOS-SCLo* && \
+    sed -i 's|http://mirror.centos.org|http://vault.centos.org|g' /etc/yum.repos.d/CentOS-SCLo*
 
 # Install base deps and devtoolset-10
 RUN yum install -y unzip zip tar gzip glibc-devel zlib-devel libstdc++-static freetype-devel \
