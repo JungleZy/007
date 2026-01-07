@@ -14,6 +14,10 @@ ARG GRAALVM_ARCH=linux-x64
 ENV GRAALVM_PKG=https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-${JAVA_VERSION}/graalvm-community-jdk-${JAVA_VERSION}_${GRAALVM_ARCH}_bin.tar.gz
 
 # Install dependencies for Native Image on CentOS 7
+# Fix CentOS 7 EOL repos (switch to vault.centos.org)
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
 # gcc, glibc-devel, zlib-devel are required for native compilation
 RUN yum install -y unzip zip tar gzip gcc glibc-devel zlib-devel libstdc++-static freetype-devel && yum clean all
 
