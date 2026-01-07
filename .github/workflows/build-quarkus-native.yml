@@ -27,12 +27,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up GraalVM (Java 21 with Native Image)
-        if: runner.os == 'Windows'
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: graalvm
           java-version: '21'
           components: native-image
+        if: ${{ matrix.os == 'windows-2022' }}
 
       - name: Cache Maven repository
         uses: actions/cache@v4
@@ -42,18 +42,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build Native Binary (Linux - GLIBC 2.17/2.23 Compatible)
-        if: runner.os == 'Linux'
+      - name: Build Native Binary (Linux, container musl static)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
-          GRAAL_ARCH="linux-x64"
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            GRAAL_ARCH="linux-aarch64"
-          fi
-          docker build --build-arg GRAALVM_ARCH=$GRAAL_ARCH -t quarkus-builder -f src/main/docker/Dockerfile.glibc-builder-ubuntu16 .
-          docker run --rm -v ${{ github.workspace }}:/project -v ~/.m2:/root/.m2 quarkus-builder mvn -B -Pnative package -DskipTests
+          mvn -B -Pnative package \
+            -Dquarkus.native.container-build=true \
+            -Dquarkus.native.builder-image=ghcr.io/graalvm/native-image-community:21-muslib \
+            "-Dquarkus.native.additional-build-args=--static,--libc=musl"
 
       - name: Build Native Binary (Windows)
-        if: runner.os == 'Windows'
+        if: ${{ matrix.os == 'windows-2022' }}
         run: mvn -B -Pnative package
 
       - name: Upload Native Artifact
