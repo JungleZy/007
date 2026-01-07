@@ -1,9 +1,12 @@
 FROM ubuntu:16.04
 
-# Fix EOL apt sources to use old-releases
-RUN sed -i 's|http://archive.ubuntu.com|http://old-releases.ubuntu.com|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.ubuntu.com|http://old-releases.ubuntu.com|g' /etc/apt/sources.list && \
-    apt-get update
+# Fix EOL apt sources to use old-releases with explicit entries and disable expiry checks
+RUN rm -f /etc/apt/sources.list && \
+    printf "deb http://old-releases.ubuntu.com/ubuntu/ xenial main restricted universe multiverse\n" >> /etc/apt/sources.list && \
+    printf "deb http://old-releases.ubuntu.com/ubuntu/ xenial-updates main restricted universe multiverse\n" >> /etc/apt/sources.list && \
+    printf "deb http://old-releases.ubuntu.com/ubuntu/ xenial-security main restricted universe multiverse\n" >> /etc/apt/sources.list && \
+    printf "deb http://old-releases.ubuntu.com/ubuntu/ xenial-backports main restricted universe multiverse\n" >> /etc/apt/sources.list && \
+    apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true update
 
 # Install build tools and dependencies for Native Image
 RUN apt-get install -y --no-install-recommends \

@@ -55,4 +55,4 @@ quarkus:
   native:
     resources:
       includes: resources/**
-#    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json
+    additional-link-args: -latomic
