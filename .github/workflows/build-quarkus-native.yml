@@ -32,7 +32,6 @@ jobs:
           distribution: graalvm
           java-version: '21'
           components: native-image
-        if: ${{ matrix.os == 'windows-2022' }}
 
       - name: Cache Maven repository
         uses: actions/cache@v4
@@ -42,17 +41,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build Native Binary (Linux, container musl static)
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: |
-          mvn -B -Pnative package \
-            -Dquarkus.native.container-build=true \
-            -Dquarkus.native.builder-image=ghcr.io/graalvm/native-image-community:21-muslib \
-            "-Dquarkus.native.additional-build-args=--static,--libc=musl"
-
-      - name: Build Native Binary (Windows)
-        if: ${{ matrix.os == 'windows-2022' }}
+      - name: Build Native Binary
+        if: matrix.os == 'windows-2022'
         run: mvn -B -Pnative package
+
+      - name: Build Native Binary (Linux glibc 2.28 baseline)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 package
+
+      - name: Verify glibc baseline (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=$(ls target/*-runner 2>/dev/null | head -n 1 || true)
+          if [ -z "$FILE" ]; then
+            echo "No Linux native runner found in target/"
+            exit 1
+          fi
+          MAX_VER=$(strings -a "$FILE" | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -V | tail -n 1 || true)
+          if [ -z "${MAX_VER}" ]; then
+            echo "No GLIBC version symbols found, assuming OK"
+            exit 0
+          fi
+          REQ="2.28"
+          TOP=$(printf '%s\n' "$REQ" "$MAX_VER" | sort -V | tail -n 1)
+          if [ "$TOP" != "$REQ" ]; then
+            echo "glibc requirement too high: ${MAX_VER} (> ${REQ})"
+            exit 1
+          fi
+          echo "glibc baseline OK: ${MAX_VER} <= ${REQ}"
 
       - name: Upload Native Artifact
         uses: actions/upload-artifact@v4
