@@ -1,11 +1,15 @@
 FROM ubuntu:16.04
 
-# Fix EOL apt sources to use old-releases with explicit entries and disable expiry checks
-RUN rm -f /etc/apt/sources.list && \
-    echo "deb http://old-releases.ubuntu.com/ubuntu xenial main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb http://old-releases.ubuntu.com/ubuntu xenial-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb http://old-releases.ubuntu.com/ubuntu xenial-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb http://old-releases.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
+# Fix EOL apt sources based on architecture:
+# - arm64 uses ports.ubuntu.com (historical ARM archive)
+# - amd64 uses old-releases.ubuntu.com
+RUN ARCH="$(dpkg --print-architecture)" && \
+    if [ "$ARCH" = "arm64" ]; then BASE_URL="http://ports.ubuntu.com"; PREFIX="/ubuntu-ports"; else BASE_URL="http://old-releases.ubuntu.com"; PREFIX="/ubuntu"; fi && \
+    rm -f /etc/apt/sources.list && \
+    echo "deb ${BASE_URL}${PREFIX} xenial main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb ${BASE_URL}${PREFIX} xenial-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb ${BASE_URL}${PREFIX} xenial-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb ${BASE_URL}${PREFIX} xenial-backports main restricted universe multiverse" >> /etc/apt/sources.list && \
     apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true update
 
 # Install build tools and dependencies for Native Image
