@@ -25,7 +25,7 @@ quarkus:
   hibernate-orm:
     jdbc:
       statement-batch-size: 100
-      fetch-size: 50
+      statement-fetch-size: 50
     log:
       sql: false
     database:

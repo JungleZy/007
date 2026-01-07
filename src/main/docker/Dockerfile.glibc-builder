@@ -1,0 +1,36 @@
+FROM centos:7
+
+# Define versions
+# GraalVM Community Edition 21
+ENV JAVA_VERSION=21.0.2
+ENV MAVEN_VERSION=3.9.6
+ENV MAVEN_PKG=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+
+# Argument for architecture, defaults to linux-x64
+# For ARM64, pass: --build-arg GRAALVM_ARCH=linux-aarch64
+ARG GRAALVM_ARCH=linux-x64
+
+# Construct download URL based on architecture
+ENV GRAALVM_PKG=https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-${JAVA_VERSION}/graalvm-community-jdk-${JAVA_VERSION}_${GRAALVM_ARCH}_bin.tar.gz
+
+# Install dependencies for Native Image on CentOS 7
+# gcc, glibc-devel, zlib-devel are required for native compilation
+RUN yum install -y unzip zip tar gzip gcc glibc-devel zlib-devel libstdc++-static freetype-devel && yum clean all
+
+# Install GraalVM JDK 21
+RUN curl -L ${GRAALVM_PKG} -o graalvm.tar.gz \
+    && mkdir -p /opt/graalvm \
+    && tar -xzf graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+    && rm graalvm.tar.gz
+
+# Install Maven
+RUN curl -L ${MAVEN_PKG} -o maven.tar.gz \
+    && mkdir -p /opt/maven \
+    && tar -xzf maven.tar.gz -C /opt/maven --strip-components=1 \
+    && rm maven.tar.gz
+
+# Set environment variables
+ENV JAVA_HOME=/opt/graalvm
+ENV PATH=/opt/maven/bin:${JAVA_HOME}/bin:${PATH}
+
+WORKDIR /project
