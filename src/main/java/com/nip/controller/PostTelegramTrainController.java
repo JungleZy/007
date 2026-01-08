@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.constants.ResponseCode;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -23,6 +24,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.nip.common.constants.BaseConstants.TOKEN;
@@ -99,7 +101,27 @@ public class PostTelegramTrainController {
   @Path("/finish")
   @Operation(summary = "完成训练")
   public Response<PostTelegramTrainVO> finish(PostTelegramTrainFinishDto dto) {
-    return ResponseResult.success((postTelegramTrainService.finish(dto)));
+    try {
+      if (dto == null) {
+        return ResponseResult.error(ResponseCode.NULL_ERROR);
+      }
+      if (dto.getId() == null || dto.getId().isBlank()) {
+        return ResponseResult.error(ResponseCode.PARAMS_ERROR);
+      }
+      if (dto.getValidTime() == null || dto.getValidTime() < 0) {
+        dto.setValidTime(0);
+      }
+      if (dto.getFinishInfo() == null) {
+        dto.setFinishInfo(Collections.emptyList());
+      }
+      return ResponseResult.success(postTelegramTrainService.finish(dto));
+    } catch (IndexOutOfBoundsException e) {
+      return ResponseResult.error("数组越界错误");
+    } catch (IllegalArgumentException e) {
+      return ResponseResult.error(e.getMessage());
+    } catch (Exception e) {
+      return ResponseResult.error("服务器错误");
+    }
   }
 
   @POST

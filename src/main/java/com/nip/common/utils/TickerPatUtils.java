@@ -112,7 +112,6 @@ public class TickerPatUtils {
           resolverMoresTime.add(JSONUtils.toJson(times));
           resolverMoresValue.add(JSONUtils.toJson(values));
         }
-        // todo... 组间隔过小 pakKey.length()/2+1
 
         scoreVO.setGroupScore(patKey.length() / (2 + 1) * rule.getLarge().getL());
 
@@ -208,7 +207,6 @@ public class TickerPatUtils {
             resolverMoresTime.add(contentAddParam.getMoresValue());
           }
         }
-        // todo... 改错+1
         scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
       } else if (!patKey.isEmpty()) {
         ret.add(patKey);

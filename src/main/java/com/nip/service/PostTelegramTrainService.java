@@ -919,13 +919,15 @@ public class PostTelegramTrainService {
       // 生成的标准内容
       List<PostTelegramTrainFloorContentEntity> floorContentEntities = floorContentDao
           .findByFloorNumberAndTrainIdOrderBySort(floorNumber, entity.getId());
-      List<String> sources = floorContentEntities.stream().map(PostTelegramTrainFloorContentEntity::getMoresKey).map(
-          item -> item.substring(1).replaceAll(REGEX, ""))
+      List<String> sources = floorContentEntities.stream()
+          .map(PostTelegramTrainFloorContentEntity::getMoresKey)
+          .map(this::normalizeGroupString)
           .toList();
       List<String> patKeys = null;
       if (userContents != null) {
-        patKeys = userContents.stream().map(PostTelegramTrainContentAddParam::getPatKeys).map(
-            item -> item.substring(1).replaceAll(REGEX, ""))
+        patKeys = userContents.stream()
+            .map(PostTelegramTrainContentAddParam::getPatKeys)
+            .map(this::normalizeGroupString)
             .toList();
       }
       PostTelegramTrainResolverVO comparison = messageComparisonService.comparison(
@@ -1039,13 +1041,16 @@ public class PostTelegramTrainService {
         .map(speedLod -> JSONUtils.fromJson(speedLod, new TypeToken<List<String>>() {
         }))
         .orElseGet(ArrayList::new);
-
-    // 判断速率是码每分还是WPM
-    String speed = speedLog.stream()
-        .map(BigDecimal::new)
-        .reduce(BigDecimal.ZERO, BigDecimal::add)
-        .divide(new BigDecimal(speedLog.size()), 0, RoundingMode.HALF_DOWN)
-        .toString();
+    String speed;
+    if (speedLog.isEmpty()) {
+      speed = "0";
+    } else {
+      speed = speedLog.stream()
+          .map(BigDecimal::new)
+          .reduce(BigDecimal.ZERO, BigDecimal::add)
+          .divide(new BigDecimal(speedLog.size()), 0, RoundingMode.HALF_DOWN)
+          .toString();
+    }
     entity.setSpeed(speed);
 
     // 计算wpm
@@ -1117,6 +1122,9 @@ public class PostTelegramTrainService {
       if (sb.indexOf(String.valueOf(integer)) != -1) {
 
         for (int k = 1; k < 10; k++) {
+          if (ret.size() < k) {
+            break;
+          }
           String lastGroup = ret.get(ret.size() - k);
           // 对上一组的进行判定是否包含本次重复字符串
           if (!lastGroup.contains(String.valueOf(integer))) {
@@ -1142,6 +1150,19 @@ public class PostTelegramTrainService {
           }
         }
       }
+    }
+  }
+
+  private String normalizeGroupString(String json) {
+    try {
+      List<String> list = JSONUtils.fromJson(json, new TypeToken<List<String>>() {
+      });
+      if (list == null) {
+        return "";
+      }
+      return String.join("", list);
+    } catch (Exception e) {
+      return "";
     }
   }
 
