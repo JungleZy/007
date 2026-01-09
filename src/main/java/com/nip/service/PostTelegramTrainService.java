@@ -15,10 +15,7 @@ import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.score.SpeedDeduct;
 import com.nip.dto.vo.*;
-import com.nip.dto.vo.param.PostTelegramTrainAddParam;
-import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
-import com.nip.dto.vo.param.PostTelegramTrainFloorContentQueryParam;
-import com.nip.dto.vo.param.PostTelegramTrainQueryParam;
+import com.nip.dto.vo.param.*;
 import com.nip.entity.*;
 import io.quarkus.panache.common.Sort;
 import jakarta.annotation.PostConstruct;
@@ -38,6 +35,7 @@ import java.util.stream.Collectors;
 import static com.nip.common.constants.PostTelegramTrainEnum.*;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.NUMBER_MESSAGE;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.STRING_MESSAGE;
+import static com.nip.common.utils.TickerPatUtils.handleMessageBody;
 import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.calculateScore;
 import static com.nip.common.utils.ToolUtil.calculateTS;
@@ -773,7 +771,7 @@ public class PostTelegramTrainService {
 
     PostTelegramTrainContentFloorValueEntity valueEntity = PojoUtils.convertOne(
         dto, PostTelegramTrainContentFloorValueEntity.class, (d, e) -> {
-          List<PostTelegramTrainContentAddParam> messageBody = d.getMessageBody();
+          List<PostTelegramTrainContentAddParam> messageBody = handleMessageBody(d.getMessageBody());
           e.setMessageBody(JSONUtils.toJson(messageBody));
           List<PostTelegramTrainFinishInfoDto> standard = dto.getStandard();
           e.setStandard(JSONUtils.toJson(standard));
@@ -1105,6 +1103,19 @@ public class PostTelegramTrainService {
     contentValueDao.delete("trainId", trainId);
     floorContentDao.delete("trainId", trainId);
     return postTelegramTrainDao.deleteById(trainId);
+  }
+
+  @Transactional
+  public List<PostTelegramTrainContentAddParam> test() {
+    PostTelegramTrainContentFloorValueEntity valueEntity = contentValueDao.findByFloorNumberAndTrainId(
+        1, "0c1ce4bc-fe5f-41d7-b151-73f7bb401e95");
+    List<PostTelegramTrainContentAddParam> messageBody = JSONUtils.fromJson(
+        valueEntity.getMessageBody(), new TypeToken<>() {
+        });
+    messageBody = handleMessageBody(messageBody);
+    valueEntity.setMessageBody(JSONUtils.toJson(messageBody));
+    contentValueDao.saveAndFlush(valueEntity);
+    return messageBody;
   }
 
   /**

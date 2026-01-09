@@ -1,6 +1,8 @@
 package com.nip.common.utils;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.dao.PostTelegramTrainContentValueDao;
+import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.MessageDeduct;
 import com.nip.dto.score.PostTelegramTrainRule;
@@ -171,7 +173,40 @@ public class TickerPatUtils {
 
         } else if (patKey.endsWith("?") && patKeys.size() > i + 1) {
           scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
-          break;
+          int first = patKey.indexOf("?");
+          int last = patKey.lastIndexOf("?");
+          String between = (first >= 0 && last > first + 1) ? patKey.substring(first + 1, last) : "";
+          if (!between.isEmpty()) {
+            List<List<Map<String, Object>>> newPatLogs = new ArrayList<>();
+            List<String> newTimes = new ArrayList<>();
+            List<String> newValues = new ArrayList<>();
+            for (int z = 0; z < between.length(); z++) {
+              List<Map<String, Object>> patLog = null;
+              if (patLogs != null && first + 1 + z < patLogs.size()) {
+                patLog = patLogs.get(first + 1 + z);
+              }
+              newPatLogs.add(patLog != null ? patLog : new ArrayList<>());
+              List<Integer> time = null;
+              if (moresTime != null && first + 1 + z < moresTime.size()) {
+                time = moresTime.get(first + 1 + z);
+              }
+              newTimes.add(JSONUtils.toJson(time));
+              List<Integer> value = null;
+              if (moresValue != null && first + 1 + z < moresValue.size()) {
+                value = moresValue.get(first + 1 + z);
+              }
+              newValues.add(JSONUtils.toJson(value));
+            }
+            ret.add(between);
+            resolverPatLogs.add(JSONUtils.toJson(newPatLogs));
+            resolverMoresTime.add(JSONUtils.toJson(newTimes));
+            resolverMoresValue.add(JSONUtils.toJson(newValues));
+          } else {
+            ret.add(patKey);
+            resolverPatLogs.add(contentAddParam.getPatLogs());
+            resolverMoresValue.add(contentAddParam.getMoresTime());
+            resolverMoresTime.add(contentAddParam.getMoresValue());
+          }
         } else {
           String substring = patKey.substring(index);
           List<List<Map<String, Object>>> newPatLogs = new ArrayList<>();
@@ -226,6 +261,20 @@ public class TickerPatUtils {
     resolverVO.setResolverMoresTime(resolverMoresTime);
     resolverVO.setResolverMoresValue(resolverMoresValue);
     return resolverVO;
+  }
+
+  /**
+   * 处理消息体，将拍发电码字符串进行整理
+   *
+   * @param messageBody 包含拍发电码字符串的消息体列表
+   * @return 处理后的消息体列表，每个元素包含转换后的拍发电码字符串
+   */
+  public static List<PostTelegramTrainContentAddParam> handleMessageBody(
+      List<PostTelegramTrainContentAddParam> messageBody) {
+    if (messageBody == null || messageBody.isEmpty()) {
+      return new ArrayList<>();
+    }
+    return messageBody;
   }
 
   /**

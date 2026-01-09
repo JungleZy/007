@@ -10,6 +10,7 @@ import com.nip.dto.vo.PostTelegramTrainAddContentValueVO;
 import com.nip.dto.vo.PostTelegramTrainContentVO;
 import com.nip.dto.vo.PostTelegramTrainVO;
 import com.nip.dto.vo.param.PostTelegramTrainAddParam;
+import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import com.nip.dto.vo.param.PostTelegramTrainFloorContentQueryParam;
 import com.nip.dto.vo.param.PostTelegramTrainQueryParam;
 import com.nip.service.PostTelegramTrainService;
@@ -144,5 +145,12 @@ public class PostTelegramTrainController {
   @Operation(summary = "删除训练")
   public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
     return ResponseResult.success(postTelegramTrainService.delete(trainId));
+  }
+
+  @GET
+  @Path(value = "test")
+  @Operation(summary = "删除训练")
+  public Response<List<PostTelegramTrainContentAddParam>> test() {
+    return ResponseResult.success(postTelegramTrainService.test());
   }
 }

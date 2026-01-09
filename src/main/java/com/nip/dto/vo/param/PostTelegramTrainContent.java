@@ -1,0 +1,42 @@
+package com.nip.dto.vo.param;
+
+import io.quarkus.runtime.annotations.RegisterForReflection;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * @Author: wushilin
+ * @Data: 2022-05-05 16:04
+ * @Description:
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(title = "训练报文内容")
+@RegisterForReflection
+public class PostTelegramTrainContent {
+
+  @Schema(title = "id")
+  private String id;
+
+  @Schema(title = "key")
+  private List<String> moresKey;
+
+  @Schema(title = "value")
+  private List<List<Integer>> moresValue;
+
+  @Schema(title = "value")
+  private List<List<Integer>> moresTime;
+
+  @Schema(title = "拍发的key(数据回显使用字段)")
+  private List<String> patKeys;
+
+  @Schema(title = "patLogs")
+  private List<String> patLogs = new ArrayList<>();
+
+}
