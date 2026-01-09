@@ -8,6 +8,7 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.constants.TheoryKnowledgeClassifyTypeEnum;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
+import com.nip.common.utils.DateTimeUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.*;
@@ -338,11 +339,11 @@ public class TheoryKnowledgeService {
   public Response<TheoryKnowledgeSwfRecordEntity> saveTheoryKnowledgeRecord(String token, TheoryKnowledgeSwfRecordEntity record) {
     UserEntity userEntity = userService.getUserByToken(token);
     if (ObjectUtil.isEmpty(record.getJoinTime())) {
-      record.setJoinTime(DateUtil.now());
+      record.setJoinTime(DateTimeUtil.now());
       return new Response<>(ResponseCode.CODE_200.getCode(), record);
     }
     if (ObjectUtil.isEmpty(record.getExitTime())) {
-      record.setExitTime(DateUtil.now());
+      record.setExitTime(DateTimeUtil.now());
     }
     if (1 <= DateUtil.between(DateUtil.parse(record.getJoinTime()), DateUtil.parse(record.getExitTime()), DateUnit.MINUTE)) {
       record.setUserId(userEntity.getId());

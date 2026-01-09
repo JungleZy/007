@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
+import com.nip.common.utils.DateTimeUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.*;
@@ -125,9 +126,9 @@ public class TheoryKnowledgeExamService {
     try {
       TheoryKnowledgeExamEntity entity = theoryKnowledgeExamDao.findById(examId);
       if (type == 2) {
-        entity.setStartTime(DateUtil.now());
+        entity.setStartTime(DateTimeUtil.now());
       } else if (type == 3) {
-        entity.setEndTime(DateUtil.now());
+        entity.setEndTime(DateTimeUtil.now());
         List<TheoryKnowledgeExamUserEntity> allByExamId = theoryKnowledgeExamUserDao.findAllByExamId(examId);
         allByExamId.forEach(a -> {
           if (3 != a.getState()) {
@@ -161,14 +162,14 @@ public class TheoryKnowledgeExamService {
       switch (type) {
         case 2 -> {
           if (StringUtils.isEmpty(allByExamIdAndUserId.getStartTime())) {
-            allByExamIdAndUserId.setStartTime(DateUtil.now());
+            allByExamIdAndUserId.setStartTime(DateTimeUtil.now());
           }
           TheoryKnowledgeExamTestPaperEntity paper = theoryKnowledgeExamTestPaperDao.findAllByExamId(examId);
           data.put("paper", paper);
           allByExamIdAndUserId.setState(type);
         }
         case 3 -> {
-          allByExamIdAndUserId.setEndTime(DateUtil.now());
+          allByExamIdAndUserId.setEndTime(DateTimeUtil.now());
           allByExamIdAndUserId.setState(type);
           allByExamIdAndUserId.setContent(content);
         }

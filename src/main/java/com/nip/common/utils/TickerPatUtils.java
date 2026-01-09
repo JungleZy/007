@@ -1,8 +1,6 @@
 package com.nip.common.utils;
 
 import com.google.gson.reflect.TypeToken;
-import com.nip.dao.PostTelegramTrainContentValueDao;
-import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.MessageDeduct;
 import com.nip.dto.score.PostTelegramTrainRule;
