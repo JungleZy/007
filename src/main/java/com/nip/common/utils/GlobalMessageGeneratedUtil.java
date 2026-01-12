@@ -10,7 +10,6 @@ import java.util.*;
 public class GlobalMessageGeneratedUtil {
   private static final List<String> MIN_DIGITS = List.of("1", "2", "3", "4", "5");
   private static final List<String> MAX_DIGITS = List.of("6", "7", "8", "9", "0");
-  private static final Random RANDOM = new Random();
 
   /**
    * 数码报（对手报）
@@ -23,7 +22,7 @@ public class GlobalMessageGeneratedUtil {
   public static List<String> generatedNumber(Integer groupNumber, boolean avg, boolean random) {
     int count = groupNumber;
     List<String> ret = new ArrayList<>(count > 0 ? count : 0);
-    Random r = RANDOM;
+    Random r = new Random();
     // 随机
     if (random) {
       // 平均
@@ -121,7 +120,7 @@ public class GlobalMessageGeneratedUtil {
    * @param rows
    */
   private static void randomExchange(List<String> rows) {
-    Random r = RANDOM;
+    Random r = new Random();
     Collections.shuffle(rows, r);
     for (int i = 0; i < rows.size(); i++) {
       String row = rows.get(i);
@@ -180,7 +179,7 @@ public class GlobalMessageGeneratedUtil {
    * @return
    */
   private static void assembling(List<String> leftList, List<String> rightList, List<String> ret) {
-    Random r = RANDOM;
+    Random r = new Random();
     int size = Math.min(leftList.size(), rightList.size());
     for (int i = 0; i < size / 2; i++) {
       String l1 = leftList.remove(0);
@@ -228,7 +227,7 @@ public class GlobalMessageGeneratedUtil {
    */
   public static List<String> generatedWord(Integer groupNumber, boolean avg, boolean random) {
     int count = groupNumber;
-    Random r = RANDOM;
+    Random r = new Random();
     List<String> strArray = new ArrayList<>(count > 0 ? count * 4 : 0);
     List<String> ret = new ArrayList<>(count > 0 ? count : 0);
     // 找出页
@@ -347,7 +346,7 @@ public class GlobalMessageGeneratedUtil {
    */
   public static List<String> generatedMingle(Integer groupNumber, boolean avg, boolean random) {
     int count = groupNumber;
-    Random r = RANDOM;
+    Random r = new Random();
     List<String> ret = new ArrayList<>(count > 0 ? count : 0);
     List<String> strArray = new ArrayList<>(count > 0 ? count * 4 : 0);
     // 找出页
@@ -488,7 +487,7 @@ public class GlobalMessageGeneratedUtil {
     int count = groupNumber;
     List<String> ret = new ArrayList<>(count > 0 ? count : 0);
     List<String> intArray = new ArrayList<>(count > 0 ? count * 4 : 0);
-    Random r = RANDOM;
+    Random r = new Random();
     int sign = 0;
     for (int i = 0; i < count; i++) {
       for (int j = 0; j < 4; j++) {
@@ -565,7 +564,7 @@ public class GlobalMessageGeneratedUtil {
       Collections.shuffle(max);
       right.addAll(max);
     }
-    Random rng = RANDOM;
+    Random rng = new Random();
     for (int j = 0; j < count * 2; j += 2) {
       String s = left.get(j);
       String s1 = left.get(j + 1);
