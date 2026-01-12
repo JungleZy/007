@@ -334,7 +334,7 @@ public class PostTickerTapeTrainService {
     int pageNum = pageNumber;
     Integer isAvg = train.getIsAvg();
     Integer isRandom = train.getIsRandom();
-    Random random = new Random();
+    java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
     switch (train.getType()) {
       // 数字报

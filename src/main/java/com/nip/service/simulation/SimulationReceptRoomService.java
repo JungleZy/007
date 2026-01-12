@@ -206,7 +206,7 @@ public class SimulationReceptRoomService {
     int pageNum = pageNumber;
     Integer isAvg = train.getBdType();
     Integer isRandom = train.getIsRandom();
-    Random random = new Random();
+    java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
     switch (train.getBwType()) {
       //字码报

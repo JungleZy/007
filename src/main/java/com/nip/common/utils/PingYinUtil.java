@@ -102,7 +102,7 @@ public class PingYinUtil {
     } else if ((int) strChinese >= 54481 && (int) strChinese <= 55289) {
       result = 'Z';
     } else {
-      result = (char) (65 + (new Random()).nextInt(25));
+      result = (char) (65 + java.util.concurrent.ThreadLocalRandom.current().nextInt(25));
     }
     if (!bUpCase) {
       result = Character.toLowerCase(result);

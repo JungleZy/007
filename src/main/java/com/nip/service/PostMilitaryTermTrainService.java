@@ -55,7 +55,7 @@ public class PostMilitaryTermTrainService {
     this.userDao = userDao;
   }
 
-  private final Random random = new Random();
+  private final java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
 
   @Transactional
   public PostMilitaryTermTrainVO add(PostMilitaryTermTrainAddDto dto, String token) {

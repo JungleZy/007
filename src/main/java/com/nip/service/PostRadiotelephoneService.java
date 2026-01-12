@@ -43,7 +43,7 @@ public class PostRadiotelephoneService {
     this.userDao = userDao;
   }
 
-  private final Random random = new Random();
+  private final java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
 
   @Transactional
   public PostRadiotelephoneVO add(String token, PostRadiotelephoneDto dto) {

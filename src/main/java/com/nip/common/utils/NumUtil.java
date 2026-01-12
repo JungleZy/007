@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -91,7 +92,7 @@ public class NumUtil {
    * @Description 区间值
    */
   public static int betweenNum(int min, int max) {
-    Random random = new Random();
+    Random random = ThreadLocalRandom.current();
     return random.nextInt(max) % (max - min + 1) + min;
   }
 

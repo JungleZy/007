@@ -42,7 +42,7 @@ public class RadiotelephoneTermDataService {
   public List<PostRadiotelephoneTermDataVO> findByTypeAndRandom(PostRadiotelephoneTermDataDto dto) {
     List<PostRadiotelephoneTermDataEntity> entityList = dataDao.findByTypeOrderByKey(dto.getType());
     List<PostRadiotelephoneTermDataVO> ret = new ArrayList<>();
-    Random random = new Random();
+    java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     for (int i = 0; i < dto.getNumber(); i++) {
       int index = random.nextInt(entityList.size() - 1);
       PostRadiotelephoneTermDataEntity entity = entityList.get(index);
