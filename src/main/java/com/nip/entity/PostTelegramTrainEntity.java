@@ -55,7 +55,6 @@ public class PostTelegramTrainEntity {
    */
   private Integer messageNumber;
 
-
   /**
    * 开始时间
    */
@@ -79,7 +78,7 @@ public class PostTelegramTrainEntity {
   private String speedLog;
 
   /**
-   *  0未开始，1，进行中，2未完成已暂停，3已完成
+   * 0未开始，1，进行中，2未完成已暂停，3已完成
    */
   private Integer status;
 
@@ -108,7 +107,6 @@ public class PostTelegramTrainEntity {
    */
   private Integer floorNow;
 
-
   /**
    * 完成信息，用于统计使用
    */
@@ -130,7 +128,6 @@ public class PostTelegramTrainEntity {
    * 统计信息 点、划、间隔
    */
   private String statisticInfo;
-
 
   /**
    * 漏拍

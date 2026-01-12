@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
+
 import static com.nip.common.constants.PostTelegramTrainEnum.*;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.NUMBER_MESSAGE;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.STRING_MESSAGE;
@@ -145,6 +147,8 @@ public class PostTelegramTrainService {
   public PostTelegramTrainVO save(PostTelegramTrainAddParam param, String token) {
     // 从token中获取用户
     UserEntity userEntity = userService.getUserByToken(token);
+    GradingRuleEntity gradingRule = gradingRuleDao.findByIdOptional(param.getRuleId())
+        .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
     PostTelegramTrainEntity entity = PojoUtils.convertOne(param, PostTelegramTrainEntity.class, (t, r) -> {
       // 初始速度是0
       r.setSpeed("0");
@@ -161,10 +165,13 @@ public class PostTelegramTrainService {
       r.setErrorNumber(0);
       // 正确率默认为0
       r.setAccuracy("0.00");
+      r.setRuleId(gradingRule.getId());
+      r.setRuleContent(gradingRule.getContent());
+      r.setScore(gradingRule.getScore().toString());
     });
     PostTelegramTrainEntity save = postTelegramTrainDao.saveAndFlush(entity);
 
-    // 生成报文
+    // 生成随机报文
     if (param.getIsCable() == 0) {
       Integer messageNumber = param.getMessageNumber();
       int generate;
@@ -200,7 +207,7 @@ public class PostTelegramTrainService {
       }
 
       floorContentDao.save(ret);
-    } else {
+    } else { // 生成固定报
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = param.getMessageNumber() / 100;
@@ -250,311 +257,39 @@ public class PostTelegramTrainService {
       Integer generateNumber, int index, int floorNumber,
       String trainId) {
     List<PostTelegramTrainFloorContentEntity> floorContentEntities = new ArrayList<>();
-    // 是否随机
-    if (param.getIsRandom().compareTo(1) == 0) {
-      // 判断是否平均
-      if (param.getIsAverage().compareTo(1) == 0) {
-        List<String> msg = new ArrayList<>();
-        if (param.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
-          Random r = new Random();
-          List<Integer> intArray = new ArrayList<>();
-          int item = 0;
-          for (int i = 0; i < generateNumber * 4; i++) {
-            if (item == 10) {
-              item = 0;
-            }
-            intArray.add(item);
-            item++;
-            int controllerNum = 0;
-            if (intArray.size() % 40 == 0 || i == generateNumber * 4 - 1) {
-              // 达到10组或最后一个之后，进行随机分配
-              StringBuilder sb = new StringBuilder();
-              int intArraySize = intArray.size();
-              for (int j = 0; j < intArraySize; j++) {
-                while (true) {
-                  int indexR = r.nextInt(intArray.size());
-                  Integer element = intArray.get(indexR);
-                  // 获取上一个数字，所在区间1-5 6-0
-                  boolean b;
-                  if (!sb.isEmpty()) {
-                    int lastNum = Integer.parseInt(String.valueOf(sb.charAt(sb.length() - 1)));
-                    if (lastNum >= 1 && lastNum <= 5) {
-                      // 本次元素必须是 6-7-8-9-0
-                      b = (element >= 6 && element <= 9) || (element == 0);
-                    } else {
-                      // 本次元素必须是 1-2-3-4-5
-                      b = element >= 1 && element <= 5;
-                    }
-                  } else {
-                    b = true;
-                  }
-                  // 如果等于-1则说明没有该字符串，可以加入到sb中，且从intArray中移除
-                  if (sb.indexOf(String.valueOf(element)) == -1 && b) {
-                    sb.append(intArray.remove(indexR));
-                    break;
-                  }
-                  // 结束死循环
-                  if (controllerNum > 10 && intArray.size() <= 2) {
-                    relieveWhile(msg, intArray, sb);
-                  }
-                  controllerNum++;
-                }
-                if (sb.length() == 4) {
-                  msg.add(sb.toString());
-                  sb = new StringBuilder();
-                }
-              }
-              // 清空数组
-              intArray.clear();
-            }
-          }
-          // msg
-          int floor = 0;
-          int sort = 0;
-          for (int i = 0; i < msg.size(); i++) {
-            String s = msg.get(i);
-            List<String> m = new ArrayList<>();
-            for (int j = 0; j < s.length(); j++) {
-              m.add(String.valueOf(s.charAt(j)));
-            }
-            if (i % 100 == 0) {
-              floor++;
-            }
-            PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-            entity.setMoresValue(EMPTY_JSON_ARRAY);
-            entity.setMoresTime(EMPTY_JSON_ARRAY);
-            entity.setPatKeys(EMPTY_JSON_ARRAY);
-            entity.setTrainId(trainId);
-            entity.setFloorNumber(floor);
-            entity.setSort(sort % 100);
-            entity.setMoresKey(JSONUtils.toJson(m));
-            floorContentEntities.add(entity);
-            sort++;
-          }
-          return floorContentDao.saveAndFlush(floorContentEntities);
-        } else if (param.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
-          int a = 65;
-          for (int i = 0; i < generateNumber; i++) {
-            for (int j = 0; j < 4; j++) {
-              char number = (char) a;
-              msg.add(String.valueOf(number));
-              if (a == 90) {
-                a = 65;
-              } else {
-                a += 1;
-              }
-            }
-          }
-        } else {
-          int number = 48;
-          for (int i = 0; i < generateNumber; i++) {
-            for (int j = 0; j < 4; j++) {
-              char c = (char) number;
-              msg.add(String.valueOf(c));
-              if (number >= 48 && number <= 57) {
-                if (number == 57) {
-                  number = 65;
-                  continue;
-                }
-              } else {
-                if (number == 90) {
-                  number = 48;
-                  continue;
-                }
-              }
-              number += 1;
-            }
-          }
-        }
-        // 乱序
-        Collections.shuffle(msg);
-        List<String> group = new ArrayList<>();
-        int sort = 0;
-        for (int i = 0; i < msg.size(); i++) {
-          String s = msg.get(i);
-          group.add(s);
-          if (i % 400 == 0) {
-            floorNumber++;
-          }
-          if (group.size() == 4) {
-            PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-            entity.setMoresValue(EMPTY_JSON_ARRAY);
-            entity.setMoresTime(EMPTY_JSON_ARRAY);
-            entity.setPatKeys(EMPTY_JSON_ARRAY);
-            entity.setTrainId(trainId);
-            entity.setFloorNumber(floorNumber);
-            entity.setSort(sort % 100);
-            entity.setMoresKey(JSONUtils.toJson(group));
-            floorContentEntities.add(entity);
-
-            group = new ArrayList<>();
-            sort++;
-          }
-        }
-      } else {
-        Random numberRandom = new Random();
-        if (param.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
-          for (int i = 0; i < generateNumber; i++) {
-            List<String> msg = new ArrayList<>();
-            for (int j = 0; j < 4; j++) {
-              int r = numberRandom.nextInt(10);
-              msg.add(String.valueOf(r));
-            }
-            if (i % 100 == 0) {
-              floorNumber++;
-            }
-            PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-            entity.setMoresValue(EMPTY_JSON_ARRAY);
-            entity.setMoresTime(EMPTY_JSON_ARRAY);
-            entity.setPatKeys(EMPTY_JSON_ARRAY);
-            entity.setTrainId(trainId);
-            entity.setFloorNumber(floorNumber);
-            entity.setSort(i % 100);
-            entity.setMoresKey(JSONUtils.toJson(msg));
-            floorContentEntities.add(entity);
-          }
-        } else if (param.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
-          for (int i = 0; i < generateNumber; i++) {
-            List<String> msg = new ArrayList<>();
-            for (int j = 0; j < 4; j++) {
-              int r = numberRandom.nextInt(26);
-              char s = (char) (r + 65);
-              msg.add(String.valueOf(s));
-            }
-            if (i % 100 == 0) {
-              floorNumber++;
-            }
-            PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-            entity.setMoresValue(EMPTY_JSON_ARRAY);
-            entity.setMoresTime(EMPTY_JSON_ARRAY);
-            entity.setPatKeys(EMPTY_JSON_ARRAY);
-            entity.setTrainId(trainId);
-            entity.setFloorNumber(floorNumber);
-            entity.setSort(i % 100);
-            entity.setMoresKey(JSONUtils.toJson(msg));
-            floorContentEntities.add(entity);
-          }
-        } else {
-          for (int i = 0; i < generateNumber; i++) {
-            List<String> msg = new ArrayList<>();
-            for (int j = 0; j < 4; j++) {
-              int r = numberRandom.nextInt(36);
-              if (r > 9) {
-                r = r + 55;
-              } else {
-                r = r + 48;
-              }
-              char s = (char) r;
-              msg.add(String.valueOf(s));
-            }
-            if (i % 100 == 0) {
-              floorNumber++;
-            }
-            PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-            entity.setMoresValue(EMPTY_JSON_ARRAY);
-            entity.setMoresTime(EMPTY_JSON_ARRAY);
-            entity.setPatKeys(EMPTY_JSON_ARRAY);
-            entity.setTrainId(trainId);
-            entity.setFloorNumber(floorNumber);
-            entity.setSort(i % 100);
-            entity.setMoresKey(JSONUtils.toJson(msg));
-            floorContentEntities.add(entity);
-          }
-        }
-      }
+    List<String> messageBody;
+    if (param.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
+      messageBody = GlobalMessageGeneratedUtil.generatedNumber(generateNumber,
+          param.getIsAverage().compareTo(1) == 0,
+          param.getIsRandom().compareTo(1) == 0);
+    } else if (param.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
+      messageBody = GlobalMessageGeneratedUtil.generatedWord(generateNumber,
+          param.getIsAverage().compareTo(1) == 0,
+          param.getIsRandom().compareTo(1) == 0);
     } else {
-      if (index > 90) {
-        index = 48;
-      } else if (index > 57 && index < 65) {
-        index = 90;
+      messageBody = GlobalMessageGeneratedUtil.generatedMingle(generateNumber,
+          param.getIsAverage().compareTo(1) == 0,
+          param.getIsRandom().compareTo(1) == 0);
+    }
+    int currentFloor = floorNumber;
+    for (int i = 0; i < messageBody.size(); i++) {
+      if (i % 100 == 0) {
+        currentFloor++;
       }
-      // 根据类型生成报文
-      if (param.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
-        int n = index;
-        for (int i = 0; i < generateNumber; i++) {
-          List<String> msg = new ArrayList<>();
-          for (int j = 0; j < 4; j++) {
-            char c = (char) n;
-            msg.add(String.valueOf(c));
-            if (n == 57) {
-              n = 48;
-            } else {
-              n += 1;
-            }
-          }
-          if (i % 100 == 0) {
-            floorNumber++;
-          }
-          PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-          entity.setMoresValue(EMPTY_JSON_ARRAY);
-          entity.setMoresTime(EMPTY_JSON_ARRAY);
-          entity.setPatKeys(EMPTY_JSON_ARRAY);
-          entity.setTrainId(trainId);
-          entity.setFloorNumber(floorNumber);
-          entity.setSort(i % 100);
-          entity.setMoresKey(JSONUtils.toJson(msg));
-          floorContentEntities.add(entity);
-        }
-      } else if (param.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
-        int a = index;
-        for (int i = 0; i < generateNumber; i++) {
-          List<String> msg = new ArrayList<>();
-          for (int j = 0; j < 4; j++) {
-            char c = (char) a;
-            msg.add(String.valueOf(c));
-            if (a == 90) {
-              a = 65;
-            } else {
-              a += 1;
-            }
-          }
-          if (i % 100 == 0) {
-            floorNumber++;
-          }
-          PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-          entity.setMoresValue(EMPTY_JSON_ARRAY);
-          entity.setMoresTime(EMPTY_JSON_ARRAY);
-          entity.setPatKeys(EMPTY_JSON_ARRAY);
-          entity.setTrainId(trainId);
-          entity.setFloorNumber(floorNumber);
-          entity.setSort(i % 100);
-          entity.setMoresKey(JSONUtils.toJson(msg));
-          floorContentEntities.add(entity);
-        }
-      } else {
-        int number = index;
-        for (int i = 0; i < generateNumber; i++) {
-          List<String> msg = new ArrayList<>();
-          for (int j = 0; j < 4; j++) {
-            char c = (char) number;
-            msg.add(String.valueOf(c));
-            if (number >= 48 && number <= 57) {
-              if (number == 57) {
-                number = 65;
-                continue;
-              }
-            } else {
-              if (number == 90) {
-                number = 48;
-                continue;
-              }
-            }
-            number += 1;
-          }
-          if (i % 100 == 0) {
-            floorNumber++;
-          }
-          PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
-          entity.setMoresValue(EMPTY_JSON_ARRAY);
-          entity.setMoresTime(EMPTY_JSON_ARRAY);
-          entity.setPatKeys(EMPTY_JSON_ARRAY);
-          entity.setTrainId(trainId);
-          entity.setFloorNumber(floorNumber);
-          entity.setSort(i % 100);
-          entity.setMoresKey(JSONUtils.toJson(msg));
-          floorContentEntities.add(entity);
-        }
+      String group = messageBody.get(i);
+      List<String> moresKey = new ArrayList<>();
+      for (int j = 0; j < group.length(); j++) {
+        moresKey.add(String.valueOf(group.charAt(j)));
       }
+      PostTelegramTrainFloorContentEntity entity = new PostTelegramTrainFloorContentEntity();
+      entity.setMoresValue(EMPTY_JSON_ARRAY);
+      entity.setMoresTime(EMPTY_JSON_ARRAY);
+      entity.setPatKeys(EMPTY_JSON_ARRAY);
+      entity.setTrainId(trainId);
+      entity.setFloorNumber(currentFloor);
+      entity.setSort(i % 100);
+      entity.setMoresKey(JSONUtils.toJson(moresKey));
+      floorContentEntities.add(entity);
     }
     return floorContentDao.saveAndFlush(floorContentEntities);
   }
@@ -853,15 +588,10 @@ public class PostTelegramTrainService {
     // 扣分Map，最后将其转成JSON存入到deduct_info 字段中
     Map<String, Integer> deductMap = new HashMap<>();
 
-    // 得到评分规则
-
-    GradingRuleEntity ruleEntity = gradingRuleDao.findByIdOptional(entity.getRuleId())
-        .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
     // 基础分数
-    Integer score = ruleEntity.getScore();
-
-    // 解析
-    String content = ruleEntity.getContent();
+    Integer score = StringUtils.isEmpty(entity.getScore()) ? 100 : Integer.parseInt(entity.getScore());
+    // 评分规则
+    String content = entity.getRuleContent();
     PostTelegramTrainRule rule = parseContent(content);
 
     // 多组或少组
@@ -885,7 +615,6 @@ public class PostTelegramTrainService {
       entity.setAccuracy("0.00");
       entity.setSpeed("0.00");
       entity.setScore("0");
-      entity.setRuleContent(ruleEntity.getContent());
       entity.setStatisticInfo(JSONUtils.toJson(statisticsVO));
       deductMap.put("dotMinScore", dotScore);
       deductMap.put("lineScore", lineScore);
@@ -1058,7 +787,6 @@ public class PostTelegramTrainService {
     deductMap.put("wpmScore", wpmScore);
     score = score + wpmScore;
     entity.setScore(String.valueOf(score));
-    entity.setRuleContent(ruleEntity.getContent());
     entity.setStatisticInfo(JSONUtils.toJson(statisticsVO));
     String deductMapInfo = JSONUtils.toJson(deductMap);
     entity.setDeductInfo(deductMapInfo);
@@ -1109,8 +837,9 @@ public class PostTelegramTrainService {
   public List<PostTelegramTrainContentAddParam> test() {
     // e46eefde-7d25-41ea-94d3-a2c8b84156d9
     // 198fbf66-2573-43fb-aaf7-c4238f54f0e4
+    // 1fb5c8bc-8fc1-4eb4-bb75-962c1f798cd8
     PostTelegramTrainContentFloorValueEntity valueEntity = contentValueDao.findByFloorNumberAndTrainId(
-        1, "1fb5c8bc-8fc1-4eb4-bb75-962c1f798cd8");
+        1, "46b6bfee-446e-4e71-8192-9616b7ba4ae8");
     List<PostTelegramTrainContentAddParam> messageBody = JSONUtils.fromJson(
         valueEntity.getMessageBody(), new TypeToken<>() {
         });

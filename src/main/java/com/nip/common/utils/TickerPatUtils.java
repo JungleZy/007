@@ -272,7 +272,217 @@ public class TickerPatUtils {
     if (messageBody == null || messageBody.isEmpty()) {
       return new ArrayList<>();
     }
-    return messageBody;
+    int n = messageBody.size();
+    List<List<String>> pkLists = new ArrayList<>(n);
+    List<List<List<Map<String, Object>>>> logsLists = new ArrayList<>(n);
+    List<List<List<Integer>>> timesLists = new ArrayList<>(n);
+    List<List<List<Integer>>> valuesLists = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      PostTelegramTrainContentAddParam item = messageBody.get(i);
+      List<String> pk = null;
+      try {
+        pk = JSONUtils.fromJson(item.getPatKeys(), new TypeToken<List<String>>() {
+        });
+      } catch (Exception ignore) {
+      }
+      if (pk == null) {
+        pk = new ArrayList<>();
+        String raw = item.getPatKeys();
+        if (raw != null) {
+          for (int c = 0; c < raw.length(); c++) {
+            pk.add(String.valueOf(raw.charAt(c)));
+          }
+        }
+      }
+      List<List<Map<String, Object>>> logs = null;
+      List<List<Integer>> times = null;
+      List<List<Integer>> values = null;
+      try {
+        logs = JSONUtils.fromJson(item.getPatLogs(), new TypeToken<>() {
+        });
+      } catch (Exception ignore) {
+      }
+      try {
+        times = JSONUtils.fromJson(item.getMoresTime(), new TypeToken<>() {
+        });
+      } catch (Exception ignore) {
+      }
+      try {
+        values = JSONUtils.fromJson(item.getMoresValue(), new TypeToken<>() {
+        });
+      } catch (Exception ignore) {
+      }
+      pkLists.add(pk != null ? pk : new ArrayList<>());
+      logsLists.add(logs != null ? logs : new ArrayList<>());
+      timesLists.add(times != null ? times : new ArrayList<>());
+      valuesLists.add(values != null ? values : new ArrayList<>());
+    }
+    for (int i = 0; i < n; i++) {
+      List<String> curPk = pkLists.get(i);
+      int curLen = curPk != null ? curPk.size() : 0;
+      if (curLen >= 4) {
+        continue;
+      }
+      int curNumCount = 0;
+      boolean curHasQuestion = false;
+      boolean curAllSharp = true;
+      if (curPk != null) {
+        for (String s : curPk) {
+          if (s != null && !s.isEmpty()) {
+            char ch = s.charAt(0);
+            if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
+              curNumCount++;
+              curAllSharp = false;
+            }
+            if ("?".equals(s)) {
+              curHasQuestion = true;
+            }
+            if (!"#".equals(s)) {
+              curAllSharp = false;
+            }
+          }
+        }
+      }
+      int j = i + 1;
+      while (j < n) {
+        curLen = curPk != null ? curPk.size() : 0;
+        List<String> nextPk = pkLists.get(j);
+        List<List<Map<String, Object>>> nextLogs = logsLists.get(j);
+        List<List<Integer>> nextTimes = timesLists.get(j);
+        List<List<Integer>> nextValues = valuesLists.get(j);
+        boolean nextEmpty = nextLogs == null || nextLogs.isEmpty();
+        int nextLen = nextPk != null ? nextPk.size() : 0;
+        boolean nextHasQuestion = false;
+        if (nextPk != null) {
+          for (String s : nextPk) {
+            if ("?".equals(s)) {
+              nextHasQuestion = true;
+              break;
+            }
+          }
+        }
+        if (nextEmpty || nextLen == 0 || nextHasQuestion) {
+          break;
+        }
+        int nextNumCount = 0;
+        if (nextPk != null) {
+          for (String s : nextPk) {
+            if (s != null && !s.isEmpty()) {
+              char ch = s.charAt(0);
+              if ((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) {
+                nextNumCount++;
+              }
+            }
+          }
+        }
+        if (curLen >= 4) {
+          break;
+        }
+        if (curHasQuestion && nextNumCount > 0) {
+          break;
+        }
+        if (curAllSharp && curLen >= 2 && nextNumCount > 0) {
+          break;
+        }
+        if (curNumCount + nextNumCount <= 4) {
+          List<List<Map<String, Object>>> curLogs = logsLists.get(i);
+          List<List<Integer>> curTimes = timesLists.get(i);
+          List<List<Integer>> curValues = valuesLists.get(i);
+          if (curLogs == null)
+            curLogs = new ArrayList<>();
+          if (curTimes == null)
+            curTimes = new ArrayList<>();
+          if (curValues == null)
+            curValues = new ArrayList<>();
+          if (nextPk != null) {
+            curPk.addAll(nextPk);
+          }
+          if (nextLogs != null) {
+            curLogs.addAll(nextLogs);
+          }
+          if (nextTimes != null) {
+            curTimes.addAll(nextTimes);
+          }
+          if (nextValues != null) {
+            curValues.addAll(nextValues);
+          }
+          pkLists.set(i, curPk);
+          logsLists.set(i, curLogs);
+          timesLists.set(i, curTimes);
+          valuesLists.set(i, curValues);
+          for (int s = j; s < n - 1; s++) {
+            pkLists.set(s, pkLists.get(s + 1));
+            logsLists.set(s, logsLists.get(s + 1));
+            timesLists.set(s, timesLists.get(s + 1));
+            valuesLists.set(s, valuesLists.get(s + 1));
+          }
+          pkLists.set(n - 1, new ArrayList<>());
+          logsLists.set(n - 1, new ArrayList<>());
+          timesLists.set(n - 1, new ArrayList<>());
+          valuesLists.set(n - 1, new ArrayList<>());
+          curLen = curPk.size();
+          curNumCount += nextNumCount;
+          curHasQuestion = false;
+          curAllSharp = true;
+          for (String s2 : curPk) {
+            if ("?".equals(s2)) {
+              curHasQuestion = true;
+            }
+            if (s2 != null && !s2.isEmpty()) {
+              char ch2 = s2.charAt(0);
+              if ((ch2 >= '0' && ch2 <= '9') || (ch2 >= 'a' && ch2 <= 'z') || (ch2 >= 'A' && ch2 <= 'Z')) {
+                curAllSharp = false;
+              }
+            }
+            if (!"#".equals(s2)) {
+              curAllSharp = false;
+            }
+          }
+        } else {
+          break;
+        }
+      }
+    }
+    for (int i = 0; i < n; i++) {
+      int size = pkLists.get(i) != null ? pkLists.get(i).size() : 0;
+      List<List<Map<String, Object>>> ls = logsLists.get(i) != null ? logsLists.get(i) : new ArrayList<>();
+      List<List<Integer>> ts = timesLists.get(i) != null ? timesLists.get(i) : new ArrayList<>();
+      List<List<Integer>> vs = valuesLists.get(i) != null ? valuesLists.get(i) : new ArrayList<>();
+      while (ls.size() < size) {
+        ls.add(new ArrayList<>());
+      }
+      while (ts.size() < size) {
+        ts.add(new ArrayList<>());
+      }
+      while (vs.size() < size) {
+        vs.add(new ArrayList<>());
+      }
+      while (ls.size() > size) {
+        ls.remove(ls.size() - 1);
+      }
+      while (ts.size() > size) {
+        ts.remove(ts.size() - 1);
+      }
+      while (vs.size() > size) {
+        vs.remove(vs.size() - 1);
+      }
+      logsLists.set(i, ls);
+      timesLists.set(i, ts);
+      valuesLists.set(i, vs);
+    }
+    List<PostTelegramTrainContentAddParam> ret = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      PostTelegramTrainContentAddParam src = messageBody.get(i);
+      PostTelegramTrainContentAddParam dst = new PostTelegramTrainContentAddParam();
+      dst.setId(src.getId());
+      dst.setMoresKey(src.getMoresKey());
+      dst.setPatKeys(JSONUtils.toJson(pkLists.get(i)));
+      dst.setPatLogs(JSONUtils.toJson(logsLists.get(i)));
+      dst.setMoresTime(JSONUtils.toJson(timesLists.get(i)));
+      dst.setMoresValue(JSONUtils.toJson(valuesLists.get(i)));
+      ret.add(dst);
+    }
+    return ret;
   }
 
   /**

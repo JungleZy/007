@@ -21,9 +21,9 @@ public class GlobalMessageGeneratedUtil {
    */
   // 10组一平均
   public static List<String> generatedNumber(Integer groupNumber, boolean avg, boolean random) {
-    List<String> ret = new ArrayList<>();
-    Random r = new Random();
-    System.out.println(groupNumber + "-" + avg + "-" + random);
+    int count = groupNumber;
+    List<String> ret = new ArrayList<>(count > 0 ? count : 0);
+    Random r = RANDOM;
     // 随机
     if (random) {
       // 平均
@@ -59,38 +59,46 @@ public class GlobalMessageGeneratedUtil {
           }
         }
       } else { // 不平均
-        for (int i = 0; i < groupNumber; i++) {
-          StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
           while (true) {
-            int ri = r.nextInt(10);
-            boolean b = false;
-            if (sb.length() > 0) {
-              // 获取上次内容
-              int lastNum = Integer.valueOf(String.valueOf(sb.charAt(sb.length() - 1)));
-              if (lastNum >= 1 && lastNum <= 5) {
-                // 本次元素必须是 6-7-8-9-0
-                b = ri >= 6 || ri == 0;
+            StringBuilder sb = new StringBuilder(4);
+            while (true) {
+              int ri = r.nextInt(10);
+              boolean b;
+              if (sb.length() > 0) {
+                int lastNum = sb.charAt(sb.length() - 1) - '0';
+                if (lastNum >= 1 && lastNum <= 5) {
+                  b = ri >= 6 || ri == 0;
+                } else {
+                  b = ri >= 1 && ri <= 5;
+                }
               } else {
-                // 本次元素必须是 1-2-3-4-5
-                b = ri >= 1 && ri <= 5;
+                b = true;
               }
-            } else {
-              b = true;
+              String v = String.valueOf(ri);
+              if (sb.indexOf(v) == -1 && b) {
+                sb.append(ri);
+                if (sb.length() == 4) {
+                  break;
+                }
+              }
             }
-            if (sb.indexOf(String.valueOf(ri)) == -1 && b) {
-              sb.append(ri);
-              if (sb.length() == 4) {
-                break;
-              }
+            int start = Math.max(ret.size() - 10, 0);
+            List<String> window = ret.subList(start, ret.size());
+            PostTelegramGenerateCheck ng = pageCheckDuplicate(window, sb.toString());
+            String candidate = ng.getGroup();
+            if (!window.contains(candidate)) {
+              ret.add(candidate);
+              break;
             }
           }
-          ret.add(sb.toString());
         }
       }
     } else { // 不随机 0-9
       int element = 0;
-      for (int i = 0; i < groupNumber; i++) {
-        StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder(4);
+      for (int i = 0; i < count; i++) {
+        sb.setLength(0);
         for (int j = 0; j < 4; j++) {
           if (element == 10) {
             element = 0;
@@ -113,7 +121,7 @@ public class GlobalMessageGeneratedUtil {
    * @param rows
    */
   private static void randomExchange(List<String> rows) {
-    Random r = new Random();
+    Random r = RANDOM;
     Collections.shuffle(rows, r);
     for (int i = 0; i < rows.size(); i++) {
       String row = rows.get(i);
@@ -172,7 +180,7 @@ public class GlobalMessageGeneratedUtil {
    * @return
    */
   private static void assembling(List<String> leftList, List<String> rightList, List<String> ret) {
-    Random r = new Random();
+    Random r = RANDOM;
     int size = Math.min(leftList.size(), rightList.size());
     for (int i = 0; i < size / 2; i++) {
       String l1 = leftList.remove(0);
@@ -219,9 +227,10 @@ public class GlobalMessageGeneratedUtil {
    * @param random      是否随机
    */
   public static List<String> generatedWord(Integer groupNumber, boolean avg, boolean random) {
-    Random r = new Random();
-    List<String> strArray = new ArrayList<>();
-    List<String> ret = new ArrayList<>();
+    int count = groupNumber;
+    Random r = RANDOM;
+    List<String> strArray = new ArrayList<>(count > 0 ? count * 4 : 0);
+    List<String> ret = new ArrayList<>(count > 0 ? count : 0);
     // 找出页
     int pageNumber = groupNumber / 100;
     pageNumber = groupNumber % 100 > 0 ? pageNumber + 1 : pageNumber;
@@ -241,7 +250,7 @@ public class GlobalMessageGeneratedUtil {
           }
         }
         int size = strArray.size() / 4;
-        Collections.shuffle(strArray);
+        Collections.shuffle(strArray, r);
         for (int i = 0; i < size; i++) {
           StringBuilder sb = new StringBuilder();
           for (int j = 0; j < 4; j++) {
@@ -281,28 +290,37 @@ public class GlobalMessageGeneratedUtil {
       } else {
         // 不平均
         for (int i = 0; i < groupNumber; i++) {
-          StringBuilder sb = new StringBuilder();
-          for (int j = 0; j < 4; j++) {
-            while (true) {
-              int ri = r.nextInt(26) + 65;
-              char c = (char) ri;
-              String element = String.valueOf(c);
-              if (sb.indexOf(element) == -1) {
-                sb.append(c);
-                break;
+          while (true) {
+            StringBuilder sb = new StringBuilder();
+            for (int j = 0; j < 4; j++) {
+              while (true) {
+                int ri = r.nextInt(26) + 65;
+                char c = (char) ri;
+                String element = String.valueOf(c);
+                if (sb.indexOf(element) == -1) {
+                  sb.append(c);
+                  break;
+                }
               }
             }
-
+            int start = Math.max(ret.size() - 10, 0);
+            List<String> window = ret.subList(start, ret.size());
+            PostTelegramGenerateCheck ng = pageCheckDuplicate(window, sb.toString());
+            String candidate = ng.getGroup();
+            if (!window.contains(candidate)) {
+              ret.add(candidate);
+              break;
+            }
           }
-          ret.add(sb.toString());
         }
 
       }
     } else {
       // 不随机
       int sign = 65;
-      for (int i = 0; i < groupNumber; i++) {
-        StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder(4);
+      for (int i = 0; i < count; i++) {
+        sb.setLength(0);
         for (int j = 0; j < 4; j++) {
           char c = (char) sign;
           String element = String.valueOf(c);
@@ -328,9 +346,10 @@ public class GlobalMessageGeneratedUtil {
    * @return 生成的混合报
    */
   public static List<String> generatedMingle(Integer groupNumber, boolean avg, boolean random) {
-    Random r = new Random();
-    List<String> ret = new ArrayList<>();
-    List<String> strArray = new ArrayList<>();
+    int count = groupNumber;
+    Random r = RANDOM;
+    List<String> ret = new ArrayList<>(count > 0 ? count : 0);
+    List<String> strArray = new ArrayList<>(count > 0 ? count * 4 : 0);
     // 找出页
     int pageNumber = groupNumber / 100;
     pageNumber = groupNumber % 100 > 0 ? pageNumber + 1 : pageNumber;
@@ -338,7 +357,7 @@ public class GlobalMessageGeneratedUtil {
       if (avg) {
         int sign = 0;
         for (int i = 0; i < pageNumber; i++) {
-          int number = i == pageNumber - 1 ? groupNumber - (i * 100) : 100;
+          int number = i == pageNumber - 1 ? count - (i * 100) : 100;
           for (int j = 0; j < number * 4; j++) {
             char c;
             if (sign < 10) {
@@ -353,7 +372,7 @@ public class GlobalMessageGeneratedUtil {
         }
         int size = strArray.size() / 4;
         for (int i = 0; i < size; i++) {
-          StringBuilder sb = new StringBuilder();
+          StringBuilder sb = new StringBuilder(4);
           for (int j = 0; j < 4; j++) {
             while (true) {
               int ri = r.nextInt(strArray.size());
@@ -364,7 +383,7 @@ public class GlobalMessageGeneratedUtil {
               }
               if (sb.indexOf(element) == -1) {
                 sb.append(element);
-                strArray.remove(element);
+                strArray.remove(ri);
                 break;
               }
             }
@@ -372,39 +391,47 @@ public class GlobalMessageGeneratedUtil {
           ret.add(sb.toString());
         }
       } else {
-        for (int i = 0; i < groupNumber; i++) {
-          StringBuilder sb = new StringBuilder();
-          for (int j = 0; j < 4; j++) {
-            while (true) {
-
-              int ri = r.nextInt(36);
-              char c;
-              if (ri < 10) {
-                c = (char) (ri + 48);
-              } else {
-                c = (char) (ri + 55);
-              }
-              String element = String.valueOf(c);
-              if (j == 3 && sb.charAt(0) < 10 && sb.charAt(1) < 10 && sb.charAt(2) < 10 && element.charAt(0) < 10) {
-                // 如果前三个码都是数字，最后一码则，必须是字码
-                continue;
-              }
-
-              if (sb.indexOf(element) == -1) {
-                sb.append(element);
-                break;
+        for (int i = 0; i < count; i++) {
+          while (true) {
+            StringBuilder sb = new StringBuilder();
+            int roll = r.nextInt(100);
+            int targetDigits = roll < 50 ? 2 : (roll < 75 ? 3 : 1);
+            List<Integer> positions = Arrays.asList(0, 1, 2, 3);
+            Collections.shuffle(positions, r);
+            Set<Integer> digitPos = new HashSet<>(positions.subList(0, targetDigits));
+            Set<Character> used = new HashSet<>(4);
+            for (int pos = 0; pos < 4; pos++) {
+              boolean needDigit = digitPos.contains(pos);
+              while (true) {
+                char c;
+                if (needDigit) {
+                  c = (char) (r.nextInt(10) + 48);
+                } else {
+                  c = (char) (r.nextInt(26) + 65);
+                }
+                if (!used.contains(c)) {
+                  sb.append(c);
+                  used.add(c);
+                  break;
+                }
               }
             }
-
+            int start = Math.max(ret.size() - 10, 0);
+            List<String> window = ret.subList(start, ret.size());
+            PostTelegramGenerateCheck ng = pageCheckDuplicate(window, sb.toString());
+            String candidate = ng.getGroup();
+            if (!window.contains(candidate)) {
+              ret.add(candidate);
+              break;
+            }
           }
-
-          ret.add(sb.toString());
         }
       }
     } else {
       int sign = 0;
-      for (int i = 0; i < groupNumber; i++) {
-        StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder(4);
+      for (int i = 0; i < count; i++) {
+        sb.setLength(0);
         for (int j = 0; j < 4; j++) {
           char c;
           if (sign < 10) {
@@ -426,7 +453,7 @@ public class GlobalMessageGeneratedUtil {
   }
 
   /**
-   * 收报数码报(未完成)
+   * 收报数码报
    *
    * @param groupNumber 生成数量
    * @param avg         是否平均
@@ -434,7 +461,8 @@ public class GlobalMessageGeneratedUtil {
    * @return
    */
   public static List<String> generateReceiveNumber(Integer groupNumber, boolean avg, boolean random) {
-    List<String> ret = new ArrayList<>();
+    int count = groupNumber;
+    List<String> ret = new ArrayList<>(count > 0 ? count : 0);
     List<String> intArray = new ArrayList<>();
     if (random) {
       if (avg) {
@@ -457,11 +485,12 @@ public class GlobalMessageGeneratedUtil {
    * @return 返回数据综合报
    */
   public static List<String> generatedNumberGeneral(Integer groupNumber) {
-    List<String> ret = new ArrayList<>();
-    List<String> intArray = new ArrayList<>();
-    Random r = new Random();
+    int count = groupNumber;
+    List<String> ret = new ArrayList<>(count > 0 ? count : 0);
+    List<String> intArray = new ArrayList<>(count > 0 ? count * 4 : 0);
+    Random r = RANDOM;
     int sign = 0;
-    for (int i = 0; i < groupNumber; i++) {
+    for (int i = 0; i < count; i++) {
       for (int j = 0; j < 4; j++) {
         if (sign > 9) {
           sign = 0;
@@ -474,7 +503,7 @@ public class GlobalMessageGeneratedUtil {
         for (int j = 0; j < size; j++) {
           StringBuilder sb = new StringBuilder();
           for (int k = 0; k < 4; k++) {
-            int count = 0;
+            int attempts = 0;
             while (true) {
               int index = r.nextInt(intArray.size());
               String element = intArray.get(index);
@@ -483,8 +512,8 @@ public class GlobalMessageGeneratedUtil {
                 intArray.remove(index);
                 break;
               }
-              count++;
-              if (j == size - 1 && intArray.size() <= 2 && count > 10) {
+              attempts++;
+              if (j == size - 1 && intArray.size() <= 2 && attempts > 10) {
                 for (int z = 0; z < intArray.size(); z++) {
                   // 出现死循环了 找出之前的组
                   String e = intArray.get(z); // 死循环的元素
@@ -525,18 +554,8 @@ public class GlobalMessageGeneratedUtil {
    * @return 挨指报
    */
   public static List<String> bePointed(int count) {
-    List<String> min = new ArrayList<>();
-    min.add("1");
-    min.add("2");
-    min.add("3");
-    min.add("4");
-    min.add("5");
-    List<String> max = new ArrayList<>();
-    max.add("6");
-    max.add("7");
-    max.add("8");
-    max.add("9");
-    max.add("0");
+    List<String> min = new ArrayList<>(MIN_DIGITS);
+    List<String> max = new ArrayList<>(MAX_DIGITS);
     List<String> left = new ArrayList<>();
     List<String> right = new ArrayList<>();
     List<String> pat = new ArrayList<>();
@@ -546,30 +565,34 @@ public class GlobalMessageGeneratedUtil {
       Collections.shuffle(max);
       right.addAll(max);
     }
-    Random rng = new Random();
+    Random rng = RANDOM;
     for (int j = 0; j < count * 2; j += 2) {
       String s = left.get(j);
       String s1 = left.get(j + 1);
       if (s.equals(s1)) {
-        if (1 == Integer.parseInt(s1)) {
-          s1 = String.valueOf(2);
-        } else if (5 == Integer.parseInt(s1)) {
-          s1 = String.valueOf(4);
+        char c1 = s1.charAt(0);
+        if (c1 == '1') {
+          s1 = "2";
+        } else if (c1 == '5') {
+          s1 = "4";
         } else {
-          int i = Integer.parseInt(s1) + 1;
-          s1 = String.valueOf(i == 10 ? 0 : i);
+          int d = c1 - '0' + 1;
+          d = d == 10 ? 0 : d;
+          s1 = String.valueOf(d);
         }
       }
       String s2 = right.get(j);
       String s3 = right.get(j + 1);
       if (s2.equals(s3)) {
-        if (6 == Integer.parseInt(s3)) {
-          s3 = String.valueOf(7);
-        } else if (0 == Integer.parseInt(s3)) {
-          s3 = String.valueOf(9);
+        char c3 = s3.charAt(0);
+        if (c3 == '6') {
+          s3 = "7";
+        } else if (c3 == '0') {
+          s3 = "9";
         } else {
-          int i = Integer.parseInt(s3) + 1;
-          s3 = String.valueOf(i == 10 ? 0 : i);
+          int d = c3 - '0' + 1;
+          d = d == 10 ? 0 : d;
+          s3 = String.valueOf(d);
         }
       }
       if (rng.nextBoolean()) {
@@ -594,14 +617,13 @@ public class GlobalMessageGeneratedUtil {
         Map<String, Integer> count = new HashMap<>();
         for (int j = 0; j < s1.length(); j++) {
           String e = String.valueOf(s1.charAt(j));
-          count.merge(e, 1, Integer::sum);
-          if (Optional.ofNullable(count.get(e)).orElse(0).compareTo(4) > 0) {
+          int current = count.getOrDefault(e, 0) + 1;
+          count.put(e, current);
+          if (current > 4) {
             System.out.println(strings);
           }
-
         }
-        // System.out.println(count);
-        sb = new StringBuilder();
+        sb.setLength(0);
         strings.clear();
       }
     }
@@ -615,19 +637,15 @@ public class GlobalMessageGeneratedUtil {
    */
   private static PostTelegramGenerateCheck pageCheckDuplicate(List<String> dataList, String group) {
     PostTelegramGenerateCheck ret = new PostTelegramGenerateCheck();
-    for (int i = 0; i < dataList.size(); i++) {
-      String pageGroup = dataList.get(i);
-      // 如果碰到相同的组，则本组需要进行顺序交换
+    for (String pageGroup : dataList) {
       if (Objects.equals(pageGroup, group)) {
-        // 1.字符串反转
         String reverseStr = new StringBuilder(group).reverse().toString();
-        Boolean reverseBoolean = retCheck(dataList, new StringBuilder(group).reverse().toString());
+        Boolean reverseBoolean = retCheck(dataList, reverseStr);
         if (!reverseBoolean) {
           ret.setSign(true);
           ret.setGroup(reverseStr);
           return ret;
         }
-        // 2.前2个和后2个进行交换
         String newGroup = frontBackExchange(group);
         Boolean fbExchange = retCheck(dataList, newGroup);
         if (!fbExchange) {
@@ -635,7 +653,6 @@ public class GlobalMessageGeneratedUtil {
           ret.setGroup(newGroup);
           return ret;
         }
-        // 3.第一个和第三个进行交换
         String newsGroup = singularityExchange(group);
         Boolean sExchange = retCheck(dataList, newsGroup);
         if (!sExchange) {
@@ -643,7 +660,6 @@ public class GlobalMessageGeneratedUtil {
           ret.setGroup(newsGroup);
           return ret;
         }
-        // 4.第二个和第四个进行交换
         String azoExchangeGroup = azoExchange(group);
         Boolean retCheck = retCheck(dataList, azoExchangeGroup);
         if (!retCheck) {
@@ -651,8 +667,6 @@ public class GlobalMessageGeneratedUtil {
           ret.setGroup(azoExchangeGroup);
           return ret;
         }
-
-        // 再次调用排序
         ret.setSign(false);
         ret.setGroup(group);
         return ret;
@@ -712,8 +726,7 @@ public class GlobalMessageGeneratedUtil {
    * @return
    */
   private static Boolean retCheck(List<String> dataList, String group) {
-    for (int i = 0; i < dataList.size(); i++) {
-      String pageGroup = dataList.get(i);
+    for (String pageGroup : dataList) {
       if (Objects.equals(pageGroup, group)) {
         return true;
       }
