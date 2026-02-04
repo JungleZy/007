@@ -70,9 +70,10 @@ public class GeneralTelexPatService {
   private static final ThreadLocalRandom RANDOM = ThreadLocalRandom.current();
 
   @Inject
-  public GeneralTelexPatService(GeneralTelexPatDao trainDao, GeneralTelexPatPageDao trainPageDao, GeneralTelexPatUserDao trainUserDao,
-                                GeneralTelexPatUserValueDao trainUserValueDao, GradingRuleDao gradingRuleDao, UserService userService,
-                                CableFloorService cableFloorService) {
+  public GeneralTelexPatService(GeneralTelexPatDao trainDao, GeneralTelexPatPageDao trainPageDao,
+      GeneralTelexPatUserDao trainUserDao,
+      GeneralTelexPatUserValueDao trainUserValueDao, GradingRuleDao gradingRuleDao, UserService userService,
+      CableFloorService cableFloorService) {
     this.trainDao = trainDao;
     this.trainPageDao = trainPageDao;
     this.trainUserDao = trainUserDao;
@@ -88,7 +89,7 @@ public class GeneralTelexPatService {
     GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(param.getRuleId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
     GeneralTelexPatEntity entity = PojoUtils.convertOne(param, GeneralTelexPatEntity.class, (t, r) -> {
-      //设置默认值
+      // 设置默认值
       r.setStatus(NOT_STARTED.getStatus());
       r.setValidTime(0L);
       r.setRuleContent(JSONUtils.toJson(ruleEntity));
@@ -97,7 +98,7 @@ public class GeneralTelexPatService {
     });
     GeneralTelexPatEntity save = trainDao.save(entity);
 
-    //保存参训人员信息
+    // 保存参训人员信息
     List<GeneralTelexPatUserEntity> trainUserEntityList = new ArrayList<>();
     for (String id : param.getUserId()) {
       GeneralTelexPatUserEntity trainUser = new GeneralTelexPatUserEntity();
@@ -113,8 +114,7 @@ public class GeneralTelexPatService {
           Map.of(
               "type", "telex",
               "id", save.getId(),
-              "title", save.getTitle()
-          )));
+              "title", save.getTitle())));
     }
     GeneralTelexPatUserEntity groupUser = new GeneralTelexPatUserEntity();
     groupUser.setTrainId(save.getId());
@@ -139,12 +139,13 @@ public class GeneralTelexPatService {
           generateContent(entity.getType(), generateNumber, 1, save.getId());
         }
       } else {
-        //生成报文
+        // 生成报文
         generateContent(save.getType(), generateNumber, 1, save.getId());
       }
 
     } else {
-      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
+      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
+          param.getStartPage());
       int totalPage = groupNumber / 100;
       cableFloor = cableFloor.subList(0, totalPage);
       List<GeneralTelexPatPageEntity> list = new ArrayList<>();
@@ -186,11 +187,11 @@ public class GeneralTelexPatService {
           all.getData(),
           GeneralTelexPatTrainVO.class,
           (e, v) -> {
-            v.setUserInfoList(JSONUtils.fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMapSimple(e.getId())), new TypeToken<>() {
-            }));
+            v.setUserInfoList(JSONUtils.fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMapSimple(e.getId())),
+                new TypeToken<>() {
+                }));
             v.setRuleContent(null);
-          }
-      );
+          });
       PageInfo<GeneralTelexPatTrainVO> pageInfo = new PageInfo<>();
       pageInfo.setCurrentPage(all.getCurrentPage());
       pageInfo.setPageSize(all.getPageSize());
@@ -206,31 +207,33 @@ public class GeneralTelexPatService {
 
   public GeneralTelexPatTrainVO detail(GeneralTelexPatPageParamDto param) {
     try {
-      //查询该训练信息
+      // 查询该训练信息
       GeneralTelexPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
       GeneralTelexPatTrainVO patTrainVO = PojoUtils.convertOne(keyPatEntity, GeneralTelexPatTrainVO.class);
       if (keyPatEntity.getIsCable() == 1) {
         patTrainVO.setTotalNumber((int) trainPageDao.count("trainId", param.getTrainId()));
         patTrainVO.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
-      //查询该训练的所有参与用户信息
-      List<GeneralTelexPatUserInfoVO> userInfoList = JSONUtils.fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMap(param.getTrainId())), new TypeToken<>() {
-      });
+      // 查询该训练的所有参与用户信息
+      List<GeneralTelexPatUserInfoVO> userInfoList = JSONUtils
+          .fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMap(param.getTrainId())), new TypeToken<>() {
+          });
       patTrainVO.setUserInfoList(userInfoList);
 
-      //查询每个用户在线状态
+      // 查询每个用户在线状态
       List<GeneralPatTrainUserDto> userDto = new ArrayList<>(findUserInfo(param.getTrainId()));
-      Map<String, List<GeneralPatTrainUserDto>> collect = userDto.stream().collect(Collectors.groupingBy(GeneralPatTrainUserDto::getId));
+      Map<String, List<GeneralPatTrainUserDto>> collect = userDto.stream()
+          .collect(Collectors.groupingBy(GeneralPatTrainUserDto::getId));
       for (GeneralTelexPatUserInfoVO item : userInfoList) {
         List<GeneralPatTrainUserDto> keyPatTrainUserDto = collect.get(item.getUserId());
         if (keyPatTrainUserDto != null && !keyPatTrainUserDto.isEmpty()) {
           Integer status = keyPatTrainUserDto.stream().findFirst().map(GeneralPatTrainUserDto::getStatus).orElse(0);
           item.setUserStatus(status);
         } else {
-          //没有默认为0（离线状态）
+          // 没有默认为0（离线状态）
           item.setUserStatus(0);
         }
-        //统计信息
+        // 统计信息
         item.setPageAnalyzeVOS(generatePageAnalyze(param.getTrainId(), item.getUserId()));
       }
       return patTrainVO;
@@ -244,8 +247,9 @@ public class GeneralTelexPatService {
    * 生成统计信息
    */
   private List<PostTelegraphKeyPatTrainPageAnalyzeVO> generatePageAnalyze(String trainId, String userId) {
-    //统计每页拍发时长和个数
-    List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao.findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(trainId, userId);
+    // 统计每页拍发时长和个数
+    List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao
+        .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(trainId, userId);
     Map<Integer, List<GeneralTelexPatUserValueEntity>> collect = pageValueEntities.stream()
         .collect(Collectors.groupingBy(GeneralTelexPatUserValueEntity::getPageNumber));
     List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
@@ -266,16 +270,19 @@ public class GeneralTelexPatService {
 
   public GeneralTelexPatUserInfoVO patDetail(GeneralTelexPatPageParamDto param) {
     try {
-      //查询该训练信息
+      // 查询该训练信息
       GeneralTelexPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
-      GeneralTelexPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(param.getUserId(), param.getTrainId());
+      GeneralTelexPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(param.getUserId(),
+          param.getTrainId());
 
       List<Integer> pageNumber = trainPageDao.countPageNumber(param.getTrainId());
-      //查询前2页数据content
+      // 查询前2页数据content
       List<GeneralTelexPatPageEntity> twoPage = trainPageDao.findTwoPage(param.getTrainId());
-      List<GeneralTelexPatUserValueEntity> toPageValue = trainUserValueDao.findTwoPage(param.getTrainId(), param.getUserId());
-      //统计每页拍发时长和个数
-      List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao.findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(param.getTrainId(), param.getUserId());
+      List<GeneralTelexPatUserValueEntity> toPageValue = trainUserValueDao.findTwoPage(param.getTrainId(),
+          param.getUserId());
+      // 统计每页拍发时长和个数
+      List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao
+          .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(param.getTrainId(), param.getUserId());
       Map<Integer, List<GeneralTelexPatUserValueEntity>> collect = pageValueEntities.stream()
           .collect(Collectors.groupingBy(GeneralTelexPatUserValueEntity::getPageNumber));
       List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
@@ -328,11 +335,12 @@ public class GeneralTelexPatService {
     GeneralTelexPatEntity keyPatTrain = trainDao.findById(trainId);
     keyPatTrain.setStatus(status);
     if (Objects.equals(status, PostTelegramTrainEnum.UNDERWAY.getStatus())) {
-      //教员点击开始训练，设置开始时间
+      // 教员点击开始训练，设置开始时间
       keyPatTrain.setStartTime(LocalDateTime.now());
     } else if (Objects.equals(status, PostTelegramTrainEnum.FINISH.getStatus())) {
       keyPatTrain.setEndTime(LocalDateTime.now());
-      long time = keyPatTrain.getEndTime().toEpochSecond(ZoneOffset.of("+8")) - keyPatTrain.getStartTime().toEpochSecond(ZoneOffset.of("+8"));
+      long time = keyPatTrain.getEndTime().toEpochSecond(ZoneOffset.of("+8"))
+          - keyPatTrain.getStartTime().toEpochSecond(ZoneOffset.of("+8"));
       keyPatTrain.setValidTime(time);
     }
     trainDao.saveAndFlush(keyPatTrain);
@@ -342,8 +350,9 @@ public class GeneralTelexPatService {
   public void saveContentValue(GeneralTelexPatPageSubmitDto dto, String token) {
     String userId = userService.getUserByToken(token).getId();
     GeneralTelexPatUserEntity entity = trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId());
-    List<String> speedLog = Optional.ofNullable(entity.getSpeedLog()).map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
-    })).orElseGet(ArrayList::new);
+    List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
+        .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
+        })).orElseGet(ArrayList::new);
     if (!StringUtils.isEmpty(dto.getSpeed())) {
       if (speedLog.isEmpty()) {
         speedLog.add(dto.getSpeed());
@@ -360,8 +369,9 @@ public class GeneralTelexPatService {
     entity.setSpeedLog(JSONUtils.toJson(speedLog));
     log.info("Telex page speed:{},speedLog:{}", dto.getSpeed(), speedLog);
     // 记录每页耗时
-    List<Integer> validTimeLog = Optional.ofNullable(entity.getValidTimeLog()).map(validTime -> JSONUtils.fromJson(validTime, new TypeToken<List<Integer>>() {
-    })).orElseGet(ArrayList::new);
+    List<Integer> validTimeLog = Optional.ofNullable(entity.getValidTimeLog())
+        .map(validTime -> JSONUtils.fromJson(validTime, new TypeToken<List<Integer>>() {
+        })).orElseGet(ArrayList::new);
     if (dto.getValidTime() != null) {
       if (validTimeLog.isEmpty()) {
         validTimeLog.add(dto.getValidTime());
@@ -398,7 +408,7 @@ public class GeneralTelexPatService {
   public List<GeneralTelexPatUserInfoVO> finish(GeneralTelexPatFinishDto dto) {
     try {
       GeneralTelexPatEntity entity = trainDao.findById(dto.getTrainId());
-      //分数计算，计算该训练下所有人员的分数
+      // 分数计算，计算该训练下所有人员的分数
       List<GeneralTelexPatUserInfoVO> userInfoList = new ArrayList<>();
       GeneralTelexPatUserEntity userTrainEntity = countScore(entity, dto.getUserId());
       userTrainEntity.setIsFinish(1);
@@ -406,12 +416,12 @@ public class GeneralTelexPatService {
       trainUserDao.save(userTrainEntity);
       userInfoList.add(PojoUtils.convertOne(userTrainEntity, GeneralTelexPatUserInfoVO.class));
       trainUserDao.findRoleAdminByUserId(dto.getTrainId()).forEach(admin -> {
-        WebSocketService.sendInfo(admin.getUserId(), new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),
-            Map.of(
-                "type", "telex",
-                "userId", userTrainEntity.getUserId(),
-                "trainId", entity.getId()
-            )));
+        WebSocketService.sendInfo(admin.getUserId(),
+            new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),
+                Map.of(
+                    "type", "telex",
+                    "userId", userTrainEntity.getUserId(),
+                    "trainId", entity.getId())));
       });
       return userInfoList;
     } catch (Exception e) {
@@ -426,7 +436,7 @@ public class GeneralTelexPatService {
       GeneralTelexPatEntity entity = trainDao.findById(trainId);
       List<GeneralTelexPatPageEntity> messageVO = null;
       int generateNumber = 100;
-      //页码是否正确
+      // 页码是否正确
       if (entity.getIsCable() == 0) {
         int totalPage = entity.getTotalNumber() / 100;
         int totalNumber = entity.getTotalNumber();
@@ -442,16 +452,18 @@ public class GeneralTelexPatService {
         }
       }
 
-      //用户拍发内容
-      List<GeneralTelexPatUserValueEntity> userPage = trainUserValueDao.findByTrainIdAndPageNumberAndUserIdOrderBySort(trainId, pageNumber, userId);
-      //生成的内容
-      List<GeneralTelexPatPageEntity> pageDaoAll = trainPageDao.findByTrainIdAndPageNumberOrderBySort(trainId, pageNumber);
+      // 用户拍发内容
+      List<GeneralTelexPatUserValueEntity> userPage = trainUserValueDao
+          .findByTrainIdAndPageNumberAndUserIdOrderBySort(trainId, pageNumber, userId);
+      // 生成的内容
+      List<GeneralTelexPatPageEntity> pageDaoAll = trainPageDao.findByTrainIdAndPageNumberOrderBySort(trainId,
+          pageNumber);
       if (!pageDaoAll.isEmpty()) {
         messageVO = pageDaoAll;
       } else {
         messageVO = generateContent(entity.getType(), generateNumber, pageNumber, entity.getId());
       }
-      //用户未拍发本页内容，则获取生成的内容
+      // 用户未拍发本页内容，则获取生成的内容
       if (userPage.isEmpty()) {
         ret.setMessageVO(PojoUtils.convert(messageVO, PostTelegraphTelexPatTrainPageMessageVO.class));
       } else {
@@ -466,22 +478,24 @@ public class GeneralTelexPatService {
   }
 
   public List<GeneralTelexPatTrainUserValueVO> getPatValue(GeneralTelexPatPageParamDto param) {
-    List<GeneralTelexPatUserValueEntity> patUserValueEntities = trainUserValueDao.findByPageNumberAndTrainIdAndUserId(param.getPageNumber(), param.getTrainId(), param.getUserId());
+    List<GeneralTelexPatUserValueEntity> patUserValueEntities = trainUserValueDao
+        .findByPageNumberAndTrainIdAndUserId(param.getPageNumber(), param.getTrainId(), param.getUserId());
     return PojoUtils.convert(patUserValueEntities, GeneralTelexPatTrainUserValueVO.class);
   }
 
   public GeneralTelexPatTrainStatisticVO statistic(String trainId) {
-    //role-0,学员
+    // role-0,学员
     List<GeneralTelexPatUserEntity> trainUserEntities = trainUserDao.findByTrainIdAndRole(trainId, 0);
     return statisticsScoreAndDotLineGapRate(trainUserEntities);
   }
 
-  private GeneralTelexPatTrainStatisticVO statisticsScoreAndDotLineGapRate(List<GeneralTelexPatUserEntity> trainUserEntities) {
-    //结果集
+  private GeneralTelexPatTrainStatisticVO statisticsScoreAndDotLineGapRate(
+      List<GeneralTelexPatUserEntity> trainUserEntities) {
+    // 结果集
     GeneralTelexPatTrainStatisticVO ret = new GeneralTelexPatTrainStatisticVO();
-    //成绩分布
+    // 成绩分布
     GeneralPatTrainSchoolReportVO reportVO = new GeneralPatTrainSchoolReportVO();
-    //本次成绩和上次成绩对比
+    // 本次成绩和上次成绩对比
     List<GeneralPatTrainUserTendencyVO> userTendencyVOS = new ArrayList<>();
 
     int good = 0;
@@ -498,23 +512,30 @@ public class GeneralTelexPatService {
         belowStandard++;
       }
       if (CharSequenceUtil.isNotBlank(trainUser.getDeductInfo())) {
-        GeneralTelexPatTrainErrorCollect userError = JSONUtils.fromJson(trainUser.getDeductInfo(), GeneralTelexPatTrainErrorCollect.class);
+        GeneralTelexPatTrainErrorCollect userError = JSONUtils.fromJson(trainUser.getDeductInfo(),
+            GeneralTelexPatTrainErrorCollect.class);
         if (userError != null) {
           errorCollect.setErrorCodeNumber(errorCollect.getErrorCodeNumber() + userError.getErrorCodeNumber());
           errorCollect.setErrorPageNumber(errorCollect.getErrorPageNumber() + userError.getErrorPageNumber());
-          errorCollect.setCorrectMistakesNumber(errorCollect.getCorrectMistakesNumber() + userError.getCorrectMistakesNumber());
+          errorCollect
+              .setCorrectMistakesNumber(errorCollect.getCorrectMistakesNumber() + userError.getCorrectMistakesNumber());
           errorCollect.setLessPageNumber(errorCollect.getLessPageNumber() + userError.getLessPageNumber());
-          errorCollect.setLessReturnLineNumber(errorCollect.getLessReturnLineNumber() + userError.getLessReturnLineNumber());
+          errorCollect
+              .setLessReturnLineNumber(errorCollect.getLessReturnLineNumber() + userError.getLessReturnLineNumber());
           errorCollect.setMuchLessCodeNumber(errorCollect.getMuchLessCodeNumber() + userError.getMuchLessCodeNumber());
-          errorCollect.setMuchLessGroupsNumber(errorCollect.getMuchLessGroupsNumber() + userError.getMuchLessGroupsNumber());
+          errorCollect
+              .setMuchLessGroupsNumber(errorCollect.getMuchLessGroupsNumber() + userError.getMuchLessGroupsNumber());
           errorCollect.setMuchLessLineNumber(errorCollect.getMuchLessLineNumber() + userError.getMuchLessLineNumber());
           errorCollect.setNonStandartNumber(errorCollect.getNonStandartNumber() + userError.getNonStandartNumber());
         }
       }
-      //统计参训人拍发态势 本次本次训练和与上次训练分数对比
+      // 统计参训人拍发态势 本次本次训练和与上次训练分数对比
       String userId = trainUser.getUserId();
       LocalDateTime createTime = trainUser.getCreateTime();
       UserEntity userEntity = userService.getUserByIdNew(userId);
+      if (null == userEntity) {
+        break;
+      }
       GeneralPatTrainUserTendencyVO userTendencyVO = new GeneralPatTrainUserTendencyVO();
       userTendencyVO.setUserId(userId);
       userTendencyVO.setUserName(userEntity.getUserName());
@@ -528,30 +549,36 @@ public class GeneralTelexPatService {
     }
     BigDecimal scale = new BigDecimal(100);
     BigDecimal totalNumber = new BigDecimal(trainUserEntities.size());
-    //优秀
+    // 优秀
     GeneralPatTrainScoreInfoVO goodInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal goodRate = good == 0 ? BigDecimal.ZERO : new BigDecimal(good).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0, RoundingMode.HALF_UP);
+    BigDecimal goodRate = good == 0 ? BigDecimal.ZERO
+        : new BigDecimal(good).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
+            RoundingMode.HALF_UP);
     goodInfo.setRate(goodRate);
     goodInfo.setPeopleNumber(good);
     reportVO.setGood(goodInfo);
-    //良好
+    // 良好
     GeneralPatTrainScoreInfoVO niceInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal niceRate = nice == 0 ? BigDecimal.ZERO : new BigDecimal(nice).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0, RoundingMode.HALF_UP);
+    BigDecimal niceRate = nice == 0 ? BigDecimal.ZERO
+        : new BigDecimal(nice).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
+            RoundingMode.HALF_UP);
     niceInfo.setPeopleNumber(nice);
     niceInfo.setRate(niceRate);
     reportVO.setNice(niceInfo);
-    //差
+    // 差
     GeneralPatTrainScoreInfoVO belowStandardInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal belowStandardRate = belowStandard == 0 ? BigDecimal.ZERO : new BigDecimal(belowStandard).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0, RoundingMode.HALF_UP);
+    BigDecimal belowStandardRate = belowStandard == 0 ? BigDecimal.ZERO
+        : new BigDecimal(belowStandard).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
+            RoundingMode.HALF_UP);
     belowStandardInfo.setPeopleNumber(belowStandard);
     belowStandardInfo.setRate(belowStandardRate);
     reportVO.setBelowStandard(belowStandardInfo);
 
-    //封装成绩信息
+    // 封装成绩信息
     ret.setSchoolReport(reportVO);
-    //封装用户上次训练得分和本次训练得分对比
+    // 封装用户上次训练得分和本次训练得分对比
     ret.setUserTendencyVO(userTendencyVOS);
-    //设置错情统计
+    // 设置错情统计
     ret.setErrorCollect(errorCollect);
     return ret;
   }
@@ -587,7 +614,7 @@ public class GeneralTelexPatService {
    * @return 生成内容
    */
   private List<GeneralTelexPatPageEntity> generateContent(int type, int generateNumber,
-                                                          int pageNumber, String trainId) {
+      int pageNumber, String trainId) {
     List<GeneralTelexPatPageEntity> pageEntities = new ArrayList<>();
     for (int i = 0; i < generateNumber; i++) {
       StringBuilder key = new StringBuilder();
@@ -632,7 +659,8 @@ public class GeneralTelexPatService {
     return trainPageDao.save(pageEntities);
   }
 
-  private List<GeneralTelexPatPageEntity> generateContentAuto(List<String> content, int generateNumber, int pageNumber, String trainId) {
+  private List<GeneralTelexPatPageEntity> generateContentAuto(List<String> content, int generateNumber, int pageNumber,
+      String trainId) {
     List<GeneralTelexPatPageEntity> pageEntities = new ArrayList<>();
     for (int i = 0; i < generateNumber; i++) {
       if (i % 100 == 0 && i != 0) {
@@ -665,20 +693,23 @@ public class GeneralTelexPatService {
       List<TelexPatPageTransferDto> userPages = PojoUtils.convert(
           trainPageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber),
           TelexPatPageTransferDto.class);
-      List<GeneralTelexPatUserValueEntity> userValue = trainUserValueDao.findByTrainIdAndPageNumberAndUserIdAndSortOrderBySort(entity.getId(), pageNumber, userId);
+      List<GeneralTelexPatUserValueEntity> userValue = trainUserValueDao
+          .findByTrainIdAndPageNumberAndUserIdAndSortOrderBySort(entity.getId(), pageNumber, userId);
       if (!userValue.isEmpty()) {
         pageValueResult.addAll(PojoUtils.convert(userValue, TelexPatValueTransferDto.class));
-        handle(userId, pageNumber, pageValueResult, userPages, userValue.getFirst().getValue(), ks, pageNumber == pageNumbers.size() - 1);
+        handle(userId, pageNumber, pageValueResult, userPages, userValue.getFirst().getValue(), ks,
+            pageNumber == pageNumbers.size() - 1);
       }
     });
-    List<GeneralTelexPatUserValueEntity> convert = PojoUtils.convert(pageValueResult, GeneralTelexPatUserValueEntity.class);
+    List<GeneralTelexPatUserValueEntity> convert = PojoUtils.convert(pageValueResult,
+        GeneralTelexPatUserValueEntity.class);
     trainUserValueDao.deleteByTrainIdAndUserId(entity.getId(), userId);
     trainUserValueDao.saveAndFlush(convert);
     PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(entity.getRuleContent(), PostTelexPatTrainRuleDto.class);
     if (rule == null) {
       throw new IllegalArgumentException("评分规则未设定");
     }
-    //创建扣分信息Map
+    // 创建扣分信息Map
     String minus = "-";
     Map<String, Object> deductMap = new HashMap<>();
     BigDecimal score = new BigDecimal(100);
@@ -687,19 +718,23 @@ public class GeneralTelexPatService {
     deductMap.put("errorCodeNumber", ks.getErrorCodeNumber());
     deductMap.put("errorCodeScore", minus + errorCodeScore);
 
-    BigDecimal muchLessLineScore = new BigDecimal(ks.getMuchLessLineNumber()).multiply(rule.getOther().getMuchLessLine());
+    BigDecimal muchLessLineScore = new BigDecimal(ks.getMuchLessLineNumber())
+        .multiply(rule.getOther().getMuchLessLine());
     deductMap.put("muchLessLineNumber", ks.getMuchLessLineNumber());
     deductMap.put("muchLessLineScore", minus + muchLessLineScore);
 
-    BigDecimal muchLessGroupsScore = new BigDecimal(ks.getMuchLessGroupsNumber()).multiply(rule.getOther().getMuchLessGroups());
+    BigDecimal muchLessGroupsScore = new BigDecimal(ks.getMuchLessGroupsNumber())
+        .multiply(rule.getOther().getMuchLessGroups());
     deductMap.put("muchLessGroupsNumber", ks.getMuchLessGroupsNumber());
     deductMap.put("muchLessGroupsScore", minus + muchLessGroupsScore);
 
-    BigDecimal muchLessCodeScore = new BigDecimal(ks.getMuchLessCodeNumber()).multiply(rule.getOther().getMuchLessCode());
+    BigDecimal muchLessCodeScore = new BigDecimal(ks.getMuchLessCodeNumber())
+        .multiply(rule.getOther().getMuchLessCode());
     deductMap.put("muchLessCodeNumber", ks.getMuchLessCodeNumber());
     deductMap.put("muchLessCodeScore", minus + muchLessCodeScore);
 
-    BigDecimal lessReturnLineScore = new BigDecimal(ks.getLessReturnLineNumber()).multiply(rule.getOther().getLessReturnLine());
+    BigDecimal lessReturnLineScore = new BigDecimal(ks.getLessReturnLineNumber())
+        .multiply(rule.getOther().getLessReturnLine());
     deductMap.put("lessReturnLineNumber", ks.getLessReturnLineNumber());
     deductMap.put("lessReturnLineScore", minus + lessReturnLineScore);
 
@@ -715,15 +750,16 @@ public class GeneralTelexPatService {
     deductMap.put("nonStandartNumber", ks.getNonStandartNumber());
     deductMap.put("nonStandartScore", minus + nonStandartScore);
 
-    BigDecimal correctMistakesScore = new BigDecimal(ks.getCorrectMistakesNumber()).multiply(rule.getOther().getAlterError());
+    BigDecimal correctMistakesScore = new BigDecimal(ks.getCorrectMistakesNumber())
+        .multiply(rule.getOther().getAlterError());
     deductMap.put("correctMistakesNumber", ks.getCorrectMistakesNumber());
     deductMap.put("correctMistakesScore", minus + correctMistakesScore);
 
-    //计算正确率 （拍发总个数- 错误个数 = 正确个数） / 总个数
+    // 计算正确率 （拍发总个数- 错误个数 = 正确个数） / 总个数
     BigDecimal accuracy = new BigDecimal("0");
     int errorTotal = ks.getPatGroup() - ks.getErrorCodeNumber() - ks.getMuchLessCodeNumber();
     if (errorTotal != 0) {
-      //计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
+      // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
       accuracy = new BigDecimal(errorTotal).divide(
           new BigDecimal(ks.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
     }
@@ -766,7 +802,6 @@ public class GeneralTelexPatService {
     return kehPatUserEntity;
   }
 
-
   /**
    * 查询在线学员信息,因为本项目socket与业务模块在一起，故无需跨项目调用
    *
@@ -786,28 +821,29 @@ public class GeneralTelexPatService {
    */
   public GeneralPatTrainUserDto getTrainUserInfo(String uid, String trainId) {
     /*
-      从持久层查询用户与训练项目的关联实体
-      该实体包含用户在特定训练项目中的角色等业务属性
+     * 从持久层查询用户与训练项目的关联实体
+     * 该实体包含用户在特定训练项目中的角色等业务属性
      */
     GeneralTelexPatUserEntity userTrainEntity = trainUserDao.findByUserIdAndTrainId(uid, trainId);
 
     /*
-      从用户服务获取最新的用户基础信息实体
-      包含用户ID、用户名、头像等核心用户属性
+     * 从用户服务获取最新的用户基础信息实体
+     * 包含用户ID、用户名、头像等核心用户属性
      */
     UserEntity userEntity = userService.getUserByIdNew(uid);
 
     /*
-      数据有效性校验
-      确保用户基础信息和训练关联信息同时存在
-      避免后续空指针异常和数据一致性问题
+     * 数据有效性校验
+     * 确保用户基础信息和训练关联信息同时存在
+     * 避免后续空指针异常和数据一致性问题
      */
     if (userEntity == null || userTrainEntity == null) {
       throw new IllegalArgumentException("训练数据异常");
     }
 
     // 创建数据传输对象并填充属性
-    return new GeneralPatTrainUserDto(userEntity.getId(), userEntity.getUserName(), userEntity.getUserImg(), userTrainEntity.getRole());
+    return new GeneralPatTrainUserDto(userEntity.getId(), userEntity.getUserName(), userEntity.getUserImg(),
+        userTrainEntity.getRole());
   }
 
 }

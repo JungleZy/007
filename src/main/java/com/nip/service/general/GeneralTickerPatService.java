@@ -70,10 +70,10 @@ public class GeneralTickerPatService {
 
   @Inject
   public GeneralTickerPatService(UserService userService, GeneralTickerPatTrainDao trainDao,
-                                 GeneralTickerPatTrainUserDao trainUserDao,
-                                 GeneralTickerPatTrainPageDao trainPageDao, GeneralTickerPatTrainUserValueDao userValueDao,
-                                 GradingRuleDao gradingRuleDao,
-                                 CableFloorService cableFloorService, MessageComparisonService messageComparisonService) {
+      GeneralTickerPatTrainUserDao trainUserDao,
+      GeneralTickerPatTrainPageDao trainPageDao, GeneralTickerPatTrainUserValueDao userValueDao,
+      GradingRuleDao gradingRuleDao,
+      CableFloorService cableFloorService, MessageComparisonService messageComparisonService) {
     this.userService = userService;
     this.trainDao = trainDao;
     this.trainUserDao = trainUserDao;
@@ -688,7 +688,9 @@ public class GeneralTickerPatService {
       // 统计参训人拍发态势 本次本次训练和与上次训练分数对比
       String userId = trainUser.getUserId();
       UserEntity userEntity = userService.getUserByIdNew(userId);
-
+      if (null == userEntity) {
+        break;
+      }
       GeneralTickerPatTrainUserTendencyVO userTendencyVO = new GeneralTickerPatTrainUserTendencyVO();
       // 查询此次成绩前2次考核成绩
       List<GeneralTickerPatTrainUserEntity> patTrainUserTop2 = trainUserDao.findByUseridTop2(trainUser.getCreateTime(),
@@ -974,7 +976,7 @@ public class GeneralTickerPatService {
    * @param groupTotalTime 组
    */
   private void statisticsAllAvg(PostTelegramTrainStatisticsVO statisticsVO, int dotTotalTime, int lineTotalTime,
-                                int codeTotalTime, int wordTotalTime, int groupTotalTime) {
+      int codeTotalTime, int wordTotalTime, int groupTotalTime) {
     // 计算点划间隔的平均时长
     if (statisticsVO.getDotMaxNumber() + statisticsVO.getDotMinNumber() + statisticsVO.getDotPerfectNumber() != 0) {
       statisticsVO.setDotAvg(calculateTS(dotTotalTime, statisticsVO.getDotMaxNumber(), statisticsVO.getDotMinNumber(),
