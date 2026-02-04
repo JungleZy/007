@@ -42,13 +42,13 @@ public class SimulationReceptRoomService {
 
   @Inject
   public SimulationReceptRoomService(SimulationRouterRoomDao reportRoomDao,
-                                     SimulationRouterRoomUserDao roomUserDao,
-                                     SimulationRouterRoomContentDao roomContentDao,
-                                     UserService userService,
-                                     UserDao userDao,
-                                     SimulationRouterRoomPageDao pageDao,
-                                     SimulationRouterRoomPageValueDao pageValueDao,
-                                     CableFloorService cableFloorService) {
+      SimulationRouterRoomUserDao roomUserDao,
+      SimulationRouterRoomContentDao roomContentDao,
+      UserService userService,
+      UserDao userDao,
+      SimulationRouterRoomPageDao pageDao,
+      SimulationRouterRoomPageValueDao pageValueDao,
+      CableFloorService cableFloorService) {
     this.reportRoomDao = reportRoomDao;
     this.roomUserDao = roomUserDao;
     this.roomContentDao = roomContentDao;
@@ -61,7 +61,7 @@ public class SimulationReceptRoomService {
 
   @Transactional
   public SimulationRouterRoomEntity addRoom(HttpServerRequest request, SimulationRoomReportAddParam param) {
-    //保存房间信息
+    // 保存房间信息
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomEntity roomEntity = new SimulationRouterRoomEntity();
     roomEntity.setName(param.getRoomName());
@@ -72,7 +72,7 @@ public class SimulationReceptRoomService {
     roomEntity.setRoomType(SimulationRoomTypeEnum.RECEPT.getType());
     SimulationRouterRoomEntity room = reportRoomDao.save(roomEntity);
 
-    //保存房间报底
+    // 保存房间报底
     SimulationRouterRoomContentEntity roomContentEntity = new SimulationRouterRoomContentEntity();
     roomContentEntity.setContent(param.getContent());
     roomContentEntity.setRoomId(room.getId());
@@ -83,7 +83,7 @@ public class SimulationReceptRoomService {
     roomContentEntity.setIsRandom(param.getIsRandom());
     SimulationRouterRoomContentEntity save1 = roomContentDao.save(roomContentEntity);
 
-    //生成房间报底
+    // 生成房间报底
     if (param.getIsCable() == 0) {
       Integer bwCount = param.getBwCount();
       Integer generateNumber = 200;
@@ -93,7 +93,8 @@ public class SimulationReceptRoomService {
       int index = save1.getBwType().compareTo(3) == 0 ? 65 : 0;
       generateMessageBody(generateNumber, 1, index, save1);
     } else {
-      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
+      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
+          param.getStartPage());
       int totalPage = param.getBwCount() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
       for (int i = 0; i < cableFloor.size(); i++) {
@@ -108,7 +109,7 @@ public class SimulationReceptRoomService {
       }
     }
 
-    //保存房间对应人员信息
+    // 保存房间对应人员信息
     List<String> receiveUserList = param.getReceiveUserList();
     List<String> sendUserList = param.getSendUserList();
     List<SimulationRouterRoomUserEntity> roomUser = new ArrayList<>();
@@ -162,14 +163,17 @@ public class SimulationReceptRoomService {
     for (SimulationRouterRoomUserEntity simulationRouterRoomUserEntity : allByRoomId) {
       if (simulationRouterRoomUserEntity.getChannel() == 1) {
         String userId = simulationRouterRoomUserEntity.getUserId();
-        SimulationReportRoomUserVO userVO = PojoUtils.convertOne(userDao.findUserEntityById(userId), SimulationReportRoomUserVO.class);
+        SimulationReportRoomUserVO userVO = PojoUtils.convertOne(userDao.findUserEntityById(userId),
+            SimulationReportRoomUserVO.class);
         userVO.setContentValue(simulationRouterRoomUserEntity.getContentValue());
         userVO.setUserStatus(simulationRouterRoomUserEntity.getUserStatus());
-        userVO.setExistPageNumber(pageValueDao.countByUserIdAndRoomId(simulationRouterRoomUserEntity.getUserId(), roomId));
+        userVO.setExistPageNumber(
+            pageValueDao.countByUserIdAndRoomId(simulationRouterRoomUserEntity.getUserId(), roomId));
         userEntities.add(userVO);
       }
     }
-    SimulationReportRoomVO simulationReportRoomVO = JSONUtils.fromJson(JSONUtils.toJson(roomMap), SimulationReportRoomVO.class);
+    SimulationReportRoomVO simulationReportRoomVO = JSONUtils.fromJson(JSONUtils.toJson(roomMap),
+        SimulationReportRoomVO.class);
     List<WebSocketSimulationService> webSocketSimulationServices = Optional
         .ofNullable(SimulationGlobal.reportRoom.get(roomId))
         .orElseGet(ArrayList::new);
@@ -193,6 +197,16 @@ public class SimulationReceptRoomService {
     return simulationReportRoomVO;
   }
 
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer roomId) {
+    pageValueDao.delete("roomId=?1", roomId);
+    pageDao.delete("roomId=?1", roomId);
+    roomUserDao.delete("roomId=?1", roomId);
+    roomContentDao.delete("roomId=?1", roomId);
+    SimulationGlobal.reportRoom.remove(roomId);
+    return reportRoomDao.deleteById(roomId);
+  }
+
   /**
    * 生成报底
    *
@@ -201,7 +215,8 @@ public class SimulationReceptRoomService {
    * @param index          上次位置
    * @param train          训练对象
    */
-  public List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index, SimulationRouterRoomContentEntity train) {
+  public List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index,
+      SimulationRouterRoomContentEntity train) {
     List<SimulationRouterRoomPageEntity> ret = new ArrayList<>();
     int pageNum = pageNumber;
     Integer isAvg = train.getBdType();
@@ -209,7 +224,7 @@ public class SimulationReceptRoomService {
     java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
     switch (train.getBwType()) {
-      //字码报
+      // 字码报
       case 3:
         int charIndex = index;
         for (int i = 0; i < generateNumber; i++) {
@@ -254,12 +269,12 @@ public class SimulationReceptRoomService {
           }
         }
         break;
-      //混合报
+      // 混合报
       case 4:
         int charAndNumberIndex = index;
         for (int i = 0; i < generateNumber; i++) {
           StringBuilder body = new StringBuilder();
-          //List<String> avgB = new ArrayList<>();
+          // List<String> avgB = new ArrayList<>();
           if (isAvg.compareTo(1) == 0) {
             for (int j = 0; j < 4; j++) {
               char c;
@@ -313,7 +328,7 @@ public class SimulationReceptRoomService {
           }
         }
         break;
-      //数字报
+      // 数字报
       default:
         int numberIndex = 0;
         for (int i = 0; i < generateNumber; i++) {
@@ -330,8 +345,8 @@ public class SimulationReceptRoomService {
                 numberIndex++;
               }
             }
-            //Collections.shuffle(avgB);
-            //avgB.forEach(body::append);
+            // Collections.shuffle(avgB);
+            // avgB.forEach(body::append);
           } else if (isRandom.compareTo(1) == 0) {
             for (int j = 0; j < 4; j++) {
               int i1 = random.nextInt(10);

@@ -20,6 +20,8 @@ import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
 
+import static com.nip.common.constants.BaseConstants.ROOM_ID;
+
 @JWT
 @Path("/simulation/recept")
 @ApplicationScoped
@@ -52,5 +54,12 @@ public class SimulationReceptRoomController {
   @Operation(summary = "查询房间详情")
   public Response<SimulationReportRoomVO> getRoomDetail(@RestQuery("roomgId") Integer roomId, HttpServerRequest request) {
     return ResponseResult.success(roomService.getRoomDetail(roomId, request));
+  }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId) {
+    return ResponseResult.success(roomService.delete(roomId));
   }
 }

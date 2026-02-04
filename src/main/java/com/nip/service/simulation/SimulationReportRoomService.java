@@ -192,6 +192,16 @@ public class SimulationReportRoomService {
     return simulationReportRoomVO;
   }
 
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer roomId) {
+    pageValueDao.delete("roomId=?1", roomId);
+    pageDao.delete("roomId=?1", roomId);
+    roomUserDao.delete("roomId=?1", roomId);
+    roomContentDao.delete("roomId=?1", roomId);
+    SimulationGlobal.reportRoom.remove(roomId);
+    return reportRoomDao.deleteById(roomId);
+  }
+
   /**
    * 生成报底
    *

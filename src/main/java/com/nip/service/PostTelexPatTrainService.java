@@ -525,6 +525,9 @@ public class PostTelexPatTrainService {
               }
               // 多码或这少码
               else if (StringUtils.isNotEmpty(group) && group.length() != 4) {
+                if (group.contains("-")) {
+                  group = group.split("-")[0];
+                }
                 BigDecimal differ;
                 if (group.length() > correctGroup.length()) {
                   differ = new BigDecimal(group.length() - correctGroup.length());
@@ -776,7 +779,6 @@ public class PostTelexPatTrainService {
               (existing, replacement) -> replacement));
       Map<Integer, List<PostTelexPatTrainPageEntity>> pageMap = trainPages.stream()
           .collect(Collectors.groupingBy(PostTelexPatTrainPageEntity::getPageNumber));
-      long l = System.currentTimeMillis();
       pageNumbers.forEach(pageNumber -> {
         List<TelexPatPageTransferDto> userPages = PojoUtils.convert(
             pageMap.get(pageNumber),

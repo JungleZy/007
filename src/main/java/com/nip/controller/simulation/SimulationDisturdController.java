@@ -15,13 +15,17 @@ import com.nip.service.simulation.SimulationRouterRoomContentService;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
+
+import static com.nip.common.constants.BaseConstants.ROOM_ID;
 
 @JWT
 @Path("/simulation/routerRoomContent")
@@ -95,6 +99,13 @@ public class SimulationDisturdController {
   @Operation(summary = "保存设置")
   public Response<SimulationDisturdSettingVO> saveSetting(@RequestBody SimulationDisturdSettingVO vo) {
     return ResponseResult.success(roomContentService.saveSetting(vo));
+  }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId) {
+    return ResponseResult.success(roomContentService.delete(roomId));
   }
 
 }

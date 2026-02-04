@@ -69,7 +69,8 @@ public class SimulationRouterRoomController {
   @GET
   @Path("/getRoomDetail")
   @Operation(summary = "查询房间详情")
-  public Response<SimulationRouterRoomVO> getRoomDetail(HttpServerRequest request, @RestQuery("roomgId") Integer roomId) {
+  public Response<SimulationRouterRoomVO> getRoomDetail(HttpServerRequest request,
+      @RestQuery("roomgId") Integer roomId) {
     return ResponseResult.success(roomService.getRoomDetail(request, roomId));
   }
 
@@ -91,8 +92,15 @@ public class SimulationRouterRoomController {
   @Path("/findPage")
   @Operation(summary = "查询页内容 (通用)")
   public Response<SimulationRouterRoomPageInfoVO> findPage(@RestQuery(ROOM_ID) Integer roomId,
-                                                           @RestQuery(PAGE_NUMBER) Integer pageNumber,
-                                                           @RestQuery(USER_ID) String userId) {
+      @RestQuery(PAGE_NUMBER) Integer pageNumber,
+      @RestQuery(USER_ID) String userId) {
     return ResponseResult.success(roomService.findPage(userId, roomId, pageNumber));
+  }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId) {
+    return ResponseResult.success(roomService.delete(roomId));
   }
 }

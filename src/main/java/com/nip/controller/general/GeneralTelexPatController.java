@@ -130,4 +130,11 @@ public class GeneralTelexPatController {
     patTrainService.startTrain(trainId,token);
     return ResponseResult.success();
   }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
+    return ResponseResult.success(patTrainService.delete(trainId));
+  }
 }

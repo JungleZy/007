@@ -20,6 +20,7 @@ import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.router.*;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
+import com.nip.ws.service.simulation.SimulationGlobal;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -60,7 +61,7 @@ public class SimulationRouterRoomContentService {
 
   @Transactional
   public Integer addRoomAndContent(HttpServerRequest request, SimulationRoomRouterContentAddParam param) {
-    //保存房间信息
+    // 保存房间信息
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomEntity roomEntity = new SimulationRouterRoomEntity();
     roomEntity.setName(param.getRoomName());
@@ -70,7 +71,7 @@ public class SimulationRouterRoomContentService {
     roomEntity.setRoomType(SimulationRoomTypeEnum.DISTURB.getType());
     SimulationRouterRoomEntity room = routerRoomDao.save(roomEntity);
 
-    //保存房间报底
+    // 保存房间报底
     SimulationRouterRoomContentEntity roomContentEntity = new SimulationRouterRoomContentEntity();
     roomContentEntity.setMainSignal(param.getMainSignal());
     roomContentEntity.setInterferenceSignal(param.getInterferenceSignal());
@@ -82,7 +83,7 @@ public class SimulationRouterRoomContentService {
     roomContentEntity.setIsRandom(param.getIsRandom());
     SimulationRouterRoomContentEntity save = roomContentDao.save(roomContentEntity);
 
-    //生成房间报底
+    // 生成房间报底
     if (param.getIsCable() == 0) {
       Integer bwCount = param.getBwCount();
       Integer generateNumber = 200;
@@ -93,7 +94,8 @@ public class SimulationRouterRoomContentService {
       List<SimulationRouterRoomPageEntity> ret = generateMessageBody(generateNumber, 1, index, save);
       pageDao.save(ret);
     } else {
-      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
+      List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
+          param.getStartPage());
       int totalPage = param.getBwCount() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
       for (int i = 0; i < cableFloor.size(); i++) {
@@ -108,7 +110,7 @@ public class SimulationRouterRoomContentService {
       }
     }
 
-    //保存房间对应人员信息
+    // 保存房间对应人员信息
     SimulationRouterRoomUserEntity roomUser = new SimulationRouterRoomUserEntity();
     roomUser.setUserId(userEntity.getId());
     roomUser.setUserType(0);
@@ -153,7 +155,8 @@ public class SimulationRouterRoomContentService {
       SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(userEntity.getId(), roomId);
 
       SimulationRouterRoomContentMessageDto allByUserId = roomContentDao.findMessage(roomId);
-      SimulationDisturdDetailVO simulationDisturdDetailVO = JSONUtils.fromJson(JSONUtils.toJson(allByUserId), SimulationDisturdDetailVO.class);
+      SimulationDisturdDetailVO simulationDisturdDetailVO = JSONUtils.fromJson(JSONUtils.toJson(allByUserId),
+          SimulationDisturdDetailVO.class);
       if (simulationDisturdDetailVO != null) {
         if (!Objects.isNull(roomUserEntity)) {
           simulationDisturdDetailVO.setContentValue(roomUserEntity.getContentValue());
@@ -183,9 +186,10 @@ public class SimulationRouterRoomContentService {
 
   @Transactional
   public SimulationDisturdDetailVO uploadResult(HttpServerRequest request, SimulationDisturdUploadResultVO detailVO) {
-    SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(detailVO.getUserId(), detailVO.getRoomId());
+    SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(detailVO.getUserId(),
+        detailVO.getRoomId());
     if (!Objects.isNull(roomUserEntity)) {
-      //roomUserEntity.setContentValue(detailVO.getContentValue());
+      // roomUserEntity.setContentValue(detailVO.getContentValue());
       roomUserEntity.setUserStatus(1);
       roomUserDao.save(roomUserEntity);
     }
@@ -194,7 +198,18 @@ public class SimulationRouterRoomContentService {
     return findOne(request, detailVO.getRoomId());
   }
 
-  private static List<SimulationRouterRoomPageValueEntity> getSimulationRouterRoomPageValueEntities(SimulationDisturdUploadResultVO detailVO) {
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer roomId) {
+    pageValueDao.delete("roomId=?1", roomId);
+    pageDao.delete("roomId=?1", roomId);
+    roomUserDao.delete("roomId=?1", roomId);
+    roomContentDao.delete("roomId=?1", roomId);
+    SimulationGlobal.disturbRoom.remove(roomId);
+    return routerRoomDao.deleteById(roomId);
+  }
+
+  private static List<SimulationRouterRoomPageValueEntity> getSimulationRouterRoomPageValueEntities(
+      SimulationDisturdUploadResultVO detailVO) {
     List<SimulationRouterRoomPageValueEntity> pageValueEntityList = new ArrayList<>();
     for (int i = 0; i < detailVO.getContentValue().size(); i++) {
       String value = detailVO.getContentValue().get(i);
@@ -229,7 +244,8 @@ public class SimulationRouterRoomContentService {
    * @param index          上次位置
    * @param train          训练对象
    */
-  private List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index, SimulationRouterRoomContentEntity train) {
+  private List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber,
+      int index, SimulationRouterRoomContentEntity train) {
     List<SimulationRouterRoomPageEntity> ret = new ArrayList<>();
     int pageNum = pageNumber;
     Integer isAvg = train.getBdType();
@@ -237,7 +253,7 @@ public class SimulationRouterRoomContentService {
     java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
     switch (train.getBwType()) {
-      //字码报
+      // 字码报
       case 3:
         int charIndex = index;
         for (int i = 0; i < generateNumber; i++) {
@@ -282,7 +298,7 @@ public class SimulationRouterRoomContentService {
           }
         }
         break;
-      //混合报
+      // 混合报
       case 4:
         int charAndNumberIndex = index;
         for (Integer i = 0; i < generateNumber; i++) {
@@ -344,7 +360,7 @@ public class SimulationRouterRoomContentService {
 
         }
         break;
-      //数字报
+      // 数字报
       default:
         int numberIndex = 0;
         for (int i = 0; i < generateNumber; i++) {

@@ -27,6 +27,7 @@ import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.key.*;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
+import com.nip.ws.WebSocketGeneralKeyPatService;
 import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -185,6 +186,17 @@ public class GeneralKeyPatService {
     //生成报文end
 
     return PojoUtils.convertOne(save, GeneralKeyPatTrainVO.class);
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer trainId) {
+    userValueDao.delete("trainId=?1", trainId);
+    resolverDao.delete("trainId=?1", trainId);
+    moreEntityDao.delete("trainId=?1", trainId);
+    trainPageDao.delete("trainId=?1", trainId);
+    trainUserDao.delete("trainId=?1", trainId);
+    WebSocketGeneralKeyPatService.ROOM.remove(trainId);
+    return trainDao.deleteById(trainId);
   }
 
   private List<GeneralKeyPatPageEntity> generateAndSavePatKey(Integer generateNumber, Integer pageNumber, int trainId, Integer type, Integer isAvg, Integer isRandom) {

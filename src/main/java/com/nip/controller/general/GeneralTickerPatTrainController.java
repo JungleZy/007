@@ -27,7 +27,7 @@ import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 @JWT
 @Path("/openApi/generalTickerPatTrain")
 @ApplicationScoped
-@Tag(name = "综合训练-手键拍发Api")
+@Tag(name = "综合组训-手键拍发Api")
 @Slf4j
 public class GeneralTickerPatTrainController {
 

@@ -385,6 +385,15 @@ public class GeneralTelexPatService {
     }));
   }
 
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(String trainId) {
+    trainUserValueDao.delete("trainId=?1", trainId);
+    trainPageDao.delete("trainId=?1", trainId);
+    trainUserDao.delete("trainId=?1", trainId);
+    WebSocketGeneralTelexPatService.ROOM.remove(trainId);
+    return trainDao.deleteById(trainId);
+  }
+
   @Transactional
   public List<GeneralTelexPatUserInfoVO> finish(GeneralTelexPatFinishDto dto) {
     try {

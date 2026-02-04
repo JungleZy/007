@@ -34,6 +34,7 @@ import com.nip.entity.simulation.ticker.GeneralTickerPatTrainUserValueEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.MessageComparisonService;
 import com.nip.service.UserService;
+import com.nip.ws.WebSocketGeneralTickerPatService;
 import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -198,6 +199,15 @@ public class GeneralTickerPatService {
     }
 
     return PojoUtils.convertOne(save, GeneralTickerPatTrainVO.class);
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer trainId) {
+    userValueDao.delete("trainId=?1", trainId);
+    trainPageDao.delete("trainId=?1", trainId);
+    trainUserDao.delete("trainId=?1", trainId);
+    WebSocketGeneralTickerPatService.PAT_ROOM.remove(trainId);
+    return trainDao.deleteById(trainId);
   }
 
   @Transactional

@@ -18,15 +18,17 @@ public class TelexPatUtils {
   private static final Pattern PAGE_PATTERN1 = Pattern.compile("[^/]+/[^/]+");
 
   public static void handle(String userId,
-                            Integer pageNumber,
-                            List<TelexPatValueTransferDto> pageValueResult,
-                            List<TelexPatPageTransferDto> userPages,
-                            String userPageValues,
-                            TelexPatStatisticalDto ks,
-                            boolean isLastPage) {
+      Integer pageNumber,
+      List<TelexPatValueTransferDto> pageValueResult,
+      List<TelexPatPageTransferDto> userPages,
+      String userPageValues,
+      TelexPatStatisticalDto ks,
+      boolean isLastPage) {
     // 添加空值检查
-    if (pageValueResult == null) pageValueResult = new ArrayList<>();
-    if (userPages == null) userPages = new ArrayList<>();
+    if (pageValueResult == null)
+      pageValueResult = new ArrayList<>();
+    if (userPages == null)
+      userPages = new ArrayList<>();
     List<List<String>> result = new ArrayList<>();
     int groupNumber = 0;
     if (userPageValues == null || userPageValues.isEmpty()) {
@@ -37,8 +39,8 @@ public class TelexPatUtils {
     if (userPageValues != null) {
       length = userPageValues.length();
     }
-    int start = 0;  // 当前单词的起始位置
-    int pos = 0;    // 当前扫描位置
+    int start = 0; // 当前单词的起始位置
+    int pos = 0; // 当前扫描位置
     List<String> currentLine = new ArrayList<>();
 
     while (pos < length) {
@@ -62,7 +64,7 @@ public class TelexPatUtils {
             ks.setPatGroup(ks.getPatGroup() + 1);
           }
         }
-        start = pos + 1;  // 跳过空格
+        start = pos + 1; // 跳过空格
       }
       // 遇到换行符结束当前行
       else if (c == '\n' || c == '\r') {
@@ -94,9 +96,9 @@ public class TelexPatUtils {
 
         // 处理Windows换行符(\r\n)
         if (c == '\r' && pos + 1 < length && userPageValues.charAt(pos + 1) == '\n') {
-          pos++;  // 跳过额外的'\n'
+          pos++; // 跳过额外的'\n'
         }
-        start = pos + 1;  // 重置单词起始位置
+        start = pos + 1; // 重置单词起始位置
       }
       pos++;
     }
@@ -139,7 +141,8 @@ public class TelexPatUtils {
         int i1 = Integer.parseInt(result.get(i).getFirst());
         List<Integer> calculate = calculate(i1);
         if (null != calculate) {
-          List<String> strings = replaceElement(neatenResult.get(calculate.getFirst()), calculate.getLast(), result.get(i).getLast());
+          List<String> strings = replaceElement(neatenResult.get(calculate.getFirst()), calculate.getLast(),
+              result.get(i).getLast());
           neatenResult.set(i1 / 10, strings);
         }
       } else {
@@ -384,6 +387,13 @@ public class TelexPatUtils {
             // 多少码
             if (isGoon) {
               // 多码
+              if (groupValue.contains("-")) {
+                groupValue = groupValue.split("-")[0];
+                if (groupValue.contains(groupKey)) {
+                  add(userId, pageValueResult, groupKeyEntity, groupValue);
+                  isGoon = false;
+                }
+              }
               if (groupValue.length() > 4) {
                 if (groupValue.contains(groupKey)) {
                   add(userId, pageValueResult, groupKeyEntity, groupValue);
@@ -619,25 +629,26 @@ public class TelexPatUtils {
   }
 
   public static boolean containsPattern(String input) {
-    if (input == null) return false;
+    if (input == null)
+      return false;
     return PAGE_PATTERN1.matcher(input).find();
   }
 
   public static void main(String[] args) {
     String[] testCases = {
-        "09*22/0922",  // true - 有效模式
-        "aa*aa/0922",  // true - 有效模式
-        "////",        // false - 无有效序列
-        "a///",        // false - 右侧序列为空
-        "1///",        // false - 右侧序列为空
-        "////1",       // false - 左侧序列为空
-        "////a",       // false - 左侧序列为空
-        "a/b",         // true - 最小有效模式
-        "a//b",        // false - 斜杠之间无有效序列
-        "test/page",   // true - 常规有效模式
-        "/alone",      // false - 缺少左侧序列
-        "only/",       // false - 缺少右侧序列
-        "no_slash",    // false - 无斜杠
+        "09*22/0922", // true - 有效模式
+        "aa*aa/0922", // true - 有效模式
+        "////", // false - 无有效序列
+        "a///", // false - 右侧序列为空
+        "1///", // false - 右侧序列为空
+        "////1", // false - 左侧序列为空
+        "////a", // false - 左侧序列为空
+        "a/b", // true - 最小有效模式
+        "a//b", // false - 斜杠之间无有效序列
+        "test/page", // true - 常规有效模式
+        "/alone", // false - 缺少左侧序列
+        "only/", // false - 缺少右侧序列
+        "no_slash", // false - 无斜杠
         "multiple/a/b/c" // true - 包含多个有效模式
     };
 
@@ -849,7 +860,8 @@ public class TelexPatUtils {
 
   // 获取连字符前的数字
   private static int getNumberBefore(String input, int startIndex) {
-    if (startIndex <= 0) return -1;
+    if (startIndex <= 0)
+      return -1;
 
     // 向前查找数字的起始位置
     int numStart = startIndex - 1;
@@ -864,7 +876,8 @@ public class TelexPatUtils {
 
   // 获取连字符后的数字
   private static int getNumberAfter(String input, int endIndex) {
-    if (endIndex >= input.length() - 1) return -1;
+    if (endIndex >= input.length() - 1)
+      return -1;
 
     // 向后查找数字的结束位置
     int numEnd = endIndex + 1;
@@ -878,7 +891,8 @@ public class TelexPatUtils {
 
   // 解析数字字符串，返回有效数字或-1
   private static int parseNumber(String numberStr) {
-    if (numberStr == null || numberStr.isEmpty()) return -1;
+    if (numberStr == null || numberStr.isEmpty())
+      return -1;
 
     try {
       // 去除前导零
@@ -889,7 +903,6 @@ public class TelexPatUtils {
       return -1; // 转换失败说明不是有效数字
     }
   }
-
 
   /**
    * 在指定下标插入元素，长度不足时用空字符串占位
@@ -948,7 +961,6 @@ public class TelexPatUtils {
     // 在指定位置插入元素
     innerList.add(innerIndex, value);
   }
-
 
   /**
    * 删除指定位置的元素
@@ -1140,7 +1152,8 @@ public class TelexPatUtils {
   }
 
   public static String getLastAfterDash(String input) {
-    if (input == null) return null;
+    if (input == null)
+      return null;
 
     int lastDashIndex = input.lastIndexOf('-');
 
@@ -1162,8 +1175,8 @@ public class TelexPatUtils {
     }
 
     int length = input.length();
-    int start = 0;  // 当前单词的起始位置
-    int pos = 0;    // 当前扫描位置
+    int start = 0; // 当前单词的起始位置
+    int pos = 0; // 当前扫描位置
     List<String> currentLine = new ArrayList<>();
     Integer gn = 0;
 
@@ -1176,7 +1189,7 @@ public class TelexPatUtils {
           currentLine.add(input.substring(start, pos));
           gn++;
         }
-        start = pos + 1;  // 跳过空格
+        start = pos + 1; // 跳过空格
       }
       // 遇到换行符结束当前行
       else if (c == '\n' || c == '\r') {
@@ -1193,9 +1206,9 @@ public class TelexPatUtils {
 
         // 处理Windows换行符(\r\n)
         if (c == '\r' && pos + 1 < length && input.charAt(pos + 1) == '\n') {
-          pos++;  // 跳过额外的'\n'
+          pos++; // 跳过额外的'\n'
         }
-        start = pos + 1;  // 重置单词起始位置
+        start = pos + 1; // 重置单词起始位置
       }
       pos++;
     }
@@ -1220,8 +1233,7 @@ public class TelexPatUtils {
   public static Optional<BigDecimal> calculateAverage(
       List<BigDecimal> numbers,
       int scale,
-      RoundingMode roundingMode
-  ) {
+      RoundingMode roundingMode) {
     // 处理空列表和空值
     if (numbers == null || numbers.isEmpty()) {
       return Optional.empty();
@@ -1245,8 +1257,7 @@ public class TelexPatUtils {
 
     // 计算平均值 = 总和 / 元素数量
     return Optional.of(
-        sum.divide(BigDecimal.valueOf(count), scale, roundingMode)
-    );
+        sum.divide(BigDecimal.valueOf(count), scale, roundingMode));
   }
 
   /**
@@ -1256,36 +1267,36 @@ public class TelexPatUtils {
     return calculateAverage(numbers, 0, RoundingMode.HALF_UP);
   }
 
-  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto key, String value) {
+  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto key,
+      String value) {
     pageValueResult.add(new TelexPatValueTransferDto(
         userId,
         key.getTrainId(),
         key.getPageNumber(),
         key.getKey(),
         value,
-        key.getSort()
-    ));
+        key.getSort()));
   }
 
-  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto key, String value, Integer sort) {
+  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto key,
+      String value, Integer sort) {
     pageValueResult.add(new TelexPatValueTransferDto(
         userId,
         key.getTrainId(),
         key.getPageNumber(),
         key.getKey(),
         value,
-        sort
-    ));
+        sort));
   }
 
-  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto dto, String key, String value, Integer sort) {
+  private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto dto,
+      String key, String value, Integer sort) {
     pageValueResult.add(new TelexPatValueTransferDto(
         userId,
         dto.getTrainId(),
         dto.getPageNumber(),
         key,
         value,
-        sort
-    ));
+        sort));
   }
 }

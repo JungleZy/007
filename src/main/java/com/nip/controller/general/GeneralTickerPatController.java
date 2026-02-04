@@ -32,7 +32,7 @@ import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 @JWT
 @Path(value = "/generalTickerPatTrain")
 @ApplicationScoped
-@Tag(name = "综合训练-手键拍发")
+@Tag(name = "综合组训-手键拍发")
 public class GeneralTickerPatController {
   private final GeneralTickerPatService patTrainService;
 
@@ -44,21 +44,24 @@ public class GeneralTickerPatController {
   @POST
   @Path("add")
   @Operation(summary = "添加")
-  public Response<GeneralTickerPatTrainVO> add(@RequestBody GeneralTickerPatTrainAddParam param, @RestHeader(TOKEN) String token) throws Exception {
+  public Response<GeneralTickerPatTrainVO> add(@RequestBody GeneralTickerPatTrainAddParam param,
+      @RestHeader(TOKEN) String token) throws Exception {
     return ResponseResult.success(patTrainService.add(param, token));
   }
 
   @POST
   @Path("findPage")
   @Operation(summary = "按页查询报低")
-  public Response<GeneralTickerPatTrainContentVO> findPage(@RequestBody GeneralTickerPatTrainPageParam param, @RestHeader(TOKEN) String token) throws Exception {
+  public Response<GeneralTickerPatTrainContentVO> findPage(@RequestBody GeneralTickerPatTrainPageParam param,
+      @RestHeader(TOKEN) String token) throws Exception {
     return ResponseResult.success(patTrainService.findMessageBody(param, token));
   }
 
   @POST
   @Path("findAll")
   @Operation(summary = "查询所有训练")
-  public Response<PageInfo<GeneralTickerPatTrainVO>> findAll(@RestHeader(TOKEN) String token, @RequestBody Page page) throws Exception {
+  public Response<PageInfo<GeneralTickerPatTrainVO>> findAll(@RestHeader(TOKEN) String token, @RequestBody Page page)
+      throws Exception {
     return ResponseResult.success(patTrainService.findAll(token, page));
   }
 
@@ -84,7 +87,6 @@ public class GeneralTickerPatController {
     return ResponseResult.success();
   }
 
-
   @POST
   @Path("reset")
   @Operation(summary = "重置训练")
@@ -99,11 +101,19 @@ public class GeneralTickerPatController {
   public Response<GeneralTickerPatTrainStatisticVO> statistic(@RequestBody GeneralTickerPatTrainResetParam param) {
     return ResponseResult.success(patTrainService.statistic(param));
   }
+
   @GET
   @Path("/startTrain")
   @Operation(summary = "用户开始训练")
   public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
-    patTrainService.startTrain(trainId,token);
+    patTrainService.startTrain(trainId, token);
     return ResponseResult.success();
+  }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId) {
+    return ResponseResult.success(patTrainService.delete(trainId));
   }
 }

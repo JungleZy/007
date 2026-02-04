@@ -41,7 +41,8 @@ public class GeneralKeyPatController {
   @POST
   @Path("add")
   @Operation(summary = "添加训练")
-  public Response<GeneralKeyPatTrainVO> add(@RequestBody GeneralKeyPatAddParamDto param, @RestHeader(TOKEN) String token) throws Exception {
+  public Response<GeneralKeyPatTrainVO> add(@RequestBody GeneralKeyPatAddParamDto param,
+      @RestHeader(TOKEN) String token) throws Exception {
     return ResponseResult.success(patTrainService.add(param, token));
   }
 
@@ -104,7 +105,8 @@ public class GeneralKeyPatController {
   @Path("/getPage")
   @Operation(summary = "获取指定页得content")
   public Response<PostTelegraphKeyPatTrainPageVO> getPage(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId()));
+    return ResponseResult
+        .success(patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId()));
   }
 
   @POST
@@ -171,5 +173,12 @@ public class GeneralKeyPatController {
   public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
     patTrainService.startTrain(trainId, token);
     return ResponseResult.success();
+  }
+
+  @GET
+  @Path("/delete")
+  @Operation(summary = "删除训练")
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId) {
+    return ResponseResult.success(patTrainService.delete(trainId));
   }
 }

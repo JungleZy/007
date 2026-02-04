@@ -307,6 +307,16 @@ public class SimulationRouterRoomService {
     return getRoomDetail(request, roomId);
   }
 
+  @Transactional(rollbackOn = Exception.class)
+  public boolean delete(Integer roomId) {
+    pageValueDao.delete("roomId=?1", roomId);
+    pageDao.delete("roomId=?1", roomId);
+    roomUserDao.delete("roomId=?1", roomId);
+    roomContentDao.delete("roomId=?1", roomId);
+    SimulationGlobal.routerRoom.remove(roomId);
+    return routerRoomDao.deleteById(roomId);
+  }
+
 
   public SimulationRouterRoomPageInfoVO findPage(String userId, Integer roomId, Integer pageNumber) {
     SimulationRouterRoomContentEntity contentEntity = roomContentDao.findByRoomIdRouter(roomId);
