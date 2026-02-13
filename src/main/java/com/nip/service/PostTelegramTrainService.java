@@ -602,92 +602,82 @@ public class PostTelegramTrainService {
    * @param dto
    */
   private void countScore(PostTelegramTrainEntity entity, PostTelegramTrainFinishDto dto) {
-    // 扣分Map，最后将其转成JSON存入到deduct_info 字段中
     Map<String, Integer> deductMap = new HashMap<>();
-
-    // 基础分数
     Integer score = StringUtils.isEmpty(entity.getScore()) ? 100 : Integer.parseInt(entity.getScore());
-    // 评分规则
-    String content = entity.getRuleContent();
-    PostTelegramTrainRule rule = parseContent(content);
-
-    // 多组或少组
-    int moreOrLackGroup = 0;
-    // 多字或少字
-    int moreOrLackWord = 0;
-    int dotScore = 0;
-    int lineScore = 0;
-    int codeScore = 0;
-    int wordScore = 0;
-    int groupScore = 0;
-    int alterErrorScore = 0;
-    int errorCode = 0;
-    // 统计信息
+    PostTelegramTrainRule rule = parseContent(entity.getRuleContent());
     PostTelegramTrainStatisticsVO statisticsVO = new PostTelegramTrainStatisticsVO();
     PostTelegramTrainScoreVO scoreVO = new PostTelegramTrainScoreVO();
 
-    // 查询出提交的页码数
     List<Integer> existFloorNumber = contentValueDao.countExistFloorNumber(entity.getId());
     if (dto.getFinishInfo().isEmpty()) {
-      entity.setAccuracy("0.00");
-      entity.setSpeed("0.00");
-      entity.setScore("0");
-      entity.setStatisticInfo(JSONUtils.toJson(statisticsVO));
-      deductMap.put("dotMinScore", dotScore);
-      deductMap.put("lineScore", lineScore);
-      deductMap.put("codeGapScore", codeScore);
-      deductMap.put("wordGapScore", wordScore);
-      deductMap.put("groupGapScore", groupScore);
-      deductMap.put("alterErrorScore", alterErrorScore);
-      deductMap.put("errorWord", errorCode);
-      deductMap.put("quantoGroup", moreOrLackGroup);
-      deductMap.put("quantoCode", moreOrLackWord);
-      deductMap.put("quantoRow", 0);
-      deductMap.put("bunchGroup", 0);
-      String deductMapInfo = JSONUtils.toJson(deductMap);
-      entity.setDeductInfo(deductMapInfo);
+      handleEmptyFinishInfo(entity, deductMap, statisticsVO);
       return;
     }
+
+    processPageComparisons(entity, existFloorNumber, scoreVO, rule, statisticsVO);
+
+    statisticsAllAvg(statisticsVO, scoreVO.getDotTotalTime(), scoreVO.getLineTotalTime(),
+        scoreVO.getCodeTotalTime(), scoreVO.getWordTotalTime(), scoreVO.getGroupTotalTime());
+
+    calculateLackCount(entity.getMessageNumber(), existFloorNumber, scoreVO);
+
+    score = applyDeductions(score, scoreVO, rule, deductMap);
+
+    saveTrainResult(entity, scoreVO, score, statisticsVO, deductMap, rule);
+  }
+
+  private void handleEmptyFinishInfo(PostTelegramTrainEntity entity, Map<String, Integer> deductMap,
+      PostTelegramTrainStatisticsVO statisticsVO) {
+    entity.setAccuracy("0.00");
+    entity.setSpeed("0.00");
+    entity.setScore("0");
+    entity.setStatisticInfo(JSONUtils.toJson(statisticsVO));
+    deductMap.put("dotMinScore", 0);
+    deductMap.put("lineScore", 0);
+    deductMap.put("codeGapScore", 0);
+    deductMap.put("wordGapScore", 0);
+    deductMap.put("groupGapScore", 0);
+    deductMap.put("alterErrorScore", 0);
+    deductMap.put("errorWord", 0);
+    deductMap.put("quantoGroup", 0);
+    deductMap.put("quantoCode", 0);
+    deductMap.put("quantoRow", 0);
+    deductMap.put("bunchGroup", 0);
+    entity.setDeductInfo(JSONUtils.toJson(deductMap));
+  }
+
+  private void processPageComparisons(PostTelegramTrainEntity entity, List<Integer> existFloorNumber,
+      PostTelegramTrainScoreVO scoreVO, PostTelegramTrainRule rule, PostTelegramTrainStatisticsVO statisticsVO) {
     for (Integer floorNumber : existFloorNumber) {
-      // 查询提交的页内容
       PostTelegramTrainContentFloorValueEntity contentFloorValueEntity = contentValueDao.findByFloorNumberAndTrainId(
           floorNumber, entity.getId());
       String messageBody = contentFloorValueEntity.getMessageBody();
       String standard = contentFloorValueEntity.getStandard();
-      // 拍发内容
       List<PostTelegramTrainContentAddParam> userContents = JSONUtils.fromJson(messageBody, new TypeToken<>() {
       });
-      // 拍发此页的标准值
       List<PostTelegramTrainFinishInfoDto> standards = JSONUtils.fromJson(standard, new TypeToken<>() {
       });
-      // 生成的标准内容
+
       List<PostTelegramTrainFloorContentEntity> floorContentEntities = floorContentDao
           .findByFloorNumberAndTrainIdOrderBySort(floorNumber, entity.getId());
       List<String> sources = floorContentEntities.stream()
           .map(PostTelegramTrainFloorContentEntity::getMoresKey)
           .map(this::normalizeGroupString)
           .toList();
-      List<String> patKeys = null;
-      if (userContents != null) {
-        patKeys = userContents.stream()
-            .map(PostTelegramTrainContentAddParam::getPatKeys)
-            .map(this::normalizeGroupString)
-            .toList();
-      }
+      List<String> patKeys = userContents != null
+          ? userContents.stream()
+              .map(PostTelegramTrainContentAddParam::getPatKeys)
+              .map(this::normalizeGroupString)
+              .toList()
+          : null;
+
       PostTelegramTrainResolverVO comparison = messageComparisonService.comparison(
           sources, patKeys, scoreVO, userContents, standards, rule, statisticsVO);
       contentFloorValueEntity.setResolver(JSONUtils.toJson(comparison));
     }
+  }
 
-    statisticsAllAvg(statisticsVO,
-        scoreVO.getDotTotalTime(),
-        scoreVO.getLineTotalTime(),
-        scoreVO.getCodeTotalTime(),
-        scoreVO.getWordTotalTime(),
-        scoreVO.getGroupTotalTime());
-
-    // 计算未生成和未拍的数量
-    Integer messageNumber = entity.getMessageNumber();
+  private void calculateLackCount(Integer messageNumber, List<Integer> existFloorNumber, PostTelegramTrainScoreVO scoreVO) {
     int totalFloorNumber = messageNumber / 100;
     if (messageNumber % 100 > 0) {
       totalFloorNumber++;
@@ -704,87 +694,88 @@ public class PostTelegramTrainService {
         scoreVO.setLackGroup(scoreVO.getLackGroup() + messageNumber - ((totalFloorNumber - 1) * 100));
       }
     }
+  }
 
-    // 处理完进行扣分
-    dotScore = calculateScore(rule.getDot().getMax(), scoreVO.getDotScore(), rule.getDot().getMax());
-    score = score - dotScore;
+  private int applyDeductions(Integer baseScore, PostTelegramTrainScoreVO scoreVO, PostTelegramTrainRule rule,
+      Map<String, Integer> deductMap) {
+    int score = baseScore;
+
+    int dotScore = calculateScore(rule.getDot().getMax(), scoreVO.getDotScore(), rule.getDot().getMax());
+    score -= dotScore;
     deductMap.put("dotMinScore", dotScore);
     deductMap.put("dotMinNumber", scoreVO.getDotScore());
-    lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDot().getMax());
-    score = score - lineScore;
+
+    int lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDot().getMax());
+    score -= lineScore;
     deductMap.put("lineScore", lineScore);
     deductMap.put("lineNumber", scoreVO.getLineScore());
-    codeScore = calculateScore(rule.getLittle().getMax(), scoreVO.getCodeScore(), rule.getLittle().getMax());
-    score = score - codeScore;
+
+    int codeScore = calculateScore(rule.getLittle().getMax(), scoreVO.getCodeScore(), rule.getLittle().getMax());
+    score -= codeScore;
     deductMap.put("codeGapScore", codeScore);
     deductMap.put("codeNumber", scoreVO.getCodeScore());
-    wordScore = calculateScore(rule.getMiddle().getMax(), scoreVO.getWordScore(), rule.getMiddle().getMax());
-    score = score - wordScore;
+
+    int wordScore = calculateScore(rule.getMiddle().getMax(), scoreVO.getWordScore(), rule.getMiddle().getMax());
+    score -= wordScore;
     deductMap.put("wordGapScore", wordScore);
     deductMap.put("wordNumber", scoreVO.getWordScore());
-    groupScore = calculateScore(rule.getLarge().getMax(), scoreVO.getGroupScore(), rule.getLarge().getMax());
-    score = score - groupScore;
+
+    int groupScore = calculateScore(rule.getLarge().getMax(), scoreVO.getGroupScore(), rule.getLarge().getMax());
+    score -= groupScore;
     deductMap.put("groupGapScore", groupScore);
     deductMap.put("groupNumber", scoreVO.getGroupScore());
-    alterErrorScore = calculateScore(rule.getAlterError().getMax(), scoreVO.getAlterErrorScore(),
-        rule.getAlterError().getMax());
-    score = score - alterErrorScore;
+
+    int alterErrorScore = calculateScore(rule.getAlterError().getMax(), scoreVO.getAlterErrorScore(), rule.getAlterError().getMax());
+    score -= alterErrorScore;
     deductMap.put("alterErrorScore", alterErrorScore);
     deductMap.put("alterErrorNumber", scoreVO.getAlterErrorScore());
 
-    // 扣分
-    errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(),
-        rule.getErrorCode().getMax());
-    score = score - errorCode;
+    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(), rule.getErrorCode().getMax());
+    score -= errorCode;
     deductMap.put("errorWord", errorCode);
     deductMap.put("errorWordNumber", scoreVO.getErrorNumber());
 
-    moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(),
-        scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
-    score = score - moreOrLackWord;
+    int moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(), scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
+    score -= moreOrLackWord;
     deductMap.put("quantoCode", moreOrLackWord);
     deductMap.put("quantoCodeNumber", scoreVO.getMoreOrLackWord());
 
-    moreOrLackGroup = calculateScore(rule.getQuantoGroup().getMax(),
-        (scoreVO.getMoreGroup() + scoreVO.getLackGroup()) * rule.getQuantoGroup().getL(),
-        rule.getQuantoGroup().getMax());
-    score = score - moreOrLackGroup;
+    int moreOrLackGroup = calculateScore(rule.getQuantoGroup().getMax(), (scoreVO.getMoreGroup() + scoreVO.getLackGroup()) * rule.getQuantoGroup().getL(), rule.getQuantoGroup().getMax());
+    score -= moreOrLackGroup;
     deductMap.put("quantoGroup", moreOrLackGroup);
     deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup());
 
-    // 多行少行
-    int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(),
-        scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());
-    score = score - moreOrLackLine;
+    int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(), scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());
+    score -= moreOrLackLine;
     deductMap.put("quantoRow", moreOrLackLine);
     deductMap.put("quantoRowNumber", scoreVO.getMoreOrLackLine());
 
-    // 串行
-    int bunchGroup = calculateScore(rule.getBunchGroup().getMax(),
-        scoreVO.getBunchGroup() * rule.getBunchGroup().getL(), rule.getBunchGroup().getMax());
-    score = score - bunchGroup;
+    int bunchGroup = calculateScore(rule.getBunchGroup().getMax(), scoreVO.getBunchGroup() * rule.getBunchGroup().getL(), rule.getBunchGroup().getMax());
+    score -= bunchGroup;
     deductMap.put("bunchGroup", bunchGroup);
     deductMap.put("bunchGroupNumber", scoreVO.getBunchGroup());
 
-    // 设置
+    return score;
+  }
+
+  private void saveTrainResult(PostTelegramTrainEntity entity, PostTelegramTrainScoreVO scoreVO,
+      int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule) {
     entity.setErrorNumber(scoreVO.getErrorNumber());
     entity.setLack(scoreVO.getLackGroup());
-    // 计算正确率,若是没有任何拍发记录则是0
+
     if (scoreVO.getCorrect() == 0) {
       entity.setAccuracy("0.00");
     } else {
-      String accuracy = new BigDecimal(scoreVO.getCorrect()).divide(
-          new BigDecimal(scoreVO.getPatTotalNum()),
-          2,
-          RoundingMode.HALF_UP).multiply(new BigDecimal(100)).toString();
+      String accuracy = new BigDecimal(scoreVO.getCorrect())
+          .divide(new BigDecimal(scoreVO.getPatTotalNum()), 2, RoundingMode.HALF_UP)
+          .multiply(new BigDecimal(100)).toString();
       entity.setAccuracy(accuracy);
     }
 
-    // 计算平均速率
     List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
-        .map(speedLod -> JSONUtils.fromJson(speedLod, new TypeToken<List<String>>() {
-        }))
+        .map(s -> JSONUtils.fromJson(s, new TypeToken<List<String>>() {}))
         .orElseGet(ArrayList::new);
+
     String speed;
     if (speedLog.isEmpty()) {
       speed = "0";
@@ -797,16 +788,15 @@ public class PostTelegramTrainService {
     }
     entity.setSpeed(speed);
 
-    // 计算wpm
     SpeedDeduct baseWpm = rule.getWpm();
     int wpm = baseWpm.getBase() - new BigDecimal(entity.getSpeed()).intValue();
     int wpmScore = (wpm > 0 ? -(wpm * baseWpm.getL()) : wpm * baseWpm.getR());
     deductMap.put("wpmScore", wpmScore);
-    score = score + wpmScore;
+    score += wpmScore;
+
     entity.setScore(String.valueOf(score));
     entity.setStatisticInfo(JSONUtils.toJson(statisticsVO));
-    String deductMapInfo = JSONUtils.toJson(deductMap);
-    entity.setDeductInfo(deductMapInfo);
+    entity.setDeductInfo(JSONUtils.toJson(deductMap));
   }
 
   /**
