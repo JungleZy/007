@@ -4,8 +4,13 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.SimulationRoomTypeEnum;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.SimulationMessageGenerator;
 import com.nip.dao.UserDao;
-import com.nip.dao.simulation.*;
+import com.nip.dao.simulation.SimulationRouterRoomContentDao;
+import com.nip.dao.simulation.SimulationRouterRoomDao;
+import com.nip.dao.simulation.SimulationRouterRoomPageDao;
+import com.nip.dao.simulation.SimulationRouterRoomPageValueDao;
+import com.nip.dao.simulation.SimulationRouterRoomUserDao;
 import com.nip.dto.SimulationRouterRoomSimpDto;
 import com.nip.dto.vo.param.simulation.router.SimulationRoomRouterAddParam;
 import com.nip.dto.vo.param.simulation.router.SimulationRoomRouterChangeParam;
@@ -15,7 +20,11 @@ import com.nip.dto.vo.simulation.router.SimulationRouterRoomUserInfoVO;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomUserVO;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomVO;
 import com.nip.entity.UserEntity;
-import com.nip.entity.simulation.router.*;
+import com.nip.entity.simulation.router.SimulationRouterRoomContentEntity;
+import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
+import com.nip.entity.simulation.router.SimulationRouterRoomPageEntity;
+import com.nip.entity.simulation.router.SimulationRouterRoomPageValueEntity;
+import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketSimulationService;
@@ -109,6 +118,8 @@ public class SimulationRouterRoomService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
       int totalPage = param.getBwCount() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
+      // 使用批量保存替代循环逐条保存，提升性能
+      List<SimulationRouterRoomPageEntity> pageEntities = new ArrayList<>();
       for (int i = 0; i < cableFloor.size(); i++) {
         for (int j = 0; j < cableFloor.get(i).size(); j++) {
           SimulationRouterRoomPageEntity pageEntity = new SimulationRouterRoomPageEntity();
@@ -116,9 +127,10 @@ public class SimulationRouterRoomService {
           pageEntity.setPageNumber(i + 1);
           pageEntity.setSort(j);
           pageEntity.setRoomId(room.getId());
-          pageDao.save(pageEntity);
+          pageEntities.add(pageEntity);
         }
       }
+      pageDao.save(pageEntities);
     }
     //保存房间对应人员信息
     List<String> receiveUserList = param.getReceiveUserList();
@@ -160,8 +172,7 @@ public class SimulationRouterRoomService {
   public List<SimulationRouterRoomVO> findRoom(HttpServerRequest request) {
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     List<SimulationRouterRoomSimpDto> allByUserId = routerRoomDao.findAllByUserIdSimp(userEntity.getId());
-    return Objects.requireNonNull(JSONUtils.fromJson(JSONUtils.toJson(allByUserId), new TypeToken<List<SimulationRouterRoomVO>>() {
-        }))
+    return PojoUtils.convert(allByUserId, SimulationRouterRoomVO.class)
         .stream()
         .distinct()
         .toList();
@@ -371,185 +382,7 @@ public class SimulationRouterRoomService {
    * @param train          训练对象
    */
   private List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index, SimulationRouterRoomContentEntity train) {
-    List<SimulationRouterRoomPageEntity> ret = new ArrayList<>();
-    int pageNum = pageNumber;
-    Integer isAvg = train.getBdType();
-    Integer isRandom = train.getIsRandom();
-    java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-    List<String> avgB = new ArrayList<>();
-    switch (train.getBwType()) {
-      //字码报
-      case 3:
-        int charIndex = index;
-        for (int i = 0; i < generateNumber; i++) {
-          if (i % 100 == 0 && i != 0) {
-            pageNumber += 1;
-          }
-          StringBuilder body = new StringBuilder();
-          if (isAvg.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              char c = (char) charIndex;
-              if (charIndex == 90) {
-                charIndex = 65;
-              } else {
-                charIndex++;
-              }
-              avgB.add(String.valueOf(c));
-            }
-          } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(26) + 65;
-              char a = (char) i1;
-              body.append(a);
-            }
-          } else {
-            for (int j = 0; j < 4; j++) {
-              char c = (char) charIndex;
-              if (charIndex == 90) {
-                charIndex = 65;
-              } else {
-                charIndex++;
-              }
-              body.append(c);
-            }
-          }
-          if (isAvg.compareTo(1) != 0) {
-            SimulationRouterRoomPageEntity pageEntity = new SimulationRouterRoomPageEntity();
-            pageEntity.setKey(body.toString());
-            pageEntity.setPageNumber(pageNumber);
-            pageEntity.setSort(i % 100);
-            pageEntity.setRoomId(train.getRoomId());
-            ret.add(pageEntity);
-          }
-        }
-        break;
-      //混合报
-      case 4:
-        int charAndNumberIndex = index;
-        for (int i = 0; i < generateNumber; i++) {
-          if (i % 100 == 0 && i != 0) {
-            pageNumber += 1;
-          }
-          StringBuilder body = new StringBuilder();
-          if (isAvg.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              char c;
-              if (charAndNumberIndex < 10) {
-                c = (char) (charAndNumberIndex + 48);
-              } else {
-                c = (char) (charAndNumberIndex + 55);
-              }
-              if (charAndNumberIndex == 35) {
-                charAndNumberIndex = 0;
-              } else {
-                charAndNumberIndex++;
-              }
-              avgB.add(String.valueOf(c));
-            }
-          } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(36);
-              if (i1 < 10) {
-                i1 = (char) (i1 + 48);
-              } else {
-                i1 = (char) (i1 + 55);
-              }
-              char c = (char) i1;
-              body.append(c);
-            }
-          } else {
-            for (int j = 0; j < 4; j++) {
-              char c;
-              if (charAndNumberIndex < 10) {
-                c = (char) (charAndNumberIndex + 48);
-              } else {
-                c = (char) (charAndNumberIndex + 55);
-              }
-              if (charAndNumberIndex == 35) {
-                charAndNumberIndex = 0;
-              } else {
-                charAndNumberIndex++;
-              }
-              body.append(c);
-            }
-          }
-          if (isAvg.compareTo(1) != 0) {
-            SimulationRouterRoomPageEntity pageEntity = new SimulationRouterRoomPageEntity();
-            pageEntity.setKey(body.toString());
-            pageEntity.setPageNumber(pageNumber);
-            pageEntity.setSort(i % 100);
-            pageEntity.setRoomId(train.getRoomId());
-            ret.add(pageEntity);
-          }
-        }
-        break;
-      //数字报
-      default:
-        int numberIndex = 0;
-        for (int i = 0; i < generateNumber; i++) {
-          if (i % 100 == 0 && i != 0) {
-            pageNumber += 1;
-          }
-          StringBuilder body = new StringBuilder();
-          if (isAvg.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              avgB.add(String.valueOf(numberIndex));
-              if (numberIndex == 9) {
-                numberIndex = 0;
-              } else {
-                numberIndex++;
-              }
-            }
-          } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(10);
-              body.append(i1);
-            }
-          } else {
-            for (int j = 0; j < 4; j++) {
-              body.append(numberIndex);
-              if (numberIndex == 9) {
-                numberIndex = 0;
-              } else {
-                numberIndex++;
-              }
-            }
-          }
-          if (train.getBdType().compareTo(1) != 0) {
-            SimulationRouterRoomPageEntity pageEntity = new SimulationRouterRoomPageEntity();
-            pageEntity.setKey(body.toString());
-            pageEntity.setPageNumber(pageNumber);
-            pageEntity.setSort(i % 100);
-            pageEntity.setRoomId(train.getRoomId());
-            ret.add(pageEntity);
-          }
-        }
-        break;
-    }
-    if (isAvg.compareTo(1) == 0) {
-      if (isRandom.compareTo(1) == 0) {
-        Collections.shuffle(avgB);
-      }
-      int sort = 0;
-      StringBuilder body = new StringBuilder();
-
-      for (int i = 0; i < avgB.size(); i++) {
-        body.append(avgB.get(i));
-        if (i != 0 && i % 400 == 0) {
-          pageNum++;
-        }
-        if (body.length() == 4) {
-          SimulationRouterRoomPageEntity pageEntity = new SimulationRouterRoomPageEntity();
-          pageEntity.setKey(body.toString());
-          pageEntity.setPageNumber(pageNum);
-          pageEntity.setSort(sort % 100);
-          pageEntity.setRoomId(train.getRoomId());
-          ret.add(pageEntity);
-          sort++;
-          body = new StringBuilder();
-        }
-      }
-    }
-    return pageDao.save(ret);
+    return SimulationMessageGenerator.generateMessageBody(
+        generateNumber, pageNumber, index, train, train.getRoomId(), pageDao::save);
   }
 }

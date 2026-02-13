@@ -246,7 +246,7 @@ public class TelegramTrainService {
       }
       //查询单字训练
       Map<String, Object> groupTrain = telegramTrainDao.findGroupTrain(trainEntity.getCreateUserId());
-      statisticalEntity = JSONUtils.fromJson(JSONUtils.toJson(groupTrain), TelegramTrainStatisticalEntity.class);
+      statisticalEntity = PojoUtils.convertOne(groupTrain, TelegramTrainStatisticalEntity.class);
     }
     statistical.setAvgSpeed(statisticalEntity.getAvgSpeed());
     statistical.setTotalCount(statisticalEntity.getTotalCount());

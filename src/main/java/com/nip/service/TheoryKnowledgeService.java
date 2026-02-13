@@ -204,8 +204,7 @@ public class TheoryKnowledgeService {
     }
     UserEntity userEntity = userService.getUserByToken(token);
     List<FindTheoryKnowledgeDto> dtoAllSql = knowledgeDao.findTheoryKnowledgeDtoAllSqlOpen(type, status, difficulty, specialty);
-    List<TheoryKnowledgeDto> all = JSONUtils.fromJson(JSONUtils.toJson(dtoAllSql), new TypeToken<>() {
-    });
+    List<TheoryKnowledgeDto> all = PojoUtils.convert(dtoAllSql, TheoryKnowledgeDto.class);
     all.forEach(study -> {
       List<TheoryKnowledgeTestUserEntity> allByUserIdAndKnowledgeIdAndScore = theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeIdAndScore(userEntity.getId(), study.getId(), 100);
       study.setDoneCount(allByUserIdAndKnowledgeIdAndScore.size());

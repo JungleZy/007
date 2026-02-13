@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.PojoUtils;
 import com.nip.dao.TheoryKnowledgeQuestionDao;
 import com.nip.dao.TheoryKnowledgeQuestionLevelDao;
 import com.nip.dao.UserDao;
@@ -134,8 +135,7 @@ public class TheoryKnowledgeQuestionService {
       }
     }
     ids = new ArrayList<>();
-    List<TheoryKnowledgeQuestionAllDto> theoryKnowledgeQuestionAllDtos = JSONUtils.fromJson(JSONUtils.toJson(allByIdIn), new TypeToken<>() {
-    });
+    List<TheoryKnowledgeQuestionAllDto> theoryKnowledgeQuestionAllDtos = PojoUtils.convert(allByIdIn, TheoryKnowledgeQuestionAllDto.class);
 
     List<UserEntity> userList = userDao.findAll().list();
     Map<String, List<UserEntity>> userMap = userList.stream().collect(Collectors.groupingBy(UserEntity::getId));

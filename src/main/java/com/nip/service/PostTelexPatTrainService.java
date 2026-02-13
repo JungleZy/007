@@ -3,8 +3,11 @@ package com.nip.service;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
+import com.nip.common.utils.CheckUtils;
+import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
-import com.nip.common.utils.*;
+import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.TelexPatUtils;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
 import com.nip.dao.PostTelexPatTrainPageDao;
@@ -199,7 +202,7 @@ public class PostTelexPatTrainService {
       entity.setStartTime(LocalDateTime.now());
       return PojoUtils.convertOne(postTelexPatTrainDao.save(entity), PostTelexPatTrainVO.class);
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("开始训练失败，训练ID: {}", param.getId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -217,7 +220,7 @@ public class PostTelexPatTrainService {
       postTelexPatTrainEntity.setTotalSpeed(param.getTotalSpeed());
       return PojoUtils.convertOne(postTelexPatTrainDao.save(postTelexPatTrainEntity), PostTelexPatTrainVO.class);
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("完成训练失败，训练ID: {}", param.getId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -908,7 +911,7 @@ public class PostTelexPatTrainService {
       int errorNumber = 0;
 
       // 不规次数
-      int lrregularity = 0;
+      int irregularityCount = 0;
 
       // 全部解析后的数据
       List<List<List<String>>> totalPageData = new ArrayList<>();
@@ -970,7 +973,7 @@ public class PostTelexPatTrainService {
                   // 4567
                   String s = split[split.length - 1];
                   rowList.set(rowList.size() - 1, s);
-                  lrregularity++;
+                  irregularityCount++;
                 }
                 errorNumber++;
               }
@@ -978,7 +981,7 @@ public class PostTelexPatTrainService {
               else if (PATTERN_REG_4.matcher(group).matches() && group.length() != 4) {
                 if (groups.length - 1 >= z + 1) {
                   rowList.add(groups[z + 1]);
-                  lrregularity++;
+                  irregularityCount++;
                   errorNumber++;
                   z++;
                 } else {
@@ -989,7 +992,7 @@ public class PostTelexPatTrainService {
               else if (Objects.equals("/", group)) {
                 if (groups.length - 1 >= z + 1 && !rowList.isEmpty()) {
                   rowList.set(rowList.size() - 1, groups[z + 1]);
-                  lrregularity++;
+                  irregularityCount++;
                   errorNumber++;
                   z++;
                 } else {
@@ -1002,13 +1005,13 @@ public class PostTelexPatTrainService {
                 String nextGroup = groups[z + 1];
                 groups[z + 1] = nextGroup.substring(1);
                 rowList.add(group + nextGroup.charAt(0));
-                lrregularity++;
+                irregularityCount++;
               }
               // 五三码 23456 789 => 2345 6789
               else if (group.length() == 5 && (groups.length - 1 > z + 1) && (groups[z + 1].length() == 3)) {
                 groups[z + 1] = group.charAt(group.length() - 1) + groups[z + 1];
                 rowList.add(group.substring(0, group.length() - 1));
-                lrregularity++;
+                irregularityCount++;
               }
               // 行尾修改
               else if (rowList.size() >= 10 && PATTERN_REG_5.matcher(group).matches()) {
@@ -1221,13 +1224,13 @@ public class PostTelexPatTrainService {
                 String nextGroup = groups[z + 1];
                 groups[z + 1] = nextGroup.substring(1);
                 rowList.add(group + nextGroup.charAt(0));
-                lrregularity++;
+                irregularityCount++;
               }
               // 五三码 23456 789 => 2345 6789
               else if (group.length() == 5 && (groups.length - 1 > z + 1) && (groups[z + 1].length() == 3)) {
                 groups[z + 1] = group.charAt(group.length() - 1) + groups[z + 1];
                 rowList.add(group.substring(0, group.length() - 1));
-                lrregularity++;
+                irregularityCount++;
               }
               // 如果都不符合上面的条件，则视为正常内容，放入到这行中
               else {
@@ -1245,12 +1248,11 @@ public class PostTelexPatTrainService {
 
       ret.put("data", totalPageData);
       ret.put("errorNumber", errorNumber);
-      ret.put("irregularityNumber", lrregularity);
+      ret.put("irregularityNumber", irregularityCount);
 
       return ret;
     } catch (Exception e) {
-      log.error("解析出错：{}", e.getMessage());
-      e.printStackTrace();
+      log.error("解析报文出错", e);
       throw new RuntimeException(e);
     }
   }

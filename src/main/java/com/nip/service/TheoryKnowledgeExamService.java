@@ -65,7 +65,7 @@ public class TheoryKnowledgeExamService {
   @Transactional
   public Response<Void> saveTheoryKnowledgeExam(String token, TheoryKnowledgeExamDto dto) {
     UserEntity userEntity = userService.getUserByToken(token);
-    TheoryKnowledgeExamEntity entity = JSONUtils.fromJson(JSONUtils.toJson(dto), TheoryKnowledgeExamEntity.class);
+    TheoryKnowledgeExamEntity entity = PojoUtils.convertOne(dto, TheoryKnowledgeExamEntity.class);
     entity.setCreateUserId(userEntity.getId());
     entity.setState(1);
     TheoryKnowledgeExamEntity save = theoryKnowledgeExamDao.save(entity);

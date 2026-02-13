@@ -108,7 +108,7 @@ public class PostMilitaryTermTrainService {
         v.setTypes(names);
       });
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("创建军事术语训练失败", e);
       throw new RuntimeException(e);
     }
   }

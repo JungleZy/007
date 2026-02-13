@@ -168,10 +168,7 @@ public class TickerTapeTrainService {
   public void saveStatistical(UserEntity userEntity, TickerTapeTrainEntity entity) {
     //统计科式/基础
     Map<String, Object> map = tickerTapeTrainDao.countBaseTrain(userEntity.getId(), entity.getType());
-    TickerTapeTrainStatisticalEntity statisticalEntity = JSONUtils.fromJson(JSONUtils.toJson(map),
-        new TypeToken<>() {
-        }
-    );
+    TickerTapeTrainStatisticalEntity statisticalEntity = PojoUtils.convertOne(map, TickerTapeTrainStatisticalEntity.class);
     TickerTapeTrainStatisticalEntity queryStatisticalEntity;
     if (entity.getType().compareTo(TickerTapeTrainTypeEnum.COD.getCode()) == 0) {
       queryStatisticalEntity = statisticalDao.findByUserIdAndType(

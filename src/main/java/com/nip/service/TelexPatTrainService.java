@@ -55,7 +55,7 @@ public class TelexPatTrainService {
   public Response<TelexPatTrainEntity> saveTexPatTrain(String token, TelexPatTrainDto dto) {
     try {
       UserEntity userEntity = userService.getUserByToken(token);
-      TelexPatTrainEntity telexPatTrainEntity = JSONUtils.fromJson(JSONUtils.toJson(dto), TelexPatTrainEntity.class);
+      TelexPatTrainEntity telexPatTrainEntity = PojoUtils.convertOne(dto, TelexPatTrainEntity.class);
       if (telexPatTrainEntity != null && telexPatTrainEntity.getId() != null) {
         TelexPatTrainEntity byId = telexPatTrainDao.findById(telexPatTrainEntity.getId());
         if (byId == null) {

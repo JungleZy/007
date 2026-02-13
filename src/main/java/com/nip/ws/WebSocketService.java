@@ -3,6 +3,7 @@ package com.nip.ws;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.PojoUtils;
 import com.nip.entity.TelegramTrainFloorContentEntity;
 import com.nip.entity.TelegramTrainLogEntity;
 import com.nip.service.event.WebSocketEventService;
@@ -111,14 +112,14 @@ public class WebSocketService {
     if (model != null) {
       switch (new BigDecimal(model.get("code").toString()).intValue()) {
         case 2001:
-          TelegramTrainLogEntity telegramTrainLogEntity = JSONUtils.fromJson(JSONUtils.toJson(model.get("data")), TelegramTrainLogEntity.class);
+          TelegramTrainLogEntity telegramTrainLogEntity = PojoUtils.convertOne(model.get("data"), TelegramTrainLogEntity.class);
           CompletableFuture.runAsync(() -> {
             webSocketEventService.saveTelegramTrainLog(telegramTrainLogEntity);
             log.info("更新手键日志");
           });
           break;
         case 3001:
-          TelegramTrainFloorContentEntity contentEntity = JSONUtils.fromJson(JSONUtils.toJson(model.get("data")), TelegramTrainFloorContentEntity.class);
+          TelegramTrainFloorContentEntity contentEntity = PojoUtils.convertOne(model.get("data"), TelegramTrainFloorContentEntity.class);
           CompletableFuture.runAsync(() -> {
             webSocketEventService.saveTelegramTrainFloorContentEntity(contentEntity);
             log.info("更新key and time ");

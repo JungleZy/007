@@ -6,25 +6,58 @@ import com.nip.common.PageInfo;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.constants.PostTelegramTrainEnum;
 import com.nip.common.constants.PostTelegramTrainTypeEnum;
+import com.nip.common.constants.TrainConstants;
 import com.nip.common.response.Response;
-import com.nip.common.utils.*;
+import com.nip.common.utils.ArraysSafeUtils;
+import com.nip.common.utils.GlobalMessageGeneratedUtil;
+import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.Page;
+import com.nip.common.utils.PojoUtils;
 import com.nip.controller.general.GeneralKeyPatTrainController;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.UserDao;
-import com.nip.dao.general.key.*;
+import com.nip.dao.general.key.GeneralKeyPatDao;
+import com.nip.dao.general.key.GeneralKeyPatPageDao;
+import com.nip.dao.general.key.GeneralKeyPatTrainMoreDao;
+import com.nip.dao.general.key.GeneralKeyPatUserDao;
+import com.nip.dao.general.key.GeneralKeyPatUserValueDao;
+import com.nip.dao.general.key.GeneralKeyPatUserValueResolverDao;
 import com.nip.dto.KeyPatPageTransferDto;
 import com.nip.dto.KeyPatStatisticalDto;
 import com.nip.dto.KeyPatValueTransferDto;
 import com.nip.dto.PostKeyPatTrainRuleDto;
-import com.nip.dto.general.*;
-import com.nip.dto.general.statistic.*;
+import com.nip.dto.general.AvgResult;
+import com.nip.dto.general.GeneralKeyPatAddParamDto;
+import com.nip.dto.general.GeneralKeyPatFinishDto;
+import com.nip.dto.general.GeneralKeyPatPageDetailDto;
+import com.nip.dto.general.GeneralKeyPatPageDto;
+import com.nip.dto.general.GeneralKeyPatPageParamDto;
+import com.nip.dto.general.GeneralKeyPatPageSubmitDto;
+import com.nip.dto.general.GeneralKeyPatPageSyncDto;
+import com.nip.dto.general.GeneralKeyPatSyncDto;
+import com.nip.dto.general.GeneralKeyPatTrainDto;
+import com.nip.dto.general.GeneralKeyPatTrainMoreSyncDto;
+import com.nip.dto.general.GeneralKeyPatTrainUserValueVO;
+import com.nip.dto.general.GeneralKeyPatTrainVO;
+import com.nip.dto.general.GeneralKeyPatUserInfoVO;
+import com.nip.dto.general.GeneralKeyPatUserSyncDto;
+import com.nip.dto.general.GeneralKeyPatUserValueSyncDto;
+import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.dto.general.UserSyncDto;
+import com.nip.dto.general.statistic.GeneralKeyPatTrainErrorCollect;
+import com.nip.dto.general.statistic.GeneralKeyPatTrainStatisticVO;
 import com.nip.dto.vo.PostTelegraphKeyPatResolverDetailVO;
 import com.nip.dto.vo.PostTelegraphKeyPatTrainPageAnalyzeVO;
 import com.nip.dto.vo.PostTelegraphKeyPatTrainPageMessageVO;
 import com.nip.dto.vo.PostTelegraphKeyPatTrainPageVO;
 import com.nip.entity.GradingRuleEntity;
 import com.nip.entity.UserEntity;
-import com.nip.entity.simulation.key.*;
+import com.nip.entity.simulation.key.GeneralKeyPatEntity;
+import com.nip.entity.simulation.key.GeneralKeyPatPageEntity;
+import com.nip.entity.simulation.key.GeneralKeyPatTrainMoreEntity;
+import com.nip.entity.simulation.key.GeneralKeyPatUserEntity;
+import com.nip.entity.simulation.key.GeneralKeyPatUserValueEntity;
+import com.nip.entity.simulation.key.GeneralKeyPatUserValueResolverEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketGeneralKeyPatService;
@@ -34,6 +67,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,8 +76,10 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.nip.common.utils.PatTrainStatisticsBuilder;
 import static com.nip.common.utils.KeyPatUtils.handle;
 
+@Slf4j
 @ApplicationScoped
 public class GeneralKeyPatService {
   public static final String REGEX = "[],\"]";
@@ -126,12 +162,7 @@ public class GeneralKeyPatService {
     // 生成报文begin
     if (param.getIsCable() == 0) {
       Integer messageNumber = param.getTotalNumber();
-      int generate = 0;
-      if (messageNumber > 200) {
-        generate = 200;
-      } else {
-        generate = messageNumber;
-      }
+      int generate = Math.min(messageNumber, TrainConstants.MAX_GENERATE_MESSAGE_COUNT);
       Integer type = param.getMessageType();
 
       List<GeneralKeyPatPageEntity> ret = new ArrayList<>();
@@ -172,6 +203,8 @@ public class GeneralKeyPatService {
           param.getStartPage());
       int totalPage = param.getTotalNumber() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
+      // 使用批量保存替代循环逐条保存，提升性能
+      List<GeneralKeyPatPageEntity> pageEntities = new ArrayList<>();
       for (int i = 0; i < cableFloor.size(); i++) {
         for (int j = 0; j < cableFloor.get(i).size(); j++) {
           GeneralKeyPatPageEntity pageEntity = new GeneralKeyPatPageEntity();
@@ -181,9 +214,10 @@ public class GeneralKeyPatService {
           pageEntity.setPageNumber(i + 1);
           pageEntity.setSort(j);
           pageEntity.setValue("[]");
-          trainPageDao.save(pageEntity);
+          pageEntities.add(pageEntity);
         }
       }
+      trainPageDao.save(pageEntities);
     }
 
     // 生成报文end
@@ -266,8 +300,7 @@ public class GeneralKeyPatService {
         GeneralKeyPatTrainVO.class,
         (e, v) -> {
           v.setUserInfoList(
-              JSONUtils.fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMap(e.getId())), new TypeToken<>() {
-              }));
+              PojoUtils.convert(trainUserDao.findByTrainIdToMap(e.getId()), GeneralKeyPatUserInfoVO.class));
           v.setRuleContent(null);
         });
     PageInfo<GeneralKeyPatTrainVO> pageInfo = new PageInfo<>();
@@ -293,9 +326,8 @@ public class GeneralKeyPatService {
         patTrainVO.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
       // 查询该训练的所有参与用户信息
-      List<GeneralKeyPatUserInfoVO> userInfoList = JSONUtils
-          .fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMap(param.getTrainId())), new TypeToken<>() {
-          });
+      List<GeneralKeyPatUserInfoVO> userInfoList = PojoUtils.convert(
+          trainUserDao.findByTrainIdToMap(param.getTrainId()), GeneralKeyPatUserInfoVO.class);
       patTrainVO.setUserInfoList(userInfoList);
 
       // 查询每个用户在线状态
@@ -316,7 +348,7 @@ public class GeneralKeyPatService {
       }
       return patTrainVO;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询训练详情失败，训练ID: {}", param.getTrainId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -411,7 +443,7 @@ public class GeneralKeyPatService {
       });
       return userInfoList;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("完成训练失败，训练ID: {}", dto.getTrainId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -511,7 +543,7 @@ public class GeneralKeyPatService {
       }
       return ret;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("获取训练页面失败，训练ID: {}, 页码: {}", trainId, pageNumber, e);
       throw new RuntimeException(e);
     }
   }
@@ -544,25 +576,31 @@ public class GeneralKeyPatService {
       List<GeneralKeyPatUserEntity> trainUserEntities) {
     // 结果集
     GeneralKeyPatTrainStatisticVO ret = new GeneralKeyPatTrainStatisticVO();
-    // 成绩分布
-    GeneralPatTrainSchoolReportVO reportVO = new GeneralPatTrainSchoolReportVO();
-    // 本次成绩和上次成绩对比
-    List<GeneralPatTrainUserTendencyVO> userTendencyVOS = new ArrayList<>();
-    int good = 0;
-    int nice = 0;
-    int belowStandard = 0;
+    // 错情统计
     GeneralKeyPatTrainErrorCollect errorCollect = new GeneralKeyPatTrainErrorCollect();
+
+    // 使用构建器模式重构统计逻辑
+    PatTrainStatisticsBuilder<GeneralKeyPatUserEntity, GeneralKeyPatTrainErrorCollect> builder =
+        PatTrainStatisticsBuilder.<GeneralKeyPatUserEntity, GeneralKeyPatTrainErrorCollect>create(trainUserEntities)
+            .withScoreExtractor(GeneralKeyPatUserEntity::getScore)
+            .withUserIdExtractor(GeneralKeyPatUserEntity::getUserId)
+            .withDeductInfoExtractor(GeneralKeyPatUserEntity::getDeductInfo)
+            .withCreateTimeExtractor(GeneralKeyPatUserEntity::getCreateTime)
+            .calculateScoreDistribution()
+            .buildUserTendencies(
+                userId -> {
+                  UserEntity userEntity = userService.getUserByIdNew(userId);
+                  return userEntity != null
+                      ? new PatTrainStatisticsBuilder.UserInfo(userEntity.getId(), userEntity.getUserName(), userEntity.getUserImg())
+                      : null;
+                },
+                (userId, createTime) -> trainUserDao.findByFistTwoScore(userId, createTime)
+            );
+
+    // 合并错误统计
     for (GeneralKeyPatUserEntity trainUser : trainUserEntities) {
-      BigDecimal score = trainUser.getScore();
-      if (score.compareTo(new BigDecimal(90)) > -1) {
-        good++;
-      } else if (score.compareTo(new BigDecimal(70)) > -1) {
-        nice++;
-      } else {
-        belowStandard++;
-      }
       if (CharSequenceUtil.isNotBlank(trainUser.getDeductInfo())) {
-        GeneralKeyPatTrainErrorCollect userError = com.nip.common.utils.JSONUtils.fromJson(trainUser.getDeductInfo(),
+        GeneralKeyPatTrainErrorCollect userError = JSONUtils.fromJson(trainUser.getDeductInfo(),
             GeneralKeyPatTrainErrorCollect.class);
         if (userError != null) {
           errorCollect.setErrorNumber(errorCollect.getErrorNumber() + userError.getErrorNumber());
@@ -574,57 +612,11 @@ public class GeneralKeyPatService {
           errorCollect.setMoreGroupNumber(errorCollect.getMoreGroupNumber() + userError.getMoreGroupNumber());
         }
       }
-
-      // 统计参训人拍发态势 本次本次训练和与上次训练分数对比
-      String userId = trainUser.getUserId();
-      LocalDateTime createTime = trainUser.getCreateTime();
-      UserEntity userEntity = userService.getUserByIdNew(userId);
-      if (null == userEntity) {
-        break;
-      }
-      GeneralPatTrainUserTendencyVO userTendencyVO = new GeneralPatTrainUserTendencyVO();
-      userTendencyVO.setUserId(userId);
-      userTendencyVO.setUserName(userEntity.getUserName());
-      userTendencyVO.setUserImg(userEntity.getUserImg());
-      userTendencyVO.setThisScore(trainUser.getScore());
-      List<BigDecimal> fistTwoScore = trainUserDao.findByFistTwoScore(userId, createTime);
-      userTendencyVO.setLastScore(ArraySafeGetUtils.get(fistTwoScore, 0, BigDecimal.ZERO));
-      userTendencyVO.setLastLastScore(ArraySafeGetUtils.get(fistTwoScore, 1, BigDecimal.ZERO));
-      userTendencyVOS.add(userTendencyVO);
     }
 
-    BigDecimal scale = new BigDecimal(100);
-    BigDecimal totalNumber = new BigDecimal(trainUserEntities.size());
-    // 优秀
-    GeneralPatTrainScoreInfoVO goodInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal goodRate = good == 0 ? BigDecimal.ZERO
-        : new BigDecimal(good).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    goodInfo.setRate(goodRate);
-    goodInfo.setPeopleNumber(good);
-    reportVO.setGood(goodInfo);
-    // 良好
-    GeneralPatTrainScoreInfoVO niceInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal niceRate = nice == 0 ? BigDecimal.ZERO
-        : new BigDecimal(nice).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    niceInfo.setPeopleNumber(nice);
-    niceInfo.setRate(niceRate);
-    reportVO.setNice(niceInfo);
-    // 差
-    GeneralPatTrainScoreInfoVO belowStandardInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal belowStandardRate = belowStandard == 0 ? BigDecimal.ZERO
-        : new BigDecimal(belowStandard).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    belowStandardInfo.setPeopleNumber(belowStandard);
-    belowStandardInfo.setRate(belowStandardRate);
-    reportVO.setBelowStandard(belowStandardInfo);
-
-    // 封装成绩信息
-    ret.setSchoolReport(reportVO);
-    // 封装用户上次训练得分和本次训练得分对比
-    ret.setUserTendencyVO(userTendencyVOS);
-    // 设置错情统计
+    // 封装结果
+    ret.setSchoolReport(builder.getSchoolReport());
+    ret.setUserTendencyVO(builder.getUserTendencies());
     ret.setErrorCollect(errorCollect);
     return ret;
   }
@@ -644,7 +636,7 @@ public class GeneralKeyPatService {
     String ruleContent = ruleEntity.getContent();
     PostKeyPatTrainRuleDto rule = JSONUtils.fromJson(ruleContent, PostKeyPatTrainRuleDto.class);
     // 积分规则
-    KeyPatStatisticalDto ks = new KeyPatStatisticalDto();
+    KeyPatStatisticalDto keyPatStatistics = new KeyPatStatisticalDto();
     // 得到已存在的页
     List<Integer> pageNumbers = userValueDao.findPageNumberByTrainIdAndUserId(entity.getId(), userId);
     // 创建每页的处理结果，该结果会在每页处理完毕后替换旧的page_value数据
@@ -657,16 +649,16 @@ public class GeneralKeyPatService {
           userValueDao.findByTrainIdAndPageNumberAndUserIdOrderBySort(entity.getId(), pageNumber, userId),
           KeyPatValueTransferDto.class);
       List<KeyPatValueTransferDto> pageResult = new ArrayList<>();
-      handle(userId, pageResult, userPages, userPageValues, ks);
+      handle(userId, pageResult, userPages, userPageValues, keyPatStatistics);
       pageValueResult.addAll(pageResult);
     });
-    List<GeneralKeyPatUserValueResolverEntity> pv = PojoUtils.convert(pageValueResult,
+    List<GeneralKeyPatUserValueResolverEntity> resolverEntities = PojoUtils.convert(pageValueResult,
         GeneralKeyPatUserValueResolverEntity.class);
     resolverDao.deleteByTrainIdAndUserId(entity.getId(), userId);
-    resolverDao.saveAndFlush(pv);
-    List<GeneralKeyPatUserValueEntity> pvv = PojoUtils.convert(pageValueResult, GeneralKeyPatUserValueEntity.class);
+    resolverDao.saveAndFlush(resolverEntities);
+    List<GeneralKeyPatUserValueEntity> userValueEntities = PojoUtils.convert(pageValueResult, GeneralKeyPatUserValueEntity.class);
     userValueDao.deleteByTrainIdAndUserId(entity.getId(), userId);
-    userValueDao.saveAndFlush(pvv);
+    userValueDao.saveAndFlush(userValueEntities);
 
     // 计算少页
     Integer tp = entity.getTotalNumber();
@@ -688,36 +680,36 @@ public class GeneralKeyPatService {
       for (int i = 0; i < totalPageNumberList.size(); i++) {
         if (i == totalPageNumberList.size() - 1) {
           if (tp % 100 == 0) {
-            ks.setLackLine(ks.getLackLine() + 10);
+            keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + 10);
           } else {
             // 余数
             int clout = tp % 100;
-            ks.setLackLine(ks.getLackLine() + clout / 10);
+            keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + clout / 10);
             if (clout % 10 > 0) {
-              ks.setMoreGroup(ks.getMoreGroup() + clout % 10);
+              keyPatStatistics.setMoreGroup(keyPatStatistics.getMoreGroup() + clout % 10);
             }
           }
         } else {
-          ks.setLackLine(ks.getLackLine() + 10);
+          keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + 10);
         }
       }
       if (remaining > 0) {
-        ks.setLackGroup(ks.getLackGroup() + (totalPageNumber - 1 - pageNumbers.size()) * 100 + remaining);
-        ks.setLackLine(ks.getLackLine() +
+        keyPatStatistics.setLackGroup(keyPatStatistics.getLackGroup() + (totalPageNumber - 1 - pageNumbers.size()) * 100 + remaining);
+        keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() +
             (totalPageNumber - 1 - pageNumbers.size()) *
                 10
-            + (remaining / 10) - (ks.getPatGroup() / 10 + 1));
+            + (remaining / 10) - (keyPatStatistics.getPatGroup() / 10 + 1));
       } else {
-        ks.setLackGroup(ks.getLackGroup() + (totalPageNumber - pageNumbers.size()) * 100);
-        ks.setLackLine(ks.getLackLine() + (totalPageNumber - pageNumbers.size()) * 10 - (ks.getPatGroup() / 10 + 1));
+        keyPatStatistics.setLackGroup(keyPatStatistics.getLackGroup() + (totalPageNumber - pageNumbers.size()) * 100);
+        keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + (totalPageNumber - pageNumbers.size()) * 10 - (keyPatStatistics.getPatGroup() / 10 + 1));
       }
     }
 
     // 计算速率 拍发个数/训练时长*60
     BigDecimal speed = new BigDecimal("0");
-    if (ks.getPat() != 0) {
-      speed = new BigDecimal(ks.getPat()).divide(new BigDecimal(4), 10, RoundingMode.HALF_UP)
-          .divide(new BigDecimal(ks.getPatTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10,
+    if (keyPatStatistics.getPat() != 0) {
+      speed = new BigDecimal(keyPatStatistics.getPat()).divide(new BigDecimal(4), 10, RoundingMode.HALF_UP)
+          .divide(new BigDecimal(keyPatStatistics.getPatTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10,
               RoundingMode.HALF_UP)
           .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
     }
@@ -725,14 +717,14 @@ public class GeneralKeyPatService {
     kehPatUserEntity.setSpeed(String.valueOf(speed));
 
     // 错误个数
-    kehPatUserEntity.setErrorNumber(ks.getError());
+    kehPatUserEntity.setErrorNumber(keyPatStatistics.getError());
 
     BigDecimal accuracy = new BigDecimal("0");
-    int errorTotal = ks.getPatGroup() - ks.getError() - ks.getBunchGroup() - ks.getLack() - ks.getMore();
+    int errorTotal = keyPatStatistics.getPatGroup() - keyPatStatistics.getError() - keyPatStatistics.getBunchGroup() - keyPatStatistics.getLack() - keyPatStatistics.getMore();
     if (errorTotal != 0) {
       // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
       accuracy = new BigDecimal(errorTotal).divide(
-          new BigDecimal(ks.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
+          new BigDecimal(keyPatStatistics.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
     }
 
     kehPatUserEntity.setAccuracy(accuracy.toString());
@@ -740,46 +732,46 @@ public class GeneralKeyPatService {
     // 得到要扣的分
     String minus = "-";
     BigDecimal score = new BigDecimal(ruleEntity.getScore());
-    BigDecimal errorScore = rule.getOther().getErrorCode().multiply(new BigDecimal(ks.getError()));
-    deductInfo.put("errorNumber", ks.getError());
+    BigDecimal errorScore = rule.getOther().getErrorCode().multiply(new BigDecimal(keyPatStatistics.getError()));
+    deductInfo.put("errorNumber", keyPatStatistics.getError());
     deductInfo.put("errorScore", minus + errorScore);
 
-    BigDecimal lackScore = rule.getOther().getMuchLessCode().multiply(new BigDecimal(ks.getLack()));
-    deductInfo.put("lackNumber", ks.getLack());
+    BigDecimal lackScore = rule.getOther().getMuchLessCode().multiply(new BigDecimal(keyPatStatistics.getLack()));
+    deductInfo.put("lackNumber", keyPatStatistics.getLack());
     deductInfo.put("lackScore", minus + lackScore);
 
-    BigDecimal moreScore = rule.getOther().getMuchLessCode().multiply(new BigDecimal(ks.getMore()));
-    deductInfo.put("moreNumber", ks.getMore());
+    BigDecimal moreScore = rule.getOther().getMuchLessCode().multiply(new BigDecimal(keyPatStatistics.getMore()));
+    deductInfo.put("moreNumber", keyPatStatistics.getMore());
     deductInfo.put("moreScore", minus + moreScore);
 
-    BigDecimal lackLineScore = rule.getOther().getMuchLessLine().multiply(new BigDecimal(ks.getLackLine()));
-    deductInfo.put("lackLineNumber", ks.getLackLine());
+    BigDecimal lackLineScore = rule.getOther().getMuchLessLine().multiply(new BigDecimal(keyPatStatistics.getLackLine()));
+    deductInfo.put("lackLineNumber", keyPatStatistics.getLackLine());
     deductInfo.put("lackLineScore", minus + lackLineScore);
 
-    BigDecimal moreLineScore = rule.getOther().getMuchLessLine().multiply(new BigDecimal(ks.getMoreLine()));
-    deductInfo.put("moreLineNumber", ks.getMoreLine());
+    BigDecimal moreLineScore = rule.getOther().getMuchLessLine().multiply(new BigDecimal(keyPatStatistics.getMoreLine()));
+    deductInfo.put("moreLineNumber", keyPatStatistics.getMoreLine());
     deductInfo.put("moreLineScore", minus + moreLineScore);
 
-    BigDecimal lackGroupScore = rule.getOther().getMuchLessGroups().multiply(new BigDecimal(ks.getLackGroup()));
-    deductInfo.put("lackGroupNumber", ks.getLackGroup());
+    BigDecimal lackGroupScore = rule.getOther().getMuchLessGroups().multiply(new BigDecimal(keyPatStatistics.getLackGroup()));
+    deductInfo.put("lackGroupNumber", keyPatStatistics.getLackGroup());
     deductInfo.put("lackGroupScore", minus + lackGroupScore);
 
-    BigDecimal moreGroupScore = rule.getOther().getMuchLessGroups().multiply(new BigDecimal(ks.getMoreGroup()));
-    deductInfo.put("moreGroupNumber", ks.getMoreGroup());
+    BigDecimal moreGroupScore = rule.getOther().getMuchLessGroups().multiply(new BigDecimal(keyPatStatistics.getMoreGroup()));
+    deductInfo.put("moreGroupNumber", keyPatStatistics.getMoreGroup());
     deductInfo.put("moreGroupScore", minus + moreGroupScore);
 
     // 改错
-    BigDecimal alterScore = rule.getOther().getAlterError().multiply(new BigDecimal(ks.getAlterError()));
-    deductInfo.put("alterErrorNumber", ks.getAlterError());
+    BigDecimal alterScore = rule.getOther().getAlterError().multiply(new BigDecimal(keyPatStatistics.getAlterError()));
+    deductInfo.put("alterErrorNumber", keyPatStatistics.getAlterError());
     deductInfo.put("alterErrorScore", minus + alterScore);
 
     // 串组
-    BigDecimal bunchGroupScore = rule.getOther().getBunchGroup().multiply(new BigDecimal(ks.getBunchGroup()));
-    deductInfo.put("bunchGroupNumber", ks.getBunchGroup());
+    BigDecimal bunchGroupScore = rule.getOther().getBunchGroup().multiply(new BigDecimal(keyPatStatistics.getBunchGroup()));
+    deductInfo.put("bunchGroupNumber", keyPatStatistics.getBunchGroup());
     deductInfo.put("bunchGroupScore", minus + bunchGroupScore);
     // 少间隔
-    BigDecimal lackGapScore = rule.getOther().getLessGap().multiply(new BigDecimal(ks.getLackGap()));
-    deductInfo.put("lackGapNumber", ks.getLackGap());
+    BigDecimal lackGapScore = rule.getOther().getLessGap().multiply(new BigDecimal(keyPatStatistics.getLackGap()));
+    deductInfo.put("lackGapNumber", keyPatStatistics.getLackGap());
     deductInfo.put("lackGapScore", minus + lackGapScore);
 
     score = score.subtract(errorScore)
@@ -823,8 +815,8 @@ public class GeneralKeyPatService {
    */
   public List<GeneralPatTrainUserDto> findUserInfo(Integer trainId) {
     GeneralKeyPatTrainController gGeneralKeyPatTrainController = new GeneralKeyPatTrainController();
-    Response<List<GeneralPatTrainUserDto>> oneLien = gGeneralKeyPatTrainController.getOneLien(trainId);
-    return oneLien.getData();
+    Response<List<GeneralPatTrainUserDto>> oneLine = gGeneralKeyPatTrainController.getOneLine(trainId);
+    return oneLine.getData();
   }
 
   public List<BigDecimal> score() {

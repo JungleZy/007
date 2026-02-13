@@ -4,6 +4,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.constants.SimulationDisturdTopicEnum;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.PojoUtils;
 import com.nip.dao.UserDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
 import com.nip.dao.simulation.SimulationRouterRoomUserDao;
@@ -76,7 +77,7 @@ public class WebSocketSimulationService {
       roomUserMap.setUserImg(userEntity.getUserImg());
       roomUserMap.setChannel(-1);
     }
-    this.userModel = JSONUtils.fromJson(JSONUtils.toJson(roomUserMap), SimulationUserModel.class);
+    this.userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
     if (userModel != null) {
       userModel.setStatus(1);
     }

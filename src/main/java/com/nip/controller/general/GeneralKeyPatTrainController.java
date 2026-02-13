@@ -28,7 +28,7 @@ public class GeneralKeyPatTrainController {
   @GET
   @Path("/getOneline/{trainId}")
   @Operation(summary = "获取在线人数")
-  public Response<List<GeneralPatTrainUserDto>> getOneLien(@RestQuery(TRAIN_ID) Integer trainId) {
+  public Response<List<GeneralPatTrainUserDto>> getOneLine(@RestQuery(TRAIN_ID) Integer trainId) {
     GeneralPatTrainRoomUserDto trainRoomUser = WebSocketGeneralKeyPatService.ROOM.get(trainId);
     if (trainRoomUser == null) {
       return ResponseResult.success(new ArrayList<>());

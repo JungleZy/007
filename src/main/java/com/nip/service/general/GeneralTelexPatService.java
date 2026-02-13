@@ -52,6 +52,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import com.nip.common.utils.PatTrainStatisticsBuilder;
 import static com.nip.common.constants.PostTelexPatTrainStatusEnum.NOT_STARTED;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.bePointed;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.generatedNumber;
@@ -187,9 +188,8 @@ public class GeneralTelexPatService {
           all.getData(),
           GeneralTelexPatTrainVO.class,
           (e, v) -> {
-            v.setUserInfoList(JSONUtils.fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMapSimple(e.getId())),
-                new TypeToken<>() {
-                }));
+            v.setUserInfoList(PojoUtils.convert(trainUserDao.findByTrainIdToMapSimple(e.getId()),
+                GeneralTelexPatUserInfoVO.class));
             v.setRuleContent(null);
           });
       PageInfo<GeneralTelexPatTrainVO> pageInfo = new PageInfo<>();
@@ -200,7 +200,7 @@ public class GeneralTelexPatService {
       pageInfo.setData(convert);
       return pageInfo;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询训练列表失败", e);
       throw new RuntimeException(e);
     }
   }
@@ -215,9 +215,8 @@ public class GeneralTelexPatService {
         patTrainVO.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
       // 查询该训练的所有参与用户信息
-      List<GeneralTelexPatUserInfoVO> userInfoList = JSONUtils
-          .fromJson(JSONUtils.toJson(trainUserDao.findByTrainIdToMap(param.getTrainId())), new TypeToken<>() {
-          });
+      List<GeneralTelexPatUserInfoVO> userInfoList = PojoUtils.convert(
+          trainUserDao.findByTrainIdToMap(param.getTrainId()), GeneralTelexPatUserInfoVO.class);
       patTrainVO.setUserInfoList(userInfoList);
 
       // 查询每个用户在线状态
@@ -238,7 +237,7 @@ public class GeneralTelexPatService {
       }
       return patTrainVO;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询训练详情失败，训练ID: {}", param.getTrainId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -320,7 +319,7 @@ public class GeneralTelexPatService {
         }
       });
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询拍发详情失败，训练ID: {}", param.getTrainId(), e);
       throw new RuntimeException(e);
     }
 
@@ -425,7 +424,7 @@ public class GeneralTelexPatService {
       });
       return userInfoList;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("完成训练失败，训练ID: {}", dto.getTrainId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -472,7 +471,7 @@ public class GeneralTelexPatService {
 
       return ret;
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("获取训练页面失败，训练ID: {}, 页码: {}", trainId, pageNumber, e);
       throw new RuntimeException(e);
     }
   }
@@ -493,92 +492,50 @@ public class GeneralTelexPatService {
       List<GeneralTelexPatUserEntity> trainUserEntities) {
     // 结果集
     GeneralTelexPatTrainStatisticVO ret = new GeneralTelexPatTrainStatisticVO();
-    // 成绩分布
-    GeneralPatTrainSchoolReportVO reportVO = new GeneralPatTrainSchoolReportVO();
-    // 本次成绩和上次成绩对比
-    List<GeneralPatTrainUserTendencyVO> userTendencyVOS = new ArrayList<>();
-
-    int good = 0;
-    int nice = 0;
-    int belowStandard = 0;
+    // 错情统计
     GeneralTelexPatTrainErrorCollect errorCollect = new GeneralTelexPatTrainErrorCollect();
+
+    // 使用构建器模式重构统计逻辑
+    PatTrainStatisticsBuilder<GeneralTelexPatUserEntity, GeneralTelexPatTrainErrorCollect> builder =
+        PatTrainStatisticsBuilder.<GeneralTelexPatUserEntity, GeneralTelexPatTrainErrorCollect>create(trainUserEntities)
+            .withScoreExtractor(GeneralTelexPatUserEntity::getScore)
+            .withUserIdExtractor(GeneralTelexPatUserEntity::getUserId)
+            .withDeductInfoExtractor(GeneralTelexPatUserEntity::getDeductInfo)
+            .withCreateTimeExtractor(GeneralTelexPatUserEntity::getCreateTime)
+            .withStatusExtractor(GeneralTelexPatUserEntity::getIsFinish)
+            .calculateScoreDistribution()
+            .buildUserTendencies(
+                userId -> {
+                  UserEntity userEntity = userService.getUserByIdNew(userId);
+                  return userEntity != null
+                      ? new PatTrainStatisticsBuilder.UserInfo(userEntity.getId(), userEntity.getUserName(), userEntity.getUserImg())
+                      : null;
+                },
+                (userId, createTime) -> trainUserDao.findByFistTwoScore(userId, createTime)
+            );
+
+    // 合并错误统计
     for (GeneralTelexPatUserEntity trainUser : trainUserEntities) {
-      BigDecimal score = trainUser.getScore();
-      if (score.compareTo(new BigDecimal(90)) > -1) {
-        good++;
-      } else if (score.compareTo(new BigDecimal(70)) > -1) {
-        nice++;
-      } else {
-        belowStandard++;
-      }
       if (CharSequenceUtil.isNotBlank(trainUser.getDeductInfo())) {
         GeneralTelexPatTrainErrorCollect userError = JSONUtils.fromJson(trainUser.getDeductInfo(),
             GeneralTelexPatTrainErrorCollect.class);
         if (userError != null) {
           errorCollect.setErrorCodeNumber(errorCollect.getErrorCodeNumber() + userError.getErrorCodeNumber());
           errorCollect.setErrorPageNumber(errorCollect.getErrorPageNumber() + userError.getErrorPageNumber());
-          errorCollect
-              .setCorrectMistakesNumber(errorCollect.getCorrectMistakesNumber() + userError.getCorrectMistakesNumber());
+          errorCollect.setCorrectMistakesNumber(errorCollect.getCorrectMistakesNumber() + userError.getCorrectMistakesNumber());
           errorCollect.setLessPageNumber(errorCollect.getLessPageNumber() + userError.getLessPageNumber());
-          errorCollect
-              .setLessReturnLineNumber(errorCollect.getLessReturnLineNumber() + userError.getLessReturnLineNumber());
+          errorCollect.setLessReturnLineNumber(errorCollect.getLessReturnLineNumber() + userError.getLessReturnLineNumber());
           errorCollect.setMuchLessCodeNumber(errorCollect.getMuchLessCodeNumber() + userError.getMuchLessCodeNumber());
-          errorCollect
-              .setMuchLessGroupsNumber(errorCollect.getMuchLessGroupsNumber() + userError.getMuchLessGroupsNumber());
+          errorCollect.setMuchLessGroupsNumber(errorCollect.getMuchLessGroupsNumber() + userError.getMuchLessGroupsNumber());
           errorCollect.setMuchLessLineNumber(errorCollect.getMuchLessLineNumber() + userError.getMuchLessLineNumber());
           errorCollect.setNonStandartNumber(errorCollect.getNonStandartNumber() + userError.getNonStandartNumber());
         }
       }
-      // 统计参训人拍发态势 本次本次训练和与上次训练分数对比
-      String userId = trainUser.getUserId();
-      LocalDateTime createTime = trainUser.getCreateTime();
-      UserEntity userEntity = userService.getUserByIdNew(userId);
-      if (null == userEntity) {
-        break;
-      }
-      GeneralPatTrainUserTendencyVO userTendencyVO = new GeneralPatTrainUserTendencyVO();
-      userTendencyVO.setUserId(userId);
-      userTendencyVO.setUserName(userEntity.getUserName());
-      userTendencyVO.setUserImg(userEntity.getUserImg());
-      userTendencyVO.setThisScore(trainUser.getScore());
-      userTendencyVO.setStatus(trainUser.getIsFinish());
-      List<BigDecimal> fistTwoScore = trainUserDao.findByFistTwoScore(userId, createTime);
-      userTendencyVO.setLastScore(ArraySafeGetUtils.get(fistTwoScore, 0, BigDecimal.ZERO));
-      userTendencyVO.setLastLastScore(ArraySafeGetUtils.get(fistTwoScore, 1, BigDecimal.ZERO));
-      userTendencyVOS.add(userTendencyVO);
     }
-    BigDecimal scale = new BigDecimal(100);
-    BigDecimal totalNumber = new BigDecimal(trainUserEntities.size());
-    // 优秀
-    GeneralPatTrainScoreInfoVO goodInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal goodRate = good == 0 ? BigDecimal.ZERO
-        : new BigDecimal(good).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    goodInfo.setRate(goodRate);
-    goodInfo.setPeopleNumber(good);
-    reportVO.setGood(goodInfo);
-    // 良好
-    GeneralPatTrainScoreInfoVO niceInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal niceRate = nice == 0 ? BigDecimal.ZERO
-        : new BigDecimal(nice).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    niceInfo.setPeopleNumber(nice);
-    niceInfo.setRate(niceRate);
-    reportVO.setNice(niceInfo);
-    // 差
-    GeneralPatTrainScoreInfoVO belowStandardInfo = new GeneralPatTrainScoreInfoVO();
-    BigDecimal belowStandardRate = belowStandard == 0 ? BigDecimal.ZERO
-        : new BigDecimal(belowStandard).divide(totalNumber, 10, RoundingMode.HALF_UP).multiply(scale).setScale(0,
-            RoundingMode.HALF_UP);
-    belowStandardInfo.setPeopleNumber(belowStandard);
-    belowStandardInfo.setRate(belowStandardRate);
-    reportVO.setBelowStandard(belowStandardInfo);
 
-    // 封装成绩信息
-    ret.setSchoolReport(reportVO);
-    // 封装用户上次训练得分和本次训练得分对比
-    ret.setUserTendencyVO(userTendencyVOS);
-    // 设置错情统计
+    // 封装结果
+    ret.setSchoolReport(builder.getSchoolReport());
+    ret.setUserTendencyVO(builder.getUserTendencies());
     ret.setErrorCollect(errorCollect);
     return ret;
   }

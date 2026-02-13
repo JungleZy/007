@@ -14,9 +14,21 @@ import com.nip.dto.PostTelegramTrainFinishDto;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.score.SpeedDeduct;
-import com.nip.dto.vo.*;
-import com.nip.dto.vo.param.*;
-import com.nip.entity.*;
+import com.nip.dto.vo.PostTelegramTrainAddContentValueVO;
+import com.nip.dto.vo.PostTelegramTrainContentVO;
+import com.nip.dto.vo.PostTelegramTrainResolverVO;
+import com.nip.dto.vo.PostTelegramTrainScoreVO;
+import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
+import com.nip.dto.vo.PostTelegramTrainVO;
+import com.nip.dto.vo.param.PostTelegramTrainAddParam;
+import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
+import com.nip.dto.vo.param.PostTelegramTrainFloorContentQueryParam;
+import com.nip.dto.vo.param.PostTelegramTrainQueryParam;
+import com.nip.entity.GradingRuleEntity;
+import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
+import com.nip.entity.PostTelegramTrainEntity;
+import com.nip.entity.PostTelegramTrainFloorContentEntity;
+import com.nip.entity.UserEntity;
 import io.quarkus.panache.common.Sort;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,7 +39,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -483,7 +500,7 @@ public class PostTelegramTrainService {
         r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
       });
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("完成训练失败，训练ID: {}", dto.getId(), e);
       throw e;
     }
   }

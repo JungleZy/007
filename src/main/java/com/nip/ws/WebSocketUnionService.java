@@ -204,7 +204,7 @@ public class WebSocketUnionService {
                       new ArrayList<>(onlineRooms.values()))
       )));
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("WebSocket连接建立失败", e);
     }
 
     //切换成工作线程
@@ -347,7 +347,7 @@ public class WebSocketUnionService {
         });
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("加入房间失败", e);
       sendInfo(session,
                new ResponseModel(UnionConstants.JOIN_ROOM_FAIL.getCode(), UnionConstants.JOIN_ROOM_FAIL.getContent())
       );

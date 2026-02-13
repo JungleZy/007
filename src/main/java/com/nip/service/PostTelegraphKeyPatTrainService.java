@@ -89,6 +89,8 @@ public class PostTelegraphKeyPatTrainService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(dto.getCableId(), null, dto.getStartPage());
       int totalPage = dto.getTotalNumber() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
+      // 使用批量保存替代循环逐条保存，提升性能
+      List<PostTelegraphKeyPatTrainPageEntity> pageEntities = new ArrayList<>();
       for (int i = 0; i < cableFloor.size(); i++) {
         for (int j = 0; j < cableFloor.get(i).size(); j++) {
           PostTelegraphKeyPatTrainPageEntity pageEntity = new PostTelegraphKeyPatTrainPageEntity();
@@ -98,9 +100,10 @@ public class PostTelegraphKeyPatTrainService {
           pageEntity.setValue("");
           pageEntity.setTime("[]");
           pageEntity.setTrainId(save.getId());
-          pageDao.save(pageEntity);
+          pageEntities.add(pageEntity);
         }
       }
+      pageDao.save(pageEntities);
     }
 
     return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);
@@ -137,7 +140,7 @@ public class PostTelegraphKeyPatTrainService {
       PostTelegraphKeyPatTrainEntity save = countScore(entity, dto);
       return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("完成训练失败，训练ID: {}", dto.getId(), e);
       throw new RuntimeException(e);
     }
   }
@@ -214,7 +217,7 @@ public class PostTelegraphKeyPatTrainService {
         }
       });
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询训练详情失败，训练ID: {}", id, e);
       throw new RuntimeException(e);
     }
   }
@@ -310,7 +313,7 @@ public class PostTelegraphKeyPatTrainService {
       }
       valueDao.persist(list);
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("保存训练页面内容失败", e);
       throw new RuntimeException(e);
     }
   }

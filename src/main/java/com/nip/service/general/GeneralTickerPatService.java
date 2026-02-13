@@ -4,8 +4,13 @@ import cn.hutool.core.date.LocalDateTimeUtil;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.CodeConstants;
+import com.nip.common.constants.TrainConstants;
 import com.nip.common.response.Response;
-import com.nip.common.utils.*;
+import com.nip.common.utils.ArraysSafeUtils;
+import com.nip.common.utils.GlobalMessageGeneratedUtil;
+import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.Page;
+import com.nip.common.utils.PojoUtils;
 import com.nip.controller.general.GeneralTickerPatTrainController;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
@@ -14,7 +19,9 @@ import com.nip.dao.general.ticker.GeneralTickerPatTrainUserDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainUserValueDao;
 import com.nip.dto.GeneralTickerPatTrainUserDto;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
-import com.nip.dto.general.*;
+import com.nip.dto.general.AvgResult;
+import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.dto.general.GeneralTickerPatTrainUpdateDto;
 import com.nip.dto.general.GeneralTickerPatTrainUserInfoVO;
 import com.nip.dto.general.GeneralTickerPatTrainVO;
 import com.nip.dto.score.PostTelegramTrainRule;
@@ -23,8 +30,21 @@ import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
-import com.nip.dto.vo.param.simulation.tickerPat.*;
-import com.nip.dto.vo.simulation.tickerPat.*;
+import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainAddParam;
+import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainContentAddParam;
+import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainPageParam;
+import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainQueryParam;
+import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainResetParam;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainContentVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainContentValueVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainErrorInfoVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainFinishInfoVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainFinishVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainSchoolReportVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainScoreInfoVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainStatisticVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainStatisticsVO;
+import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainUserTendencyVO;
 import com.nip.entity.GradingRuleEntity;
 import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.ticker.GeneralTickerPatTrainEntity;
@@ -48,7 +68,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
@@ -183,6 +207,8 @@ public class GeneralTickerPatService {
           param.getStartPage());
       int totalPage = param.getMessageNumber() / 100;
       cableFloor = cableFloor.subList(0, totalPage);
+      // 使用批量保存替代循环逐条保存，提升性能
+      List<GeneralTickerPatTrainPageEntity> pageEntities = new ArrayList<>();
       for (int i = 0; i < cableFloor.size(); i++) {
         for (int j = 0; j < cableFloor.get(i).size(); j++) {
           GeneralTickerPatTrainPageEntity pageEntity = new GeneralTickerPatTrainPageEntity();
@@ -193,9 +219,10 @@ public class GeneralTickerPatService {
           pageEntity.setMoresTime("[]");
           pageEntity.setMoresValue("[]");
           pageEntity.setPatKeys("[]");
-          trainPageDao.save(pageEntity);
+          pageEntities.add(pageEntity);
         }
       }
+      trainPageDao.save(pageEntities);
     }
 
     return PojoUtils.convertOne(save, GeneralTickerPatTrainVO.class);
@@ -320,10 +347,7 @@ public class GeneralTickerPatService {
     List<GeneralTickerPatTrainVO> convert = PojoUtils.convert(entities.getData(), GeneralTickerPatTrainVO.class,
         (t, r) -> {
           List<GeneralTickerPatTrainUserDto> byTrainId = trainUserDao.findByTrainIdToMap(t.getId(), null);
-          List<GeneralTickerPatTrainUserInfoVO> userInfoVOList = JSONUtils.fromJson(JSONUtils.toJson(byTrainId),
-              new TypeToken<>() {
-              });
-          r.setUserInfoList(userInfoVOList);
+          r.setUserInfoList(PojoUtils.convert(byTrainId, GeneralTickerPatTrainUserInfoVO.class));
           r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
           r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
           if (t.getIsCable() == 1) {
@@ -350,12 +374,8 @@ public class GeneralTickerPatService {
 
       return PojoUtils.convertOne(trainEntity, GeneralTickerPatTrainVO.class, (e, v) -> {
         // 查询该场训练信息
-        // log.info("用户id：{},查询用户在该训练信息:{}",
-        // Optional.ofNullable(param.getUid()).orElse(""), LocalDateTime.now());
         List<GeneralTickerPatTrainUserDto> trainId = trainUserDao.findByTrainIdToMap(e.getId(), param.getUid());
-        List<GeneralTickerPatTrainUserInfoVO> userInfoVOList = JSONUtils.fromJson(JSONUtils.toJson(trainId),
-            new TypeToken<>() {
-            });
+        List<GeneralTickerPatTrainUserInfoVO> userInfoVOList = PojoUtils.convert(trainId, GeneralTickerPatTrainUserInfoVO.class);
         // log.info("完成查询用户在该训练信息:{}", LocalDateTime.now());
         // 查询用户所在房间状态
         Map<String, Object> httpParam = new HashMap<>();
@@ -428,7 +448,7 @@ public class GeneralTickerPatService {
         log.info("接口完成:{}", LocalDateTime.now());
       });
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询训练详情失败", e);
       throw new RuntimeException(e);
     }
   }
@@ -538,7 +558,7 @@ public class GeneralTickerPatService {
             .findUserInfo(dto.getTrainId());
         userDto.addAll(userInfo.getData());
       } catch (Exception ex) {
-        ex.printStackTrace();
+        log.error("获取训练用户信息失败，训练ID: {}", dto.getTrainId(), ex);
       }
       List<String> userId = userDto.stream().map(GeneralPatTrainUserDto::getId).toList();
       // 拿到过滤后的人员信息
@@ -609,11 +629,6 @@ public class GeneralTickerPatService {
         .build();
   }
 
-  /**
-   * 统计分数 和点划间隔虚粗占比
-   *
-   * @param trainUserEntities
-   */
   private GeneralTickerPatTrainStatisticVO statisticsScoreAndDotLineGapRate(
       List<GeneralTickerPatTrainUserEntity> trainUserEntities) {
     // 结果集
@@ -624,31 +639,21 @@ public class GeneralTickerPatService {
     GeneralTickerPatTrainErrorInfoVO errorInfoVO = new GeneralTickerPatTrainErrorInfoVO();
     // 本次成绩和上次成绩对比
     List<GeneralTickerPatTrainUserTendencyVO> userTendencyVOS = new ArrayList<>();
-    int good = 0;
-    int nice = 0;
-    int belowStandard = 0;
 
-    int dotMin = 0;
-    int lineMin = 0;
-    int codeGapMin = 0;
-    int wordGapMin = 0;
-    int groupGapMin = 0;
-    int dotMax = 0;
-    int lineMax = 0;
-    int codeGapMax = 0;
-    int wordGapMax = 0;
-    int groupGapMax = 0;
-    int dotTotal = 0;
-    int lineTotal = 0;
-    int codeTotal = 0;
-    int wordTotal = 0;
-    int groupTotal = 0;
+    // 分数分布统计
+    int good = 0, nice = 0, belowStandard = 0;
+
+    // 点划间隔统计变量
+    int dotMin = 0, lineMin = 0, codeGapMin = 0, wordGapMin = 0, groupGapMin = 0;
+    int dotMax = 0, lineMax = 0, codeGapMax = 0, wordGapMax = 0, groupGapMax = 0;
+    int dotTotal = 0, lineTotal = 0, codeTotal = 0, wordTotal = 0, groupTotal = 0;
 
     for (GeneralTickerPatTrainUserEntity trainUser : trainUserEntities) {
+      // 分数分布统计
       BigDecimal score = trainUser.getScore();
-      if (score.compareTo(new BigDecimal(90)) > -1) {
+      if (score.compareTo(TrainConstants.SCORE_EXCELLENT_THRESHOLD) >= 0) {
         good++;
-      } else if (score.compareTo(new BigDecimal(70)) > -1) {
+      } else if (score.compareTo(TrainConstants.SCORE_GOOD_THRESHOLD) >= 0) {
         nice++;
       } else {
         belowStandard++;
@@ -659,19 +664,12 @@ public class GeneralTickerPatService {
       if (StringUtils.isNotBlank(statisticInfo)) {
         GeneralTickerPatTrainStatisticsVO statisticsVO = JSONUtils.fromJson(statisticInfo,
             GeneralTickerPatTrainStatisticsVO.class);
-        // 各项指标总和
         if (statisticsVO != null) {
-          dotTotal += statisticsVO.getDotMaxNumber() + statisticsVO.getDotMinNumber()
-              + statisticsVO.getDotPerfectNumber();
-          lineTotal += statisticsVO.getLineMaxNumber() + statisticsVO.getLineMinNumber()
-              + statisticsVO.getLinePerfectNumber();
-          codeTotal += statisticsVO.getCodeMaxNumber() + statisticsVO.getCodeMinNumber()
-              + statisticsVO.getCodePerfectNumber();
-          wordTotal += statisticsVO.getWordMaxNumber() + statisticsVO.getWordMinNumber()
-              + statisticsVO.getWordPerfectNumber();
-          groupTotal += statisticsVO.getGroupMaxNumber() + statisticsVO.getGroupMinNumber()
-              + statisticsVO.getGroupPerfectNumber();
-          // 统计各项数据虚和粗的数量
+          dotTotal += statisticsVO.getDotMaxNumber() + statisticsVO.getDotMinNumber() + statisticsVO.getDotPerfectNumber();
+          lineTotal += statisticsVO.getLineMaxNumber() + statisticsVO.getLineMinNumber() + statisticsVO.getLinePerfectNumber();
+          codeTotal += statisticsVO.getCodeMaxNumber() + statisticsVO.getCodeMinNumber() + statisticsVO.getCodePerfectNumber();
+          wordTotal += statisticsVO.getWordMaxNumber() + statisticsVO.getWordMinNumber() + statisticsVO.getWordPerfectNumber();
+          groupTotal += statisticsVO.getGroupMaxNumber() + statisticsVO.getGroupMinNumber() + statisticsVO.getGroupPerfectNumber();
           dotMin += statisticsVO.getDotMinNumber();
           dotMax += statisticsVO.getDotMaxNumber();
           lineMin += statisticsVO.getLineMinNumber();
@@ -685,22 +683,19 @@ public class GeneralTickerPatService {
         }
       }
 
-      // 统计参训人拍发态势 本次本次训练和与上次训练分数对比
+      // 构建用户成绩趋势
       String userId = trainUser.getUserId();
       UserEntity userEntity = userService.getUserByIdNew(userId);
       if (null == userEntity) {
-        break;
+        continue;
       }
       GeneralTickerPatTrainUserTendencyVO userTendencyVO = new GeneralTickerPatTrainUserTendencyVO();
-      // 查询此次成绩前2次考核成绩
-      List<GeneralTickerPatTrainUserEntity> patTrainUserTop2 = trainUserDao.findByUseridTop2(trainUser.getCreateTime(),
-          userEntity.getId());
+      List<GeneralTickerPatTrainUserEntity> patTrainUserTop2 = trainUserDao.findByUseridTop2(trainUser.getCreateTime(), userEntity.getId());
       for (int i = 0; i < patTrainUserTop2.size(); i++) {
-        GeneralTickerPatTrainUserEntity trainUserEntity = patTrainUserTop2.get(i);
         if (i == 0) {
-          userTendencyVO.setLastScore(trainUserEntity.getScore());
+          userTendencyVO.setLastScore(patTrainUserTop2.get(i).getScore());
         } else {
-          userTendencyVO.setLastLastScore(trainUserEntity.getScore());
+          userTendencyVO.setLastLastScore(patTrainUserTop2.get(i).getScore());
         }
       }
       userTendencyVO.setUserId(userId);
@@ -709,6 +704,8 @@ public class GeneralTickerPatService {
       userTendencyVO.setThisScore(trainUser.getScore());
       userTendencyVOS.add(userTendencyVO);
     }
+
+    // 计算点划间隔虚粗占比
     errorInfoVO.setDotMin(calculateRate(dotTotal, dotMin, dotTotal));
     errorInfoVO.setDotMax(calculateRate(dotTotal, dotMax, dotTotal));
     errorInfoVO.setLineMin(calculateRate(lineTotal, lineMin, lineTotal));
@@ -720,27 +717,26 @@ public class GeneralTickerPatService {
     errorInfoVO.setGroupGapMin(calculateRate(groupGapMin, groupGapMin, groupTotal));
     errorInfoVO.setGroupGapMax(calculateRate(groupGapMin, groupGapMax, groupTotal));
 
-    // 优秀
+    // 构建成绩分布
+    int total = trainUserEntities.size();
     GeneralTickerPatTrainScoreInfoVO goodInfo = new GeneralTickerPatTrainScoreInfoVO();
-    goodInfo.setRate(calculateRate(good, good, trainUserEntities.size()));
+    goodInfo.setRate(calculateRate(good, good, total));
     goodInfo.setPeopleNumber(good);
     reportVO.setGood(goodInfo);
-    // 良好
+
     GeneralTickerPatTrainScoreInfoVO niceInfo = new GeneralTickerPatTrainScoreInfoVO();
-    niceInfo.setRate(calculateRate(nice, nice, trainUserEntities.size()));
+    niceInfo.setRate(calculateRate(nice, nice, total));
     niceInfo.setPeopleNumber(nice);
     reportVO.setNice(niceInfo);
-    // 差
+
     GeneralTickerPatTrainScoreInfoVO belowStandardInfo = new GeneralTickerPatTrainScoreInfoVO();
-    belowStandardInfo.setRate(calculateRate(belowStandard, belowStandard, trainUserEntities.size()));
+    belowStandardInfo.setRate(calculateRate(belowStandard, belowStandard, total));
     belowStandardInfo.setPeopleNumber(belowStandard);
     reportVO.setBelowStandard(belowStandardInfo);
 
-    // 封装成绩信息
+    // 封装结果
     ret.setSchoolReport(reportVO);
-    // 封装点划间隔粗虚百分比
     ret.setErrorInfoVO(errorInfoVO);
-    // 封装用户上次训练得分和本次训练得分对比
     ret.setUserTendencyVO(userTendencyVOS);
     return ret;
   }
@@ -960,7 +956,7 @@ public class GeneralTickerPatService {
       // 保存评分content
       entity.setRuleContent(ruleEntity.getContent());
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("计算分数失败，训练ID: {}", entity.getId(), e);
       throw new RuntimeException("计算分数异常");
     }
   }

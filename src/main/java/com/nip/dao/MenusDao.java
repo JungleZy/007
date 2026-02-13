@@ -5,11 +5,14 @@ import com.nip.dto.sql.FindMenusByRoleIdDto;
 import com.nip.entity.MenusEntity;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.nip.common.constants.BaseConstants.ID;
 
+@Slf4j
 @ApplicationScoped
 public class MenusDao extends BaseRepository<MenusEntity, String> {
 
@@ -22,9 +25,9 @@ public class MenusDao extends BaseRepository<MenusEntity, String> {
       return entityManager.createNamedQuery("find_menus_by_role_id", FindMenusByRoleIdDto.class)
                           .setParameter("rid", roleId).getResultList();
     } catch (Exception e) {
-      e.printStackTrace();
+      log.error("查询角色菜单失败，roleId: {}", roleId, e);
+      return Collections.emptyList();
     }
-    return null;
   }
 
   public List<MenusEntity> getMenusByRoleId(String roleId) {
