@@ -5,7 +5,9 @@ import com.nip.entity.simulation.router.SimulationRouterRoomPageEntity;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 
@@ -37,12 +39,13 @@ public final class SimulationMessageGenerator {
 
     /**
      * 生成消息体
+     * 
      * @param generateNumber 生成数量
-     * @param pageNumber 起始页码
-     * @param index 起始索引
-     * @param train 训练配置
-     * @param roomId 房间ID
-     * @param saver 保存函数，用于将生成的实体列表保存到数据库
+     * @param pageNumber     起始页码
+     * @param index          起始索引
+     * @param train          训练配置
+     * @param roomId         房间ID
+     * @param saver          保存函数，用于将生成的实体列表保存到数据库
      * @return 生成的消息实体列表
      */
     public static List<SimulationRouterRoomPageEntity> generateMessageBody(
@@ -198,6 +201,36 @@ public final class SimulationMessageGenerator {
     private static void processAverageDistribution(
             List<String> avgB, Integer isRandom, int pageNum,
             Integer roomId, List<SimulationRouterRoomPageEntity> ret) {
+        boolean allDigits = true;
+        for (String value : avgB) {
+            if (value == null || value.length() != 1 || !Character.isDigit(value.charAt(0))) {
+                allDigits = false;
+                break;
+            }
+        }
+        if (allDigits) {
+            int groupCount = avgB.size() / GROUPS_PER_MESSAGE;
+            int sort = 0;
+            int currentPage = pageNum;
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            for (int base = 0; base < groupCount; base += 10) {
+                int blockSize = Math.min(10, groupCount - base);
+                List<Integer> basePerm = buildDigitPermutation(isRandom, random);
+                for (int i = 0; i < blockSize; i++) {
+                    if (sort != 0 && sort % AVG_THRESHOLD == 0) {
+                        currentPage++;
+                    }
+                    StringBuilder body = new StringBuilder(GROUPS_PER_MESSAGE);
+                    body.append(basePerm.get(i % 10));
+                    body.append(basePerm.get((i + 1) % 10));
+                    body.append(basePerm.get((i + 2) % 10));
+                    body.append(basePerm.get((i + 3) % 10));
+                    ret.add(createPageEntity(body.toString(), currentPage, sort % MESSAGES_PER_PAGE, roomId));
+                    sort++;
+                }
+            }
+            return;
+        }
 
         if (isRandom.compareTo(1) == 0) {
             Collections.shuffle(avgB);
@@ -220,6 +253,17 @@ public final class SimulationMessageGenerator {
         }
     }
 
+    private static List<Integer> buildDigitPermutation(Integer isRandom, ThreadLocalRandom random) {
+        List<Integer> digits = new ArrayList<>(10);
+        for (int i = 0; i < 10; i++) {
+            digits.add(i);
+        }
+        if (isRandom.compareTo(1) == 0) {
+            Collections.shuffle(digits, random);
+        }
+        return digits;
+    }
+
     /**
      * 混合索引转字符
      */
@@ -230,12 +274,59 @@ public final class SimulationMessageGenerator {
     /**
      * 创建页面实体
      */
-    private static SimulationRouterRoomPageEntity createPageEntity(String key, int pageNumber, int sort, Integer roomId) {
+    private static SimulationRouterRoomPageEntity createPageEntity(String key, int pageNumber, int sort,
+            Integer roomId) {
         SimulationRouterRoomPageEntity entity = new SimulationRouterRoomPageEntity();
-        entity.setKey(key);
+        entity.setKey(ensureUniqueKey(key));
         entity.setPageNumber(pageNumber);
         entity.setSort(sort);
         entity.setRoomId(roomId);
         return entity;
+    }
+
+    private static String ensureUniqueKey(String key) {
+        if (key == null || key.length() < GROUPS_PER_MESSAGE) {
+            return key;
+        }
+        boolean allDigits = true;
+        boolean allLetters = true;
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            allDigits &= Character.isDigit(c);
+            allLetters &= Character.isLetter(c);
+        }
+        char[] pool;
+        if (allDigits) {
+            pool = new char[10];
+            for (int i = 0; i < 10; i++) {
+                pool[i] = (char) (CHAR_0 + i);
+            }
+        } else if (allLetters) {
+            pool = new char[26];
+            for (int i = 0; i < 26; i++) {
+                pool[i] = (char) (CHAR_A + i);
+            }
+        } else {
+            pool = new char[36];
+            for (int i = 0; i < 36; i++) {
+                pool[i] = convertMixedIndexToChar(i);
+            }
+        }
+        StringBuilder builder = new StringBuilder(key.length());
+        Set<Character> used = new HashSet<>();
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            if (used.contains(c)) {
+                for (char candidate : pool) {
+                    if (!used.contains(candidate)) {
+                        c = candidate;
+                        break;
+                    }
+                }
+            }
+            used.add(c);
+            builder.append(c);
+        }
+        return builder.toString();
     }
 }

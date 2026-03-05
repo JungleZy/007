@@ -1351,45 +1351,34 @@ public class PostTelexPatTrainService {
         }
       }
     }
+    Deque<String> recentGroups = new ArrayDeque<>(10);
+    Set<String> recentGroupSet = new HashSet<>();
     for (int i = 0; i < generateNumber; i++) {
-      StringBuilder key = new StringBuilder();
+      String key;
       switch (entity.getType()) {
         case 0:
-          for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(10);
-            key.append(number);
-          }
+          key = generateUniqueNumbers();
           break;
         case 1:
-          for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(26);
-            char c = (char) (number + 65);
-            key.append(c);
-          }
+          key = generateUniqueLetters();
           break;
         case 2:
-          for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(36);
-            if (number < 10) {
-              key.append(number);
-            } else {
-              char c = (char) (number + 55);
-              key.append(c);
-            }
-          }
+          key = generateUniqueMixed();
           break;
         default:
           throw new IllegalArgumentException("未知数据类型");
       }
+      key = ensureUniqueGroup(key, recentGroups, recentGroupSet, entity.getType());
       if (i % 100 == 0 && i != 0) {
         pageNumber += 1;
       }
       PostTelexPatTrainPageEntity pageEntity = new PostTelexPatTrainPageEntity();
       pageEntity.setTrainId(trainId);
-      pageEntity.setKey(key.toString());
+      pageEntity.setKey(key);
       pageEntity.setPageNumber(pageNumber);
       pageEntity.setSort(i % 100);
       pageEntities.add(pageEntity);
+      updateRecentGroups(recentGroups, recentGroupSet, key);
     }
     return pageDao.save(pageEntities);
   }
@@ -1397,19 +1386,94 @@ public class PostTelexPatTrainService {
   private List<PostTelexPatTrainPageEntity> generateContentAuto(List<String> content, int generateNumber,
       int pageNumber, String trainId) {
     List<PostTelexPatTrainPageEntity> pageEntities = new ArrayList<>();
+    Deque<String> recentGroups = new ArrayDeque<>(10);
+    Set<String> recentGroupSet = new HashSet<>();
     for (int i = 0; i < generateNumber; i++) {
       if (i % 100 == 0 && i != 0) {
         pageNumber += 1;
       }
+      String key = ensureUniqueGroup(content.get(i), recentGroups, recentGroupSet, null);
       PostTelexPatTrainPageEntity pageEntity = new PostTelexPatTrainPageEntity();
       pageEntity.setTrainId(trainId);
-      pageEntity.setKey(content.get(i));
+      pageEntity.setKey(key);
       pageEntity.setPageNumber(pageNumber);
       pageEntity.setSort(i % 100);
       pageEntities.add(pageEntity);
+      updateRecentGroups(recentGroups, recentGroupSet, key);
     }
 
     return pageDao.save(pageEntities);
   }
 
+  private static String generateUniqueNumbers() {
+    List<Integer> pool = new ArrayList<>(10);
+    for (int i = 0; i < 10; i++) {
+      pool.add(i);
+    }
+    Collections.shuffle(pool, RANDOM);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String generateUniqueLetters() {
+    List<Character> pool = new ArrayList<>(26);
+    for (int i = 0; i < 26; i++) {
+      pool.add((char) (i + 65));
+    }
+    Collections.shuffle(pool, RANDOM);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String generateUniqueMixed() {
+    List<Character> pool = new ArrayList<>(36);
+    for (int i = 0; i < 36; i++) {
+      if (i < 10) {
+        pool.add((char) (i + 48));
+      } else {
+        pool.add((char) (i + 55));
+      }
+    }
+    Collections.shuffle(pool, RANDOM);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String ensureUniqueGroup(String candidate, Deque<String> recent, Set<String> recentSet, Integer type) {
+    String value = candidate;
+    int attempts = 0;
+    while (recentSet.contains(value) && attempts < 20) {
+      if (type == null) {
+        break;
+      }
+      switch (type) {
+        case 0 -> value = generateUniqueNumbers();
+        case 1 -> value = generateUniqueLetters();
+        case 2 -> value = generateUniqueMixed();
+        default -> {
+          return value;
+        }
+      }
+      attempts++;
+    }
+    return value;
+  }
+
+  private static void updateRecentGroups(Deque<String> recent, Set<String> recentSet, String key) {
+    recent.addLast(key);
+    recentSet.add(key);
+    if (recent.size() > 10) {
+      String removed = recent.removeFirst();
+      recentSet.remove(removed);
+    }
+  }
 }
