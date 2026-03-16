@@ -623,7 +623,7 @@ public class PostTelegramTrainService {
 
     score = applyDeductions(score, scoreVO, rule, deductMap);
 
-    saveTrainResult(entity, scoreVO, score, statisticsVO, deductMap, rule);
+    saveTrainResult(entity, scoreVO, score, statisticsVO, deductMap, rule, dto);
   }
 
   private void handleEmptyFinishInfo(PostTelegramTrainEntity entity, Map<String, Integer> deductMap,
@@ -677,7 +677,8 @@ public class PostTelegramTrainService {
     }
   }
 
-  private void calculateLackCount(Integer messageNumber, List<Integer> existFloorNumber, PostTelegramTrainScoreVO scoreVO) {
+  private void calculateLackCount(Integer messageNumber, List<Integer> existFloorNumber,
+      PostTelegramTrainScoreVO scoreVO) {
     int totalFloorNumber = messageNumber / 100;
     if (messageNumber % 100 > 0) {
       totalFloorNumber++;
@@ -725,32 +726,39 @@ public class PostTelegramTrainService {
     deductMap.put("groupGapScore", groupScore);
     deductMap.put("groupNumber", scoreVO.getGroupScore());
 
-    int alterErrorScore = calculateScore(rule.getAlterError().getMax(), scoreVO.getAlterErrorScore(), rule.getAlterError().getMax());
+    int alterErrorScore = calculateScore(rule.getAlterError().getMax(), scoreVO.getAlterErrorScore(),
+        rule.getAlterError().getMax());
     score -= alterErrorScore;
     deductMap.put("alterErrorScore", alterErrorScore);
     deductMap.put("alterErrorNumber", scoreVO.getAlterErrorScore());
 
-    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(), rule.getErrorCode().getMax());
+    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(),
+        rule.getErrorCode().getMax());
     score -= errorCode;
     deductMap.put("errorWord", errorCode);
     deductMap.put("errorWordNumber", scoreVO.getErrorNumber());
 
-    int moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(), scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
+    int moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(),
+        scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
     score -= moreOrLackWord;
     deductMap.put("quantoCode", moreOrLackWord);
     deductMap.put("quantoCodeNumber", scoreVO.getMoreOrLackWord());
 
-    int moreOrLackGroup = calculateScore(rule.getQuantoGroup().getMax(), (scoreVO.getMoreGroup() + scoreVO.getLackGroup()) * rule.getQuantoGroup().getL(), rule.getQuantoGroup().getMax());
+    int moreOrLackGroup = calculateScore(rule.getQuantoGroup().getMax(),
+        (scoreVO.getMoreGroup() + scoreVO.getLackGroup()) * rule.getQuantoGroup().getL(),
+        rule.getQuantoGroup().getMax());
     score -= moreOrLackGroup;
     deductMap.put("quantoGroup", moreOrLackGroup);
     deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup());
 
-    int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(), scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());
+    int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(),
+        scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());
     score -= moreOrLackLine;
     deductMap.put("quantoRow", moreOrLackLine);
     deductMap.put("quantoRowNumber", scoreVO.getMoreOrLackLine());
 
-    int bunchGroup = calculateScore(rule.getBunchGroup().getMax(), scoreVO.getBunchGroup() * rule.getBunchGroup().getL(), rule.getBunchGroup().getMax());
+    int bunchGroup = calculateScore(rule.getBunchGroup().getMax(),
+        scoreVO.getBunchGroup() * rule.getBunchGroup().getL(), rule.getBunchGroup().getMax());
     score -= bunchGroup;
     deductMap.put("bunchGroup", bunchGroup);
     deductMap.put("bunchGroupNumber", scoreVO.getBunchGroup());
@@ -759,7 +767,8 @@ public class PostTelegramTrainService {
   }
 
   private void saveTrainResult(PostTelegramTrainEntity entity, PostTelegramTrainScoreVO scoreVO,
-      int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule) {
+      int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule,
+      PostTelegramTrainFinishDto dto) {
     entity.setErrorNumber(scoreVO.getErrorNumber());
     entity.setLack(scoreVO.getLackGroup());
 
@@ -772,21 +781,7 @@ public class PostTelegramTrainService {
       entity.setAccuracy(accuracy);
     }
 
-    List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
-        .map(s -> JSONUtils.fromJson(s, new TypeToken<List<String>>() {}))
-        .orElseGet(ArrayList::new);
-
-    String speed;
-    if (speedLog.isEmpty()) {
-      speed = "0";
-    } else {
-      speed = speedLog.stream()
-          .map(BigDecimal::new)
-          .reduce(BigDecimal.ZERO, BigDecimal::add)
-          .divide(new BigDecimal(speedLog.size()), 0, RoundingMode.HALF_DOWN)
-          .toString();
-    }
-    entity.setSpeed(speed);
+    entity.setSpeed(dto.getSpeed());
 
     SpeedDeduct baseWpm = rule.getWpm();
     int wpm = baseWpm.getBase() - new BigDecimal(entity.getSpeed()).intValue();
