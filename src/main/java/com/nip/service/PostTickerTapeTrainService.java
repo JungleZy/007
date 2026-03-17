@@ -336,6 +336,8 @@ public class PostTickerTapeTrainService {
     Integer isRandom = train.getIsRandom();
     java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
+    Deque<String> recentGroups = new ArrayDeque<>(10);
+    Set<String> recentGroupSet = new HashSet<>();
     switch (train.getType()) {
       // 数字报
       case 0:
@@ -355,10 +357,7 @@ public class PostTickerTapeTrainService {
               }
             }
           } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(10);
-              body.append(i1);
-            }
+            body.append(generateUniqueNumbers(random));
           } else {
             for (int j = 0; j < 4; j++) {
               body.append(numberIndex);
@@ -370,12 +369,18 @@ public class PostTickerTapeTrainService {
             }
           }
           if (train.getIsAvg().compareTo(1) != 0) {
+            String key = ensureUniqueGroup(
+                body.toString(),
+                recentGroups,
+                recentGroupSet,
+                () -> generateUniqueNumbers(random));
             PostTickerTapeTrainPageEntity pageEntity = new PostTickerTapeTrainPageEntity();
-            pageEntity.setKey(body.toString());
+            pageEntity.setKey(key);
             pageEntity.setPageNumber(pageNumber);
             pageEntity.setSort(i % 100);
             pageEntity.setTrainId(train.getId());
             ret.add(pageEntity);
+            updateRecentGroups(recentGroups, recentGroupSet, key);
           }
         }
         break;
@@ -398,11 +403,7 @@ public class PostTickerTapeTrainService {
               avgB.add(String.valueOf(c));
             }
           } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(26) + 65;
-              char a = (char) i1;
-              body.append(a);
-            }
+            body.append(generateUniqueLetters(random));
           } else {
             for (int j = 0; j < 4; j++) {
               char c = (char) charIndex;
@@ -415,12 +416,18 @@ public class PostTickerTapeTrainService {
             }
           }
           if (train.getIsAvg().compareTo(1) != 0) {
+            String key = ensureUniqueGroup(
+                body.toString(),
+                recentGroups,
+                recentGroupSet,
+                () -> generateUniqueLetters(random));
             PostTickerTapeTrainPageEntity pageEntity = new PostTickerTapeTrainPageEntity();
-            pageEntity.setKey(body.toString());
+            pageEntity.setKey(key);
             pageEntity.setPageNumber(pageNumber);
             pageEntity.setSort(i % 100);
             pageEntity.setTrainId(train.getId());
             ret.add(pageEntity);
+            updateRecentGroups(recentGroups, recentGroupSet, key);
           }
         }
         break;
@@ -445,16 +452,7 @@ public class PostTickerTapeTrainService {
               avgB.add(String.valueOf(c));
             }
           } else if (isRandom.compareTo(1) == 0) {
-            for (int j = 0; j < 4; j++) {
-              int i1 = random.nextInt(36);
-              if (i1 < 10) {
-                i1 = (char) (i1 + 48);
-              } else {
-                i1 = (char) (i1 + 55);
-              }
-              char c = (char) i1;
-              body.append(c);
-            }
+            body.append(generateUniqueMixed(random));
           } else {
             for (int j = 0; j < 4; j++) {
               char c;
@@ -475,12 +473,18 @@ public class PostTickerTapeTrainService {
             if (i % 100 == 0 && i != 0) {
               pageNumber += 1;
             }
+            String key = ensureUniqueGroup(
+                body.toString(),
+                recentGroups,
+                recentGroupSet,
+                () -> generateUniqueMixed(random));
             PostTickerTapeTrainPageEntity pageEntity = new PostTickerTapeTrainPageEntity();
-            pageEntity.setKey(body.toString());
+            pageEntity.setKey(key);
             pageEntity.setPageNumber(pageNumber);
             pageEntity.setSort(i % 100);
             pageEntity.setTrainId(train.getId());
             ret.add(pageEntity);
+            updateRecentGroups(recentGroups, recentGroupSet, key);
           }
         }
         break;
@@ -488,26 +492,148 @@ public class PostTickerTapeTrainService {
         throw new IllegalArgumentException("未知类型");
     }
     if (train.getIsAvg().compareTo(1) == 0) {
-      Collections.shuffle(avgB);
+      Collections.shuffle(avgB, random);
       int sort = 1;
-      StringBuilder body = new StringBuilder();
-      for (int i = 0; i < avgB.size(); i++) {
-        body.append(avgB.get(i));
-        if (i != 0 && i % 400 == 0) {
-          pageNum++;
+      int charCount = 0;
+      int i = 0;
+      while (i < avgB.size()) {
+        List<String> group = new ArrayList<>(4);
+        for (int j = 0; j < 4 && i < avgB.size(); j++, i++) {
+          String value = avgB.get(i);
+          if (group.contains(value)) {
+            int swapIndex = findDistinctIndex(avgB, i + 1, group);
+            if (swapIndex != -1) {
+              value = avgB.get(swapIndex);
+              avgB.set(swapIndex, avgB.get(i));
+            }
+          }
+          group.add(value);
+          charCount++;
+          if (charCount % 400 == 0) {
+            pageNum++;
+          }
         }
-        if (body.length() == 4) {
+        if (group.size() == 4) {
+          StringBuilder body = new StringBuilder();
+          for (String value : group) {
+            body.append(value);
+          }
+          String key = body.toString();
+          int attempts = 0;
+          while (recentGroupSet.contains(key) && attempts < 10) {
+            int swapIndex = findDistinctGroupIndex(avgB, i, group, recentGroupSet);
+            if (swapIndex == -1) {
+              break;
+            }
+            String swapValue = avgB.get(swapIndex);
+            avgB.set(swapIndex, avgB.get(i - 1));
+            group.set(group.size() - 1, swapValue);
+            StringBuilder updated = new StringBuilder();
+            for (String value : group) {
+              updated.append(value);
+            }
+            key = updated.toString();
+            attempts++;
+          }
           PostTickerTapeTrainPageEntity pageEntity = new PostTickerTapeTrainPageEntity();
-          pageEntity.setKey(body.toString());
+          pageEntity.setKey(key);
           pageEntity.setPageNumber(pageNum);
           pageEntity.setSort(sort % 100);
           pageEntity.setTrainId(train.getId());
           ret.add(pageEntity);
+          updateRecentGroups(recentGroups, recentGroupSet, key);
           sort++;
-          body = new StringBuilder();
         }
       }
     }
     return pageDao.save(ret);
+  }
+
+  private static String generateUniqueNumbers(java.util.concurrent.ThreadLocalRandom random) {
+    List<Integer> pool = new ArrayList<>(10);
+    for (int i = 0; i < 10; i++) {
+      pool.add(i);
+    }
+    Collections.shuffle(pool, random);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String generateUniqueLetters(java.util.concurrent.ThreadLocalRandom random) {
+    List<Character> pool = new ArrayList<>(26);
+    for (int i = 0; i < 26; i++) {
+      pool.add((char) (i + 65));
+    }
+    Collections.shuffle(pool, random);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String generateUniqueMixed(java.util.concurrent.ThreadLocalRandom random) {
+    List<Character> pool = new ArrayList<>(36);
+    for (int i = 0; i < 36; i++) {
+      if (i < 10) {
+        pool.add((char) (i + 48));
+      } else {
+        pool.add((char) (i + 55));
+      }
+    }
+    Collections.shuffle(pool, random);
+    StringBuilder body = new StringBuilder();
+    for (int i = 0; i < 4; i++) {
+      body.append(pool.get(i));
+    }
+    return body.toString();
+  }
+
+  private static String ensureUniqueGroup(String candidate, Deque<String> recent, Set<String> recentSet,
+      java.util.function.Supplier<String> fallback) {
+    String value = candidate;
+    int attempts = 0;
+    while (recentSet.contains(value) && attempts < 20) {
+      value = fallback.get();
+      attempts++;
+    }
+    return value;
+  }
+
+  private static void updateRecentGroups(Deque<String> recent, Set<String> recentSet, String key) {
+    recent.addLast(key);
+    recentSet.add(key);
+    if (recent.size() > 10) {
+      String removed = recent.removeFirst();
+      recentSet.remove(removed);
+    }
+  }
+
+  private static int findDistinctGroupIndex(List<String> values, int startIndex, List<String> group,
+      Set<String> recentSet) {
+    for (int i = startIndex; i < values.size(); i++) {
+      List<String> updated = new ArrayList<>(group);
+      updated.set(updated.size() - 1, values.get(i));
+      StringBuilder body = new StringBuilder();
+      for (String value : updated) {
+        body.append(value);
+      }
+      if (!recentSet.contains(body.toString())) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static int findDistinctIndex(List<String> values, int startIndex, List<String> group) {
+    for (int i = startIndex; i < values.size(); i++) {
+      if (!group.contains(values.get(i))) {
+        return i;
+      }
+    }
+    return -1;
   }
 }

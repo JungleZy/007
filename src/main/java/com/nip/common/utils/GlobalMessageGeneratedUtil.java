@@ -62,33 +62,17 @@ public class GlobalMessageGeneratedUtil {
         for (int i = 0; i < count; i++) {
           while (true) {
             StringBuilder sb = new StringBuilder(4);
-            while (true) {
+            while (sb.length() < 4) {
               int ri = r.nextInt(10);
-              boolean b;
-              if (sb.length() > 0) {
-                int lastNum = sb.charAt(sb.length() - 1) - '0';
-                if (lastNum >= 1 && lastNum <= 5) {
-                  b = ri >= 6 || ri == 0;
-                } else {
-                  b = ri >= 1 && ri <= 5;
-                }
-              } else {
-                b = true;
-              }
               String v = String.valueOf(ri);
-              if (sb.indexOf(v) == -1 && b) {
+              if (sb.indexOf(v) == -1) {
                 sb.append(ri);
-                if (sb.length() == 4) {
-                  break;
-                }
               }
             }
             int start = Math.max(ret.size() - 10, 0);
             List<String> window = ret.subList(start, ret.size());
-            PostTelegramGenerateCheck ng = pageCheckDuplicate(window, sb.toString());
-            String candidate = ng.getGroup();
-            if (!window.contains(candidate)) {
-              ret.add(candidate);
+            if (!window.contains(sb.toString())) {
+              ret.add(sb.toString());
               break;
             }
           }

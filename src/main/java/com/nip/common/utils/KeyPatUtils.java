@@ -17,12 +17,11 @@ public class KeyPatUtils {
   final int GROUP_SIZE = 10;
   final int LARGE_THRESHOLD = 100;
 
-
   public static void handle(String userId,
-                            List<KeyPatValueTransferDto> pageValueResult,
-                            List<KeyPatPageTransferDto> userPages,
-                            List<KeyPatValueTransferDto> userPageValuesOld,
-                            KeyPatStatisticalDto ks) {
+      List<KeyPatValueTransferDto> pageValueResult,
+      List<KeyPatPageTransferDto> userPages,
+      List<KeyPatValueTransferDto> userPageValuesOld,
+      KeyPatStatisticalDto ks) {
     List<List<String>> precomputedValues = userPageValuesOld.stream()
         .map(kp -> {
           String s = convert2String(kp.getValue());
@@ -62,7 +61,7 @@ public class KeyPatUtils {
       // 记录已处理的拍发数据下标
       int sSign = 0;
       int lackLineBase = 0;
-      //比对每组报文
+      // 比对每组报文
       for (int j = 0; j < userPages.size(); j++) {
         KeyPatPageTransferDto keyEntity = userPages.get(j);
         String groupKey = convert2String(keyEntity.getKey());
@@ -89,7 +88,7 @@ public class KeyPatUtils {
         // 如果存在？则说明该结果是改错，取最后一个？后的内容
         if (groupValue.contains("?")) {
           groupValue = alterErrorMethod(groupValue);
-          //改错++
+          // 改错++
           ks.setAlterError(ks.getAlterError() + 1);
         }
 
@@ -117,15 +116,17 @@ public class KeyPatUtils {
                 if (Objects.equals(nextPageValueValue, groupKey)) {
                   int gs = 0;
                   for (KeyPatValueTransferDto mg : moreGroupTemp) {
-                    add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(mg.getValue(), gs)), mg.getTime());
+                    add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(mg.getValue(), gs)),
+                        mg.getTime());
                     gs++;
                   }
-                  add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(nextPageValue.getValue(), gs)), nextPageValue.getTime());
+                  add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(nextPageValue.getValue(), gs)),
+                      nextPageValue.getTime());
                   // 已处理的目标数据下标++
                   sSign = tempIndex;
                   // 增加多组个数
                   ks.setMoreGroup(ks.getMoreGroup() + k);
-//                  moreGroup += k;
+                  // moreGroup += k;
                   // 多组标识符，设为有多组
                   isMoreGroup = false;
                   // 跳过标识符，设为跳过
@@ -158,7 +159,8 @@ public class KeyPatUtils {
                     }
                   }
                   if (isOk) {
-                    add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "bunchGroup"), valueEntity.getTime());
+                    add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "bunchGroup"),
+                        valueEntity.getTime());
                     ks.setBunchGroup(ks.getBunchGroup() + 1);
                     isNotBunchGroup = false;
                     isGoon = false;
@@ -172,7 +174,7 @@ public class KeyPatUtils {
                     add(pageValueResult, userId, userPages.get(j + i1), "[]", "[]", keyEntity.getSort() + i1);
                   }
                   add(pageValueResult, userId, nextUserPages, valueEntity);
-                  //索引同步
+                  // 索引同步
                   j += lackNum;
                   // 跳过标识符，设为跳过
                   isGoon = false;
@@ -188,7 +190,8 @@ public class KeyPatUtils {
             // 多码
             if (groupValue.length() > 4) {
               if (groupValue.contains(groupKey)) {
-                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "more"), valueEntity.getTime());
+                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "more"),
+                    valueEntity.getTime());
                 ks.setMore(ks.getMore() + 1);
                 isGoon = false;
               }
@@ -196,7 +199,8 @@ public class KeyPatUtils {
             // 少码
             if (groupValue.length() < 4) {
               if (groupKey.contains(groupValue)) {
-                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "lack"), valueEntity.getTime());
+                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "lack"),
+                    valueEntity.getTime());
                 ks.setLack(ks.getLack() + 1);
                 isGoon = false;
               }
@@ -218,12 +222,16 @@ public class KeyPatUtils {
         }
         // 已处理的目标数据下标++
         sSign++;
-        //拍发组数++
+        // 拍发组数++
         ks.setPatGroup(ks.getPatGroup() + 1);
         // ---- 开始多少行判断 ----
         // 判断多行
-        if (j == userPages.size() - 1 && sSign <= userPageValues.size()) {
-          ks.setMoreLine(ks.getMoreLine() + ((userPageValues.size() - sSign) / 10 + 1));
+        if (j == userPages.size() - 1 && sSign < userPageValues.size()) {
+          int remaining = userPageValues.size() - sSign;
+          ks.setMoreLine(ks.getMoreLine() + (remaining / 10));
+          if (remaining % 10 > 0) {
+            ks.setMoreLine(ks.getMoreLine() + 1);
+          }
           int flag = 1;
           for (int k = sSign; k < userPageValues.size(); k++) {
             add(pageValueResult, userId, userPageValues.get(k), j + flag, null);
@@ -306,10 +314,10 @@ public class KeyPatUtils {
   public static List<String> groupTime(String input) {
     // 1. 解析字符串为整数列表
     // 移除方括号后按逗号分割，去除元素空格并转换为整数列表
-    List<Integer> numbers = Arrays.stream(input.replaceAll("[\\[\\]]", "")  // 移除方括号
-            .split(","))                  // 分割元素
-        .map(String::trim)                     // 去除空格
-        .map(Integer::parseInt)                // 转为整数
+    List<Integer> numbers = Arrays.stream(input.replaceAll("[\\[\\]]", "") // 移除方括号
+        .split(",")) // 分割元素
+        .map(String::trim) // 去除空格
+        .map(Integer::parseInt) // 转为整数
         .toList();
 
     // 2. 分组处理
@@ -321,7 +329,7 @@ public class KeyPatUtils {
 
       // 创建分组子列表并格式化为字符串
       String group = numbers.subList(i, end).toString()
-          .replace(" ", "");  // 移除数字间的空格
+          .replace(" ", ""); // 移除数字间的空格
       result.add(group);
     }
     return result;
@@ -356,7 +364,8 @@ public class KeyPatUtils {
     return JSONUtils.toJson(strings);
   }
 
-  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatValueTransferDto value, Integer sort, String key) {
+  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatValueTransferDto value,
+      Integer sort, String key) {
     pageValueResult.add(new KeyPatValueTransferDto(
         userId,
         value.getTrainId(),
@@ -364,11 +373,11 @@ public class KeyPatUtils {
         key,
         value.getValue(),
         value.getTime(),
-        sort
-    ));
+        sort));
   }
 
-  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatValueTransferDto value, Integer sort) {
+  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatValueTransferDto value,
+      Integer sort) {
     pageValueResult.add(new KeyPatValueTransferDto(
         userId,
         value.getTrainId(),
@@ -376,11 +385,11 @@ public class KeyPatUtils {
         value.getKey(),
         value.getValue(),
         value.getTime(),
-        sort
-    ));
+        sort));
   }
 
-  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key, KeyPatValueTransferDto value) {
+  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key,
+      KeyPatValueTransferDto value) {
     pageValueResult.add(new KeyPatValueTransferDto(
         userId,
         key.getTrainId(),
@@ -388,12 +397,11 @@ public class KeyPatUtils {
         key.getKey(),
         value.getValue(),
         value.getTime(),
-        key.getSort()
-    ));
+        key.getSort()));
   }
 
-
-  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key, String value, String time) {
+  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key,
+      String value, String time) {
     pageValueResult.add(new KeyPatValueTransferDto(
         userId,
         key.getTrainId(),
@@ -401,11 +409,11 @@ public class KeyPatUtils {
         key.getKey(),
         value,
         time,
-        key.getSort()
-    ));
+        key.getSort()));
   }
 
-  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key, String value, String time, Integer sort) {
+  private static void add(List<KeyPatValueTransferDto> pageValueResult, String userId, KeyPatPageTransferDto key,
+      String value, String time, Integer sort) {
     pageValueResult.add(new KeyPatValueTransferDto(
         userId,
         key.getTrainId(),
@@ -413,7 +421,6 @@ public class KeyPatUtils {
         key.getKey(),
         value,
         time,
-        sort
-    ));
+        sort));
   }
 }
