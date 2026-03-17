@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Native Binary (Linux glibc 2.28 baseline)
         if: startsWith(matrix.os, 'ubuntu')
-        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 package
+        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 -Dquarkus.native.march=compatibility -Dquarkus.native.additional-build-args=-march=x86-64 package
 
       - name: Verify glibc baseline (Linux)
         if: startsWith(matrix.os, 'ubuntu')

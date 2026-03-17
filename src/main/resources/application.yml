@@ -55,4 +55,5 @@ quarkus:
   native:
     resources:
       includes: resources/**
+    march: compatibility
 #    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json
