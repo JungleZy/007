@@ -382,7 +382,7 @@ public class PostTelegraphKeyPatTrainService {
     // 计算速率 拍发个数/训练时长*60
     BigDecimal speed = new BigDecimal("0");
     if (ks.getPat() != 0) {
-      speed = new BigDecimal(ks.getPat()).divide(new BigDecimal(4), 10, RoundingMode.HALF_UP)
+      speed = new BigDecimal(ks.getPat())
           .divide(new BigDecimal(ks.getPatTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10,
               RoundingMode.HALF_UP)
           .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
@@ -459,7 +459,7 @@ public class PostTelegraphKeyPatTrainService {
 
     // 判断速率是加分还是扣分
     deductInfo.put("speedNumber", speed.toString());
-    BigDecimal base = new BigDecimal(rule.getWpm().getBase()).divide(new BigDecimal(4));
+    BigDecimal base = new BigDecimal(rule.getWpm().getBase());
     if (speed.compareTo(base) > 0) {
       BigDecimal diff = speed.subtract(base);
       BigDecimal speedScore = rule.getWpm().getR().multiply(diff);
