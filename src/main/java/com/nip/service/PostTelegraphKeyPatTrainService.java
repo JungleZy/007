@@ -459,14 +459,15 @@ public class PostTelegraphKeyPatTrainService {
 
     // 判断速率是加分还是扣分
     deductInfo.put("speedNumber", speed.toString());
-    if (speed.compareTo(new BigDecimal(rule.getWpm().getBase())) > 0) {
-      int diff = speed.intValue() - rule.getWpm().getBase();
-      BigDecimal speedScore = rule.getWpm().getR().multiply(new BigDecimal(diff));
+    BigDecimal base = new BigDecimal(rule.getWpm().getBase()).divide(new BigDecimal(4));
+    if (speed.compareTo(base) > 0) {
+      BigDecimal diff = speed.subtract(base);
+      BigDecimal speedScore = rule.getWpm().getR().multiply(diff);
       score = score.add(speedScore);
       deductInfo.put("speedScore", "+" + speedScore);
-    } else if (speed.compareTo(new BigDecimal(rule.getWpm().getBase())) <= 0) {
-      int diff = rule.getWpm().getBase() - speed.intValue();
-      BigDecimal speedScore = rule.getWpm().getL().multiply(new BigDecimal(diff));
+    } else if (speed.compareTo(base) <= 0) {
+      BigDecimal diff = base.subtract(speed);
+      BigDecimal speedScore = rule.getWpm().getL().multiply(diff);
       score = score.subtract(speedScore);
       deductInfo.put("speedScore", minus + speedScore);
     }
