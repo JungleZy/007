@@ -461,6 +461,10 @@ public class WebSocketSimulationService {
   public void messageHandleReport(String message, Integer roomId, String userId) {
     //通过人员id获取消息管道号
     List<WebSocketSimulationService> socketSimulations = SimulationGlobal.reportRoom.get(roomId);
+    //REST 删房只清 map 不关 session：客户端续发消息时房间列表可能已不存在，判空短路
+    if (socketSimulations == null) {
+      return;
+    }
     Map<String, String> mesg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String type = mesg.get(TYPE);
@@ -529,6 +533,10 @@ public class WebSocketSimulationService {
   public void messageHandleRouter(String message, Integer roomId, String userId) {
     //通过人员id获取消息管道号
     List<WebSocketSimulationService> socketSimulations = SimulationGlobal.routerRoom.get(roomId);
+    //REST 删房只清 map 不关 session：客户端续发消息时房间列表可能已不存在，判空短路
+    if (socketSimulations == null) {
+      return;
+    }
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String topic = msg.get(TOPIC).toString();
