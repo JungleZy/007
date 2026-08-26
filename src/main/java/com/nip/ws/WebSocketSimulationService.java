@@ -52,6 +52,7 @@ public class WebSocketSimulationService {
   UserDao userDao;
   @Inject
   SimulationRouterRoomUserDao roomUserDao;
+  // 仅 per-connection holder(persistData) 使用；共享 bean 上恒为 null，禁止读取
   private Session session;
   private SimulationUserModel userModel;
 
@@ -77,39 +78,38 @@ public class WebSocketSimulationService {
       roomUserMap.setUserImg(userEntity.getUserImg());
       roomUserMap.setChannel(-1);
     }
-    this.userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
+    SimulationUserModel userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
     if (userModel != null) {
       userModel.setStatus(1);
     }
-    this.session = session;
     persistData.setSession(session);
     persistData.setUserModel(userModel);
     SimulationRouterRoomEntity roomEntity = optional.get();
     if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
-      addRoomDisturd(this, roomId, persistData);
+      addRoomDisturd(roomId, persistData);
     } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
-      addRoomReport(this, roomId, persistData);
+      addRoomReport(roomId, persistData);
     } else if (Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      addRoomReport(this, roomId, persistData);
+      addRoomReport(roomId, persistData);
     } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
-      addRoomRouter(this, roomId, persistData);
+      addRoomRouter(roomId, persistData);
     }
   }
 
-  public void addRoomDisturd(WebSocketSimulationService ws, Integer roomId, WebSocketSimulationService persistData) {
+  public void addRoomDisturd(Integer roomId, WebSocketSimulationService persistData) {
     List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.disturbRoom.get(roomId))
         .orElseGet(ArrayList::new);
     //踢出连接
-    kickOutOld(simulations, ws.getUserModel().getId());
-    String id = ws.getUserModel().getId();
+    kickOutOld(simulations, persistData.getUserModel().getId());
+    String id = persistData.getUserModel().getId();
     //发给前端message
     SimulationDisturdWebscoketVO webscoketVO = new SimulationDisturdWebscoketVO();
     webscoketVO.setTopic(ONLINE);
     SimulationDisturdWebscoketBody body = new SimulationDisturdWebscoketBody();
-    body.setId(ws.getUserModel().getId());
-    body.setUserName(ws.getUserModel().getName());
-    body.setUserImg(ws.getUserModel().getUserImg());
-    body.setChannel(ws.getUserModel().getChannel());
+    body.setId(persistData.getUserModel().getId());
+    body.setUserName(persistData.getUserModel().getName());
+    body.setUserImg(persistData.getUserModel().getUserImg());
+    body.setChannel(persistData.getUserModel().getChannel());
     webscoketVO.setBody(body);
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isPresent()) {
@@ -136,36 +136,36 @@ public class WebSocketSimulationService {
     }
   }
 
-  public void addRoomReport(WebSocketSimulationService ws, Integer roomId, WebSocketSimulationService persistData) {
+  public void addRoomReport(Integer roomId, WebSocketSimulationService persistData) {
     //拿到房间信息
     List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.reportRoom.get(roomId))
         .orElseGet(ArrayList::new);
-    kickOutOld(simulations, ws.getUserModel().getId());
-    if (ws.getUserModel().getChannel().compareTo(1) == 0) {
+    kickOutOld(simulations, persistData.getUserModel().getId());
+    if (persistData.getUserModel().getChannel().compareTo(1) == 0) {
       simulations.stream()
           .filter(item -> item.getUserModel().getChannel() == 0)
           .findFirst()
           .ifPresent(wss -> {
             Map<String, String> data = new HashMap<>();
             data.put(TYPE, "1");
-            data.put(ID, ws.getUserModel().getId());
+            data.put(ID, persistData.getUserModel().getId());
             //学员上线给教员发送信息
-            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), ws.getUserModel().getName(), "");
+            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), persistData.getUserModel().getName(), "");
           });
     }
-    ws.getUserModel().setStatus(1);
+    persistData.getUserModel().setStatus(1);
     simulations.add(persistData);
     SimulationGlobal.reportRoom.put(roomId, simulations);
   }
 
-  public void addRoomRouter(WebSocketSimulationService ws, Integer roomId, WebSocketSimulationService persistData) {
+  public void addRoomRouter(Integer roomId, WebSocketSimulationService persistData) {
     List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.routerRoom.get(roomId))
         .orElseGet(ArrayList::new);
-    kickOutOld(simulations, ws.getUserModel().getId());
+    kickOutOld(simulations, persistData.getUserModel().getId());
     //发送上线成功的消息
     Map<String, Object> msg = new HashMap<>();
     Map<String, String> body = new HashMap<>();
-    body.put(ID, ws.getUserModel().getId());
+    body.put(ID, persistData.getUserModel().getId());
     msg.put(TOPIC, ONLINE);
     msg.put(BODY, body);
     //添加到socket中
@@ -190,9 +190,9 @@ public class WebSocketSimulationService {
     if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
       quitRoomDisturb(roomId, id);
     } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
-      quitRoomReport(this, roomId, id);
+      quitRoomReport(roomId, id);
     } else if (Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      quitRoomReport(this, roomId, id);
+      quitRoomReport(roomId, id);
     } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
       quitRoomRouter(roomId, id);
     }
@@ -254,20 +254,28 @@ public class WebSocketSimulationService {
   }
 
   @Transactional
-  public void quitRoomReport(WebSocketSimulationService ws, Integer roomId, String userId) {
+  public void quitRoomReport(Integer roomId, String userId) {
     List<WebSocketSimulationService> simulations = SimulationGlobal.reportRoom.get(roomId);
     if (Objects.isNull(simulations)) {
       return;
     }
-    if (ws.getUserModel().getChannel().compareTo(1) == 0) {
+    //按 userId 从房间列表解析该连接的 holder，绝不读共享单例字段（P0#9：单例字段是最后连接者身份）
+    WebSocketSimulationService holder = simulations.stream()
+        .filter(item -> item.getUserModel().getId().equals(userId))
+        .findFirst()
+        .orElse(null);
+    if (holder == null) {
+      return;
+    }
+    if (holder.getUserModel().getChannel().compareTo(1) == 0) {
       simulations.stream()
           .filter(item -> item.getUserModel().getChannel() == 0)
           .findFirst()
           .ifPresent(wss -> {
             Map<String, Object> data = new HashMap<>();
             data.put(TYPE, 0);
-            data.put(ID, ws.getUserModel().getId());
-            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), ws.getUserModel().getName(), "");
+            data.put(ID, holder.getUserModel().getId());
+            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), holder.getUserModel().getName(), "");
           });
     } else {
       Optional<SimulationRouterRoomEntity> roomEntityOptional = roomDao.findByIdOptional(roomId);
@@ -283,19 +291,12 @@ public class WebSocketSimulationService {
         }
       }
     }
-    Iterator<WebSocketSimulationService> iterator = simulations.iterator();
-    while (iterator.hasNext()) {
-      WebSocketSimulationService simulation = iterator.next();
-      if (Objects.equals(simulation.getUserModel().getId(), userId)) {
-        iterator.remove(); // 安全地移除元素
-        if (simulations.isEmpty()) {
-          SimulationGlobal.reportRoom.remove(roomId);
-        }
-        break; // 找到并删除一个即可
-      }
+    simulations.remove(holder);
+    if (simulations.isEmpty()) {
+      SimulationGlobal.reportRoom.remove(roomId);
+    } else {
+      SimulationGlobal.reportRoom.put(roomId, simulations);
     }
-    System.out.println(simulations.size());
-    SimulationGlobal.reportRoom.put(roomId, simulations);
   }
 
   public void quitRoomRouter(Integer roomId, String userId) {
@@ -317,6 +318,11 @@ public class WebSocketSimulationService {
       }
     }
     simulations.remove(removeObj);
+    if (simulations.isEmpty()) {
+      SimulationGlobal.routerRoom.remove(roomId);
+    } else {
+      SimulationGlobal.routerRoom.put(roomId, simulations);
+    }
   }
 
   /**
