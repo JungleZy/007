@@ -285,6 +285,7 @@ public class TickerPatUtils {
         });
       } catch (Exception ignore) {
       }
+      // 协议容忍：纯文本 patKeys 逐字符拆分；副作用：损坏的 JSON 数组文本也会被拆成含 [ " , 的垃圾按键——无协议标记无法区分，接受此残留
       if (pk == null) {
         pk = new ArrayList<>();
         String raw = item.getPatKeys();
@@ -300,17 +301,20 @@ public class TickerPatUtils {
       try {
         logs = JSONUtils.fromJson(item.getPatLogs(), new TypeToken<>() {
         });
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        throw new IllegalStateException("patLogs JSON 损坏，拒绝写入（index=" + i + ")", e);
       }
       try {
         times = JSONUtils.fromJson(item.getMoresTime(), new TypeToken<>() {
         });
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        throw new IllegalStateException("moresTime JSON 损坏，拒绝写入（index=" + i + ")", e);
       }
       try {
         values = JSONUtils.fromJson(item.getMoresValue(), new TypeToken<>() {
         });
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        throw new IllegalStateException("moresValue JSON 损坏，拒绝写入（index=" + i + ")", e);
       }
       pkLists.add(pk != null ? pk : new ArrayList<>());
       logsLists.add(logs != null ? logs : new ArrayList<>());
