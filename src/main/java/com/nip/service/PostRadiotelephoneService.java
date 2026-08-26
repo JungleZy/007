@@ -49,9 +49,16 @@ public class PostRadiotelephoneService {
   public PostRadiotelephoneVO add(String token, PostRadiotelephoneDto dto) {
     UserEntity userEntity = userDao.findUserEntityByToken(token);
     List<PostRadiotelephoneTermDataEntity> entityList = dataDao.findByTypeOrderByKey(dto.getType());
+    // P2-20：单点取值无 +1/成对语义，size-1 会漏掉末条且 size<=1 时抛异常
+    if (entityList.isEmpty()) {
+      throw new IllegalArgumentException("该类型下无词条，无法生成训练内容");
+    }
+    if (dto.getNumber() == null) {
+      throw new IllegalArgumentException("词条数量不能为空");
+    }
     List<PostRadiotelephoneTermDataEntity> contentList = new ArrayList<>();
     for (int i = 0; i < dto.getNumber(); i++) {
-      int index = random.nextInt(entityList.size() - 1);
+      int index = random.nextInt(entityList.size());
       PostRadiotelephoneTermDataEntity entity = entityList.get(index);
       contentList.add(entity);
     }
