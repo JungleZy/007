@@ -46,7 +46,7 @@ public class EnteringTelexPatService {
     //如果用户id为空，则需要校验数据库中同一用户是否存在同一类型的记录
     if (Objects.isNull(param.getId())) {
       EnteringTelexPatEntity check = telexPatDao.findByCreateUserIdAndType(userEntity.getId(), param.getType());
-      Assert.notNull(check, "您已存在相同类型的训练，不能再添加同类的训练！");
+      Assert.isNull(check, "您已存在相同类型的训练，不能再添加同类的训练！");
     }
     //根据id和类型查询
     EnteringTelexPatEntity entity = telexPatDao.findByIdAndType(param.getId(), param.getType());
