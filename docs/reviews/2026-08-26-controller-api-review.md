@@ -4,6 +4,8 @@
 
 审查范围：`src/main/java/com/nip/controller/`（52 个文件，全部逐行读过）与 `src/main/java/com/nip/dto/`（75 个文件）。service 内部逻辑、dao 不在范围内，仅在需要作为证据链时引用。本机无 Java 环境，全部为静态阅读，未运行任何构建或测试。
 
+> **〔勘误 2026-08-27〕** 上行"52 个文件"为口径错误：`controller/` 下实为 **63 个 Controller 类 / 64 个 .java 文件**（含 `test/Test.java` 非 controller 实验类），52 是标注 `@JWT` 的类数，疑将两者混淆。见 `2026-08-26-review-audit.md` §4 对照表。原文保留不改，以此标注为准。
+
 最要命的三件事，按顺序读：
 
 1. **`/test/start` 是一个无鉴权的 GET，直接 UPDATE 生产库里一条写死 ID 的训练记录**（P0-1）。Swagger UI 在生产是开启的，任何人点一下 "Try it out" 就把那条记录的状态、时间、成绩永久覆盖掉。
