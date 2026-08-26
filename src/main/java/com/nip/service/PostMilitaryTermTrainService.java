@@ -130,7 +130,7 @@ public class PostMilitaryTermTrainService {
       if (dto.getTypes().size() == 1) {
         dataIndex = 0;
       } else {
-        dataIndex = random.nextInt(dto.getTypes().size() - 1);
+        dataIndex = random.nextInt(dto.getTypes().size());
       }
       String dataId = dto.getTypes().get(dataIndex);
       //获得该类型的所有考题
@@ -139,12 +139,20 @@ public class PostMilitaryTermTrainService {
         i--;
         continue;
       }
+      long distinct = militaryTermDataEntities.stream()
+          .map(MilitaryTermDataEntity::getValue)
+          .filter(ObjectUtil::isNotEmpty)
+          .distinct()
+          .count();
+      if (distinct < 4) {
+        throw new IllegalArgumentException("类型 " + dataId + " 有效题目不足4条，无法生成干扰项");
+      }
       //考试题目
       int titleIndex;
       if (militaryTermDataEntities.size() == 1) {
         titleIndex = 0;
       } else {
-        titleIndex = random.nextInt(militaryTermDataEntities.size() - 1);
+        titleIndex = random.nextInt(militaryTermDataEntities.size());
       }
       //正确答案
       MilitaryTermDataEntity dataEntity = militaryTermDataEntities.get(titleIndex);
@@ -162,13 +170,27 @@ public class PostMilitaryTermTrainService {
       }
       //封装test_paper对象
       PostMilitaryTermTrainTestPaperEntity testPaperEntity = new PostMilitaryTermTrainTestPaperEntity();
+      int attempts = 0;
       while (flag <= 3) {
+        if (++attempts > 100) {
+          log.warn("干扰项随机生成超过100次未完成，降级为顺序补足，title={}", dataEntity.getKey());
+          for (MilitaryTermDataEntity entity : militaryTermDataEntities) {
+            String v = entity.getValue();
+            if (ObjectUtil.isNotEmpty(v) && !options.contains(v)) {
+              options.add(v);
+              if (options.size() >= 4) {
+                break;
+              }
+            }
+          }
+          break;
+        }
         int optionId;
         if (militaryTermDataEntities.size() == 1) {
           optionId = 0;
         } else {
           //随机其它选项
-          optionId = random.nextInt(militaryTermDataEntities.size() - 1);
+          optionId = random.nextInt(militaryTermDataEntities.size());
         }
         if (titleIndex != optionId || optionId == 0) {
           MilitaryTermDataEntity entity = militaryTermDataEntities.get(optionId);
