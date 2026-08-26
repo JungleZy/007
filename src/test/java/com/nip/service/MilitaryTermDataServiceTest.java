@@ -15,9 +15,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 改级#18 + P1-43：Excel 导入入口 saveBatch（:202）无 @Transactional，
- * 自调用 excelHanle 绕过其 @Transactional；dao.save 各自独立提交，
- * 批中后行抛异常时前半已落库行不回滚。
+ * 改级#18 / P1-43 实测结论：Quarkus ArC 采用子类拦截，自调用 excelHanle 的
+ * @Transactional 依然生效——批中后行抛异常时整批回滚，前半行不落库
+ * （Task 1.10 红阶段实测推翻了"自调用绕过 @Transactional"的评审假设）。
+ * 本测试防守该回滚契约不回归。
  */
 @QuarkusTest
 @QuarkusTestResource(MySqlResource.class)

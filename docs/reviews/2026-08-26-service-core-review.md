@@ -316,6 +316,8 @@
 
 **建议** 改为 findById 后逐字段 set（对照 `TelegraphKeyPatSyntheticalService.java:76-87`），或走 DAO 具名 update JPQL（`TickerTapeTrainDao` 已有 begin/pause/goOn/finish 四个具名 update，update() 是唯一漏网的）。
 
+> **审计更正（2026-08-27 执行期实证）**：本条为误报。全仓 grep 确认 `TickerTapeTrainService.update()` 无任何调用方（Controller 未暴露对应端点），属死代码；merge 抹空字段的机制描述正确但无触发路径。不列入修复批次。
+
 
 ---
 
@@ -1135,6 +1137,9 @@ correctNum.subtract(new BigDecimal(errorNumber)).divide(correctNum, 2, RoundingM
 | P2-33 | `MilitaryTermDataService.java:186-199` `move` | 不校验 source/target 同父，:190 `source.getSort().compareTo(target.getSort())` 对 null 拆箱 NPE；:192/:195 的批量 update 用的都是 `source.getParentId()`。触发：拖拽时 targetId 属于另一个父节点 → 按 source 的父节点范围去平移 sort，但比较基准来自另一棵子树 |
 | P2-34 | `MenusService.java:200-202` | `om.readValue(firstByRoleIdAndMenuId.getPer(), ...)` —— Jackson 对 null 抛 IllegalArgumentException，被 :226 catch → 返回空 MenusDto。触发：某个角色-菜单关联的 per 列为空 → id/name 全 null 的空节点混进菜单树，前端渲染出空白项 |
 | P2-35 | `RoleService.java:71-72` | `map.get("menusId").toString()` / `map.get("per").toString()` 直接 toString。触发：前端提交的菜单 JSON 缺键 → NPE。该方法有 @Transactional 会回滚（:65 deleteAllByRoleId 在同一事务内），不丢数据但 500 且无可读提示 |
+
+
+> **审计更正（2026-08-27 执行期实证）**：P2-25 为误报。该 `.map(BigDecimal::new)`（现漂移至 :287）的上游是 `TheoryKnowledgeEntity::getCredit`，credit 字段类型为 `Double`（`TheoryKnowledgeEntity.java:103`），走 `BigDecimal(double)` 构造器，不存在字符串解析，不会抛 NumberFormatException。不列入修复批次。
 
 ## P2-D 静默失败 / 异常处理（12 条）
 
