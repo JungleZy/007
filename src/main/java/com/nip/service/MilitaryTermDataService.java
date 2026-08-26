@@ -199,7 +199,11 @@ public class MilitaryTermDataService {
     militaryTermDataDao.save(source);
   }
 
+  @Transactional
   public List<MilitaryTermDataVO> saveBatch(List<MilitaryTermDto> params) {
+    if (params == null || params.isEmpty()) {
+      throw new IllegalArgumentException("导入数据为空或格式不完整");
+    }
     excelHanle(params);
     return findAll();
   }
