@@ -10,6 +10,7 @@ import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.DateTimeUtil;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.ListUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.*;
 import com.nip.dto.TheoryKnowledgeDto;
@@ -222,20 +223,24 @@ public class TheoryKnowledgeService {
    */
   @Transactional
   public Response<TheoryKnowledgeEntity> saveTheoryKnowledge(TheoryKnowledgesDto knowledgesDto) {
-    try {
-      if (ObjectUtil.isEmpty(knowledgesDto.getKnowledge().getTitle())) {
-        throw new InvalidTitleException("标题不能是空!");
+    if (ObjectUtil.isEmpty(knowledgesDto.getKnowledge().getTitle())) {
+      throw new InvalidTitleException("标题不能是空!");
+    }
+    if (knowledgesDto.getKnowledgeSwfs() == null) {
+      throw new IllegalArgumentException("课件列表缺失");
+    }
+    knowledgesDto.getKnowledgeSwfs().forEach(s -> {
+      if (StringUtils.isEmpty(s.getTitle())) {
+        throw new IllegalArgumentException("标题不能是空!");
       }
-      TheoryKnowledgeEntity knowledge = knowledgeDao.save(knowledgesDto.getKnowledge());
-      //删除之前的课件
-      knowledgeSwfDao.deleteAllByKnowledgeId(knowledgesDto.getKnowledge().getId());
-      knowledgesDto.getKnowledgeSwfs().forEach(s -> {
-        if (StringUtils.isEmpty(s.getId())) {
-          s.setKnowledgeId(knowledge.getId());
-        }
-        if (StringUtils.isEmpty(s.getTitle())) {
-          throw new IllegalArgumentException("标题不能是空!");
-        }
+    });
+    TheoryKnowledgeEntity knowledge = knowledgeDao.save(knowledgesDto.getKnowledge());
+    //输入校验全部通过后再删除之前的课件
+    knowledgeSwfDao.deleteAllByKnowledgeId(knowledgesDto.getKnowledge().getId());
+    knowledgesDto.getKnowledgeSwfs().forEach(s -> {
+      if (StringUtils.isEmpty(s.getId())) {
+        s.setKnowledgeId(knowledge.getId());
+      }
         //如果id是null则需要设置默认值
         if (s.getId() == null) {
           s.setCreateUserId(knowledge.getCreateUserId());
@@ -244,7 +249,7 @@ public class TheoryKnowledgeService {
         TheoryKnowledgeSwfEntity swfEntity = PojoUtils.convertOne(s, TheoryKnowledgeSwfEntity.class);
         TheoryKnowledgeSwfEntity saveSwfEntity = knowledgeSwfDao.save(swfEntity);
         //拿到测验test
-        List<TheoryKnowledgeTestVO> testVOS = s.getTest();
+        List<TheoryKnowledgeTestVO> testVOS = ListUtils.nullToEmpty(s.getTest());
         testVOS.forEach(test -> {
           //当ID是null的时候，设置默认值
           if (test.getId() == null) {
@@ -255,6 +260,9 @@ public class TheoryKnowledgeService {
           } else {
             if (test.getVersions() == 1) {
               TheoryKnowledgeTestEntity firstByKnowledgeSwfIdAndVersions = theoryKnowledgeTestDao.findFirstByKnowledgeSwfIdAndVersions(test.getKnowledgeSwfId(), 1);
+              if (firstByKnowledgeSwfIdAndVersions == null) {
+                throw new IllegalStateException("版本1测验不存在: swfId=" + test.getKnowledgeSwfId());
+              }
               TheoryKnowledgeTestEntity testEntity = PojoUtils.convertOne(test, TheoryKnowledgeTestEntity.class, (t, e) -> e.setKnowledgeSwfId(saveSwfEntity.getId()));
               if (!firstByKnowledgeSwfIdAndVersions.getId().equals(testEntity.getId())) {
                 theoryKnowledgeTestUserDao.deleteByKnowledgeIdAndKnowledgeSwfId(test.getKnowledgeId(), test.getKnowledgeSwfId());
@@ -288,11 +296,7 @@ public class TheoryKnowledgeService {
           });
         });
       });
-      return ResponseResult.success(knowledge);
-    } catch (Exception e) {
-      log.error("保存失败:{}", e.getMessage());
-      return ResponseResult.error(ResponseCode.CODE_500.getMessage());
-    }
+    return ResponseResult.success(knowledge);
   }
 
   /**
