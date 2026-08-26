@@ -45,14 +45,17 @@ public class PostMilitaryTermTrainService {
   private final MilitaryTermDataDao dataDao;
   private final PostMilitaryTermTrainTestPaperDao testPaperDao;
   private final UserDao userDao;
+  private final UserService userService;
 
   @Inject
   public PostMilitaryTermTrainService(PostMilitaryTermTrainDao termTrainDao, MilitaryTermDataDao dataDao,
-                                      PostMilitaryTermTrainTestPaperDao testPaperDao, UserDao userDao) {
+                                      PostMilitaryTermTrainTestPaperDao testPaperDao, UserDao userDao,
+                                      UserService userService) {
     this.termTrainDao = termTrainDao;
     this.dataDao = dataDao;
     this.testPaperDao = testPaperDao;
     this.userDao = userDao;
+    this.userService = userService;
   }
 
   @Transactional
@@ -410,8 +413,8 @@ public class PostMilitaryTermTrainService {
   }
 
   public List<PostMilitaryTermTrainVO> listPage(String token) {
-    // Phase 4 Task 4.4：不再 catch-返-emptyList 把"登录失效/脏数据"伪装成"暂无数据"，异常直达 ExceptionMapper
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // RevPh4 P3：走 userService.getUserByToken，登录失效统一抛 UnauthorizedException（203 语义）
+    UserEntity userEntity = userService.getUserByToken(token);
     List<PostMilitaryTermTrainEntity> ret = termTrainDao.findByUserIdOrderByCreateTimeDesc(userEntity.getId());
     return PojoUtils.convert(ret, PostMilitaryTermTrainVO.class, (e, v) -> v.setTypes(
         dataDao.findAllByIdIn(JSONUtils.fromJson(e.getTypes(), new TypeToken<>() {

@@ -123,4 +123,14 @@ class ExceptionBoundaryTest {
         .body("code", is(500))
         .body("message", equalTo("服务器错误"));
   }
+
+  @Test
+  void unknownPathKeeps404NotHijackedByGlobalMapper() {
+    // 锁定：WebApplicationException（未匹配路径的 NotFound）不被 GlobalExceptionMapper 劫持成
+    // 500/SYSTEM_ERROR 信封，HTTP 404 原样返回
+    given()
+        .header("Origin", "http://localhost")
+        .when().get("/api/no-such-endpoint-anywhere")
+        .then().statusCode(404);
+  }
 }

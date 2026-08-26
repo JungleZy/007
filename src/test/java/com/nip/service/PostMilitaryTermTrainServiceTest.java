@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PostMilitaryTermTrainServiceTest {
 
   private final PostMilitaryTermTrainService service =
-      new PostMilitaryTermTrainService(null, null, null, null);
+      new PostMilitaryTermTrainService(null, null, null, null, null);
 
   /**
    * 4 条同类型、value 互异的候选。value 刻意不含数字/无线/出口/入口/干线/小时/
