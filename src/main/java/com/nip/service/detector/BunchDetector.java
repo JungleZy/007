@@ -263,9 +263,8 @@ public class BunchDetector {
       return true;
     }
 
-    // 如果当前位置无效，跳过检测
-    int sourceIndex = context.getSourceIndex();
-    if (!isValidIndex(sources, sourceIndex)) {
+    // 如果当前位置无效，跳过检测（P2-13：接入 ComparisonContext.isValidSourceIndex）
+    if (!context.isValidSourceIndex(context.getSourceIndex())) {
       return true;
     }
 

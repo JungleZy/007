@@ -23,7 +23,6 @@ import java.util.Objects;
 import static com.nip.common.utils.TickerPatUtils.checkDotLineGap;
 import static com.nip.common.utils.TickerPatUtils.resolverMessage;
 import static com.nip.service.constants.MessageComparisonConstants.GROUPS_PER_LINE;
-import static com.nip.service.constants.MessageComparisonConstants.MAX_SIGN_VALUE;
 
 /**
  * 报文对比服务
@@ -159,21 +158,11 @@ public class MessageComparisonService {
   }
 
   /**
-   * 获取当前源报文，改进异常处理
+   * 获取当前源报文（P2-13：接入 ComparisonContext.getCurrentSource 守卫，
+   * 同时消除 P2-08 把 MAX_SIGN_VALUE=99 误当下标上限的截断）
    */
   private String getSourceMessage(ComparisonContext context) {
-    List<String> sources = context.getSources();
-    int sourceIndex = context.getSourceIndex();
-
-    try {
-      if (sourceIndex > MAX_SIGN_VALUE || sourceIndex >= sources.size()) {
-        return sources.isEmpty() ? "" : sources.get(sources.size() - 1);
-      }
-      return sources.get(sourceIndex);
-    } catch (IndexOutOfBoundsException e) {
-      log.warn("数组下标异常，sourceIndex: {}, sources.size: {}", sourceIndex, sources.size());
-      return sources.isEmpty() ? "" : sources.get(sources.size() - 1);
-    }
+    return context.getCurrentSource();
   }
 
   /**

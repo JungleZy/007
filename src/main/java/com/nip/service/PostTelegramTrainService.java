@@ -45,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -137,7 +135,6 @@ public class PostTelegramTrainService {
   private final PostTelegramTrainFloorContentDao floorContentDao;
   private final PostTelegramTrainContentValueDao contentValueDao;
   private final GradingRuleDao gradingRuleDao;
-  private final AsyncSavePostTelegramTrainService asyncSavePostTelegramTrainService;
   private final CableFloorService cableFloorService;
   private final MessageComparisonService messageComparisonService;
 
@@ -147,7 +144,6 @@ public class PostTelegramTrainService {
       PostTelegramTrainFloorContentDao floorContentDao,
       PostTelegramTrainContentValueDao contentValueDao,
       GradingRuleDao gradingRuleDao,
-      AsyncSavePostTelegramTrainService asyncSavePostTelegramTrainService,
       CableFloorService cableFloorService,
       MessageComparisonService messageComparisonService) {
     this.postTelegramTrainDao = postTelegramTrainDao;
@@ -155,7 +151,6 @@ public class PostTelegramTrainService {
     this.floorContentDao = floorContentDao;
     this.contentValueDao = contentValueDao;
     this.gradingRuleDao = gradingRuleDao;
-    this.asyncSavePostTelegramTrainService = asyncSavePostTelegramTrainService;
     this.cableFloorService = cableFloorService;
     this.messageComparisonService = messageComparisonService;
   }
@@ -557,8 +552,8 @@ public class PostTelegramTrainService {
     int pageSize = 10000;
     if (ObjectUtil.isNotEmpty(floorContentEntity)) {
       if (floorContentEntity.getFloorNumber().equals(totalPage)) {
+        // P2-07：原「异步分页」实为同步（无 @Asynchronous），删除假 Future 与死异常处理，直接分页查询
         List<PostTelegramTrainFloorContentEntity> contentEntities = new ArrayList<>();
-        List<Future<List<PostTelegramTrainFloorContentEntity>>> futures = new ArrayList<>();
         Integer count = floorContentDao.findCountByTrainIdOrderByFloorNumberAscSortAsc(param.getId());
         if (count <= pageSize) {
           contentEntities
@@ -567,25 +562,10 @@ public class PostTelegramTrainService {
           int totalPage1 = count % pageSize == 0 ? count / pageSize : count / pageSize + 1;
           for (int i = 0; i < totalPage1; i++) {
             int index = i * pageSize;
-            futures.add(
-                asyncSavePostTelegramTrainService.selectPostTelegramTrainFloorContent(param.getId(), index, pageSize));
+            contentEntities.addAll(
+                floorContentDao.findAllByTrainIdOrderByFloorNumberAscSortAscLimit(param.getId(), index, pageSize));
           }
         }
-        futures.forEach(listFuture -> {
-          try {
-            contentEntities.addAll(listFuture.get());
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // 恢复线程的中断状态
-            log.warn("Thread was interrupted:", e);
-          } catch (ExecutionException e) {
-            Throwable cause = e.getCause();
-            if (cause != null) {
-              log.error("Execution failed due to: ", cause);
-            } else {
-              log.error("Execution failed", e);
-            }
-          }
-        });
         return contentEntities.stream().map(PostTelegramTrainFloorContentEntity::getMoresKey).toList();
       }
       generateNumber = entity.getMessageNumber() - (floorContentEntity.getFloorNumber() * 100);

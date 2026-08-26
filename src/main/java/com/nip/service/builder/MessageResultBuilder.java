@@ -156,10 +156,8 @@ public class MessageResultBuilder {
       array1.addAll(array2);
     }
     
-    // 缓存结果（检查缓存大小）
-    if (jsonCache.size() < JSON_CACHE_MAX_SIZE) {
-      jsonCache.put(cacheKey, JSONUtils.toJson(array1));
-    }
+    // 缓存结果（P2-13：接入 clearJsonCache——缓存满时整体重置，避免冻结旧值）
+    cachePut(cacheKey, JSONUtils.toJson(array1));
     
     return array1;
   }
@@ -181,12 +179,22 @@ public class MessageResultBuilder {
     // 解析JSON
     List<Object> result = JSONUtils.fromJson(json, new TypeToken<List<Object>>() {});
     
-    // 缓存结果
-    if (result != null && jsonCache.size() < JSON_CACHE_MAX_SIZE) {
-      jsonCache.put(json, JSONUtils.toJson(result));
+    // 缓存结果（P2-13：满则重置后写入）
+    if (result != null) {
+      cachePut(json, JSONUtils.toJson(result));
     }
     
     return result;
+  }
+
+  /**
+   * 写入缓存；缓存达到上限时先整体清空再写入（接入 clearJsonCache，替代原「满 1000 后不再更新」）
+   */
+  private static void cachePut(String key, String value) {
+    if (jsonCache.size() >= JSON_CACHE_MAX_SIZE) {
+      clearJsonCache();
+    }
+    jsonCache.put(key, value);
   }
 
   /**

@@ -43,6 +43,11 @@ public class GroupDetector {
       String source,
       MessageResultBuilder resultBuilder) {
 
+    // P2-13：接入 shouldSkipGroupDetection 守卫，越界直接跳过检测
+    if (shouldSkipGroupDetection(context, currentIndex)) {
+      return DetectionResult.FAILED;
+    }
+
     // 先检测多组
     DetectionResult moreGroupResult = detectMoreGroup(context, currentIndex, patKey, source, resultBuilder);
     if (moreGroupResult == DetectionResult.SUCCESS) {
@@ -113,6 +118,11 @@ public class GroupDetector {
     List<String> sources = context.getSources();
     int sourceIndex = context.getSourceIndex();
 
+    // P2-13：接入 hasMoreSources 守卫——当前位置之后已无源报文，少组检测无意义
+    if (!context.hasMoreSources()) {
+      return DetectionResult.FAILED;
+    }
+
     // 确定搜索范围
     int searchRange = context.isMoreOrLackLineMode() ? EXTENDED_SEARCH_RANGE : STANDARD_SEARCH_RANGE;
 
@@ -154,10 +164,10 @@ public class GroupDetector {
     List<String> resolverPatKeys = context.getResolverVO().getResolverMessage();
     List<String> resolverCorrectPatLogs2 = context.getResolverVO().getResolverPatLogs();
 
-    // 添加正确的标准报文到结果
-    String moresValue = resolverCorrectMoresValue.get(currentIndex);
-    String moresTime = resolverCorrectMoresTime.get(currentIndex);
-    String patLog = resolverCorrectPatLogs.get(currentIndex);
+    // 添加正确的标准报文到结果（P2-13：接入 getSafeString，附加信息越界时取空串而非抛越界）
+    String moresValue = getSafeString(resolverCorrectMoresValue, currentIndex);
+    String moresTime = getSafeString(resolverCorrectMoresTime, currentIndex);
+    String patLog = getSafeString(resolverCorrectPatLogs, currentIndex);
     resultBuilder.addCorrectMessage(source, moresValue, moresTime, patLog);
 
     // 记录多组详情
@@ -169,7 +179,7 @@ public class GroupDetector {
         break;
       }
       String nextMoreGroup = resolverPatKeys.get(currentIndex + m);
-      String nextPatLog = resolverCorrectPatLogs2.get(currentIndex + m);
+      String nextPatLog = getSafeString(resolverCorrectPatLogs2, currentIndex + m);
 
       checkDotLineGap(nextMoreGroup, currentIndex + m, nextPatLog, standards, rule, false,
           statisticsVO, scoreVO);
@@ -201,9 +211,9 @@ public class GroupDetector {
 
     // 添加匹配的报文
     String nextGroup = sources.get(sourceIndex + missingCount);
-    String moresValue = resolverCorrectMoresValue.get(currentIndex);
-    String moresTime = resolverCorrectMoresTime.get(currentIndex);
-    String patLog = resolverCorrectPatLogs.get(currentIndex);
+    String moresValue = getSafeString(resolverCorrectMoresValue, currentIndex);
+    String moresTime = getSafeString(resolverCorrectMoresTime, currentIndex);
+    String patLog = getSafeString(resolverCorrectPatLogs, currentIndex);
     resultBuilder.addCorrectMessage(nextGroup, moresValue, moresTime, patLog);
 
     // 调整源报文索引

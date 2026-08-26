@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Objects;
 
+import static com.nip.service.constants.MessageComparisonConstants.EMPTY_JSON_ARRAY;
 import static com.nip.service.constants.MessageComparisonConstants.STANDARD_GROUP_LENGTH;
 import static com.nip.service.constants.MessageComparisonConstants.WORD_GAP_MARKER;
 
@@ -68,6 +69,16 @@ public class ErrorCodeDetector {
       String patKey,
       String source,
       MessageResultBuilder resultBuilder) {
+
+    // P2-13：接入 shouldSkipErrorCodeDetection 守卫——附加信息越界时补空信息占位，
+    // 保持结果列表对齐（handleStandardLengthGroup 的无界 get 不再可达越界）
+    if (shouldSkipErrorCodeDetection(context, currentIndex)) {
+      resultBuilder.addCorrectMessage(patKey, EMPTY_JSON_ARRAY, EMPTY_JSON_ARRAY, EMPTY_JSON_ARRAY);
+      return new ErrorCodeResult(DetectionType.ERROR_CODE, DetectionResult.SUCCESS,
+          "附加信息越界，按标准错码计但不读取详情");
+    }
+
+    log.debug("错码检测: {}", getErrorCodeDescription(patKey, source));
 
     // 检查报文长度，判断是否为标准长度
     if (patKey.length() == STANDARD_GROUP_LENGTH) {
