@@ -14,17 +14,13 @@ import jakarta.inject.Inject;
 import jakarta.websocket.*;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * WebSocketService
@@ -35,7 +31,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
  */
 @ServerEndpoint(value = "/websocket/{sid}")
 @ApplicationScoped
-@Data
 @Slf4j
 public class WebSocketService {
 
@@ -44,59 +39,34 @@ public class WebSocketService {
   @Inject
   private SimulationRouterRoomUserService roomUserService;
 
-  //静态变量，用来记录当前在线连接数
-  private static List<String> onlineId = new ArrayList<>();
   /**
-   * concurrent包的线程安全Set，用来存放每个客户端对应的MyWebSocket对象。
+   * 在线连接表：sid -> 该连接的 Session。
+   * 端点是 @ApplicationScoped 单例，连接态一律挂在本表上；
+   * 禁止实例字段（共享字段恒为最后连接者身份，P1-9/P1-10 根因）。
    */
-  private static WebSocketService webSocketServerSet;
-  private static CopyOnWriteArraySet<WebSocketService> webSocketClientSet = new CopyOnWriteArraySet<>();
-
-  /**
-   * 与某个客户端的连接会话，需要通过它来给客户端发送数据
-   */
-  private Session session;
-
-  /**
-   * 接收sid
-   */
-  private String sid = "";
+  private static final ConcurrentMap<String, Session> CLIENTS = new ConcurrentHashMap<>();
 
   /**
    * 连接建立成功调用的方法
    */
   @OnOpen
-  public void onOpen(Session session, @PathParam("sid") String sid) throws IOException {
-    for (WebSocketService item : webSocketClientSet) {
-      if (sid.equals(item.sid)) {
-        item.sendMessage(new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent()));
-        webSocketClientSet.remove(item);
-        onlineId.remove(item.sid);
-      }
+  public void onOpen(Session session, @PathParam("sid") String sid) {
+    Session old = CLIENTS.put(sid, session);
+    if (old != null && old != session) {
+      //踢掉同 sid 的旧连接：通知后由客户端自行断开
+      send(old, JSONUtils.toJson(new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent())));
     }
-    this.session = session;
-    this.sid = sid;
-    WebSocketService service = new WebSocketService();
-    service.setSession(session);
-    service.setSid(sid);
-    webSocketClientSet.add(service);
-    onlineId.add(sid);
-    log.info("Client Join: {},Online Clients: {}", sid, webSocketClientSet.size());
+    log.info("Client Join: {},Online Clients: {}", sid, CLIENTS.size());
   }
 
   /**
    * 连接关闭调用的方法
    */
   @OnClose
-  public void onClose(@PathParam(value = "sid") String sid) {
-    removeClient(sid);
-    webSocketClientSet.remove(this);
-    onlineId.remove(this.sid);
-    if (null != webSocketServerSet) {
-      webSocketServerSet.sendMessage(
-          new ResponseModel(CodeConstants.USER_LIST.getCode(), JSONUtils.toJson(onlineId)));
-    }
-    log.info("Client Leave: {}; Online Clients: {}", this.sid, onlineId.size());
+  public void onClose(@PathParam(value = "sid") String sid, Session session) {
+    //条件移除：同 sid 重连后，旧 session 的 onClose 不得摘掉新连接
+    CLIENTS.remove(sid, session);
+    log.info("Client Leave: {}; Online Clients: {}", sid, CLIENTS.size());
   }
 
   /**
@@ -116,6 +86,9 @@ public class WebSocketService {
           CompletableFuture.runAsync(() -> {
             webSocketEventService.saveTelegramTrainLog(telegramTrainLogEntity);
             log.info("更新手键日志");
+          }).exceptionally(t -> {
+            log.error("保存手键日志失败", t);
+            return null;
           });
           break;
         case 3001:
@@ -123,6 +96,9 @@ public class WebSocketService {
           CompletableFuture.runAsync(() -> {
             webSocketEventService.saveTelegramTrainFloorContentEntity(contentEntity);
             log.info("更新key and time ");
+          }).exceptionally(t -> {
+            log.error("保存楼层内容失败", t);
+            return null;
           });
           break;
         default:
@@ -141,44 +117,12 @@ public class WebSocketService {
   }
 
   /**
-   * 迭代删除某个用户
-   *
-   * @param sid 用户id
-   */
-  public void removeClient(String sid) {
-    for (WebSocketService next : webSocketClientSet) {
-      if (Objects.equals(sid, next.getSid())) {
-        webSocketClientSet.remove(next);
-        onlineId.remove(sid);
-      }
-    }
-  }
-
-  /**
-   * 实现服务器主动推送
-   */
-  public void sendMessage(ResponseModel message) {
-    this.session.getAsyncRemote().sendText(JSONUtils.toJson(message));
-  }
-
-  public void sendMessage(String message) {
-    this.session.getAsyncRemote().sendText(message);
-  }
-
-
-  /**
-   * 群发自定义消息
+   * 按 sid 定向发送
    */
   public static void sendInfo(@PathParam("sid") String sid, ResponseModel message) {
-    for (WebSocketService item : webSocketClientSet) {
-      try {
-        if (item.sid.equals(sid)) {
-          String msg = JSONUtils.toJson(message);
-          item.session.getAsyncRemote().sendText(msg);
-        }
-      } catch (Exception e) {
-        log.error("WebSocketService sendInfo:{}", e.getMessage());
-      }
+    Session session = CLIENTS.get(sid);
+    if (session != null) {
+      send(session, JSONUtils.toJson(message));
     }
   }
 
@@ -190,10 +134,23 @@ public class WebSocketService {
   }
 
   public static void sendInfo(@PathParam("sid") String sid, String message) {
-    for (WebSocketService item : webSocketClientSet) {
-      if (item.sid.equals(sid)) {
-        item.sendMessage(message);
+    Session session = CLIENTS.get(sid);
+    if (session != null) {
+      send(session, message);
+    }
+  }
+
+  /**
+   * 出站发送统一入口：async remote（Undertow 内部排队，避免并发 basic 写抛
+   * IllegalStateException）；catch Exception，单个接收方失败不得中断调用方
+   */
+  private static void send(Session session, String message) {
+    try {
+      if (session.isOpen()) {
+        session.getAsyncRemote().sendText(message);
       }
+    } catch (Exception e) {
+      log.error("WebSocketService send:{}", e.getMessage());
     }
   }
 }

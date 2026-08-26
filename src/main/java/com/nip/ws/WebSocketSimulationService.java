@@ -22,6 +22,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
@@ -196,6 +197,13 @@ public class WebSocketSimulationService {
     }
   }
 
+  @OnError
+  public void onError(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId, Session session, Throwable t) {
+    log.error("ws error, session={}", session.getId(), t);
+    //复用 onClose 清理该 session 对应的房间状态
+    onClose(id, roomId);
+  }
+
   @Transactional
   public void quitRoomDisturb(Integer roomId, String userId) {
     List<WebSocketSimulationService> simulations = SimulationGlobal.disturbRoom.get(roomId);
@@ -205,16 +213,11 @@ public class WebSocketSimulationService {
     //查询用户角色
     SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(userId, roomId);
     List<WebSocketSimulationService> collect = new ArrayList<>();
-    Integer removeIndex = null;
     //学员退出
     if (roomUserEntity.getUserType().compareTo(1) == 0) {
-      for (int i = 0; i < simulations.size(); i++) {
-        WebSocketSimulationService socketSimulation = simulations.get(i);
+      for (WebSocketSimulationService socketSimulation : simulations) {
         if (socketSimulation.getUserModel().getUserType().compareTo(0) == 0) {
           collect.add(socketSimulation);
-        }
-        if (Objects.equals(socketSimulation.getUserModel().getId(), userId)) {
-          removeIndex = i;
         }
       }
       Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
@@ -227,13 +230,9 @@ public class WebSocketSimulationService {
     }
     //教员退出
     else {
-      for (int i = 0; i < simulations.size(); i++) {
-        WebSocketSimulationService webSocketSimulationService = simulations.get(i);
+      for (WebSocketSimulationService webSocketSimulationService : simulations) {
         if (webSocketSimulationService.getUserModel().getUserType().compareTo(1) == 0) {
           collect.add(webSocketSimulationService);
-        }
-        if (Objects.equals(webSocketSimulationService.getUserModel().getId(), userId)) {
-          removeIndex = i;
         }
       }
     }
@@ -246,7 +245,9 @@ public class WebSocketSimulationService {
       WebSocketSimulationService.sendMessage(item.getSession(), JSONObject.toJSONString(message), "", "");
     });
 
-    if (removeIndex != null && simulations.isEmpty()) {
+    //移除退出者会话；房间清空后释放房间条目（P1-4：原 removeIndex 逻辑从不移除，永久泄漏）
+    simulations.removeIf(s -> Objects.equals(s.getUserModel().getId(), userId));
+    if (simulations.isEmpty()) {
       SimulationGlobal.disturbRoom.remove(roomId);
     }
   }
@@ -628,20 +629,30 @@ public class WebSocketSimulationService {
     }
   }
 
+  /**
+   * 仅 onOpen 拒接路径使用：此刻 session 尚未入房、无并发写者，保持同步写，
+   * 确保紧随其后的 session.close() 前错误帧已发出
+   */
   private void sendErrorMessage(Session session, String errorMsg, String sendName, String receiveName) {
     try {
-      session.getBasicRemote().sendText(JSONUtils.toJson(SimulationResponseModel.err(errorMsg, sendName, receiveName)));
-    } catch (IOException e) {
+      if (session.isOpen()) {
+        session.getBasicRemote().sendText(JSONUtils.toJson(SimulationResponseModel.err(errorMsg, sendName, receiveName)));
+      }
+    } catch (Exception e) {
       log.error("WebSocketSimulationService.sendErrorMessage:{}", e.getMessage());
     }
   }
 
+  /**
+   * 广播发送统一入口：async remote（Undertow 内部排队，避免多线程并发 basic 写抛
+   * IllegalStateException 打断整轮广播）；catch Exception，单个接收方失败不中断循环
+   */
   public static void sendMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
-        session.getBasicRemote().sendText(JSONUtils.toJson(SimulationResponseModel.success(message, sendName, receiveName)));
+        session.getAsyncRemote().sendText(JSONUtils.toJson(SimulationResponseModel.success(message, sendName, receiveName)));
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       log.error("WebSocketSimulationService.sendMessage:{}", e.getMessage());
     }
   }
@@ -653,17 +664,16 @@ public class WebSocketSimulationService {
    * @param userId      用户id
    */
   public void kickOutOld(List<WebSocketSimulationService> simulations, String userId) {
-    for (int i = 0; i < simulations.size(); i++) {
-      WebSocketSimulationService webSocketSimulationService = simulations.get(i);
-      if (Objects.equals(webSocketSimulationService.getUserModel().getId(), userId)) {
+    //先关旧连接再整体移除：索引 for 内 remove 会因元素前移漏踢（P2-3）
+    for (WebSocketSimulationService item : simulations) {
+      if (Objects.equals(item.getUserModel().getId(), userId)) {
         try {
-          webSocketSimulationService.getSession().close();
+          item.getSession().close();
         } catch (IOException e) {
           log.error("WebSocketSimulationService.kickOutOld:{}", e.getMessage());
-        } finally {
-          simulations.remove(webSocketSimulationService);
         }
       }
     }
+    simulations.removeIf(item -> Objects.equals(item.getUserModel().getId(), userId));
   }
 }

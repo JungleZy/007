@@ -38,11 +38,8 @@ public class WebSocketGeneralTickerPatService {
     userModel.setStatus(1);
     userModel.setId(uid);
     userModel.setRole(role);
-    GeneralTickerPatTrainRoomUserModel roomUser = PAT_ROOM.get(trainId);
-    if (roomUser == null) {
-      roomUser = new GeneralTickerPatTrainRoomUserModel();
-      PAT_ROOM.put(trainId, roomUser);
-    }
+    GeneralTickerPatTrainRoomUserModel roomUser =
+        PAT_ROOM.computeIfAbsent(trainId, k -> new GeneralTickerPatTrainRoomUserModel());
     Map<String, Object> msg = new HashMap<>();
     msg.put(TOPIC, ONLINE);
     msg.put(ID, uid);
@@ -78,6 +75,11 @@ public class WebSocketGeneralTickerPatService {
   public void onMessage(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
 //    log.info("收到{}训练：{}的消息：{}", trainId, uid, message);
     GeneralTickerPatTrainRoomUserModel roomUser = PAT_ROOM.get(trainId);
+    //房间可能已被 REST 删除（delete 只清 map 不关 session），判空短路
+    if (roomUser == null) {
+      sendErrMessage(session, "房间不存在", "", "");
+      return;
+    }
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String topic = msg.get(BaseConstants.TOPIC).toString();
@@ -166,10 +168,8 @@ public class WebSocketGeneralTickerPatService {
       }
       roomUser.getJoinUser().remove(remove);
     }
-    if (roomUser.getJoinUser().isEmpty() && roomUser.getGroupUser() == null) {
-//      log.info("房间：{}，所有人已离开", trainId);
-      PAT_ROOM.remove(trainId);
-    }
+    //原子清房：与并发 onOpen 的 computeIfAbsent 互斥，避免删掉刚建的房间（P1-6）
+    PAT_ROOM.computeIfPresent(trainId, (k, v) -> (v.getJoinUser().isEmpty() && v.getGroupUser() == null) ? null : v);
 //    log.info("房间信息：{}", PAT_ROOM);
   }
 
@@ -185,32 +185,29 @@ public class WebSocketGeneralTickerPatService {
     }
   }
 
+  /**
+   * 广播发送统一入口：async remote 避免并发 basic 写抛 IllegalStateException；
+   * 返回 false 表示连接已关闭或提交失败，调用方据此清理死会话
+   */
   public static boolean sendMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
-        session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.success(message, sendName, receiveName)));
+        session.getAsyncRemote().sendText(JSONUtils.toJson(SocketResponseModel.success(message, sendName, receiveName)));
         return true;
       } else {
         return false;
       }
-    } catch (IOException e) {
-//      log.error("发送消息失败：{}", e.getMessage());
+    } catch (Exception e) {
       return false;
-    }
-  }
-
-  public static void sendMessageThrow(Session session, String message, String sendName, String receiveName) throws IOException {
-    if (session.isOpen()) {
-      session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.success(message, sendName, receiveName)));
     }
   }
 
   public static void sendErrMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
-        session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.err(message, sendName, receiveName)));
+        session.getAsyncRemote().sendText(JSONUtils.toJson(SocketResponseModel.err(message, sendName, receiveName)));
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       log.error("WebSocketGeneralTickerPatService.sendErrMessage: 发送消息失败");
     }
   }

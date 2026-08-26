@@ -54,16 +54,13 @@ public class WebSocketGeneralKeyPatService {
       log.error("WebSocketGeneralKeyPatService.onOpen: 用户不存在");
       sendErrMessage(session, e.getMessage(), "", "");
       close(session);
+      //P1-7：不 return 会带着全 null 的 userModel 继续执行到 getRole() NPE
+      return;
     }
     GeneralPatTrainUserModelDto userModel = PojoUtils.convertOne(userDto, GeneralPatTrainUserModelDto.class);
     userModel.setSession(session);
     userModel.setStatus(1);
-    GeneralPatTrainRoomUserDto roomUser = Optional.ofNullable(ROOM.get(trainId))
-        .orElseGet(() -> {
-          GeneralPatTrainRoomUserDto room = new GeneralPatTrainRoomUserDto();
-          ROOM.put(trainId, room);
-          return room;
-        });
+    GeneralPatTrainRoomUserDto roomUser = ROOM.computeIfAbsent(trainId, k -> new GeneralPatTrainRoomUserDto());
     Map<String, String> data = new HashMap<>();
     data.put(ID, uid);
     data.put(TOPIC, BaseConstants.ONLINE);
@@ -127,30 +124,29 @@ public class WebSocketGeneralKeyPatService {
   @OnClose
   public void onClose(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, Session session) {
     GeneralPatTrainRoomUserDto keyPatTrainRoomUser = ROOM.get(trainId);
-    if (keyPatTrainRoomUser.getGroupUser() != null) {
-      GeneralPatTrainUserModelDto user = keyPatTrainRoomUser.getGroupUser();
-      List<GeneralPatTrainUserModelDto> joinUser = keyPatTrainRoomUser.getJoinUser();
-      Map<String, String> data = new HashMap<>();
-      data.put(TOPIC, OFFLINE);
-      data.put(ID, uid);
-      //判断是否是组训人退出
-      if (Objects.equals(user.getId(), uid)) {
-        //给所有人发送退出消息
-        keyPatTrainRoomUser.getJoinUser().forEach(item -> sendMessage(item.getSession(), JSONObject.toJSONString(data), "", ""));
-        keyPatTrainRoomUser.setGroupUser(null);
-      } else {
-        GeneralPatTrainUserModelDto removeModel = null;
-        for (GeneralPatTrainUserModelDto userModel : joinUser) {
-          if (Objects.equals(userModel.getId(), uid)) {
-            removeModel = userModel;
-          }
-        }
-        if (keyPatTrainRoomUser.getGroupUser() != null) {
-          sendMessage(keyPatTrainRoomUser.getGroupUser().getSession(), JSONObject.toJSONString(data), "", "");
-        }
-        joinUser.remove(removeModel);
-      }
+    if (keyPatTrainRoomUser == null) {
+      close(session);
+      return;
     }
+    List<GeneralPatTrainUserModelDto> joinUser = keyPatTrainRoomUser.getJoinUser();
+    Map<String, String> data = new HashMap<>();
+    data.put(TOPIC, OFFLINE);
+    data.put(ID, uid);
+    GeneralPatTrainUserModelDto groupUser = keyPatTrainRoomUser.getGroupUser();
+    //判断是否是组训人退出
+    if (groupUser != null && Objects.equals(groupUser.getId(), uid)) {
+      //给所有人发送退出消息
+      joinUser.forEach(item -> sendMessage(item.getSession(), JSONObject.toJSONString(data), "", ""));
+      keyPatTrainRoomUser.setGroupUser(null);
+    } else {
+      //学员退出：教员在线时通知教员；无论教员是否在线都必须移除（P1-8：原逻辑教员缺席时学员永不移除）
+      if (groupUser != null) {
+        sendMessage(groupUser.getSession(), JSONObject.toJSONString(data), "", "");
+      }
+      joinUser.removeIf(userModel -> Objects.equals(userModel.getId(), uid));
+    }
+    //房间清空后释放条目（原 ROOM 只增不减）
+    ROOM.computeIfPresent(trainId, (k, v) -> (v.getJoinUser().isEmpty() && v.getGroupUser() == null) ? null : v);
     close(session);
   }
 
@@ -161,22 +157,29 @@ public class WebSocketGeneralKeyPatService {
     onClose(uid, trainId, session);
   }
 
+  /**
+   * 广播发送统一入口：async remote 避免并发 basic 写抛 IllegalStateException；
+   * catch Exception，单个接收方失败不中断循环
+   */
   public static void sendMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
-        session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.success(message, sendName, receiveName)));
+        session.getAsyncRemote().sendText(JSONUtils.toJson(SocketResponseModel.success(message, sendName, receiveName)));
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       log.error("WebSocketGeneralKeyPatService.sendMessage: 发送消息失败");
     }
   }
 
+  /**
+   * onOpen 拒接路径在 close 前调用：保持同步写确保错误帧先于关闭发出
+   */
   public static void sendErrMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
         session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.err(message, sendName, receiveName)));
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       log.error("WebSocketGeneralKeyPatService.sendErrMessage: 发送消息失败");
     }
   }
