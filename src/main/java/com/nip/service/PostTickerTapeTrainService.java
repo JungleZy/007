@@ -177,7 +177,7 @@ public class PostTickerTapeTrainService {
         .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
     // 状态校验
     if (entity.getStatus().compareTo(NOT_STARTED.getCode()) == 0) {
-      throw new IllegalArgumentException("训练状态不是未开始");
+      throw new IllegalArgumentException("训练还未开始，无需重置");
     }
     entity.setStatus(NOT_STARTED.getCode());
     entity.setStartTime(null);

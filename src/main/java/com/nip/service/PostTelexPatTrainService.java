@@ -621,20 +621,19 @@ public class PostTelexPatTrainService {
         totalPageNumber.removeAll(existPageNumber);
         totalPageNumber.removeAll(pageNumber);
         for (int i = 0; i < totalPageNumber.size(); i++) {
-          if (i == totalPageNumber.size() - 1) {
-            // 说明是最后一页
-            lackLineNumber += totalPage % 100;
-            score = score.subtract(
-                new BigDecimal(totalPage % 100).multiply(new BigDecimal(rule.getOther().getMuchLessLine().toString())));
-            if (groupNumber % 100 > 0) {
-              lackLineNumber++;
-              score = score.subtract(new BigDecimal(rule.getOther().getMuchLessLine().toString()));
-            }
+          // P2-64：末页判定按实际页号（==totalPage），不再依赖 removeAll 后残余列表的最后一个元素；
+          // 末页行数按剩余组数折算（每行 10 组，向上取整），替代原「totalPage % 100」变量用错
+          int missingPage = totalPageNumber.get(i);
+          int missingLines;
+          if (missingPage == totalPage && groupNumber % 100 > 0) {
+            int lastPageGroups = groupNumber % 100;
+            missingLines = lastPageGroups / 10 + (lastPageGroups % 10 > 0 ? 1 : 0);
           } else {
-            lackLineNumber += 10;
-            score = score
-                .subtract(new BigDecimal(10).multiply(new BigDecimal(rule.getOther().getMuchLessLine().toString())));
+            missingLines = 10;
           }
+          lackLineNumber += missingLines;
+          score = score.subtract(
+              new BigDecimal(missingLines).multiply(new BigDecimal(rule.getOther().getMuchLessLine().toString())));
         }
       }
 

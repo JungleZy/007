@@ -61,11 +61,15 @@ public class MilitaryTermDataService {
       jsonArray.forEach(o -> {
         Map<String, String> parse = JSONUtils.gson.fromJson(o.toString(), new TypeToken<>() {
         });
-        String key = getKey(parse);
+        // P2-13/getKey 勘误：按明确列名取值，不再依赖 Map 遍历顺序取「首个非 null 键」
+        String key = parse.get("key");
+        if (key == null) {
+          throw new IllegalArgumentException("导入条目缺少 key 列");
+        }
         MilitaryTermDataEntity entity1 = new MilitaryTermDataEntity();
         entity1.setParentId(save.getId());
         entity1.setKey(key);
-        entity1.setValue(parse.get(key));
+        entity1.setValue(parse.get("value"));
         entity1.setSort(j[0]);
         j[0]++;
         militaryTermDataDao.save(entity1);
@@ -73,16 +77,6 @@ public class MilitaryTermDataService {
     });
   }
 
-  private static String getKey(Map<String, String> map) {
-    String obj = null;
-    for (Map.Entry<String, String> entry : map.entrySet()) {
-      obj = entry.getKey();
-      if (obj != null) {
-        break;
-      }
-    }
-    return obj;
-  }
 
   public List<Map<String, Object>> getAllByTree() {
     List<MilitaryTermDataEntity> topData = militaryTermDataDao.findAllByParentId("0");

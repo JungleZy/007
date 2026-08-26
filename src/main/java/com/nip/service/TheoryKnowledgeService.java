@@ -396,7 +396,7 @@ public class TheoryKnowledgeService {
       return ResponseResult.success(re);
     } else {
       //月查询
-      List<TheoryKnowledgeSwfRecordEntity> allByUserIdAndJoinTimeLike = knowledgeRecordDao.findAllByUserIdAndJoinTimeLikeAndType(userEntity.getId(), year + "-" + getMonth(Integer.valueOf(month)) + "%", type);
+      List<TheoryKnowledgeSwfRecordEntity> allByUserIdAndJoinTimeLike = knowledgeRecordDao.findAllByUserIdAndJoinTimeLikeAndType(userEntity.getId(), year + "-" + padTwoDigits(Integer.valueOf(month)) + "%", type);
       if (!allByUserIdAndJoinTimeLike.isEmpty()) {
         re.put("up", check(allByUserIdAndJoinTimeLike, year, month));
         re.put("down", count(allByUserIdAndJoinTimeLike, userEntity.getId()));
@@ -481,17 +481,17 @@ public class TheoryKnowledgeService {
       for (TheoryKnowledgeSwfRecordEntity a : list) {
         for (int i = 1; i <= 12; i++) {
           String substring = a.getJoinTime().substring(0, 7);
-          if ((year + "-" + getMonth(i)).equals(substring)) {
+          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
             map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND));
           }
         }
       }
     } else {
-      month = getMonth(Integer.parseInt(month));
+      month = padTwoDigits(Integer.parseInt(month));
       for (TheoryKnowledgeSwfRecordEntity a : list) {
         for (int i = 1; i <= 31; i++) {
           String substring = a.getJoinTime().substring(0, 10);
-          String s = year + "-" + month + "-" + getMonth(i);
+          String s = year + "-" + month + "-" + padTwoDigits(i);
           if (s.equals(substring)) {
             map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND));
           }
@@ -502,19 +502,24 @@ public class TheoryKnowledgeService {
   }
 
   /**
-   * 将给定的整数转换为表示月份的字符串
-   * 如果整数大于9，则直接转换为字符串；否则，使用两位数的格式化字符串
-   * 这是为了确保月份总是以两位数的形式表示，例如，1月显示为"01"，12月显示为"12"
+   * 将 1..31 的整数格式化为两位数字符串（月份/日期通用，P2-77 勘误：原名 getMonth 但同时被日期 1..31 复用）
    *
-   * @param i 代表月份的整数，范围是1到12
-   * @return 格式化后的月份字符串，始终为两位数形式
+   * @param i 代表月份或日期的整数
+   * @return 两位数字符串，例如 1 -> "01"，12 -> "12"
    */
-  private String getMonth(int i) {
-    if (9 < i) {
-      return String.valueOf(i);
-    } else {
-      return String.format("%02d", i);
+  private String padTwoDigits(int i) {
+    return String.format("%02d", i);
+  }
+
+  /**
+   * 统计通过场次：以各场考试试卷的 passMark 为准（P2-78：替代散落的硬编码 >=60 及格线）
+   */
+  private int countPass(List<TheoryKnowledgeExamUserEntity> examUsers) {
+    if (examUsers.isEmpty()) {
+      return 0;
     }
+    return theoryKnowledgeExamUserDao.countExamPass(
+        examUsers.stream().map(TheoryKnowledgeExamUserEntity::getId).toList());
   }
 
   /**
@@ -552,7 +557,7 @@ public class TheoryKnowledgeService {
     if (ObjectUtil.isEmpty(month)) {
       allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "%", 4);
     } else {
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + getMonth(Integer.parseInt(month)) + "%", 4);
+      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.parseInt(month)) + "%", 4);
     }
     Map<String, Integer> map = new HashMap<>();
     for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
@@ -566,17 +571,14 @@ public class TheoryKnowledgeService {
       all++;
 
     }
-    //统计考试成功通过的次数
-    List<String> examIds = allByUserIdAndEndTimeLike.stream()
-        .map(TheoryKnowledgeExamUserEntity::getId)
-        .toList();
-    good = theoryKnowledgeExamUserDao.countExamPass(examIds);
+    //统计考试成功通过的次数（以试卷 passMark 为准）
+    good = countPass(allByUserIdAndEndTimeLike);
     return buildResultMap(all, good, map);
   }
 
   /**
    * 根据用户ID、年份和月份查询考试次数
-   * 此方法统计用户在指定年份或月份的考试次数，并计算通过（分数>=60）的考试次数
+   * 此方法统计用户在指定年份或月份的考试次数，并按各场试卷 passMark 计算通过次数
    * 如果未指定月份，将统计全年每月的考试次数；如果指定了月份，将统计该月每日的考试次数
    *
    * @param userId 用户ID，用于查询考试记录
@@ -594,32 +596,28 @@ public class TheoryKnowledgeService {
       for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
         for (int i = 1; i <= 12; i++) {
           String substring = a.getEndTime().substring(0, 7);
-          if ((year + "-" + getMonth(i)).equals(substring)) {
+          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
             map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + 1);
           }
         }
         all++;
-        if (a.getScore() >= 60) {
-          good++;
-        }
       }
     } else {
-      month = getMonth(Integer.parseInt(month));
+      month = padTwoDigits(Integer.parseInt(month));
       allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + month + "%", 4);
       for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
         for (int i = 1; i <= 31; i++) {
           String substring = a.getEndTime().substring(0, 10);
-          String s = year + "-" + month + "-" + getMonth(i);
+          String s = year + "-" + month + "-" + padTwoDigits(i);
           if (s.equals(substring)) {
             map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + 1);
           }
         }
         all++;
-        if (a.getScore() >= 60) {
-          good++;
-        }
       }
     }
+    // P2-78：及格线统一以试卷 passMark 为准，替代硬编码 >=60
+    good = countPass(allByUserIdAndEndTimeLike);
     return buildResultMap(all, good, map);
   }
 
@@ -642,7 +640,7 @@ public class TheoryKnowledgeService {
       for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
         for (int i = 1; i <= 12; i++) {
           String substring = a.getEndTime().substring(0, 7);
-          if ((year + "-" + getMonth(i)).equals(substring)) {
+          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
             List<TheoryKnowledgeExamUserEntity> list;
             if (ObjectUtil.isEmpty(map.get(String.valueOf(i)))) {
               list = new ArrayList<>();
@@ -654,17 +652,14 @@ public class TheoryKnowledgeService {
           }
         }
         all++;
-        if (a.getScore() >= 60) {
-          good++;
-        }
       }
     } else {
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + getMonth(Integer.valueOf(month)) + "%", 4);
-      month = getMonth(Integer.parseInt(month));
+      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.valueOf(month)) + "%", 4);
+      month = padTwoDigits(Integer.parseInt(month));
       for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
         for (int i = 1; i <= 31; i++) {
           String substring = a.getEndTime().substring(0, 10);
-          String s = year + "-" + month + "-" + getMonth(i);
+          String s = year + "-" + month + "-" + padTwoDigits(i);
           if (s.equals(substring)) {
             List<TheoryKnowledgeExamUserEntity> list;
             if (ObjectUtil.isEmpty(map.get(String.valueOf(i)))) {
@@ -677,9 +672,6 @@ public class TheoryKnowledgeService {
           }
         }
         all++;
-        if (a.getScore() >= 60) {
-          good++;
-        }
       }
     }
     Map<String, Object> a = new HashMap<>();
@@ -687,6 +679,8 @@ public class TheoryKnowledgeService {
       Map<String, String> zzsj = zzsj(mapEntry.getValue());
       a.put(mapEntry.getKey(), zzsj);
     }
+    // P2-78：及格线统一以试卷 passMark 为准，替代硬编码 >=60
+    good = countPass(allByUserIdAndEndTimeLike);
     return buildResultMap(all, good, a);
   }
 

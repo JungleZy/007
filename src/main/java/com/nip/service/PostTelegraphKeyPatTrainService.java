@@ -241,7 +241,7 @@ public class PostTelegraphKeyPatTrainService {
         totalPage += 1;
       }
       if (pageNumber.compareTo(totalPage) > 0 || pageNumber < 1) {
-        throw new IllegalArgumentException("页码不正确，页码需大于0小于" + totalNumber);
+        throw new IllegalArgumentException("页码不正确，页码需大于0且不大于" + totalPage);
       }
       if (pageNumber == totalPage) {
         generateNumber = totalNumber - ((pageNumber - 1) * 100);
