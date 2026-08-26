@@ -8,6 +8,7 @@ import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import com.nip.ws.model.SocketResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
@@ -170,6 +171,18 @@ public class WebSocketGeneralTickerPatService {
       PAT_ROOM.remove(trainId);
     }
 //    log.info("房间信息：{}", PAT_ROOM);
+  }
+
+  @OnError
+  public void onError(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, Session session, Throwable t) {
+    log.error("ws error, session={}", session.getId(), t);
+    //复用 onClose 清理该 session 对应的房间状态，并关闭连接
+    onClose(uid, trainId);
+    try {
+      session.close();
+    } catch (IOException e) {
+      log.error("关闭socket出错:{}", e.getMessage());
+    }
   }
 
   public static boolean sendMessage(Session session, String message, String sendName, String receiveName) {

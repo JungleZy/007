@@ -12,6 +12,7 @@ import com.nip.ws.model.SocketResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
@@ -143,6 +144,13 @@ public class WebSocketGeneralTelexPatService {
       }
     }
     close(session);
+  }
+
+  @OnError
+  public void onError(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, Session session, Throwable t) {
+    log.error("ws error, session={}", session.getId(), t);
+    //复用 onClose 清理该 session 对应的房间状态并关闭连接
+    onClose(uid, trainId, session);
   }
 
   public static void sendMessage(Session session, String message, String sendName, String receiveName) {
