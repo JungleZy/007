@@ -38,14 +38,17 @@ public class RoleService {
   private final RoleMenusDao roleMenusDao;
   private final MenusButtonDao menusButtonDao;
   private final MenusService menusService;
+  private final ObjectMapper objectMapper;
 
   @Inject
-  public RoleService(RoleDao roleDao, MenusDao menusDao, RoleMenusDao roleMenusDao, MenusButtonDao menusButtonDao, MenusService menusService) {
+  public RoleService(RoleDao roleDao, MenusDao menusDao, RoleMenusDao roleMenusDao, MenusButtonDao menusButtonDao,
+      MenusService menusService, ObjectMapper objectMapper) {
     this.roleDao = roleDao;
     this.menusDao = menusDao;
     this.roleMenusDao = roleMenusDao;
     this.menusButtonDao = menusButtonDao;
     this.menusService = menusService;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional
@@ -102,7 +105,7 @@ public class RoleService {
     roleInfoDto.setRole(roleEntity);
     roleInfoDto.setMenusAll(menusService.getMenusDtos());
     roleInfoDto.setMenusChecked(
-        new ObjectMapper().convertValue(getMenusEntityByRoleId(roleEntity == null ? null : roleEntity.getId()),
+        objectMapper.convertValue(getMenusEntityByRoleId(roleEntity == null ? null : roleEntity.getId()),
             new TypeReference<>() {
             }
         ));
@@ -114,7 +117,7 @@ public class RoleService {
     List<Map<String, Object>> nm = new ArrayList<>();
     for (FindMenusByRoleIdDto m : menusByRoleId) {
       List<MenusButtonEntity> menusButtonEntityList = menusButtonDao.findAllByMenusId(m.getId());
-      Map<String, Object> n = new ObjectMapper().convertValue(m, new TypeReference<>() {
+      Map<String, Object> n = objectMapper.convertValue(m, new TypeReference<>() {
       });
       n.put("permissions", menusButtonEntityList);
       nm.add(n);

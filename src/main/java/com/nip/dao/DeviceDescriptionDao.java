@@ -24,4 +24,8 @@ public class DeviceDescriptionDao extends BaseRepository<DeviceDescriptionEntity
   public List<DeviceDescriptionEntity> findByDeviceIdOrderByCreateTimeAsc(Integer deviceId){
     return find("deviceId = ?1",Sort.by("createTime").ascending(),deviceId).list();
   };
+
+  public List<DeviceDescriptionEntity> findByDeviceIdInOrderByCreateTimeAsc(List<Integer> deviceIdList) {
+    return find("deviceId in (?1)", Sort.by("createTime").ascending(), deviceIdList).list();
+  }
 }

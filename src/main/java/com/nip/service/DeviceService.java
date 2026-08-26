@@ -16,7 +16,9 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @Author: wushilin
@@ -74,11 +76,14 @@ public class DeviceService {
   public List<DeviceVO> listPage(Integer deviceTypeId) {
     List<DeviceEntity> deviceEntities = deviceDao.find("deviceTypeId = ?1", Sort.by("createTime").ascending(),
         deviceTypeId).list();
-    return PojoUtils.convert(deviceEntities, DeviceVO.class, (e, v) -> {
-      List<DeviceDescriptionEntity> descriptionEntities = deviceDescriptionDao.findByDeviceIdOrderByCreateTimeAsc(
-          e.getId());
-      v.setDescriptions(PojoUtils.convert(descriptionEntities, DeviceDescriptionVO.class));
-    });
+    // P2-93：一次 in 查询取回全部操作说明，按 deviceId 分组，替代逐设备查询的 N+1
+    List<Integer> deviceIds = deviceEntities.stream().map(DeviceEntity::getId).toList();
+    Map<Integer, List<DeviceDescriptionEntity>> descriptionsByDeviceId = deviceIds.isEmpty()
+        ? Map.of()
+        : deviceDescriptionDao.findByDeviceIdInOrderByCreateTimeAsc(deviceIds).stream()
+            .collect(Collectors.groupingBy(DeviceDescriptionEntity::getDeviceId));
+    return PojoUtils.convert(deviceEntities, DeviceVO.class, (e, v) -> v.setDescriptions(
+        PojoUtils.convert(descriptionsByDeviceId.getOrDefault(e.getId(), List.of()), DeviceDescriptionVO.class)));
   }
 
   @Transactional

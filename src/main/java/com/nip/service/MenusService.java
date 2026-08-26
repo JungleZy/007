@@ -30,12 +30,15 @@ public class MenusService {
   private final MenusDao menusDao;
   private final MenusButtonDao menusButtonDao;
   private final RoleMenusDao roleMenusDao;
+  private final ObjectMapper objectMapper;
 
   @Inject
-  public MenusService(MenusDao menusDao, MenusButtonDao menusButtonDao, RoleMenusDao roleMenusDao) {
+  public MenusService(MenusDao menusDao, MenusButtonDao menusButtonDao, RoleMenusDao roleMenusDao,
+      ObjectMapper objectMapper) {
     this.menusDao = menusDao;
     this.menusButtonDao = menusButtonDao;
     this.roleMenusDao = roleMenusDao;
+    this.objectMapper = objectMapper;
   }
 
   public List<MenusDto> getMenusDtos() {
@@ -192,8 +195,7 @@ public class MenusService {
       RoleMenusEntity firstByRoleIdAndMenuId = roleMenusDao.findFirstByRoleIdAndMenuId(roleId, menusEntity.getId());
       // 获取该角色在该menu下的按钮权限
       if (null != firstByRoleIdAndMenuId) {
-        ObjectMapper om = new ObjectMapper();
-        List<String> strings = om.readValue(firstByRoleIdAndMenuId.getPer(), new TypeReference<>() {
+        List<String> strings = objectMapper.readValue(firstByRoleIdAndMenuId.getPer(), new TypeReference<>() {
         });
         List<MenusButtonEntity> menusButtonEntityList = new ArrayList<>();
         strings.forEach(

@@ -16,6 +16,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * @Author: wushilin
@@ -55,7 +56,10 @@ public class DeviceTypeService {
 
   public List<DeviceTypeVO> findAll() {
     List<DeviceTypeEntity> entityList = typeDao.findAll(Sort.by("createTime").ascending()).list();
-    return PojoUtils.convert(entityList, DeviceTypeVO.class, (e, v) -> v.setExistDevice(deviceDao.findByDeviceTypeId(e.getId()).size()));
+    // P2-93：一次分组计数替代逐类型查询设备列表的 N+1
+    Map<Integer, Long> countByTypeId = deviceDao.countGroupByDeviceTypeId();
+    return PojoUtils.convert(entityList, DeviceTypeVO.class,
+        (e, v) -> v.setExistDevice(countByTypeId.getOrDefault(e.getId(), 0L).intValue()));
   }
 
   @Transactional
