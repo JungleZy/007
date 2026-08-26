@@ -40,7 +40,9 @@ public class JWTInterceptor {
   UserDao userDao;
 
   @AroundInvoke
-  Object execute(InvocationContext context) {
+  Object execute(InvocationContext context) throws Exception {
+    // 拦截器只兜自身 token 解析/校验逻辑的异常；context.proceed() 在 try 之外，
+    // 端点业务异常直达 common/exception 下的 ExceptionMapper（Phase 4 Task 4.3）
     try {
       Map<String, Object> mp = new HashMap<>();
       response.putHeader("Access-Control-Allow-Origin", request.getHeader("Origin"));//HTTP 请求头获取源IP或域名，并配置到跨域源中
@@ -72,16 +74,16 @@ public class JWTInterceptor {
         response.send(new ObjectMapper().writeValueAsString(mp));
         return null;
       }
-      if (userDao.existsUserByTokenAndDeviceId(token, deviceId)) {
-        return context.proceed();
+      if (!userDao.existsUserByTokenAndDeviceId(token, deviceId)) {
+        mp.put(CODE, ResponseCode.CODE_206.getCode());
+        mp.put(MESSAGE, ResponseCode.CODE_206.getMessage());
+        response.send(new ObjectMapper().writeValueAsString(mp));
+        return null;
       }
-      mp.put(CODE, ResponseCode.CODE_206.getCode());
-      mp.put(MESSAGE, ResponseCode.CODE_206.getMessage());
-      response.send(new ObjectMapper().writeValueAsString(mp));
-      return null;
     } catch (Exception exception) {
-      log.error("method error from {}.{}\n", context.getTarget().getClass().getSimpleName(), context.getMethod().getName());
-      return ResponseResult.error(ResponseCode.SYSTEM_ERROR,exception.getMessage(),exception.getMessage());
+      log.error("jwt fail from {}.{}", context.getTarget().getClass().getSimpleName(), context.getMethod().getName(), exception);
+      return ResponseResult.error(ResponseCode.SYSTEM_ERROR, exception.getMessage(), exception.getMessage());
     }
+    return context.proceed();
   }
 }
