@@ -38,3 +38,22 @@
 - 修复后校验异常在删除前抛出，事务由 JTA 对 RuntimeException 回滚；即使删除后异常（如版本1测验缺失）也会回滚，不再有"删了但没写"的中间态提交。
 - `findFirstByKnowledgeSwfIdAndVersions` 判空是防 NPE 的最小改动，未覆盖该分支的专项测试（brief 只要求"缺 swf 列表"断言）。
 - 空标题业务码从 CODE_500 变为 SYSTEM_ERROR（消息保留），Phase 4 ValidationExceptionMapper 恢复精确业务码——计划内契约微调。
+
+## 修复轮 1（评审 Important）
+
+结论：已修复，2 个测试全绿，单独提交。
+
+问题：`test.getKnowledgeTestContents()` 未归一——:283 取值后 :287 `forEach` 在 null 时 NPE；:271-272 `listEquals` 入参同险。
+
+改动：
+- `TheoryKnowledgeService.java` 两处取值点（listEquals 分支 + save 后的 content 循环）改为 `ListUtils.nullToEmpty(test.getKnowledgeTestContents())`。
+- `TheoryKnowledgeServiceTest` 新增 `saveWithNullTestContentsDoesNotNpe`：swf 带 1 个测验（id=null 走新增分支）、`knowledgeTestContents=null`，断言保存不抛 NPE 且课件按 knowledgeId 落库。
+
+测试输出：
+
+```
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+命令：`JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B test -Dtest=TheoryKnowledgeServiceTest`

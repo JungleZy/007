@@ -268,7 +268,7 @@ public class TheoryKnowledgeService {
                 theoryKnowledgeTestUserDao.deleteByKnowledgeIdAndKnowledgeSwfId(test.getKnowledgeId(), test.getKnowledgeSwfId());
               } else {
                 List<TheoryKnowledgeTestContentEntity> allByKnowledgeTestId = theoryKnowledgeTestContentDao.findAllByKnowledgeTestId(testEntity.getId());
-                List<TheoryKnowledgeTestContentEntity> knowledgeTestContents = test.getKnowledgeTestContents();
+                List<TheoryKnowledgeTestContentEntity> knowledgeTestContents = ListUtils.nullToEmpty(test.getKnowledgeTestContents());
                 if (!listEquals(allByKnowledgeTestId, knowledgeTestContents)) {
                   theoryKnowledgeTestUserDao.deleteByKnowledgeIdAndKnowledgeSwfId(test.getKnowledgeId(), test.getKnowledgeSwfId());
                 }
@@ -280,7 +280,7 @@ public class TheoryKnowledgeService {
           });
           TheoryKnowledgeTestEntity saveTest = theoryKnowledgeTestDao.save(testEntity);
           //再拿到content
-          List<TheoryKnowledgeTestContentEntity> knowledgeTestContents = test.getKnowledgeTestContents();
+          List<TheoryKnowledgeTestContentEntity> knowledgeTestContents = ListUtils.nullToEmpty(test.getKnowledgeTestContents());
           theoryKnowledgeTestContentDao.deleteByKnowledgeIdAndCreateUserIdAndKnowledgeSwfIdAndKnowledgeTestId(
               knowledge.getId(), knowledge.getCreateUserId(), saveSwfEntity.getId(), saveTest.getId()
           );

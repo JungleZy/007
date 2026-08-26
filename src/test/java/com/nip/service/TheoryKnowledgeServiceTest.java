@@ -4,6 +4,7 @@ import com.nip.dao.TheoryKnowledgeSwfDao;
 import com.nip.dao.UserDao;
 import com.nip.dto.TheoryKnowledgesDto;
 import com.nip.dto.vo.TheoryKnowledgeSwfVO;
+import com.nip.dto.vo.TheoryKnowledgeTestVO;
 import com.nip.entity.TheoryKnowledgeEntity;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
@@ -55,5 +56,19 @@ class TheoryKnowledgeServiceTest {
       // 修复后允许抛（课件列表缺失）；关键契约在下一行
     }
     assertTrue(knowledgeSwfDao.count("knowledgeId", knowledgeId) > 0, "原课件不得被静默删除");
+  }
+
+  @Test
+  void saveWithNullTestContentsDoesNotNpe() {
+    UserEntity user = Fixtures.user(userDao, "t-theory-2");
+    TheoryKnowledgesDto create = knowledges("k2", user.getId());
+    TheoryKnowledgeTestVO test = new TheoryKnowledgeTestVO();
+    test.setTitle("测验1");
+    test.setVersions(1);
+    test.setKnowledgeTestContents(null); // 测验缺 content 列表
+    create.getKnowledgeSwfs().get(0).setTest(List.of(test));
+
+    String knowledgeId = service.saveTheoryKnowledge(create).getData().getId();
+    assertTrue(knowledgeSwfDao.count("knowledgeId", knowledgeId) > 0, "课件应落库且不抛 NPE");
   }
 }
