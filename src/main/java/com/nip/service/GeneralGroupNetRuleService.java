@@ -31,6 +31,7 @@ public class GeneralGroupNetRuleService {
     return PojoUtils.convert(all, GeneralGroupNetRuleVO.class);
   }
 
+  @Transactional
   public void deleteById(GeneralGroupNetRuleVO vo) {
     ruleDao.deleteById(vo.getId());
   }

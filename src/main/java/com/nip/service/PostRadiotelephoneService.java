@@ -122,6 +122,7 @@ public class PostRadiotelephoneService {
         .orElseThrow(() -> new IllegalArgumentException("未查询到该训练")), false);
   }
 
+  @Transactional
   public Boolean delete(String id) {
     return dao.deleteById(id);
   }

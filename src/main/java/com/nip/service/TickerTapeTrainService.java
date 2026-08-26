@@ -123,11 +123,13 @@ public class TickerTapeTrainService {
     });
   }
 
+  @Transactional
   public void begin(String id) {
     checkStatus(id);
     tickerTapeTrainDao.begin(id);
   }
 
+  @Transactional
   public void pause(TickerTapeTrainUpdateParam updateParam) {
     checkStatus(updateParam.getId());
     tickerTapeTrainDao.pause(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(),
@@ -135,11 +137,13 @@ public class TickerTapeTrainService {
     );
   }
 
+  @Transactional
   public void goOn(String id) {
     checkStatus(id);
     tickerTapeTrainDao.goOn(id);
   }
 
+  @Transactional
   public void finish(TickerTapeTrainUpdateParam updateParam) {
     checkStatus(updateParam.getId());
     tickerTapeTrainDao.finish(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(),
@@ -149,6 +153,7 @@ public class TickerTapeTrainService {
     finishStatistical(entity);
   }
 
+  @Transactional
   public void saveBaseTrain(TickerTapeBaseTrainAddParam param, String token) {
     UserEntity userEntity = userDao.findUserEntityByToken(token);
     TickerTapeTrainEntity entity = PojoUtils.convertOne(param, TickerTapeTrainEntity.class);

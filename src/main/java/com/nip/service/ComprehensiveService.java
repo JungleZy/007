@@ -15,6 +15,7 @@ import com.nip.entity.*;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -62,6 +63,7 @@ public class ComprehensiveService {
     this.testFallibleDao = testFallibleDao;
   }
 
+  @Transactional
   public ComprehensiveVO getUserOverallInfo(HttpServerRequest request) {
     //构建返回结果
     ComprehensiveVO comprehensiveVO = new ComprehensiveVO();

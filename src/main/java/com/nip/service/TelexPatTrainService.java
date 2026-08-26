@@ -129,6 +129,7 @@ public class TelexPatTrainService {
    *
    * @param: id
    */
+  @Transactional
   public void deleteById(String id) {
     telexPatTrainDao.deleteById(id);
   }

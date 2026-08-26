@@ -65,6 +65,7 @@ public class TelegraphKeyPatSyntheticalService {
     return PojoUtils.convertOne(save, TelegraphKeyPatSyntheticalVO.class);
   }
 
+  @Transactional
   public TelegraphKeyPatSyntheticalVO begin(String id) {
     TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(id))
         .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
@@ -73,6 +74,7 @@ public class TelegraphKeyPatSyntheticalService {
     return PojoUtils.convertOne(save, TelegraphKeyPatSyntheticalVO.class);
   }
 
+  @Transactional
   public TelegraphKeyPatSyntheticalVO stop(TelegraphKeyPatSyntheticalDto dto) {
     TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(dto.getId()))
         .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
@@ -87,6 +89,7 @@ public class TelegraphKeyPatSyntheticalService {
   }
 
 
+  @Transactional
   public TelegraphKeyPatSyntheticalVO goTo(String id) {
     TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(id))
         .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));

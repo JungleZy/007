@@ -169,6 +169,7 @@ public class PostEnteringExerciseWordStockService {
     return PojoUtils.convertOne(save, PostEnteringExerciseWordStockDto.class);
   }
 
+  @Transactional
   public List<PostEnteringExerciseWordStockDto> listPage(String token, Integer type) {
     //从token中获取用户
     String sql;

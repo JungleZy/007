@@ -10,6 +10,7 @@ import com.nip.entity.EquipmentDeviceEntity;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 
@@ -22,11 +23,13 @@ public class EquipmentDeviceService {
     this.deviceDao = deviceDao;
   }
 
+  @Transactional
   public void addDevice(EquipmentDeviceDto dto) {
     EquipmentDeviceEntity entity = PojoUtils.convertOne(dto, EquipmentDeviceEntity.class);
     deviceDao.saveAndFlush(entity);
   }
 
+  @Transactional
   public void deleteDevice(EquipmentDeviceVo vo) {
     deviceDao.deleteById(vo.getId());
   }
@@ -36,6 +39,7 @@ public class EquipmentDeviceService {
     return PojoUtils.convert(entityList, EquipmentDeviceVo.class);
   }
 
+  @Transactional
   public void update(EquipmentDeviceVo vo) {
     EquipmentDeviceEntity entity = deviceDao.findByIdOptional(vo.getId())
         .orElseThrow(() -> new IllegalArgumentException("未查询到该设备"));
@@ -46,6 +50,7 @@ public class EquipmentDeviceService {
     deviceDao.saveAndFlush(entity);
   }
 
+  @Transactional
   public void saveKeyPoints(EquipmentDeviceKeyPointsDto dto) {
     EquipmentDeviceEntity entity = deviceDao.findByIdOptional(dto.getDeviceId())
         .orElseThrow(() -> new IllegalArgumentException("未查询到该设备"));

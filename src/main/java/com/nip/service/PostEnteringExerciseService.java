@@ -105,6 +105,7 @@ public class PostEnteringExerciseService {
     return PojoUtils.convertOne(exerciseDao.findById(id), PostEnteringExerciseVO.class);
   }
 
+  @Transactional
   public boolean delete(String id) {
 
     return exerciseDao.deleteById(id);
