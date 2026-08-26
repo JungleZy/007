@@ -347,8 +347,8 @@ public class PostTelegraphKeyPatTrainService {
     List<Integer> pageNumbers = valueDao.findAllByTrainIdToPageNumber(entity.getId());
     // 创建每页的处理结果，该结果会在每页处理完毕后替换旧的page_value数据
     List<KeyPatValueTransferDto> pageValueResult = new ArrayList<>();
-    // 并行处理每页数据
-    pageNumbers.parallelStream().forEach(pageNumber -> {
+    // P1-1：pageValueResult/ks 为共享可变状态，parallelStream 并发累加有竞态——改串行流
+    pageNumbers.stream().forEach(pageNumber -> {
       // 根据page获取目标数据
       List<KeyPatPageTransferDto> userPages = PojoUtils.convert(
           pageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber), KeyPatPageTransferDto.class);

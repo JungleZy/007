@@ -641,7 +641,8 @@ public class GeneralKeyPatService {
     List<Integer> pageNumbers = userValueDao.findPageNumberByTrainIdAndUserId(entity.getId(), userId);
     // 创建每页的处理结果，该结果会在每页处理完毕后替换旧的page_value数据
     List<KeyPatValueTransferDto> pageValueResult = new ArrayList<>();
-    pageNumbers.parallelStream().forEach(pageNumber -> {
+    // P1-1：pageValueResult/keyPatStatistics 为共享可变状态，parallelStream 并发累加有竞态——改串行流
+    pageNumbers.stream().forEach(pageNumber -> {
       List<KeyPatPageTransferDto> userPages = PojoUtils.convert(
           trainPageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber),
           KeyPatPageTransferDto.class);
