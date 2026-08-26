@@ -46,3 +46,11 @@
 1. `package -DskipTests` 与 `test-compile` 在兄弟 agent 并发改源码的工作区通过——通过时点的快照有效性以合流后全量 verify 为准。
 2. workflow 的 ARM64 job（`ubuntu-24.04-arm` + mandrel 容器构建）本地无法实跑，`-march=armv8-a` 取值依据评审文档所列 aarch64 合法值；需首次 tag push 实测。
 3. release job 下载布局改为按 artifact 名分目录（去 merge-multiple），`files: dist/**` 语义不变，但发布产物路径会多一层目录名——如有下游脚本依赖平铺布局需知悉。
+
+## 修复轮 1（评审 Important，提交 e2008b9）
+
+**问题**：gh-release 按文件 basename 命名资产，两个 Linux native 产物同名 `*-runner`，`files: dist/**` 上传时第二个 422→删旧重传，发布只剩一个架构（静默丢失）；此前去掉 merge-multiple 只解决下载目录、不解决资产命名。
+
+**修复**：matrix 增加 `asset_suffix`（linux-amd64 / linux-arm64 / windows-amd64），各 build job 在 glibc 校验之后、upload-artifact 之前新增 "Rename binary with architecture suffix" 步骤（bash，Windows runner 走 Git Bash），`*-runner`→`*-runner-<suffix>`、`*-runner.exe`→`*-runner-<suffix>.exe`，无可重命名文件时 exit 1 快速失败。一处改动同时覆盖 build 产物与 release 资产两层，dist 下 basename 全局唯一。upload path `target/*-runner*` 无需改动即匹配重命名后文件。
+
+**证据**：actionlint（docker rhysd/actionlint）exit=0。
