@@ -1,0 +1,11 @@
+{
+  "comment": "改错符号（?）三种形态：单独 ?、组尾 372?、组首 ?201，锁定改错分支的列写入与列表长度行为。",
+  "patKeys": ["3729", "?", "7201", "372?", "?201"],
+  "userContents": [
+    {"patLogs": "[[{\"key\":0,\"value\":100}]]", "moresTime": "[[10]]", "moresValue": "[[0]]"},
+    {"patLogs": "[[]]", "moresTime": "[[91]]", "moresValue": "[[92]]"},
+    {"patLogs": "[[{\"key\":1,\"value\":300}]]", "moresTime": "[[20]]", "moresValue": "[[1]]"},
+    {"patLogs": "[[]]", "moresTime": "[[30]]", "moresValue": "[[2]]"},
+    {"patLogs": "[[{\"key\":0,\"value\":41}],[{\"key\":0,\"value\":42}],[{\"key\":0,\"value\":43}],[{\"key\":0,\"value\":44}]]", "moresTime": "[[41],[42],[43],[44]]", "moresValue": "[[4],[5],[6],[7]]"}
+  ]
+}

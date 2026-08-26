@@ -1,0 +1,9 @@
+{
+  "comment": "patKeys 取自 docs/database/project006.sql t_cable_floor 真实字码组（3729/7201）；中间夹一个空白组，锁定 patKeys 过滤后 userContents 的配对行为。库内无用户拍发数据，patLogs/moresTime/moresValue 为按实体 schema 构造的样本。",
+  "patKeys": ["3729", "", "7201"],
+  "userContents": [
+    {"patLogs": "[[{\"key\":0,\"value\":100}]]", "moresTime": "[[11,12]]", "moresValue": "[[1,0]]"},
+    {"patLogs": "[]", "moresTime": "[]", "moresValue": "[]"},
+    {"patLogs": "[[{\"key\":1,\"value\":300}]]", "moresTime": "[[21,22]]", "moresValue": "[[0,1]]"}
+  ]
+}

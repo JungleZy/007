@@ -1,0 +1,48 @@
+{
+  "resolverMessage": [
+    "3729",
+    "7201",
+    "U3YU",
+    "U3YU"
+  ],
+  "resolverPatLogs": [
+    "[[{\"key\":0,\"value\":101}],[{\"key\":0,\"value\":102}],[{\"key\":0,\"value\":103}],[{\"key\":0,\"value\":104}]]",
+    "[[{\"key\":0,\"value\":105}],[{\"key\":0,\"value\":106}],[{\"key\":0,\"value\":107}],[{\"key\":0,\"value\":108}]]",
+    "[[{\"key\":1,\"value\":201}],[{\"key\":1,\"value\":202}],[{\"key\":1,\"value\":203}],[{\"key\":1,\"value\":204}]]",
+    "[[{\"key\":1,\"value\":205}],[{\"key\":1,\"value\":206}],[{\"key\":1,\"value\":207}],[{\"key\":1,\"value\":208}]]"
+  ],
+  "resolverMoresTime": [
+    "[\"[1]\",\"[2]\",\"[3]\",\"[4]\"]",
+    "[\"[5]\",\"[6]\",\"[7]\",\"[8]\"]",
+    "[\"[11]\",\"[12]\",\"[13]\",\"[14]\"]",
+    "[\"[15]\",\"[16]\",\"[17]\",\"[18]\"]"
+  ],
+  "resolverMoresValue": [
+    "[\"[0]\",\"[1]\",\"[0]\",\"[1]\"]",
+    "[\"[0]\",\"[1]\",\"[0]\",\"[1]\"]",
+    "[\"[1]\",\"[0]\",\"[1]\",\"[0]\"]",
+    "[\"[1]\",\"[0]\",\"[1]\",\"[0]\"]"
+  ],
+  "scoreVO": {
+    "lack": 0,
+    "correct": 0,
+    "errorNumber": 0,
+    "moreGroup": 0,
+    "lackGroup": 0,
+    "bunchGroup": 0,
+    "moreOrLackWord": 0,
+    "moreOrLackLine": 0,
+    "patTotalNum": 0,
+    "dotScore": 0,
+    "lineScore": 0,
+    "codeScore": 0,
+    "wordScore": 0,
+    "groupScore": 2,
+    "alterErrorScore": 0,
+    "dotTotalTime": 0,
+    "lineTotalTime": 0,
+    "codeTotalTime": 0,
+    "wordTotalTime": 0,
+    "groupTotalTime": 0
+  }
+}

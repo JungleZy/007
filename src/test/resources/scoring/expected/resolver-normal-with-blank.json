@@ -1,0 +1,40 @@
+{
+  "resolverMessage": [
+    "3729",
+    "7201"
+  ],
+  "resolverPatLogs": [
+    "[[{\"key\":0,\"value\":100}]]",
+    "[]"
+  ],
+  "resolverMoresTime": [
+    "[[1,0]]",
+    "[]"
+  ],
+  "resolverMoresValue": [
+    "[[11,12]]",
+    "[]"
+  ],
+  "scoreVO": {
+    "lack": 0,
+    "correct": 0,
+    "errorNumber": 0,
+    "moreGroup": 0,
+    "lackGroup": 0,
+    "bunchGroup": 0,
+    "moreOrLackWord": 0,
+    "moreOrLackLine": 0,
+    "patTotalNum": 0,
+    "dotScore": 0,
+    "lineScore": 0,
+    "codeScore": 0,
+    "wordScore": 0,
+    "groupScore": 0,
+    "alterErrorScore": 0,
+    "dotTotalTime": 0,
+    "lineTotalTime": 0,
+    "codeTotalTime": 0,
+    "wordTotalTime": 0,
+    "groupTotalTime": 0
+  }
+}

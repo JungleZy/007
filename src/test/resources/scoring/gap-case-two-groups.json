@@ -1,0 +1,28 @@
+{
+  "comment": "checkDotLineGap 两次调用（i=0 组 3729、i=1 组 7201）。标准值/日志按 PatLogs schema 构造：key 0=点 1=划 2=间隔；规则容差来自真实 t_grading_rule type=0（dot±30 dash±50 little±40 middle±60 large±90）。覆盖点细/点粗/划粗/词间隔细·粗·完美/码间隔细/组间隔细。",
+  "standards": [
+    {"dot": 100, "line": 300, "codeGap": 100, "wordGap": 200, "groupGap": 400, "offSize": 0}
+  ],
+  "calls": [
+    {
+      "patKey": "3729",
+      "i": 0,
+      "patLogs": [
+        [{"key": 2, "value": 400}, {"key": 0, "value": 50}, {"key": 0, "value": 100}, {"key": 1, "value": 400}],
+        [{"key": 2, "value": 100}, {"key": 1, "value": 300}],
+        [{"key": 2, "value": 200}, {"key": 2, "value": 50}, {"key": 0, "value": 200}],
+        [{"key": 2, "value": 300}, {"key": 0, "value": 100}]
+      ]
+    },
+    {
+      "patKey": "7201",
+      "i": 1,
+      "patLogs": [
+        [{"key": 2, "value": 300}, {"key": 0, "value": 100}],
+        [{"key": 2, "value": 200}, {"key": 1, "value": 300}],
+        [{"key": 2, "value": 140}, {"key": 0, "value": 100}],
+        [{"key": 2, "value": 261}, {"key": 1, "value": 250}]
+      ]
+    }
+  ]
+}
