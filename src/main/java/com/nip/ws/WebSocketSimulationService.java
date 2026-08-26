@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.nip.common.constants.BaseConstants.*;
 import static com.nip.common.constants.SimulationDisturdTopicEnum.*;
@@ -97,8 +98,8 @@ public class WebSocketSimulationService {
   }
 
   public void addRoomDisturd(Integer roomId, WebSocketSimulationService persistData) {
-    List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.disturbRoom.get(roomId))
-        .orElseGet(ArrayList::new);
+    List<WebSocketSimulationService> simulations =
+        SimulationGlobal.disturbRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
     //踢出连接
     kickOutOld(simulations, persistData.getUserModel().getId());
     String id = persistData.getUserModel().getId();
@@ -132,14 +133,13 @@ public class WebSocketSimulationService {
         }
       }
       simulations.add(persistData);
-      SimulationGlobal.disturbRoom.put(roomId, simulations);
     }
   }
 
   public void addRoomReport(Integer roomId, WebSocketSimulationService persistData) {
     //拿到房间信息
-    List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.reportRoom.get(roomId))
-        .orElseGet(ArrayList::new);
+    List<WebSocketSimulationService> simulations =
+        SimulationGlobal.reportRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
     kickOutOld(simulations, persistData.getUserModel().getId());
     if (persistData.getUserModel().getChannel().compareTo(1) == 0) {
       simulations.stream()
@@ -155,12 +155,11 @@ public class WebSocketSimulationService {
     }
     persistData.getUserModel().setStatus(1);
     simulations.add(persistData);
-    SimulationGlobal.reportRoom.put(roomId, simulations);
   }
 
   public void addRoomRouter(Integer roomId, WebSocketSimulationService persistData) {
-    List<WebSocketSimulationService> simulations = Optional.ofNullable(SimulationGlobal.routerRoom.get(roomId))
-        .orElseGet(ArrayList::new);
+    List<WebSocketSimulationService> simulations =
+        SimulationGlobal.routerRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
     kickOutOld(simulations, persistData.getUserModel().getId());
     //发送上线成功的消息
     Map<String, Object> msg = new HashMap<>();
@@ -174,7 +173,6 @@ public class WebSocketSimulationService {
     }
 
     simulations.add(persistData);
-    SimulationGlobal.routerRoom.put(roomId, simulations);
   }
 
   /**
@@ -294,8 +292,6 @@ public class WebSocketSimulationService {
     simulations.remove(holder);
     if (simulations.isEmpty()) {
       SimulationGlobal.reportRoom.remove(roomId);
-    } else {
-      SimulationGlobal.reportRoom.put(roomId, simulations);
     }
   }
 
@@ -320,8 +316,6 @@ public class WebSocketSimulationService {
     simulations.remove(removeObj);
     if (simulations.isEmpty()) {
       SimulationGlobal.routerRoom.remove(roomId);
-    } else {
-      SimulationGlobal.routerRoom.put(roomId, simulations);
     }
   }
 
