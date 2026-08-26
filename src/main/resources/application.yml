@@ -57,3 +57,10 @@ quarkus:
       includes: resources/**
     march: compatibility
 #    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json
+"%test":
+  quarkus:
+    hibernate-orm:
+      database:
+        generation: drop-and-create
+    http:
+      test-port: 18081

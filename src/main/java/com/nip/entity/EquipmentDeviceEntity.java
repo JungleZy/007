@@ -40,6 +40,7 @@ public class EquipmentDeviceEntity {
   /**
    * 表格字段
    */
+  @Column(name = "`option`")
   private String option;
 
   /**
