@@ -641,11 +641,13 @@ public class TickerPatUtils {
           else if (z != 0 && k == 0) {
             if (value < wordGapMin) {
               // 细
-              scoreVO.setWordScore(scoreVO.getWordScore() + (isDuct ? 0 : rule.getMiddle().getL()));
+              // 低于（细）扣 r=低于扣分（Task 3.4：SpeedDeduct r/l 语义，原用反）
+              scoreVO.setWordScore(scoreVO.getWordScore() + (isDuct ? 0 : rule.getMiddle().getR()));
               statisticsVO.setWordMinNumber(statisticsVO.getWordMinNumber() + 1);
             } else if (value > wordGapMax) {
               // 粗
-              scoreVO.setWordScore(scoreVO.getWordScore() + (isDuct ? 0 : rule.getMiddle().getR()));
+              // 高于（粗）扣 l（Task 3.4：SpeedDeduct r/l 语义，原用反）
+              scoreVO.setWordScore(scoreVO.getWordScore() + (isDuct ? 0 : rule.getMiddle().getL()));
               statisticsVO.setWordMaxNumber(statisticsVO.getWordMaxNumber() + 1);
             } else {
               statisticsVO.setWordPerfectNumber(statisticsVO.getWordPerfectNumber() + 1);

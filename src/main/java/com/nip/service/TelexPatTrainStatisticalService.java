@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -107,7 +108,10 @@ public class TelexPatTrainStatisticalService {
         }
       }
     }
-    return PojoUtils.convert(statisticalDao.findAllByUserId(userEntity.getId()), TelexPatTrainStatisticalVO.class);
+    // 显式按 type 排序（P2-69：原重新查库直返，顺序依赖 DB）
+    List<TelexPatTrainStatisticalVO> convert = PojoUtils.convert(entities, TelexPatTrainStatisticalVO.class);
+    convert.sort(Comparator.comparingInt(TelexPatTrainStatisticalVO::getType));
+    return convert;
   }
 
   /**

@@ -169,10 +169,10 @@ public class ErrorCodeDetector {
     PostTelegramTrainScoreVO scoreVO = context.getScoreVO();
     PostTelegramTrainRule rule = context.getRule();
 
-    // 字间隔 word ↔ rule.getMiddle()（组间隔才是 large）；上限在 applyDeductions 按 middle.max 裁剪
-    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getL());
+    // 字间隔 word ↔ rule.getMiddle()；过小=低于 → r=低于扣分（与 TickerPatUtils 词间隔口径一致，Task 3.4）
+    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getR());
 
-    log.debug("检测到字间隔过小，扣分: {}", rule.getMiddle().getL());
+    log.debug("检测到字间隔过小，扣分: {}", rule.getMiddle().getR());
   }
 
   /**
@@ -190,8 +190,8 @@ public class ErrorCodeDetector {
     List<String> resolverCorrectMoresValue = context.getResolverVO().getResolverMoresValue();
     List<String> resolverCorrectMoresTime = context.getResolverVO().getResolverMoresTime();
 
-    // 字间隔 word ↔ rule.getMiddle()（组间隔才是 large）
-    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getR());
+    // 字间隔 word ↔ rule.getMiddle()；过大=高于 → l（与 TickerPatUtils 词间隔口径一致，Task 3.4）
+    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getL());
 
     // 合并两组数据
     String patLog1 = resolverCorrectPatLogs.get(currentIndex);

@@ -28,7 +28,7 @@ import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -213,7 +213,8 @@ public class TickerTapeTrainService {
       }
     }
     List<TelexPatTrainStatisticalVO> convert = PojoUtils.convert(entities, TelexPatTrainStatisticalVO.class);
-    Collections.swap(convert, 0, 1);
+    // 显式按 type 排序（P2-17：原 Collections.swap(0,1) 依赖 DB 返回顺序，串位且 size<2 越界）
+    convert.sort(Comparator.comparingInt(TelexPatTrainStatisticalVO::getType));
     return convert;
   }
 
