@@ -1,10 +1,10 @@
 package com.nip.common.utils;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.map.MapUtil;
 import jakarta.annotation.Nullable;
-import org.apache.commons.collections.CollectionUtils;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -203,13 +203,13 @@ public abstract class Assert {
   }
 
   public static void notEmpty(@Nullable Collection<?> collection, String message) {
-    if (CollectionUtils.isEmpty(collection)) {
+    if (CollUtil.isEmpty(collection)) {
       throw new IllegalArgumentException(message);
     }
   }
 
   public static void notEmpty(@Nullable Collection<?> collection, Supplier<String> messageSupplier) {
-    if (CollectionUtils.isEmpty(collection)) {
+    if (CollUtil.isEmpty(collection)) {
       throw new IllegalArgumentException(nullSafeGet(messageSupplier));
     }
   }
@@ -245,13 +245,13 @@ public abstract class Assert {
   }
 
   public static void notEmpty(@Nullable Map<?, ?> map, String message) {
-    if (CollectionUtils.isEmpty(Collections.singleton(map))) {
+    if (MapUtil.isEmpty(map)) {
       throw new IllegalArgumentException(message);
     }
   }
 
   public static void notEmpty(@Nullable Map<?, ?> map, Supplier<String> messageSupplier) {
-    if (CollectionUtils.isEmpty(Collections.singleton(map))) {
+    if (MapUtil.isEmpty(map)) {
       throw new IllegalArgumentException(nullSafeGet(messageSupplier));
     }
   }

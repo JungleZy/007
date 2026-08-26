@@ -19,7 +19,6 @@
     <hutool.version>5.8.12</hutool.version>
     <commons-lang3.version>3.20.0</commons-lang3.version>
     <commons-codec.version>1.13</commons-codec.version>
-    <commons-beanutils.version>1.9.4</commons-beanutils.version>
     <fastjson.version>1.2.78</fastjson.version>
     <lombok.version>1.18.36</lombok.version>
   </properties>
@@ -91,11 +90,6 @@
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
       <version>${commons-codec.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>commons-beanutils</groupId>
-      <artifactId>commons-beanutils</artifactId>
-      <version>${commons-beanutils.version}</version>
     </dependency>
     <dependency>
       <groupId>cn.hutool</groupId>

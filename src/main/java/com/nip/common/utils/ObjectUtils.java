@@ -1,7 +1,7 @@
 package com.nip.common.utils;
 
+import cn.hutool.core.collection.CollUtil;
 import jakarta.annotation.Nullable;
-import org.apache.commons.collections.CollectionUtils;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -95,8 +95,8 @@ public abstract class ObjectUtils {
    * @see Optional#isPresent()
    * @see ObjectUtils#isEmpty(Object[])
    * @see StringUtils#hasLength(CharSequence)
-   * @see CollectionUtils#isEmpty(Collection)
-   * @see CollectionUtils#isEmpty(Map)
+   * @see CollUtil#isEmpty(Collection)
+   * @see CollUtil#isEmpty(Map)
    * @since 4.2
    */
   public static boolean isEmpty(@Nullable Object obj) {

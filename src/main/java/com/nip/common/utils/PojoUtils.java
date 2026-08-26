@@ -7,7 +7,6 @@ import com.nip.common.Page;
 import com.nip.common.PageInfo;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.beanutils.BeanUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -139,13 +138,5 @@ public class PojoUtils {
 
   private static int calculateSplitNum(int totalSize, int splitItemNnm) {
     return totalSize % splitItemNnm == 0 ? totalSize / splitItemNnm : totalSize / splitItemNnm + 1;
-  }
-
-  public static <T> void merge(T user1, T user2) {
-    try {
-      BeanUtils.copyProperties(user1, user2);
-    } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to merge users", e);
-    }
   }
 }

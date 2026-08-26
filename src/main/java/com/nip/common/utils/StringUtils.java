@@ -1,7 +1,7 @@
 package com.nip.common.utils;
 
+import cn.hutool.core.collection.CollUtil;
 import jakarta.annotation.Nullable;
-import org.apache.commons.collections.CollectionUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
@@ -516,7 +516,7 @@ public abstract class StringUtils {
   }
 
   public static String[] toStringArray(@Nullable Collection<String> collection) {
-    return !CollectionUtils.isEmpty(collection) ? (String[]) collection.toArray(EMPTY_STRING_ARRAY) : EMPTY_STRING_ARRAY;
+    return !CollUtil.isEmpty(collection) ? (String[]) collection.toArray(EMPTY_STRING_ARRAY) : EMPTY_STRING_ARRAY;
   }
 
   public static String[] toStringArray(@Nullable Enumeration<String> enumeration) {
@@ -714,7 +714,7 @@ public abstract class StringUtils {
   }
 
   public static String collectionToDelimitedString(@Nullable Collection<?> coll, String delim, String prefix, String suffix) {
-    if (CollectionUtils.isEmpty(coll)) {
+    if (CollUtil.isEmpty(coll)) {
       return "";
     } else {
       StringBuilder sb = new StringBuilder();
