@@ -58,7 +58,6 @@ public class PostTelexPatTrainService {
   private static final Pattern PATTERN_REG_4 = Pattern.compile("^\\w+/+");
   private static final Pattern PATTERN_REG_5 = Pattern.compile("^\\d{1,2}");
   private static final Pattern PATTERN_REG_6 = Pattern.compile("^\\w{4,}-\\w+/\\d+");
-  private static final ThreadLocalRandom RANDOM = ThreadLocalRandom.current();
 
   private final PostTelexPatTrainDao postTelexPatTrainDao;
   private final PostTelexPatTrainPageDao pageDao;
@@ -1427,7 +1426,7 @@ public class PostTelexPatTrainService {
     for (int i = 0; i < 10; i++) {
       pool.add(i);
     }
-    Collections.shuffle(pool, RANDOM);
+    Collections.shuffle(pool, ThreadLocalRandom.current());
     StringBuilder body = new StringBuilder();
     for (int i = 0; i < 4; i++) {
       body.append(pool.get(i));
@@ -1440,7 +1439,7 @@ public class PostTelexPatTrainService {
     for (int i = 0; i < 26; i++) {
       pool.add((char) (i + 65));
     }
-    Collections.shuffle(pool, RANDOM);
+    Collections.shuffle(pool, ThreadLocalRandom.current());
     StringBuilder body = new StringBuilder();
     for (int i = 0; i < 4; i++) {
       body.append(pool.get(i));
@@ -1457,7 +1456,7 @@ public class PostTelexPatTrainService {
         pool.add((char) (i + 55));
       }
     }
-    Collections.shuffle(pool, RANDOM);
+    Collections.shuffle(pool, ThreadLocalRandom.current());
     StringBuilder body = new StringBuilder();
     for (int i = 0; i < 4; i++) {
       body.append(pool.get(i));

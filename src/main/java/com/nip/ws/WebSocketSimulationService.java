@@ -21,6 +21,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.websocket.CloseReason;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
@@ -672,5 +673,27 @@ public class WebSocketSimulationService {
       }
     }
     simulations.removeIf(item -> Objects.equals(item.getUserModel().getId(), userId));
+  }
+
+  /**
+   * P2-8：REST 删房时向成员发送 CLOSE 帧并关闭全部 session，替代原「只清 map 留悬挂连接」
+   *
+   * @param holders 房间内的连接持有者（可为 null）
+   * @param reason  关闭原因，随 CLOSE 帧下发
+   */
+  public static void closeRoomSessions(List<WebSocketSimulationService> holders, String reason) {
+    if (holders == null) {
+      return;
+    }
+    for (WebSocketSimulationService holder : holders) {
+      try {
+        Session session = holder.getSession();
+        if (session != null && session.isOpen()) {
+          session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, reason));
+        }
+      } catch (IOException e) {
+        log.error("WebSocketSimulationService.closeRoomSessions", e);
+      }
+    }
   }
 }

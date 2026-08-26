@@ -69,7 +69,6 @@ public class GeneralTelexPatService {
   private final GradingRuleDao gradingRuleDao;
   private final UserService userService;
   private final CableFloorService cableFloorService;
-  private static final ThreadLocalRandom RANDOM = ThreadLocalRandom.current();
 
   @Inject
   public GeneralTelexPatService(GeneralTelexPatDao trainDao, GeneralTelexPatPageDao trainPageDao,
@@ -581,20 +580,20 @@ public class GeneralTelexPatService {
       switch (type) {
         case 0:
           for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(10);
+            int number = ThreadLocalRandom.current().nextInt(10);
             key.append(number);
           }
           break;
         case 1:
           for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(26);
+            int number = ThreadLocalRandom.current().nextInt(26);
             char c = (char) (number + 65);
             key.append(c);
           }
           break;
         case 2:
           for (int j = 0; j < 4; j++) {
-            int number = RANDOM.nextInt(36);
+            int number = ThreadLocalRandom.current().nextInt(36);
             if (number < 10) {
               key.append(number);
             } else {

@@ -324,7 +324,8 @@ public class SimulationRouterRoomService {
     pageDao.delete("roomId=?1", roomId);
     roomUserDao.delete("roomId=?1", roomId);
     roomContentDao.delete("roomId=?1", roomId);
-    SimulationGlobal.routerRoom.remove(roomId);
+    // P2-8：删房同时向成员发 CLOSE 并关闭 session，避免悬挂连接
+    WebSocketSimulationService.closeRoomSessions(SimulationGlobal.routerRoom.remove(roomId), "房间已解散");
     return routerRoomDao.deleteById(roomId);
   }
 

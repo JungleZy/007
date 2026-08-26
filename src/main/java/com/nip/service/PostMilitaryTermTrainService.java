@@ -55,8 +55,6 @@ public class PostMilitaryTermTrainService {
     this.userDao = userDao;
   }
 
-  private final java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-
   @Transactional
   public PostMilitaryTermTrainVO add(PostMilitaryTermTrainAddDto dto, String token) {
     try {
@@ -130,7 +128,7 @@ public class PostMilitaryTermTrainService {
       if (dto.getTypes().size() == 1) {
         dataIndex = 0;
       } else {
-        dataIndex = random.nextInt(dto.getTypes().size());
+        dataIndex = java.util.concurrent.ThreadLocalRandom.current().nextInt(dto.getTypes().size());
       }
       String dataId = dto.getTypes().get(dataIndex);
       //获得该类型的所有考题
@@ -152,7 +150,7 @@ public class PostMilitaryTermTrainService {
       if (militaryTermDataEntities.size() == 1) {
         titleIndex = 0;
       } else {
-        titleIndex = random.nextInt(militaryTermDataEntities.size());
+        titleIndex = java.util.concurrent.ThreadLocalRandom.current().nextInt(militaryTermDataEntities.size());
       }
       //正确答案
       MilitaryTermDataEntity dataEntity = militaryTermDataEntities.get(titleIndex);
@@ -190,7 +188,7 @@ public class PostMilitaryTermTrainService {
           optionId = 0;
         } else {
           //随机其它选项
-          optionId = random.nextInt(militaryTermDataEntities.size());
+          optionId = java.util.concurrent.ThreadLocalRandom.current().nextInt(militaryTermDataEntities.size());
         }
         if (titleIndex != optionId || optionId == 0) {
           MilitaryTermDataEntity entity = militaryTermDataEntities.get(optionId);
@@ -388,9 +386,9 @@ public class PostMilitaryTermTrainService {
     if (!flag && Pattern.matches("^.*\\d+.*", answer)) {
       String number = extractFirstNumber(answer);
       if (number != null) {
-        Integer rNumber = random.nextInt(9) + 1;
+        Integer rNumber = java.util.concurrent.ThreadLocalRandom.current().nextInt(9) + 1;
         while (rNumber.equals(Integer.valueOf(number))) {
-          rNumber = random.nextInt(9) + 1;
+          rNumber = java.util.concurrent.ThreadLocalRandom.current().nextInt(9) + 1;
         }
         String e = answer.replaceFirst(number, rNumber.toString());
         Set<String> optionSet = new HashSet<>(options);

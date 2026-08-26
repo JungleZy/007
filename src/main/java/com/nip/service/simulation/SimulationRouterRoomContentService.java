@@ -22,6 +22,7 @@ import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.router.*;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
+import com.nip.ws.WebSocketSimulationService;
 import com.nip.ws.service.simulation.SimulationGlobal;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -206,7 +207,8 @@ public class SimulationRouterRoomContentService {
     pageDao.delete("roomId=?1", roomId);
     roomUserDao.delete("roomId=?1", roomId);
     roomContentDao.delete("roomId=?1", roomId);
-    SimulationGlobal.disturbRoom.remove(roomId);
+    // P2-8：删房同时向成员发 CLOSE 并关闭 session，避免悬挂连接
+    WebSocketSimulationService.closeRoomSessions(SimulationGlobal.disturbRoom.remove(roomId), "房间已解散");
     return routerRoomDao.deleteById(roomId);
   }
 

@@ -43,8 +43,6 @@ public class PostRadiotelephoneService {
     this.userDao = userDao;
   }
 
-  private final java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-
   @Transactional
   public PostRadiotelephoneVO add(String token, PostRadiotelephoneDto dto) {
     UserEntity userEntity = userDao.findUserEntityByToken(token);
@@ -58,7 +56,7 @@ public class PostRadiotelephoneService {
     }
     List<PostRadiotelephoneTermDataEntity> contentList = new ArrayList<>();
     for (int i = 0; i < dto.getNumber(); i++) {
-      int index = random.nextInt(entityList.size());
+      int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(entityList.size());
       PostRadiotelephoneTermDataEntity entity = entityList.get(index);
       contentList.add(entity);
     }
