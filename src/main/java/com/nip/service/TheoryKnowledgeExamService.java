@@ -8,6 +8,7 @@ import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.DateTimeUtil;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.ListUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.*;
 import com.nip.dto.TestPaperDto;
@@ -70,19 +71,27 @@ public class TheoryKnowledgeExamService {
     entity.setState(1);
     TheoryKnowledgeExamEntity save = theoryKnowledgeExamDao.save(entity);
     TestPaperDto testPaper = dto.getTestPaper();
-    if (!StringUtils.isEmpty(testPaper.getId())) {
-      theoryKnowledgeExamTestPaperDao.deleteById(testPaper.getId());
-      theoryKnowledgeExamUserDao.deleteAllByExamId(save.getId());
+    // #4 状态守卫：已有作答/进行中/已交卷的考生存在时禁止重建
+    long touched = theoryKnowledgeExamUserDao
+        .count("examId = ?1 and (state <> 1 or score > 0)", save.getId());
+    if (touched > 0) {
+      throw new IllegalStateException("考试已有作答记录，禁止编辑重建考生名单");
     }
-    TheoryKnowledgeExamTestPaperEntity theoryKnowledgeExamTestPaperEntity = PojoUtils.convertOne(testPaper,
+    // #19 只删本考试自己的旧快照，绝不按试卷 id 删
+    theoryKnowledgeExamTestPaperDao.delete("examId", save.getId());
+    theoryKnowledgeExamUserDao.deleteAllByExamId(save.getId());
+
+    TheoryKnowledgeExamTestPaperEntity snap = PojoUtils.convertOne(testPaper,
         TheoryKnowledgeExamTestPaperEntity.class);
-    theoryKnowledgeExamTestPaperEntity.setExamId(save.getId());
-    theoryKnowledgeExamTestPaperEntity.setSingleChoiceList(JSONUtils.toJson(testPaper.getSingleChoice()));
-    theoryKnowledgeExamTestPaperEntity.setMultipleChoiceList(JSONUtils.toJson(testPaper.getMultipleChoice()));
-    theoryKnowledgeExamTestPaperEntity.setJudgeList(JSONUtils.toJson(testPaper.getJudge()));
-    theoryKnowledgeExamTestPaperEntity.setCompletionList(JSONUtils.toJson(testPaper.getCompletion()));
-    theoryKnowledgeExamTestPaperEntity.setShortAnswer(JSONUtils.toJson(testPaper.getShortAnswer()));
-    theoryKnowledgeExamTestPaperDao.save(theoryKnowledgeExamTestPaperEntity);
+    snap.setId(null); // #19 快照永远新建，不复用源试卷主键
+    snap.setExamId(save.getId());
+    // #20 五列表 null 归一后再序列化
+    snap.setSingleChoiceList(JSONUtils.toJson(ListUtils.nullToEmpty(testPaper.getSingleChoice())));
+    snap.setMultipleChoiceList(JSONUtils.toJson(ListUtils.nullToEmpty(testPaper.getMultipleChoice())));
+    snap.setJudgeList(JSONUtils.toJson(ListUtils.nullToEmpty(testPaper.getJudge())));
+    snap.setCompletionList(JSONUtils.toJson(ListUtils.nullToEmpty(testPaper.getCompletion())));
+    snap.setShortAnswer(JSONUtils.toJson(ListUtils.nullToEmpty(testPaper.getShortAnswer())));
+    theoryKnowledgeExamTestPaperDao.save(snap);
     dto.getStuId().forEach(stu -> {
       TheoryKnowledgeExamUserEntity theoryKnowledgeExamUserEntity = new TheoryKnowledgeExamUserEntity();
       theoryKnowledgeExamUserEntity.setUserId(stu);
@@ -322,21 +331,21 @@ public class TheoryKnowledgeExamService {
     List<TheoryKnowLedgeExamUserVO> previousUser = new ArrayList<>();
     List<TheoryKnowledgeQuestionEntity> questionEntities = new ArrayList<>();
 
-    questionEntities.addAll(JSONUtils
+    questionEntities.addAll(ListUtils.nullToEmpty(JSONUtils
         .fromJson(testPaperEntity.getSingleChoiceList(), new TypeToken<>() {
-        }));
-    questionEntities.addAll(JSONUtils
+        })));
+    questionEntities.addAll(ListUtils.nullToEmpty(JSONUtils
         .fromJson(testPaperEntity.getMultipleChoiceList(), new TypeToken<>() {
-        }));
-    questionEntities.addAll(JSONUtils
+        })));
+    questionEntities.addAll(ListUtils.nullToEmpty(JSONUtils
         .fromJson(testPaperEntity.getJudgeList(), new TypeToken<>() {
-        }));
-    questionEntities.addAll(JSONUtils
+        })));
+    questionEntities.addAll(ListUtils.nullToEmpty(JSONUtils
         .fromJson(testPaperEntity.getCompletionList(), new TypeToken<>() {
-        }));
-    questionEntities.addAll(JSONUtils
+        })));
+    questionEntities.addAll(ListUtils.nullToEmpty(JSONUtils
         .fromJson(testPaperEntity.getShortAnswer(), new TypeToken<>() {
-        }));
+        })));
 
     // 再依次比对找出记录题目错误的次数
     Map<String, TheoryKnowledgeQuestionErrorTopVO> errorTop3 = new HashMap<>();
