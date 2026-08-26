@@ -17,13 +17,16 @@ jobs:
             arch: x86_64
             runner: ubuntu-22.04
             native_march: x86-64
+            asset_suffix: linux-amd64
           - os: ubuntu-24.04
             arch: arm64
             runner: ubuntu-24.04-arm
             native_march: armv8-a
+            asset_suffix: linux-arm64
           - os: windows-2022
             arch: x86_64
             runner: windows-2022
+            asset_suffix: windows-amd64
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
@@ -74,6 +77,25 @@ jobs:
             exit 1
           fi
           echo "glibc baseline OK: ${MAX_VER} <= ${REQ}"
+
+      - name: Rename binary with architecture suffix
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          renamed=0
+          for f in target/*-runner; do
+            mv "$f" "${f}-${{ matrix.asset_suffix }}"
+            renamed=1
+          done
+          for f in target/*-runner.exe; do
+            mv "$f" "${f%.exe}-${{ matrix.asset_suffix }}.exe"
+            renamed=1
+          done
+          if [ "$renamed" -eq 0 ]; then
+            echo "No runner binary found to rename"
+            exit 1
+          fi
 
       - name: Upload Native Artifact
         uses: actions/upload-artifact@v4
