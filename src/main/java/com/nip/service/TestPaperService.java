@@ -4,6 +4,7 @@ import cn.hutool.core.util.ObjectUtil;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ListUtils;
 import com.nip.dao.TestPaperDao;
 import com.nip.dao.TestPaperQuestionDao;
 import com.nip.dao.TheoryKnowledgeQuestionLevelDao;
@@ -58,38 +59,34 @@ public class TestPaperService {
    */
   @Transactional
   public Response<Void> saveTestPaper(String token, TestPaperDto testPaperDto) {
-    try {
-      TestPaperEntity entity = new TestPaperEntity();
-      if (ObjectUtil.isNotEmpty(testPaperDto.getId())) {
-        entity.setId(testPaperDto.getId());
-        testPaperQuestionDao.deleteAllByTestPaperId(testPaperDto.getId());
-      }
-      entity.setName(testPaperDto.getName());
-      entity.setLevelId(testPaperDto.getLevelId());
-      entity.setTotal(testPaperDto.getTotal());
-      entity.setPassMark(testPaperDto.getPassMark());
-      UserEntity userEntity = userService.getUserByToken(token);
-      entity.setCreateUserId(userEntity.getId());
-      entity.setCreateUserName(userEntity.getUserName());
-      entity.setPassTheExamThan(testPaperDto.getPassTheExamThan());
-      TestPaperEntity save = testPaperDao.save(entity);
-      List<TestPaperQuestionDto> testPaperQuestionDtos = new ArrayList<>();
-      testPaperQuestionDtos.addAll(testPaperDto.getSingleChoice());
-      testPaperQuestionDtos.addAll(testPaperDto.getMultipleChoice());
-      testPaperQuestionDtos.addAll(testPaperDto.getJudge());
-      testPaperQuestionDtos.addAll(testPaperDto.getCompletion());
-      testPaperQuestionDtos.addAll(testPaperDto.getShortAnswer());
-      testPaperQuestionDtos.forEach(ques -> {
-        TestPaperQuestionEntity testPaperQuestionEntity1 = PojoUtils.convertOne(ques, TestPaperQuestionEntity.class);
-        testPaperQuestionEntity1.setId(null);
-        testPaperQuestionEntity1.setTestPaperId(save.getId());
-        testPaperQuestionDao.save(testPaperQuestionEntity1);
-      });
-      return ResponseResult.success();
-    } catch (Exception e) {
-      log.error("保存试卷失败：{}", e.getMessage());
-      return ResponseResult.error();
+    List<TestPaperQuestionDto> testPaperQuestionDtos = new ArrayList<>();
+    testPaperQuestionDtos.addAll(ListUtils.nullToEmpty(testPaperDto.getSingleChoice()));
+    testPaperQuestionDtos.addAll(ListUtils.nullToEmpty(testPaperDto.getMultipleChoice()));
+    testPaperQuestionDtos.addAll(ListUtils.nullToEmpty(testPaperDto.getJudge()));
+    testPaperQuestionDtos.addAll(ListUtils.nullToEmpty(testPaperDto.getCompletion()));
+    testPaperQuestionDtos.addAll(ListUtils.nullToEmpty(testPaperDto.getShortAnswer()));
+
+    TestPaperEntity entity = new TestPaperEntity();
+    if (ObjectUtil.isNotEmpty(testPaperDto.getId())) {
+      entity.setId(testPaperDto.getId());
+      testPaperQuestionDao.deleteAllByTestPaperId(testPaperDto.getId()); // 新列表组装完成后才删
     }
+    entity.setName(testPaperDto.getName());
+    entity.setLevelId(testPaperDto.getLevelId());
+    entity.setTotal(testPaperDto.getTotal());
+    entity.setPassMark(testPaperDto.getPassMark());
+    UserEntity userEntity = userService.getUserByToken(token);
+    entity.setCreateUserId(userEntity.getId());
+    entity.setCreateUserName(userEntity.getUserName());
+    entity.setPassTheExamThan(testPaperDto.getPassTheExamThan());
+    TestPaperEntity save = testPaperDao.save(entity);
+    testPaperQuestionDtos.forEach(ques -> {
+      TestPaperQuestionEntity q = PojoUtils.convertOne(ques, TestPaperQuestionEntity.class);
+      q.setId(null);
+      q.setTestPaperId(save.getId());
+      testPaperQuestionDao.save(q);
+    });
+    return ResponseResult.success();
   }
 
   /**
