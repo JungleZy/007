@@ -64,3 +64,11 @@ quarkus:
         generation: drop-and-create
     http:
       test-port: 18081
+"%prod":
+  quarkus:
+    hibernate-orm:
+      database:
+        # 顺序硬约束：必须先执行 docs/database/migrations/2026-08-26-01-schema-sync.sql
+        # 与 02-engine-innodb.sql，再部署本配置，否则启动即失败。
+        # 已于 2026-08-27 在 project006.sql 快照库演练通过（迁移 01+02 → prod 模式启动零校验错误）。
+        generation: validate
