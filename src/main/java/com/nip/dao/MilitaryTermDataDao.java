@@ -19,10 +19,16 @@ public class MilitaryTermDataDao extends BaseRepository<MilitaryTermDataEntity, 
   }
 
   public List<MilitaryTermDataEntity> findAllByParentIdIn(List<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
     return find("parentId in (?1)", ids).list();
   }
 
   public List<MilitaryTermDataEntity> findAllByIdIn(List<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
     return find("id in (?1)", ids).list();
   }
 

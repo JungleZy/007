@@ -21,7 +21,7 @@ public class PostTelegramTrainFloorContentDao
 
   @Transactional
   public void clearByTranId(String tranId) {
-    update("moresValue=\"[]\",moresTime=\"[]\",patKeys=\"[]\"  where trainId = ?1", tranId);
+    update("moresValue='[]',moresTime='[]',patKeys='[]' where trainId = ?1", tranId);
   }
 
   public List<PostTelegramTrainFloorContentEntity> findByFloorNumberAndTrainIdOrderBySort(Integer floor, String id) {
@@ -62,7 +62,7 @@ public class PostTelegramTrainFloorContentDao
   public Integer findCountByTrainIdOrderByFloorNumberAscSortAsc(String id) {
     List<Long> resultList = entityManager.createQuery("select count(id) " +
             "from t_post_telegram_train_floor_content " +
-            "where trainId=?1 order by floorNumber , sort ", Long.class)
+            "where trainId=?1", Long.class)
         .setParameter(1, id).getResultList();
     if (resultList == null || resultList.isEmpty()) {
       return 0;

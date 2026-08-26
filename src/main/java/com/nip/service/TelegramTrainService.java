@@ -303,7 +303,7 @@ public class TelegramTrainService {
   @Transactional
   public Response<Void> saveFloorContent(Map<String, String> map) {
     try {
-      telegramTrainFloorContentDao.update("mores_value=?1,morse_time=?2 where id = ?3", map.get("moresValue"),
+      telegramTrainFloorContentDao.update("moresValue=?1,moresTime=?2 where id = ?3", map.get("moresValue"),
           CharSequenceUtil.isEmpty(map.get("moresTime")) ? "[]" : map.get("moresTime"),
           map.get(ID)
       );
