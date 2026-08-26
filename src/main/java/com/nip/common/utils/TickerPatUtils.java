@@ -48,12 +48,19 @@ public class TickerPatUtils {
       userContents = new ArrayList<>();
     }
 
-    patKeys = patKeys.stream().filter(StringUtils::isNotBlank).toList();
-
-    // 确保userContents大小足够
-    while (userContents.size() < patKeys.size()) {
-      userContents.add(new PostTelegramTrainContentAddParam());
+    // 过滤空白组时同步过滤对应的 userContents，保持 patKeys[i] 与 userContents[i] 配对（P3 Task 3.2：过滤不同步）
+    List<String> filteredKeys = new ArrayList<>();
+    List<PostTelegramTrainContentAddParam> filteredContents = new ArrayList<>();
+    for (int i = 0; i < patKeys.size(); i++) {
+      if (StringUtils.isNotBlank(patKeys.get(i))) {
+        filteredKeys.add(patKeys.get(i));
+        filteredContents.add(i < userContents.size()
+            ? userContents.get(i)
+            : new PostTelegramTrainContentAddParam());
+      }
     }
+    patKeys = filteredKeys;
+    userContents = filteredContents;
 
     for (int i = 0; i < patKeys.size(); i++) {
       PostTelegramTrainContentAddParam contentAddParam = userContents.get(i);
@@ -113,7 +120,7 @@ public class TickerPatUtils {
           resolverMoresValue.add(JSONUtils.toJson(values));
         }
 
-        scoreVO.setGroupScore(patKey.length() / (2 + 1) * rule.getLarge().getL());
+        scoreVO.setGroupScore(scoreVO.getGroupScore() + patKey.length() / (2 + 1) * rule.getLarge().getL());
 
       } else if (Objects.equals(patKey, "?")) {
         // 拿到上一组和下一组
@@ -135,8 +142,8 @@ public class TickerPatUtils {
         } else {
           ret.add(patKey);
           resolverPatLogs.add(contentAddParam.getPatLogs());
-          resolverMoresValue.add(contentAddParam.getMoresTime());
-          resolverMoresTime.add(contentAddParam.getMoresValue());
+          resolverMoresTime.add(contentAddParam.getMoresTime());
+          resolverMoresValue.add(contentAddParam.getMoresValue());
         }
       } else if (patKey.contains("?")) {
         int index = patKey.lastIndexOf("?") + 1;
@@ -166,8 +173,8 @@ public class TickerPatUtils {
           }
           ret.set(ret.size() - 1, substring);
           resolverPatLogs.set(resolverPatLogs.size() - 1, JSONUtils.toJson(newPatLogs));
-          resolverMoresTime.add(resolverMoresTime.size() - 1, JSONUtils.toJson(newTimes));
-          resolverMoresValue.add(resolverMoresValue.size() - 1, JSONUtils.toJson(newValues));
+          resolverMoresTime.set(resolverMoresTime.size() - 1, JSONUtils.toJson(newTimes));
+          resolverMoresValue.set(resolverMoresValue.size() - 1, JSONUtils.toJson(newValues));
 
         } else if (patKey.endsWith("?") && patKeys.size() > i + 1) {
           scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
@@ -202,8 +209,8 @@ public class TickerPatUtils {
           } else {
             ret.add(patKey);
             resolverPatLogs.add(contentAddParam.getPatLogs());
-            resolverMoresValue.add(contentAddParam.getMoresTime());
-            resolverMoresTime.add(contentAddParam.getMoresValue());
+            resolverMoresTime.add(contentAddParam.getMoresTime());
+            resolverMoresValue.add(contentAddParam.getMoresValue());
           }
         } else {
           String substring = patKey.substring(index);
@@ -236,16 +243,16 @@ public class TickerPatUtils {
           } else {
             ret.add(patKey);
             resolverPatLogs.add(contentAddParam.getPatLogs());
-            resolverMoresValue.add(contentAddParam.getMoresTime());
-            resolverMoresTime.add(contentAddParam.getMoresValue());
+            resolverMoresTime.add(contentAddParam.getMoresTime());
+            resolverMoresValue.add(contentAddParam.getMoresValue());
           }
         }
         scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
       } else if (!patKey.isEmpty()) {
         ret.add(patKey);
         resolverPatLogs.add(contentAddParam.getPatLogs() != null ? contentAddParam.getPatLogs() : "[]");
-        resolverMoresValue.add(contentAddParam.getMoresTime() != null ? contentAddParam.getMoresTime() : "[]");
-        resolverMoresTime.add(contentAddParam.getMoresValue() != null ? contentAddParam.getMoresValue() : "[]");
+        resolverMoresTime.add(contentAddParam.getMoresTime() != null ? contentAddParam.getMoresTime() : "[]");
+        resolverMoresValue.add(contentAddParam.getMoresValue() != null ? contentAddParam.getMoresValue() : "[]");
       } else {
         // 处理空字符串情况
         ret.add("");
@@ -641,7 +648,7 @@ public class TickerPatUtils {
               scoreVO.setWordScore(scoreVO.getWordScore() + (isDuct ? 0 : rule.getMiddle().getR()));
               statisticsVO.setWordMaxNumber(statisticsVO.getWordMaxNumber() + 1);
             } else {
-              statisticsVO.setWordPerfectNumber(statisticsVO.getCodePerfectNumber() + 1);
+              statisticsVO.setWordPerfectNumber(statisticsVO.getWordPerfectNumber() + 1);
             }
             scoreVO.setWordTotalTime(scoreVO.getWordTotalTime() + value);
           }

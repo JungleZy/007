@@ -169,10 +169,10 @@ public class ErrorCodeDetector {
     PostTelegramTrainScoreVO scoreVO = context.getScoreVO();
     PostTelegramTrainRule rule = context.getRule();
 
-    // 根据评分规则扣分
-    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getLarge().getL());
+    // 字间隔 word ↔ rule.getMiddle()（组间隔才是 large）；上限在 applyDeductions 按 middle.max 裁剪
+    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getL());
 
-    log.debug("检测到字间隔过小，扣分: {}", rule.getLarge().getL());
+    log.debug("检测到字间隔过小，扣分: {}", rule.getMiddle().getL());
   }
 
   /**
@@ -190,8 +190,8 @@ public class ErrorCodeDetector {
     List<String> resolverCorrectMoresValue = context.getResolverVO().getResolverMoresValue();
     List<String> resolverCorrectMoresTime = context.getResolverVO().getResolverMoresTime();
 
-    // 根据评分规则扣分
-    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getLarge().getR());
+    // 字间隔 word ↔ rule.getMiddle()（组间隔才是 large）
+    scoreVO.setWordScore(scoreVO.getWordScore() + rule.getMiddle().getR());
 
     // 合并两组数据
     String patLog1 = resolverCorrectPatLogs.get(currentIndex);

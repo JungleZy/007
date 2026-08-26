@@ -5,15 +5,15 @@
   ],
   "resolverPatLogs": [
     "[[{\"key\":0,\"value\":100}]]",
-    "[]"
+    "[[{\"key\":1,\"value\":300}]]"
   ],
   "resolverMoresTime": [
-    "[[1,0]]",
-    "[]"
+    "[[11,12]]",
+    "[[21,22]]"
   ],
   "resolverMoresValue": [
-    "[[11,12]]",
-    "[]"
+    "[[1,0]]",
+    "[[0,1]]"
   ],
   "scoreVO": {
     "lack": 0,

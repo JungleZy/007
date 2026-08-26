@@ -309,6 +309,29 @@ public class PostTelexPatTrainService {
   }
 
   /**
+   * 规整相邻的不规组：三五码 234 56789 -> 2345 6789；五三码 23456 789 -> 2345 6789。
+   * 语义与 convertCodeAll 中的同名处理一致（P1-21）。
+   *
+   * @return 规整次数
+   */
+  static int normalizeAdjacentGroups(String[] groups) {
+    int count = 0;
+    for (int i = 0; i < groups.length; i++) {
+      if (groups[i].length() == 3 && groups.length > (i + 1) && groups[i + 1].length() == 5) {
+        String nextGroup = groups[i + 1];
+        groups[i] = groups[i] + nextGroup.charAt(0);
+        groups[i + 1] = nextGroup.substring(1);
+        count++;
+      } else if (groups[i].length() == 5 && groups.length > (i + 1) && groups[i + 1].length() == 3) {
+        groups[i + 1] = groups[i].charAt(groups[i].length() - 1) + groups[i + 1];
+        groups[i] = groups[i].substring(0, groups[i].length() - 1);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
    * 计算得分
    *
    * @param param
@@ -386,20 +409,8 @@ public class PostTelexPatTrainService {
             }
             // 每组间用空格 分
             String[] groups = s.split(" ");
-            // 处理不规
-            for (int i = 0; i < groups.length; i++) {
-              if (groups[i].length() == 3 && groups.length > (i + 1) && groups[i + 1].length() == 5) {
-                String nextGroup = groups[i + 1];
-                groups[i] = groups[i] + nextGroup.charAt(0);
-                groups[i + 1] = nextGroup.substring(1);
-                nonStandartNumber += 1;
-              } else if (groups[i].length() == 5 && groups.length > (i + 1) && groups[i + 1].length() == 3) {
-                String nextGroup = groups[i + 1];
-                groups[i] = groups[i].substring(0, groups[i].length() - 1);
-                groups[i + 1] = nextGroup + groups[i].charAt(groups[i].length() - 1);
-                nonStandartNumber += 1;
-              }
-            }
+            // 处理不规（三五码/五三码 规整）
+            nonStandartNumber += normalizeAdjacentGroups(groups);
             pageList.add(Arrays.stream(groups).toList());
           }
           if (!pageList.isEmpty()) {
@@ -847,11 +858,12 @@ public class PostTelexPatTrainService {
 
       // 计算正确率 （拍发总个数- 错误个数 = 正确个数） / 总个数
       BigDecimal accuracy = new BigDecimal("0");
-      int errorTotal = ks.getPatGroup() - ks.getErrorCodeNumber() - ks.getMuchLessCodeNumber();
-      entity.setErrorNumber(errorTotal);
-      if (errorTotal != 0) {
+      // 正确组数 =（拍发总组数 - 错码组 - 多少码组）；errorNumber 落库真实错误计数（P1-20）
+      int correctTotal = ks.getPatGroup() - ks.getErrorCodeNumber() - ks.getMuchLessCodeNumber();
+      entity.setErrorNumber(ks.getErrorCodeNumber() + ks.getMuchLessCodeNumber());
+      if (correctTotal != 0) {
         // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
-        accuracy = new BigDecimal(errorTotal).divide(
+        accuracy = new BigDecimal(correctTotal).divide(
             new BigDecimal(ks.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
       }
 

@@ -697,7 +697,7 @@ public class PostTelegramTrainService {
     }
   }
 
-  private int applyDeductions(Integer baseScore, PostTelegramTrainScoreVO scoreVO, PostTelegramTrainRule rule,
+  static int applyDeductions(Integer baseScore, PostTelegramTrainScoreVO scoreVO, PostTelegramTrainRule rule,
       Map<String, Integer> deductMap) {
     int score = baseScore;
 
@@ -706,7 +706,7 @@ public class PostTelegramTrainService {
     deductMap.put("dotMinScore", dotScore);
     deductMap.put("dotMinNumber", scoreVO.getDotScore());
 
-    int lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDot().getMax());
+    int lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDash().getMax());
     score -= lineScore;
     deductMap.put("lineScore", lineScore);
     deductMap.put("lineNumber", scoreVO.getLineScore());
@@ -766,7 +766,7 @@ public class PostTelegramTrainService {
     return score;
   }
 
-  private void saveTrainResult(PostTelegramTrainEntity entity, PostTelegramTrainScoreVO scoreVO,
+  static void saveTrainResult(PostTelegramTrainEntity entity, PostTelegramTrainScoreVO scoreVO,
       int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule,
       PostTelegramTrainFinishDto dto) {
     entity.setErrorNumber(scoreVO.getErrorNumber());
@@ -783,9 +783,12 @@ public class PostTelegramTrainService {
 
     entity.setSpeed(dto.getSpeed());
 
+    // 速率加减分：高于基准加分（l=高于加分）、低于基准扣分（r=低于扣分），与 SpeedDeduct 字段语义及其余训练一致（P1-02）
     SpeedDeduct baseWpm = rule.getWpm();
-    int wpm = baseWpm.getBase() - new BigDecimal(entity.getSpeed()).intValue();
-    int wpmScore = (wpm > 0 ? -(wpm * baseWpm.getL()) : wpm * baseWpm.getR());
+    int speed = new BigDecimal(entity.getSpeed()).intValue();
+    int wpmScore = speed > baseWpm.getBase()
+        ? (speed - baseWpm.getBase()) * baseWpm.getL()
+        : -((baseWpm.getBase() - speed) * baseWpm.getR());
     deductMap.put("wpmScore", wpmScore);
     score += wpmScore;
 
