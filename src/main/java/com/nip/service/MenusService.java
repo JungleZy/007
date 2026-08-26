@@ -82,37 +82,35 @@ public class MenusService {
 
   @Transactional
   public MenusButtonDto addMenus(MenusButtonDto entity) {
-    try {
-      MenusEntity menus;
-      if (StringUtils.isEmpty(entity.getMenus().getId())) {
-        menus = menusDao.save(entity.getMenus());
-      } else {
-        menus = menusDao.findById(entity.getMenus().getId());
-        menus.setParentId(menus.getParentId());
-        menus.setComponent(menus.getComponent());
-        menus.setKey(menus.getKey());
-        menus.setPath(menus.getPath());
-        menus.setName(menus.getName());
-        menus.setIcon(menus.getIcon());
-        menus.setTitle(menus.getTitle());
-        menus.setSort(menus.getSort());
-      }
-
-      List<MenusButtonEntity> permissions = entity.getPermissions();
-      menusButtonDao.deleteAllByMenusId(menus.getId());
-      List<MenusButtonEntity> ps = new ArrayList<>();
-      permissions.forEach(p -> {
-        p.setId(null);
-        p.setMenusId(menus.getId());
-        MenusButtonEntity save = menusButtonDao.save(p);
-        ps.add(save);
-      });
-      entity.setPermissions(ps);
-      entity.setMenus(menus);
-      return entity;
-    } catch (Exception e) {
-      return null;
+    if (entity.getPermissions() == null) {
+      throw new IllegalArgumentException("permissions 缺失，拒绝编辑菜单权限");
     }
+    // 注意：permissions 为非 null 空列表 = 有意清空全部按钮，与原语义一致，放行
+    MenusEntity menus;
+    MenusEntity in = entity.getMenus();
+    if (StringUtils.isEmpty(in.getId())) {
+      menus = menusDao.save(in);
+    } else {
+      menus = menusDao.findById(in.getId());
+      menus.setParentId(in.getParentId());
+      menus.setComponent(in.getComponent());
+      menus.setKey(in.getKey());
+      menus.setPath(in.getPath());
+      menus.setName(in.getName());
+      menus.setIcon(in.getIcon());
+      menus.setTitle(in.getTitle());
+      menus.setSort(in.getSort());
+    }
+    menusButtonDao.deleteAllByMenusId(menus.getId());
+    List<MenusButtonEntity> ps = new ArrayList<>();
+    entity.getPermissions().forEach(p -> {
+      p.setId(null);
+      p.setMenusId(menus.getId());
+      ps.add(menusButtonDao.save(p));
+    });
+    entity.setPermissions(ps);
+    entity.setMenus(menus);
+    return entity;
   }
 
   public List<MenusDto> getMenusAll() {

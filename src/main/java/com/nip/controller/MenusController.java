@@ -1,6 +1,5 @@
 package com.nip.controller;
 
-import com.nip.common.constants.ResponseCode;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -43,10 +42,7 @@ public class MenusController {
   @Path("/addMenu")
   @Operation(summary = "添加或修改 权限")
   public Response<MenusButtonDto> addMenu(MenusButtonDto entity) {
-    MenusButtonDto menusButtonDto = menusService.addMenus(entity);
-    return menusButtonDto == null
-        ? ResponseResult.error(ResponseCode.SYSTEM_ERROR)
-        : ResponseResult.success(menusButtonDto);
+    return ResponseResult.success(menusService.addMenus(entity));
   }
 
   @GET
