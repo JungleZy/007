@@ -66,6 +66,7 @@ public class TickerTapeTrainSettingService {
    */
   public Integer getDotStandardRate() {
     // 获取第一个设置实体并返回其点标准时间
-    return tickerTapeTrainSettingDao.findAll().list().getFirst().getDot();
+    return tickerTapeTrainSettingDao.findAll().list().stream().findFirst()
+        .orElseGet(TickerTapeTrainSettingEntity::new).getDot();
   }
 }

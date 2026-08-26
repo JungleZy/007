@@ -46,7 +46,8 @@ public class DeviceTypeService {
       DeviceTypeEntity save = typeDao.save(deviceTypeEntity);
       return PojoUtils.convertOne(save, DeviceTypeVO.class);
     } else {
-      DeviceTypeEntity typeEntity = typeDao.findById(param.getId());
+      DeviceTypeEntity typeEntity = typeDao.findByIdOptional(param.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该设备类型"));
       typeEntity.setTypeName(param.getTypeName());
       return PojoUtils.convertOne(typeEntity, DeviceTypeVO.class);
     }

@@ -352,7 +352,8 @@ public class TheoryKnowledgeExamService {
 
     examUserEntityList.forEach(item -> {
       String userId = item.getUserId();
-      UserEntity userEntity = userDao.findById(userId);
+      UserEntity userEntity = userDao.findByIdOptional(userId)
+          .orElseThrow(() -> new IllegalArgumentException("未查询到考生用户"));
       String endTime = item.getEndTime();
       // 查询上一次考试成绩
       TheoryKnowledgeExamUserEntity previous = theoryKnowledgeExamUserDao.findByUserIdAndEndTimePrevious(userId,

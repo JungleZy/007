@@ -2,7 +2,6 @@ package com.nip.service;
 
 import com.nip.common.constants.EnteringExerciseStatusEnum;
 import com.nip.common.constants.EnteringExerciseTypeEnum;
-import com.nip.common.utils.Assert;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.EnteringExerciseDao;
@@ -102,11 +101,11 @@ public class EnteringExerciseService {
 
   @Transactional
   public void finish(EnteringExerciseFinishParam param) {
-    EnteringExerciseEntity entity = PojoUtils.convertOne(exerciseDao.findById(param.getId()), EnteringExerciseEntity.class);
+    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(param.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     entity.setStatus(EnteringExerciseStatusEnum.FINISH.getStatus());
     entity.setEndTime(LocalDateTime.now());
     EnteringExerciseEntity save = exerciseDao.save(entity);
-    Assert.notNull(save, "未查询到该训练");
     finishStatistical(save);
   }
 
@@ -120,7 +119,8 @@ public class EnteringExerciseService {
   }
 
   public void pause(EnteringExerciseFinishParam param) {
-    EnteringExerciseEntity entity = PojoUtils.convertOne(exerciseDao.findById(param.getId()), EnteringExerciseEntity.class);
+    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(param.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     entity.setStatus(EnteringExerciseStatusEnum.PAUSE.getStatus());
     exerciseDao.save(entity);
   }

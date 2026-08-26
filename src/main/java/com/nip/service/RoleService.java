@@ -88,7 +88,8 @@ public class RoleService {
   }
 
   public RoleInfoDto getRoleById(String id) {
-    RoleEntity roleEntity = roleDao.findById(id);
+    RoleEntity roleEntity = roleDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该角色"));
     RoleInfoDto roleInfoDto = new RoleInfoDto();
     roleInfoDto.setRole(roleEntity);
     roleInfoDto.setMenus(getMenusEntityByRoleId(roleEntity.getId()));

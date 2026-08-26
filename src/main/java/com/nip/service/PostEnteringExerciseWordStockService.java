@@ -138,7 +138,8 @@ public class PostEnteringExerciseWordStockService {
     //从token中获取用户
     UserEntity userEntity = userDao.findUserEntityByToken(token);
     if (!Objects.isNull(vo.getId())) {
-      PostEnteringExerciseWordStockEntity wordStockEntity = enteringExerciseWordStockDao.findById(vo.getId());
+      PostEnteringExerciseWordStockEntity wordStockEntity = enteringExerciseWordStockDao.findByIdOptional(vo.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该词库"));
       wordStockEntity.setName(vo.getName());
       wordStockEntity.setType(vo.getType());
       String[] split = vo.getContent().replaceAll("[\\r\\n]+", "##").split("##");

@@ -42,7 +42,8 @@ public class TickerTapeTrainStageSettingService  {
       entity = PojoUtils.convertOne(vo, TickerTapeTrainStageSettingEntity.class);
     }else {
       // 更新情况：根据ID获取实体对象，并用视图对象中的阶段数组更新实体对象
-      entity = settingDao.findById(vo.getId());
+      entity = settingDao.findByIdOptional(vo.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该阶段设置"));
       entity.setStageArray(vo.getStageArray());
     }
 

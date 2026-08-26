@@ -44,6 +44,6 @@ public class KeyPointsController {
   @Path("/findKeyPointsByType")
   @Operation(summary = "查询要点讲解")
   public Response<KeyPointsEntity> findKeyPointsByType(Map<String, Integer> type) {
-    return ResponseResult.success(keyPointsService.findById(type.get(TYPE)));
+    return ResponseResult.success(keyPointsService.getByType(type.get(TYPE)));
   }
 }

@@ -25,7 +25,7 @@ public class KeyPointsService {
     return keyPointsDao.save(entity);
   }
 
-  public KeyPointsEntity findById(int type) {
+  public KeyPointsEntity getByType(int type) {
     return keyPointsDao.findAllByType(type);
   }
 }

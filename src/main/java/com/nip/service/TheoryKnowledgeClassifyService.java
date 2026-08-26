@@ -55,7 +55,8 @@ public class TheoryKnowledgeClassifyService {
       entity.setId(null);
       classifyDao.saveAndFlush(entity);
     } else {
-      TheoryKnowledgeClassifyEntity tkc = classifyDao.findById(entity.getId());
+      TheoryKnowledgeClassifyEntity tkc = classifyDao.findByIdOptional(entity.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该分类"));
       tkc.setType(dto.getType());
       tkc.setName(dto.getName());
     }

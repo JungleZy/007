@@ -67,7 +67,8 @@ public class RadiotelephoneTermDataService {
 
   @Transactional
   public PostRadiotelephoneTermDataVO update(PostRadiotelephoneTermDataVO vo) {
-    PostRadiotelephoneTermDataEntity byId = dataDao.findById(vo.getId());
+    PostRadiotelephoneTermDataEntity byId = dataDao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该词条"));
     byId.setKey(vo.getKey());
     byId.setType(vo.getType());
     byId.setValue(vo.getValue());

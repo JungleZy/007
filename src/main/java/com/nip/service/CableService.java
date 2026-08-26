@@ -51,7 +51,8 @@ public class CableService {
   @Transactional
   public CableEntity save(CableVO vo) {
     CableEntity entity = PojoUtils.convertOne(vo, CableEntity.class);
-    CableTypeEntity byId = cableTypeDao.findById(entity.getTypeId());
+    CableTypeEntity byId = cableTypeDao.findByIdOptional(entity.getTypeId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该电缆类型"));
     entity.setTypeTitle(byId.getTitle());
     CableEntity save = cableDao.save(entity);
     cableFloorDao.deleteByCableId(save.getId());

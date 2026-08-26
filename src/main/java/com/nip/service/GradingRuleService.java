@@ -87,7 +87,8 @@ public class GradingRuleService {
       entity.setIsDefault(0);
     }
     if (StringUtils.isNotBlank(entity.getId())) {
-      GradingRuleEntity ruleEntity = gradingRuleDao.findById(entity.getId());
+      GradingRuleEntity ruleEntity = gradingRuleDao.findByIdOptional(entity.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
       ruleEntity.setStatus(entity.getStatus());
       ruleEntity.setIsDefault(entity.getIsDefault());
       ruleEntity.setContent(entity.getContent());

@@ -66,7 +66,8 @@ public class TheoryKnowledgeQuestionService {
     entity.setLevelId(questionDto.getLevelId());
     entity.setOptions(questionDto.getOptions());
     if (!StringUtils.isEmpty(questionDto.getId())) {
-      TheoryKnowledgeQuestionEntity tkq = theoryKnowledgeQuestionDao.findById(questionDto.getId());
+      TheoryKnowledgeQuestionEntity tkq = theoryKnowledgeQuestionDao.findByIdOptional(questionDto.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该试题"));
       tkq.setTopic(questionDto.getTopic());
       tkq.setCreateUserId(userEntity.getId());
       tkq.setAnalysis(questionDto.getAnalysis());
@@ -89,7 +90,8 @@ public class TheoryKnowledgeQuestionService {
     entity.setName(map.getName());
     entity.setCreateUserId(userEntity.getId());
     if (!StringUtils.isEmpty(map.getId())) {
-      TheoryKnowledgeQuestionLevelEntity tkql = theoryKnowledgeQuestionLevelDao.findById(map.getId());
+      TheoryKnowledgeQuestionLevelEntity tkql = theoryKnowledgeQuestionLevelDao.findByIdOptional(map.getId())
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该题目分类"));
       tkql.setParentId(map.getParentId());
       tkql.setName(map.getName());
       return ResponseResult.success(tkql);

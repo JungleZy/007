@@ -37,7 +37,8 @@ public class EquipmentDeviceService {
   }
 
   public void update(EquipmentDeviceVo vo) {
-    EquipmentDeviceEntity entity = deviceDao.findById(vo.getId());
+    EquipmentDeviceEntity entity = deviceDao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该设备"));
     entity.setImage(vo.getImage());
     entity.setIsEnable(vo.getIsEnable());
     entity.setName(vo.getName());
@@ -46,7 +47,8 @@ public class EquipmentDeviceService {
   }
 
   public void saveKeyPoints(EquipmentDeviceKeyPointsDto dto) {
-    EquipmentDeviceEntity entity = deviceDao.findById(dto.getDeviceId());
+    EquipmentDeviceEntity entity = deviceDao.findByIdOptional(dto.getDeviceId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该设备"));
     entity.setKeyPoints(dto.getContent());
     deviceDao.saveAndFlush(entity);
   }

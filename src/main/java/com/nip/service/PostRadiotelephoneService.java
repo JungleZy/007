@@ -87,14 +87,16 @@ public class PostRadiotelephoneService {
 
   @Transactional
   public void begin(PostRadiotelephoneVO vo) {
-    PostRadiotelephoneTrainEntity entity = dao.findById(vo.getId());
+    PostRadiotelephoneTrainEntity entity = dao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     entity.setStatus(PostRadiotelephoneTrainStatusEnum.UNDERWAY.getStatus());
     entity.setStartTime(LocalDateTime.now());
   }
 
   @Transactional
   public void finish(PostRadiotelephoneVO vo) {
-    PostRadiotelephoneTrainEntity entity = dao.findById(vo.getId());
+    PostRadiotelephoneTrainEntity entity = dao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     entity.setEndTime(LocalDateTime.now());
     //状态设置成完成
     entity.setStatus(PostRadiotelephoneTrainStatusEnum.FINISH.getStatus());
@@ -109,7 +111,8 @@ public class PostRadiotelephoneService {
   }
 
   public PostRadiotelephoneVO details(PostRadiotelephoneVO vo) {
-    return assembleData(dao.findById(vo.getId()), false);
+    return assembleData(dao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练")), false);
   }
 
   public Boolean delete(String id) {
