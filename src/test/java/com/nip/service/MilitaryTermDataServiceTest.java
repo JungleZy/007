@@ -68,4 +68,24 @@ class MilitaryTermDataServiceTest {
         () -> service.saveBatch(null), "null 集合必须在入口被拒");
     assertEquals("导入数据为空或格式不完整", ex.getMessage());
   }
+
+  @Test
+  void newParentRowDoesNotDropRemainingRows() {
+    // 改级#18/excelHanle:227：首行触发新建父类型后，原实现直接 return 丢弃剩余行；
+    // 修复后剩余行（同父后续行 + 另一个新父类型）必须继续落库
+    List<MilitaryTermDto> batch = new ArrayList<>();
+    batch.add(dto("军语导入-新父A", "子A1", "内容A1"));
+    batch.add(dto("军语导入-新父A", "子A2", "内容A2"));
+    batch.add(dto("军语导入-新父B", "子B1", "内容B1"));
+
+    service.saveBatch(batch);
+
+    MilitaryTermDataEntity parentA = dao.findByParentIdAndKey("0", "军语导入-新父A");
+    MilitaryTermDataEntity parentB = dao.findByParentIdAndKey("0", "军语导入-新父B");
+    assertNotNull(parentA, "首个新父类型必须落库");
+    assertNotNull(parentB, "后续新父类型不得被丢弃");
+    assertNotNull(dao.findByParentIdAndKey(parentA.getId(), "子A1"), "新父类型首行子项必须落库");
+    assertNotNull(dao.findByParentIdAndKey(parentA.getId(), "子A2"), "同父后续行不得被丢弃");
+    assertNotNull(dao.findByParentIdAndKey(parentB.getId(), "子B1"), "第二个新父类型的子项不得被丢弃");
+  }
 }

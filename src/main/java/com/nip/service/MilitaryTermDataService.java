@@ -222,20 +222,23 @@ public class MilitaryTermDataService {
       MilitaryTermDataEntity entity = militaryTermDataDao.findByParentIdAndKey("0", parentName);
       if (entity == null) {
         Integer maxSort = militaryTermDataDao.findByParentIdMaxSort("0");
-        MilitaryTermDataEntity parent = new MilitaryTermDataEntity().setKey(parentName).setSort(maxSort + 1)
+        MilitaryTermDataEntity parent = new MilitaryTermDataEntity().setKey(parentName)
+            .setSort(maxSort == null ? 1 : maxSort + 1)
             .setParentId("0");
         MilitaryTermDataEntity save = militaryTermDataDao.save(parent);
         MilitaryTermDataEntity militaryTermDataEntity = new MilitaryTermDataEntity().setValue(content)
             .setParentId(save.getId())
             .setKey(childName).setSort(0);
         militaryTermDataDao.save(militaryTermDataEntity);
-        return;
+        // 改级#18：原为 return——首个新建父类型后整批剩余行被静默丢弃；改 continue 继续处理后续行
+        continue;
       }
       //查询子级
       MilitaryTermDataEntity childEntity = militaryTermDataDao.findByParentIdAndKey(entity.getId(), childName);
       if (childEntity == null) {
         Integer maxSort = militaryTermDataDao.findByParentIdMaxSort(entity.getId());
-        childEntity = new MilitaryTermDataEntity().setParentId(entity.getId()).setSort(maxSort + 1).setValue(content)
+        childEntity = new MilitaryTermDataEntity().setParentId(entity.getId())
+            .setSort(maxSort == null ? 1 : maxSort + 1).setValue(content)
             .setKey(childName);
       } else {
         childEntity.setValue(content);
