@@ -19,8 +19,9 @@ public class GeneralTelexPatPageDao extends BaseRepository<GeneralTelexPatPageEn
     return find("trainId = ?1 group by pageNumber order by pageNumber", trainId).list()
         .stream().map(GeneralTelexPatPageEntity::getPageNumber).toList();
   }
-  public List<GeneralTelexPatPageEntity> findTwoPage(String id) {
-    return find("id = ?1 and (pageNumber = 1 or pageNumber =2)", Sort.by("pageNumber").ascending(), id).list();
+  public List<GeneralTelexPatPageEntity> findTwoPage(String trainId) {
+    return find("trainId = ?1 and (pageNumber = 1 or pageNumber = 2)",
+        Sort.by("pageNumber").ascending().and("sort"), trainId).list();
   }
   public List<GeneralTelexPatPageEntity> findByTrainIdAndPageNumberOrderBySort(String trainId, Integer pageNumber) {
     return find("trainId = ?1 and pageNumber = ?2", Sort.by("sort").ascending(), trainId, pageNumber).list();

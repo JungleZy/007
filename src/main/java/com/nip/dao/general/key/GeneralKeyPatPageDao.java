@@ -23,8 +23,9 @@ public class GeneralKeyPatPageDao extends BaseRepository<GeneralKeyPatPageEntity
         .stream().map(GeneralKeyPatPageEntity::getPageNumber).toList();
   }
 
-  public List<GeneralKeyPatPageEntity> findTwoPage(Integer id) {
-    return find("id = ?1 and (pageNumber = 1 or pageNumber =2)", Sort.by("pageNumber").ascending(), id).list();
+  public List<GeneralKeyPatPageEntity> findTwoPage(Integer trainId) {
+    return find("trainId = ?1 and (pageNumber = 1 or pageNumber = 2)",
+        Sort.by("pageNumber").ascending().and("sort"), trainId).list();
   }
 
   public List<GeneralKeyPatPageEntity> findByTrainId(Integer trainId) {
