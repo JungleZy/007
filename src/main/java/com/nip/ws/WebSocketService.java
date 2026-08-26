@@ -182,10 +182,11 @@ public class WebSocketService {
     }
   }
 
+  /**
+   * 按 sid 定向发送（历史上忽略 sid 对全体广播，属越界推送，已收敛为定向）
+   */
   public static void sendInfoAll(@PathParam("sid") String sid, ResponseModel message) {
-    for (WebSocketService item : webSocketClientSet) {
-      item.sendMessage(message);
-    }
+    sendInfo(sid, message);
   }
 
   public static void sendInfo(@PathParam("sid") String sid, String message) {
