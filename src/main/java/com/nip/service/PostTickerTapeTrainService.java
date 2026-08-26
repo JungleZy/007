@@ -4,7 +4,6 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.constants.PostTickerTapeTrainStatusEnum;
-import com.nip.common.constants.TickerTapeTrainStatusEnum;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
@@ -177,7 +176,7 @@ public class PostTickerTapeTrainService {
     Optional.ofNullable(entity)
         .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
     // 状态校验
-    if (entity.getStatus().compareTo(TickerTapeTrainStatusEnum.NOT_STARTED.getCode()) == 0) {
+    if (entity.getStatus().compareTo(NOT_STARTED.getCode()) == 0) {
       throw new IllegalArgumentException("训练状态不是未开始");
     }
     entity.setStatus(NOT_STARTED.getCode());
@@ -307,7 +306,9 @@ public class PostTickerTapeTrainService {
 
   private void checkStatus(String id) {
     PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findById(id);
-    if (entity.getStatus().compareTo(TickerTapeTrainStatusEnum.FINISH.getCode()) == 0) {
+    // P1-08：统一用 PostTickerTapeTrainStatusEnum（finish 写 2）；已结束(2)/已评分(3) 均拦截
+    if (entity.getStatus().compareTo(PostTickerTapeTrainStatusEnum.FINISH.getCode()) == 0
+        || entity.getStatus().compareTo(HAS_SCORE.getCode()) == 0) {
       throw new IllegalArgumentException("训练已结束");
     }
   }

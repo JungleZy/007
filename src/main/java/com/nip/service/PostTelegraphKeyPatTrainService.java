@@ -133,6 +133,10 @@ public class PostTelegraphKeyPatTrainService {
     try {
       PostTelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(dto.getId()))
           .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+      // P1-10：finish 幂等守卫——已完成的训练直接返回，不再重复结算（与 Telex/TickerTape 口径一致）
+      if (PostTelegraphKeyPatTrainEnum.FINISH.getStatus().equals(entity.getStatus())) {
+        return PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class);
+      }
       // 分数
       PostTelegraphKeyPatTrainEntity save = countScore(entity, dto);
       return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);

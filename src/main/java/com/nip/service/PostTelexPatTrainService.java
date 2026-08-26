@@ -213,10 +213,10 @@ public class PostTelexPatTrainService {
     try {
       PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(param.getId()))
           .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
-      // 根据评分规则计算训练得分
-      // if (entity.getStatus().equals(3)) {
-      // return PojoUtils.convertOne(entity, PostTelexPatTrainVO.class);
-      // }
+      // P1-09：恢复 finish 幂等守卫——已完成的训练直接返回，不再重复结算
+      if (PostTelexPatTrainStatusEnum.FINISH.getStatus().equals(entity.getStatus())) {
+        return PojoUtils.convertOne(entity, PostTelexPatTrainVO.class);
+      }
       PostTelexPatTrainEntity postTelexPatTrainEntity = countScore(param, entity);
       postTelexPatTrainEntity.setTotalSpeed(param.getTotalSpeed());
       return PojoUtils.convertOne(postTelexPatTrainDao.save(postTelexPatTrainEntity), PostTelexPatTrainVO.class);

@@ -512,11 +512,19 @@ public class PostTelegramTrainService {
     if (trainEntity.getMessageNumber().compareTo(dto.getFloorNumber()) > 0) {
       trainEntity.setFloorNow(dto.getFloorNumber() + 1);
     }
-    // 记录每页速率
+    // 记录每页速率：按 floorNumber upsert，与下方 deleteByTrainIdAndFloorNumber 的重传语义对齐（Task 3.5）
     List<String> speedLog = Optional.ofNullable(trainEntity.getSpeedLog())
         .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
         })).orElseGet(ArrayList::new);
-    speedLog.add(dto.getSpeed());
+    int speedIndex = dto.getFloorNumber() - 1; // floorNumber 从 1 开始
+    if (speedIndex >= 0) {
+      while (speedLog.size() <= speedIndex) {
+        speedLog.add("0");
+      }
+      speedLog.set(speedIndex, dto.getSpeed());
+    } else {
+      speedLog.add(dto.getSpeed());
+    }
     trainEntity.setSpeedLog(JSONUtils.toJson(speedLog));
     trainEntity.setErrorNumber(dto.getErrorNumber());
     trainEntity.setAccuracy(dto.getAccuracy());
