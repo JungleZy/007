@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.nip.common.constants.BaseConstants.TYPE;
@@ -252,7 +253,8 @@ public class WebSocketUnionService {
       userModel.setId(me.user().getId());
       userModel.setName(me.user().getName());
       userModel.setUserImg(me.user().getUserImg());
-      List<UserModel> user = new ArrayList<>();
+      //成员表被 EXIT_ROOM 的 removeIf 与 REMOVE_ROOM/广播的 forEach 跨连接线程并发操作，必须 COW
+      List<UserModel> user = new CopyOnWriteArrayList<>();
       user.add(userModel);
       room.setUsers(user);
       onlineRooms.put(room.getId(), room);

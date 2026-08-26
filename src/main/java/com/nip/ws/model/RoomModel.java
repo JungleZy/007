@@ -4,6 +4,7 @@ import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * RoomModel
@@ -22,5 +23,8 @@ public class RoomModel {
   private String password;
   private Integer nnt = 8;
   private String admin;
-  private List<UserModel> users;
+  /**
+   * 房间成员。跨连接线程并发增删与遍历，必须保持 CopyOnWriteArrayList
+   */
+  private List<UserModel> users = new CopyOnWriteArrayList<>();
 }

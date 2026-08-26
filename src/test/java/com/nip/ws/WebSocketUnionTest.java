@@ -14,10 +14,12 @@ import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -138,6 +140,11 @@ class WebSocketUnionTest {
          Session s2 = c.connectToServer(p2, URI.create("ws://localhost:18081/websocketUnion/" + id2));
          Session s3 = c.connectToServer(p3, URI.create("ws://localhost:18081/websocketUnion/" + id3))) {
 
+      // onOpen 异步派发：注册完成前服务端会丢弃消息，先等三条连接全部注册
+      awaitRegistered(s1, p1);
+      awaitRegistered(s2, p2);
+      awaitRegistered(s3, p3);
+
       // u1 建房
       s1.getBasicRemote().sendText("{\"code\":12,\"data\":{\"name\":\"room-b\"}}");
       Map added = pollForCode(p1, 120, 5); // ADD_ROOM_SUCCESS
@@ -165,6 +172,84 @@ class WebSocketUnionTest {
 
       assertNull(pollForCode(p3, 20, 2), "房间外的 u3 不得收到 ROOM_MESSAGE");
     }
+  }
+
+  // 用例D（Task 2.6）：50 次并发进出房间循环后，连接表与房间表必须清零。
+  // 守护对象：webSocketClientSet 条件移除、userExit 全表清理、removeRoom 解散——任何一处泄漏
+  // （P1-4/P1-5 同类缺陷在 Union 家族的表现）都会让全局静态表残留条目。
+  @Test
+  void concurrentChurnLeavesNoResidualState() throws Exception {
+    String idA = Fixtures.user(userDao, "t-ws-d1").getId();
+    String idB = Fixtures.user(userDao, "t-ws-d2").getId();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    // 起点清零：其余用例会在全局静态表里留下房间条目，与本用例守护的泄漏无关
+    unionMap("webSocketClientSet").clear();
+    unionMap("onlineUsers").clear();
+    unionMap("onlineRooms").clear();
+
+    for (int i = 0; i < 50; i++) {
+      Probe pa = new Probe();
+      Probe pb = new Probe();
+      // 背靠背发起两条连接：connectToServer 需要测试线程的请求上下文（CDI），
+      // 服务端 onOpen 异步派发到 executor，两次注册在服务端天然并发
+      Session sa = connect(c, pa, idA);
+      Session sb = connect(c, pb, idB);
+      awaitRegistered(sa, pa);
+      awaitRegistered(sb, pb);
+
+      // 建房 → 入房 → 退房 → 解散（帧序保证解散先于 close 帧被处理）
+      sa.getBasicRemote().sendText("{\"code\":12,\"data\":{\"name\":\"churn-" + i + "\"}}");
+      Map added = pollForCode(pa, 120, 5);
+      assertNotNull(added, "第 " + i + " 轮建房必须收到 ADD_ROOM_SUCCESS(120)");
+      Map room = JSONUtils.fromJson(added.get("data").toString(), Map.class);
+      String roomId = room.get("id").toString();
+      sb.getBasicRemote().sendText("{\"code\":13,\"data\":" + roomId + "}");
+      assertNotNull(pollForCode(pb, 130, 5), "第 " + i + " 轮入房必须收到 JOIN_ROOM_SUCCESS(130)");
+      sb.getBasicRemote().sendText("{\"code\":14,\"data\":" + roomId + "}"); // EXIT_ROOM
+      sa.getBasicRemote().sendText("{\"code\":15,\"data\":" + roomId + "}"); // REMOVE_ROOM
+      assertNotNull(pollForCode(pa, 11, 5), "第 " + i + " 轮解散后必须收到 ROOM_LIST(11) 广播");
+
+      // 并发关闭两条连接
+      CompletableFuture.allOf(
+          CompletableFuture.runAsync(() -> closeQuiet(sa)),
+          CompletableFuture.runAsync(() -> closeQuiet(sb))).join();
+    }
+
+    awaitEmpty("webSocketClientSet");
+    awaitEmpty("onlineUsers");
+    awaitEmpty("onlineRooms");
+  }
+
+  private static Session connect(WebSocketContainer c, Probe p, String id) {
+    try {
+      return c.connectToServer(p, URI.create("ws://localhost:18081/websocketUnion/" + id));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static void closeQuiet(Session s) {
+    try {
+      s.close();
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /** 反射读取 WebSocketUnionService 的全局静态表（字段私有，测试专用通道）。 */
+  private static Map<String, ?> unionMap(String field) throws Exception {
+    Field f = WebSocketUnionService.class.getDeclaredField(field);
+    f.setAccessible(true);
+    return (Map<String, ?>) f.get(null);
+  }
+
+  /** onClose 在服务端异步执行：时间窗内轮询直到该全局表清零。 */
+  private static void awaitEmpty(String field) throws Exception {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline && !unionMap(field).isEmpty()) {
+      Thread.sleep(100);
+    }
+    assertEquals(0, unionMap(field).size(), field + " 必须在 50 次并发进出后清零");
   }
 
   /** 轮询直到收到指定业务码的消息；超时返回 null。 */
