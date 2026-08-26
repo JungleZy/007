@@ -3,6 +3,7 @@ name: Build Quarkus Native
 on:
   push:
     branches: ['main', 'master']
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -15,9 +16,11 @@ jobs:
           - os: ubuntu-22.04
             arch: x86_64
             runner: ubuntu-22.04
+            native_march: x86-64
           - os: ubuntu-24.04
             arch: arm64
             runner: ubuntu-24.04-arm
+            native_march: armv8-a
           - os: windows-2022
             arch: x86_64
             runner: windows-2022
@@ -47,14 +50,14 @@ jobs:
 
       - name: Build Native Binary (Linux glibc 2.28 baseline)
         if: startsWith(matrix.os, 'ubuntu')
-        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 -Dquarkus.native.march=compatibility -Dquarkus.native.additional-build-args=-march=x86-64 package
+        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 -Dquarkus.native.march=${{ matrix.native_march }} package
 
       - name: Verify glibc baseline (Linux)
         if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: |
           set -euo pipefail
-          FILE=$(ls target/*-runner 2>/dev/null | head -n 1 || true)
+          FILE=$(find target -maxdepth 1 -name '*-runner' -type f | head -n 1 || true)
           if [ -z "$FILE" ]; then
             echo "No Linux native runner found in target/"
             exit 1
@@ -75,7 +78,7 @@ jobs:
       - name: Upload Native Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: quarkus-native-${{ matrix.os }}-${{ matrix.arch }}
+          name: quarkus-native-${{ matrix.os }}-${{ runner.arch }}
           path: |
             target/*-runner*
             target/*-runner.exe
@@ -91,10 +94,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/**
           tag_name: ${{ github.ref_name }}
