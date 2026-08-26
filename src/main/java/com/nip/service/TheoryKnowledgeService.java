@@ -528,10 +528,6 @@ public class TheoryKnowledgeService {
    */
   public Response<Object> gradeCount(String token, String year, String month, int type) {
     UserEntity userEntity = userService.getUserByToken(token);
-    if (userEntity == null) {
-      return ResponseResult.error("Invalid token");
-    }
-
     return switch (type) {
       case 0 -> ResponseResult.success(gradeDistribution(userEntity.getId(), year, month));
       case 1 -> ResponseResult.success(examTimes(userEntity.getId(), year, month));

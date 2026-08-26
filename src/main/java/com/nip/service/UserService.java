@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.constants.MessageConstants;
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
@@ -474,10 +475,14 @@ public class UserService {
    * 根据用户令牌获取用户实体
    *
    * @param token 用户令牌，用于唯一标识用户会话
-   * @return UserEntity 返回用户实体对象，如果找不到则返回null
+   * @return UserEntity 用户实体对象，查无用户（token 无效或已过期）时抛 UnauthorizedException（映射为 200+code203 信封）
    */
   public UserEntity getUserByToken(String token) {
-    return userDao.findUserEntityByToken(token);
+    UserEntity user = userDao.findUserEntityByToken(token);
+    if (user == null) {
+      throw new UnauthorizedException("token 无效或已过期");
+    }
+    return user;
   }
 
   /**

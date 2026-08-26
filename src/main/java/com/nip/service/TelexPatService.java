@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.constants.TelexPatTrainStatisticalTypeEnum;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -59,6 +60,8 @@ public class TelexPatService {
           PojoUtils.convertOne(save, TelexPatTrainEntity.class)
       );
       return ResponseResult.success(save);
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("saveTelexPat：{}", e.getMessage());
       return ResponseResult.error();
@@ -69,6 +72,8 @@ public class TelexPatService {
     try {
       UserEntity userEntity = userService.getUserByToken(token);
       return ResponseResult.success(telexPatDao.findAllByUserIdAndType(userEntity.getId(), type));
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("findById：{}", e.getMessage());
       return ResponseResult.error();
@@ -87,6 +92,8 @@ public class TelexPatService {
       statisticalEntity.setAvgSpeed(BigDecimal.ZERO);
       statisticalDao.save(statisticalEntity);
       return ResponseResult.success();
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("deleteTexPatByToken：{}", e.getMessage());
       return ResponseResult.error();

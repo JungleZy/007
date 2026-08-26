@@ -2,6 +2,7 @@ package com.nip.service;
 
 
 import cn.hutool.core.text.CharSequenceUtil;
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.JSONUtils;
@@ -71,6 +72,8 @@ public class TelegramTrainService {
     try {
       UserEntity userEntity = userService.getUserByToken(token);
       return ResponseResult.success(telegramTrainDao.findAllByCreateUserIdOrderByCreateTimeDesc(userEntity.getId()));
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       return ResponseResult.error();
     }
@@ -125,6 +128,8 @@ public class TelegramTrainService {
       UserEntity userEntity = userService.getUserByToken(token);
       asyncTask(userEntity.getId(), id);
       return ResponseResult.success();
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("getFloorContentByFloorIdAsync获取失败：{}", e.getMessage());
       return ResponseResult.error();
@@ -141,6 +146,8 @@ public class TelegramTrainService {
       WebSocketService.sendInfo(
           userEntity.getId(), new ResponseModel(FLOOR_CONTENT_DATA.getCode(), JSONUtils.toJson(list)));
       return ResponseResult.success();
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("getFloorContentByFloorIdAsync获取失败：{}", e.getMessage());
       return ResponseResult.error();
@@ -295,6 +302,8 @@ public class TelegramTrainService {
         }
       }
       return ResponseResult.success(train);
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       return ResponseResult.error();
     }

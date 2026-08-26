@@ -1,6 +1,8 @@
 package com.nip.common.exception;
 
 import com.nip.dao.UserDao;
+import com.nip.service.TelexPatTrainService;
+import com.nip.service.UserService;
 import com.nip.testsupport.Fixtures;
 import com.nip.testsupport.MySqlResource;
 import io.quarkus.test.common.QuarkusTestResource;
@@ -14,6 +16,7 @@ import io.restassured.parsing.Parser;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Phase 4 异常边界集成测试：JWTInterceptor 收窄（Task 4.3）后，
@@ -27,6 +30,10 @@ class ExceptionBoundaryTest {
 
   @Inject
   UserDao userDao;
+  @Inject
+  UserService userService;
+  @Inject
+  TelexPatTrainService telexPatTrainService;
 
   @BeforeEach
   void seedUser() {
@@ -46,6 +53,32 @@ class ExceptionBoundaryTest {
         .when().get("/api/menus/getMenusAll")
         .then().statusCode(200)
         .body("code", is(203));
+  }
+
+  @Test
+  void unknownTokenOnNonJwtEndpointReturns203Envelope() {
+    // Task 4.2：非 @JWT 的 DeviceController 路径，getUserByToken 抛 UnauthorizedException
+    // → UnauthorizedExceptionMapper：HTTP 200 + code 203（原为 NPE→500）
+    given()
+        .header("Origin", "http://localhost")
+        .header("token", "expired-token-nowhere")
+        .contentType("application/json")
+        .body("{}")
+        .when().post("/api/device/save")
+        .then().statusCode(200)
+        .body("code", is(203));
+  }
+
+  @Test
+  void getUserByTokenThrowsUnauthorizedForUnknownToken() {
+    assertThrows(UnauthorizedException.class, () -> userService.getUserByToken("expired-token-nowhere"));
+  }
+
+  @Test
+  void unauthorizedRethrownThroughLegacyCatchAll() {
+    // 4.2 步骤 2：位于 try/catch(Exception)→error() 内的调用点必须重抛 203，而不是被吞成通用错误
+    assertThrows(UnauthorizedException.class,
+        () -> telexPatTrainService.findTexPatTrainByToken("expired-token-nowhere"));
   }
 
   @Test

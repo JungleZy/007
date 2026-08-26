@@ -2,6 +2,7 @@ package com.nip.service.general;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.constants.PostTelegramTrainEnum;
@@ -199,6 +200,8 @@ public class GeneralTelexPatService {
       pageInfo.setTotalNumber(all.getTotalNumber());
       pageInfo.setData(convert);
       return pageInfo;
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询训练列表失败", e);
       throw new RuntimeException(e);

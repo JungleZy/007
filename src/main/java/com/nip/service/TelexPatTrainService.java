@@ -1,6 +1,7 @@
 package com.nip.service;
 
 
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -81,6 +82,8 @@ public class TelexPatTrainService {
         statisticalService.statistical(userEntity.getId(), dto.getType() + 1, save);
       }
       return ResponseResult.success(save);
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       log.error("保存训练记录失败：{}", e.getMessage());
       return ResponseResult.error();
@@ -91,6 +94,8 @@ public class TelexPatTrainService {
     try {
       UserEntity userEntity = userService.getUserByToken(token);
       return ResponseResult.success(telexPatTrainDao.findAllByCreateUserId(userEntity.getId()));
+    } catch (UnauthorizedException e) {
+      throw e;
     } catch (Exception e) {
       return ResponseResult.error();
     }
