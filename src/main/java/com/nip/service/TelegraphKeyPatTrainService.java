@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.TelegraphKeyPatTrainDao;
 import com.nip.dao.TelegraphKeyTrainStatisticalDao;
 import com.nip.dto.TelegraphKeyPatTrainDto;
@@ -79,21 +80,18 @@ public class TelegraphKeyPatTrainService {
    * @param entity     训练记录实体，从中提取统计数据
    */
   private void saveStsatistical(TelegraphKeyPatTrainDto dto, UserEntity userEntity, TelegraphKeyPatTrainEntity entity) {
+    // 平均速率 = 拍发总次数 / 时长(秒) 折算次/分钟（ScoreMath 统一口径；原两分支一处 /1000 一处不除，按“秒”统一，P2-68）
+    BigDecimal avgSpeed = ScoreMath.rate(entity.getTotalNum(), entity.getTotalTime() * 1000L);
     TelegraphKeyTrainStatisticalEntity statisticalEntity = statisticalDao.findByUserIdAndType(userEntity.getId(), dto.getType());
     statisticalEntity = Optional.ofNullable(statisticalEntity)
-        .map(temp -> temp.setAvgSpeed(new BigDecimal(entity.getTotalNum())
-                .divide(new BigDecimal(entity.getTotalTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP))
+        .map(temp -> temp.setAvgSpeed(avgSpeed)
             .setTotalCount(temp.getTotalCount() + 1)
             .setTotalTime(String.valueOf(entity.getTotalTime()))
         )
         .orElse(new TelegraphKeyTrainStatisticalEntity()
             .setUserId(entity.getCreateUserId())
             .setType(entity.getType())
-            .setAvgSpeed(
-                new BigDecimal(entity.getTotalNum())
-                    .divide(new BigDecimal(entity.getTotalTime()), 10, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP))
+            .setAvgSpeed(avgSpeed)
             .setTotalCount(1)
             .setTotalTime(String.valueOf(entity.getTotalTime())));
     statisticalDao.save(statisticalEntity);

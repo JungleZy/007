@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.nip.common.utils.Assert;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.EnteringStatisticalDao;
 import com.nip.dao.EnteringTelexPatDao;
 import com.nip.dao.UserDao;
@@ -74,10 +75,8 @@ public class EnteringTelexPatService {
             .setTotalTime("0"));
     queryStatisticalEntity.setTotalTime(String.valueOf(save.getTotalTime()));
     queryStatisticalEntity.setTotalCount(queryStatisticalEntity.getTotalCount() + 1);
-    //计算平均速率=拍发总次数/时长(秒)*60
-    BigDecimal avgSpeed = new BigDecimal(save.getTotalNum()).divide(
-        new BigDecimal(save.getTotalTime()), 10, RoundingMode.HALF_UP).multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
-    queryStatisticalEntity.setAvgSpeed(avgSpeed);
+    //计算平均速率=拍发总次数/时长(秒)折算次/分钟（ScoreMath 统一口径，时长为 0 返 0，P2-68）
+    queryStatisticalEntity.setAvgSpeed(ScoreMath.rate(save.getTotalNum(), save.getTotalTime() * 1000L));
     statisticalDao.save(queryStatisticalEntity);
     return PojoUtils.convertOne(save, EnteringTelexPatVO.class);
   }

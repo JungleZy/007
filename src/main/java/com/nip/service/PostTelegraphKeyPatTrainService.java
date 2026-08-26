@@ -5,6 +5,7 @@ import com.nip.common.constants.PostTelegraphKeyPatTrainEnum;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.*;
 import com.nip.dto.*;
 import com.nip.dto.vo.*;
@@ -379,25 +380,16 @@ public class PostTelegraphKeyPatTrainService {
       ks.setLackLine(ks.getLackLine() + missingPages * 10);
     }
 
-    // 计算速率 拍发个数/训练时长*60
-    BigDecimal speed = new BigDecimal("0");
-    if (ks.getPat() != 0) {
-      speed = new BigDecimal(ks.getPat())
-          .divide(new BigDecimal(ks.getPatTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10,
-              RoundingMode.HALF_UP)
-          .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
-    }
+    // 计算速率 拍发个数/训练时长折算次/分钟（patTime 单位毫秒；守分母，ScoreMath 统一口径）
+    BigDecimal speed = ScoreMath.rate(ks.getPat(), ks.getPatTime());
 
     entity.setSpeed(String.valueOf(speed));
 
     // 错误个数
     entity.setErrorNumber(ks.getError());
-    BigDecimal accuracy = new BigDecimal("0");
-    if (ks.getPatGroup() - ks.getError() != 0) {
-      // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
-      accuracy = new BigDecimal(ks.getPatGroup() - ks.getError() - ks.getBunchGroup()).divide(
-          new BigDecimal(ks.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
-    }
+    // 计算正确率 （拍发总个数 - 错误个数 - 串组） / 拍发总个数（守分母，ScoreMath 统一口径）
+    BigDecimal accuracy = ScoreMath.accuracy(
+        (long) ks.getPatGroup() - ks.getError() - ks.getBunchGroup(), ks.getPatGroup());
     entity.setAccuracy(accuracy.doubleValue());
 
     // 得到要扣的分

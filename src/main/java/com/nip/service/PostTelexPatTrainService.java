@@ -7,6 +7,7 @@ import com.nip.common.utils.CheckUtils;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.common.utils.TelexPatUtils;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
@@ -690,15 +691,13 @@ public class PostTelexPatTrainService {
       deductMap.put("updateErrorNumber", change + "");
       deductMap.put("updateErrorScore", updateScore.toString());
 
-      // 计算速率 组数 / 耗时 * 60
-      BigDecimal speed = parseCodeAll.stream()
+      // 计算速率 组数 / 耗时(秒) 折算次/分钟（ScoreMath 统一口径，validTime 为空/0 返 0）
+      long patGroupCount = parseCodeAll.stream()
           .flatMap(Collection::stream)
-          .map(List::size)
-          .map(BigDecimal::new)
-          .reduce(BigDecimal.ZERO, BigDecimal::add);
-      speed = speed.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
-          : speed.divide(new BigDecimal(param.getValidTime()), 10, RoundingMode.HALF_DOWN)
-              .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
+          .mapToLong(List::size)
+          .sum();
+      long validTimeMillis = param.getValidTime() == null ? 0L : param.getValidTime() * 1000L;
+      BigDecimal speed = ScoreMath.rate(patGroupCount, validTimeMillis);
       // 计算在结算速率是否高于规定速率
       int speedDiffer = rule.getWpm().getBase() - Integer.parseInt(param.getTotalSpeed());
       if (speedDiffer > 0) {
@@ -856,16 +855,11 @@ public class PostTelexPatTrainService {
       deductMap.put("correctMistakesNumber", ks.getCorrectMistakesNumber());
       deductMap.put("correctMistakesScore", minus + correctMistakesScore);
 
-      // 计算正确率 （拍发总个数- 错误个数 = 正确个数） / 总个数
-      BigDecimal accuracy = new BigDecimal("0");
       // 正确组数 =（拍发总组数 - 错码组 - 多少码组）；errorNumber 落库真实错误计数（P1-20）
       int correctTotal = ks.getPatGroup() - ks.getErrorCodeNumber() - ks.getMuchLessCodeNumber();
       entity.setErrorNumber(ks.getErrorCodeNumber() + ks.getMuchLessCodeNumber());
-      if (correctTotal != 0) {
-        // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
-        accuracy = new BigDecimal(correctTotal).divide(
-            new BigDecimal(ks.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
-      }
+      // 计算正确率（守分母，ScoreMath 统一口径）
+      BigDecimal accuracy = ScoreMath.accuracy(correctTotal, ks.getPatGroup());
 
       score = score.subtract(errorCodeScore)
           .subtract(muchLessLineScore)
