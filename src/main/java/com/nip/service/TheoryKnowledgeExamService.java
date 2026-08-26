@@ -156,7 +156,7 @@ public class TheoryKnowledgeExamService {
           new ResponseModel(CodeConstants.TEACHERCHANGEEXAMSTATE.getCode(), map)));
       return ResponseResult.success(entity);
     } catch (Exception e) {
-      log.error("teacherStartExam error:{}", e.getMessage());
+      log.error("teacherStartExam error", e);
       return ResponseResult.error();
     }
   }
@@ -194,7 +194,7 @@ public class TheoryKnowledgeExamService {
           new ResponseModel(CodeConstants.STUDENTCHANGEEXAMSTATE.getCode(), data));
       return ResponseResult.success(data);
     } catch (Exception e) {
-      log.error("student change status error:{}", e.getMessage());
+      log.error("student change status error", e);
       return ResponseResult.error();
     }
   }
@@ -215,7 +215,7 @@ public class TheoryKnowledgeExamService {
       WebSocketService.sendInfo(entity.getTeacher(), new ResponseModel(CodeConstants.USERUPLOADCONTENT.getCode(), map));
       return ResponseResult.success(save);
     } catch (Exception e) {
-      log.error("saveUserRealTimeParam:{}", e.getMessage());
+      log.error("saveUserRealTimeParam", e);
       return ResponseResult.error();
     }
   }

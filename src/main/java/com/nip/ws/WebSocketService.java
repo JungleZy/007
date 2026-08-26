@@ -113,7 +113,7 @@ public class WebSocketService {
    */
   @OnError
   public void onError(Session session, Throwable error) {
-    log.error("WebSocketService onError:{}", error.getMessage());
+    log.error("WebSocketService onError", error);
   }
 
   /**
@@ -150,7 +150,7 @@ public class WebSocketService {
         session.getAsyncRemote().sendText(message);
       }
     } catch (Exception e) {
-      log.error("WebSocketService send:{}", e.getMessage());
+      log.error("WebSocketService send", e);
     }
   }
 }

@@ -205,7 +205,7 @@ public class PostTelegraphKeyPatTrainService {
                   }
                 }
               } catch (Exception e) {
-                log.error("details：{},index:{},i:{}", e.getMessage(), index, i);
+                log.error("details index:{},i:{}", index, i, e);
               }
             }
           }

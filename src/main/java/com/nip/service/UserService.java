@@ -347,7 +347,7 @@ public class UserService {
       }
       return true;
     } catch (Exception e) {
-      log.error("addUserRole error:{}", e.getMessage());
+      log.error("addUserRole error", e);
       return false;
     }
   }
@@ -397,7 +397,7 @@ public class UserService {
       userInfoDto.setMenus(menusDtoList);
       return ResponseResult.success(MessageConstants.LOGIN_SUCCESS, userInfoDto);
     } catch (Exception e) {
-      log.error("login error:{}", e.getMessage());
+      log.error("login error", e);
       return ResponseResult.error(ResponseCode.SYSTEM_ERROR.getCode(), MessageConstants.DATA_EXCEPTION);
     }
   }

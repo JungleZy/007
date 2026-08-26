@@ -118,7 +118,7 @@ public class TelegramTrainService {
       handleMaps(list, byFloorIdIn);
       return ResponseResult.success(list);
     } catch (Exception e) {
-      log.error("getFloorContentByFloorId获取失败：{}", e.getMessage());
+      log.error("getFloorContentByFloorId获取失败", e);
       return ResponseResult.error();
     }
   }
@@ -131,7 +131,7 @@ public class TelegramTrainService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("getFloorContentByFloorIdAsync获取失败：{}", e.getMessage());
+      log.error("getFloorContentByFloorIdAsync获取失败", e);
       return ResponseResult.error();
     }
   }
@@ -149,7 +149,7 @@ public class TelegramTrainService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("getFloorContentByFloorIdAsync获取失败：{}", e.getMessage());
+      log.error("getFloorContentByFloorIdAsync获取失败", e);
       return ResponseResult.error();
     }
   }

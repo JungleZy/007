@@ -66,7 +66,7 @@ public class PojoUtils {
       func.accept(v, t);
       return t;
     } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-      log.error("convertOne error:{}", e.getMessage());
+      log.error("convertOne error", e);
       throw new NullPointerException();
     }
   }
@@ -77,7 +77,7 @@ public class PojoUtils {
       BeanUtil.copyProperties(v, entity, CopyOptions.create().setIgnoreError(true));
       return entity;
     } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-      log.error("convertOne error:{}", e.getMessage());
+      log.error("convertOne error", e);
       throw new NullPointerException();
     }
   }

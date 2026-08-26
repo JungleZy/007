@@ -135,7 +135,7 @@ public class TestPaperService {
       }
       return ResponseResult.success(testPaperDtos);
     } catch (Exception e) {
-      log.error("findAllTestPaper error:{}", e.getMessage());
+      log.error("findAllTestPaper error", e);
       return ResponseResult.error();
     }
   }

@@ -636,7 +636,7 @@ public class WebSocketSimulationService {
         session.getBasicRemote().sendText(JSONUtils.toJson(SimulationResponseModel.err(errorMsg, sendName, receiveName)));
       }
     } catch (Exception e) {
-      log.error("WebSocketSimulationService.sendErrorMessage:{}", e.getMessage());
+      log.error("WebSocketSimulationService.sendErrorMessage", e);
     }
   }
 
@@ -650,7 +650,7 @@ public class WebSocketSimulationService {
         session.getAsyncRemote().sendText(JSONUtils.toJson(SimulationResponseModel.success(message, sendName, receiveName)));
       }
     } catch (Exception e) {
-      log.error("WebSocketSimulationService.sendMessage:{}", e.getMessage());
+      log.error("WebSocketSimulationService.sendMessage", e);
     }
   }
 
@@ -667,7 +667,7 @@ public class WebSocketSimulationService {
         try {
           item.getSession().close();
         } catch (IOException e) {
-          log.error("WebSocketSimulationService.kickOutOld:{}", e.getMessage());
+          log.error("WebSocketSimulationService.kickOutOld", e);
         }
       }
     }

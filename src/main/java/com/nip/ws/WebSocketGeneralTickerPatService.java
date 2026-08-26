@@ -181,7 +181,7 @@ public class WebSocketGeneralTickerPatService {
     try {
       session.close();
     } catch (IOException e) {
-      log.error("关闭socket出错:{}", e.getMessage());
+      log.error("关闭socket出错", e);
     }
   }
 

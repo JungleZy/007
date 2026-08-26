@@ -133,13 +133,13 @@ public class SpecificationExecutor<T> {
                   .orElseThrow(() -> new RuntimeException("类型未指定"));
               mappingHandler.handler(executeQuery, columNames, retClass, ret.get());
             } catch (Exception e) {
-              log.error("sql execute exception:{}", e.getMessage());
+              log.error("sql execute exception", e);
             }
           });
 
       return ret.get();
     } catch (Exception e) {
-      log.error("sql execute exception:{}", e.getMessage());
+      log.error("sql execute exception", e);
     }
     throw new IllegalArgumentException("sql execute exception");
 

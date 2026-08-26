@@ -16,6 +16,7 @@ import com.nip.entity.TickerTapeTrainEntity;
 import com.nip.entity.simulation.key.GeneralKeyPatUserEntity;
 import com.nip.entity.simulation.telex.GeneralTelexPatUserEntity;
 import com.nip.entity.simulation.ticker.GeneralTickerPatTrainUserEntity;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -26,6 +27,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @ApplicationScoped
 public class UserTrainStatisticsService {
   @Inject
@@ -75,12 +77,14 @@ public class UserTrainStatisticsService {
     try {
       return LocalDateTime.parse(text);
     } catch (DateTimeParseException ignored) {
+      // ISO 格式不匹配属正常回退路径，继续尝试 yyyy-MM-dd HH:mm:ss
     }
     try {
       return LocalDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-    } catch (DateTimeParseException ignored) {
+    } catch (DateTimeParseException e) {
+      log.warn("parseTime 时间参数无法解析，忽略该时间过滤条件: {}", text, e);
+      return null;
     }
-    return null;
   }
 
   private int sumHandKey(String userId, LocalDateTime start, LocalDateTime end) {
@@ -104,7 +108,8 @@ public class UserTrainStatisticsService {
         if (within(e.getFinishTime(), start, end)) {
           total += Integer.parseInt(Objects.toString(e.getDuration(), "0"));
         }
-      } catch (Exception ignored) {
+      } catch (Exception ex) {
+        log.warn("sumElectronicKey 训练时长解析失败按0计入: duration={}", e.getDuration(), ex);
       }
     }
     return total;
@@ -118,7 +123,8 @@ public class UserTrainStatisticsService {
         if (within(e.getEndTime(), start, end)) {
           total += Integer.parseInt(Objects.toString(e.getValidTime(), "0"));
         }
-      } catch (Exception ignored) {
+      } catch (Exception ex) {
+        log.warn("sumReceive 训练时长解析失败按0计入: validTime={}", e.getValidTime(), ex);
       }
     }
     List<PostTickerTapeTrainEntity> postList = postTickerDao.find("userId = ?1 and status >= 2", userId).list();
@@ -127,7 +133,8 @@ public class UserTrainStatisticsService {
         if (within(e.getEndTime(), start, end)) {
           total += Integer.parseInt(Objects.toString(e.getValidTime(), "0"));
         }
-      } catch (Exception ignored) {
+      } catch (Exception ex) {
+        log.warn("sumReceive 训练时长解析失败按0计入: validTime={}", e.getValidTime(), ex);
       }
     }
     return total;

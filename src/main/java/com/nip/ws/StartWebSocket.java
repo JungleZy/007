@@ -56,7 +56,7 @@ public class StartWebSocket {
         session.getAsyncRemote().sendText(JSONUtils.toJson(message));
       }
     } catch (Exception e) {
-      log.error("StartWebSocket send:{}", e.getMessage());
+      log.error("StartWebSocket send", e);
     }
   }
 }

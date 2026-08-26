@@ -85,7 +85,7 @@ public class TelexPatTrainService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("保存训练记录失败：{}", e.getMessage());
+      log.error("保存训练记录失败", e);
       return ResponseResult.error();
     }
   }

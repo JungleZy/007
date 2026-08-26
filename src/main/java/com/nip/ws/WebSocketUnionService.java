@@ -529,7 +529,7 @@ public class WebSocketUnionService {
     try {
       session.getAsyncRemote().sendText(JSONUtils.toJson(message));
     } catch (Exception e) {
-      log.error("WebSocketUnionService.send:{}", e.getMessage());
+      log.error("WebSocketUnionService.send", e);
     }
   }
 }

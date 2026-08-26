@@ -9,6 +9,7 @@ import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.config.ConfigProvider;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -28,6 +29,7 @@ import java.util.Map;
 @Path("/tools")
 @ApplicationScoped
 @Tag(name = "工具库接口")
+@Slf4j
 public class ToolsController {
   @GET
   @Path("/getNowTime")
@@ -57,7 +59,8 @@ public class ToolsController {
       InetAddress localHost = InetAddress.getLocalHost();
       hostname = localHost.getHostName();
       ip = localHost.getHostAddress();
-    } catch (UnknownHostException ignored) {
+    } catch (UnknownHostException e) {
+      log.warn("getSystemAndVersionInfo 获取本机地址失败", e);
     }
     String version = ConfigProvider.getConfig().getOptionalValue("version", String.class).orElse(null);
     info.put("软件版本", version);

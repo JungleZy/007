@@ -63,7 +63,7 @@ public class TelexPatService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("saveTelexPat：{}", e.getMessage());
+      log.error("saveTelexPat", e);
       return ResponseResult.error();
     }
   }
@@ -75,7 +75,7 @@ public class TelexPatService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("findById：{}", e.getMessage());
+      log.error("findById", e);
       return ResponseResult.error();
     }
   }
@@ -95,7 +95,7 @@ public class TelexPatService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
-      log.error("deleteTexPatByToken：{}", e.getMessage());
+      log.error("deleteTexPatByToken", e);
       return ResponseResult.error();
     }
   }

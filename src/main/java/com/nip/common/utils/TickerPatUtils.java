@@ -10,12 +10,14 @@ import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import org.apache.commons.lang3.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class TickerPatUtils {
   /**
    * 解析用户的原始报文
@@ -290,7 +292,8 @@ public class TickerPatUtils {
       try {
         pk = JSONUtils.fromJson(item.getPatKeys(), new TypeToken<List<String>>() {
         });
-      } catch (Exception ignore) {
+      } catch (Exception e) {
+        log.warn("handleMessageBody patKeys 非 JSON（index={}），按纯文本逐字符拆分", i, e);
       }
       // 协议容忍：纯文本 patKeys 逐字符拆分；副作用：损坏的 JSON 数组文本也会被拆成含 [ " , 的垃圾按键——无协议标记无法区分，接受此残留
       if (pk == null) {

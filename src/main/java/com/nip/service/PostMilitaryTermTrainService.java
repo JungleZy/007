@@ -412,19 +412,15 @@ public class PostMilitaryTermTrainService {
   }
 
   public List<PostMilitaryTermTrainVO> listPage(String token) {
-    try {
-      UserEntity userEntity = userDao.findUserEntityByToken(token);
-      List<PostMilitaryTermTrainEntity> ret = termTrainDao.findByUserIdOrderByCreateTimeDesc(userEntity.getId());
-      return PojoUtils.convert(ret, PostMilitaryTermTrainVO.class, (e, v) -> v.setTypes(
-          dataDao.findAllByIdIn(JSONUtils.fromJson(e.getTypes(), new TypeToken<>() {
-              }))
-              .stream()
-              .map(MilitaryTermDataEntity::getKey)
-              .toList()));
-    } catch (Exception e) {
-      log.error("获取训练失败", e);
-      return Collections.emptyList();
-    }
+    // Phase 4 Task 4.4：不再 catch-返-emptyList 把"登录失效/脏数据"伪装成"暂无数据"，异常直达 ExceptionMapper
+    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    List<PostMilitaryTermTrainEntity> ret = termTrainDao.findByUserIdOrderByCreateTimeDesc(userEntity.getId());
+    return PojoUtils.convert(ret, PostMilitaryTermTrainVO.class, (e, v) -> v.setTypes(
+        dataDao.findAllByIdIn(JSONUtils.fromJson(e.getTypes(), new TypeToken<>() {
+            }))
+            .stream()
+            .map(MilitaryTermDataEntity::getKey)
+            .toList()));
   }
 
   public PostMilitaryTermTrainVO details(PostMilitaryTermTrainVO vo) {

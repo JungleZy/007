@@ -1178,7 +1178,7 @@ public class PostTelexPatTrainService {
                   // 判断是
                 } catch (Exception e) {
                   // 若出现异常则添加到集合中
-                  log.error("解析ADD或QTA 失败:{}", e.getMessage());
+                  log.error("解析ADD或QTA 失败", e);
                   rowList.add(group);
                 }
               }

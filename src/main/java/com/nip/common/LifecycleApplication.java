@@ -30,7 +30,8 @@ public class LifecycleApplication {
         banner = banner.replace("${version}", version);
         LOG.info("\n" + banner);
       }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+      LOG.warn("banner 打印失败", e);
     }
   }
 
