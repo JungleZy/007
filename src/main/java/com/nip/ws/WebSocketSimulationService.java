@@ -247,9 +247,8 @@ public class WebSocketSimulationService {
 
     //移除退出者会话；房间清空后释放房间条目（P1-4：原 removeIndex 逻辑从不移除，永久泄漏）
     simulations.removeIf(s -> Objects.equals(s.getUserModel().getId(), userId));
-    if (simulations.isEmpty()) {
-      SimulationGlobal.disturbRoom.remove(roomId);
-    }
+    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
+    SimulationGlobal.disturbRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
   }
 
   @Transactional
@@ -291,9 +290,8 @@ public class WebSocketSimulationService {
       }
     }
     simulations.remove(holder);
-    if (simulations.isEmpty()) {
-      SimulationGlobal.reportRoom.remove(roomId);
-    }
+    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
+    SimulationGlobal.reportRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
   }
 
   public void quitRoomRouter(Integer roomId, String userId) {
@@ -315,9 +313,8 @@ public class WebSocketSimulationService {
       }
     }
     simulations.remove(removeObj);
-    if (simulations.isEmpty()) {
-      SimulationGlobal.routerRoom.remove(roomId);
-    }
+    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
+    SimulationGlobal.routerRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
   }
 
   /**
