@@ -112,7 +112,7 @@ public class MilitaryTermDataService {
   @Transactional
   public MilitaryTermDataVO save(MilitaryTermDataDto dto) {
     MilitaryTermDataEntity entity = PojoUtils.convertOne(dto, MilitaryTermDataEntity.class);
-    if (dto.getType().compareTo(0) == 0) {
+    if (Objects.equals(dto.getType(), 0)) {
       entity.setParentId("0");
     }
     MilitaryTermDataEntity byValue = militaryTermDataDao.findByValue(dto.getKey());
@@ -183,9 +183,16 @@ public class MilitaryTermDataService {
    */
   @Transactional
   public void move(MilitaryTermDataMoveDto dataMoveDto) {
-    MilitaryTermDataEntity source = militaryTermDataDao.findById(dataMoveDto.getSourceId());
-
-    MilitaryTermDataEntity target = militaryTermDataDao.findById(dataMoveDto.getTargetId());
+    MilitaryTermDataEntity source = militaryTermDataDao.findByIdOptional(dataMoveDto.getSourceId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到移动源词条"));
+    MilitaryTermDataEntity target = militaryTermDataDao.findByIdOptional(dataMoveDto.getTargetId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到移动目标词条"));
+    if (!Objects.equals(source.getParentId(), target.getParentId())) {
+      throw new IllegalArgumentException("仅支持同级词条间移动");
+    }
+    if (source.getSort() == null || target.getSort() == null) {
+      throw new IllegalArgumentException("词条排序缺失，无法移动");
+    }
     //修改位置
     if (source.getSort().compareTo(target.getSort()) > 0) {
       //从下往上拖动

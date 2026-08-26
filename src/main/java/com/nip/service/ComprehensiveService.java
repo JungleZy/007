@@ -298,7 +298,7 @@ public class ComprehensiveService {
     TheoryKnowledgeTestFallibleEntity byUserId = testFallibleDao.findByUserId(id);
     //根据id查询已考试的题目
     List<TheoryKnowledgeExamUserEntity> examUserEntityList = examUserDao.findByUserId(id);
-    if (null == byUserId || byUserId.getNumber() != examUserEntityList.size()) {
+    if (null == byUserId || !Objects.equals(byUserId.getNumber(), examUserEntityList.size())) {
       //获取content字段
       List<TheoryKnowledgeQuestionEntity> paperDtos = new ArrayList<>();
       for (TheoryKnowledgeExamUserEntity entity : examUserEntityList) {

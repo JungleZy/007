@@ -103,9 +103,21 @@ public class PostTelexPatTrainService {
       r.setRuleContent(ruleEntity.getContent());
     });
     Integer groupNumber = entity.getGroupNumber();
-    int generateNumber = groupNumber < 200 ? groupNumber : 200;
+    // P2-55/56：isCable/type/patType/groupNumber 均为 Integer，前置判空避免拆箱 NPE
+    if (Objects.equals(entity.getIsCable(), 0)) {
+      if (groupNumber == null) {
+        throw new IllegalArgumentException("组数不能为空");
+      }
+      if (entity.getType() == null) {
+        throw new IllegalArgumentException("报文类型不能为空");
+      }
+      if (entity.getType() == 0 && entity.getPatType() == null) {
+        throw new IllegalArgumentException("拍发类型不能为空");
+      }
+    }
+    int generateNumber = groupNumber != null && groupNumber < 200 ? groupNumber : 200;
     PostTelexPatTrainEntity save = postTelexPatTrainDao.save(entity);
-    if (save.getIsCable() == 0) {
+    if (Objects.equals(save.getIsCable(), 0)) {
       if (0 == entity.getType()) {
         if (0 == entity.getPatType()) {
           List<String> bePointed = bePointed(generateNumber);
@@ -230,7 +242,7 @@ public class PostTelexPatTrainService {
     PostTelexPatTrainEntity trainEntity = postTelexPatTrainDao.findById(trainId);
     Integer groupNumber = 0;
     int generateNumber = 100;
-    if (trainEntity.getIsCable() == 0) {
+    if (Objects.equals(trainEntity.getIsCable(), 0)) {
       groupNumber = trainEntity.getGroupNumber();
       int totalPage = groupNumber / 100;
 

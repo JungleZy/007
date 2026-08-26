@@ -17,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -60,7 +61,7 @@ public class GradingRuleService {
     List<GradingRuleEntity> byType = gradingRuleDao.findByType(entity.getType());
     List<GradingRuleEntity> def = new ArrayList<>();
     boolean flag = true;
-    if (entity.getIsDefault() == 0) {
+    if (Objects.equals(entity.getIsDefault(), 0)) {
       byType.forEach(e -> {
         e.setIsDefault(1);
         def.add(e);
@@ -68,14 +69,14 @@ public class GradingRuleService {
     } else {
       if (StringUtils.isEmpty(entity.getId())) {
         for (GradingRuleEntity e : byType) {
-          if (e.getIsDefault() == 0) {
+          if (Objects.equals(e.getIsDefault(), 0)) {
             flag = false;
             break;
           }
         }
       } else {
         for (GradingRuleEntity e : byType) {
-          if (e.getIsDefault() == 0 && !e.getId().equals(entity.getId())) {
+          if (Objects.equals(e.getIsDefault(), 0) && !e.getId().equals(entity.getId())) {
             flag = false;
             break;
           }
