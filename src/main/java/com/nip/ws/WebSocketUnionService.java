@@ -172,14 +172,20 @@ public class WebSocketUnionService {
   }
 
   /**
-   * 身份管道：由连接会话反查该连接的 holder
+   * 身份管道：由连接会话反查该连接的 holder；
+   * 校验 holder 持有的就是本会话——同 sid 重连后，旧 session 的 onClose/onError
+   * 不得命中新连接的条目（否则会把存活的新连接驱逐）
    */
   private static Client resolveClient(Session session) {
     Object sid = session.getUserProperties().get(SID);
     if (sid == null) {
       return null;
     }
-    return webSocketClientSet.get(sid.toString());
+    Client client = webSocketClientSet.get(sid.toString());
+    if (client == null || client.session() != session) {
+      return null;
+    }
+    return client;
   }
 
   /**

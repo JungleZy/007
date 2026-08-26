@@ -54,3 +54,26 @@ exit=1
 
 - onMessage 入站 data 的"字符串二次序列化加引号"怪癖仍在（见上），真实前端若以字符串发 JOIN_ROOM data 会入房失败——属既有行为，未在本任务范围内改动。
 - 出站发送统一为 asyncRemote（原代码 basic/async 混用，basicRemote 并发写同一 session 会抛 IllegalStateException）。
+
+## 修复轮 1（评审 Important）：resolveClient 会话身份校验防重连驱逐
+
+**结论：已修复，用例C 红→绿，3 用例全绿。**
+
+- 缺陷：resolveClient 仅按 sid 查共享 map。同 sid 重连后旧 socket 真正关闭时，onClose(旧session) 命中新连接的 Client → userExit 把存活的新连接从 map/房间清掉并广播 USER_EXIT，新连接沦为僵尸。onError 同风险。
+- 修复：resolveClient 取出后校验 `client != null && client.session() == session` 才返回，否则 null——旧 session 的 onClose/onError 对已替换条目 no-op。
+- 新用例C `reconnectWithSameSidDoesNotEvictNewConnection`：同 sid 先后两连接，旧连接关闭后 watcher 在 4s 窗内轮询 GET_UNION_INFO 的 USER_LIST 断言 id1 恒在，最后 u2 加入断言新连接仍收到广播。
+- 测试时序说明：服务端 onOpen 在 executor 上异步完成、connectToServer 返回不代表注册完成（曾致两轮假信号：①驱逐发生在 sleep 窗之后假绿；②查询在注册前到达被丢弃红错断言）。最终用 `awaitRegistered`（反复发 GET_UNION_INFO 直到收到 USER_LIST）探测注册完成后再关旧连接，红落在目标断言上。
+
+### 红（修复前，驱逐被观测到）：
+
+```
+org.opentest4j.AssertionFailedError: 旧连接关闭不得驱逐同 sid 的新连接：id1 必须仍在在线用户列表 ==> expected: <true> but was: <false>
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+```
+
+### 绿（修复后，全类）：
+
+```
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0 -- in com.nip.ws.WebSocketUnionTest
+[INFO] BUILD SUCCESS
+```

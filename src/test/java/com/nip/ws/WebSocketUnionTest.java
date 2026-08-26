@@ -59,6 +59,67 @@ class WebSocketUnionTest {
     }
   }
 
+  // 用例C：同 sid 重连——旧连接真正关闭时不得驱逐新连接。
+  // 缺陷：resolveClient 仅按 sid 查 map，旧 session 的 onClose 会命中重连后的新 Client，
+  // userExit 把存活的新连接从 map 清掉并广播 USER_EXIT，新连接沦为僵尸。
+  // 服务端 onOpen 在 executor 上异步完成，须先用 GET_UNION_INFO 探测各连接注册完成，
+  // 再关旧连接；随后 watcher 在时间窗内轮询 USER_LIST(10)，断言 id1 恒在。
+  @Test
+  void reconnectWithSameSidDoesNotEvictNewConnection() throws Exception {
+    String id1 = Fixtures.user(userDao, "t-ws-c1").getId();
+    String id2 = Fixtures.user(userDao, "t-ws-c2").getId();
+    String idW = Fixtures.user(userDao, "t-ws-cw").getId();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    Probe oldP = new Probe();
+    Probe newP = new Probe();
+    Probe p2 = new Probe();
+    Probe watcherP = new Probe();
+    Session oldS = c.connectToServer(oldP, URI.create("ws://localhost:18081/websocketUnion/" + id1));
+    awaitRegistered(oldS, oldP);
+    try (Session newS = c.connectToServer(newP, URI.create("ws://localhost:18081/websocketUnion/" + id1));
+         Session watcher = c.connectToServer(watcherP, URI.create("ws://localhost:18081/websocketUnion/" + idW))) {
+      awaitRegistered(newS, newP);
+      awaitRegistered(watcher, watcherP);
+      oldS.close(); // 旧连接真正关闭，触发 onClose(旧session)
+      // 时间窗内轮询在线用户列表：id1（新连接）必须始终在线
+      boolean sawList = false;
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(4);
+      while (System.nanoTime() < deadline) {
+        watcherP.received.clear();
+        watcher.getBasicRemote().sendText("{\"code\":0}");
+        Map userList = pollForCode(watcherP, 10, 2); // USER_LIST
+        if (userList != null) {
+          sawList = true;
+          assertTrue(userList.get("data").toString().contains(id1),
+              "旧连接关闭不得驱逐同 sid 的新连接：id1 必须仍在在线用户列表");
+        }
+        Thread.sleep(300);
+      }
+      assertTrue(sawList, "监控窗内 watcher 必须至少收到一次 USER_LIST(10)");
+      newP.received.clear();
+      try (Session s2 = c.connectToServer(p2, URI.create("ws://localhost:18081/websocketUnion/" + id2))) {
+        String got = newP.received.poll(5, TimeUnit.SECONDS);
+        assertNotNull(got, "旧连接关闭不得驱逐同 sid 的新连接：u2 加入时新连接必须仍收到广播");
+      }
+    } finally {
+      if (oldS.isOpen()) {
+        oldS.close();
+      }
+    }
+  }
+
+  /** 等待连接在服务端注册完成：反复发 GET_UNION_INFO 直到收到 USER_LIST（未注册时服务端丢弃消息）。 */
+  private static void awaitRegistered(Session s, Probe p) throws Exception {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      s.getBasicRemote().sendText("{\"code\":0}");
+      if (pollForCode(p, 10, 1) != null) {
+        return;
+      }
+    }
+    throw new AssertionError("连接在 10s 内未完成服务端注册");
+  }
+
   // 用例B：房间消息路由——u1 建房，u2 入房，u1 发 ROOM_MESSAGE(receiveUser=房间id)：
   // u2 收到、房间外 u3 收不到。
   // 协议依据源码：ADD_ROOM(12) data=RoomModel JSON；JOIN_ROOM(13) data=房间id（服务端 onMessage 会把
