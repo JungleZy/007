@@ -1141,6 +1141,8 @@ correctNum.subtract(new BigDecimal(errorNumber)).divide(correctNum, 2, RoundingM
 
 > **审计更正（2026-08-27 执行期实证）**：P2-25 为误报。该 `.map(BigDecimal::new)`（现漂移至 :287）的上游是 `TheoryKnowledgeEntity::getCredit`，credit 字段类型为 `Double`（`TheoryKnowledgeEntity.java:103`），走 `BigDecimal(double)` 构造器，不存在字符串解析，不会抛 NumberFormatException。不列入修复批次。
 
+> **审计更正（2026-08-27 执行期实证）**：P2-17 部分成立。`TickerTapeTrainService:203-214` 对 type 0/1/2 缺失即回填空对象，`convert.size()` 恒 ≥3，「size<2 → IndexOutOfBounds」分支**不可达**；但 `Collections.swap(convert, 0, 1)` 作用于未排序列表（`findByUserId` 无 ORDER BY）导致 Tab 串位的问题属实，仍待排序方案决策。
+
 ## P2-D 静默失败 / 异常处理（12 条）
 
 | 编号 | 位置 | 现象与触发条件 |
