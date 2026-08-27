@@ -95,6 +95,9 @@ public class MenusService {
       menus = menusDao.save(in);
     } else {
       menus = menusDao.findById(in.getId());
+      if (menus == null) {
+        throw new IllegalArgumentException("菜单不存在: " + in.getId());
+      }
       menus.setParentId(in.getParentId());
       menus.setComponent(in.getComponent());
       menus.setKey(in.getKey());
