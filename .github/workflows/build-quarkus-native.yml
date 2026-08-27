@@ -7,6 +7,32 @@ on:
   pull_request:
 
 jobs:
+  test:
+    name: Test (JVM, Testcontainers)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # 测试套件依赖 Testcontainers 起 Linux MySQL 容器，只能在 Linux runner 跑；
+      # native 矩阵（含 Windows）一律 -DskipTests，测试由本 job 统一守门
+      - name: Run tests
+        run: mvn -B verify
+
   build:
     name: Build (${{ matrix.os }} / ${{ matrix.arch }})
     strategy:
@@ -49,11 +75,11 @@ jobs:
 
       - name: Build Native Binary
         if: matrix.os == 'windows-2022'
-        run: mvn -B -Pnative package
+        run: mvn -B -Pnative -DskipTests package
 
       - name: Build Native Binary (Linux glibc 2.28 baseline)
         if: startsWith(matrix.os, 'ubuntu')
-        run: mvn -B -Pnative -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 -Dquarkus.native.march=${{ matrix.native_march }} package
+        run: mvn -B -Pnative -DskipTests -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 -Dquarkus.native.march=${{ matrix.native_march }} package
 
       - name: Verify glibc baseline (Linux)
         if: startsWith(matrix.os, 'ubuntu')
@@ -108,7 +134,7 @@ jobs:
 
   release:
     name: Publish Release
-    needs: [build]
+    needs: [build, test]
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/')
     steps:
