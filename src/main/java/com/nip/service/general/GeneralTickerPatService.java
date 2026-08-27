@@ -447,6 +447,8 @@ public class GeneralTickerPatService {
         }
         log.info("接口完成:{}", LocalDateTime.now());
       });
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询训练详情失败", e);
       throw new RuntimeException(e);
@@ -768,6 +770,8 @@ public class GeneralTickerPatService {
 
       saveTrainUserResult(entity, dto.getUserId(), scoreVO, score, lack, statisticsVO, deductMap, rule);
       entity.setRuleContent(ruleEntity.getContent());
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("计算分数失败，训练ID: {}", entity.getId(), e);
       throw new RuntimeException("计算分数异常");

@@ -201,6 +201,8 @@ public class GeneralTelexPatService {
       return pageInfo;
     } catch (UnauthorizedException e) {
       throw e;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询训练列表失败", e);
       throw new RuntimeException(e);
@@ -238,6 +240,8 @@ public class GeneralTelexPatService {
         item.setPageAnalyzeVOS(generatePageAnalyze(param.getTrainId(), item.getUserId()));
       }
       return patTrainVO;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询训练详情失败，训练ID: {}", param.getTrainId(), e);
       throw new RuntimeException(e);
@@ -320,6 +324,8 @@ public class GeneralTelexPatService {
           v.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
         }
       });
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询拍发详情失败，训练ID: {}", param.getTrainId(), e);
       throw new RuntimeException(e);
@@ -425,6 +431,8 @@ public class GeneralTelexPatService {
                     "trainId", entity.getId())));
       });
       return userInfoList;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("完成训练失败，训练ID: {}", dto.getTrainId(), e);
       throw new RuntimeException(e);
@@ -472,6 +480,8 @@ public class GeneralTelexPatService {
       }
 
       return ret;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("获取训练页面失败，训练ID: {}, 页码: {}", trainId, pageNumber, e);
       throw new RuntimeException(e);

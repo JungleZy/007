@@ -140,6 +140,8 @@ public class PostTelegraphKeyPatTrainService {
       // 分数
       PostTelegraphKeyPatTrainEntity save = countScore(entity, dto);
       return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("完成训练失败，训练ID: {}", dto.getId(), e);
       throw new RuntimeException(e);
@@ -219,6 +221,8 @@ public class PostTelegraphKeyPatTrainService {
           v.setPageNumber(pageDao.findMaxPageNumber(id));
         }
       });
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("查询训练详情失败，训练ID: {}", id, e);
       throw new RuntimeException(e);
@@ -313,6 +317,8 @@ public class PostTelegraphKeyPatTrainService {
         list.add(postTelegraphKeyPatTrainPageValueEntity);
       }
       valueDao.persist(list);
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("保存训练页面内容失败", e);
       throw new RuntimeException(e);

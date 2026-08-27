@@ -1,6 +1,8 @@
 package com.nip.common.exception;
 
 import com.nip.dao.UserDao;
+import com.nip.dao.MilitaryTermDataDao;
+import com.nip.entity.MilitaryTermDataEntity;
 import com.nip.service.TelexPatTrainService;
 import com.nip.service.UserService;
 import com.nip.testsupport.Fixtures;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
+
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
@@ -34,6 +38,8 @@ class ExceptionBoundaryTest {
   UserService userService;
   @Inject
   TelexPatTrainService telexPatTrainService;
+  @Inject
+  MilitaryTermDataDao militaryTermDataDao;
 
   @BeforeEach
   void seedUser() {
@@ -107,6 +113,30 @@ class ExceptionBoundaryTest {
         .then().statusCode(200)
         .body("code", is(500))
         .body("message", equalTo("permissions 缺失，拒绝编辑菜单权限"));
+  }
+
+  @Test
+  void insufficientMilitaryTermOptionsSurfaceAsCode500Envelope() {
+    // 终审 I-1：generateTestPaper 的 IAE（有效题目不足4条）必须穿透 add 的 catch(Exception) 包裹，
+    // 由 ValidationExceptionMapper 以 HTTP 200 + CODE_500 + 原提示送达，而非 RuntimeException → HTTP 500
+    String parentId = "boundary-term-parent";
+    if (militaryTermDataDao.findAllByParentIdIn(List.of(parentId)).isEmpty()) {
+      // 4 条同类型但仅 3 个互异 value：通过 add 的 size>=4 类型过滤，命中 generateTestPaper 的 distinct<4 校验
+      militaryTermDataDao.save(new MilitaryTermDataEntity().setParentId(parentId).setKey("甲").setValue("甲值"));
+      militaryTermDataDao.save(new MilitaryTermDataEntity().setParentId(parentId).setKey("乙").setValue("乙值"));
+      militaryTermDataDao.save(new MilitaryTermDataEntity().setParentId(parentId).setKey("丙").setValue("丙值"));
+      militaryTermDataDao.save(new MilitaryTermDataEntity().setParentId(parentId).setKey("丁").setValue("甲值"));
+    }
+    given()
+        .header("Origin", "http://localhost")
+        .header("token", TOKEN)
+        .header("deviceId", DEVICE)
+        .contentType("application/json")
+        .body("{\"types\":[\"" + parentId + "\"],\"totalNumber\":1,\"name\":\"boundary\"}")
+        .when().post("/api/postMilitaryTermTrain/add")
+        .then().statusCode(200)
+        .body("code", is(500))
+        .body("message", equalTo("类型 " + parentId + " 有效题目不足4条，无法生成干扰项"));
   }
 
   @Test

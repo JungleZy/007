@@ -108,6 +108,8 @@ public class PostMilitaryTermTrainService {
             .toList();
         v.setTypes(names);
       });
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("创建军事术语训练失败", e);
       throw new RuntimeException(e);

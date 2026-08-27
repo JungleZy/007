@@ -66,6 +66,8 @@ public class GeneralKeyPatController {
   public Response<GeneralKeyPatTrainVO> detail(@RequestBody GeneralKeyPatPageParamDto param) {
     try {
       return ResponseResult.success(patTrainService.detail(param));
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

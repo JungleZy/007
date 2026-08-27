@@ -213,6 +213,8 @@ public class PostTelexPatTrainService {
       entity.setStatus(UNDERWAY.getStatus());
       entity.setStartTime(LocalDateTime.now());
       return PojoUtils.convertOne(postTelexPatTrainDao.save(entity), PostTelexPatTrainVO.class);
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("开始训练失败，训练ID: {}", param.getId(), e);
       throw new RuntimeException(e);
@@ -231,6 +233,8 @@ public class PostTelexPatTrainService {
       PostTelexPatTrainEntity postTelexPatTrainEntity = countScore(param, entity);
       postTelexPatTrainEntity.setTotalSpeed(param.getTotalSpeed());
       return PojoUtils.convertOne(postTelexPatTrainDao.save(postTelexPatTrainEntity), PostTelexPatTrainVO.class);
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("完成训练失败，训练ID: {}", param.getId(), e);
       throw new RuntimeException(e);
@@ -1267,6 +1271,8 @@ public class PostTelexPatTrainService {
       ret.put("irregularityNumber", irregularityCount);
 
       return ret;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.error("解析报文出错", e);
       throw new RuntimeException(e);
