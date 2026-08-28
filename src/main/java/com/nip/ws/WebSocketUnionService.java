@@ -209,16 +209,21 @@ public class WebSocketUnionService {
     if (!webSocketClientSet.remove(sid, me)) {
       return;
     }
-    for (RoomModel roomModel : onlineRooms.values()) {
-      boolean b = roomModel.getUsers().removeIf(userModel -> userModel.getId().equals(me.user().getId()));
-      if (b) {
+    for (String roomId : onlineRooms.keySet()) {
+      onlineRooms.computeIfPresent(roomId, (id, roomModel) -> {
+        boolean removed = roomModel.getUsers()
+          .removeIf(userModel -> userModel.getId().equals(sid));
+        if (!removed || roomModel.getUsers().isEmpty()) {
+          return removed ? null : roomModel;
+        }
         updateRoom(roomModel);
         Map jsonObject = new HashMap<>();
         jsonObject.put(TYPE, "exit");
         jsonObject.put("user", me.user());
         roomModel.getUsers().forEach(user -> sendInfo(user.getId(),
           new ResponseModel(UnionConstants.ROOM_USER_BROADCAST.getCode(), JSONUtils.toJson(jsonObject))));
-      }
+        return roomModel;
+      });
     }
     onlineUsers.remove(sid, me.user());
     log.info("有客户端退出联合训练:" + sid + ",当前在线客户端数为：" + onlineUsers.size());

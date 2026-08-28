@@ -220,6 +220,25 @@ class WebSocketUnionTest {
     }
   }
 
+  @Test
+  void soleRoomOwnerDisconnectRemovesRoom() throws Exception {
+    String ownerId = Fixtures.user(userDao, "t-ws-owner-exit").getId();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    Probe ownerProbe = new Probe();
+    unionMap("webSocketClientSet").clear();
+    unionMap("onlineUsers").clear();
+    unionMap("onlineRooms").clear();
+
+    Session owner = c.connectToServer(ownerProbe,
+        URI.create("ws://localhost:18081/websocketUnion/" + ownerId));
+    awaitRegistered(owner, ownerProbe);
+    seedRoom("200000", ownerId);
+
+    owner.close();
+
+    awaitEmpty("onlineRooms");
+  }
+
   // 用例D（Task 2.6）：50 次并发进出房间循环后，连接表与房间表必须清零。
   // 守护对象：webSocketClientSet 条件移除、userExit 全表清理、removeRoom 解散——任何一处泄漏
   // （P1-4/P1-5 同类缺陷在 Union 家族的表现）都会让全局静态表残留条目。
@@ -251,6 +270,8 @@ class WebSocketUnionTest {
       assertNotNull(pollForCode(pb, 130, 5), "第 " + i + " 轮入房必须收到 JOIN_ROOM_SUCCESS(130)");
       sb.getBasicRemote().sendText("{\"code\":14,\"data\":" + roomId + "}"); // EXIT_ROOM
       sa.getBasicRemote().sendText("{\"code\":15,\"data\":" + roomId + "}"); // REMOVE_ROOM
+      assertNotNull(pollForCode(pa, 152, 5),
+          "第 " + i + " 轮解散必须先收到本轮 REMOVE_ROOM_BROADCAST(152)");
       assertNotNull(pollForCode(pa, 11, 5), "第 " + i + " 轮解散后必须收到 ROOM_LIST(11) 广播");
 
       // 并发关闭两条连接
