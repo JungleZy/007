@@ -20,6 +20,7 @@ import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketSimulationService;
+import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.service.simulation.SimulationGlobal;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -172,13 +173,13 @@ public class SimulationReportRoomService {
       }
     }
     SimulationReportRoomVO simulationReportRoomVO = PojoUtils.convertOne(roomMap, SimulationReportRoomVO.class);
-    List<WebSocketSimulationService> webSocketSimulationServices = Optional
+    List<SimulationSessionHolder> webSocketSimulationServices = Optional
         .ofNullable(SimulationGlobal.reportRoom.get(roomId))
         .orElseGet(ArrayList::new);
     userEntities.forEach(item -> {
-      for (WebSocketSimulationService simulation : webSocketSimulationServices) {
-        if (Objects.equals(item.getId(), simulation.getUserModel().getId())) {
-          item.setStatus(simulation.getUserModel().getStatus());
+      for (SimulationSessionHolder simulation : webSocketSimulationServices) {
+        if (Objects.equals(item.getId(), simulation.userModel().getId())) {
+          item.setStatus(simulation.userModel().getStatus());
           break;
         }
       }

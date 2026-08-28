@@ -7,8 +7,9 @@ import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.testsupport.Fixtures;
 import com.nip.testsupport.MySqlResource;
-import com.nip.ws.service.simulation.SimulationGlobal;
+import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.model.SimulationUserModel;
+import com.nip.ws.service.simulation.SimulationGlobal;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -20,6 +21,7 @@ import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -95,14 +97,49 @@ class WebSocketSimulationTest {
       SimulationRouterRoomEntity after = roomDao.findById(roomId);
       assertEquals(1, after.getPlayStatus().intValue(),
           "学员断线不得按教员身份暂停整房：playStatus 必须保持 1");
-      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
       assertNotNull(members, "教员仍在线，房间列表不得消失");
-      assertTrue(members.stream().anyMatch(m -> teacherId.equals(m.getUserModel().getId())),
+      assertTrue(members.stream().anyMatch(m -> teacherId.equals(m.userModel().getId())),
           "教员连接必须仍在房间列表");
       assertTrue(teacher.isOpen(), "教员连接必须仍然打开");
     } finally {
       if (student.isOpen()) {
         student.close();
+      }
+    }
+  }
+
+  @Test
+  void staleSessionErrorAfterReconnectDoesNotRemoveReplacementOrPauseRoom() throws Exception {
+    String studentId = Fixtures.user(userDao, "t-sim-reconnect-student").getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("report-room-reconnect");
+    room.setCreateUserId(studentId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(1);
+    room.setPlayStatus(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+    saveRoomUser(roomId, studentId, 1, 1);
+
+    WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+    Session oldClient = container.connectToServer(new Probe(), uri(studentId, roomId));
+    Session oldServer = awaitServerSession(roomId, studentId, null);
+    Session currentClient = container.connectToServer(new Probe(), uri(studentId, roomId));
+    Session currentServer = awaitServerSession(roomId, studentId, oldServer);
+
+    try {
+      service.onError(studentId, roomId, oldServer, new RuntimeException("stale callback"));
+
+      assertSame(currentServer, awaitServerSession(roomId, studentId, oldServer));
+      assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
+          "stale student callback must not pause the room");
+    } finally {
+      if (oldClient.isOpen()) {
+        oldClient.close();
+      }
+      if (currentClient.isOpen()) {
+        currentClient.close();
       }
     }
   }
@@ -155,18 +192,18 @@ class WebSocketSimulationTest {
     SimulationUserModel unknownRole = new SimulationUserModel();
     unknownRole.setId(userId);
     unknownRole.setChannel(-1);
-    WebSocketSimulationService holder = new WebSocketSimulationService();
-    holder.setUserModel(unknownRole);
+    Session unknownSession = testSession("unknown-role");
+    SimulationSessionHolder holder = new SimulationSessionHolder(unknownSession, unknownRole);
     SimulationGlobal.reportRoom.put(roomId,
         new CopyOnWriteArrayList<>(List.of(holder)));
 
     try {
-      assertDoesNotThrow(() -> service.quitRoomReport(roomId, userId));
+      assertDoesNotThrow(() -> service.quitRoomReport(roomId, userId, unknownSession));
       assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
           "null/unknown role 断连不得被当成教员暂停房间");
-      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
       assertTrue(members == null || members.stream()
-          .noneMatch(member -> userId.equals(member.getUserModel().getId())),
+          .noneMatch(member -> userId.equals(member.userModel().getId())),
           "未知角色 holder 必须安全移除");
     } finally {
       SimulationGlobal.reportRoom.remove(roomId);
@@ -187,11 +224,24 @@ class WebSocketSimulationTest {
     roomUserDao.save(e);
   }
 
+  private static Session testSession(String id) {
+    return (Session) Proxy.newProxyInstance(
+        Session.class.getClassLoader(),
+        new Class<?>[]{Session.class},
+        (proxy, method, args) -> switch (method.getName()) {
+          case "getId" -> id;
+          case "isOpen" -> true;
+          case "hashCode" -> System.identityHashCode(proxy);
+          case "equals" -> proxy == args[0];
+          default -> null;
+        });
+  }
+
   /** 服务端 onOpen 完成注册是异步的：轮询房间列表直到到达期望人数。 */
   private static void awaitRoomSize(Integer roomId, int size) throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
     while (System.nanoTime() < deadline) {
-      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
       if (members != null && members.size() >= size) {
         return;
       }
@@ -204,8 +254,8 @@ class WebSocketSimulationTest {
       throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
     while (System.nanoTime() < deadline) {
-      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
-      if (members != null && members.stream().anyMatch(m -> userId.equals(m.getUserModel().getId()))) {
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
+      if (members != null && members.stream().anyMatch(m -> userId.equals(m.userModel().getId()))) {
         return true;
       }
       if (!session.isOpen()) {
@@ -216,12 +266,33 @@ class WebSocketSimulationTest {
     return false;
   }
 
+  private static Session awaitServerSession(Integer roomId, String userId, Session previous)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
+      if (members != null) {
+        Session current = members.stream()
+            .filter(member -> userId.equals(member.userModel().getId()))
+            .map(SimulationSessionHolder::session)
+            .filter(session -> session != previous)
+            .findFirst()
+            .orElse(null);
+        if (current != null) {
+          return current;
+        }
+      }
+      Thread.sleep(50);
+    }
+    throw new AssertionError("10s 内 replacement Session 未成为当前 holder");
+  }
+
   /** 轮询直到该用户被移出房间列表（onClose 异步执行）。 */
   private static void awaitRemoved(Integer roomId, String userId) throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
     while (System.nanoTime() < deadline) {
-      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
-      if (members == null || members.stream().noneMatch(m -> userId.equals(m.getUserModel().getId()))) {
+      List<SimulationSessionHolder> members = SimulationGlobal.reportRoom.get(roomId);
+      if (members == null || members.stream().noneMatch(m -> userId.equals(m.userModel().getId()))) {
         return;
       }
       Thread.sleep(100);

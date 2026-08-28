@@ -28,6 +28,7 @@ import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketSimulationService;
+import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.model.SimulationUserModel;
 import com.nip.ws.service.simulation.SimulationGlobal;
 import io.vertx.core.http.HttpServerRequest;
@@ -181,10 +182,10 @@ public class SimulationRouterRoomService {
   public SimulationRouterRoomUserVO getRoomUserList(Integer roomId) {
     List<SimulationRouterRoomUserEntity> allByRoomId = roomUserDao.findByRoomId(roomId);
     SimulationRouterRoomUserVO roomUserVO = new SimulationRouterRoomUserVO();
-    List<WebSocketSimulationService> webSocketSimulationServices = Optional.ofNullable(SimulationGlobal.routerRoom.get(roomId))
+    List<SimulationSessionHolder> webSocketSimulationServices = Optional.ofNullable(SimulationGlobal.routerRoom.get(roomId))
         .orElseGet(ArrayList::new);
-    Map<String, List<WebSocketSimulationService>> collect = webSocketSimulationServices.stream()
-        .collect(Collectors.groupingBy(item -> item.getUserModel().getId()));
+    Map<String, List<SimulationSessionHolder>> collect = webSocketSimulationServices.stream()
+        .collect(Collectors.groupingBy(item -> item.userModel().getId()));
     for (SimulationRouterRoomUserEntity userEntity : allByRoomId) {
       String userId = userEntity.getUserId();
       userDao.findByIdOptional(userId).ifPresent(user -> {
@@ -194,9 +195,9 @@ public class SimulationRouterRoomService {
         long existPageNumber = pageValueDao.countByUserIdAndRoomId(userId, roomId);
         userInfoVO.setExistPageNumber(existPageNumber);
         //设置 离线 在线 准备状态
-        List<WebSocketSimulationService> ws = collect.get(userId);
+        List<SimulationSessionHolder> ws = collect.get(userId);
         if (!Objects.isNull(ws)) {
-          userInfoVO.setSocketStatus(ws.getFirst().getUserModel().getStatus());
+          userInfoVO.setSocketStatus(ws.getFirst().userModel().getStatus());
         } else {
           userInfoVO.setSocketStatus(0);
         }
@@ -223,11 +224,11 @@ public class SimulationRouterRoomService {
     routerRoomUserEntity.setChannel(param.getChannel());
     roomUserDao.save(routerRoomUserEntity);
     //更改内存中的
-    Map<Integer, List<WebSocketSimulationService>> routerRoom = SimulationGlobal.routerRoom;
+    Map<Integer, List<SimulationSessionHolder>> routerRoom = SimulationGlobal.routerRoom;
     Optional.ofNullable(routerRoom.get(param.getRoomId()))
         .ifPresent(room -> {
-          for (WebSocketSimulationService socketSimulation : room) {
-            SimulationUserModel userModel = socketSimulation.getUserModel();
+          for (SimulationSessionHolder socketSimulation : room) {
+            SimulationUserModel userModel = socketSimulation.userModel();
             if (Objects.equals(userModel.getId(), param.getUserId())) {
               userModel.setChannel(param.getChannel());
             }

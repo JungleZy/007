@@ -16,7 +16,9 @@ import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.ws.model.SimulationResponseModel;
 import com.nip.ws.model.SimulationUserModel;
+import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.service.simulation.SimulationGlobal;
+import com.nip.ws.service.simulation.SimulationRoomLifecycle;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,7 +31,6 @@ import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jose4j.json.internal.json_simple.JSONObject;
 
@@ -37,7 +38,6 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.nip.common.constants.BaseConstants.*;
 import static com.nip.common.constants.SimulationDisturdTopicEnum.*;
@@ -45,7 +45,6 @@ import static com.nip.common.constants.SimulationRoomTypeEnum.*;
 
 @ServerEndpoint(value = "/simulation/{id}/{roomId}")
 @ApplicationScoped
-@Data
 @Slf4j
 @RegisterForReflection
 public class WebSocketSimulationService {
@@ -55,19 +54,16 @@ public class WebSocketSimulationService {
   UserDao userDao;
   @Inject
   SimulationRouterRoomUserDao roomUserDao;
-  // 仅 per-connection holder(persistData) 使用；共享 bean 上恒为 null，禁止读取
-  private Session session;
-  private SimulationUserModel userModel;
 
   /**
    * @param session 会话
    * @param id      用户id
    */
   @OnOpen
-  public void onOpen(Session session, @PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId) throws IOException {
+  public void onOpen(Session session, @PathParam(ID) String id,
+      @PathParam(ROOM_ID) Integer roomId) throws IOException {
     SimulationRouterRoomUserSimpDto roomUserMap = roomUserDao.findByUserIdAndRoomId2Map(id, roomId);
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
-    WebSocketSimulationService persistData = new WebSocketSimulationService();
     if (optional.isEmpty()) {
       sendErrorMessage(session, "人员或房间信息未找到", id, id);
       session.close();
@@ -76,7 +72,7 @@ public class WebSocketSimulationService {
     SimulationRouterRoomEntity roomEntity = optional.get();
     if (roomUserMap == null
         && (Objects.equals(REPORT.getType(), roomEntity.getRoomType())
-            || Objects.equals(RECEPT.getType(), roomEntity.getRoomType()))) {
+        || Objects.equals(RECEPT.getType(), roomEntity.getRoomType()))) {
       sendErrorMessage(session, "人员或房间信息未找到", id, id);
       session.close();
       return;
@@ -90,230 +86,195 @@ public class WebSocketSimulationService {
       roomUserMap.setChannel(-1);
     }
     SimulationUserModel userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
-    if (userModel != null) {
-      userModel.setStatus(1);
-    }
-    persistData.setSession(session);
-    persistData.setUserModel(userModel);
+    userModel.setStatus(1);
+    SimulationSessionHolder holder = new SimulationSessionHolder(session, userModel);
     if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
-      addRoomDisturd(roomId, persistData);
-    } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
-      addRoomReport(roomId, persistData);
-    } else if (Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      addRoomReport(roomId, persistData);
+      addRoomDisturd(roomId, holder);
+    } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())
+        || Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
+      addRoomReport(roomId, holder);
     } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
-      addRoomRouter(roomId, persistData);
+      addRoomRouter(roomId, holder);
     }
   }
 
-  public void addRoomDisturd(Integer roomId, WebSocketSimulationService persistData) {
-    List<WebSocketSimulationService> simulations =
-        SimulationGlobal.disturbRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
-    //踢出连接
-    kickOutOld(simulations, persistData.getUserModel().getId());
-    String id = persistData.getUserModel().getId();
-    //发给前端message
+  public void addRoomDisturd(Integer roomId, SimulationSessionHolder holder) {
+    String id = holder.userModel().getId();
     SimulationDisturdWebscoketVO webscoketVO = new SimulationDisturdWebscoketVO();
     webscoketVO.setTopic(ONLINE);
     SimulationDisturdWebscoketBody body = new SimulationDisturdWebscoketBody();
-    body.setId(persistData.getUserModel().getId());
-    body.setUserName(persistData.getUserModel().getName());
-    body.setUserImg(persistData.getUserModel().getUserImg());
-    body.setChannel(persistData.getUserModel().getChannel());
+    body.setId(id);
+    body.setUserName(holder.userModel().getName());
+    body.setUserImg(holder.userModel().getUserImg());
+    body.setChannel(holder.userModel().getChannel());
     webscoketVO.setBody(body);
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
-    if (optional.isPresent()) {
-      SimulationRouterRoomEntity roomEntity = optional.get();
-      if (!Objects.equals(roomEntity.getCreateUserId(), id)) {
-        //学员通道选择不为null，给教员发消息该学员上线
-        for (WebSocketSimulationService webSocketSimulationService : simulations) {
-          if (webSocketSimulationService.getUserModel().getChannel().compareTo(-1) == 0) {
-            WebSocketSimulationService.sendMessage(webSocketSimulationService.getSession(), JSONUtils.toJson(webscoketVO), "", "");
-            break;
-          }
-        }
-      } else {
-        //教员给学生推送
-        for (WebSocketSimulationService webSocketSimulationService : simulations) {
-          if (webSocketSimulationService.getUserModel().getUserType().compareTo(1) == 0) {
-            WebSocketSimulationService.sendMessage(webSocketSimulationService.getSession(), JSONUtils.toJson(webscoketVO), "", "");
-
-          }
-        }
-      }
-      simulations.add(persistData);
+    if (optional.isEmpty()) {
+      return;
+    }
+    SimulationRoomLifecycle.Replacement replacement =
+        SimulationRoomLifecycle.replace(SimulationGlobal.disturbRoom, roomId, holder);
+    closeReplaced(replacement.replaced());
+    List<SimulationSessionHolder> simulations = replacement.members();
+    SimulationRouterRoomEntity roomEntity = optional.get();
+    if (!Objects.equals(roomEntity.getCreateUserId(), id)) {
+      simulations.stream()
+          .filter(member -> member != holder)
+          .filter(member -> Objects.equals(member.userModel().getChannel(), -1))
+          .findFirst()
+          .ifPresent(member -> sendMessage(
+              member.session(), JSONUtils.toJson(webscoketVO), "", ""));
+    } else {
+      simulations.stream()
+          .filter(member -> member != holder)
+          .filter(member -> Objects.equals(member.userModel().getUserType(), 1))
+          .forEach(member -> sendMessage(
+              member.session(), JSONUtils.toJson(webscoketVO), "", ""));
     }
   }
 
-  public void addRoomReport(Integer roomId, WebSocketSimulationService persistData) {
-    //拿到房间信息
-    List<WebSocketSimulationService> simulations =
-        SimulationGlobal.reportRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
-    kickOutOld(simulations, persistData.getUserModel().getId());
-    if (persistData.getUserModel().getChannel().compareTo(1) == 0) {
-      simulations.stream()
-          .filter(item -> item.getUserModel().getChannel() == 0)
+  public void addRoomReport(Integer roomId, SimulationSessionHolder holder) {
+    SimulationRoomLifecycle.Replacement replacement =
+        SimulationRoomLifecycle.replace(SimulationGlobal.reportRoom, roomId, holder);
+    closeReplaced(replacement.replaced());
+    if (Objects.equals(holder.userModel().getChannel(), 1)) {
+      replacement.members().stream()
+          .filter(member -> member != holder)
+          .filter(member -> Objects.equals(member.userModel().getChannel(), 0))
           .findFirst()
-          .ifPresent(wss -> {
+          .ifPresent(member -> {
             Map<String, String> data = new HashMap<>();
             data.put(TYPE, "1");
-            data.put(ID, persistData.getUserModel().getId());
-            //学员上线给教员发送信息
-            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), persistData.getUserModel().getName(), "");
+            data.put(ID, holder.userModel().getId());
+            sendMessage(member.session(), JSONObject.toJSONString(data),
+                holder.userModel().getName(), "");
           });
     }
-    persistData.getUserModel().setStatus(1);
-    simulations.add(persistData);
   }
 
-  public void addRoomRouter(Integer roomId, WebSocketSimulationService persistData) {
-    List<WebSocketSimulationService> simulations =
-        SimulationGlobal.routerRoom.computeIfAbsent(roomId, k -> new CopyOnWriteArrayList<>());
-    kickOutOld(simulations, persistData.getUserModel().getId());
-    //发送上线成功的消息
+  public void addRoomRouter(Integer roomId, SimulationSessionHolder holder) {
+    SimulationRoomLifecycle.Replacement replacement =
+        SimulationRoomLifecycle.replace(SimulationGlobal.routerRoom, roomId, holder);
+    closeReplaced(replacement.replaced());
     Map<String, Object> msg = new HashMap<>();
     Map<String, String> body = new HashMap<>();
-    body.put(ID, persistData.getUserModel().getId());
+    body.put(ID, holder.userModel().getId());
     msg.put(TOPIC, ONLINE);
     msg.put(BODY, body);
-    //添加到socket中
-    for (WebSocketSimulationService simulation : simulations) {
-      WebSocketSimulationService.sendMessage(simulation.getSession(), JSONObject.toJSONString(msg), "", "");
-    }
-
-    simulations.add(persistData);
+    replacement.members().stream()
+        .filter(member -> member != holder)
+        .forEach(member -> sendMessage(
+            member.session(), JSONObject.toJSONString(msg), "", ""));
   }
 
   /**
    * 关闭
    */
   @OnClose
-  public void onClose(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId) {
+  public void onClose(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
+      Session session) {
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
+      SimulationRoomLifecycle.removeCurrent(SimulationGlobal.disturbRoom, roomId, id, session);
+      SimulationRoomLifecycle.removeCurrent(SimulationGlobal.reportRoom, roomId, id, session);
+      SimulationRoomLifecycle.removeCurrent(SimulationGlobal.routerRoom, roomId, id, session);
       return;
     }
-    SimulationRouterRoomEntity roomEntity = optional.get();
-    if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
-      quitRoomDisturb(roomId, id);
-    } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
-      quitRoomReport(roomId, id);
-    } else if (Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      quitRoomReport(roomId, id);
-    } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
-      quitRoomRouter(roomId, id);
+    Integer roomType = optional.get().getRoomType();
+    if (Objects.equals(DISTURB.getType(), roomType)) {
+      quitRoomDisturb(roomId, id, session);
+    } else if (Objects.equals(REPORT.getType(), roomType)
+        || Objects.equals(RECEPT.getType(), roomType)) {
+      quitRoomReport(roomId, id, session);
+    } else if (Objects.equals(ROUTER.getType(), roomType)) {
+      quitRoomRouter(roomId, id, session);
     }
   }
 
   @OnError
-  public void onError(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId, Session session, Throwable t) {
+  public void onError(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
+      Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
-    //复用 onClose 清理该 session 对应的房间状态
-    onClose(id, roomId);
+    onClose(id, roomId, session);
   }
 
   @Transactional
-  public void quitRoomDisturb(Integer roomId, String userId) {
-    List<WebSocketSimulationService> simulations = SimulationGlobal.disturbRoom.get(roomId);
-    if (Objects.isNull(simulations)) {
+  public void quitRoomDisturb(Integer roomId, String userId, Session session) {
+    SimulationRoomLifecycle.Removal removal = SimulationRoomLifecycle.removeCurrent(
+        SimulationGlobal.disturbRoom, roomId, userId, session);
+    if (removal == null) {
       return;
     }
-    //查询用户角色
-    SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(userId, roomId);
-    List<WebSocketSimulationService> collect = new ArrayList<>();
-    //学员退出
-    if (roomUserEntity.getUserType().compareTo(1) == 0) {
-      for (WebSocketSimulationService socketSimulation : simulations) {
-        if (socketSimulation.getUserModel().getUserType().compareTo(0) == 0) {
-          collect.add(socketSimulation);
-        }
-      }
-      Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
-      if (optional.isPresent()) {
-        SimulationRouterRoomEntity roomEntity = optional.get();
-        if (roomEntity.getStats().compareTo(0) == 0) {
+    SimulationSessionHolder holder = removal.holder();
+    List<SimulationSessionHolder> recipients;
+    if (Objects.equals(holder.userModel().getUserType(), 1)) {
+      recipients = removal.remaining().stream()
+          .filter(member -> Objects.equals(member.userModel().getUserType(), 0))
+          .toList();
+      roomDao.findByIdOptional(roomId).ifPresent(room -> {
+        if (Objects.equals(room.getStats(), 0)) {
           roomUserDao.remove(roomId, userId);
         }
-      }
+      });
+    } else {
+      recipients = removal.remaining().stream()
+          .filter(member -> Objects.equals(member.userModel().getUserType(), 1))
+          .toList();
     }
-    //教员退出
-    else {
-      for (WebSocketSimulationService webSocketSimulationService : simulations) {
-        if (webSocketSimulationService.getUserModel().getUserType().compareTo(1) == 0) {
-          collect.add(webSocketSimulationService);
-        }
-      }
-    }
-    collect.forEach(item -> {
-      Map<String, Object> message = new HashMap<>();
-      Map<String, String> body = new HashMap<>();
-      body.put(ID, userId);
-      message.put(BaseConstants.TOPIC, BaseConstants.OFFLINE);
-      message.put(BaseConstants.BODY, body);
-      WebSocketSimulationService.sendMessage(item.getSession(), JSONObject.toJSONString(message), "", "");
-    });
-
-    //移除退出者会话；房间清空后释放房间条目（P1-4：原 removeIndex 逻辑从不移除，永久泄漏）
-    simulations.removeIf(s -> Objects.equals(s.getUserModel().getId(), userId));
-    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
-    SimulationGlobal.disturbRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
+    Map<String, Object> message = new HashMap<>();
+    Map<String, String> body = new HashMap<>();
+    body.put(ID, userId);
+    message.put(BaseConstants.TOPIC, BaseConstants.OFFLINE);
+    message.put(BaseConstants.BODY, body);
+    recipients.forEach(member -> sendMessage(
+        member.session(), JSONObject.toJSONString(message), "", ""));
   }
 
   @Transactional
-  public void quitRoomReport(Integer roomId, String userId) {
-    List<WebSocketSimulationService> simulations = SimulationGlobal.reportRoom.get(roomId);
-    if (Objects.isNull(simulations)) {
+  public void quitRoomReport(Integer roomId, String userId, Session session) {
+    SimulationRoomLifecycle.Removal removal = SimulationRoomLifecycle.removeCurrent(
+        SimulationGlobal.reportRoom, roomId, userId, session);
+    if (removal == null) {
       return;
     }
-    //按 userId 从房间列表解析该连接的 holder，绝不读共享单例字段（P0#9：单例字段是最后连接者身份）
-    WebSocketSimulationService holder = simulations.stream()
-        .filter(item -> item.getUserModel().getId().equals(userId))
-        .findFirst()
-        .orElse(null);
-    if (holder == null) {
-      return;
-    }
-    Integer userType = holder.getUserModel().getUserType();
-    Integer channel = holder.getUserModel().getChannel();
+    SimulationSessionHolder holder = removal.holder();
+    Integer userType = holder.userModel().getUserType();
+    Integer channel = holder.userModel().getChannel();
     boolean knownRole = Objects.equals(userType, 0) || Objects.equals(userType, 1);
     boolean knownChannel = Objects.equals(channel, 0) || Objects.equals(channel, 1);
     if (!knownRole || !knownChannel) {
-      simulations.remove(holder);
-      SimulationGlobal.reportRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
       return;
     }
-    if (holder.getUserModel().getChannel().compareTo(1) == 0) {
-      simulations.stream()
-          .filter(item -> item.getUserModel().getChannel() == 0)
+    if (Objects.equals(channel, 1)) {
+      removal.remaining().stream()
+          .filter(member -> Objects.equals(member.userModel().getChannel(), 0))
           .findFirst()
-          .ifPresent(wss -> {
+          .ifPresent(member -> {
             Map<String, Object> data = new HashMap<>();
             data.put(TYPE, 0);
-            data.put(ID, holder.getUserModel().getId());
-            WebSocketSimulationService.sendMessage(wss.getSession(), JSONObject.toJSONString(data), holder.getUserModel().getName(), "");
+            data.put(ID, holder.userModel().getId());
+            sendMessage(member.session(), JSONObject.toJSONString(data),
+                holder.userModel().getName(), "");
           });
-    } else {
-      Optional<SimulationRouterRoomEntity> roomEntityOptional = roomDao.findByIdOptional(roomId);
-      roomEntityOptional.ifPresent(roomEntity -> {
-        roomEntity.setPlayStatus(0);
-        roomDao.save(roomEntity);
-      });
-      for (WebSocketSimulationService simulation : simulations) {
-        if (simulation.getUserModel().getUserType().compareTo(1) == 0) {
-          Map<String, Integer> jb = new HashMap<>();
-          jb.put(TYPE, 2);
-          WebSocketSimulationService.sendMessage(simulation.getSession(), JSONObject.toJSONString(jb), "", "");
-        }
-      }
+      return;
     }
-    simulations.remove(holder);
-    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
-    SimulationGlobal.reportRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
+    roomDao.findByIdOptional(roomId).ifPresent(room -> {
+      room.setPlayStatus(0);
+      roomDao.save(room);
+    });
+    removal.remaining().stream()
+        .filter(member -> Objects.equals(member.userModel().getUserType(), 1))
+        .forEach(member -> {
+          Map<String, Integer> message = new HashMap<>();
+          message.put(TYPE, 2);
+          sendMessage(member.session(), JSONObject.toJSONString(message), "", "");
+        });
   }
 
-  public void quitRoomRouter(Integer roomId, String userId) {
-    List<WebSocketSimulationService> simulations = SimulationGlobal.routerRoom.get(roomId);
-    if (Objects.isNull(simulations)) {
+  public void quitRoomRouter(Integer roomId, String userId, Session session) {
+    SimulationRoomLifecycle.Removal removal = SimulationRoomLifecycle.removeCurrent(
+        SimulationGlobal.routerRoom, roomId, userId, session);
+    if (removal == null) {
       return;
     }
     Map<String, Object> msg = new HashMap<>();
@@ -321,17 +282,8 @@ public class WebSocketSimulationService {
     body.put(ID, userId);
     msg.put(TOPIC, OFFLINE);
     msg.put(BODY, body);
-    WebSocketSimulationService removeObj = null;
-    for (WebSocketSimulationService webSocketSimulationService : simulations) {
-      if (webSocketSimulationService.getUserModel().getId().equals(userId)) {
-        removeObj = webSocketSimulationService;
-      } else {
-        WebSocketSimulationService.sendMessage(webSocketSimulationService.getSession(), JSONObject.toJSONString(msg), "", "");
-      }
-    }
-    simulations.remove(removeObj);
-    //原子判空移除：与并发 onOpen 的 computeIfAbsent 互斥，避免 remove 孤立刚 add 进来的会话
-    SimulationGlobal.routerRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
+    removal.remaining().forEach(member -> sendMessage(
+        member.session(), JSONObject.toJSONString(msg), "", ""));
   }
 
   /**
@@ -341,26 +293,29 @@ public class WebSocketSimulationService {
    * @param message 消息（JSON）
    */
   @OnMessage
-  public void onMessage(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId, String message) {
+  public void onMessage(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
+      String message, Session session) {
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
       return;
     }
-    SimulationRouterRoomEntity roomEntity = optional.get();
-    if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
+    Integer roomType = optional.get().getRoomType();
+    if (Objects.equals(DISTURB.getType(), roomType)
+        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.disturbRoom, roomId, id, session)) {
       messageHandleDisturb(message, roomId, id);
-    } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
+    } else if ((Objects.equals(REPORT.getType(), roomType)
+        || Objects.equals(RECEPT.getType(), roomType))
+        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.reportRoom, roomId, id, session)) {
       messageHandleReport(message, roomId, id);
-    } else if (Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      messageHandleReport(message, roomId, id);
-    } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
+    } else if (Objects.equals(ROUTER.getType(), roomType)
+        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.routerRoom, roomId, id, session)) {
       messageHandleRouter(message, roomId, id);
     }
   }
 
   @Transactional
   public void messageHandleDisturb(String message, Integer roomId, String userId) {
-    List<WebSocketSimulationService> simulations = SimulationGlobal.disturbRoom.get(roomId);
+    List<SimulationSessionHolder> simulations = SimulationGlobal.disturbRoom.get(roomId);
     if (simulations == null || simulations.isEmpty()) {
       return;
     }
@@ -371,14 +326,14 @@ public class WebSocketSimulationService {
     String body = JSONUtils.toJson(jsonObject.get(BaseConstants.BODY));
     //全局推送
     if (SimulationDisturdTopicEnum.TOPIC_ZERO.getType().equals(topic)) {
-      for (WebSocketSimulationService simulation : simulations) {
+      for (SimulationSessionHolder simulation : simulations) {
         sendTraining(simulation, message, body, "0");
       }
     }
     //1路推送
     else if (TOPIC_ONE.getType().equals(topic)) {
-      for (WebSocketSimulationService simulation : simulations) {
-        Integer channel = simulation.getUserModel().getChannel();
+      for (SimulationSessionHolder simulation : simulations) {
+        Integer channel = simulation.userModel().getChannel();
         if (!Objects.isNull(channel) && channel.compareTo(1) == 0) {
           sendTraining(simulation, message, body, TOPIC_ONE.getType());
         }
@@ -386,8 +341,8 @@ public class WebSocketSimulationService {
     }
     //2路推送
     else if (TOPIC_TWO.getType().equals(topic)) {
-      for (WebSocketSimulationService simulation : simulations) {
-        Integer channel = simulation.getUserModel().getChannel();
+      for (SimulationSessionHolder simulation : simulations) {
+        Integer channel = simulation.userModel().getChannel();
         if (!Objects.isNull(channel) && channel.compareTo(2) == 0) {
           sendTraining(simulation, message, body, TOPIC_TWO.getType());
         }
@@ -395,8 +350,8 @@ public class WebSocketSimulationService {
     }
     //3路推送
     else if (TOPIC_THREE.getType().equals(topic)) {
-      for (WebSocketSimulationService simulation : simulations) {
-        Integer channel = simulation.getUserModel().getChannel();
+      for (SimulationSessionHolder simulation : simulations) {
+        Integer channel = simulation.userModel().getChannel();
         if (!Objects.isNull(channel) && channel.compareTo(3) == 0) {
           sendTraining(simulation, message, body, TOPIC_THREE.getType());
         }
@@ -411,8 +366,8 @@ public class WebSocketSimulationService {
       });
       simulations
           .stream()
-          .filter(item -> !item.getUserModel().getId().equals(userId))
-          .forEach(item -> WebSocketSimulationService.sendMessage(item.getSession(), JSONObject.toJSONString(jsonObject), "", ""));
+          .filter(item -> !item.userModel().getId().equals(userId))
+          .forEach(item -> WebSocketSimulationService.sendMessage(item.session(), JSONObject.toJSONString(jsonObject), "", ""));
     }
     //结束训练
     else if (TOPIC_END.getType().equals(topic)) {
@@ -426,9 +381,10 @@ public class WebSocketSimulationService {
         roomDao.save(item);
       });
 
-      for (WebSocketSimulationService item : simulations) {
-        if (!item.getUserModel().getId().equals(userId)) {
-          WebSocketSimulationService.sendMessage(item.getSession(), JSONObject.toJSONString(jsonObject), "", "");
+      for (SimulationSessionHolder item : simulations) {
+        if (!item.userModel().getId().equals(userId)) {
+          WebSocketSimulationService.sendMessage(
+              item.session(), JSONObject.toJSONString(jsonObject), "", "");
         }
       }
     }
@@ -444,38 +400,38 @@ public class WebSocketSimulationService {
             //保存该学员频道到数据库
             roomUserDao.save(routerRoomUserEntity);
             //给教员发送学员频道消息
-            for (WebSocketSimulationService simulation : simulations) {
-              if (simulation.getUserModel().getUserType().compareTo(0) == 0) {
-                WebSocketSimulationService.sendMessage(simulation.getSession(), message, "", "");
-              } else if (Objects.equals(simulation.getUserModel().getId(), userId)) {
-                simulation.getUserModel().setChannel(channel);
+            for (SimulationSessionHolder simulation : simulations) {
+              if (simulation.userModel().getUserType().compareTo(0) == 0) {
+                WebSocketSimulationService.sendMessage(simulation.session(), message, "", "");
+              } else if (Objects.equals(simulation.userModel().getId(), userId)) {
+                simulation.userModel().setChannel(channel);
               }
             }
           });
     }
     //TOPIC_RESULT
     else if (TOPIC_RESULT.getType().equals(topic)) {
-      for (WebSocketSimulationService simulation : simulations) {
-        if (simulation.getUserModel().getUserType().compareTo(0) == 0) {
-          WebSocketSimulationService.sendMessage(simulation.getSession(), message, "", "");
+      for (SimulationSessionHolder simulation : simulations) {
+        if (simulation.userModel().getUserType().compareTo(0) == 0) {
+          WebSocketSimulationService.sendMessage(simulation.session(), message, "", "");
         }
       }
     }
   }
 
-  private void sendTraining(WebSocketSimulationService simulation, String message, String body, String topic) {
+  private void sendTraining(SimulationSessionHolder simulation, String message, String body, String topic) {
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     msg.put(TOPIC, topic);
     msg.put(BODY, JSONUtils.fromJson(body, new TypeToken<>() {
     }));
-    WebSocketSimulationService.sendMessage(simulation.getSession(), JSONObject.toJSONString(msg), "", "");
+    WebSocketSimulationService.sendMessage(simulation.session(), JSONObject.toJSONString(msg), "", "");
   }
 
   @Transactional
   public void messageHandleReport(String message, Integer roomId, String userId) {
     //通过人员id获取消息管道号
-    List<WebSocketSimulationService> socketSimulations = SimulationGlobal.reportRoom.get(roomId);
+    List<SimulationSessionHolder> socketSimulations = SimulationGlobal.reportRoom.get(roomId);
     //REST 删房只清 map 不关 session：客户端续发消息时房间列表可能已不存在，判空短路
     if (socketSimulations == null) {
       return;
@@ -503,22 +459,23 @@ public class WebSocketSimulationService {
     else if (TOPIC_TRAIN_FINISH.getType().equals(type)) {
       Integer count = Integer.parseInt(mesg.get("count"));
       roomDao.updateStatsToFinish(roomId, count);
-      for (WebSocketSimulationService socketSimulation : socketSimulations) {
-        if (!Objects.equals(socketSimulation.getUserModel().getId(), userId)) {
-          WebSocketSimulationService.sendMessage(socketSimulation.getSession(), message, "", "");
+      for (SimulationSessionHolder socketSimulation : socketSimulations) {
+        if (!Objects.equals(socketSimulation.userModel().getId(), userId)) {
+          WebSocketSimulationService.sendMessage(socketSimulation.session(), message, "", "");
         }
       }
       return;
     }
     //学员准备消息
     else if (TOPIC_TRAIN_ONLINE.getType().equals(type)) {
-      for (WebSocketSimulationService simulation : socketSimulations) {
-        if (Objects.equals(simulation.getUserModel().getId(), userId)) {
+      for (SimulationSessionHolder simulation : socketSimulations) {
+        if (Objects.equals(simulation.userModel().getId(), userId)) {
           //将装备设置成已准备
-          simulation.getUserModel().setStatus(2);
-        } else if (simulation.getUserModel().getUserType().compareTo(0) == 0) {
+          simulation.userModel().setStatus(2);
+        } else if (simulation.userModel().getUserType().compareTo(0) == 0) {
           mesg.put(ID, userId);
-          WebSocketSimulationService.sendMessage(simulation.getSession(), JSONObject.toJSONString(mesg), "", "");
+          WebSocketSimulationService.sendMessage(
+              simulation.session(), JSONObject.toJSONString(mesg), "", "");
         }
       }
       return;
@@ -529,17 +486,18 @@ public class WebSocketSimulationService {
       if (!Objects.isNull(roomUserEntity)) {
         roomUserEntity.setUserStatus(1);
         roomUserDao.save(roomUserEntity);
-        for (WebSocketSimulationService socketSimulation : socketSimulations) {
-          if (socketSimulation.getUserModel().getChannel().compareTo(0) == 0) {
-            WebSocketSimulationService.sendMessage(socketSimulation.getSession(), JSONObject.toJSONString(mesg), "", "");
+        for (SimulationSessionHolder socketSimulation : socketSimulations) {
+          if (socketSimulation.userModel().getChannel().compareTo(0) == 0) {
+            WebSocketSimulationService.sendMessage(
+                socketSimulation.session(), JSONObject.toJSONString(mesg), "", "");
             break;
           }
         }
       }
     }
-    for (WebSocketSimulationService socketSimulation : socketSimulations) {
-      if (!Objects.equals(socketSimulation.getUserModel().getId(), userId)) {
-        WebSocketSimulationService.sendMessage(socketSimulation.getSession(), message, "", "");
+    for (SimulationSessionHolder socketSimulation : socketSimulations) {
+      if (!Objects.equals(socketSimulation.userModel().getId(), userId)) {
+        WebSocketSimulationService.sendMessage(socketSimulation.session(), message, "", "");
       }
     }
   }
@@ -547,7 +505,7 @@ public class WebSocketSimulationService {
   @Transactional
   public void messageHandleRouter(String message, Integer roomId, String userId) {
     //通过人员id获取消息管道号
-    List<WebSocketSimulationService> socketSimulations = SimulationGlobal.routerRoom.get(roomId);
+    List<SimulationSessionHolder> socketSimulations = SimulationGlobal.routerRoom.get(roomId);
     //REST 删房只清 map 不关 session：客户端续发消息时房间列表可能已不存在，判空短路
     if (socketSimulations == null) {
       return;
@@ -558,36 +516,36 @@ public class WebSocketSimulationService {
     switch (topic) {
       case TRAIN_READY -> //状态修改为准备，且给所有人发送消息
           socketSimulations.forEach(webSocketSimulation -> {
-            if (Objects.equals(webSocketSimulation.getUserModel().getId(), userId)) {
-              webSocketSimulation.getUserModel().setStatus(2);
+            if (Objects.equals(webSocketSimulation.userModel().getId(), userId)) {
+              webSocketSimulation.userModel().setStatus(2);
             } else {
-              WebSocketSimulationService.sendMessage(webSocketSimulation.getSession(), message, "", "");
+              WebSocketSimulationService.sendMessage(webSocketSimulation.session(), message, "", "");
             }
           });
       // 推送给相同频道的人
       case TRAIN_PLAY -> {
         for (int i = 0; i < socketSimulations.size(); i++) {
-          WebSocketSimulationService socketSimulation = socketSimulations.get(i);
-          if (Objects.equals(socketSimulation.getUserModel().getId(), userId)) {
-            List<WebSocketSimulationService> collect;
+          SimulationSessionHolder socketSimulation = socketSimulations.get(i);
+          if (Objects.equals(socketSimulation.userModel().getId(), userId)) {
+            List<SimulationSessionHolder> collect;
             //组训人员发送给所有人
-            if (socketSimulation.getUserModel().getUserType() == null) {
+            if (socketSimulation.userModel().getUserType() == null) {
               collect = socketSimulations.stream()
-                  .filter(item -> !Objects.equals(item.getUserModel().getId(), userId))
+                  .filter(item -> !Objects.equals(item.userModel().getId(), userId))
                   .toList();
             } else {  //参训人员给对应频道人员
-              Integer channel = socketSimulation.getUserModel().getChannel();
+              Integer channel = socketSimulation.userModel().getChannel();
               collect = socketSimulations.stream()
-                  .filter(item -> item.getUserModel().getChannel().compareTo(channel) == 0 &&
-                      !Objects.equals(item.getUserModel().getId(), socketSimulation.getUserModel().getId()))
+                  .filter(item -> item.userModel().getChannel().compareTo(channel) == 0 &&
+                      !Objects.equals(item.userModel().getId(), socketSimulation.userModel().getId()))
                   .toList();
             }
 
             collect.forEach(item -> WebSocketSimulationService.sendMessage(
-                item.getSession(),
+                item.session(),
                 message,
-                socketSimulation.getUserModel().getName(),
-                item.getUserModel().getName()
+                socketSimulation.userModel().getName(),
+                item.userModel().getName()
             ));
             break;
           }
@@ -605,8 +563,8 @@ public class WebSocketSimulationService {
           roomDao.save(roomEntity);
           //给所有人推送消息组训人
           socketSimulations.forEach(item -> {
-            if (!Objects.isNull(item.getUserModel().getUserType())) {
-              WebSocketSimulationService.sendMessage(item.getSession(), message, "", "");
+            if (!Objects.isNull(item.userModel().getUserType())) {
+              WebSocketSimulationService.sendMessage(item.session(), message, "", "");
             }
           });
         }
@@ -627,18 +585,18 @@ public class WebSocketSimulationService {
           roomDao.save(roomEntity);
           //给所有人推送消息组训人
           socketSimulations.forEach(item -> {
-            if (!Objects.isNull(item.getUserModel().getUserType())) {
-              WebSocketSimulationService.sendMessage(item.getSession(), message, "", "");
+            if (!Objects.isNull(item.userModel().getUserType())) {
+              WebSocketSimulationService.sendMessage(item.session(), message, "", "");
             }
           });
         }
       }
       // 训练结束
       case TRAIN_OVER -> //给所有人推送消息组训人
-          socketSimulations.forEach(item -> WebSocketSimulationService.sendMessage(item.getSession(), message, "", ""));
+          socketSimulations.forEach(item -> WebSocketSimulationService.sendMessage(item.session(), message, "", ""));
       // 切换频道
       case TRAIN_CHANGE -> //给所有人推送消息组训人
-          socketSimulations.forEach(item -> WebSocketSimulationService.sendMessage(item.getSession(), message, "", ""));
+          socketSimulations.forEach(item -> WebSocketSimulationService.sendMessage(item.session(), message, "", ""));
       case null, default -> log.error("未知主题：{}", msg);
     }
   }
@@ -671,24 +629,16 @@ public class WebSocketSimulationService {
     }
   }
 
-  /**
-   * 踢出旧连接
-   *
-   * @param simulations 连接
-   * @param userId      用户id
-   */
-  public void kickOutOld(List<WebSocketSimulationService> simulations, String userId) {
-    //先关旧连接再整体移除：索引 for 内 remove 会因元素前移漏踢（P2-3）
-    for (WebSocketSimulationService item : simulations) {
-      if (Objects.equals(item.getUserModel().getId(), userId)) {
-        try {
-          item.getSession().close();
-        } catch (IOException e) {
-          log.error("WebSocketSimulationService.kickOutOld", e);
+  private void closeReplaced(List<SimulationSessionHolder> replaced) {
+    for (SimulationSessionHolder holder : replaced) {
+      try {
+        if (holder.session().isOpen()) {
+          holder.session().close();
         }
+      } catch (IOException e) {
+        log.error("WebSocketSimulationService.closeReplaced", e);
       }
     }
-    simulations.removeIf(item -> Objects.equals(item.getUserModel().getId(), userId));
   }
 
   /**
@@ -697,14 +647,14 @@ public class WebSocketSimulationService {
    * @param holders 房间内的连接持有者（可为 null）
    * @param reason  关闭原因，随 CLOSE 帧下发
    */
-  public static void closeRoomSessions(List<WebSocketSimulationService> holders, String reason) {
+  public static void closeRoomSessions(List<SimulationSessionHolder> holders, String reason) {
     if (holders == null) {
       return;
     }
-    for (WebSocketSimulationService holder : holders) {
+    for (SimulationSessionHolder holder : holders) {
       try {
-        Session session = holder.getSession();
-        if (session != null && session.isOpen()) {
+        Session session = holder.session();
+        if (session.isOpen()) {
           session.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, reason));
         }
       } catch (IOException e) {

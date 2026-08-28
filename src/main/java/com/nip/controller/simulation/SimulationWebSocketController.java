@@ -3,7 +3,7 @@ package com.nip.controller.simulation;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
-import com.nip.ws.WebSocketSimulationService;
+import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.model.SimulationUserModel;
 import com.nip.ws.service.simulation.SimulationGlobal;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,14 +26,14 @@ public class SimulationWebSocketController {
   @Path("/getAllRoomInfo")
   @Operation(summary = "获取所有房间在线人员信息")
   public Response<Map<String, List<Map<Integer, List<SimulationUserModel>>>>> getAllRoomInfo() {
-    Map<Integer, List<WebSocketSimulationService>> routerRoom = SimulationGlobal.routerRoom;
-    Map<Integer, List<WebSocketSimulationService>> disturbRoom = SimulationGlobal.disturbRoom;
-    Map<Integer, List<WebSocketSimulationService>> reportRoom = SimulationGlobal.reportRoom;
+    Map<Integer, List<SimulationSessionHolder>> routerRoom = SimulationGlobal.routerRoom;
+    Map<Integer, List<SimulationSessionHolder>> disturbRoom = SimulationGlobal.disturbRoom;
+    Map<Integer, List<SimulationSessionHolder>> reportRoom = SimulationGlobal.reportRoom;
     Map<String, List<Map<Integer, List<SimulationUserModel>>>> ret = new HashMap<>();
 
     List<Map<Integer, List<SimulationUserModel>>> rRooms = new ArrayList<>();
     routerRoom.forEach((key, value) -> {
-      List<SimulationUserModel> collect = value.stream().map(WebSocketSimulationService::getUserModel)
+      List<SimulationUserModel> collect = value.stream().map(SimulationSessionHolder::userModel)
           .toList();
       Map<Integer, List<SimulationUserModel>> room = new HashMap<>();
       room.put(key, collect);
@@ -41,7 +41,7 @@ public class SimulationWebSocketController {
     });
     List<Map<Integer, List<SimulationUserModel>>> dRooms = new ArrayList<>();
     disturbRoom.forEach((key, value) -> {
-      List<SimulationUserModel> collect = value.stream().map(WebSocketSimulationService::getUserModel)
+      List<SimulationUserModel> collect = value.stream().map(SimulationSessionHolder::userModel)
           .toList();
       Map<Integer, List<SimulationUserModel>> room = new HashMap<>();
       room.put(key, collect);
@@ -49,7 +49,7 @@ public class SimulationWebSocketController {
     });
     List<Map<Integer, List<SimulationUserModel>>> rpRooms = new ArrayList<>();
     reportRoom.forEach((key, value) -> {
-      List<SimulationUserModel> collect = value.stream().map(WebSocketSimulationService::getUserModel)
+      List<SimulationUserModel> collect = value.stream().map(SimulationSessionHolder::userModel)
           .toList();
       Map<Integer, List<SimulationUserModel>> room = new HashMap<>();
       room.put(key, collect);

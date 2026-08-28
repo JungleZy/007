@@ -46,34 +46,51 @@ public class WebSocketGeneralKeyPatService {
    */
   @OnOpen
   public void onOpen(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, Session session) {
-    //查询人员是否是组训人员
-    GeneralPatTrainUserDto userDto = null;
+    GeneralPatTrainUserDto userDto;
     try {
       userDto = generalKeyPatService.getTrainUserInfo(uid, trainId);
     } catch (Exception e) {
       log.error("WebSocketGeneralKeyPatService.onOpen: 用户不存在");
       sendErrMessage(session, e.getMessage(), "", "");
       close(session);
-      //P1-7：不 return 会带着全 null 的 userModel 继续执行到 getRole() NPE
       return;
     }
     GeneralPatTrainUserModelDto userModel = PojoUtils.convertOne(userDto, GeneralPatTrainUserModelDto.class);
     userModel.setSession(session);
     userModel.setStatus(1);
-    GeneralPatTrainRoomUserDto roomUser = ROOM.computeIfAbsent(trainId, k -> new GeneralPatTrainRoomUserDto());
+    List<Session> replaced = new ArrayList<>();
     Map<String, String> data = new HashMap<>();
     data.put(ID, uid);
     data.put(TOPIC, BaseConstants.ONLINE);
-    if (userModel.getRole().compareTo(0) == 0) {
-      roomUser.getJoinUser().add(userModel);
-      //给教员推送消息
-      if (roomUser.getGroupUser() != null) {
-        sendMessage(roomUser.getGroupUser().getSession(), JSONObject.toJSONString(data), "", "");
+    ROOM.compute(trainId, (key, existingRoom) -> {
+      GeneralPatTrainRoomUserDto room = existingRoom == null
+          ? new GeneralPatTrainRoomUserDto()
+          : existingRoom;
+      room.getJoinUser().removeIf(existing -> {
+        if (!Objects.equals(existing.getId(), uid)) {
+          return false;
+        }
+        replaced.add(existing.getSession());
+        return true;
+      });
+      GeneralPatTrainUserModelDto group = room.getGroupUser();
+      if (group != null && (Objects.equals(group.getId(), uid) || userModel.getRole().compareTo(1) == 0)) {
+        replaced.add(group.getSession());
+        room.setGroupUser(null);
       }
-    } else {
-      roomUser.setGroupUser(userModel);
-      roomUser.getJoinUser().forEach(userModel1 -> sendMessage(userModel1.getSession(), JSONObject.toJSONString(data), "", ""));
-    }
+      if (userModel.getRole().compareTo(0) == 0) {
+        room.getJoinUser().add(userModel);
+        if (room.getGroupUser() != null) {
+          sendMessage(room.getGroupUser().getSession(), JSONObject.toJSONString(data), "", "");
+        }
+      } else {
+        room.setGroupUser(userModel);
+        room.getJoinUser().forEach(user ->
+            sendMessage(user.getSession(), JSONObject.toJSONString(data), "", ""));
+      }
+      return room;
+    });
+    closeReplaced(replaced, session);
   }
 
   @OnMessage
@@ -123,30 +140,29 @@ public class WebSocketGeneralKeyPatService {
 
   @OnClose
   public void onClose(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, Session session) {
-    GeneralPatTrainRoomUserDto keyPatTrainRoomUser = ROOM.get(trainId);
-    if (keyPatTrainRoomUser == null) {
-      close(session);
-      return;
-    }
-    List<GeneralPatTrainUserModelDto> joinUser = keyPatTrainRoomUser.getJoinUser();
     Map<String, String> data = new HashMap<>();
     data.put(TOPIC, OFFLINE);
     data.put(ID, uid);
-    GeneralPatTrainUserModelDto groupUser = keyPatTrainRoomUser.getGroupUser();
-    //判断是否是组训人退出
-    if (groupUser != null && Objects.equals(groupUser.getId(), uid)) {
-      //给所有人发送退出消息
-      joinUser.forEach(item -> sendMessage(item.getSession(), JSONObject.toJSONString(data), "", ""));
-      keyPatTrainRoomUser.setGroupUser(null);
-    } else {
-      //学员退出：教员在线时通知教员；无论教员是否在线都必须移除（P1-8：原逻辑教员缺席时学员永不移除）
-      if (groupUser != null) {
-        sendMessage(groupUser.getSession(), JSONObject.toJSONString(data), "", "");
+    ROOM.computeIfPresent(trainId, (key, room) -> {
+      GeneralPatTrainUserModelDto group = room.getGroupUser();
+      if (group != null && sameConnection(group, uid, session)) {
+        room.getJoinUser().forEach(item ->
+            sendMessage(item.getSession(), JSONObject.toJSONString(data), "", ""));
+        room.setGroupUser(null);
+      } else {
+        GeneralPatTrainUserModelDto current = room.getJoinUser().stream()
+            .filter(user -> sameConnection(user, uid, session))
+            .findFirst()
+            .orElse(null);
+        if (current != null) {
+          if (group != null) {
+            sendMessage(group.getSession(), JSONObject.toJSONString(data), "", "");
+          }
+          room.getJoinUser().remove(current);
+        }
       }
-      joinUser.removeIf(userModel -> Objects.equals(userModel.getId(), uid));
-    }
-    //房间清空后释放条目（原 ROOM 只增不减）
-    ROOM.computeIfPresent(trainId, (k, v) -> (v.getJoinUser().isEmpty() && v.getGroupUser() == null) ? null : v);
+      return room.getJoinUser().isEmpty() && room.getGroupUser() == null ? null : room;
+    });
     close(session);
   }
 
@@ -155,6 +171,19 @@ public class WebSocketGeneralKeyPatService {
     log.error("ws error, session={}", session.getId(), t);
     //复用 onClose 清理该 session 对应的房间状态并关闭连接
     onClose(uid, trainId, session);
+  }
+
+  private static boolean sameConnection(GeneralPatTrainUserModelDto user, String uid, Session session) {
+    return Objects.equals(user.getId(), uid)
+        && (user.getSession() == session
+        || Objects.equals(user.getSession().getId(), session.getId()));
+  }
+
+  private void closeReplaced(List<Session> replaced, Session current) {
+    replaced.stream()
+        .filter(old -> old != null && old != current)
+        .distinct()
+        .forEach(this::close);
   }
 
   /**
