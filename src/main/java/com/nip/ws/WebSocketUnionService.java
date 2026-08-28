@@ -11,6 +11,7 @@ import com.nip.ws.model.RequestModel;
 import com.nip.ws.model.ResponseModel;
 import com.nip.ws.model.RoomModel;
 import com.nip.ws.model.UserModel;
+import com.nip.ws.service.RoomLifecycleLocks;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.websocket.*;
@@ -25,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.TYPE;
 import static com.nip.common.constants.BaseConstants.USER_ID;
@@ -51,6 +53,10 @@ public class WebSocketUnionService {
    */
   private record Client(Session session, UserModel user) {}
 
+  /** 房间成员变更的一次广播：全量房间快照 + 逐一通知的成员事件 */
+  private record RoomBroadcast(String roomJson, List<String> recipients, String eventJson) {}
+
+
   private static final ConcurrentHashMap<String, Client> webSocketClientSet = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, RoomModel> onlineRooms = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, UserModel> onlineUsers = new ConcurrentHashMap<>();
@@ -60,25 +66,31 @@ public class WebSocketUnionService {
    */
   @OnOpen
   public void onOpen(Session session, @PathParam("sid") String sid) throws IOException {
-    Client existing = webSocketClientSet.get(sid);
-    if (existing != null) {
-      send(existing.session(),
-        new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent()));
-      webSocketClientSet.remove(sid);
-      onlineUsers.remove(sid);
-    }
+    Lock lock = RoomLifecycleLocks.unionUser(sid);
+    lock.lock();
+    try {
+      Client existing = webSocketClientSet.get(sid);
+      if (existing != null) {
+        send(existing.session(),
+          new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent()));
+        userExitLocked(existing);
+        close(existing.session());
+      }
 
-    UserEntity userEntity = userDao.findUserEntityById(sid);
-    UserModel userModel = new UserModel();
-    userModel.setId(sid);
-    userModel.setName(userEntity.getUserName());
-    userModel.setUserImg(userEntity.getUserImg());
-    session.getUserProperties().put(SID, sid);
-    Client me = new Client(session, userModel);
-    webSocketClientSet.put(sid, me);
-    onlineUsers.put(sid, userModel);
-    log.info("有新客户端进入联合训练:" + sid + ",当前在线客户端数为:" + webSocketClientSet.size());
-    userJoin(me);
+      UserEntity userEntity = userDao.findUserEntityById(sid);
+      UserModel userModel = new UserModel();
+      userModel.setId(sid);
+      userModel.setName(userEntity.getUserName());
+      userModel.setUserImg(userEntity.getUserImg());
+      session.getUserProperties().put(SID, sid);
+      Client me = new Client(session, userModel);
+      webSocketClientSet.put(sid, me);
+      onlineUsers.put(sid, userModel);
+      log.info("有新客户端进入联合训练:" + sid + ",当前在线客户端数为:" + webSocketClientSet.size());
+      userJoin(me);
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -206,26 +218,49 @@ public class WebSocketUnionService {
    */
   private void userExit(Client me) {
     String sid = me.user().getId();
-    if (!webSocketClientSet.remove(sid, me)) {
+    Lock lock = RoomLifecycleLocks.unionUser(sid);
+    lock.lock();
+    try {
+      userExitLocked(me);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void userExitLocked(Client me) {
+    String sid = me.user().getId();
+    if (webSocketClientSet.get(sid) != me || !webSocketClientSet.remove(sid, me)) {
       return;
     }
+    List<RoomBroadcast> notifications = new ArrayList<>();
     for (String roomId : onlineRooms.keySet()) {
       onlineRooms.computeIfPresent(roomId, (id, roomModel) -> {
-        boolean removed = roomModel.getUsers()
-          .removeIf(userModel -> userModel.getId().equals(sid));
-        if (!removed || roomModel.getUsers().isEmpty()) {
-          return removed ? null : roomModel;
+        UserModel removed = roomModel.getUsers().stream()
+          .filter(user -> Objects.equals(user.getId(), sid))
+          .findFirst()
+          .orElse(null);
+        if (removed == null) {
+          return roomModel;
         }
-        updateRoom(roomModel);
-        Map jsonObject = new HashMap<>();
-        jsonObject.put(TYPE, "exit");
-        jsonObject.put("user", me.user());
-        roomModel.getUsers().forEach(user -> sendInfo(user.getId(),
-          new ResponseModel(UnionConstants.ROOM_USER_BROADCAST.getCode(), JSONUtils.toJson(jsonObject))));
-        return roomModel;
+        roomModel.getUsers().remove(removed);
+        Map<String, Object> event = new HashMap<>();
+        event.put(TYPE, "exit");
+        event.put("user", removed);
+        notifications.add(new RoomBroadcast(
+          JSONUtils.toJson(roomModel),
+          roomModel.getUsers().stream().map(UserModel::getId).toList(),
+          JSONUtils.toJson(event)));
+        return roomModel.getUsers().isEmpty() ? null : roomModel;
       });
     }
     onlineUsers.remove(sid, me.user());
+    for (RoomBroadcast notification : notifications) {
+      broadcastRoomSnapshot(notification.roomJson());
+      for (String recipient : notification.recipients()) {
+        sendInfo(recipient, new ResponseModel(
+          UnionConstants.ROOM_USER_BROADCAST.getCode(), notification.eventJson()));
+      }
+    }
     log.info("有客户端退出联合训练:" + sid + ",当前在线客户端数为：" + onlineUsers.size());
     webSocketClientSet.forEach((s, client) -> send(client.session(),
       new ResponseModel(UnionConstants.USER_EXIT.getCode(), JSONUtils.toJson(me.user()))));
@@ -314,6 +349,12 @@ public class WebSocketUnionService {
       new ResponseModel(UnionConstants.UPDATE_ROOM_INFO.getCode(), JSONUtils.toJson(roomModel))));
   }
 
+  private void broadcastRoomSnapshot(String roomJson) {
+    webSocketClientSet.forEach((s, client) -> send(client.session(),
+      new ResponseModel(UnionConstants.UPDATE_ROOM_INFO.getCode(), roomJson)));
+  }
+
+
   /**
    * 解散房间
    *
@@ -335,39 +376,49 @@ public class WebSocketUnionService {
 
   /**
    * 加入房间
-   *
-   * 此方法用于处理用户加入房间的请求它首先检查用户是否已经在一个房间中，
-   * 如果没有，则创建用户模型并将其添加到房间的用户列表中，然后通知所有房间内的其他用户
-   *
-   * @param msg 包含加入房间请求信息的模型
    */
   private void joinRoom(Client me, RequestModel msg) {
     try {
-      RoomModel roomModel = onlineRooms.get(msg.getData());
-      AtomicReference<Integer> isIn = new AtomicReference<>(0);
-      roomModel.getUsers().forEach(userModel -> {
-        if (Objects.equals(userModel.getId(), me.user().getId())) {
-          isIn.set(1);
+      AtomicReference<RoomBroadcast> joined = new AtomicReference<>();
+      AtomicReference<Boolean> roomFound = new AtomicReference<>(false);
+      onlineRooms.computeIfPresent(msg.getData(), (roomId, roomModel) -> {
+        roomFound.set(true);
+        boolean alreadyJoined = roomModel.getUsers().stream()
+          .anyMatch(user -> Objects.equals(user.getId(), me.user().getId()));
+        if (alreadyJoined) {
+          return roomModel;
         }
+        UserModel member = new UserModel();
+        member.setId(me.user().getId());
+        member.setName(me.user().getName());
+        member.setUserImg(me.user().getUserImg());
+        roomModel.getUsers().add(member);
+        Map<String, Object> event = new HashMap<>();
+        event.put(TYPE, "join");
+        event.put("user", member);
+        joined.set(new RoomBroadcast(
+          JSONUtils.toJson(roomModel),
+          roomModel.getUsers().stream()
+            .map(UserModel::getId)
+            .filter(id -> !Objects.equals(id, member.getId()))
+            .toList(),
+          JSONUtils.toJson(event)));
+        return roomModel;
       });
-      if (0 == isIn.get()) {
-        UserModel um = new UserModel();
-        um.setId(me.user().getId());
-        um.setName(me.user().getName());
-        um.setUserImg(me.user().getUserImg());
-        roomModel.getUsers().add(um);
-        send(me.session(),
-          new ResponseModel(UnionConstants.JOIN_ROOM_SUCCESS.getCode(), JSONUtils.toJson(roomModel)));
-        updateRoom(roomModel);
-        Map jsonObject = new HashMap<>();
-        jsonObject.put(TYPE, "join");
-        jsonObject.put("user", um);
-        roomModel.getUsers().forEach(user -> {
-          if (!Objects.equals(user.getId(), um.getId())) {
-            sendInfo(user.getId(),
-              new ResponseModel(UnionConstants.ROOM_USER_BROADCAST.getCode(), JSONUtils.toJson(jsonObject)));
-          }
-        });
+      RoomBroadcast result = joined.get();
+      if (result == null) {
+        if (!roomFound.get()) {
+          send(me.session(), new ResponseModel(
+            UnionConstants.JOIN_ROOM_FAIL.getCode(), UnionConstants.JOIN_ROOM_FAIL.getContent()));
+        }
+        return;
+      }
+      send(me.session(), new ResponseModel(
+        UnionConstants.JOIN_ROOM_SUCCESS.getCode(), result.roomJson()));
+      broadcastRoomSnapshot(result.roomJson());
+      for (String recipient : result.recipients()) {
+        sendInfo(recipient, new ResponseModel(
+          UnionConstants.ROOM_USER_BROADCAST.getCode(), result.eventJson()));
       }
     } catch (Exception e) {
       log.error("加入房间失败", e);
@@ -378,36 +429,40 @@ public class WebSocketUnionService {
 
   /**
    * 退出房间
-   *
-   * 此方法允许当前用户退出指定的房间它通过移除房间中的用户列表来实现，
-   * 并通知房间内的其他用户该用户已退出
-   *
-   * @param msg 包含退出房间所需信息的请求模型，包括房间ID等
    */
   private void exitRoom(Client me, RequestModel msg) {
-    RoomModel roomModel = onlineRooms.get(msg.getData());
-    if (roomModel != null) {
-      List<UserModel> users = roomModel.getUsers();
-      AtomicReference<UserModel> um = new AtomicReference<>(new UserModel());
-      users.removeIf(r -> {
-        if (r.getId().equals(me.user().getId())) {
-          um.set(r);
-          return true;
-        }
-        return false;
-      });
-      updateRoom(roomModel);
-      Map jsonObject = new HashMap<>();
-      jsonObject.put(TYPE, "exit");
-      jsonObject.put("user", um.get());
-      users.forEach(user -> sendInfo(user.getId(),
-        new ResponseModel(UnionConstants.ROOM_USER_BROADCAST.getCode(), JSONUtils.toJson(jsonObject))));
+    AtomicReference<RoomBroadcast> exited = new AtomicReference<>();
+    onlineRooms.computeIfPresent(msg.getData(), (roomId, roomModel) -> {
+      UserModel removed = roomModel.getUsers().stream()
+        .filter(user -> Objects.equals(user.getId(), me.user().getId()))
+        .findFirst()
+        .orElse(null);
+      if (removed == null) {
+        return roomModel;
+      }
+      roomModel.getUsers().remove(removed);
+      Map<String, Object> event = new HashMap<>();
+      event.put(TYPE, "exit");
+      event.put("user", removed);
+      exited.set(new RoomBroadcast(
+        JSONUtils.toJson(roomModel),
+        roomModel.getUsers().stream().map(UserModel::getId).toList(),
+        JSONUtils.toJson(event)));
+      return roomModel.getUsers().isEmpty() ? null : roomModel;
+    });
+    RoomBroadcast result = exited.get();
+    if (result == null) {
+      return;
+    }
+    broadcastRoomSnapshot(result.roomJson());
+    for (String recipient : result.recipients()) {
+      sendInfo(recipient, new ResponseModel(
+        UnionConstants.ROOM_USER_BROADCAST.getCode(), result.eventJson()));
     }
   }
 
   /**
    * 处理房间消息
-   * 当接收到消息时，该方法会将消息发送给房间内的所有用户，除了发送者本身
    *
    * @param msg 消息对象，包含发送者ID，接收者ID，以及消息数据
    */
@@ -538,6 +593,17 @@ public class WebSocketUnionService {
       session.getAsyncRemote().sendText(JSONUtils.toJson(message));
     } catch (Exception e) {
       log.error("WebSocketUnionService.send", e);
+    }
+  }
+
+  private static void close(Session session) {
+    if (session == null || !session.isOpen()) {
+      return;
+    }
+    try {
+      session.close();
+    } catch (IOException e) {
+      log.error("WebSocketUnionService.close", e);
     }
   }
 }

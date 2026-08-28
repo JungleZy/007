@@ -65,8 +65,15 @@ public final class SimulationRoomLifecycle {
       String userId,
       Session session) {
     List<SimulationSessionHolder> members = rooms.get(roomId);
-    return members != null && members.stream()
-        .anyMatch(holder -> sameConnection(holder, userId, session));
+    if (members == null) {
+      return false;
+    }
+    for (SimulationSessionHolder holder : members) {
+      if (sameConnection(holder, userId, session)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean sameConnection(

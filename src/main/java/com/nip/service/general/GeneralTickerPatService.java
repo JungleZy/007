@@ -57,6 +57,9 @@ import com.nip.service.UserService;
 import com.nip.ws.WebSocketGeneralTickerPatService;
 import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
+import com.nip.ws.service.RoomDeletionTransaction;
+import com.nip.ws.service.RoomLifecycleLocks;
+import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -74,6 +77,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 import static com.nip.common.utils.TickerPatUtils.parseContent;
@@ -91,6 +95,8 @@ public class GeneralTickerPatService {
   private final GradingRuleDao gradingRuleDao;
   private final CableFloorService cableFloorService;
   private final MessageComparisonService messageComparisonService;
+  @Inject
+  RoomDeletionTransaction roomDeletionTransaction;
 
   @Inject
   public GeneralTickerPatService(UserService userService, GeneralTickerPatTrainDao trainDao,
@@ -228,13 +234,24 @@ public class GeneralTickerPatService {
     return PojoUtils.convertOne(save, GeneralTickerPatTrainVO.class);
   }
 
-  @Transactional(rollbackOn = Exception.class)
   public boolean delete(Integer trainId) {
-    userValueDao.delete("trainId=?1", trainId);
-    trainPageDao.delete("trainId=?1", trainId);
-    trainUserDao.delete("trainId=?1", trainId);
-    WebSocketGeneralTickerPatService.PAT_ROOM.remove(trainId);
-    return trainDao.deleteById(trainId);
+    Lock lock = RoomLifecycleLocks.generalTickerRoom(trainId);
+    GeneralTickerPatTrainRoomUserModel removed;
+    boolean deleted;
+    lock.lock();
+    try {
+      deleted = roomDeletionTransaction.run(() -> {
+        userValueDao.delete("trainId=?1", trainId);
+        trainPageDao.delete("trainId=?1", trainId);
+        trainUserDao.delete("trainId=?1", trainId);
+        return trainDao.deleteById(trainId);
+      });
+      removed = WebSocketGeneralTickerPatService.PAT_ROOM.remove(trainId);
+    } finally {
+      lock.unlock();
+    }
+    WebSocketGeneralTickerPatService.closeRoomSessions(removed);
+    return deleted;
   }
 
   @Transactional
@@ -933,6 +950,17 @@ public class GeneralTickerPatService {
     trainUserDao.save(trainUserEntity);
   }
 
+  public GeneralPatTrainUserDto getTrainUserInfo(String uid, Integer trainId) {
+    GeneralTickerPatTrainEntity train = trainDao.findById(trainId);
+    GeneralTickerPatTrainUserEntity membership = trainUserDao.findByUserIdAndTrainId(uid, trainId);
+    UserEntity user = userService.getUserByIdNew(uid);
+    if (train == null || membership == null || user == null) {
+      throw new IllegalArgumentException("训练数据异常");
+    }
+    return new GeneralPatTrainUserDto(
+        user.getId(), user.getUserName(), user.getUserImg(), membership.getRole());
+  }
+
   /**
    * 统计所有点划和所有间隔的平均时长
    *
@@ -943,6 +971,7 @@ public class GeneralTickerPatService {
    * @param wordTotalTime  词
    * @param groupTotalTime 组
    */
+
   private void statisticsAllAvg(PostTelegramTrainStatisticsVO statisticsVO, int dotTotalTime, int lineTotalTime,
       int codeTotalTime, int wordTotalTime, int groupTotalTime) {
     // 计算点划间隔的平均时长

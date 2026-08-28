@@ -9,6 +9,7 @@ import com.nip.dto.general.GeneralPatTrainUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
 import com.nip.service.general.GeneralTelexPatService;
 import com.nip.ws.model.SocketResponseModel;
+import com.nip.ws.service.RoomLifecycleLocks;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
@@ -25,6 +26,7 @@ import org.jose4j.json.internal.json_simple.JSONObject;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.*;
 
@@ -37,6 +39,12 @@ public class WebSocketGeneralTelexPatService {
   GeneralTelexPatService generalTelexPatService;
   public static final Map<String, GeneralPatTrainRoomUserDto> ROOM = new ConcurrentHashMap<>();
 
+  private record OpenTransition(
+      String error,
+      List<Session> replaced,
+      List<Session> recipients,
+      String notification) {}
+
   /**
    * 打开连接
    *
@@ -46,22 +54,42 @@ public class WebSocketGeneralTelexPatService {
    */
   @OnOpen
   public void onOpen(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, Session session) {
+    OpenTransition transition;
+    Lock lock = RoomLifecycleLocks.generalTelexRoom(trainId);
+    lock.lock();
+    try {
+      transition = openLocked(uid, trainId, session);
+    } finally {
+      lock.unlock();
+    }
+    if (transition.error() != null) {
+      sendErrMessage(session, transition.error(), "", "");
+      close(session);
+      return;
+    }
+    for (Session recipient : transition.recipients()) {
+      sendMessage(recipient, transition.notification(), "", "");
+    }
+    closeReplaced(transition.replaced(), session);
+  }
+
+  private OpenTransition openLocked(String uid, String trainId, Session session) {
     GeneralPatTrainUserDto userDto;
     try {
       userDto = generalTelexPatService.getTrainUserInfo(uid, trainId);
     } catch (Exception e) {
       log.error("WebSocketGeneralTelexPatService.onOpen: 用户不存在");
-      sendErrMessage(session, e.getMessage(), "", "");
-      close(session);
-      return;
+      return new OpenTransition(e.getMessage(), List.of(), List.of(), "");
     }
     GeneralPatTrainUserModelDto userModel = PojoUtils.convertOne(userDto, GeneralPatTrainUserModelDto.class);
     userModel.setSession(session);
     userModel.setStatus(1);
     List<Session> replaced = new ArrayList<>();
+    List<Session> recipients = new ArrayList<>();
     Map<String, String> data = new HashMap<>();
     data.put(ID, uid);
     data.put(TOPIC, BaseConstants.ONLINE);
+    String notification = JSONObject.toJSONString(data);
     ROOM.compute(trainId, (key, existingRoom) -> {
       GeneralPatTrainRoomUserDto room = existingRoom == null
           ? new GeneralPatTrainRoomUserDto()
@@ -81,16 +109,15 @@ public class WebSocketGeneralTelexPatService {
       if (userModel.getRole().compareTo(0) == 0) {
         room.getJoinUser().add(userModel);
         if (room.getGroupUser() != null) {
-          sendMessage(room.getGroupUser().getSession(), JSONObject.toJSONString(data), "", "");
+          recipients.add(room.getGroupUser().getSession());
         }
       } else {
         room.setGroupUser(userModel);
-        room.getJoinUser().forEach(user ->
-            sendMessage(user.getSession(), JSONObject.toJSONString(data), "", ""));
+        room.getJoinUser().stream().map(GeneralPatTrainUserModelDto::getSession).forEach(recipients::add);
       }
       return room;
     });
-    closeReplaced(replaced, session);
+    return new OpenTransition(null, List.copyOf(replaced), List.copyOf(recipients), notification);
   }
 
   @OnMessage
@@ -98,6 +125,10 @@ public class WebSocketGeneralTelexPatService {
     GeneralPatTrainRoomUserDto trainRoomUser = ROOM.get(trainId);
     if (trainRoomUser == null) {
       sendErrMessage(session, "房间不存在", "", "");
+      return;
+    }
+    GeneralPatTrainUserModelDto sender = currentConnection(trainRoomUser, uid, session);
+    if (sender == null) {
       return;
     }
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
@@ -109,13 +140,7 @@ public class WebSocketGeneralTelexPatService {
       if (trainRoomUser.getGroupUser() != null) {
         sendMessage(trainRoomUser.getGroupUser().getSession(), JSONObject.toJSONString(msg), "", "");
       }
-      //将状态设置成已准备
-      for (GeneralPatTrainUserModelDto userModel : trainRoomUser.getJoinUser()) {
-        if (Objects.equals(userModel.getId(), uid)) {
-          userModel.setStatus(2);
-          break;
-        }
-      }
+      sender.setStatus(2);
       return;
     } else if (Objects.equals("pat", msg.get(TOPIC).toString())) {
       //学员拍内容
@@ -171,6 +196,20 @@ public class WebSocketGeneralTelexPatService {
         || Objects.equals(user.getSession().getId(), session.getId()));
   }
 
+  private static GeneralPatTrainUserModelDto currentConnection(
+      GeneralPatTrainRoomUserDto room,
+      String uid,
+      Session session) {
+    GeneralPatTrainUserModelDto group = room.getGroupUser();
+    if (group != null && sameConnection(group, uid, session)) {
+      return group;
+    }
+    return room.getJoinUser().stream()
+        .filter(user -> sameConnection(user, uid, session))
+        .findFirst()
+        .orElse(null);
+  }
+
   private void closeReplaced(List<Session> replaced, Session current) {
     replaced.stream()
         .filter(old -> old != null && old != current)
@@ -190,6 +229,26 @@ public class WebSocketGeneralTelexPatService {
     } catch (Exception e) {
       log.error("WebSocketGeneralTelexPatService.sendMessage: 发送消息失败");
     }
+  }
+
+  public static void closeRoomSessions(GeneralPatTrainRoomUserDto room) {
+    if (room == null) {
+      return;
+    }
+    List<Session> sessions = new ArrayList<>();
+    if (room.getGroupUser() != null) {
+      sessions.add(room.getGroupUser().getSession());
+    }
+    room.getJoinUser().stream().map(GeneralPatTrainUserModelDto::getSession).forEach(sessions::add);
+    sessions.stream().filter(Objects::nonNull).distinct().forEach(session -> {
+      try {
+        if (session.isOpen()) {
+          session.close();
+        }
+      } catch (IOException e) {
+        log.error("关闭socket出错", e);
+      }
+    });
   }
 
   /**

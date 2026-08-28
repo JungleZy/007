@@ -3,10 +3,14 @@ package com.nip.ws;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.utils.JSONUtils;
+import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.service.general.GeneralTickerPatService;
 import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import com.nip.ws.model.SocketResponseModel;
+import com.nip.ws.service.RoomLifecycleLocks;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
 import jakarta.websocket.OnMessage;
@@ -21,6 +25,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import java.util.concurrent.locks.Lock;
 import static com.nip.common.constants.BaseConstants.*;
 
 @ServerEndpoint(value = "/generalTickerPat/{uid}/{trainId}/{role}")
@@ -28,21 +33,66 @@ import static com.nip.common.constants.BaseConstants.*;
 @Slf4j
 @Tag(name = "综合组训-手键组训-WS")
 public class WebSocketGeneralTickerPatService {
+  @Inject
+  GeneralTickerPatService generalTickerPatService;
   public static final Map<Integer, GeneralTickerPatTrainRoomUserModel> PAT_ROOM = new ConcurrentHashMap<>();
+
+  private record OpenTransition(
+      String error,
+      List<Session> replaced,
+      List<Session> recipients,
+      String notification) {}
 
   @OnOpen
   public void onOpen(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId,
       @PathParam("role") Integer role, Session session) {
+    OpenTransition transition;
+    Lock lock = RoomLifecycleLocks.generalTickerRoom(trainId);
+    lock.lock();
+    try {
+      transition = openLocked(uid, trainId, role, session);
+    } finally {
+      lock.unlock();
+    }
+    if (transition.error() != null) {
+      sendErrMessage(session, transition.error(), "", "");
+      close(session);
+      return;
+    }
+    List<Session> failed = new ArrayList<>();
+    for (Session recipient : transition.recipients()) {
+      if (!sendMessage(recipient, transition.notification(), "", "")) {
+        failed.add(recipient);
+      }
+    }
+    removeFailedRecipients(trainId, failed);
+    closeReplaced(transition.replaced(), session);
+  }
+
+  private OpenTransition openLocked(String uid, Integer trainId, Integer role, Session session) {
+    GeneralPatTrainUserDto user;
+    try {
+      user = generalTickerPatService.getTrainUserInfo(uid, trainId);
+      if (!Objects.equals(user.getRole(), role)) {
+        throw new IllegalArgumentException("训练数据异常");
+      }
+    } catch (Exception e) {
+      return new OpenTransition(e.getMessage(), List.of(), List.of(), "");
+    }
     log.info("用户：{}，进入房间", uid);
     GeneralTickerPatTrainUserModel userModel = new GeneralTickerPatTrainUserModel();
     userModel.setSession(session);
     userModel.setStatus(1);
     userModel.setId(uid);
     userModel.setRole(role);
+    userModel.setUserName(user.getUserName());
+    userModel.setUserImg(user.getUserImg());
     List<Session> replaced = new ArrayList<>();
+    List<Session> recipients = new ArrayList<>();
     Map<String, Object> msg = new HashMap<>();
     msg.put(TOPIC, ONLINE);
     msg.put(ID, uid);
+    String notification = JSONUtils.toJson(msg);
     PAT_ROOM.compute(trainId, (key, existingRoom) -> {
       GeneralTickerPatTrainRoomUserModel room = existingRoom == null
           ? new GeneralTickerPatTrainRoomUserModel()
@@ -61,21 +111,31 @@ public class WebSocketGeneralTickerPatService {
       }
       if (role.compareTo(0) == 0) {
         room.getJoinUser().add(userModel);
-        if (room.getGroupUser() != null
-            && !sendMessage(room.getGroupUser().getSession(), JSONUtils.toJson(msg), "", "")) {
-          log.error("学员：{},进入房间，通知教员失败,已清空教员", uid);
-          room.setGroupUser(null);
+        if (room.getGroupUser() != null) {
+          recipients.add(room.getGroupUser().getSession());
         }
         log.info("手键拍发学员uid:{},进入房间", uid);
       } else {
         log.info("手键拍发老师uid:{},进入房间", uid);
         room.setGroupUser(userModel);
-        room.getJoinUser().removeIf(item ->
-            !sendMessage(item.getSession(), JSONUtils.toJson(msg), "", ""));
+        room.getJoinUser().stream().map(GeneralTickerPatTrainUserModel::getSession).forEach(recipients::add);
       }
       return room;
     });
-    closeReplaced(replaced, session);
+    return new OpenTransition(null, List.copyOf(replaced), List.copyOf(recipients), notification);
+  }
+
+  private void removeFailedRecipients(Integer trainId, List<Session> failed) {
+    if (failed.isEmpty()) {
+      return;
+    }
+    PAT_ROOM.computeIfPresent(trainId, (key, room) -> {
+      if (room.getGroupUser() != null && failed.contains(room.getGroupUser().getSession())) {
+        room.setGroupUser(null);
+      }
+      room.getJoinUser().removeIf(user -> failed.contains(user.getSession()));
+      return room.getGroupUser() == null && room.getJoinUser().isEmpty() ? null : room;
+    });
   }
 
   @OnMessage
@@ -87,17 +147,16 @@ public class WebSocketGeneralTickerPatService {
       sendErrMessage(session, "房间不存在", "", "");
       return;
     }
+    GeneralTickerPatTrainUserModel sender = currentConnection(roomUser, uid, session);
+    if (sender == null) {
+      return;
+    }
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String topic = msg.get(BaseConstants.TOPIC).toString();
     switch (topic) {
       case TRAIN_READY -> {
-        //给老师推送
-        for (GeneralTickerPatTrainUserModel userModel : roomUser.getJoinUser()) {
-          if (Objects.equals(userModel.getId(), uid)) {
-            userModel.setStatus(2);
-          }
-        }
+        sender.setStatus(2);
         if (roomUser.getGroupUser() != null) {
           sendMessage(roomUser.getGroupUser().getSession(), message, "", "");
         }
@@ -110,12 +169,7 @@ public class WebSocketGeneralTickerPatService {
         }
       }
       case TRAIN_FINISH -> {
-        for (GeneralTickerPatTrainUserModel userModel : roomUser.getJoinUser()) {
-          if (userModel.getId().equals(uid)) {
-            userModel.setStatus(3);
-            break;
-          }
-        }
+        sender.setStatus(3);
         //给老师推送
         if (roomUser.getGroupUser() != null) {
           sendMessage(roomUser.getGroupUser().getSession(), message, "", "");
@@ -185,6 +239,20 @@ public class WebSocketGeneralTickerPatService {
         || Objects.equals(user.getSession().getId(), session.getId()));
   }
 
+  private static GeneralTickerPatTrainUserModel currentConnection(
+      GeneralTickerPatTrainRoomUserModel room,
+      String uid,
+      Session session) {
+    GeneralTickerPatTrainUserModel group = room.getGroupUser();
+    if (group != null && sameConnection(group, uid, session)) {
+      return group;
+    }
+    return room.getJoinUser().stream()
+        .filter(user -> sameConnection(user, uid, session))
+        .findFirst()
+        .orElse(null);
+  }
+
   private void closeReplaced(List<Session> replaced, Session current) {
     replaced.stream()
         .filter(old -> old != null && old != current)
@@ -198,6 +266,26 @@ public class WebSocketGeneralTickerPatService {
     } catch (IOException e) {
       log.error("关闭socket出错", e);
     }
+  }
+
+  public static void closeRoomSessions(GeneralTickerPatTrainRoomUserModel room) {
+    if (room == null) {
+      return;
+    }
+    List<Session> sessions = new ArrayList<>();
+    if (room.getGroupUser() != null) {
+      sessions.add(room.getGroupUser().getSession());
+    }
+    room.getJoinUser().stream().map(GeneralTickerPatTrainUserModel::getSession).forEach(sessions::add);
+    sessions.stream().filter(Objects::nonNull).distinct().forEach(session -> {
+      try {
+        if (session.isOpen()) {
+          session.close();
+        }
+      } catch (IOException e) {
+        log.error("关闭socket出错", e);
+      }
+    });
   }
 
   /**

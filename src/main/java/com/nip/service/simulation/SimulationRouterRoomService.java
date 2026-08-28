@@ -18,6 +18,9 @@ import com.nip.dto.vo.simulation.SimulationRouterRoomPageInfoVO;
 import com.nip.dto.vo.simulation.SimulationRouterRoomPageVo;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomUserInfoVO;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomUserVO;
+import com.nip.ws.model.SimulationSessionHolder;
+import com.nip.ws.service.RoomDeletionTransaction;
+import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomVO;
 import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomContentEntity;
@@ -41,6 +44,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import java.util.concurrent.locks.Lock;
 import static com.nip.common.constants.BaseConstants.TOKEN;
 
 @ApplicationScoped
@@ -54,6 +58,8 @@ public class SimulationRouterRoomService {
   private final SimulationRouterRoomPageDao pageDao;
   private final SimulationRouterRoomPageValueDao pageValueDao;
   private final CableFloorService cableFloorService;
+  @Inject
+  RoomDeletionTransaction roomDeletionTransaction;
 
   @Inject
   public SimulationRouterRoomService(SimulationRouterRoomDao routerRoomDao,
@@ -319,15 +325,25 @@ public class SimulationRouterRoomService {
     return getRoomDetail(request, roomId);
   }
 
-  @Transactional(rollbackOn = Exception.class)
   public boolean delete(Integer roomId) {
-    pageValueDao.delete("roomId=?1", roomId);
-    pageDao.delete("roomId=?1", roomId);
-    roomUserDao.delete("roomId=?1", roomId);
-    roomContentDao.delete("roomId=?1", roomId);
-    // P2-8：删房同时向成员发 CLOSE 并关闭 session，避免悬挂连接
-    WebSocketSimulationService.closeRoomSessions(SimulationGlobal.routerRoom.remove(roomId), "房间已解散");
-    return routerRoomDao.deleteById(roomId);
+    Lock lock = RoomLifecycleLocks.simulationRoom(roomId);
+    List<SimulationSessionHolder> removed;
+    boolean deleted;
+    lock.lock();
+    try {
+      deleted = roomDeletionTransaction.run(() -> {
+        pageValueDao.delete("roomId=?1", roomId);
+        pageDao.delete("roomId=?1", roomId);
+        roomUserDao.delete("roomId=?1", roomId);
+        roomContentDao.delete("roomId=?1", roomId);
+        return routerRoomDao.deleteById(roomId);
+      });
+      removed = SimulationGlobal.routerRoom.remove(roomId);
+    } finally {
+      lock.unlock();
+    }
+    WebSocketSimulationService.closeRoomSessions(removed, "房间已解散");
+    return deleted;
   }
 
 

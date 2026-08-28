@@ -43,6 +43,7 @@ import com.nip.dto.general.GeneralKeyPatUserInfoVO;
 import com.nip.dto.general.GeneralKeyPatUserSyncDto;
 import com.nip.dto.general.GeneralKeyPatUserValueSyncDto;
 import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.UserSyncDto;
 import com.nip.dto.general.statistic.GeneralKeyPatTrainErrorCollect;
 import com.nip.dto.general.statistic.GeneralKeyPatTrainStatisticVO;
@@ -62,6 +63,8 @@ import com.nip.service.CableFloorService;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketGeneralKeyPatService;
 import com.nip.ws.WebSocketService;
+import com.nip.ws.service.RoomDeletionTransaction;
+import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -75,6 +78,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.concurrent.locks.Lock;
 
 import com.nip.common.utils.PatTrainStatisticsBuilder;
 import static com.nip.common.utils.KeyPatUtils.handle;
@@ -93,6 +97,8 @@ public class GeneralKeyPatService {
   private final UserService userService;
   private final UserDao userDao;
   private final CableFloorService cableFloorService;
+  @Inject
+  RoomDeletionTransaction roomDeletionTransaction;
 
   @Inject
   public GeneralKeyPatService(GeneralKeyPatDao trainDao,
@@ -225,15 +231,26 @@ public class GeneralKeyPatService {
     return PojoUtils.convertOne(save, GeneralKeyPatTrainVO.class);
   }
 
-  @Transactional(rollbackOn = Exception.class)
   public boolean delete(Integer trainId) {
-    userValueDao.delete("trainId=?1", trainId);
-    resolverDao.delete("trainId=?1", trainId);
-    moreEntityDao.delete("trainId=?1", trainId);
-    trainPageDao.delete("trainId=?1", trainId);
-    trainUserDao.delete("trainId=?1", trainId);
-    WebSocketGeneralKeyPatService.ROOM.remove(trainId);
-    return trainDao.deleteById(trainId);
+    Lock lock = RoomLifecycleLocks.generalKeyRoom(trainId);
+    GeneralPatTrainRoomUserDto removed;
+    boolean deleted;
+    lock.lock();
+    try {
+      deleted = roomDeletionTransaction.run(() -> {
+        userValueDao.delete("trainId=?1", trainId);
+        resolverDao.delete("trainId=?1", trainId);
+        moreEntityDao.delete("trainId=?1", trainId);
+        trainPageDao.delete("trainId=?1", trainId);
+        trainUserDao.delete("trainId=?1", trainId);
+        return trainDao.deleteById(trainId);
+      });
+      removed = WebSocketGeneralKeyPatService.ROOM.remove(trainId);
+    } finally {
+      lock.unlock();
+    }
+    WebSocketGeneralKeyPatService.closeRoomSessions(removed);
+    return deleted;
   }
 
   private List<GeneralKeyPatPageEntity> generateAndSavePatKey(Integer generateNumber, Integer pageNumber, int trainId,

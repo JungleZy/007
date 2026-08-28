@@ -19,6 +19,7 @@ import com.nip.ws.model.SimulationUserModel;
 import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.service.simulation.SimulationGlobal;
 import com.nip.ws.service.simulation.SimulationRoomLifecycle;
+import com.nip.ws.service.RoomLifecycleLocks;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.*;
 import static com.nip.common.constants.SimulationDisturdTopicEnum.*;
@@ -55,6 +57,12 @@ public class WebSocketSimulationService {
   @Inject
   SimulationRouterRoomUserDao roomUserDao;
 
+  private record OpenTransition(
+      String error,
+      SimulationSessionHolder holder,
+      SimulationRouterRoomEntity room,
+      SimulationRoomLifecycle.Replacement replacement) {}
+
   /**
    * @param session 会话
    * @param id      用户id
@@ -62,23 +70,40 @@ public class WebSocketSimulationService {
   @OnOpen
   public void onOpen(Session session, @PathParam(ID) String id,
       @PathParam(ROOM_ID) Integer roomId) throws IOException {
+    OpenTransition transition;
+    Lock lock = RoomLifecycleLocks.simulationRoom(roomId);
+    lock.lock();
+    try {
+      transition = openLocked(session, id, roomId);
+    } finally {
+      lock.unlock();
+    }
+    if (transition.error() != null) {
+      sendErrorMessage(session, transition.error(), id, id);
+      session.close();
+      return;
+    }
+    closeReplaced(transition.replacement().replaced());
+    notifyOpen(roomId, transition.holder(), transition.room(), transition.replacement());
+  }
+
+  private OpenTransition openLocked(Session session, String id, Integer roomId) {
     SimulationRouterRoomUserSimpDto roomUserMap = roomUserDao.findByUserIdAndRoomId2Map(id, roomId);
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
-      sendErrorMessage(session, "人员或房间信息未找到", id, id);
-      session.close();
-      return;
+      return new OpenTransition("人员或房间信息未找到", null, null, null);
     }
     SimulationRouterRoomEntity roomEntity = optional.get();
     if (roomUserMap == null
         && (Objects.equals(REPORT.getType(), roomEntity.getRoomType())
         || Objects.equals(RECEPT.getType(), roomEntity.getRoomType()))) {
-      sendErrorMessage(session, "人员或房间信息未找到", id, id);
-      session.close();
-      return;
+      return new OpenTransition("人员或房间信息未找到", null, null, null);
     }
     if (roomUserMap == null) {
       UserEntity userEntity = userDao.findById(id);
+      if (userEntity == null) {
+        return new OpenTransition("人员或房间信息未找到", null, null, null);
+      }
       roomUserMap = new SimulationRouterRoomUserSimpDto();
       roomUserMap.setId(userEntity.getId());
       roomUserMap.setName(userEntity.getUserAccount());
@@ -88,17 +113,50 @@ public class WebSocketSimulationService {
     SimulationUserModel userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
     userModel.setStatus(1);
     SimulationSessionHolder holder = new SimulationSessionHolder(session, userModel);
+    SimulationRoomLifecycle.Replacement replacement;
     if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
-      addRoomDisturd(roomId, holder);
+      replacement = SimulationRoomLifecycle.replace(SimulationGlobal.disturbRoom, roomId, holder);
     } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())
         || Objects.equals(RECEPT.getType(), roomEntity.getRoomType())) {
-      addRoomReport(roomId, holder);
+      replacement = SimulationRoomLifecycle.replace(SimulationGlobal.reportRoom, roomId, holder);
     } else if (Objects.equals(ROUTER.getType(), roomEntity.getRoomType())) {
-      addRoomRouter(roomId, holder);
+      replacement = SimulationRoomLifecycle.replace(SimulationGlobal.routerRoom, roomId, holder);
+    } else {
+      return new OpenTransition("人员或房间信息未找到", null, null, null);
+    }
+    return new OpenTransition(null, holder, roomEntity, replacement);
+  }
+
+  private void notifyOpen(
+      Integer roomId,
+      SimulationSessionHolder holder,
+      SimulationRouterRoomEntity room,
+      SimulationRoomLifecycle.Replacement replacement) {
+    if (Objects.equals(DISTURB.getType(), room.getRoomType())) {
+      notifyRoomDisturb(holder, room, replacement);
+    } else if (Objects.equals(REPORT.getType(), room.getRoomType())
+        || Objects.equals(RECEPT.getType(), room.getRoomType())) {
+      notifyRoomReport(holder, replacement);
+    } else if (Objects.equals(ROUTER.getType(), room.getRoomType())) {
+      notifyRoomRouter(holder, replacement);
     }
   }
 
   public void addRoomDisturd(Integer roomId, SimulationSessionHolder holder) {
+    Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
+    if (optional.isEmpty()) {
+      return;
+    }
+    SimulationRoomLifecycle.Replacement replacement =
+        SimulationRoomLifecycle.replace(SimulationGlobal.disturbRoom, roomId, holder);
+    closeReplaced(replacement.replaced());
+    notifyRoomDisturb(holder, optional.get(), replacement);
+  }
+
+  private void notifyRoomDisturb(
+      SimulationSessionHolder holder,
+      SimulationRouterRoomEntity room,
+      SimulationRoomLifecycle.Replacement replacement) {
     String id = holder.userModel().getId();
     SimulationDisturdWebscoketVO webscoketVO = new SimulationDisturdWebscoketVO();
     webscoketVO.setTopic(ONLINE);
@@ -108,28 +166,18 @@ public class WebSocketSimulationService {
     body.setUserImg(holder.userModel().getUserImg());
     body.setChannel(holder.userModel().getChannel());
     webscoketVO.setBody(body);
-    Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
-    if (optional.isEmpty()) {
-      return;
-    }
-    SimulationRoomLifecycle.Replacement replacement =
-        SimulationRoomLifecycle.replace(SimulationGlobal.disturbRoom, roomId, holder);
-    closeReplaced(replacement.replaced());
-    List<SimulationSessionHolder> simulations = replacement.members();
-    SimulationRouterRoomEntity roomEntity = optional.get();
-    if (!Objects.equals(roomEntity.getCreateUserId(), id)) {
-      simulations.stream()
+    String notification = JSONUtils.toJson(webscoketVO);
+    if (!Objects.equals(room.getCreateUserId(), id)) {
+      replacement.members().stream()
           .filter(member -> member != holder)
           .filter(member -> Objects.equals(member.userModel().getChannel(), -1))
           .findFirst()
-          .ifPresent(member -> sendMessage(
-              member.session(), JSONUtils.toJson(webscoketVO), "", ""));
+          .ifPresent(member -> sendMessage(member.session(), notification, "", ""));
     } else {
-      simulations.stream()
+      replacement.members().stream()
           .filter(member -> member != holder)
           .filter(member -> Objects.equals(member.userModel().getUserType(), 1))
-          .forEach(member -> sendMessage(
-              member.session(), JSONUtils.toJson(webscoketVO), "", ""));
+          .forEach(member -> sendMessage(member.session(), notification, "", ""));
     }
   }
 
@@ -137,6 +185,12 @@ public class WebSocketSimulationService {
     SimulationRoomLifecycle.Replacement replacement =
         SimulationRoomLifecycle.replace(SimulationGlobal.reportRoom, roomId, holder);
     closeReplaced(replacement.replaced());
+    notifyRoomReport(holder, replacement);
+  }
+
+  private void notifyRoomReport(
+      SimulationSessionHolder holder,
+      SimulationRoomLifecycle.Replacement replacement) {
     if (Objects.equals(holder.userModel().getChannel(), 1)) {
       replacement.members().stream()
           .filter(member -> member != holder)
@@ -146,8 +200,7 @@ public class WebSocketSimulationService {
             Map<String, String> data = new HashMap<>();
             data.put(TYPE, "1");
             data.put(ID, holder.userModel().getId());
-            sendMessage(member.session(), JSONObject.toJSONString(data),
-                holder.userModel().getName(), "");
+            sendMessage(member.session(), JSONObject.toJSONString(data), holder.userModel().getName(), "");
           });
     }
   }
@@ -156,15 +209,21 @@ public class WebSocketSimulationService {
     SimulationRoomLifecycle.Replacement replacement =
         SimulationRoomLifecycle.replace(SimulationGlobal.routerRoom, roomId, holder);
     closeReplaced(replacement.replaced());
+    notifyRoomRouter(holder, replacement);
+  }
+
+  private void notifyRoomRouter(
+      SimulationSessionHolder holder,
+      SimulationRoomLifecycle.Replacement replacement) {
     Map<String, Object> msg = new HashMap<>();
     Map<String, String> body = new HashMap<>();
     body.put(ID, holder.userModel().getId());
     msg.put(TOPIC, ONLINE);
     msg.put(BODY, body);
+    String notification = JSONObject.toJSONString(msg);
     replacement.members().stream()
         .filter(member -> member != holder)
-        .forEach(member -> sendMessage(
-            member.session(), JSONObject.toJSONString(msg), "", ""));
+        .forEach(member -> sendMessage(member.session(), notification, "", ""));
   }
 
   /**
@@ -262,13 +321,12 @@ public class WebSocketSimulationService {
       room.setPlayStatus(0);
       roomDao.save(room);
     });
+    Map<String, Integer> message = new HashMap<>();
+    message.put(TYPE, 2);
+    String notification = JSONObject.toJSONString(message);
     removal.remaining().stream()
         .filter(member -> Objects.equals(member.userModel().getUserType(), 1))
-        .forEach(member -> {
-          Map<String, Integer> message = new HashMap<>();
-          message.put(TYPE, 2);
-          sendMessage(member.session(), JSONObject.toJSONString(message), "", "");
-        });
+        .forEach(member -> sendMessage(member.session(), notification, "", ""));
   }
 
   public void quitRoomRouter(Integer roomId, String userId, Session session) {
@@ -282,14 +340,13 @@ public class WebSocketSimulationService {
     body.put(ID, userId);
     msg.put(TOPIC, OFFLINE);
     msg.put(BODY, body);
-    removal.remaining().forEach(member -> sendMessage(
-        member.session(), JSONObject.toJSONString(msg), "", ""));
+    String notification = JSONObject.toJSONString(msg);
+    removal.remaining().forEach(member -> sendMessage(member.session(), notification, "", ""));
   }
 
   /**
    * 消息处理
    *
-   * @param
    * @param message 消息（JSON）
    */
   @OnMessage
@@ -319,58 +376,50 @@ public class WebSocketSimulationService {
     if (simulations == null || simulations.isEmpty()) {
       return;
     }
-    //解析messagec
     Map<String, Object> jsonObject = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String topic = jsonObject.get(BaseConstants.TOPIC).toString();
     String body = JSONUtils.toJson(jsonObject.get(BaseConstants.BODY));
-    //全局推送
     if (SimulationDisturdTopicEnum.TOPIC_ZERO.getType().equals(topic)) {
+      String training = trainingMessage(message, body, "0");
       for (SimulationSessionHolder simulation : simulations) {
-        sendTraining(simulation, message, body, "0");
+        sendMessage(simulation.session(), training, "", "");
       }
-    }
-    //1路推送
-    else if (TOPIC_ONE.getType().equals(topic)) {
-      for (SimulationSessionHolder simulation : simulations) {
-        Integer channel = simulation.userModel().getChannel();
-        if (!Objects.isNull(channel) && channel.compareTo(1) == 0) {
-          sendTraining(simulation, message, body, TOPIC_ONE.getType());
-        }
-      }
-    }
-    //2路推送
-    else if (TOPIC_TWO.getType().equals(topic)) {
+    } else if (TOPIC_ONE.getType().equals(topic)) {
+      String training = trainingMessage(message, body, TOPIC_ONE.getType());
       for (SimulationSessionHolder simulation : simulations) {
         Integer channel = simulation.userModel().getChannel();
-        if (!Objects.isNull(channel) && channel.compareTo(2) == 0) {
-          sendTraining(simulation, message, body, TOPIC_TWO.getType());
+        if (channel != null && channel.compareTo(1) == 0) {
+          sendMessage(simulation.session(), training, "", "");
         }
       }
-    }
-    //3路推送
-    else if (TOPIC_THREE.getType().equals(topic)) {
+    } else if (TOPIC_TWO.getType().equals(topic)) {
+      String training = trainingMessage(message, body, TOPIC_TWO.getType());
       for (SimulationSessionHolder simulation : simulations) {
         Integer channel = simulation.userModel().getChannel();
-        if (!Objects.isNull(channel) && channel.compareTo(3) == 0) {
-          sendTraining(simulation, message, body, TOPIC_THREE.getType());
+        if (channel != null && channel.compareTo(2) == 0) {
+          sendMessage(simulation.session(), training, "", "");
         }
       }
-    }
-    //开始训练
-    else if (TOPIC_BEGIN.getType().equals(topic)) {
+    } else if (TOPIC_THREE.getType().equals(topic)) {
+      String training = trainingMessage(message, body, TOPIC_THREE.getType());
+      for (SimulationSessionHolder simulation : simulations) {
+        Integer channel = simulation.userModel().getChannel();
+        if (channel != null && channel.compareTo(3) == 0) {
+          sendMessage(simulation.session(), training, "", "");
+        }
+      }
+    } else if (TOPIC_BEGIN.getType().equals(topic)) {
       jsonObject.put(TOPIC, 0);
       roomDao.findByIdOptional(roomId).ifPresent(item -> {
         item.setStats(1);
         roomDao.save(item);
       });
-      simulations
-          .stream()
+      String notification = JSONObject.toJSONString(jsonObject);
+      simulations.stream()
           .filter(item -> !item.userModel().getId().equals(userId))
-          .forEach(item -> WebSocketSimulationService.sendMessage(item.session(), JSONObject.toJSONString(jsonObject), "", ""));
-    }
-    //结束训练
-    else if (TOPIC_END.getType().equals(topic)) {
+          .forEach(item -> sendMessage(item.session(), notification, "", ""));
+    } else if (TOPIC_END.getType().equals(topic)) {
       jsonObject.put(TOPIC, 0);
       Map<String, Object> map = JSONUtils.fromJson(body, new TypeToken<>() {
       });
@@ -380,52 +429,44 @@ public class WebSocketSimulationService {
         item.setTotalTime(totalTime);
         roomDao.save(item);
       });
-
+      String notification = JSONObject.toJSONString(jsonObject);
       for (SimulationSessionHolder item : simulations) {
         if (!item.userModel().getId().equals(userId)) {
-          WebSocketSimulationService.sendMessage(
-              item.session(), JSONObject.toJSONString(jsonObject), "", "");
+          sendMessage(item.session(), notification, "", "");
         }
       }
-    }
-    //TOPIC_SELECT
-    else if (TOPIC_SELECT.getType().equals(topic)) {
+    } else if (TOPIC_SELECT.getType().equals(topic)) {
       Map<String, Object> map = JSONUtils.fromJson(body, new TypeToken<>() {
       });
-      Integer channel = Integer.parseInt(map.get("road").toString());
-      SimulationRouterRoomUserEntity routerRoomUserEntity = roomUserDao.findByUserIdAndRoomId(userId, roomId);
-      Optional.ofNullable(routerRoomUserEntity)
-          .ifPresent(item -> {
-            item.setChannel(channel);
-            //保存该学员频道到数据库
-            roomUserDao.save(routerRoomUserEntity);
-            //给教员发送学员频道消息
-            for (SimulationSessionHolder simulation : simulations) {
-              if (simulation.userModel().getUserType().compareTo(0) == 0) {
-                WebSocketSimulationService.sendMessage(simulation.session(), message, "", "");
-              } else if (Objects.equals(simulation.userModel().getId(), userId)) {
-                simulation.userModel().setChannel(channel);
-              }
-            }
-          });
-    }
-    //TOPIC_RESULT
-    else if (TOPIC_RESULT.getType().equals(topic)) {
+      Integer selectedChannel = Integer.parseInt(map.get("road").toString());
+      SimulationRouterRoomUserEntity roomUser = roomUserDao.findByUserIdAndRoomId(userId, roomId);
+      Optional.ofNullable(roomUser).ifPresent(item -> {
+        item.setChannel(selectedChannel);
+        roomUserDao.save(roomUser);
+        for (SimulationSessionHolder simulation : simulations) {
+          if (simulation.userModel().getUserType().compareTo(0) == 0) {
+            sendMessage(simulation.session(), message, "", "");
+          } else if (Objects.equals(simulation.userModel().getId(), userId)) {
+            simulation.userModel().setChannel(selectedChannel);
+          }
+        }
+      });
+    } else if (TOPIC_RESULT.getType().equals(topic)) {
       for (SimulationSessionHolder simulation : simulations) {
         if (simulation.userModel().getUserType().compareTo(0) == 0) {
-          WebSocketSimulationService.sendMessage(simulation.session(), message, "", "");
+          sendMessage(simulation.session(), message, "", "");
         }
       }
     }
   }
 
-  private void sendTraining(SimulationSessionHolder simulation, String message, String body, String topic) {
+  private static String trainingMessage(String message, String body, String topic) {
     Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     msg.put(TOPIC, topic);
     msg.put(BODY, JSONUtils.fromJson(body, new TypeToken<>() {
     }));
-    WebSocketSimulationService.sendMessage(simulation.session(), JSONObject.toJSONString(msg), "", "");
+    return JSONObject.toJSONString(msg);
   }
 
   @Transactional

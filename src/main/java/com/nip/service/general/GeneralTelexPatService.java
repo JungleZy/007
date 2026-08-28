@@ -38,6 +38,8 @@ import com.nip.service.UserService;
 import com.nip.ws.WebSocketGeneralTelexPatService;
 import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
+import com.nip.ws.service.RoomDeletionTransaction;
+import com.nip.ws.service.RoomLifecycleLocks;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -52,6 +54,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.concurrent.locks.Lock;
 
 import com.nip.common.utils.PatTrainStatisticsBuilder;
 import static com.nip.common.constants.PostTelexPatTrainStatusEnum.NOT_STARTED;
@@ -69,6 +72,8 @@ public class GeneralTelexPatService {
   private final GradingRuleDao gradingRuleDao;
   private final UserService userService;
   private final CableFloorService cableFloorService;
+  @Inject
+  RoomDeletionTransaction roomDeletionTransaction;
 
   @Inject
   public GeneralTelexPatService(GeneralTelexPatDao trainDao, GeneralTelexPatPageDao trainPageDao,
@@ -402,13 +407,24 @@ public class GeneralTelexPatService {
     }));
   }
 
-  @Transactional(rollbackOn = Exception.class)
   public boolean delete(String trainId) {
-    trainUserValueDao.delete("trainId=?1", trainId);
-    trainPageDao.delete("trainId=?1", trainId);
-    trainUserDao.delete("trainId=?1", trainId);
-    WebSocketGeneralTelexPatService.ROOM.remove(trainId);
-    return trainDao.deleteById(trainId);
+    Lock lock = RoomLifecycleLocks.generalTelexRoom(trainId);
+    GeneralPatTrainRoomUserDto removed;
+    boolean deleted;
+    lock.lock();
+    try {
+      deleted = roomDeletionTransaction.run(() -> {
+        trainUserValueDao.delete("trainId=?1", trainId);
+        trainPageDao.delete("trainId=?1", trainId);
+        trainUserDao.delete("trainId=?1", trainId);
+        return trainDao.deleteById(trainId);
+      });
+      removed = WebSocketGeneralTelexPatService.ROOM.remove(trainId);
+    } finally {
+      lock.unlock();
+    }
+    WebSocketGeneralTelexPatService.closeRoomSessions(removed);
+    return deleted;
   }
 
   @Transactional
