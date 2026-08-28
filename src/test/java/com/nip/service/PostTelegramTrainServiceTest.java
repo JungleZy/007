@@ -3,9 +3,11 @@ package com.nip.service;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.PostTelegramTrainDao;
+import com.nip.dao.PostTelegramTrainFloorContentDao;
 import com.nip.dao.PostTelegramTrainContentValueDao;
 import com.nip.dto.PostTelegramTrainContentValueDto;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
+import com.nip.dto.vo.PostTelegramTrainAddContentValueVO;
 import com.nip.entity.PostTelegramTrainEntity;
 import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
 import com.nip.testsupport.MySqlResource;
@@ -29,6 +31,7 @@ class PostTelegramTrainServiceTest {
   @Inject PostTelegramTrainService service;
   @Inject PostTelegramTrainDao trainDao;
   @Inject PostTelegramTrainContentValueDao contentValueDao;
+  @Inject PostTelegramTrainFloorContentDao floorContentDao;
 
   private static PostTelegramTrainContentValueDto dto(String trainId, int floorNumber, String speed) {
     PostTelegramTrainContentValueDto d = new PostTelegramTrainContentValueDto();
@@ -88,5 +91,28 @@ class PostTelegramTrainServiceTest {
     assertEquals("[{\"patKeys\":\"existing-page\"}]", after.getMessageBody());
     assertEquals("[]", after.getStandard());
     assertEquals("existing-finish", after.getFinishInfo());
+  }
+
+  @Test
+  void addContentValueRollsBackEarlierRowsWhenALaterRowFails() {
+    PostTelegramTrainEntity train = trainDao.save(new PostTelegramTrainEntity());
+
+    PostTelegramTrainContentAddParam firstRow = new PostTelegramTrainContentAddParam();
+    firstRow.setMoresKey("[\"A\"]");
+    firstRow.setMoresValue("[]");
+    firstRow.setMoresTime("[]");
+    firstRow.setPatKeys("[]");
+
+    List<List<PostTelegramTrainContentAddParam>> rows = new ArrayList<>();
+    rows.add(List.of(firstRow));
+    rows.add(null);
+
+    PostTelegramTrainAddContentValueVO request = new PostTelegramTrainAddContentValueVO();
+    request.setTrainId(train.getId());
+    request.setMessageBody(rows);
+
+    assertThrows(NullPointerException.class, () -> service.addContentValue(request));
+    assertTrue(floorContentDao.findByTrainIdOrderByFloorNumberSort(train.getId()).isEmpty(),
+        "后续行失败时，先前已 flush 的追加内容必须回滚");
   }
 }

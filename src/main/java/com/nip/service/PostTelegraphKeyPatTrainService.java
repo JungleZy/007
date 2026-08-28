@@ -489,7 +489,6 @@ public class PostTelegraphKeyPatTrainService {
    * @param trainId        训练id
    * @param messageType    训练报文 0数码 1字码 2混合码
    */
-  @Transactional
   public List<PostTelegraphKeyPatTrainPageEntity> generatePatKey(Integer generateNumber, Integer pageNumber,
       String trainId, Integer messageType) {
     List<PostTelegraphKeyPatTrainPageEntity> pageEntities = new ArrayList<>();

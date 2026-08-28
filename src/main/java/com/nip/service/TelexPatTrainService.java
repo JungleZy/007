@@ -15,6 +15,8 @@ import com.nip.entity.UserEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.microprofile.context.ManagedExecutor;
 
@@ -36,13 +38,17 @@ public class TelexPatTrainService {
   private final UserService userService;
   private final TelexPatTrainStatisticalService statisticalService;
   private final ManagedExecutor managedExecutor;
+  private final TransactionManager transactionManager;
 
   @Inject
-  public TelexPatTrainService(TelexPatTrainDao telexPatTrainDao, UserService userService, TelexPatTrainStatisticalService statisticalService, ManagedExecutor managedExecutor) {
+  public TelexPatTrainService(TelexPatTrainDao telexPatTrainDao, UserService userService,
+      TelexPatTrainStatisticalService statisticalService, ManagedExecutor managedExecutor,
+      TransactionManager transactionManager) {
     this.telexPatTrainDao = telexPatTrainDao;
     this.userService = userService;
     this.statisticalService = statisticalService;
     this.managedExecutor = managedExecutor;
+    this.transactionManager = transactionManager;
   }
 
   /**
@@ -85,6 +91,12 @@ public class TelexPatTrainService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记训练保存事务回滚", e);
+      }
       log.error("保存训练记录失败", e);
       return ResponseResult.error();
     }

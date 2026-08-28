@@ -791,6 +791,7 @@ public class PostTelegramTrainService {
    * @param vo
    */
 
+  @Transactional(rollbackOn = Exception.class)
   public List<Integer> addContentValue(PostTelegramTrainAddContentValueVO vo) {
     Integer floorNumber = 0;
     PostTelegramTrainFloorContentEntity entity = floorContentDao.findByTrainId(vo.getTrainId());

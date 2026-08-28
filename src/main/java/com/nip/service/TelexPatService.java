@@ -14,6 +14,8 @@ import com.nip.entity.UserEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
@@ -33,13 +35,16 @@ public class TelexPatService {
   private final UserService userService;
   private final TelexPatTrainStatisticalDao statisticalDao;
   private final TelexPatTrainStatisticalService statisticalService;
+  private final TransactionManager transactionManager;
 
   @Inject
-  public TelexPatService(TelexPatDao telexPatDao, UserService userService, TelexPatTrainStatisticalDao statisticalDao, TelexPatTrainStatisticalService statisticalService) {
+  public TelexPatService(TelexPatDao telexPatDao, UserService userService, TelexPatTrainStatisticalDao statisticalDao,
+      TelexPatTrainStatisticalService statisticalService, TransactionManager transactionManager) {
     this.telexPatDao = telexPatDao;
     this.userService = userService;
     this.statisticalDao = statisticalDao;
     this.statisticalService = statisticalService;
+    this.transactionManager = transactionManager;
   }
 
   @Transactional
@@ -63,6 +68,12 @@ public class TelexPatService {
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记训练保存事务回滚", e);
+      }
       log.error("saveTelexPat", e);
       return ResponseResult.error();
     }

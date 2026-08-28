@@ -328,7 +328,6 @@ public class PostTickerTapeTrainService {
    * @param index          上次位置
    * @param train          训练对象
    */
-  @Transactional
   public List<PostTickerTapeTrainPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index,
       PostTickerTapeTrainEntity train) {
     List<PostTickerTapeTrainPageEntity> ret = new ArrayList<>();
