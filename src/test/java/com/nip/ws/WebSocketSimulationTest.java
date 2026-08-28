@@ -8,11 +8,13 @@ import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.testsupport.Fixtures;
 import com.nip.testsupport.MySqlResource;
 import com.nip.ws.service.simulation.SimulationGlobal;
+import com.nip.ws.model.SimulationUserModel;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
 import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.OnClose;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
@@ -21,12 +23,11 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static com.nip.common.constants.SimulationRoomTypeEnum.REPORT;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
 @QuarkusTestResource(MySqlResource.class)
@@ -38,14 +39,22 @@ class WebSocketSimulationTest {
   SimulationRouterRoomDao roomDao;
   @Inject
   SimulationRouterRoomUserDao roomUserDao;
+  @Inject
+  WebSocketSimulationService service;
 
   @ClientEndpoint
   public static class Probe {
     final LinkedBlockingQueue<String> received = new LinkedBlockingQueue<>();
+    final LinkedBlockingQueue<String> closed = new LinkedBlockingQueue<>();
 
     @OnMessage
     public void on(String m) {
       received.add(m);
+    }
+
+    @OnClose
+    public void onClose() {
+      closed.add("closed");
     }
   }
 
@@ -98,6 +107,72 @@ class WebSocketSimulationTest {
     }
   }
 
+  @Test
+  void reportRoomRejectsUserWithoutMembershipWithoutPausingRoom() throws Exception {
+    String userId = Fixtures.user(userDao, "t-sim-unconfigured").getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("report-room-membership-required");
+    room.setCreateUserId(userId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(1);
+    room.setPlayStatus(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+
+    Probe probe = new Probe();
+    Session unauthorized = ContainerProvider.getWebSocketContainer()
+        .connectToServer(probe, uri(userId, roomId));
+    boolean enteredHolderList = awaitPresence(roomId, userId, unauthorized);
+    String error = probe.received.poll(5, TimeUnit.SECONDS);
+    boolean serverClosed = probe.closed.poll(5, TimeUnit.SECONDS) != null && !unauthorized.isOpen();
+
+    if (unauthorized.isOpen()) {
+      unauthorized.close();
+    }
+    awaitRemoved(roomId, userId);
+
+    assertAll(
+        () -> assertTrue(error != null && error.contains("\"code\":-1")
+            && error.contains("人员或房间信息未找到"), "必须先发送现有结构化错误"),
+        () -> assertTrue(serverClosed, "无房间成员配置的连接必须由服务端关闭"),
+        () -> assertFalse(enteredHolderList, "未授权用户不得进入房间 holder 列表"),
+        () -> assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
+            "拒接/断连不得暂停 REPORT 房间"));
+  }
+
+  @Test
+  void disconnectWithNullRoleDoesNotPauseReportRoom() {
+    String userId = Fixtures.user(userDao, "t-sim-null-role").getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("report-room-null-role");
+    room.setCreateUserId(userId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(1);
+    room.setPlayStatus(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+
+    SimulationUserModel unknownRole = new SimulationUserModel();
+    unknownRole.setId(userId);
+    unknownRole.setChannel(-1);
+    WebSocketSimulationService holder = new WebSocketSimulationService();
+    holder.setUserModel(unknownRole);
+    SimulationGlobal.reportRoom.put(roomId,
+        new CopyOnWriteArrayList<>(List.of(holder)));
+
+    try {
+      assertDoesNotThrow(() -> service.quitRoomReport(roomId, userId));
+      assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
+          "null/unknown role 断连不得被当成教员暂停房间");
+      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
+      assertTrue(members == null || members.stream()
+          .noneMatch(member -> userId.equals(member.getUserModel().getId())),
+          "未知角色 holder 必须安全移除");
+    } finally {
+      SimulationGlobal.reportRoom.remove(roomId);
+    }
+  }
+
   private static URI uri(String userId, Integer roomId) {
     return URI.create("ws://localhost:18081/simulation/" + userId + "/" + roomId);
   }
@@ -123,6 +198,22 @@ class WebSocketSimulationTest {
       Thread.sleep(100);
     }
     throw new AssertionError("10s 内房间列表未到达 " + size + " 人");
+  }
+
+  private static boolean awaitPresence(Integer roomId, String userId, Session session)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+    while (System.nanoTime() < deadline) {
+      List<WebSocketSimulationService> members = SimulationGlobal.reportRoom.get(roomId);
+      if (members != null && members.stream().anyMatch(m -> userId.equals(m.getUserModel().getId()))) {
+        return true;
+      }
+      if (!session.isOpen()) {
+        return false;
+      }
+      Thread.sleep(50);
+    }
+    return false;
   }
 
   /** 轮询直到该用户被移出房间列表（onClose 异步执行）。 */

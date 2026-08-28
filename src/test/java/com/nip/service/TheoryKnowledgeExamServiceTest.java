@@ -97,6 +97,35 @@ class TheoryKnowledgeExamServiceTest {
     assertEquals(2, after.getState(), "state 不得被重置");
     assertEquals(55, after.getScore(), "score 不得被清零");
   }
+  @Test
+  void editExamWithContentOnlyAnswerIsRejectedWithoutDeletingRows() {
+    UserEntity user = Fixtures.user(userDao, "t-exam-content-only");
+    service.saveTheoryKnowledgeExam("t-exam-content-only",
+        exam("exam-content-only", paper(null), user.getId()));
+    String examId = examIdByTitle("exam-content-only");
+
+    TheoryKnowledgeExamUserEntity examUser = examUserDao.findAllByExamId(examId).get(0);
+    String answerContent = "{\"singleChoice\":[{\"id\":\"q1\",\"answer\":\"2\"}]}";
+    examUser.setContent(answerContent);
+    examUserDao.save(examUser);
+    String snapshotId = examTestPaperDao.findAllByExamId(examId).getId();
+
+    TheoryKnowledgeExamDto edit = exam("exam-content-only-edit", paper(snapshotId), user.getId());
+    edit.setId(examId);
+
+    assertThrows(IllegalStateException.class,
+        () -> service.saveTheoryKnowledgeExam("t-exam-content-only", edit),
+        "仅保存答案内容的考试也必须禁止编辑重建");
+
+    TheoryKnowledgeExamUserEntity after = examUserDao.findById(examUser.getId());
+    assertNotNull(after, "已有答案内容的考生行不得被删除重建");
+    assertEquals(examUser.getId(), after.getId());
+    assertEquals(answerContent, after.getContent(), "content 不得丢失");
+    assertEquals(1, after.getState(), "state 不得被重置");
+    assertEquals(0, after.getScore(), "score 不得被清零");
+    assertNotNull(examTestPaperDao.findById(snapshotId), "旧试卷快照不得被删除");
+  }
+
 
   @Test
   void analyseWithMissingTypeListDoesNotNPE() {

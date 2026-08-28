@@ -73,6 +73,14 @@ public class WebSocketSimulationService {
       session.close();
       return;
     }
+    SimulationRouterRoomEntity roomEntity = optional.get();
+    if (roomUserMap == null
+        && (Objects.equals(REPORT.getType(), roomEntity.getRoomType())
+            || Objects.equals(RECEPT.getType(), roomEntity.getRoomType()))) {
+      sendErrorMessage(session, "人员或房间信息未找到", id, id);
+      session.close();
+      return;
+    }
     if (roomUserMap == null) {
       UserEntity userEntity = userDao.findById(id);
       roomUserMap = new SimulationRouterRoomUserSimpDto();
@@ -87,7 +95,6 @@ public class WebSocketSimulationService {
     }
     persistData.setSession(session);
     persistData.setUserModel(userModel);
-    SimulationRouterRoomEntity roomEntity = optional.get();
     if (Objects.equals(DISTURB.getType(), roomEntity.getRoomType())) {
       addRoomDisturd(roomId, persistData);
     } else if (Objects.equals(REPORT.getType(), roomEntity.getRoomType())) {
@@ -264,6 +271,15 @@ public class WebSocketSimulationService {
         .findFirst()
         .orElse(null);
     if (holder == null) {
+      return;
+    }
+    Integer userType = holder.getUserModel().getUserType();
+    Integer channel = holder.getUserModel().getChannel();
+    boolean knownRole = Objects.equals(userType, 0) || Objects.equals(userType, 1);
+    boolean knownChannel = Objects.equals(channel, 0) || Objects.equals(channel, 1);
+    if (!knownRole || !knownChannel) {
+      simulations.remove(holder);
+      SimulationGlobal.reportRoom.computeIfPresent(roomId, (k, list) -> list.isEmpty() ? null : list);
       return;
     }
     if (holder.getUserModel().getChannel().compareTo(1) == 0) {

@@ -73,7 +73,7 @@ public class TheoryKnowledgeExamService {
     TestPaperDto testPaper = dto.getTestPaper();
     // #4 状态守卫：已有作答/进行中/已交卷的考生存在时禁止重建
     long touched = theoryKnowledgeExamUserDao
-        .count("examId = ?1 and (state <> 1 or score > 0)", save.getId());
+        .count("examId = ?1 and (state <> 1 or score > 0 or content is not null and trim(content) <> '')", save.getId());
     if (touched > 0) {
       throw new IllegalStateException("考试已有作答记录，禁止编辑重建考生名单");
     }

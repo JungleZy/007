@@ -288,17 +288,22 @@ public class TickerPatUtils {
     List<List<List<Integer>>> valuesLists = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       PostTelegramTrainContentAddParam item = messageBody.get(i);
+      String raw = item.getPatKeys();
       List<String> pk = null;
       try {
-        pk = JSONUtils.fromJson(item.getPatKeys(), new TypeToken<List<String>>() {
+        pk = JSONUtils.fromJson(raw, new TypeToken<List<String>>() {
         });
       } catch (Exception e) {
-        log.warn("handleMessageBody patKeys 非 JSON（index={}），按纯文本逐字符拆分", i, e);
+        String trimmed = StringUtils.trimToEmpty(raw);
+        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+          int fragmentLength = Math.min(raw == null ? 0 : raw.length(), 96);
+          String fragment = raw == null ? "null" : raw.substring(0, fragmentLength);
+          throw new IllegalStateException(
+              "patKeys JSON 损坏，拒绝写入（index=" + i + ", raw=" + fragment + ")", e);
+        }
       }
-      // 协议容忍：纯文本 patKeys 逐字符拆分；副作用：损坏的 JSON 数组文本也会被拆成含 [ " , 的垃圾按键——无协议标记无法区分，接受此残留
       if (pk == null) {
         pk = new ArrayList<>();
-        String raw = item.getPatKeys();
         if (raw != null) {
           for (int c = 0; c < raw.length(); c++) {
             pk.add(String.valueOf(raw.charAt(c)));
