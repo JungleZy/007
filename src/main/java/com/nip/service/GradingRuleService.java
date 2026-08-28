@@ -18,7 +18,6 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * LayersService
@@ -53,7 +52,9 @@ public class GradingRuleService {
   }
 
   public Response<GradingRuleEntity> getGradingRuleById(String id) {
-    return ResponseResult.success(Optional.ofNullable(gradingRuleDao.findById(id)).orElse(new GradingRuleEntity()));
+    GradingRuleEntity entity = gradingRuleDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
+    return ResponseResult.success(entity);
   }
 
   @Transactional
@@ -104,15 +105,17 @@ public class GradingRuleService {
 
   @Transactional
   public Response<GradingRuleEntity> updateGradingRuleStatus(String id, Integer status) {
-    GradingRuleEntity entity = Optional.ofNullable(gradingRuleDao.findById(id)).orElse(new GradingRuleEntity());
+    GradingRuleEntity entity = gradingRuleDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
     entity.setStatus(status);
     return ResponseResult.success(entity);
   }
 
   @Transactional
   public Response<Void> changeGradingRuleIsDefault(String id) {
+    GradingRuleEntity entity = gradingRuleDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
     try {
-      GradingRuleEntity entity = Optional.ofNullable(gradingRuleDao.findById(id)).orElse(new GradingRuleEntity());
       List<GradingRuleEntity> byType = gradingRuleDao.findByType(entity.getType());
       byType.forEach(e -> {
         e.setIsDefault(1);

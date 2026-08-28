@@ -129,7 +129,11 @@ public class MilitaryTermDataService {
    */
   @Transactional(rollbackOn = Exception.class)
   public void delete(MilitaryTermDataVO vo) {
-    MilitaryTermDataEntity entity = militaryTermDataDao.findById(vo.getId());
+    if (vo == null || vo.getId() == null) {
+      throw new IllegalArgumentException("未查询到该军语");
+    }
+    MilitaryTermDataEntity entity = militaryTermDataDao.findByIdOptional(vo.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该军语"));
     //查看是由有子集
     List<MilitaryTermDataEntity> child = militaryTermDataDao.findAllByParentId(entity.getId());
     if (!child.isEmpty()) {

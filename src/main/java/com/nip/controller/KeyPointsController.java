@@ -44,6 +44,10 @@ public class KeyPointsController {
   @Path("/findKeyPointsByType")
   @Operation(summary = "查询要点讲解")
   public Response<KeyPointsEntity> findKeyPointsByType(Map<String, Integer> type) {
-    return ResponseResult.success(keyPointsService.getByType(type.get(TYPE)));
+    Integer keyPointsType = type == null ? null : type.get(TYPE);
+    if (keyPointsType == null) {
+      throw new IllegalArgumentException("要点讲解类型不能为空");
+    }
+    return ResponseResult.success(keyPointsService.getByType(keyPointsType));
   }
 }

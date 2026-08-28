@@ -45,7 +45,7 @@ public class MilitaryTermDataDao extends BaseRepository<MilitaryTermDataEntity, 
 
   @Transactional
   public void sortSubtract(String parentId, Integer sort) {
-    update("sort = sort + 1 where parentId = ?1 and sort>=?2", parentId, sort);
+    update("sort = sort - 1 where parentId = ?1 and sort > ?2", parentId, sort);
   }
 
   @Transactional
