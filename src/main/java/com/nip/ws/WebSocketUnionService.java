@@ -73,8 +73,6 @@ public class WebSocketUnionService {
       if (existing != null) {
         send(existing.session(),
           new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent()));
-        userExitLocked(existing);
-        close(existing.session());
       }
 
       UserEntity userEntity = userDao.findUserEntityById(sid);
@@ -86,6 +84,9 @@ public class WebSocketUnionService {
       Client me = new Client(session, userModel);
       webSocketClientSet.put(sid, me);
       onlineUsers.put(sid, userModel);
+      if (existing != null) {
+        close(existing.session());
+      }
       log.info("有新客户端进入联合训练:" + sid + ",当前在线客户端数为:" + webSocketClientSet.size());
       userJoin(me);
     } finally {

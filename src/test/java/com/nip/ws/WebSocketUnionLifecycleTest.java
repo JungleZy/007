@@ -122,6 +122,32 @@ class WebSocketUnionLifecycleTest {
   }
 
   @Test
+  void sameSidReplacementPreservesRoomMembershipWithoutUserExit() throws Exception {
+    String sid = "member";
+    WebSocketUnionService endpoint = endpoint(
+        new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
+    TestSession oldSession = session("member-old");
+    TestSession replacement = session("member-replacement");
+    TestSession watcher = session("watcher");
+    endpoint.onOpen(oldSession.session(), sid);
+    endpoint.onOpen(watcher.session(), "watcher");
+    RoomModel room = room("room-member", sid,
+        new CopyOnWriteArrayList<>(List.of(user(sid))));
+    unionMap("onlineRooms").put(room.getId(), room);
+    watcher.outbound().clear();
+
+    endpoint.onOpen(replacement.session(), sid);
+
+    RoomModel mapped = (RoomModel) unionMap("onlineRooms").get(room.getId());
+    assertNotNull(mapped);
+    assertEquals(List.of(sid), mapped.getUsers().stream().map(UserModel::getId).toList());
+    assertFalse(watcher.outbound().stream().anyMatch(message -> message.contains("\"code\":3")),
+        "same-sid replacement must not broadcast USER_EXIT");
+    assertSame(replacement.session(), clientSession(unionMap("webSocketClientSet").get(sid)));
+    assertFalse(oldSession.open().get(), "same-sid replacement must close the displaced Session");
+  }
+
+  @Test
   void soleMemberExplicitExitRemovesRoomKey() throws Exception {
     WebSocketUnionService endpoint = endpoint(new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
     TestSession owner = session("owner-session");
