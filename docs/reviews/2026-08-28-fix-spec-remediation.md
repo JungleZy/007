@@ -1,6 +1,6 @@
 # 2026-08-28 修复 Spec 整改验收报告
 
-**结论：`fix/spec-remediation` 已完成本次约定的高风险修复子集，并在六个修复提交全部落地后通过全量验证；这不表示 2026-08-26 spec 所列 348 项确认缺陷已经全部完成。** 本报告固定本次范围、验收证据和仍需后续处理的已知工作。
+**结论：`fix/spec-remediation` 已完成本次约定的高风险修复子集，并在八个修复提交全部落地后通过全量验证；这不表示 2026-08-26 spec 所列 348 项确认缺陷已经全部完成。** 本报告固定本次范围、验收证据和仍需后续处理的已知工作。
 
 ## 本次范围
 
@@ -26,10 +26,12 @@
 | `79ce9ff` | 多步骤写操作的事务回滚边界 |
 | `c631a77` | 实体缺失语义与军语删除顺序 |
 | `a0ac3c6` | Union 空房间生命周期与确定性 remove 屏障 |
+| `3a54ccd` | 闭合消息重连与删房竞态 |
+| `a9ae85b` | 保留同用户重连的房间状态 |
 
-## 六个提交后的全量验证
+## 八个提交后的全量验证
 
-六个提交全部落地后重新执行：
+八个提交全部落地后重新执行：
 
 ```text
 JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify
@@ -38,27 +40,27 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify
 结果：
 
 ```text
-Tests run: 98, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 112, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
-Total time: 02:00 min
-Finished at: 2026-08-28T16:09:09+08:00
+Total time: 01:58 min
+Finished at: 2026-08-28T18:12:27+08:00
 ```
 
 其他验收证据：
 
-- `docker build -f src/main/docker/Dockerfile.jvm .`：成功；镜像 manifest list 为 `sha256:68e933f6d31ac1d46ceb8e553c88268386e9332f6187428c8c10ae6a63254f89`。
+- `docker build -f src/main/docker/Dockerfile.jvm .`：成功；镜像 manifest list 为 `sha256:264d4dcd968b8f8b45c5a522a73fdc3c0f1a9e3c2238130871a079ba043564a3`。
 - `docker run --rm ... rhysd/actionlint:latest`：退出码 0，无输出。
 - 第一方 Java 静态门禁：空 catch 为 0；使用 `getMessage()` 的日志调用为 0；`@ServerEndpoint` 中按正则检查的每连接 `Session`/`UserModel` 字段为 0。
 - `git diff --check main...HEAD`：退出码 0。
 - Java LSP 诊断不可用，工具返回 `No language server found`；Java 诊断以实际编译和上述 `clean verify` 结果为准。
 
-此前一次最终验证为 97/1（97 个通过、1 个失败）：失败暴露 Union `onlineRooms` 泄漏，并直接促成 `a0ac3c6`。上面的修复后新鲜全量验证是权威结果；会话内产物未作为版本化证据引用。
+验收时间线：最早一次验证为 97/1（97 个通过、1 个失败），Union `onlineRooms` 泄漏促成 `a0ac3c6`；随后 98/0 是中间结果。最终审查又发现 4 项 Important，均由 `3a54ccd` 处理；定向残余审查发现的问题由 `a9ae85b` 处理。最终定向审查的 4 项 Important 与 1 项 residual 均为 `ADDRESSED/PASS`，八个提交后的 112/0 是权威结果；会话内产物未作为版本化证据引用。
 
 ## Definition of Done 状态
 
 | 原 DoD | 本次状态 | 证据或边界 |
 |---|---|---|
-| 1. `clean verify` 全绿且测试数 ≥ 30 | 已满足 | 六个提交后共运行 98 个测试，失败、错误、跳过均为 0。 |
+| 1. `clean verify` 全绿且测试数 ≥ 30 | 已满足 | 八个提交后共运行 112 个测试，失败、错误、跳过均为 0。 |
 | 2. 空 catch、WebSocket 会话态实例字段、`log.*(...getMessage())` 静态门禁 | 已满足 | 三项第一方 Java 静态门禁均为 0。 |
 | 3. 迁移脚本快照库演练及 prod `generation: validate` 启动 | 本次未重新验证 | 仍沿用更早的 Phase 5 演练证据；本次未重跑破坏性迁移，不能把它记作本次新证据。 |
 | 4. 审计勘误与新发现批次映射 | 已修正文档映射 | 批次由 `1/2/3/7` 修正为 `1/2/3/6/7`，因为 Docker `EXPOSE` 属于批 6；该映射修正不表示所有原 P2 项已完成。 |
