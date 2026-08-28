@@ -3,6 +3,8 @@ package com.nip.ws;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.UserDao;
 import com.nip.testsupport.Fixtures;
+import com.nip.ws.model.RoomModel;
+import com.nip.ws.model.UserModel;
 import com.nip.testsupport.MySqlResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -18,8 +20,10 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -110,6 +114,48 @@ class WebSocketUnionTest {
     }
   }
 
+  @Test
+  void staleResolvedClientCannotRemoveReplacement() throws Exception {
+    String id = Fixtures.user(userDao, "t-ws-stale").getId();
+    String watcherId = Fixtures.user(userDao, "t-ws-stale-watcher").getId();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    Probe oldProbe = new Probe();
+    Probe replacementProbe = new Probe();
+    Probe watcherProbe = new Probe();
+
+    try (Session oldSession = c.connectToServer(oldProbe,
+             URI.create("ws://localhost:18081/websocketUnion/" + id));
+         Session watcher = c.connectToServer(watcherProbe,
+             URI.create("ws://localhost:18081/websocketUnion/" + watcherId))) {
+      awaitRegistered(oldSession, oldProbe);
+      awaitRegistered(watcher, watcherProbe);
+      Object staleClient = unionMap("webSocketClientSet").get(id);
+      assertNotNull(staleClient, "旧连接必须已注册，才能复现 resolveClient 与 userExit 之间的竞态");
+
+      try (Session replacement = c.connectToServer(replacementProbe,
+          URI.create("ws://localhost:18081/websocketUnion/" + id))) {
+        awaitRegistered(replacement, replacementProbe);
+        watcherProbe.received.clear();
+
+        invokeUserExit(staleClient);
+
+        assertNull(pollForCode(watcherProbe, 3, 1), "过期清理不得广播 USER_EXIT(3)");
+        replacementProbe.received.clear();
+        replacement.getBasicRemote().sendText("{\"code\":0}");
+        Map userList = pollForCode(replacementProbe, 10, 2);
+        assertNotNull(userList, "过期清理不得移除替代连接的 Client 映射");
+        assertTrue(userList.get("data").toString().contains(id),
+            "过期清理不得移除替代连接的在线用户状态");
+      }
+    }
+  }
+
+  private static void invokeUserExit(Object client) throws Exception {
+    var userExit = WebSocketUnionService.class.getDeclaredMethod("userExit", client.getClass());
+    userExit.setAccessible(true);
+    userExit.invoke(new WebSocketUnionService(), client);
+  }
+
   /** 等待连接在服务端注册完成：反复发 GET_UNION_INFO 直到收到 USER_LIST（未注册时服务端丢弃消息）。 */
   private static void awaitRegistered(Session s, Probe p) throws Exception {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
@@ -197,12 +243,10 @@ class WebSocketUnionTest {
       awaitRegistered(sa, pa);
       awaitRegistered(sb, pb);
 
-      // 建房 → 入房 → 退房 → 解散（帧序保证解散先于 close 帧被处理）
-      sa.getBasicRemote().sendText("{\"code\":12,\"data\":{\"name\":\"churn-" + i + "\"}}");
-      Map added = pollForCode(pa, 120, 5);
-      assertNotNull(added, "第 " + i + " 轮建房必须收到 ADD_ROOM_SUCCESS(120)");
-      Map room = JSONUtils.fromJson(added.get("data").toString(), Map.class);
-      String roomId = room.get("id").toString();
+      // 房间夹具使用固定 ID，避免 Snowflake 对宿主机时钟回拨的独立依赖；
+      // JOIN/EXIT/REMOVE 仍走真实 WebSocket 协议。
+      String roomId = Integer.toString(100000 + i);
+      seedRoom(roomId, idA);
       sb.getBasicRemote().sendText("{\"code\":13,\"data\":" + roomId + "}");
       assertNotNull(pollForCode(pb, 130, 5), "第 " + i + " 轮入房必须收到 JOIN_ROOM_SUCCESS(130)");
       sb.getBasicRemote().sendText("{\"code\":14,\"data\":" + roomId + "}"); // EXIT_ROOM
@@ -234,6 +278,17 @@ class WebSocketUnionTest {
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void seedRoom(String roomId, String adminId) throws Exception {
+    UserModel admin = new UserModel();
+    admin.setId(adminId);
+    RoomModel room = new RoomModel();
+    room.setId(roomId);
+    room.setAdmin(adminId);
+    room.setUsers(new CopyOnWriteArrayList<>(List.of(admin)));
+    ((Map<String, RoomModel>) unionMap("onlineRooms")).put(roomId, room);
   }
 
   /** 反射读取 WebSocketUnionService 的全局静态表（字段私有，测试专用通道）。 */

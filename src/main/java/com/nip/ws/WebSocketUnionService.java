@@ -205,6 +205,10 @@ public class WebSocketUnionService {
    * 用户退出
    */
   private void userExit(Client me) {
+    String sid = me.user().getId();
+    if (!webSocketClientSet.remove(sid, me)) {
+      return;
+    }
     for (RoomModel roomModel : onlineRooms.values()) {
       boolean b = roomModel.getUsers().removeIf(userModel -> userModel.getId().equals(me.user().getId()));
       if (b) {
@@ -216,9 +220,8 @@ public class WebSocketUnionService {
           new ResponseModel(UnionConstants.ROOM_USER_BROADCAST.getCode(), JSONUtils.toJson(jsonObject))));
       }
     }
-    webSocketClientSet.remove(me.user().getId());
-    onlineUsers.remove(me.user().getId());
-    log.info("有客户端退出联合训练:" + me.user().getId() + ",当前在线客户端数为：" + onlineUsers.size());
+    onlineUsers.remove(sid, me.user());
+    log.info("有客户端退出联合训练:" + sid + ",当前在线客户端数为：" + onlineUsers.size());
     webSocketClientSet.forEach((s, client) -> send(client.session(),
       new ResponseModel(UnionConstants.USER_EXIT.getCode(), JSONUtils.toJson(me.user()))));
   }
