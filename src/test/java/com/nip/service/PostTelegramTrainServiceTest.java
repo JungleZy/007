@@ -10,8 +10,8 @@ import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import com.nip.dto.vo.PostTelegramTrainAddContentValueVO;
 import com.nip.entity.PostTelegramTrainEntity;
 import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 与 :534 的 deleteByTrainIdAndFloorNumber（按页覆盖）语义不一致。现在按 floorNumber upsert。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class PostTelegramTrainServiceTest {
   @Inject PostTelegramTrainService service;
   @Inject PostTelegramTrainDao trainDao;

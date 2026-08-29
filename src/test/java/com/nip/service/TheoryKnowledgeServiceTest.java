@@ -8,8 +8,8 @@ import com.nip.dto.vo.TheoryKnowledgeTestVO;
 import com.nip.entity.TheoryKnowledgeEntity;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class TheoryKnowledgeServiceTest {
   @Inject TheoryKnowledgeService service;
   @Inject TheoryKnowledgeSwfDao knowledgeSwfDao;

@@ -4,8 +4,8 @@ import com.nip.dao.UserDao;
 import com.nip.entity.UserEntity;
 import com.nip.ws.model.RoomModel;
 import com.nip.ws.model.UserModel;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.websocket.RemoteEndpoint;
 import jakarta.websocket.Session;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class WebSocketUnionLifecycleTest {
 
   @AfterEach

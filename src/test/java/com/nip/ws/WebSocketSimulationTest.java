@@ -6,11 +6,11 @@ import com.nip.dao.simulation.SimulationRouterRoomUserDao;
 import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
+
 import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.model.SimulationUserModel;
 import com.nip.ws.service.simulation.SimulationGlobal;
-import io.quarkus.test.common.QuarkusTestResource;
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
@@ -32,7 +32,7 @@ import static com.nip.common.constants.SimulationRoomTypeEnum.REPORT;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class WebSocketSimulationTest {
 
   @Inject

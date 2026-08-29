@@ -1,8 +1,8 @@
 package com.nip.dao;
 
 import com.nip.entity.PostTelegramTrainFloorContentEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  *   MySQL 8 默认 sql_mode=ONLY_FULL_GROUP_BY 直接拒绝。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class PostTelegramTrainFloorContentDaoTest {
   @Inject PostTelegramTrainFloorContentDao dao;
 

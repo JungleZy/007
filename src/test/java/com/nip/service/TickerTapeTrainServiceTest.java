@@ -6,8 +6,8 @@ import com.nip.dto.vo.TelexPatTrainStatisticalVO;
 import com.nip.entity.TickerTapeTrainStatisticalEntity;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * DB 返回顺序不是 0,1,2 时三个 Tab 数据互串。现在必须显式按 type 排序。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class TickerTapeTrainServiceTest {
   @Inject TickerTapeTrainService service;
   @Inject TickerTapeTrainStatisticalDao statisticalDao;

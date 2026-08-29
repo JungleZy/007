@@ -14,12 +14,8 @@ quarkus:
       origins: '*'
       methods: OPTIONS, GET, POST, DELETE, PUT, PATCH
   datasource:
-    username: root
-    password: root
     db-kind: mysql
     jdbc:
-      # url: jdbc:mysql://localhost:3306/project006-0617?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
-      url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
       max-size: 200
       min-size: 20
   hibernate-orm:
@@ -57,8 +53,20 @@ quarkus:
       includes: resources/**
     march: compatibility
 #    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json
+"%dev":
+  quarkus:
+    datasource:
+      username: root
+      password: root
+      jdbc:
+        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
 "%test":
   quarkus:
+    datasource:
+      devservices:
+        enabled: true
+        image-name: mysql:8.0
+        db-name: project006_test
     hibernate-orm:
       database:
         generation: drop-and-create
@@ -66,6 +74,11 @@ quarkus:
       test-port: 18081
 "%prod":
   quarkus:
+    datasource:
+      username: root
+      password: root
+      jdbc:
+        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
     hibernate-orm:
       database:
         # 顺序硬约束：必须先执行 docs/database/migrations/2026-08-26-01-schema-sync.sql

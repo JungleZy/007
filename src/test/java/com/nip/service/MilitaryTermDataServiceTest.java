@@ -3,8 +3,8 @@ package com.nip.service;
 import com.nip.dao.MilitaryTermDataDao;
 import com.nip.dto.MilitaryTermDto;
 import com.nip.entity.MilitaryTermDataEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 本测试防守该回滚契约不回归。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class MilitaryTermDataServiceTest {
   @Inject MilitaryTermDataService service;
   @Inject MilitaryTermDataDao dao;

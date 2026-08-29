@@ -4,8 +4,8 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.dao.TelegramTrainFloorContentDao;
 import com.nip.entity.TelegramTrainFloorContentEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * 正确参照同类 controlTelegramTrain 内联更新（TelegramTrainService:205 的 moresValue）。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class TelegramTrainServiceTest {
   @Inject TelegramTrainService service;
   @Inject TelegramTrainFloorContentDao contentDao;

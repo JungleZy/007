@@ -5,8 +5,8 @@ import com.nip.dao.MenusDao;
 import com.nip.dto.MenusButtonDto;
 import com.nip.entity.MenusButtonEntity;
 import com.nip.entity.MenusEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class MenusServiceTest {
   @Inject MenusService service;
   @Inject MenusDao menusDao;
