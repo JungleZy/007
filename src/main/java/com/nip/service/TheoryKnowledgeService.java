@@ -31,6 +31,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * TheoryKnowledgeSwfService
@@ -89,18 +91,7 @@ public class TheoryKnowledgeService {
     List<TheoryKnowledgeSwfEntity> swfEntities = knowledgeSwfDao.findAllByKnowledgeIdOrderBySortAsc(knowledge.getId());
     TheoryKnowledgesDto knowledgeDto = new TheoryKnowledgesDto();
     knowledgeDto.setKnowledge(knowledge);
-    List<TheoryKnowledgeSwfVO> swfVOS = PojoUtils.convert(swfEntities, TheoryKnowledgeSwfVO.class, (e, v) -> {
-      //查询测验
-      List<TheoryKnowledgeTestEntity> testEntities = theoryKnowledgeTestDao.findAllByKnowledgeSwfIdOrderByCreateTimeAsc(e.getId());
-      List<TheoryKnowledgeTestVO> testVos = PojoUtils.convert(testEntities, TheoryKnowledgeTestVO.class, (testEntity, testVo) -> {
-        //查询考题
-        List<TheoryKnowledgeTestContentEntity> testContentEntities =
-            theoryKnowledgeTestContentDao.findAllByKnowledgeTestId(testEntity.getId());
-        testVo.setKnowledgeTestContents(testContentEntities);
-      });
-      v.setTest(testVos);
-    });
-    knowledgeDto.setKnowledgeSwfs(swfVOS);
+    knowledgeDto.setKnowledgeSwfs(assembleSwfs(swfEntities, null));
     return ResponseResult.success(knowledgeDto);
   }
 
@@ -121,37 +112,60 @@ public class TheoryKnowledgeService {
     }
     List<TheoryKnowledgeSwfEntity> swfEntities = knowledgeSwfDao.findAllByKnowledgeIdOrderBySortAsc(knowledge.getId());
     TheoryKnowledgesDto knowledgeDto = new TheoryKnowledgesDto();
-    swfEntities.forEach(swf -> {
-      TheoryKnowledgeTestUserEntity firstByUserIdAndKnowledgeSwfId = theoryKnowledgeTestUserDao.findFirstByUserIdAndKnowledgeSwfId(userEntity.getId(), swf.getId());
-      swf.setScore(null == firstByUserIdAndKnowledgeSwfId ? 0 : firstByUserIdAndKnowledgeSwfId.getScore());
-      List<TheoryKnowledgeTestEntity> allByKnowledgeIdAndVersions = theoryKnowledgeTestDao.findAllByKnowledgeSwfIdAndVersions(swf.getId(), 1);
-      swf.setHaveTest(!allByKnowledgeIdAndVersions.isEmpty());
-      List<TheoryKnowledgeSwfRecordEntity> allByUserIdAndKnowledgeSwfId = knowledgeRecordDao.findAllByUserIdAndKnowledgeSwfId(userEntity.getId(), swf.getId());
-      double count = 0;
-      if (!allByUserIdAndKnowledgeSwfId.isEmpty()) {
-        for (TheoryKnowledgeSwfRecordEntity theoryKnowledgeSwfRecordEntity : allByUserIdAndKnowledgeSwfId) {
-          long between = DateUtil.between(DateUtil.parse(theoryKnowledgeSwfRecordEntity.getJoinTime()), DateUtil.parse(theoryKnowledgeSwfRecordEntity.getExitTime()), DateUnit.SECOND);
-          count += between;
-        }
-        swf.setRecord(count / 60);
-      } else {
-        swf.setRecord(0);
+    knowledgeDto.setKnowledge(knowledge);
+    knowledgeDto.setKnowledgeSwfs(assembleSwfs(swfEntities, userEntity.getId()));
+    return ResponseResult.success(knowledgeDto);
+  }
+
+  /**
+   * 批量装配课件树：一次性取回全部测验与考题；当 userId 非空时再各批量取回答案与学习记录，
+   * 按外键分组后派生 haveTest/score/record，消除按课件、按测验的 N+1 查询。
+   * DAO 结果已按 createTime 升序，分组保持每课件/每测验的顺序。
+   *
+   * @param swfs   已按 sort 升序的课件实体
+   * @param userId 用户ID；为 null 时仅装配测验树（score/haveTest/record 保留实体默认值）
+   * @return 课件 VO 列表
+   */
+  private List<TheoryKnowledgeSwfVO> assembleSwfs(List<TheoryKnowledgeSwfEntity> swfs, String userId) {
+    List<String> swfIds = swfs.stream().map(TheoryKnowledgeSwfEntity::getId).toList();
+    List<TheoryKnowledgeTestEntity> tests = theoryKnowledgeTestDao.findAllByKnowledgeSwfIdInOrderByCreateTimeAsc(swfIds);
+    List<String> testIds = tests.stream().map(TheoryKnowledgeTestEntity::getId).toList();
+    List<TheoryKnowledgeTestContentEntity> contents = theoryKnowledgeTestContentDao.findAllByKnowledgeTestIdInOrderByCreateTimeAsc(testIds);
+
+    Map<String, List<TheoryKnowledgeTestEntity>> testsBySwf = tests.stream()
+        .collect(Collectors.groupingBy(TheoryKnowledgeTestEntity::getKnowledgeSwfId));
+    Map<String, List<TheoryKnowledgeTestContentEntity>> contentsByTest = contents.stream()
+        .collect(Collectors.groupingBy(TheoryKnowledgeTestContentEntity::getKnowledgeTestId));
+
+    Map<String, TheoryKnowledgeTestUserEntity> answerBySwf;
+    Map<String, List<TheoryKnowledgeSwfRecordEntity>> recordsBySwf;
+    if (userId != null) {
+      answerBySwf = theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeSwfIdIn(userId, swfIds).stream()
+          .collect(Collectors.toMap(TheoryKnowledgeTestUserEntity::getKnowledgeSwfId,
+              Function.identity(), (first, ignored) -> first));
+      recordsBySwf = knowledgeRecordDao.findAllByUserIdAndKnowledgeSwfIdIn(userId, swfIds).stream()
+          .collect(Collectors.groupingBy(TheoryKnowledgeSwfRecordEntity::getKnowledgeSwfId));
+    } else {
+      answerBySwf = Map.of();
+      recordsBySwf = Map.of();
+    }
+
+    return PojoUtils.convert(swfs, TheoryKnowledgeSwfVO.class, (e, v) -> {
+      List<TheoryKnowledgeTestEntity> swfTests = testsBySwf.getOrDefault(e.getId(), List.of());
+      List<TheoryKnowledgeTestVO> testVos = PojoUtils.convert(swfTests, TheoryKnowledgeTestVO.class,
+          (testEntity, testVo) -> testVo.setKnowledgeTestContents(
+              contentsByTest.getOrDefault(testEntity.getId(), List.of())));
+      v.setTest(testVos);
+      if (userId != null) {
+        v.setHaveTest(swfTests.stream().anyMatch(t -> Objects.equals(t.getVersions(), 1)));
+        TheoryKnowledgeTestUserEntity answer = answerBySwf.get(e.getId());
+        v.setScore(answer == null ? 0 : answer.getScore());
+        long seconds = recordsBySwf.getOrDefault(e.getId(), List.of()).stream()
+            .mapToLong(r -> DateUtil.between(DateUtil.parse(r.getJoinTime()), DateUtil.parse(r.getExitTime()), DateUnit.SECOND))
+            .sum();
+        v.setRecord(seconds / 60.0);
       }
     });
-    knowledgeDto.setKnowledge(knowledge);
-    List<TheoryKnowledgeSwfVO> swfVOS = PojoUtils.convert(swfEntities, TheoryKnowledgeSwfVO.class, (e, v) -> {
-      //查询测验
-      List<TheoryKnowledgeTestEntity> testEntities = theoryKnowledgeTestDao.findAllByKnowledgeSwfIdOrderByCreateTimeAsc(e.getId());
-      List<TheoryKnowledgeTestVO> testVos = PojoUtils.convert(testEntities, TheoryKnowledgeTestVO.class, (testEntity, testVo) -> {
-        //查询考题
-        List<TheoryKnowledgeTestContentEntity> testContentEntities =
-            theoryKnowledgeTestContentDao.findAllByKnowledgeTestId(testEntity.getId());
-        testVo.setKnowledgeTestContents(testContentEntities);
-      });
-      v.setTest(testVos);
-    });
-    knowledgeDto.setKnowledgeSwfs(swfVOS);
-    return ResponseResult.success(knowledgeDto);
   }
 
   /**
@@ -416,55 +430,51 @@ public class TheoryKnowledgeService {
    * @return 返回一个Map对象，键为理论知识实体，值为该知识各个SWF文件的学习时长
    */
   private Map<Object, Object> count(List<TheoryKnowledgeSwfRecordEntity> list, String userId) {
-    Map<String, Map<String, Long>> map = new HashMap<>();
-    Map<String, Long> swf = new HashMap<>();
-    list.forEach(a -> {
+    // 直接聚合为 knowledgeId -> (swfId -> 秒数)，避免字符串拼接/拆分
+    Map<String, Map<String, Long>> durationsByKnowledge = new HashMap<>();
+    for (TheoryKnowledgeSwfRecordEntity a : list) {
       long between = DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND);
-      //统计每一个章节的时长
-      if (ObjectUtil.isEmpty(swf.get(a.getKnowledgeId() + ":" + a.getKnowledgeSwfId()))) {
-        swf.put(a.getKnowledgeId() + ":" + a.getKnowledgeSwfId(), between);
-      } else {
-        swf.put(a.getKnowledgeId() + ":" + a.getKnowledgeSwfId(), swf.get(a.getKnowledgeId() + ":" + a.getKnowledgeSwfId()) + between);
-      }
-    });
-    swf.forEach((key, value) -> {
-      String[] s = key.split(":");
-      String id = s[0];
-      String swfId = s[1];
-      Map<String, Long> longMap = new HashMap<>();
-      longMap.put(swfId, value);
-      if (ObjectUtil.isEmpty(map.get(id))) {
-        map.put(id, longMap);
-      } else {
-        Map<String, Long> map1 = map.get(id);
-        if (ObjectUtil.isEmpty(map1.get(swfId))) {
-          map1.put(swfId, value);
-          map.put(id, map1);
-        } else {
-          map1.put(swfId, value + map1.get(swfId));
-          map.put(id, map1);
-        }
-      }
-    });
-    Map<Object, Object> re = new HashMap<>();
-    Map<String, Long> swf2 = new HashMap<>();
-    for (Map.Entry<String, Map<String, Long>> mapEntry : map.entrySet()) {
-      TheoryKnowledgeEntity theoryKnowledgeEntity = knowledgeDao.findById(mapEntry.getKey());
-      //查询是否得到学分
-      List<TheoryKnowledgeSwfEntity> allByKnowledgeIdOrderBySortAsc = knowledgeSwfDao.findAllByKnowledgeIdOrderBySortAsc(theoryKnowledgeEntity.getId());
-      List<TheoryKnowledgeTestUserEntity> allByUserIdAndKnowledgeId = theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeId(userId, theoryKnowledgeEntity.getId());
-      if (allByKnowledgeIdOrderBySortAsc.size() != allByUserIdAndKnowledgeId.size()) {
-        theoryKnowledgeEntity.setCredit(0.0);
-      }
-      for (Map.Entry<String, Long> valueEn : mapEntry.getValue().entrySet()) {
-        TheoryKnowledgeSwfEntity swfEntityOptional = knowledgeSwfDao.findById(valueEn.getKey());
-        if (ObjectUtil.isNotEmpty(swfEntityOptional)) {
-          swf2.put(swfEntityOptional.getTitle(), valueEn.getValue());
-        }
-      }
-      re.put(theoryKnowledgeEntity, swf2);
-      swf2 = new HashMap<>();
+      durationsByKnowledge
+          .computeIfAbsent(a.getKnowledgeId(), k -> new HashMap<>())
+          .merge(a.getKnowledgeSwfId(), between, Long::sum);
     }
+
+    List<String> knowledgeIds = list.stream()
+        .map(TheoryKnowledgeSwfRecordEntity::getKnowledgeId).distinct().toList();
+    List<String> swfIds = list.stream()
+        .map(TheoryKnowledgeSwfRecordEntity::getKnowledgeSwfId).distinct().toList();
+
+    // 三次批量取回，替代循环内逐知识/逐课件查询
+    Map<String, TheoryKnowledgeEntity> knowledgeById = knowledgeDao.list("id in ?1", knowledgeIds).stream()
+        .collect(Collectors.toMap(TheoryKnowledgeEntity::getId, Function.identity(), (first, ignored) -> first));
+    List<TheoryKnowledgeSwfEntity> swfEntities = knowledgeSwfDao.list("id in ?1", swfIds);
+    Map<String, TheoryKnowledgeSwfEntity> swfById = swfEntities.stream()
+        .collect(Collectors.toMap(TheoryKnowledgeSwfEntity::getId, Function.identity(), (first, ignored) -> first));
+    Map<String, List<TheoryKnowledgeSwfEntity>> swfsByKnowledge = swfEntities.stream()
+        .collect(Collectors.groupingBy(TheoryKnowledgeSwfEntity::getKnowledgeId));
+    Map<String, List<TheoryKnowledgeTestUserEntity>> answersByKnowledge =
+        theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeSwfIdIn(userId, swfIds).stream()
+            .collect(Collectors.groupingBy(TheoryKnowledgeTestUserEntity::getKnowledgeId));
+
+    Map<Object, Object> re = new HashMap<>();
+    durationsByKnowledge.forEach((knowledgeId, perSwf) -> {
+      TheoryKnowledgeEntity managed = knowledgeById.get(knowledgeId);
+      // 不修改托管实体：仅在展示副本上按需清零学分
+      TheoryKnowledgeEntity display = PojoUtils.convertOne(managed, TheoryKnowledgeEntity.class);
+      int swfCount = swfsByKnowledge.getOrDefault(knowledgeId, List.of()).size();
+      int answerCount = answersByKnowledge.getOrDefault(knowledgeId, List.of()).size();
+      if (swfCount != answerCount) {
+        display.setCredit(0.0);
+      }
+      Map<String, Long> titled = new HashMap<>();
+      perSwf.forEach((swfId, seconds) -> {
+        TheoryKnowledgeSwfEntity swfEntity = swfById.get(swfId);
+        if (ObjectUtil.isNotEmpty(swfEntity)) {
+          titled.put(swfEntity.getTitle(), seconds);
+        }
+      });
+      re.put(display, titled);
+    });
     return re;
   }
 
@@ -479,27 +489,16 @@ public class TheoryKnowledgeService {
    * @return 返回一个映射，键为月份或日期，值为该时间单位内的总时长（以秒为单位）
    */
   private Map<String, Long> check(List<TheoryKnowledgeSwfRecordEntity> list, String year, String month) {
+    // list 已按 year(-month) 预筛，直接从 joinTime 提取月/日键聚合，替代 1..12 / 1..31 扫描
+    boolean byMonth = ObjectUtil.isEmpty(month);
     Map<String, Long> map = new HashMap<>();
-    if (ObjectUtil.isEmpty(month)) {
-      for (TheoryKnowledgeSwfRecordEntity a : list) {
-        for (int i = 1; i <= 12; i++) {
-          String substring = a.getJoinTime().substring(0, 7);
-          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
-            map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND));
-          }
-        }
-      }
-    } else {
-      month = padTwoDigits(Integer.parseInt(month));
-      for (TheoryKnowledgeSwfRecordEntity a : list) {
-        for (int i = 1; i <= 31; i++) {
-          String substring = a.getJoinTime().substring(0, 10);
-          String s = year + "-" + month + "-" + padTwoDigits(i);
-          if (s.equals(substring)) {
-            map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND));
-          }
-        }
-      }
+    for (TheoryKnowledgeSwfRecordEntity a : list) {
+      String joinTime = a.getJoinTime();
+      String key = byMonth
+          ? String.valueOf(Integer.parseInt(joinTime.substring(5, 7)))
+          : String.valueOf(Integer.parseInt(joinTime.substring(8, 10)));
+      long duration = DateUtil.between(DateUtil.parse(a.getJoinTime()), DateUtil.parse(a.getExitTime()), DateUnit.SECOND);
+      map.merge(key, duration, Long::sum);
     }
     return map;
   }
@@ -598,37 +597,21 @@ public class TheoryKnowledgeService {
    * @return 返回包含考试总次数、通过次数和每月或每日考试次数的Map对象
    */
   private Map<String, Object> examTimes(String userId, String year, String month) {
-    List<TheoryKnowledgeExamUserEntity> allByUserIdAndEndTimeLike;
+    boolean byMonth = ObjectUtil.isEmpty(month);
+    List<TheoryKnowledgeExamUserEntity> allByUserIdAndEndTimeLike = byMonth
+        ? theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "%", 4)
+        : theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.parseInt(month)) + "%", 4);
     Map<String, Integer> map = new HashMap<>();
-    int all = 0;
-    int good = 0;
-    if (ObjectUtil.isEmpty(month)) {
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "%", 4);
-      for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
-        for (int i = 1; i <= 12; i++) {
-          String substring = a.getEndTime().substring(0, 7);
-          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
-            map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + 1);
-          }
-        }
-        all++;
-      }
-    } else {
-      month = padTwoDigits(Integer.parseInt(month));
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + month + "%", 4);
-      for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
-        for (int i = 1; i <= 31; i++) {
-          String substring = a.getEndTime().substring(0, 10);
-          String s = year + "-" + month + "-" + padTwoDigits(i);
-          if (s.equals(substring)) {
-            map.put(String.valueOf(i), (ObjectUtil.isEmpty(map.get(String.valueOf(i))) ? 0 : map.get(String.valueOf(i))) + 1);
-          }
-        }
-        all++;
-      }
+    for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
+      String endTime = a.getEndTime();
+      String key = byMonth
+          ? String.valueOf(Integer.parseInt(endTime.substring(5, 7)))
+          : String.valueOf(Integer.parseInt(endTime.substring(8, 10)));
+      map.merge(key, 1, Integer::sum);
     }
+    int all = allByUserIdAndEndTimeLike.size();
     // P2-78：及格线统一以试卷 passMark 为准，替代硬编码 >=60
-    good = countPass(allByUserIdAndEndTimeLike);
+    int good = countPass(allByUserIdAndEndTimeLike);
     return buildResultMap(all, good, map);
   }
 
@@ -642,57 +625,24 @@ public class TheoryKnowledgeService {
    * @return 返回包含考试总次数、及格次数以及按月或按日分布的考试详情的Map对象
    */
   private Map<String, Object> scoreCount(String userId, String year, String month) {
-    List<TheoryKnowledgeExamUserEntity> allByUserIdAndEndTimeLike;
-    Map<String, List<TheoryKnowledgeExamUserEntity>> map = new ConcurrentHashMap<>();
-    int all = 0;
-    int good = 0;
-    if (ObjectUtil.isEmpty(month)) {
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "%", 4);
-      for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
-        for (int i = 1; i <= 12; i++) {
-          String substring = a.getEndTime().substring(0, 7);
-          if ((year + "-" + padTwoDigits(i)).equals(substring)) {
-            List<TheoryKnowledgeExamUserEntity> list;
-            if (ObjectUtil.isEmpty(map.get(String.valueOf(i)))) {
-              list = new ArrayList<>();
-            } else {
-              list = map.get(String.valueOf(i));
-            }
-            list.add(a);
-            map.put(String.valueOf(i), list);
-          }
-        }
-        all++;
-      }
-    } else {
-      allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.valueOf(month)) + "%", 4);
-      month = padTwoDigits(Integer.parseInt(month));
-      for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
-        for (int i = 1; i <= 31; i++) {
-          String substring = a.getEndTime().substring(0, 10);
-          String s = year + "-" + month + "-" + padTwoDigits(i);
-          if (s.equals(substring)) {
-            List<TheoryKnowledgeExamUserEntity> list;
-            if (ObjectUtil.isEmpty(map.get(String.valueOf(i)))) {
-              list = new ArrayList<>();
-            } else {
-              list = map.get(String.valueOf(i));
-            }
-            list.add(a);
-            map.put(String.valueOf(i), list);
-          }
-        }
-        all++;
-      }
+    boolean byMonth = ObjectUtil.isEmpty(month);
+    List<TheoryKnowledgeExamUserEntity> allByUserIdAndEndTimeLike = byMonth
+        ? theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "%", 4)
+        : theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.parseInt(month)) + "%", 4);
+    Map<String, List<TheoryKnowledgeExamUserEntity>> grouped = new HashMap<>();
+    for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
+      String endTime = a.getEndTime();
+      String key = byMonth
+          ? String.valueOf(Integer.parseInt(endTime.substring(5, 7)))
+          : String.valueOf(Integer.parseInt(endTime.substring(8, 10)));
+      grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(a);
     }
-    Map<String, Object> a = new HashMap<>();
-    for (Map.Entry<String, List<TheoryKnowledgeExamUserEntity>> mapEntry : map.entrySet()) {
-      Map<String, String> zzsj = zzsj(mapEntry.getValue());
-      a.put(mapEntry.getKey(), zzsj);
-    }
+    Map<String, Object> detail = new HashMap<>();
+    grouped.forEach((key, value) -> detail.put(key, zzsj(value)));
+    int all = allByUserIdAndEndTimeLike.size();
     // P2-78：及格线统一以试卷 passMark 为准，替代硬编码 >=60
-    good = countPass(allByUserIdAndEndTimeLike);
-    return buildResultMap(all, good, a);
+    int good = countPass(allByUserIdAndEndTimeLike);
+    return buildResultMap(all, good, detail);
   }
 
   /**

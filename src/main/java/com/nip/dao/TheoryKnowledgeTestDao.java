@@ -61,6 +61,19 @@ public class TheoryKnowledgeTestDao extends BaseRepository<TheoryKnowledgeTestEn
   }
 
   /**
+   * 根据教案ID批量获取所属测验-创建时间升序（消除按课件逐条查询的 N+1）
+   *
+   * @param swfIds 教案ID集合
+   * @return 所有匹配测验，按 createTime 升序
+   */
+  public List<TheoryKnowledgeTestEntity> findAllByKnowledgeSwfIdInOrderByCreateTimeAsc(List<String> swfIds) {
+    if (swfIds.isEmpty()) {
+      return List.of();
+    }
+    return find("knowledgeSwfId in ?1", Sort.by("createTime").ascending(), swfIds).list();
+  }
+
+  /**
    * 获取到当前教案被启用的测验
    *
    * @param knowledgeSwfId
