@@ -105,7 +105,8 @@ class TheoryKnowledgeServiceTest {
   void gradeDistributionUsesPerPaperThresholds() {
     UserEntity user = Fixtures.user(userDao, "t-grade-dist");
     // A卷 passMark=70 total=100 => goodBoundary=85；B卷 passMark=50 total=100 => goodBoundary=75
-    // 65(A) 落 "59"(<70) 而非固定档的 "60"；65(B) 落 "60"(>=50) 而非固定档的 "59" —— 固定 60/80 会误分档
+    // 唯一区分点：65(A) passMark=70 时动态落 "59"(<70)，固定 60/80 档却落 "60" —— 使 "59" 桶 2→3。
+    // （65(B) passMark=50 时新旧都落 "60"，非区分点；good 计数新旧一致，仅证通过语义未变。）
     seedExam(user.getId(), 70, 100, 40, 65, 75, 90);
     seedExam(user.getId(), 50, 100, 40, 65, 85);
 
