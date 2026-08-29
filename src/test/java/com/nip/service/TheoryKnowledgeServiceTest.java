@@ -347,6 +347,52 @@ class TheoryKnowledgeServiceTest {
     assertEquals(2, byDay.size(), "仅1日与31日");
   }
 
+  @Test
+  @TestTransaction
+  void countCreditUsesAllSwfsNotStudiedSubset() {
+    // 旧语义:学分完成判定分母为【全部】课件与【全部】答案(不限本期已学 swf)。
+    // 某知识 3 个课件,本期只学其中 2 个且都答题(已学⊊全部) => 未答完全部课件 => credit 置 0。
+    UserEntity user = Fixtures.user(userDao, "t-diverge-" + UUID.randomUUID());
+    TheoryKnowledgeEntity knowledge = new TheoryKnowledgeEntity();
+    knowledge.setTitle("k-diverge");
+    knowledge.setCredit(5.0);
+    knowledge = knowledgeDao.save(knowledge);
+    String kid = knowledge.getId();
+
+    String[] sids = new String[3];
+    for (int i = 0; i < 3; i++) {
+      TheoryKnowledgeSwfEntity swf = new TheoryKnowledgeSwfEntity();
+      swf.setKnowledgeId(kid);
+      swf.setTitle("S" + i);
+      swf.setSort(i);
+      sids[i] = knowledgeSwfDao.save(swf).getId();
+    }
+    // 本期仅学习并作答前两个课件
+    for (int i = 0; i < 2; i++) {
+      saveRecord(user.getId(), kid, sids[i], "2099-04-05 10:00:00", "2099-04-05 10:01:00");
+      TheoryKnowledgeTestUserEntity ans = new TheoryKnowledgeTestUserEntity();
+      ans.setUserId(user.getId());
+      ans.setKnowledgeId(kid);
+      ans.setKnowledgeSwfId(sids[i]);
+      ans.setScore(100);
+      testUserDao.save(ans);
+    }
+
+    CountingKnowledgeDao ck = new CountingKnowledgeDao();
+    CountingSwfDao cs = new CountingSwfDao();
+    CountingRecordDao cr = new CountingRecordDao();
+    CountingTestUserDao ctu = new CountingTestUserDao();
+    CountingTestDao ct = new CountingTestDao();
+    CountingContentDao cc = new CountingContentDao();
+    TheoryKnowledgeService svc = serviceWith(ck, cs, cr, ctu, ct, cc);
+
+    Response<Map<String, Object>> response = svc.recordStatistice(user.getToken(), "2099", "4", 0);
+    @SuppressWarnings("unchecked")
+    Map<Object, Object> down = (Map<Object, Object>) response.getData().get("down");
+    TheoryKnowledgeEntity display = (TheoryKnowledgeEntity) down.keySet().iterator().next();
+    assertEquals(0.0, display.getCredit(), "全部课件(3)!=全部答案(2) => credit=0(旧语义)");
+  }
+
   private void saveRecord(String userId, String kid, String sid, String joinTime, String exitTime) {
     TheoryKnowledgeSwfRecordEntity rec = new TheoryKnowledgeSwfRecordEntity();
     rec.setUserId(userId);
@@ -409,6 +455,12 @@ class TheoryKnowledgeServiceTest {
     public List<TheoryKnowledgeTestUserEntity> findAllByUserIdAndKnowledgeSwfIdIn(String userId, List<String> swfIds) {
       batchCalls++;
       return super.findAllByUserIdAndKnowledgeSwfIdIn(userId, swfIds);
+    }
+
+    @Override
+    public List<TheoryKnowledgeTestUserEntity> findAllByUserIdAndKnowledgeIdIn(String userId, List<String> knowledgeIds) {
+      batchCalls++;
+      return super.findAllByUserIdAndKnowledgeIdIn(userId, knowledgeIds);
     }
 
     @Override

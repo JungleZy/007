@@ -441,19 +441,19 @@ public class TheoryKnowledgeService {
 
     List<String> knowledgeIds = list.stream()
         .map(TheoryKnowledgeSwfRecordEntity::getKnowledgeId).distinct().toList();
-    List<String> swfIds = list.stream()
-        .map(TheoryKnowledgeSwfRecordEntity::getKnowledgeSwfId).distinct().toList();
 
     // 三次批量取回，替代循环内逐知识/逐课件查询
     Map<String, TheoryKnowledgeEntity> knowledgeById = knowledgeDao.list("id in ?1", knowledgeIds).stream()
         .collect(Collectors.toMap(TheoryKnowledgeEntity::getId, Function.identity(), (first, ignored) -> first));
-    List<TheoryKnowledgeSwfEntity> swfEntities = knowledgeSwfDao.list("id in ?1", swfIds);
+    // 该知识【全部】课件（不限本期已学）：既作完成判定分母，也覆盖 perSwf 的标题映射
+    List<TheoryKnowledgeSwfEntity> swfEntities = knowledgeSwfDao.list("knowledgeId in ?1", knowledgeIds);
     Map<String, TheoryKnowledgeSwfEntity> swfById = swfEntities.stream()
         .collect(Collectors.toMap(TheoryKnowledgeSwfEntity::getId, Function.identity(), (first, ignored) -> first));
     Map<String, List<TheoryKnowledgeSwfEntity>> swfsByKnowledge = swfEntities.stream()
         .collect(Collectors.groupingBy(TheoryKnowledgeSwfEntity::getKnowledgeId));
+    // 该知识【全部】答案（不限已学 swf）：完成判定分子
     Map<String, List<TheoryKnowledgeTestUserEntity>> answersByKnowledge =
-        theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeSwfIdIn(userId, swfIds).stream()
+        theoryKnowledgeTestUserDao.findAllByUserIdAndKnowledgeIdIn(userId, knowledgeIds).stream()
             .collect(Collectors.groupingBy(TheoryKnowledgeTestUserEntity::getKnowledgeId));
 
     Map<Object, Object> re = new HashMap<>();
