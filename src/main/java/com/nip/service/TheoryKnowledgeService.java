@@ -16,6 +16,7 @@ import com.nip.dao.*;
 import com.nip.dto.TheoryKnowledgeDto;
 import com.nip.dto.TheoryKnowledgesDto;
 import com.nip.dto.sql.FindTheoryKnowledgeDto;
+import com.nip.dto.sql.ExamScoreThresholdDto;
 import com.nip.dto.vo.TheoryKnowledgeSwfVO;
 import com.nip.dto.vo.TheoryKnowledgeTestVO;
 import com.nip.entity.*;
@@ -26,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.text.DecimalFormat;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -559,18 +562,26 @@ public class TheoryKnowledgeService {
     } else {
       allByUserIdAndEndTimeLike = theoryKnowledgeExamUserDao.findAllByUserIdAndEndTimeLikeAndState(userId, year + "-" + padTwoDigits(Integer.parseInt(month)) + "%", 4);
     }
+    List<String> examUserIds = allByUserIdAndEndTimeLike.stream()
+        .map(TheoryKnowledgeExamUserEntity::getId)
+        .toList();
+    List<ExamScoreThresholdDto> rows =
+        theoryKnowledgeExamUserDao.findScoreThresholds(examUserIds);
     Map<String, Integer> map = new HashMap<>();
-    for (TheoryKnowledgeExamUserEntity a : allByUserIdAndEndTimeLike) {
-      if (a.getScore() < 60) {
-        map.put("59", ObjectUtil.isEmpty(map.get("59")) ? 1 : map.get("59") + 1);
-      } else if (a.getScore() <= 80) {
-        map.put("60", ObjectUtil.isEmpty(map.get("60")) ? 1 : map.get("60") + 1);
-      } else {
-        map.put("81", ObjectUtil.isEmpty(map.get("81")) ? 1 : map.get("81") + 1);
+    for (ExamScoreThresholdDto row : rows) {
+      if (row.score() == null || row.passMark() == null || row.total() == null) {
+        throw new IllegalStateException("考试成绩或试卷分数配置缺失");
       }
-      all++;
-
+      // goodBoundary = (total-passMark)/2 + passMark，向下取整；<passMark 不及格，[passMark,goodBoundary) 及格，>=goodBoundary 优秀
+      int goodBoundary = BigDecimal.valueOf((long) row.total() - row.passMark())
+          .divide(BigDecimal.valueOf(2), 0, RoundingMode.DOWN)
+          .add(BigDecimal.valueOf(row.passMark()))
+          .intValue();
+      String key = row.score() < row.passMark() ? "59"
+          : row.score() < goodBoundary ? "60" : "81";
+      map.merge(key, 1, Integer::sum);
     }
+    all = allByUserIdAndEndTimeLike.size();
     //统计考试成功通过的次数（以试卷 passMark 为准）
     good = countPass(allByUserIdAndEndTimeLike);
     return buildResultMap(all, good, map);
