@@ -113,86 +113,6 @@ public class BunchDetector {
   }
 
   /**
-   * 检测任意位置串组
-   * 检查拍发报文是否与指定范围内的源报文相同
-   * 
-   * @param context     对比上下文
-   * @param patKey      当前拍发报文
-   * @param searchRange 搜索范围
-   * @return 检测结果
-   */
-  public DetectionResult detectBunchInRange(ComparisonContext context, String patKey, int searchRange) {
-
-    List<String> sources = context.getSources();
-    int sourceIndex = context.getSourceIndex();
-
-    // 向前搜索整行
-    for (int i = 1; i <= searchRange; i++) {
-      int lineStartIndex = sourceIndex - i * GROUPS_PER_LINE;
-      // 检查整行
-      for (int j = 0; j < GROUPS_PER_LINE; j++) {
-        int checkIndex = lineStartIndex + j;
-        if (isValidIndex(sources, checkIndex) &&
-            Objects.equals(patKey, sources.get(checkIndex))) {
-
-          handleBunchDetected(context, DetectionType.BUNCH_GROUP,
-              String.format("向前%d行串组", i));
-          return DetectionResult.SUCCESS;
-        }
-      }
-    }
-
-    // 向后搜索整行
-    for (int i = 1; i <= searchRange; i++) {
-      int lineStartIndex = sourceIndex + i * GROUPS_PER_LINE;
-      // 检查整行
-      for (int j = 0; j < GROUPS_PER_LINE; j++) {
-        int checkIndex = lineStartIndex + j;
-        if (isValidIndex(sources, checkIndex) &&
-            Objects.equals(patKey, sources.get(checkIndex))) {
-
-          handleBunchDetected(context, DetectionType.BUNCH_GROUP,
-              String.format("向后%d行串组", i));
-          return DetectionResult.SUCCESS;
-        }
-      }
-    }
-
-    return DetectionResult.FAILED;
-  }
-
-  /**
-   * 检测同行串组
-   * 检查拍发报文是否与同一行其他位置的报文相同
-   * 
-   * @param context 对比上下文
-   * @param patKey  当前拍发报文
-   * @return 检测结果
-   */
-  public DetectionResult detectSameLineBunch(ComparisonContext context, String patKey) {
-
-    List<String> sources = context.getSources();
-    int sourceIndex = context.getSourceIndex();
-
-    // 计算当前行的起始和结束索引
-    int lineStartIndex = (sourceIndex / GROUPS_PER_LINE) * GROUPS_PER_LINE;
-    int lineEndIndex = Math.min(lineStartIndex + GROUPS_PER_LINE - 1, sources.size() - 1);
-
-    // 检查同一行的其他位置
-    for (int i = lineStartIndex; i <= lineEndIndex; i++) {
-      if (i != sourceIndex && isValidIndex(sources, i) &&
-          Objects.equals(patKey, sources.get(i))) {
-
-        handleBunchDetected(context, DetectionType.BUNCH_GROUP,
-            String.format("同行串组，位置: %d", i - lineStartIndex));
-        return DetectionResult.SUCCESS;
-      }
-    }
-
-    return DetectionResult.FAILED;
-  }
-
-  /**
    * 处理检测到串组的情况
    * 
    * @param context       对比上下文
@@ -217,37 +137,6 @@ public class BunchDetector {
    */
   private boolean isValidIndex(List<String> sources, int index) {
     return sources != null && index >= 0 && index < sources.size();
-  }
-
-  /**
-   * 获取指定位置的行号
-   * 
-   * @param index 索引位置
-   * @return 行号（从0开始）
-   */
-  public int getLineNumber(int index) {
-    return index / GROUPS_PER_LINE;
-  }
-
-  /**
-   * 获取指定位置在行内的列号
-   * 
-   * @param index 索引位置
-   * @return 列号（从0开始）
-   */
-  public int getColumnNumber(int index) {
-    return index % GROUPS_PER_LINE;
-  }
-
-  /**
-   * 计算两个位置之间的行数差
-   * 
-   * @param index1 第一个位置
-   * @param index2 第二个位置
-   * @return 行数差的绝对值
-   */
-  public int getLineDifference(int index1, int index2) {
-    return Math.abs(getLineNumber(index1) - getLineNumber(index2));
   }
 
   /**

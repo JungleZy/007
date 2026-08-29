@@ -6,9 +6,7 @@ import com.nip.dto.vo.CableFindAllVO;
 import com.nip.dto.vo.CableFindByIdVO;
 import com.nip.dto.vo.CableVO;
 import com.nip.entity.CableEntity;
-import com.nip.service.CableFloorService;
 import com.nip.service.CableService;
-import com.nip.service.CableTypeService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
@@ -26,14 +24,10 @@ import java.util.List;
 @ApplicationScoped
 public class CableController {
   private final CableService cableService;
-  private final CableTypeService cableTypeService;
-  private final CableFloorService cableFloorService;
 
   @Inject
-  public CableController(CableService cableService, CableTypeService cableTypeService, CableFloorService cableFloorService) {
+  public CableController(CableService cableService) {
     this.cableService = cableService;
-    this.cableTypeService = cableTypeService;
-    this.cableFloorService = cableFloorService;
   }
 
   @POST

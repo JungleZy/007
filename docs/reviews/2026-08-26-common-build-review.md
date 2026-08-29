@@ -507,20 +507,20 @@ return linked.split("\\t")[1];
 
 | 文件 / 位置 | 状态 |
 |---|---|
-| `common/utils/CharsetUtils.java:1-59` | **整个类被注释掉**，第 1 行是 `package com.nip.common.utils;//package com.nip.common.utils;`，编译产物为空。两个调用点 `PostEnteringExerciseWordStockService.java:77`、`TheoryKnowledgeQuestionService.java:186` 也是注释 |
-| `common/utils/SnowflakeIdKit.java` | 全项目零调用 |
-| `common/utils/GZipUtil.java` | 全项目零调用；`main` 里 `109-134` 行还用 `new byte[in.available()]` + 单次 `read()` 读文件（`available()` 不保证等于文件大小，`read` 不保证读满） |
-| `common/utils/PingYinUtil.java` | 全项目零调用，只有一个 `main` |
-| `common/utils/PasswordUtil.java` | 全项目零调用（见 P2-15） |
-| `common/utils/MapTypeAdapter.java:19` | `FACTORY` 从未注册到任何 `GsonBuilder`（`JSONUtils.java:13-16` 只注册了 `LocalDateTimeAdapter`） |
-| `common/utils/NoEscapeStringSerializer.java` | 从未注册，零调用 |
-| `common/utils/ArraysSafeUtils.java` | 与 `ArraySafeGetUtils.java` 功能重叠（都是「按下标安全取值」），前者零调用 |
+| `common/utils/CharsetUtils.java` | **已删除（Task 8, 2026-08-29）**。原为整类注释、零运行时调用；两处注释调用点（`PostEnteringExerciseWordStockService`、`TheoryKnowledgeQuestionService`）已随注释体一并清除 |
+| `common/utils/SnowflakeIdKit.java` | **勘误：并非零调用，保留不删**。运行时被 `WebSocketUnionService.java:294`（`SnowflakeIdKit.getInstance().nextId()`）调用，另有 `SnowflakeIdKitTest` 覆盖。原「全项目零调用」结论有误 |
+| `common/utils/GZipUtil.java` | **已删除（Task 8）**，删除前复核零调用；原 `main` 读取缺陷随文件移除 |
+| `common/utils/PingYinUtil.java` | **已删除（Task 8）**，删除前复核零调用（仅一个 `main`） |
+| `common/utils/PasswordUtil.java` | **已删除（Task 8）**，删除前复核零调用 |
+| `common/utils/MapTypeAdapter.java` | **已删除（Task 8）**，删除前复核 `FACTORY` 从未注册、零调用 |
+| `common/utils/NoEscapeStringSerializer.java` | **已删除（Task 8）**，删除前复核从未注册、零调用 |
+| `common/utils/ArraysSafeUtils.java` | **勘误：并非零调用，保留不删**。被 `GeneralKeyPatService.java:988-989`、`GeneralTickerPatService.java:640-641`（`ArraysSafeUtils.getElement`）活调用。与 `ArraySafeGetUtils` 的功能重叠整合另议 |
 | `common/utils/ToolUtil.java:96` | 与 `PatTrainStatisticsUtil.java:71` 的 `calculateRate` 重复实现，且是有缺陷的那个（见 P1-6） |
 | `pom.xml:76-84` | `quarkus-awt` / `quarkus-poi` 依赖被整块注释 |
 
 **影响**：可维护性。特别是 `CharsetUtils` 这种「文件在、类不在」的形态，IDE 里搜索不到符号但文件列表里有，非常容易误导。
 
-**建议**：整体删除。
+**建议 / 状态**：零调用项（CharsetUtils / GZipUtil / PingYinUtil / PasswordUtil / MapTypeAdapter / NoEscapeStringSerializer）已于 Task 8 删除；`SnowflakeIdKit`、`ArraysSafeUtils` 因存在活调用点保留；`ToolUtil` 重复实现与被注释的 `pom.xml` 依赖尚未处理。
 
 ---
 

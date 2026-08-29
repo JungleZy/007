@@ -13,6 +13,17 @@
 | 审查日期 | 2026-08-26 |
 | 部署口径 | 内网部署；认证授权、凭据、匿名访问、弱口令、个人信息等纯安全项列入附录 A，不计入 P0/P1/P2 |
 
+## 整改状态校准（Task 8, 2026-08-29）
+
+以下条目已由本轮修复子集（Task 1–7）或 Task 8 完成，经当前 worktree 源码复核确认：
+
+- **P2-07 已完成**：`AsyncSavePostTelegramTrainService.java` 整类删除，死代码 `savePostTelegramTrain` 与伪异步 `selectPostTelegramTrainFloorContent` 一并移除。
+- **P2-13 已完成**：`ErrorCodeDetector.shouldSkipErrorCodeDetection`（:75）、`GroupDetector.shouldSkipGroupDetection`（:47）边界守卫已接入；`BunchDetector` 未调用的 `detectBunchInRange`/`detectSameLineBunch`/`getColumnNumber`/`getLineDifference`（及随之失活的 `getLineNumber`）由 Task 8 删除。
+- **P2-77 已完成**：`TheoryKnowledgeService` 原 `getMonth` 已按「月/日通用」勘误重命名并修正 javadoc（:506-524），冗余 if/else 去除。
+- **P2-78 及格判定口径（半项）已完成**：`examTimes`/`scoreCount` 统一改走 `countExamPass`（:523-524），消除与 `gradeDistribution` 的 `>=60` 硬编码分歧；`<60/<=80/>80` 分档硬编码不在本半项范围，仍待处理。
+- **P2-84 已完成**：`TheoryKnowledgeQuestionService` 的 `multipleChoiceHandler`/`judgeHandler`/`completionHandler` 及其唯一注释调用块已删除。
+- **P2-94 已完成**：`DemoService.java` 整类删除，调试 `test()`、`main`、注释代码一并移除。
+
 ## 严重级定义
 
 | 级别 | 判据 |

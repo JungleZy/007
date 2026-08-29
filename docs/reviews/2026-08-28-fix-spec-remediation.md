@@ -75,3 +75,13 @@ Finished at: 2026-08-28T18:12:27+08:00
 4. 批 7 仍有更广泛的 N+1/重对象、死代码、动态及格线分布，以及其余文档清理工作；这些不属于本次执行子集。
 5. `SnowflakeIdKit` 仍对系统时钟回拨敏感；Task 2 测试通过固定房间 ID 隔离了这一无关风险，没有修复它。
 6. 迁移及生产 `validate` 的证据仍来自更早的 Phase 5 演练；本次没有重新执行破坏性迁移。
+
+## Task 8 增补（2026-08-29）
+
+Task 8 处理了上述「剩余已知工作」第 4 项中的**死代码删除与文档清理**子集（不含仍需外部契约裁定的公共端点）：
+
+- 删除零调用内部代码：`CharsetUtils`/`GZipUtil`/`PingYinUtil`/`PasswordUtil`/`MapTypeAdapter`/`NoEscapeStringSerializer` 六个工具类、`BunchDetector` 四个未调用方法（及随之失活的 `getLineNumber`）、`MessageResultBuilder.isConsistent`、`controller/test/Test.java`、`docs/guides/code.java`，以及两处被注释的 service 死实现。
+- 从删除清单剔除并保留：`ArraysSafeUtils` 因被 `GeneralKeyPatService`/`GeneralTickerPatService` 活调用而保留。
+- 校准审计文档：修正 `2026-08-26-common-build-review.md` 中「`SnowflakeIdKit` 全项目零调用」的错误结论——它运行时被 `WebSocketUnionService.java:294` 调用并有 `SnowflakeIdKitTest` 覆盖，予以保留。第 5 条中「Task 2 通过固定房间 ID 隔离了时钟回拨风险」仍成立，与本次勘误不冲突。
+- 未纳入：`TheoryKnowledgeQuestionController.upLoadFile`/`exportTemplate`/`exportQuestionByLevelId` 三个端点与 `TickerTapeTrainService.update` 仍待外部契约决策，Task 8 不删除。
+- 验证：`test-compile` 通过（BUILD SUCCESS，无未用 import 报错），`ExceptionBoundaryTest` 10/10 通过。

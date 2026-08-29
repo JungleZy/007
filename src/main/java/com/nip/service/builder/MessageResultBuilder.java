@@ -227,18 +227,6 @@ public class MessageResultBuilder {
   }
 
   /**
-   * 验证所有列表的大小是否一致
-   * 
-   * @return 如果所有列表大小一致返回true
-   */
-  public boolean isConsistent() {
-    int size = resolverMessage.size();
-    return resolverPatLogs.size() == size &&
-        resolverMoresValue.size() == size &&
-        resolverMoresTime.size() == size;
-  }
-  
-  /**
    * 清理JSON缓存（用于内存管理）
    */
   public static void clearJsonCache() {

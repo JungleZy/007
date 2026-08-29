@@ -4,8 +4,6 @@ import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.CableFindByIdOrFloorNumberVO;
 import com.nip.service.CableFloorService;
-import com.nip.service.CableService;
-import com.nip.service.CableTypeService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
@@ -19,14 +17,10 @@ import java.util.List;
 @Tag(name = "固定报文")
 @ApplicationScoped
 public class CableFloorController {
-  private final CableService cableService;
-  private final CableTypeService cableTypeService;
   private final CableFloorService cableFloorService;
 
   @Inject
-  public CableFloorController(CableService cableService, CableTypeService cableTypeService, CableFloorService cableFloorService) {
-    this.cableService = cableService;
-    this.cableTypeService = cableTypeService;
+  public CableFloorController(CableFloorService cableFloorService) {
     this.cableFloorService = cableFloorService;
   }
 
