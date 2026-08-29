@@ -94,9 +94,14 @@ ALTER TABLE `simulation_router_room` ADD COLUMN `is_start_sign` int NULL DEFAULT
 ALTER TABLE `t_post_ticker_tape_train` ADD COLUMN `is_start_sign` int NULL DEFAULT 1;
 
 -- ---- 3. 主键类型对齐（P1-8 第 3 类） ----
--- 旧基线（project006-base.sql:74）general_key_pat_page.id 为 int AUTO_INCREMENT，
--- 实体为 UUID 字符串主键（GenerationType.UUID）。当前快照（project006.sql:74）
--- 已是 varchar(64)，在该状态下本语句为无害的同型重建；仍停留在旧基线的环境
--- 由本语句完成 int → varchar 对齐（存量数值主键转为其十进制字符串形式）。
+-- 旧基线（project006-base.sql）general_key_pat_page.id 与 general_ticker_pat_train_page.id
+-- 均为 int AUTO_INCREMENT，实体为 UUID 字符串主键（GenerationType.UUID）。当前快照
+-- （project006.sql）二者已是 varchar(64)，在该状态下两条语句均为无害的同型重建；
+-- 仍停留在旧基线的环境由本节完成 int → varchar 对齐（存量数值主键转为其十进制
+-- 字符串形式，AUTO_INCREMENT 随类型变更自动失效）。
+-- 注：general_ticker_pat_train_page.id 由 2026-08-28 双快照迁移演练补入——迁移最初
+-- 仅针对 current 快照编写，遗漏了该表在 base 快照的同类 int→varchar 缺口
+-- （演练 diff-base 实证）；两表缺陷同型，故同节处理。
 
 ALTER TABLE `general_key_pat_page` MODIFY COLUMN `id` varchar(64) NOT NULL;
+ALTER TABLE `general_ticker_pat_train_page` MODIFY COLUMN `id` varchar(64) NOT NULL;

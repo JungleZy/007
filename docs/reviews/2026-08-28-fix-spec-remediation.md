@@ -62,7 +62,7 @@ Finished at: 2026-08-28T18:12:27+08:00
 |---|---|---|
 | 1. `clean verify` 全绿且测试数 ≥ 30 | 已满足 | 八个提交后共运行 112 个测试，失败、错误、跳过均为 0。 |
 | 2. 空 catch、WebSocket 会话态实例字段、`log.*(...getMessage())` 静态门禁 | 已满足 | 三项第一方 Java 静态门禁均为 0。 |
-| 3. 迁移脚本快照库演练及 prod `generation: validate` 启动 | 本次未重新验证 | 仍沿用更早的 Phase 5 演练证据；本次未重跑破坏性迁移，不能把它记作本次新证据。 |
+| 3. 迁移脚本快照库演练及 prod `generation: validate` 启动 | 已满足 | 2026-08-28 由 `scripts/rehearse-migrations.sh` 在一次性 Docker 容器上对 current+base 双快照重跑迁移 01→02：全断言绿、validate 等价差分归零；prod jar 以 `%prod` 启动零 schema 校验错误（`started in 2.822s`）。演练还捕获并修复迁移 01 遗漏的 `general_ticker_pat_train_page.id` int→varchar 缺口。证据 `docs/reviews/2026-08-28-migration-rehearsal.md`。 |
 | 4. 审计勘误与新发现批次映射 | 已修正文档映射 | 批次由 `1/2/3/7` 修正为 `1/2/3/6/7`，因为 Docker `EXPOSE` 属于批 6；该映射修正不表示所有原 P2 项已完成。 |
 
 ## 剩余已知工作
