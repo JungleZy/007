@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -61,6 +63,21 @@ class TickerPatUtilsCharacterizationTest {
 
   private static PostTelegramTrainRule rule() {
     return TickerPatUtils.parseContent(resource("grading-rule-type0.json"));
+  }
+
+  private static List<PostTelegramTrainFinishInfoDto> standards() {
+    GapCase c = JSONUtils.fromJson(resource("gap-case-two-groups.json"), new TypeToken<>() {
+    });
+    return c.standards;
+  }
+
+  private static PostTelegramTrainContentAddParam validContent(String patKey) {
+    PostTelegramTrainContentAddParam item = new PostTelegramTrainContentAddParam();
+    item.setPatKeys(JSONUtils.toJson(List.of(patKey)));
+    item.setPatLogs("[[{\"key\":0,\"value\":100}]]");
+    item.setMoresTime("[[11,12]]");
+    item.setMoresValue("[[1,0]]");
+    return item;
   }
 
   private static void assertSnapshot(String name, Object actualPayload) {
@@ -129,5 +146,26 @@ class TickerPatUtilsCharacterizationTest {
     payload.put("scoreVO", scoreVO);
     payload.put("statisticsVO", statisticsVO);
     assertSnapshot("gap-two-groups", payload);
+  }
+
+  @Test
+  void resolverMessageRejectsCorruptMoresTimeWithoutErasingParsedLogs() {
+    PostTelegramTrainContentAddParam item = validContent("ABCD");
+    item.setPatLogs("[[{\"key\":\"A\"}]]");
+    item.setMoresTime("[broken");
+
+    IllegalStateException error = assertThrows(IllegalStateException.class,
+        () -> TickerPatUtils.resolverMessage(
+            List.of("ABCD"), new PostTelegramTrainScoreVO(), rule(), List.of(item)));
+
+    assertTrue(error.getMessage().contains("moresTime"));
+    assertTrue(error.getMessage().contains("index=0"));
+  }
+
+  @Test
+  void checkDotLineGapRejectsCorruptPatLogs() {
+    assertThrows(IllegalStateException.class, () -> TickerPatUtils.checkDotLineGap(
+        "A", 0, "[broken", standards(), rule(), false,
+        new PostTelegramTrainStatisticsVO(), new PostTelegramTrainScoreVO()));
   }
 }
