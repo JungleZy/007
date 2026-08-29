@@ -85,3 +85,26 @@ Task 8 处理了上述「剩余已知工作」第 4 项中的**死代码删除�
 - 校准审计文档：修正 `2026-08-26-common-build-review.md` 中「`SnowflakeIdKit` 全项目零调用」的错误结论——它运行时被 `WebSocketUnionService.java:294` 调用并有 `SnowflakeIdKitTest` 覆盖，予以保留。第 5 条中「Task 2 通过固定房间 ID 隔离了时钟回拨风险」仍成立，与本次勘误不冲突。
 - 未纳入：`TheoryKnowledgeQuestionController.upLoadFile`/`exportTemplate`/`exportQuestionByLevelId` 三个端点与 `TickerTapeTrainService.update` 仍待外部契约决策，Task 8 不删除。
 - 验证：`test-compile` 通过（BUILD SUCCESS，无未用 import 报错），`ExceptionBoundaryTest` 10/10 通过。
+
+## Task 10 最终验收（2026-08-29）
+
+结论：后续实施计划（Tasks 1-9）全部完成并通过整分支交叉审查；「剩余已知工作」6 项已全部落地为具体任务。公共端点删除仍待外部契约裁定，不在自动执行范围。
+
+分支 `fix/spec-follow-up`（merge-base 5b37637 → HEAD 9dd3dd1）。
+
+### 全量门禁（一次性、集成后）
+- `clean verify`：**Tests run: 129, Failures: 0, Errors: 0, Skipped: 0，BUILD SUCCESS**（基线 112 → 129，+17 回归测试）。DevServices 单容器复用，全套约 2 分钟。
+- 静态门禁 8 项全绿：一方 Java 空 catch=0；`log.*(getMessage())`=0；WS 端点单例会话态字段=0（`ws/model` DTO 的 per-user session 属合法领域状态）；TickerPatUtils catch→空表回退=0；`MySqlResource`/`@QuarkusTestResource` 引用=0；`git diff --check` 干净；`actionlint` 退出 0;`Dockerfile.jvm` 构建退出 0。
+- 整分支交叉审查（FinalBranchReviewer）：spec + quality PASS，零 findings；重点核验 DevServices 无 prod 回退（SmokeTest 断言 jdbc url 含 `/project006_test`）、Task 2 异常经 `@Transactional(rollbackOn)` 真实回滚、Tasks 4/5/6 数字键域隔离不冲突、批量化保序、迁移01 与实体一致。
+
+### 「剩余已知工作」逐项闭环
+1. DevServices 测试机制 → Task 1（切换完成，25 个 `@QuarkusTest` 去除 `MySqlResource`；`%test` 用 project006_test）。
+2. `statisticalPage` 顺序收敛 → Task 4（显式升序 [0,1,2]，删除旋转）。
+3. TickerPatUtils 其余空值路径 → Task 2（损坏 JSON 改抛有界 `IllegalStateException`）。
+4. 批 7 N+1/重对象/动态及格线/死代码/文档 → Tasks 5（动态分档）、6（TheoryKnowledge 批量）、7（跨文件 N+1）、8（死代码删除+文档校准）。
+5. `SnowflakeIdKit` 时钟回拨 → Task 3（可注入逻辑时钟，单调不重不退）。
+6. 迁移/生产 validate 证据 → Task 9（双快照 Docker 演练，diff 归零，prod jar validate 零错误）。
+
+### 仍开放（非本次范围）
+- 公共端点 `TheoryKnowledgeQuestionController.upLoadFile`/`exportTemplate`/`exportQuestionByLevelId` 与 `TickerTapeTrainService.update`：待外部契约裁定，未删除。
+- 原审计 348 条未逐条重新验证；本次仅闭环上述家族与新发现项，不宣称全部 348 条完成。
