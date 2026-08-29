@@ -305,6 +305,7 @@ public class WebSocketUnionService {
       send(me.session(), new ResponseModel(UnionConstants.ADD_ROOM_SUCCESS.getCode(), JSONUtils.toJson(room)));
       updateRoom(room);
     } catch (Exception e) {
+      log.error("联合训练创建房间失败", e);
       send(me.session(), new ResponseModel(UnionConstants.ADD_ROOM_FAIL.getCode()));
     }
   }

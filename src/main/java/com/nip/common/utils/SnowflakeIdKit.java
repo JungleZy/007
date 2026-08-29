@@ -1,5 +1,8 @@
 package com.nip.common.utils;
 
+import java.util.Objects;
+import java.util.function.LongSupplier;
+
 /**
  * SnowflakeIdKit
  *
@@ -50,8 +53,9 @@ public class SnowflakeIdKit {
   private long machineId;    //机器标识
   private long sequence = 0L; //序列号
   private long lastStamp = -1L;//上一次时间戳
+  private final LongSupplier currentTimeMillis;//时间源，便于测试注入
 
-  private SnowflakeIdKit(long dataCenterId, long machineId) {
+  SnowflakeIdKit(long dataCenterId, long machineId, LongSupplier currentTimeMillis) {
     if (dataCenterId > MAX_DATA_CENTER_NUM || dataCenterId < 0) {
       throw new IllegalArgumentException("dataCenterId can't be greater than MAX_DATA_CENTER_NUM or less than 0");
     }
@@ -62,6 +66,11 @@ public class SnowflakeIdKit {
 
     this.dataCenterId = dataCenterId;
     this.machineId = machineId;
+    this.currentTimeMillis = Objects.requireNonNull(currentTimeMillis);
+  }
+
+  private SnowflakeIdKit(long dataCenterId, long machineId) {
+    this(dataCenterId, machineId, System::currentTimeMillis);
   }
 
   /**
@@ -70,17 +79,16 @@ public class SnowflakeIdKit {
    * @return id
    */
   public synchronized long nextId() {
-    long currStamp = getNewStamp();
-    if (currStamp < lastStamp) {
-      throw new IllegalArgumentException("Clock moved backwards.  Refusing to generate id");
-    }
+    long wallStamp = currentTimeMillis.getAsLong();
+    // 时钟回拨时退回逻辑时间，绝不抛异常、不产生重复或倒退的 ID
+    long currStamp = Math.max(wallStamp, lastStamp);
 
     if (currStamp == lastStamp) {
-      //相同毫秒内，序列号自增
+      //相同（逻辑）毫秒内，序列号自增
       sequence = (sequence + 1) & MAX_SEQUENCE;
-      //同一毫秒的序列数已经达到最大
+      //同一毫秒的序列数已经达到最大：推进到下一个逻辑毫秒，避免无界忙等
       if (sequence == 0L) {
-        currStamp = getNextMill();
+        currStamp = lastStamp + 1;
       }
     } else {
       //不同毫秒内，序列号置为0
@@ -93,18 +101,6 @@ public class SnowflakeIdKit {
       | dataCenterId << DATA_CENTER_LEFT      //数据中心部分
       | machineId << MACHINE_LEFT            //机器标识部分
       | sequence;                            //序列号部分
-  }
-
-  private long getNextMill() {
-    long mill = getNewStamp();
-    while (mill <= lastStamp) {
-      mill = getNewStamp();
-    }
-    return mill;
-  }
-
-  private long getNewStamp() {
-    return System.currentTimeMillis();
   }
 
   private static volatile SnowflakeIdKit instance = null;
