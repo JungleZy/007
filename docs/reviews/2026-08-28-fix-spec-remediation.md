@@ -74,7 +74,7 @@ Finished at: 2026-08-28T18:12:27+08:00
 3. 批 4 仍有其他既存的 TickerPatUtils JSON 解析失败后返回空值路径；本次只修复了特定的 `handleMessageBody patKeys` P0 路径。
 4. 批 7 仍有更广泛的 N+1/重对象、死代码、动态及格线分布，以及其余文档清理工作；这些不属于本次执行子集。
 5. `SnowflakeIdKit` 仍对系统时钟回拨敏感；Task 2 测试通过固定房间 ID 隔离了这一无关风险，没有修复它。
-6. 迁移及生产 `validate` 的证据仍来自更早的 Phase 5 演练；本次没有重新执行破坏性迁移。
+6. ~~迁移及生产 `validate` 的证据仍来自更早的 Phase 5 演练~~ → 已由 Task 9（2026-08-28）解决：`scripts/rehearse-migrations.sh` 在一次性 Docker 容器上对 current+base 双快照重新执行迁移 01→02，全断言绿、validate 等价差分归零、prod jar 以 `%prod` 零 schema 校验错误启动；证据见 `docs/reviews/2026-08-28-migration-rehearsal.md`，取代 Phase 5 演练。
 
 ## Task 8 增补（2026-08-29）
 
