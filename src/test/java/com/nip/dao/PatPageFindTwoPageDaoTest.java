@@ -4,8 +4,8 @@ import com.nip.dao.general.key.GeneralKeyPatPageDao;
 import com.nip.dao.general.telex.GeneralTelexPatPageDao;
 import com.nip.entity.simulation.key.GeneralKeyPatPageEntity;
 import com.nip.entity.simulation.telex.GeneralTelexPatPageEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 防守契约：findTwoPage(trainId) 只返回目标 train 的第 1、2 页，按页码升序。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class PatPageFindTwoPageDaoTest {
   @Inject GeneralKeyPatPageDao keyPageDao;
   @Inject GeneralTelexPatPageDao telexPageDao;

@@ -4,8 +4,8 @@ import com.nip.dao.PostTelegraphKeyPatTrainDao;
 import com.nip.dto.PostTelegraphKeyPatTrainDto;
 import com.nip.dto.vo.PostTelegraphKeyPatTrainVO;
 import com.nip.entity.PostTelegraphKeyPatTrainEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * （守卫失效时本用例会走 countScore：无规则内容直接抛异常。）
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class PostTelegraphKeyPatTrainServiceTest {
   @Inject PostTelegraphKeyPatTrainService service;
   @Inject PostTelegraphKeyPatTrainDao trainDao;

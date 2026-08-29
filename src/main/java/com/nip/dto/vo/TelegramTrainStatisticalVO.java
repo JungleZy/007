@@ -23,7 +23,7 @@ public class TelegramTrainStatisticalVO {
   @Schema(title = "id")
   private String id;
   /**
-   * 类型（0 单字训练 1 数字连贯 2字母连贯 3混合连贯
+   * 类型（0 单字训练 1 词组训练 2基础练习
    */
   @Schema(title = "0 单字训练 1 词组训练 2基础练习")
   private Integer type;

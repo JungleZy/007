@@ -10,8 +10,8 @@ import com.nip.dto.vo.TelexPatTrainStatisticalVO;
 import com.nip.entity.TelexPatTrainStatisticalEntity;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 现在必须补齐 4 种类型并显式按 type 排序。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class TelexPatTrainStatisticalServiceTest {
   @Inject TelexPatTrainStatisticalService service;
   @Inject TelexPatTrainStatisticalDao statisticalDao;

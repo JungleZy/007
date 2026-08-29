@@ -1,8 +1,8 @@
 package com.nip.dao;
 
 import com.nip.entity.MilitaryTermDataEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 契约：空集合与 null 一律安全返回空列表，非空集合正常命中。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class MilitaryTermDataDaoTest {
   @Inject MilitaryTermDataDao dao;
 

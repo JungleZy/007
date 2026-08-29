@@ -5,6 +5,7 @@ import com.nip.dto.AllExamDto;
 import com.nip.dto.sql.FindExamDto;
 import com.nip.dto.sql.FindExamIdDto;
 import com.nip.dto.sql.FindUserMonthAvgScoreDto;
+import com.nip.dto.sql.ExamScoreThresholdDto;
 import com.nip.dto.vo.TheoryKnowledgeExamUserSelfVO;
 import com.nip.entity.TheoryKnowledgeExamUserEntity;
 import io.quarkus.panache.common.Sort;
@@ -176,6 +177,26 @@ public class TheoryKnowledgeExamUserDao extends BaseRepository<TheoryKnowledgeEx
       return firstElement != null ? firstElement.intValue() : 0;
     }
 
+  }
+
+  /**
+   * 查询各场考试的得分及其所属试卷的及格分/总分，用于按试卷动态分档
+   *
+   * @param examUserIds t_theory_knowledge_exam_user 主键集合
+   * @return 每条考试记录的 (得分, 及格分, 总分) 投影
+   */
+  public List<ExamScoreThresholdDto> findScoreThresholds(List<String> examUserIds) {
+    if (examUserIds == null || examUserIds.isEmpty()) {
+      return List.of();
+    }
+    return entityManager.createQuery("""
+            select new com.nip.dto.sql.ExamScoreThresholdDto(eu.score, tp.passMark, tp.total)
+            from t_theory_knowledge_exam_user eu
+            left join t_theory_knowledge_exam_test_paper tp on tp.examId = eu.examId
+            where eu.id in (?1)
+            """, ExamScoreThresholdDto.class)
+        .setParameter(1, examUserIds)
+        .getResultList();
   }
 
   public List<AllExamDto> fingAllExam(int state1, int state2, String userId) {

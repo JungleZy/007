@@ -5,8 +5,8 @@ import com.nip.dao.UserDao;
 import com.nip.testsupport.Fixtures;
 import com.nip.ws.model.RoomModel;
 import com.nip.ws.model.UserModel;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class WebSocketUnionTest {
 
   @Inject

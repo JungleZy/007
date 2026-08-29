@@ -38,6 +38,8 @@ public class JWTInterceptor {
   HttpServerResponse response;
   @Inject
   UserDao userDao;
+  @Inject
+  ObjectMapper objectMapper;
 
   @AroundInvoke
   Object execute(InvocationContext context) throws Exception {
@@ -62,7 +64,7 @@ public class JWTInterceptor {
       if (StringUtils.isEmpty(token)) {
         mp.put(CODE, ResponseCode.CODE_203.getCode());
         mp.put(MESSAGE, ResponseCode.CODE_203.getMessage());
-        response.send(new ObjectMapper().writeValueAsString(mp));
+        response.send(objectMapper.writeValueAsString(mp));
         return null;
       }
       if (StringUtils.isEmpty(deviceId)) {
@@ -71,13 +73,13 @@ public class JWTInterceptor {
       if (StringUtils.isEmpty(deviceId)) {
         mp.put(CODE, ResponseCode.CODE_204.getCode());
         mp.put(MESSAGE, ResponseCode.CODE_204.getMessage());
-        response.send(new ObjectMapper().writeValueAsString(mp));
+        response.send(objectMapper.writeValueAsString(mp));
         return null;
       }
       if (!userDao.existsUserByTokenAndDeviceId(token, deviceId)) {
         mp.put(CODE, ResponseCode.CODE_206.getCode());
         mp.put(MESSAGE, ResponseCode.CODE_206.getMessage());
-        response.send(new ObjectMapper().writeValueAsString(mp));
+        response.send(objectMapper.writeValueAsString(mp));
         return null;
       }
     } catch (Exception exception) {

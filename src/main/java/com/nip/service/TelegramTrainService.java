@@ -408,8 +408,6 @@ public class TelegramTrainService {
     }
     List<TelegramTrainStatisticalVO> convert = PojoUtils.convert(entities, TelegramTrainStatisticalVO.class);
     convert.sort(Comparator.comparingInt(TelegramTrainStatisticalVO::getType));
-    convert.addFirst(convert.getLast());
-    convert.removeLast();
     return convert;
   }
 

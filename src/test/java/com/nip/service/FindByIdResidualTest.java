@@ -10,8 +10,8 @@ import com.nip.entity.GradingRuleEntity;
 import com.nip.entity.KeyPointsEntity;
 import com.nip.entity.MilitaryTermDataEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class FindByIdResidualTest {
   private static final String TOKEN = "findbyid-residual-token";
   private static final String DEVICE = "findbyid-residual-device";

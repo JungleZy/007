@@ -11,7 +11,6 @@ import com.nip.dto.sql.FindUserByRoleIdDto;
 import com.nip.dto.sql.FindUserByStatusDescDto;
 import com.nip.entity.UserEntity;
 import com.nip.service.UserService;
-import com.nip.service.UserTrainStatisticsService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -37,7 +36,7 @@ public class UserController {
   private final UserService userService;
 
   @Inject
-  public UserController(UserService userService, UserTrainStatisticsService userTrainStatisticsService) {
+  public UserController(UserService userService) {
     this.userService = userService;
   }
 

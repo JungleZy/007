@@ -77,19 +77,24 @@ public class TickerPatUtils {
           patLogs = JSONUtils.fromJson(contentAddParam.getPatLogs(), new TypeToken<>() {
           });
         }
+      } catch (Exception e) {
+        throw corruptJson("patLogs", i, contentAddParam.getPatLogs(), e);
+      }
+      try {
         if (contentAddParam.getMoresTime() != null) {
           moresTime = JSONUtils.fromJson(contentAddParam.getMoresTime(), new TypeToken<>() {
           });
         }
+      } catch (Exception e) {
+        throw corruptJson("moresTime", i, contentAddParam.getMoresTime(), e);
+      }
+      try {
         if (contentAddParam.getMoresValue() != null) {
           moresValue = JSONUtils.fromJson(contentAddParam.getMoresValue(), new TypeToken<>() {
           });
         }
       } catch (Exception e) {
-        // JSON解析失败时使用空列表
-        patLogs = new ArrayList<>();
-        moresTime = new ArrayList<>();
-        moresValue = new ArrayList<>();
+        throw corruptJson("moresValue", i, contentAddParam.getMoresValue(), e);
       }
       String patKey = patKeys.get(i);
       if (patKey.length() > 4 && patKey.length() % 4 == 0 && !patKey.contains("?")) {
@@ -537,8 +542,7 @@ public class TickerPatUtils {
         });
       }
     } catch (Exception e) {
-      // JSON解析失败时使用空列表
-      p = new ArrayList<>();
+      throw corruptJson("patLogs", i, patLogs, e);
     }
 
     for (int z = 0; z < patKey.length(); z++) {
@@ -730,5 +734,12 @@ public class TickerPatUtils {
 
   private static MessageDeduct handleMessageDeduct(Map<String, Object> otherMap, String deduct) {
     return JSONUtils.fromJson(otherMap.get(deduct).toString(), MessageDeduct.class);
+  }
+
+  private static IllegalStateException corruptJson(String field, int index, String raw, Exception cause) {
+    String value = raw == null ? "null" : raw;
+    String fragment = value.substring(0, Math.min(value.length(), 96));
+    return new IllegalStateException(
+        field + " JSON 损坏，拒绝写入（index=" + index + ", raw=" + fragment + ")", cause);
   }
 }

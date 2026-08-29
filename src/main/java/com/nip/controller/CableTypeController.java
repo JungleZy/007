@@ -3,8 +3,6 @@ package com.nip.controller;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.entity.CableTypeEntity;
-import com.nip.service.CableFloorService;
-import com.nip.service.CableService;
 import com.nip.service.CableTypeService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -20,15 +18,11 @@ import java.util.List;
 @Tag(name = "固定报文")
 @ApplicationScoped
 public class CableTypeController {
-  private final CableService cableService;
   private final CableTypeService cableTypeService;
-  private final CableFloorService cableFloorService;
 
   @Inject
-  public CableTypeController(CableService cableService, CableTypeService cableTypeService, CableFloorService cableFloorService) {
-    this.cableService = cableService;
+  public CableTypeController(CableTypeService cableTypeService) {
     this.cableTypeService = cableTypeService;
-    this.cableFloorService = cableFloorService;
   }
 
   @POST

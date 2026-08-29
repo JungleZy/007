@@ -16,7 +16,7 @@ import com.nip.entity.simulation.telex.GeneralTelexPatEntity;
 import com.nip.entity.simulation.ticker.GeneralTickerPatTrainEntity;
 import com.nip.service.general.GeneralTelexPatService;
 import com.nip.service.general.GeneralTickerPatService;
-import com.nip.testsupport.MySqlResource;
+
 import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.service.simulation.SimulationRouterRoomService;
 import com.nip.ws.service.simulation.SimulationGlobal;
@@ -24,7 +24,7 @@ import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import com.nip.ws.model.SimulationSessionHolder;
 import com.nip.ws.model.SimulationUserModel;
-import io.quarkus.test.common.QuarkusTestResource;
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.websocket.RemoteEndpoint;
@@ -45,7 +45,7 @@ import java.util.concurrent.locks.Lock;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class WebSocketDeleteOpenAtomicityTest {
 
   @Inject

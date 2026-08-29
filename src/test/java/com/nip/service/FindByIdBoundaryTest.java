@@ -3,8 +3,8 @@ package com.nip.service;
 import com.nip.dao.EnteringExerciseDao;
 import com.nip.dto.vo.EquipmentDeviceVo;
 import com.nip.dto.vo.param.EnteringExerciseFinishParam;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * 修复前会 persist 一条全空新行）。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class FindByIdBoundaryTest {
 
   @Inject EnteringExerciseService enteringExerciseService;

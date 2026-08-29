@@ -6,8 +6,8 @@ import com.nip.entity.MilitaryTermDataEntity;
 import com.nip.service.TelexPatTrainService;
 import com.nip.service.UserService;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * 端点异常由 common/exception 下的 ExceptionMapper 接管（Task 4.1）。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class ExceptionBoundaryTest {
   private static final String TOKEN = "boundary-token";
   private static final String DEVICE = "boundary-device";
@@ -59,6 +59,17 @@ class ExceptionBoundaryTest {
         .when().get("/api/menus/getMenusAll")
         .then().statusCode(200)
         .body("code", is(203));
+  }
+
+  @Test
+  void missingDeviceIdOnJwtEndpointReturns204Envelope() {
+    // 拦截器第三个序列化点：有 token 无 deviceId → HTTP 200 + code 204
+    given()
+        .header("Origin", "http://localhost")
+        .header("token", TOKEN)
+        .when().get("/api/menus/getMenusAll")
+        .then().statusCode(200)
+        .body("code", is(204));
   }
 
   @Test

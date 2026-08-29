@@ -19,6 +19,20 @@
 
 ---
 
+## 整改状态校准（Task 8, 2026-08-29）
+
+本节区分「已删除的内部代码」与「仍待外部契约决策的公共端点」，两者互不混淆。
+
+**本任务已完成的内部删除（不涉及任何 REST 方法签名变更）：**
+
+- **P2-14 已完成**：`UserController` 被丢弃的构造器参数 `UserTrainStatisticsService` 及其 import 已移除；`CableController`/`CableFloorController`/`CableTypeController` 各自只保留实际使用的那个 service 注入，未用字段/参数/import 一并清除。四个类的 REST 端点签名均未改动。
+- **P3-5 已完成**：`controller/test/Test.java`（带 `main` 的 GZIP 实验类）已删除；原文作为「保留备选」提到的 `common/utils/GZipUtil.java` 因同样零调用亦一并删除。
+
+**仍待外部契约决策、Task 8 明确不删除的公共端点：**
+
+- `TheoryKnowledgeQuestionController.upLoadFile`（P3-1）、`exportTemplate`（P1-8）、`exportQuestionByLevelId`（P3-4）—— 是否删除或补全需外部接口契约裁定；本任务仅清理了 service 侧 `upLoadFile`/`exportTemplate` 的注释死实现，未触碰这三个 controller 端点本身。
+- `TickerTapeTrainService.update` —— 明确接受的保留项，不在本任务删除范围。
+
 ## P0
 
 ### P0-1 `/test/start` 无鉴权 GET，直接覆盖生产训练记录

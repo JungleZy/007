@@ -49,6 +49,19 @@ public class TheoryKnowledgeTestContentDao extends BaseRepository<TheoryKnowledg
   }
 
   /**
+   * 根据测验ID批量获取测验题-创建时间升序（消除按测验逐条查询的 N+1）
+   *
+   * @param testIds 测验ID集合
+   * @return 所有匹配测验题，按 createTime 升序
+   */
+  public List<TheoryKnowledgeTestContentEntity> findAllByKnowledgeTestIdInOrderByCreateTimeAsc(List<String> testIds) {
+    if (testIds.isEmpty()) {
+      return List.of();
+    }
+    return find("knowledgeTestId in ?1", Sort.by("createTime").ascending(), testIds).list();
+  }
+
+  /**
    * 根据创建人ID获取所有的测验题
    *
    * @param createUserId

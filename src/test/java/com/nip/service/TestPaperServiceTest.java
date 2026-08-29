@@ -4,7 +4,7 @@ import com.nip.dao.*;
 import com.nip.dto.TestPaperDto;
 import com.nip.dto.TestPaperQuestionDto;
 import com.nip.testsupport.*;
-import io.quarkus.test.common.QuarkusTestResource;
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -14,7 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class TestPaperServiceTest {
   @Inject TestPaperService service;
   @Inject TestPaperQuestionDao questionDao;

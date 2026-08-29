@@ -78,6 +78,20 @@ public class TheoryKnowledgeTestUserDao extends BaseRepository<TheoryKnowledgeTe
     return find("userId= ?1 and knowledgeSwfId in (?2)", userId, swfIds).list();
   }
 
+  /**
+   * 根据用户ID与知识ID集合批量获取全部答案（消除按知识逐条查询的 N+1，学分完成判定分母）
+   *
+   * @param userId       用户ID
+   * @param knowledgeIds 知识ID集合
+   * @return 匹配的全部答案（不限已学课件）
+   */
+  public List<TheoryKnowledgeTestUserEntity> findAllByUserIdAndKnowledgeIdIn(String userId, List<String> knowledgeIds) {
+    if (knowledgeIds.isEmpty()) {
+      return List.of();
+    }
+    return find("userId = ?1 and knowledgeId in ?2", userId, knowledgeIds).list();
+  }
+
 
   /**
    * 查询已学课件

@@ -7,8 +7,8 @@ import com.nip.dto.PostTelexPatTrainDto;
 import com.nip.entity.GradingRuleEntity;
 import com.nip.entity.MilitaryTermDataEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * null 输入必须走显式分支或显式报错，不得 NPE。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class IntegerUnboxBoundaryTest {
 
   @Inject GradingRuleService gradingRuleService;

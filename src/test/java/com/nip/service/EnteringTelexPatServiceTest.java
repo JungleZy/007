@@ -5,8 +5,8 @@ import com.nip.dto.vo.EnteringTelexPatVO;
 import com.nip.dto.vo.param.EnteringTelexPatSaveParam;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 真重复（check!=null）静默放行。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class EnteringTelexPatServiceTest {
   @Inject EnteringTelexPatService service;
   @Inject UserDao userDao;

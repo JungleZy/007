@@ -25,6 +25,20 @@ public class TheoryKnowledgeSwfRecordDao extends BaseRepository<TheoryKnowledgeS
     return find("userId = ?1 and knowledgeSwfId = ?2", userId, swfId).list();
   }
 
+  /**
+   * 根据用户ID与教案ID集合批量获取学习记录（消除按课件逐条查询的 N+1）
+   *
+   * @param userId 用户ID
+   * @param swfIds 教案ID集合
+   * @return 匹配的学习记录
+   */
+  public List<TheoryKnowledgeSwfRecordEntity> findAllByUserIdAndKnowledgeSwfIdIn(String userId, List<String> swfIds) {
+    if (swfIds.isEmpty()) {
+      return List.of();
+    }
+    return find("userId = ?1 and knowledgeSwfId in ?2", userId, swfIds).list();
+  }
+
   public List<TheoryKnowledgeSwfRecordEntity> findAllByUserIdAndJoinTimeLikeAndType(String userId, String time, int type) {
     return find("userId =?1 and joinTime like ?2 and type =?3", userId, time, type).list();
   }

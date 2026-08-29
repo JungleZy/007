@@ -3,8 +3,8 @@ package com.nip.service;
 import com.nip.dao.PostTickerTapeTrainDao;
 import com.nip.dto.vo.param.PostTickerTapeTrainUpdateParam;
 import com.nip.entity.PostTickerTapeTrainEntity;
-import com.nip.testsupport.MySqlResource;
-import io.quarkus.test.common.QuarkusTestResource;
+
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * 现在 checkStatus 统一新枚举并同时拦 FINISH(2) 与 HAS_SCORE(3)。
  */
 @QuarkusTest
-@QuarkusTestResource(MySqlResource.class)
+
 class PostTickerTapeTrainServiceTest {
   @Inject PostTickerTapeTrainService service;
   @Inject PostTickerTapeTrainDao trainDao;

@@ -17,6 +17,8 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * MenusService
@@ -60,14 +62,20 @@ public class MenusService {
     List<MenusDto> menusDtos = new ArrayList<>();
     //组织路由菜单数据（按钮）
     List<MenusEntity> menusEntities = menusDao.getMenusByRoleId(roleId);
+    Map<String, MenusEntity> byId = menusDao.findAllByOrderBySortAsc().stream()
+        .collect(Collectors.toMap(MenusEntity::getId, Function.identity()));
     Set<MenusEntity> list = new HashSet<>(menusEntities);
-    menusEntities.forEach(a -> getAll(a, list));
+    menusEntities.forEach(a -> getAll(a, list, byId));
     List<MenusEntity> md = new ArrayList<>(list);
+    Map<String, RoleMenusEntity> roleMenuByMenuId = roleMenusDao.findAllByRoleId(roleId).stream()
+        .collect(Collectors.toMap(RoleMenusEntity::getMenuId, Function.identity(), (a, b) -> a));
+    Set<String> menuIds = md.stream().map(MenusEntity::getId).collect(Collectors.toSet());
+    Map<String, List<MenusButtonEntity>> buttonsByMenuId = menusButtonDao.findAllByMenusIdIn(menuIds).stream()
+        .collect(Collectors.groupingBy(MenusButtonEntity::getMenusId));
     md.forEach(menusEntity -> {
       if (menusEntity.getParentId().equals("-1")) {
-        MenusDto menusDto = handleMenusDto(menusEntity, roleId, null);
-        menusDto.setChildren(dg2(md, menusEntity, roleId));
-        //        menusDto.setPermissions(menusButtonDao.findAllByMenusId(menusEntity.getId()));
+        MenusDto menusDto = handleMenusDto(menusEntity, roleMenuByMenuId, buttonsByMenuId);
+        menusDto.setChildren(dg2(md, menusEntity, roleMenuByMenuId, buttonsByMenuId));
         menusDtos.add(menusDto);
       }
     });
@@ -75,11 +83,13 @@ public class MenusService {
     return menusDtos;
   }
 
-  public void getAll(MenusEntity a, Set<MenusEntity> list2) {
+  public void getAll(MenusEntity a, Set<MenusEntity> list2, Map<String, MenusEntity> byId) {
     if (!a.getParentId().equals("-1")) {
-      MenusEntity menusEntity = menusDao.findById(a.getParentId());
-      list2.add(menusEntity);
-      getAll(menusEntity, list2);
+      MenusEntity menusEntity = byId.get(a.getParentId());
+      if (menusEntity != null) {
+        list2.add(menusEntity);
+        getAll(menusEntity, list2, byId);
+      }
     }
   }
 
@@ -144,13 +154,13 @@ public class MenusService {
     return menusDtos;
   }
 
-  private List<MenusDto> dg2(List<MenusEntity> menusEntities, MenusEntity me, String role) {
+  private List<MenusDto> dg2(List<MenusEntity> menusEntities, MenusEntity me,
+      Map<String, RoleMenusEntity> roleMenuByMenuId, Map<String, List<MenusButtonEntity>> buttonsByMenuId) {
     List<MenusDto> menusDtos = new ArrayList<>();
     menusEntities.forEach(menusEntity -> {
       if (menusEntity.getParentId().equals(me.getId())) {
-        MenusDto menusDto = handleMenusDto(menusEntity, role, null);
-        menusDto.setChildren(dg2(menusEntities, menusEntity, role));
-        //        menusDto.setPermissions(menusButtonDao.findAllByMenusId(menusEntity.getId()));
+        MenusDto menusDto = handleMenusDto(menusEntity, roleMenuByMenuId, buttonsByMenuId);
+        menusDto.setChildren(dg2(menusEntities, menusEntity, roleMenuByMenuId, buttonsByMenuId));
         menusDtos.add(menusDto);
       }
     });
@@ -178,7 +188,8 @@ public class MenusService {
     return menusDto;
   }
 
-  public MenusDto handleMenusDto(MenusEntity menusEntity, String roleId, List<MenusDto> menusDtoList) {
+  private MenusDto handleMenusDto(MenusEntity menusEntity,
+      Map<String, RoleMenusEntity> roleMenuByMenuId, Map<String, List<MenusButtonEntity>> buttonsByMenuId) {
     try {
       MenusMetaDto menusMetaDto = new MenusMetaDto();
       menusMetaDto.setIcon(menusEntity.getIcon());
@@ -195,35 +206,21 @@ public class MenusService {
       menusDto.setMeta(menusMetaDto);
       menusDto.setComponent(menusEntity.getComponent());
       menusDto.setSort(menusEntity.getSort());
-      RoleMenusEntity firstByRoleIdAndMenuId = roleMenusDao.findFirstByRoleIdAndMenuId(roleId, menusEntity.getId());
+      RoleMenusEntity firstByRoleIdAndMenuId = roleMenuByMenuId.get(menusEntity.getId());
       // 获取该角色在该menu下的按钮权限
       if (null != firstByRoleIdAndMenuId) {
         List<String> strings = objectMapper.readValue(firstByRoleIdAndMenuId.getPer(), new TypeReference<>() {
         });
+        List<MenusButtonEntity> buttons = buttonsByMenuId.getOrDefault(menusEntity.getId(), List.of());
         List<MenusButtonEntity> menusButtonEntityList = new ArrayList<>();
-        strings.forEach(
-            p -> menusButtonEntityList.addAll(menusButtonDao.findAllByMenusIdAndKey(menusEntity.getId(), p)));
+        strings.forEach(p -> buttons.forEach(b -> {
+          if (Objects.equals(b.getKey(), p)) {
+            menusButtonEntityList.add(b);
+          }
+        }));
         menusDto.setPermissions(menusButtonEntityList);
       } else {
         menusDto.setPermissions(new ArrayList<>());
-      }
-      if (null != menusDtoList) {
-        // 如果当前menusDto已经被添加进menusDtoList中，那么就把这两个menusDto的按钮进行合并去重
-        boolean flag = true;
-        for (MenusDto m : menusDtoList) {
-          if (Objects.equals(m.getId(), menusDto.getId())) {
-            Set<MenusButtonEntity> hashSet = new HashSet<>();
-            hashSet.addAll(m.getPermissions());
-            hashSet.addAll(menusDto.getPermissions());
-            List<MenusButtonEntity> entities = new ArrayList<>(hashSet);
-            m.setPermissions(entities);
-            flag = false;
-            break;
-          }
-        }
-        if (flag) {
-          menusDtoList.add(menusDto);
-        }
       }
       return menusDto;
     } catch (Exception e) {
