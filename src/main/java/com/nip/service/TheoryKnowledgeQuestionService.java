@@ -1,7 +1,6 @@
 package com.nip.service;
 
 
-import cn.hutool.core.util.ObjectUtil;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -28,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.function.Function;
 
 import static com.nip.common.constants.BaseConstants.ID;
 
@@ -57,14 +58,6 @@ public class TheoryKnowledgeQuestionService {
   @Transactional
   public Response<TheoryKnowledgeQuestionEntity> saveTheoryKnowledgeQuestion(String token, TheoryKnowledgeQuestionDto questionDto) {
     UserEntity userEntity = userService.getUserByToken(token);
-    TheoryKnowledgeQuestionEntity entity = new TheoryKnowledgeQuestionEntity();
-    entity.setTopic(questionDto.getTopic());
-    entity.setCreateUserId(userEntity.getId());
-    entity.setAnalysis(questionDto.getAnalysis());
-    entity.setType(questionDto.getType());
-    entity.setAnswer(questionDto.getAnswer());
-    entity.setLevelId(questionDto.getLevelId());
-    entity.setOptions(questionDto.getOptions());
     if (!StringUtils.isEmpty(questionDto.getId())) {
       TheoryKnowledgeQuestionEntity tkq = theoryKnowledgeQuestionDao.findByIdOptional(questionDto.getId())
           .orElseThrow(() -> new IllegalArgumentException("未查询到该试题"));
@@ -77,6 +70,14 @@ public class TheoryKnowledgeQuestionService {
       tkq.setOptions(questionDto.getOptions());
       return ResponseResult.success(tkq);
     } else {
+      TheoryKnowledgeQuestionEntity entity = new TheoryKnowledgeQuestionEntity();
+      entity.setTopic(questionDto.getTopic());
+      entity.setCreateUserId(userEntity.getId());
+      entity.setAnalysis(questionDto.getAnalysis());
+      entity.setType(questionDto.getType());
+      entity.setAnswer(questionDto.getAnswer());
+      entity.setLevelId(questionDto.getLevelId());
+      entity.setOptions(questionDto.getOptions());
       TheoryKnowledgeQuestionEntity save = theoryKnowledgeQuestionDao.save(entity);
       return ResponseResult.success(save);
     }
@@ -84,11 +85,7 @@ public class TheoryKnowledgeQuestionService {
 
   @Transactional
   public Response<TheoryKnowledgeQuestionLevelEntity> saveTheoryKnowledgeQuestionLevel(String token, TheoryKnowledgeQuestionLevelDto map) {
-    TheoryKnowledgeQuestionLevelEntity entity = new TheoryKnowledgeQuestionLevelEntity();
     UserEntity userEntity = userService.getUserByToken(token);
-    entity.setParentId(map.getParentId());
-    entity.setName(map.getName());
-    entity.setCreateUserId(userEntity.getId());
     if (!StringUtils.isEmpty(map.getId())) {
       TheoryKnowledgeQuestionLevelEntity tkql = theoryKnowledgeQuestionLevelDao.findByIdOptional(map.getId())
           .orElseThrow(() -> new IllegalArgumentException("未查询到该题目分类"));
@@ -96,6 +93,10 @@ public class TheoryKnowledgeQuestionService {
       tkql.setName(map.getName());
       return ResponseResult.success(tkql);
     } else {
+      TheoryKnowledgeQuestionLevelEntity entity = new TheoryKnowledgeQuestionLevelEntity();
+      entity.setParentId(map.getParentId());
+      entity.setName(map.getName());
+      entity.setCreateUserId(userEntity.getId());
       TheoryKnowledgeQuestionLevelEntity save = theoryKnowledgeQuestionLevelDao.save(entity);
       return ResponseResult.success(save);
     }
@@ -139,13 +140,17 @@ public class TheoryKnowledgeQuestionService {
     ids = new ArrayList<>();
     List<TheoryKnowledgeQuestionAllDto> theoryKnowledgeQuestionAllDtos = PojoUtils.convert(allByIdIn, TheoryKnowledgeQuestionAllDto.class);
 
-    List<UserEntity> userList = userDao.findAll().list();
-    Map<String, List<UserEntity>> userMap = userList.stream().collect(Collectors.groupingBy(UserEntity::getId));
+    Set<String> userIds = allByIdIn.stream()
+        .map(TheoryKnowledgeQuestionEntity::getCreateUserId)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toSet());
+    Map<String, UserEntity> users = userDao.queryByIdIn(userIds).stream()
+        .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
 
     theoryKnowledgeQuestionAllDtos.forEach(ques -> {
-      List<UserEntity> userEntities = userMap.get(ques.getCreateUserId());
-      if (ObjectUtil.isNotEmpty(userEntities)) {
-        ques.setCreateUserName(userEntities.getFirst().getUserName());
+      UserEntity user = users.get(ques.getCreateUserId());
+      if (user != null) {
+        ques.setCreateUserName(user.getUserName());
       }
     });
     return ResponseResult.success(theoryKnowledgeQuestionAllDtos);

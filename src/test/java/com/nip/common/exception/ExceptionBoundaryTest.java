@@ -62,6 +62,17 @@ class ExceptionBoundaryTest {
   }
 
   @Test
+  void missingDeviceIdOnJwtEndpointReturns204Envelope() {
+    // 拦截器第三个序列化点：有 token 无 deviceId → HTTP 200 + code 204
+    given()
+        .header("Origin", "http://localhost")
+        .header("token", TOKEN)
+        .when().get("/api/menus/getMenusAll")
+        .then().statusCode(200)
+        .body("code", is(204));
+  }
+
+  @Test
   void unknownTokenOnNonJwtEndpointReturns203Envelope() {
     // Task 4.2：非 @JWT 的 DeviceController 路径，getUserByToken 抛 UnauthorizedException
     // → UnauthorizedExceptionMapper：HTTP 200 + code 203（原为 NPE→500）

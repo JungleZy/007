@@ -22,6 +22,12 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @Author: wushilin
@@ -71,14 +77,33 @@ public class GroupNetTrainService {
     PanacheQuery<GroupNetTrainEntity> pageQuery = trainDao
         .find("createUser = ?1", Sort.by("createTime").descending(), userEntity.getId())
         .page(page.getPage() - 1, page.getRows());
-    return PojoUtils.convertPage(pageQuery, GroupNetTrainListPageVO.class, (e, v) -> {
-      DeviceEntity deviceEntity = Optional.ofNullable(deviceDao.findById(e.getDeviceId()))
-          .orElseGet(DeviceEntity::new);
-      DeviceTypeEntity deviceTypeEntity = Optional.ofNullable(deviceTypeDao.findById(e.getDeviceType()))
-          .orElseGet(DeviceTypeEntity::new);
-      v.setDeviceTypeName(deviceTypeEntity.getTypeName());
-      v.setDeviceName(deviceEntity.getDeviceName());
-    });
+    List<GroupNetTrainEntity> entities = pageQuery.list();
+    Set<Integer> deviceIds = entities.stream()
+        .map(GroupNetTrainEntity::getDeviceId)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toSet());
+    Set<Integer> typeIds = entities.stream()
+        .map(GroupNetTrainEntity::getDeviceType)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toSet());
+    Map<Integer, DeviceEntity> devices = deviceDao.list("id in ?1", deviceIds).stream()
+        .collect(Collectors.toMap(DeviceEntity::getId, Function.identity()));
+    Map<Integer, DeviceTypeEntity> types = deviceTypeDao.findAllByIdIn(typeIds).stream()
+        .collect(Collectors.toMap(DeviceTypeEntity::getId, Function.identity()));
+    List<GroupNetTrainListPageVO> data = PojoUtils.convert(entities,
+        GroupNetTrainListPageVO.class, (entity, vo) -> {
+          vo.setDeviceName(Optional.ofNullable(devices.get(entity.getDeviceId()))
+              .map(DeviceEntity::getDeviceName).orElse(null));
+          vo.setDeviceTypeName(Optional.ofNullable(types.get(entity.getDeviceType()))
+              .map(DeviceTypeEntity::getTypeName).orElse(null));
+        });
+    PageInfo<GroupNetTrainListPageVO> result = new PageInfo<>();
+    result.setData(data);
+    result.setPageSize(pageQuery.page().size);
+    result.setTotalNumber(pageQuery.count());
+    result.setCurrentPage(pageQuery.page().index);
+    result.setTotalPage(pageQuery.pageCount());
+    return result;
   }
 
   /**
