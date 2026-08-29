@@ -4,6 +4,12 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.dao.TelegramTrainFloorContentDao;
 import com.nip.entity.TelegramTrainFloorContentEntity;
+import com.nip.dao.TelegramTrainStatisticalDao;
+import com.nip.dao.UserDao;
+import com.nip.dto.vo.TelegramTrainStatisticalVO;
+import com.nip.entity.TelegramTrainStatisticalEntity;
+import com.nip.entity.UserEntity;
+import com.nip.testsupport.Fixtures;
 
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -11,6 +17,8 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.math.BigDecimal;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,6 +33,28 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class TelegramTrainServiceTest {
   @Inject TelegramTrainService service;
   @Inject TelegramTrainFloorContentDao contentDao;
+  @Inject TelegramTrainStatisticalDao statisticalDao;
+  @Inject UserDao userDao;
+
+  @Test
+  void statisticalPageFillsMissingTypesAndSortsAscending() {
+    UserEntity user = Fixtures.user(userDao, "telegram-order");
+    for (int type : new int[]{2, 0}) {
+      TelegramTrainStatisticalEntity entity = new TelegramTrainStatisticalEntity();
+      entity.setUserId(user.getId());
+      entity.setType(type);
+      entity.setTotalCount(0);
+      entity.setAvgSpeed(BigDecimal.ZERO);
+      entity.setTotalTime("0");
+      statisticalDao.save(entity);
+    }
+
+    List<TelegramTrainStatisticalVO> result = service.statisticalPage("telegram-order");
+
+    assertEquals(3, result.size());
+    assertEquals(List.of(0, 1, 2), result.stream()
+        .map(TelegramTrainStatisticalVO::getType).toList());
+  }
 
   @Test
   void saveFloorContentUpdatesMoresValueAndTime() {
