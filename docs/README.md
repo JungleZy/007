@@ -43,6 +43,7 @@
 
 ### 2.3 前端评审
 
+- **全项目综合评审（2026-09-08）**：[`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) —— 当前 HEAD 的前后端、数据库、部署和验证结论；包含已验证的 P0、历史报告勘误与整改顺序。
 - `2026-09-08-frontend-review.md`（HIGH 23 / MEDIUM 31 / LOW 17 / INFO 12；**代码尚未整改**）。
 
 ### 2.4 迁移演练记录
