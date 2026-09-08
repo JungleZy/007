@@ -1,0 +1,584 @@
+.ico1{
+  background: url("../../../../../../assets/HJ/receive/audio.png");
+  height: 36px;
+  width: 36px;
+  margin-right: 5px;
+}
+.ico1.active,
+.ico1:hover{
+  background: url("../../../../../../assets/HJ/receive/audio-hover.png");
+}
+.ico2{
+  background: url("../../../../../../assets/HJ/receive/audio2.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 3px;
+}
+.ico2.active,
+.ico2:hover{
+  background: url("../../../../../../assets/HJ/receive/audio2-hover.png");
+}
+.ico3{
+  background: url("../../../../../../assets/HJ/receive/speed.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 5px;
+}
+.ico3.active,
+.ico3:hover{
+  background: url("../../../../../../assets/HJ/receive/speed-hove.png");
+}
+.ico4{
+  background: url("../../../../../../assets/HJ/receive/disturb.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 3px;
+}
+.ico4.active,
+.ico4:hover{
+  background: url("../../../../../../assets/HJ/receive/disturb-hover.png");
+}
+.dataBox {
+  position: absolute;
+  display: flex;
+  right: 240px;
+  top: 5px;
+}
+
+.dataBox .item {
+  display: flex;
+  width: 216px;
+  height: 42px;
+  padding-top: 0;
+  align-items: center;
+  padding-left: 20px;
+  color: #b4d5f0;
+  background: url("../../../../../../assets/HJ/telexTrain/statistics.png") no-repeat center;
+  margin-bottom: 10px;
+}
+
+.dataBox .item .ico {
+  margin-right: 10px;
+}
+
+.trainTime {
+  height: 54px;
+  width: 278px;
+  background: url("../../../../../../assets/HJ/receive/trainTime.gif") no-repeat center;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 9;
+}
+
+.cool .trainTime {
+  background: url("../../../../../../assets/HJ/receive/trainTime.png") no-repeat center;
+}
+
+.trainTime .timeNum {
+  width: 29px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 6px;
+}
+
+.trainTime .timeNum .num {
+  height: 40px;
+  font-size: 28px;
+  line-height: 40px;
+  overflow: hidden;
+  display: flex;
+  text-align: center;
+  color: #dbe5fa;
+}
+
+.codeBodyBox {
+  width: 220px;
+  padding-top: 18px;
+  position: absolute;
+  right: 10px;
+  top: 64px;
+  bottom: 80px;
+  z-index: 6;
+}
+
+.codeBodyBox:after {
+  content: '';
+  width: 220px;
+  height: 18px;
+  background: url("../../../../../../assets/HJ/receive/code-title.png") no-repeat;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.codeSwitch {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  padding-left: 100px;
+  font-size: 12px;
+}
+
+.codeBody {
+
+}
+
+.codeBody .item {
+
+
+}
+
+.codeBody .item.active {
+  animation: glint 2s linear infinite;
+  -webkit-animation: glint 2s linear infinite;
+  color: #00a0e9 !important;
+}
+
+.codeBody .key {
+  font-size: 24px;
+  padding-bottom: 2px;
+  line-height: 1;
+  font-weight: bolder;
+  width: 36px;
+  text-align: center;
+  color: rgba(255, 255, 255, .2);
+  flex-shrink: 0;
+}
+
+.codeBody .item .key.start {
+  font-size: 13px;
+  color: #0f0;
+}
+
+.codeBody .item .key.end {
+  font-size: 13px;
+  color: #f00;
+}
+
+.value {
+  padding-left: 10px;
+  display: flex;
+}
+
+.hideCode {
+  font-weight: bolder;
+  letter-spacing: 5px;
+  color: rgba(255, 255, 255, .4);
+}
+
+.val {
+  width: 8px;
+  height: 8px;
+  background-color: #34466c;;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.val.line {
+  width: 24px;
+}
+
+.on .key {
+  color: #fff;
+}
+
+.codeBody .on .val {
+  background-color: #fff;
+}
+
+.codeBody .on .hideCode {
+  color: #fff;
+}
+
+.codeBody .btn {
+  background-color: #009afd;
+  line-height: 16px;
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 0 6px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.trainOpenBtn {
+  display: flex;
+  justify-content: center;
+  width: 480px;
+  height: 100px;
+
+}
+
+.trainOpenBtn .letter {
+  transition: all;
+  animation: letterX .5s;
+}
+
+.trainOpenBtn .img {
+  cursor: pointer;
+  height: 48px;
+}
+
+.trainOpenBtn .img + .img {
+  margin-left: 20px;
+}
+
+.trainBtnBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: absolute;
+  left: 30px;
+  top: 10px;
+  z-index: 9;
+}
+
+.trainBtnBox .btns {
+  height: 36px;
+  padding: 0 6px;
+  background-color: rgba(32, 66, 107, .5);
+  border: 1px solid #395a95;
+  -webkit-box-shadow: inset 0 0 20px rgba(0, 150, 255, .32);
+  box-shadow: inset 0 0 20px rgba(0, 150, 255, .32);
+  display: flex;
+  border-radius: 2px;
+}
+
+.trainBtnBox .btns .btnIco {
+  width: 42px;
+  padding: 6px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.trainBtnBox .btns .btnIco + .btnIco:before {
+  content: '';
+  width: 1px;
+  background: url("../../../../../../assets/HJ/receive/btn-line.png") no-repeat center;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+
+.trainBtnBox .btns .btnIco.active,
+.trainBtnBox .btns .btnIco:hover {
+  background-color: #0c2041;
+}
+
+.configureBox {
+  width: 360px;
+  background-color: rgba(32, 66, 107, .5);
+  border: 1px solid rgb(32, 66, 107);
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+.configureBox .typeBtn {
+  border: 1px solid #335375;
+  border-radius: 2px;
+  line-height: 18px;
+  padding: 0 10px;
+  color: #dbe5fa;
+  margin-right: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.configureBox .typeBtn.active {
+  border-color: #009afd;
+  color: #009afd;
+}
+
+.configureBox .auditionBtn {
+  background-color: #009afd;
+  line-height: 20px;
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 0 10px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.configureBox .text {
+  font-size: 12px;
+  color: #009afd;
+}
+
+.volumeSlider.voice {
+  width: 100%;
+  padding-bottom: 12px;
+  border-left: 1px solid #354971;
+  border-right: 1px solid #354971;
+  margin-top: 30px;
+}
+
+.progressBox {
+  padding: 0 30px;
+  position: absolute;
+  left: 0;
+  right: 10px;
+  bottom: 20px;
+}
+
+.progressBox .box {
+  padding: 5px 6px;
+  position: relative;
+}
+
+.progressBox .box .line {
+  height: 1px;
+  background-color: #0153ac;
+  position: absolute;
+  left: 8px;
+  right: 8px;
+}
+
+.progressBox .box .line:after,
+.progressBox .box .line:before {
+  content: '';
+  width: 3px;
+  height: 3px;
+  background-color: #0153ac;
+  position: absolute;
+  top: -1px;
+}
+
+.progressBox .box .line:after {
+  left: -8px;
+}
+
+.progressBox .box .line:before {
+  right: -8px;
+}
+
+.progressBox .bg {
+  padding: 2px;
+  border: 1px solid #043672;
+  position: relative;
+  display: flex;
+}
+
+.progressBox .bg .text {
+  line-height: 20px;
+  color: #009afd;
+  font-size: 13px;
+  padding-left: 3px;
+  position: absolute;
+  top: 0;
+}
+
+.progressBox .on {
+  height: 16px;
+  background: url("../../../../../../assets/HJ/receive/progress-on.png");
+}
+
+@keyframes letterX {
+  0% {
+    transform: rotateX(180deg);
+  }
+  50% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(0deg);
+  }
+}
+
+@keyframes glint {
+  0% {
+    -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+  }
+  25% {
+    -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+    box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+  }
+  50% {
+    -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+    box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+  }
+  75% {
+    -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+    box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+  }
+  100% {
+    -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+  }
+}
+
+
+.scoreBody:before, .scoreBody:after {
+  content: '';
+  width: 288px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.scoreBody:before {
+  background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/zuo.png") no-repeat left;
+  background-size: auto 100%;
+  left: 0;
+}
+
+.scoreBody:after {
+  background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/you.png") no-repeat right;
+  background-size: auto 100%;
+  right: 0;
+}
+
+.basicTitle {
+  height: 54px;
+  width: 100%;
+  background-image: linear-gradient(to bottom, #122345, #1d355a);
+  color: #ffffff;
+  padding-left: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.switch {
+  position: relative;
+  height: 34px;
+  width: 88px;
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/switch.png");
+  cursor: pointer;
+}
+
+.slider {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/slider.png");
+  background-repeat: no-repeat;
+  position: absolute;
+  height: 34px;
+  width: 39px;
+  transition: all linear .1s;
+}
+
+.light {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/light.png");
+  background-repeat: no-repeat;
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  right: -5px;
+  top: 7px;
+}
+
+.light.active {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/lightActive.png");
+}
+
+.activeNumber {
+  background-image: url("../../../../../../assets/HJ/preTrain/bg.png");
+  height: 130px;
+  width: 170px;
+  margin: 0 1%;
+}
+
+.current {
+  background-image: url("../../../../../../assets/HJ/preTrain/bgxz.png");
+}
+
+.patTelegraphBox {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.patTelegraph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.pagIndex {
+  display: flex;
+  position: absolute;
+  bottom: -30px;
+}
+
+.telegraph {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #415684;
+  background-color: #0a1936;
+  display: flex;
+  flex-direction: column;
+}
+
+.telegraph .rowHead {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.telegraph .keyBox {
+  display: flex;
+  flex-wrap: wrap;
+  height: 100%;
+}
+
+.telegraph .key {
+  font-size: 20px;
+  width: 10%;
+  height: 10%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.telegraph .key {
+  border-right: 1px solid #384c77;
+}
+
+.telegraph .key:nth-of-type(10n) {
+  border-right: none;
+}
+
+.telegraph .key:nth-of-type(n+10) {
+  border-top: 1px solid #384c77;
+}
+
+.telegraph .rowHead .key {
+  color: #3f6089;
+  height: 100%;
+  font-weight: bold;
+  font-size: 18px;
+  background-color: #70c9ff;
+  border: none;
+}
+
+.serial {
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  color: #70c9ff;
+  align-content: stretch;
+}
+
+.serial .ser {
+  height: calc((100% - 36px) / 10);
+  flex-grow: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.serial .ser.head {
+  height: 36px;
+  flex-grow: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}

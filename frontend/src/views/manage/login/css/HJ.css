@@ -1,0 +1,180 @@
+.cool .loginbg {
+  background: url('../../../../assets/HJ/login/staticBg.jpg');
+}
+.error {
+  border: 1px solid red !important;
+}
+.input_user {
+  width: 250px;
+  height: 36px;
+}
+.text {
+  color: white;
+  width: 100px;
+  text-align: right;
+}
+.text strong {
+  color: #f00;
+  margin-right: 5px;
+}
+.addUser {
+  color: white;
+  padding-left: 20px;
+  cursor: pointer;
+}
+.bg {
+  background-image: url('../../../../assets/HJ/login/inputBG.png');
+  background-size: 100% 100%;
+  padding: 8px 20px;
+  transition: all 1s;
+  width: 432px;
+  height: 66px;
+}
+.activebg {
+  background-image: url('../../../../assets/HJ/login/inputBg-active.png');
+}
+
+.login {
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+}
+
+.login .top {
+  font-size: 28px;
+  font-weight: bolder;
+  color: #1a1a1a;
+  padding-left: 20px;
+}
+
+.login .main {
+  justify-content: start;
+}
+
+.login .register {
+  height: calc(100vh - 100px);
+  margin-top: 130px;
+}
+
+.login .loginTab {
+  font-size: 18px;
+  font-weight: bolder;
+  color: #0076fe;
+  padding-left: 36px;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.login .loginTab:before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background-color: #0076fe;
+  position: absolute;
+  left: 20px;
+  top: 7px;
+}
+
+.login .ipt {
+  border: none;
+  /*background-color: #e2fcff;*/
+  /*background-image:url("../../../assets/HJ/login/inputBG.png");*/
+  /*background-size: 100% 100%;*/
+  padding: 12px 20px;
+  line-height: 26px;
+  /*border-radius: 30px;*/
+  background: rgba(0, 0, 0, 0);
+  width: 100%;
+}
+.login .ipt >>> .ant-input {
+  background-color: rgba(0, 0, 0, 0) !important;
+  padding-left: 15px;
+  box-shadow: none !important;
+  border: none;
+  color: #ffffff;
+}
+.login .ipt >>> .ant-input:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff;
+  color: #ffffff;
+}
+.login .ipt >>> .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+.login .ipt >>> .ant-input:focus,
+.login .ipt >>> .ant-input:hover {
+  border: 0px !important;
+}
+.login .ipt >>> .anticon {
+  color: #0093fe !important;
+}
+
+.login .ipt >>> .ant-calendar-picker-icon {
+  width: auto;
+  height: auto;
+  left: 20px;
+  margin-top: -10px;
+}
+
+.login .ipt >>> .ant-calendar-picker-input.ant-input {
+  padding-left: 35px;
+}
+
+.login .ipt >>> .ant-select-selector {
+  border: none !important;
+  background-color: transparent;
+}
+
+.login .desc {
+  padding: 0 20px;
+  margin-bottom: 30px;
+}
+
+.login .desc .text {
+  color: #0076fe;
+  font-size: 14px;
+}
+
+.login .chooseText {
+  color: #999;
+  position: relative;
+  padding: 0 56px;
+  cursor: pointer;
+}
+
+.login .chooseText:before,
+.login .chooseText:after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background-color: #e6ebf1;
+  position: absolute;
+  top: 10px;
+}
+
+.login .chooseText:before {
+  left: 0;
+}
+
+.login .chooseText:after {
+  right: 0;
+}
+
+.login .loginBtn {
+  height: 50px;
+  width: 229px;
+  font-size: 18px;
+  font-weight: bold;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+  color: #ffebd2;
+  text-shadow: 1px 2px 2px #2d1900;
+}
+
+.bg >>> .ant-input-affix-wrapper,
+.bg >>> .ant-input-affix-wrapper:focus,
+.bg >>> .ant-input-affix-wrapper:hover,
+.activebg >>> .ant-input-affix-wrapper:focus {
+  border-right-width: 0 !important;
+  box-shadow: none !important;
+}

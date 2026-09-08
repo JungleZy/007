@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Splashscreen</title>
+    <style>
+      body,
+      html {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        color: #2a61b2;
+      }
+
+      .splashscreen-image {
+        background-color: transparent;
+        width: 100vw !important;
+        height: 100vh !important;
+        overflow: hidden;
+        text-align: center;
+        font-size: 36px;
+      }
+      .layout-center {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        letter-spacing: 5px;
+        font-weight: 500;
+      }
+      .two {
+        width: 100%;
+        position: fixed;
+        bottom: 20px;
+        left: 0;
+        text-align: center;
+        z-index: 999;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div style="width: 100%; height: 100%">
+      <div class="splashscreen-image layout-center">
+        <div style="width: 100%">报务训练系统</div>
+        <div style="width: 100%"><img src="./l.gif" /></div>
+      </div>
+      <div class="two">程序启动中</div>
+    </div>
+  </body>
+</html>

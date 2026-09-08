@@ -1,0 +1,227 @@
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(90deg);
+    }
+    50% {
+        transform: rotate(180deg);
+    }
+    75% {
+        transform: rotate(270deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.trainBoxs {
+    display: flex;
+}
+.trainCenter_box {
+    margin-left: 10px;
+  margin-right: 10px;
+}
+
+
+.disturbBox >>> input[type='checkbox'].ant-checkbox-input {
+    width: 14px !important;
+    height: 14px !important;
+}
+.disturbBox >>> .ant-checkbox-wrapper {
+    color: #909db0;
+    font-size: 13px;
+}
+.disturbBox >>> .ant-checkbox-wrapper .ant-checkbox-inner {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.basicExercise .tipSymbol {
+    border: 1px solid rgba(255, 255, 213, .4);
+    padding: 6px 8px 10px;
+    background: url("../../../../../assets/HJ/train/hint-bg.png") no-repeat center bottom;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.basicExercise .tipSymbol .symItem {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    color: #ffffd5;
+}
+
+.basicExercise .tipSymbol .symItem .space {
+    height: 2px;
+    width: 12px;
+}
+
+.basicExercise .tipSymbol .symItem .val {
+    height: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background-color: #ffffd5;
+}
+
+.trainCenter_box {
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes glint {
+    0% {
+        -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+        box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+    25% {
+        -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+        box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    50% {
+        -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+        box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    }
+    75% {
+        -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+        box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    100% {
+        -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+        box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+}
+
+.volumeBox {
+    width: 240px;
+    margin: 0 auto;
+}
+
+.volumeBox .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #e2f2ff;
+    font-size: 15px;
+}
+
+.volumeBox .volumeSlider {
+    height: 18px;
+    position: relative;
+    background: url("../../../../../assets/HJ/train/volume-marks-bg.png") no-repeat center;
+}
+
+@keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+}
+
+@keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+}
+
+@keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+}
+
+@keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+}
+
+
+
+.trainCenter_box ._main {
+    width: 100%;
+    height: 100%;
+    padding: 0 .96% .9%;
+    position: relative;
+}
+._bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+._bottom .bg {
+    width: 100%;
+}
+._bottom .pag {
+    width: 540px;
+    height: 38%;
+    min-height: 24px;
+    background: url("../../../../../assets/HJ/postTrain/pag.png") no-repeat center;
+    background-size:  auto 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #bfcde0;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: -270px;
+}
+._bottom .pag .line {
+    margin: 0 4%;
+    height: 12px;
+    width: 1px;
+    background-color: rgba(0,0,0,0);
+}
+._bottom .pag .num {
+    color: #e9deb2;
+    font-size: 18px;
+    font-weight: bold;
+}
+._main .cont {
+    width: 100%;
+    height: 100%;
+    padding-bottom: 2%;
+    padding-top: 2%;
+    display: flex;
+    flex-direction: column;
+}
+._main .patKey {
+    width: 90%;
+    max-width: 1253px;
+    margin: 0 auto;
+    flex-shrink: 0;
+    position: relative;
+}
+._main .patKey .bg {
+    height: 180px;
+}
+._main .patKey .keys {
+    position: absolute;
+    top: 6px;
+    left: 2%;
+    right: 2%;
+    bottom: 5px;
+}
+._main .patKey .keysRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+._main .patKey .key {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-right: 20px;
+    color: #5178a8;
+}
+._main .patTelegraphBox {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 2% 0 1%;
+}
+
+

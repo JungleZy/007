@@ -1,0 +1,3639 @@
+@import "../../../common/styles/KJ/colorAll";
+.HJ{
+  //右侧顶部标签
+  .telegraphBox {
+    width: 100%;
+    height: 100%;
+    padding: 0 5px;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #70c9ff;
+    font-size: 14px;
+    background: url("../../../assets/HJ/postTrain/totalBg.png") no-repeat center;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+  }
+  .telegraphBox .totalBox .page {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .telegraphBox .totalBox .page .pag {
+    width: 80px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #70c9ff;
+    font-size: 13px;
+    box-shadow: inset 0 0 6px rgba(110, 189, 255, .6);
+  }
+  .telegraphBox .totalBox .page .pag + .pag {
+    margin-left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag.disabled {
+    opacity: .4;
+  }
+
+  //右侧报底
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 78px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #70c9ff;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 36px) / 10);
+    flex-grow: 1;
+    flex-shrink: 0;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 36px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #415684;
+    background-color: #0a1936;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    font-size: 16px;
+    width: 10%;
+    height: 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #384c77;
+    cursor: pointer;
+  }
+  .patTelegraph .telegraph .key.warning {
+    color: #45a515;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.more {
+    color: #af9510 !important;
+    font-weight: bolder;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.error {
+    color: #d11d1d;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.omission {
+    color: #435a7d;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #384c77;
+  }
+  .patTelegraph .telegraph .key .keyErr,
+  .patTelegraph .telegraph .key .keyOmis {
+    display: none;
+    min-width: 80px;
+    height: 56px;
+    font-size: 16px;
+    pointer-events: none;
+    position: absolute;
+    top: -36px;
+    left: 50%;
+  }
+  .patTelegraph .telegraph .key .keyOmis {
+    width: 105px;
+    height: 57px;
+    font-size: 15px;
+    background: url("../../../assets/HJ/postTrain/keyPopBg.png") no-repeat center;
+  }
+  .patTelegraph .telegraph .key .keyErr:before,
+  .patTelegraph .telegraph .key .keyErr:after {
+    content: '';
+    height: 56px;
+    position: absolute;
+    top: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:before {
+    width: 36px;
+    background: url("../../../assets/HJ/postTrain/keyErrorBg-l.png") no-repeat center;
+    left: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:after {
+    width: 16px;
+    background: url("../../../assets/HJ/postTrain/keyErrorBg-r.png") no-repeat center;
+    right: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr .box,
+  .patTelegraph .telegraph .key .keyOmis .box {
+    height: 31px;
+    text-align: center;
+    line-height: 31px;
+    padding: 0 12px 0 32px;
+    position: relative;
+    z-index: 6;
+  }
+  .patTelegraph .telegraph .key .keyErr .text {
+    height: 31px;
+    background: url("../../../assets/HJ/postTrain/keyErrorBg.png");
+    line-height: 31px;
+    white-space: nowrap;
+    font-weight: bolder;
+  }
+  .patTelegraph .telegraph .key.more:hover .keyErr,
+  .patTelegraph .telegraph .key.warning:hover .keyErr,
+  .patTelegraph .telegraph .key.error:hover .keyErr,
+  .patTelegraph .telegraph .key.omission:hover .keyOmis {
+    display: block;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #3f6089;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #70c9ff;
+    border: none;
+  }
+
+  //左侧表格正确率
+  .dataBox {
+    width: 35%;
+    min-width: 420px;
+    max-width: 520px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    padding: 0 5px;
+    flex-direction: column;
+  }
+  .dataBox .top {
+    width: 100%;
+    height: 128px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: -12px auto 0;
+  }
+  .dataBox .top .name {
+    font-weight: bolder;
+    color: #a4b8d8;
+    background: rgba(10,26,56,.5);
+    max-width: 100%;
+    padding: 0 15px;
+    line-height: 22px;
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    background-image: linear-gradient(to bottom, #b3c6e8, #5d6572);
+    -webkit-background-clip: text;
+    color: transparent;
+    position: absolute;
+    top: 20px;
+    left: 0;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: 72px;
+    padding: 3% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 6%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+    display: flex;
+    align-items: center;
+  }
+  //左侧表格tab栏
+  .chartBox {
+    width: 100%;
+    height: calc(100% - 200px);
+  }
+  .chartBox .tabs {
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox .tabs .tab {
+    height: 30px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background-color: #223e66;
+    border: 1px solid #415684;
+    color: #7b90af;
+    font-size: 13px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    z-index: 8;
+  }
+  .chartBox .tabs .tab + .tab {
+    border-left: transparent;
+  }
+  .chartBox .tabs .tab.on {
+    color: #70c9ff;
+    background-color: #0a1936;
+    border-bottom: transparent;
+  }
+  .chartBox .tabs .tab .ico {
+    margin-right: 6px;
+  }
+  .chartBox .box {
+    height: calc(100% - 30px);
+    border: 1px solid #415684;
+    background-color: #0a1936;
+    position: relative;
+  }
+  .chartBox .chart {
+    height:100%;
+  }
+  .chartBox .totalChart {
+    width: calc(100% - 5px);
+    height: calc(100% - 5px);
+  }
+  .chartBox .box .title {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    color: #70c9ff;
+    font-size: 15px;
+    font-weight: bold;
+    padding-left: 6px;
+  }
+  .chartBox .box .title .lab {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+  //左侧表格
+  .totalTable {
+    height: 100%;
+  }
+  .totalTable .head,
+  .totalTable .row {
+    display: flex;
+    height: calc(100% / 12);
+  }
+  .totalTable .item {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    font-size: 13px;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #415684;
+    border-right: 1px solid #415684;
+  }
+  .totalTable .lab {
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .totalTable .full {
+    background-color: #223e66;
+  }
+  .totalTable .head .lab {
+    border: 1px solid #415684;
+    position: relative;
+    overflow: hidden;
+  }
+  .totalTable .head .lab:after,
+  .totalTable .head .lab:before {
+    content: '';
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .totalTable .head .lab:after {
+    border-right: 100px solid transparent;
+    border-bottom: 28px solid #415684;
+    z-index: 2;
+  }
+  .totalTable .head .lab:before {
+    border-right: 98px solid transparent;
+    border-bottom: 27px solid #0a1936;
+    z-index: 3;
+  }
+  .totalTable .head .full {
+    border-top: 1px solid #415684;
+  }
+  .totalTable .row .full {
+    border-left: 1px solid #415684;
+  }
+
+  //底部样式
+  .patHairTrend {
+    width: 100%;
+    padding: 20px 10px 12px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .patHairTrend .name {
+    color: #6ebdff;
+    font-size: 18px;
+    text-align: center;
+    line-height: 30px;
+    background-color: #16345f;
+    border: 2px solid #182741;
+    padding: 0 4px;
+    border-top: none;
+    letter-spacing: 5px;
+  }
+  .patHairTrend .codeContLog {
+    display: flex;
+    box-shadow: inset 0 -60px 80px -60px rgb(18, 33, 56);
+  }
+  .patHairTrend .key {
+    position: relative;
+  }
+  .patHairTrend .key:after,
+  .patHairTrend .key:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #2e4065, #182741);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+  }
+  .patHairTrend .key:after {
+    right: 0;
+  }
+  .patHairTrend .key:before {
+    left: 0;
+  }
+  .patHairTrend .key+.omission:before {
+    display: none;
+  }
+  .patHairTrend .keyGap {
+    height: 58px;
+    position: relative;
+  }
+  .patHairTrend .keyName {
+    height: 58px;
+    color: #6ebdff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 2px solid #182741;
+    position: relative;
+    cursor: pointer;
+  }
+  .patHairTrend .keyName:after,
+  .patHairTrend .keyName:before {
+    content: '';
+    height: 2px;
+    border-top: 2px dashed #354971;
+    position: absolute;
+    top: 50%;
+  }
+  .patHairTrend .keyName:after {
+    left: 2px;
+    right: calc(50% + 10px);
+  }
+  .patHairTrend .keyName:before {
+    left: calc(50% + 10px);
+    right: 2px;
+  }
+  .patHairTrend .keyName.err {
+    font-weight: bold;
+    color: #d11d1d;
+    position: relative;
+  }
+  .patHairTrend .keyName .text {
+    display: none;
+    width: 48px;
+    height: 26px;
+    background-color: #0a1936;
+    box-shadow: inset 0 0 10px #d11d1d;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: calc(50% - 24px);
+    top: -16px;
+  }
+  .patHairTrend .keyName.err .text:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid rgba(209,29,29,.6);
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    margin-left: -5px;
+  }
+  .patHairTrend .keyName.err:hover .text {
+    display: flex;
+  }
+  .patHairTrend .times {
+    display: flex;
+  }
+  .patHairTrend .times .time {
+    height: 22px;
+    border-top: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .patHairTrend .times .time:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid transparent;
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    margin-left: -4px;
+  }
+  .patHairTrend .times .time.dot {
+    border-top-color: #6ebdff;
+    background-color: rgba(110,189,255,.3);
+  }
+  .patHairTrend .times .time.line {
+    border-top-color: #c99a3b;
+    background-color: rgba(201,154,59,.3);
+  }
+  .patHairTrend .times .time.gap {
+    border-top-color: #e2f2ff;
+    background-color: rgba(226,242,255,.3);
+    max-width: 500px;
+  }
+  .patHairTrend .times .time.dot:after {
+    border-bottom-color: #6ebdff;
+  }
+  .patHairTrend .times .time.line:after {
+    border-bottom-color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap:after {
+    border-bottom-color: #e2f2ff;
+  }
+  .patHairTrend .times .time .num {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    line-height: 1;
+    transform: scale(.8);
+    position: absolute;
+    top: -20px;
+    left: 0;
+  }
+  .patHairTrend .times .time.dot .num {
+    color: #6ebdff;
+  }
+  .patHairTrend .times .time.line .num {
+    color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap .num {
+    color: #e2f2ff;
+  }
+  .patHairTrend .times .time .abno {
+    width: 12px;
+    height: 12px;
+    background: url("../../../assets/HJ/train/leg-abnormal.png") no-repeat center;
+    position: relative;
+  }
+  .patHairTrend .times .time .nimi {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .patHairTrend .times .time.dot .nimi {
+    background: url("../../../assets/HJ/train/nimiety-0.png") repeat left;
+  }
+  .patHairTrend .times .time.line .nimi {
+    background: url("../../../assets/HJ/train/nimiety-1.png") repeat left;
+  }
+  .patHairTrend .omission {
+    position: relative;
+  }
+  .patHairTrend .omission:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #2e4065, #182741);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+    left: 0;
+  }
+  .patHairTrend .omis {
+    height: 22px;
+    background-color: #101c33;
+    border: 2px solid #354971;
+    border-left: none;
+    width: 36px;
+  }
+  .patHairTrend .times .time.key{
+    border-top-color: #6ebdff;
+    background-color: rgba(110, 189, 255, 0.3);
+  }
+
+  .main_b .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 16px;
+  }
+  .main_b .title .tabs {
+    display: flex;
+  }
+  .main_b .title .tabs .tab {
+    color: #354971;
+    font-size: 13px;
+    padding: 0 8px;
+    border: 1px solid #354971;
+    height: 24px;
+    line-height: 22px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+  }
+  .main_b .title .tabs .tab + .tab {
+    margin-left: -1px;
+  }
+  .main_b .title .tabs .tab:hover,
+  .main_b .title .tabs .tab.active {
+    color: #6ebdff;
+    border-color: #6ebdff;
+    z-index: 2;
+  }
+  .main_b .title .legend {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .main_b .title .legend .leg {
+    color: #e2f2ff;
+    font-size: 12px;
+    padding-right: 18px;
+    margin-right: 20px;
+    position: relative;
+  }
+  .main_b .title .legend .leg:after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 1px solid transparent;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .main_b .title .legend .leg.dot:after {
+    background-color: #6ebdff;
+    border-color: #6ebdff;
+  }
+  .main_b .title .legend .leg.line:after {
+    background-color: #d1a03c;
+    border-color: #d1a03c;
+  }
+  .main_b .title .legend .leg.gap:after {
+    background-color: #e2f2ff;
+    border-color: #e2f2ff;
+  }
+  .main_b .title .legend .leg.alter:after {
+    background-color: #d11d1d;
+    border-color: #d11d1d;
+  }
+  .main_b .title .legend .leg.omission:after {
+    background-color: #101c33;
+    border-color: #354971;
+  }
+  .main_b .title .legend .leg.nimiety:after {
+    background: url("../../../assets/HJ/train/leg-nimiety.png") no-repeat center;
+  }
+  .main_b .title .legend .leg.abnormal:after {
+    background: url("../../../assets/HJ/train/leg-abnormal.png") no-repeat center;
+  }
+}
+.HJJ{
+  //左上
+  .dataBox .top {
+    width: 100%;
+    height: 128px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 70px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 35px;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: 72px;
+    padding: 3% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 6%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .desc{
+    font-size: 12px;
+    color: #84929f;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  //左上正确率
+  .chartBox {
+    width: 100%;
+    height: calc(100% - 200px);
+  }
+  .chartBox .tabs {
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox .tabs .tab {
+    height: 30px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background-color: #314150;
+    border: 1px solid #3f505f;
+    color: #bfcde0;
+    font-size: 13px;
+    margin-right: 2px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    z-index: 8;
+  }
+  .chartBox .tabs .tab + .tab {
+    border-left: transparent;
+  }
+  .chartBox .tabs .tab.on {
+    color:#bfcde0!important; ;
+    background: linear-gradient(to bottom,#4a5151,#314150);
+    border-bottom: transparent;
+    border-top:2px solid #e9deb2;
+  }
+  .chartBox .tabs .tab .ico {
+    margin-right: 6px;
+  }
+  .chartBox .box {
+    height: calc(100% - 40px);
+    border: 1px solid #4c7595;
+    background: rgba(76,117,149,0.2);
+    position: relative;
+  }
+  .chartBox .box:before{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/HJJ/postTrain/leftTop.png"),url("../../../assets/HJJ/postTrain/leftBottom.png");
+    background-repeat: no-repeat;
+    background-position: left top,left bottom;
+    width: 12px;
+    left: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .box:after{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/HJJ/postTrain/rightTop.png"),url("../../../assets/HJJ/postTrain/rightBottom.png");
+    background-repeat: no-repeat;
+    background-position: right top,right bottom;
+    width: 12px;
+    right: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .chart {
+    height: 100%;
+  }
+  .chartBox .totalChart {
+    width: calc(100% - 5px);
+    height: calc(100% - 5px);
+  }
+  .chartBox .box .title {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    color: #70c9ff;
+    font-size: 15px;
+    font-weight: bold;
+    padding-left: 6px;
+  }
+  .chartBox .box .title .lab {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+  //左侧表格
+  .totalTable {
+    color: #bfcde0;
+    height: 100%;
+  }
+  .totalTable .head,
+  .totalTable .row {
+    display: flex;
+    height: calc(100% / 12);
+  }
+  .totalTable .item {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #3f5669;
+    border-right: 1px solid #3f5669;
+  }
+  .totalTable .lab {
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .totalTable .full {
+    background-color: #151c25;
+  }
+  .totalTable .head .lab {
+    border: 1px solid #3f5669;
+    position: relative;
+    overflow: hidden;
+  }
+  .totalTable .head .lab:after,
+  .totalTable .head .lab:before {
+    content: '';
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .totalTable .head .lab:after {
+    border-right: 100px solid transparent;
+    border-bottom: 28px solid #3f5669;
+    z-index: 2;
+  }
+  .totalTable .head .lab:before {
+    border-right: 98px solid transparent;
+    border-bottom: 27px solid #151c25;
+    z-index: 3;
+  }
+  .totalTable .head .full {
+    border-top: 1px solid #3f5669;
+  }
+  .totalTable .row .full {
+    border-left: 1px solid #3f5669;
+  }
+
+  //  右侧顶部按钮
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #bfcde0;
+    font-size: 14px;
+    background: url("../../../assets/HJJ/postTrain/totalBg.png") no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+  .telegraphBox .totalBox .page {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .telegraphBox .totalBox .page .pag {
+    width: 100px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    position: relative;
+    padding: 0 20px;
+    border: 1px solid #5d6872;
+  }
+  .telegraphBox .totalBox .page .pag:first-child:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/HJJ/postTrain/left.png");
+    height: 7px;
+    width: 8px;
+    left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/HJJ/postTrain/right.png");
+    height: 7px;
+    width: 8px;
+    right: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag {
+    margin-left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag.disabled {
+    opacity: .4;
+  }
+  //右侧报底
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 78px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #8eafca;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 36px) / 10);
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 36px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #171e27;
+    background-color: #213141;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bolder;
+    width: 10%;
+    height: 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #171e27;
+  }
+  .patTelegraph .telegraph .key.warning {
+    color: #45a515;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.more {
+    color: #af9510 !important;
+    font-weight: bolder;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.error {
+    color: #cb5524;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.omission {
+    color: #4c7595;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #171e27;
+  }
+  .patTelegraph .telegraph .key .keyErr,
+  .patTelegraph .telegraph .key .keyOmis {
+    display: none;
+    min-width: 80px;
+    height: 56px;
+    font-size: 16px;
+    position: absolute;
+    top: -36px;
+    left: 50%;
+  }
+  .patTelegraph .telegraph .key .keyOmis {
+    width: 105px;
+    height: 57px;
+    font-size: 15px;
+    text-align: center;
+    background: url("../../../assets/HJJ/postTrain/keyPopBg.png") no-repeat center;
+  }
+  .patTelegraph .telegraph .key .keyErr:before,
+  .patTelegraph .telegraph .key .keyErr:after {
+    content: '';
+    height: 56px;
+    position: absolute;
+    top: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:before {
+    width: 36px;
+    background: url("../../../assets/HJJ/postTrain/keyErrorBg-l.png") no-repeat center;
+    left: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:after {
+    width: 16px;
+    background: url("../../../assets/HJJ/postTrain/keyErrorBg-r.png") no-repeat center;
+    right: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr .box,
+  .patTelegraph .telegraph .key .keyOmis .box {
+    height: 31px;
+    text-align: center;
+    line-height: 31px;
+    padding: 0 12px 0 32px;
+    position: relative;
+    z-index: 6;
+  }
+  .patTelegraph .telegraph .key .keyErr .text {
+    height: 31px;
+    background: url("../../../assets/HJJ/postTrain/keyErrorBg.png");
+    line-height: 31px;
+    white-space: nowrap;
+    font-weight: bolder;
+  }
+  .patTelegraph .telegraph .key.more:hover .keyErr,
+  .patTelegraph .telegraph .key.warning:hover .keyErr,
+  .patTelegraph .telegraph .key.error:hover .keyErr ,
+  .patTelegraph .telegraph .key.omission:hover .keyOmis {
+    display: block;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #161e29;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #4c7595;
+    border: none;
+  }
+
+  //底部样式
+  .patHairTrendBox {
+    display: flex;
+  }
+  .patHairTrendBox .labs {
+    font-size: 12px;
+    color: #7b90af;
+    padding: 0 0 12px 0;
+    flex-shrink: 0;
+  }
+  .patHairTrendBox .labs ._t {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .patHairTrendBox .labs ._t+._t {
+    transform: scale(.88);
+  }
+  .patHairTrend {
+    width: 100%;
+    padding: 20px 10px 12px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .patHairTrend .name {
+    color: #4c7595;
+    font-size: 18px;
+    text-align: center;
+    line-height: 30px;
+    background-color: #223241;
+    padding: 0 4px;
+    border-top: none;
+    letter-spacing: 5px;
+  }
+  .patHairTrend .codeContLog {
+    height: 80px;
+    display: flex;
+    box-shadow: inset 0 -60px 80px -60px rgb(18, 33, 56);
+  }
+  .patHairTrend .key {
+    position: relative;
+  }
+  .patHairTrend .key:after,
+  .patHairTrend .key:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to top, #181f24, #2f394a);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+  }
+  .patHairTrend .key:after {
+    right: 0;
+  }
+  .patHairTrend .key:before {
+    left: 0;
+  }
+  .patHairTrend .key+.omission:before {
+    display: none;
+  }
+  .patHairTrend .keyGap {
+    height: 58px;
+    position: relative;
+  }
+  .patHairTrend .keyName {
+    height: 58px;
+    color: #6ebdff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .patHairTrend .keyName:after,
+  .patHairTrend .keyName:before {
+    content: '';
+    height: 2px;
+    border-top: 2px dashed #354971;
+    position: absolute;
+    top: 50%;
+  }
+  .patHairTrend .keyName:after {
+    left: 2px;
+    right: calc(50% + 10px);
+  }
+  .patHairTrend .keyName:before {
+    left: calc(50% + 10px);
+    right: 2px;
+  }
+  .patHairTrend .keyName.err {
+    font-weight: bold;
+    color: #d11d1d;
+    position: relative;
+  }
+  .patHairTrend .keyName .text {
+    display: none;
+    width: 48px;
+    height: 26px;
+    background-color: #0a1936;
+    box-shadow: inset 0 0 10px #d11d1d;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: calc(50% - 24px);
+    top: -16px;
+  }
+  .patHairTrend .keyName.err .text:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid rgba(209,29,29,.6);
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    margin-left: -5px;
+  }
+  .patHairTrend .keyName.err:hover .text {
+    display: flex;
+  }
+  .patHairTrend .times {
+    display: flex;
+  }
+  .patHairTrend .times .time {
+    height: 22px;
+    border-top: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .patHairTrend .times .time:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid transparent;
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    margin-left: -4px;
+  }
+  .patHairTrend .times .time.dot {
+    border-top-color: #4c7595;
+    background-color: rgba(110,189,255,.3);
+  }
+  .patHairTrend .times .time.line {
+    border-top-color: #c99a3b;
+    background-color: rgba(201,154,59,.3);
+  }
+  .patHairTrend .times .time.gap {
+    border-top-color: #e2f2ff;
+    background-color: rgba(226,242,255,.3);
+    max-width: 500px;
+  }
+  .patHairTrend .times .time.dot:after {
+    border-bottom-color: #6ebdff;
+  }
+  .patHairTrend .times .time.line:after {
+    border-bottom-color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap:after {
+    border-bottom-color: #e2f2ff;
+  }
+  .patHairTrend .times .time .num {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    line-height: 1;
+    transform: scale(.8);
+    position: absolute;
+    top: -20px;
+    left: 0;
+  }
+  .patHairTrend .times .time.dot .num {
+    color: #6ebdff;
+  }
+  .patHairTrend .times .time.line .num {
+    color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap .num {
+    color: #e2f2ff;
+  }
+  .patHairTrend .times .time .abno {
+    width: 12px;
+    height: 12px;
+    background: url("../../../assets/HJJ/train/leg-abnormal.png") no-repeat center;
+    position: relative;
+  }
+  .patHairTrend .times .time .nimi {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .patHairTrend .times .time.dot .nimi {
+    background: url("../../../assets/HJJ/train/nimiety-0.png") repeat left;
+  }
+  .patHairTrend .times .time.line .nimi {
+    background: url("../../../assets/HJJ/train/nimiety-1.png") repeat left;
+  }
+  .patHairTrend .omission {
+    position: relative;
+  }
+  .patHairTrend .omission:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #2e4065, #182741);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+    left: 0;
+  }
+  .patHairTrend .omis {
+    height: 22px;
+    background-color: #101c33;
+    border: 2px solid #354971;
+    border-left: none;
+    width: 36px;
+  }
+
+  .main_b .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 16px;
+  }
+  .main_b .title .tabs {
+    display: flex;
+  }
+  .main_b .title .tabs .tab {
+    color: #354971;
+    font-size: 13px;
+    padding: 0 8px;
+    border: 1px solid #354971;
+    height: 24px;
+    line-height: 22px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+  }
+  .main_b .title .tabs .tab + .tab {
+    margin-left: -1px;
+  }
+  .main_b .title .tabs .tab:hover,
+  .main_b .title .tabs .tab.active {
+    color: #6ebdff;
+    border-color: #6ebdff;
+    z-index: 2;
+  }
+  .main_b .title .legend {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .main_b .title .legend .leg {
+    color: #e2f2ff;
+    font-size: 12px;
+    padding-right: 18px;
+    margin-right: 20px;
+    position: relative;
+  }
+  .main_b .title .legend .leg:after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 1px solid transparent;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .main_b .title .legend .leg.dot:after {
+    background-color: #6ebdff;
+    border-color: #6ebdff;
+  }
+  .main_b .title .legend .leg.line:after {
+    background-color: #d1a03c;
+    border-color: #d1a03c;
+  }
+  .main_b .title .legend .leg.gap:after {
+    background-color: #e2f2ff;
+    border-color: #e2f2ff;
+  }
+  .main_b .title .legend .leg.alter:after {
+    background-color: #d11d1d;
+    border-color: #d11d1d;
+  }
+  .main_b .title .legend .leg.omission:after {
+    background-color: #101c33;
+    border-color: #354971;
+  }
+  .main_b .title .legend .leg.nimiety:after {
+    background: url("../../../assets/HJJ/train/leg-nimiety.png") no-repeat center;
+  }
+  .main_b .title .legend .leg.abnormal:after {
+    background: url("../../../assets/HJJ/train/leg-abnormal.png") no-repeat center;
+  }
+}
+.LJ{
+  .dataBox .top {
+    width: 100%;
+    height: 128px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 70px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 35px;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: 72px;
+    padding: 3% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 6%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .desc{
+    font-size: 12px;
+    color: #a9abaa;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox {
+    width: 100%;
+    height: calc(100% - 200px);
+  }
+  .chartBox .tabs {
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox .tabs .tab {
+    height: 30px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background-color: #24423a;
+    border: 1px solid #2f5249;
+    color: #fff;
+    font-size: 13px;
+    margin-right: 2px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    z-index: 8;
+  }
+  .chartBox .tabs .tab + .tab {
+    border-left: transparent;
+  }
+  .chartBox .tabs .tab.on {
+    color:#fff!important; ;
+    background: linear-gradient(to bottom,#4a5151,#24423a);
+    border-bottom: transparent;
+    border-top:2px solid #e9deb2;
+  }
+  .chartBox .tabs .tab .ico {
+    margin-right: 6px;
+  }
+  .chartBox .box {
+    height: calc(100% - 40px);
+    border: 1px solid #2d4039;
+    background: #18231f;
+    position: relative;
+  }
+  .chartBox .box:before{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/LJ/postTrain/leftTop.png"),url("../../../assets/LJ/postTrain/leftBottom.png");
+    background-repeat: no-repeat;
+    background-position: left top,left bottom;
+    width: 12px;
+    left: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .box:after{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/LJ/postTrain/rightTop.png"),url("../../../assets/LJ/postTrain/rightBottom.png");
+    background-repeat: no-repeat;
+    background-position: right top,right bottom;
+    width: 12px;
+    right: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .chart {
+    height: 100%;
+  }
+  .chartBox .totalChart {
+    width: calc(100% - 5px);
+    height: calc(100% - 5px);
+  }
+  .chartBox .box .title {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    color: #70c9ff;
+    font-size: 15px;
+    font-weight: bold;
+    padding-left: 6px;
+  }
+  .chartBox .box .title .lab {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+
+  .totalTable {
+    height: 100%;
+    color: #fff;
+  }
+  .totalTable .head,
+  .totalTable .row {
+    display: flex;
+    height: calc(100% / 12);
+  }
+  .totalTable .item {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #38403d;
+    border-right: 1px solid #38403d;
+  }
+  .totalTable .lab {
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .totalTable .full {
+    background-color: #38403d;
+  }
+  .totalTable .head .lab {
+    border: 1px solid #a9abaa;
+    position: relative;
+    overflow: hidden;
+  }
+  .totalTable .head .lab:after,
+  .totalTable .head .lab:before {
+    content: '';
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .totalTable .head .lab:after {
+    border-right: 100px solid transparent;
+    border-bottom: 28px solid #a9abaa;
+    z-index: 2;
+  }
+  .totalTable .head .lab:before {
+    border-right: 98px solid transparent;
+    border-bottom: 27px solid #38403d;
+    z-index: 3;
+  }
+  .totalTable .head .full {
+    border-top: 1px solid #a9abaa;
+  }
+  .totalTable .row .full {
+    border-left: 1px solid #a9abaa;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #fff;
+    font-size: 14px;
+    background: url("../../../assets/LJ/postTrain/totalBg.png") no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+  .telegraphBox .totalBox .page {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .telegraphBox .totalBox .page .pag {
+    width: 100px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    position: relative;
+    padding: 0 20px;
+    border: 1px solid #7e928b;
+  }
+  .telegraphBox .totalBox .page .pag:first-child:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/LJ/postTrain/left.png");
+    height: 7px;
+    width: 8px;
+    left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/LJ/postTrain/right.png");
+    height: 7px;
+    width: 8px;
+    right: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag {
+    margin-left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag.disabled {
+    opacity: .4;
+  }
+  //y右侧报底
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 78px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #a9abaa;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 36px) / 10);
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 36px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    background-color: #253531;
+    border-top: 2px solid #343e37;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bolder;
+    width: 10%;
+    height: 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key.warning {
+    color: #45a515;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.more {
+    color: #af9510 !important;
+    font-weight: bolder;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.error {
+    color: #d11d1d;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.omission {
+    color: #a9abaa;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key .keyErr,
+  .patTelegraph .telegraph .key .keyOmis {
+    display: none;
+    min-width: 80px;
+    height: 56px;
+    font-size: 16px;
+    position: absolute;
+    top: -36px;
+    left: 50%;
+  }
+  .patTelegraph .telegraph .key .keyOmis {
+    width: 105px;
+    height: 57px;
+    font-size: 15px;
+    background: url("../../../assets/LJ/postTrain/keyPopBg.png") no-repeat center;
+  }
+  .patTelegraph .telegraph .key .keyErr:before,
+  .patTelegraph .telegraph .key .keyErr:after {
+    content: '';
+    height: 56px;
+    position: absolute;
+    top: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:before {
+    width: 36px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg-l.png") no-repeat center;
+    left: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:after {
+    width: 16px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg-r.png") no-repeat center;
+    right: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr .box,
+  .patTelegraph .telegraph .key .keyOmis .box {
+    height: 31px;
+    text-align: center;
+    line-height: 31px;
+    padding: 0 12px 0 32px;
+    position: relative;
+    z-index: 6;
+  }
+  .patTelegraph .telegraph .key .keyErr .text {
+    height: 31px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg.png");
+    line-height: 31px;
+    white-space: nowrap;
+    font-weight: bolder;
+  }
+  .patTelegraph .telegraph .key.more:hover .keyErr,
+  .patTelegraph .telegraph .key.warning:hover .keyErr,
+  .patTelegraph .telegraph .key.error:hover .keyErr ,
+  .patTelegraph .telegraph .key.omission:hover .keyOmis {
+    display: block;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #a9abaa;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #38403d;
+    border: none;
+  }
+  //底部
+  .patHairTrendBox {
+    display: flex;
+  }
+  .patHairTrendBox .labs {
+    font-size: 12px;
+    color: #a9abaa;
+    padding: 0 0 12px 0;
+    flex-shrink: 0;
+  }
+  .patHairTrendBox .labs ._t {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .patHairTrendBox .labs ._t+._t {
+    transform: scale(.88);
+  }
+  .patHairTrend {
+    width: 100%;
+    padding: 20px 10px 12px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .patHairTrend .name {
+    color: #a9abaa;
+    font-size: 18px;
+    text-align: center;
+    line-height: 30px;
+    background-color: #38403d;
+    padding: 0 4px;
+    border-top: none;
+    letter-spacing: 5px;
+  }
+  .patHairTrend .codeContLog {
+    height: 80px;
+    display: flex;
+    box-shadow: inset 0 -60px 80px -60px rgb(56,64,61,0.4);
+  }
+  .patHairTrend .key {
+    position: relative;
+  }
+  .patHairTrend .key:after,
+  .patHairTrend .key:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to top, #252e2b, #1a2420);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+  }
+  .patHairTrend .key:after {
+    right: 0;
+  }
+  .patHairTrend .key:before {
+    left: 0;
+  }
+  .patHairTrend .key+.omission:before {
+    display: none;
+  }
+  .patHairTrend .keyGap {
+    height: 58px;
+    position: relative;
+  }
+  .patHairTrend .keyName {
+    height: 58px;
+    color: #00910d;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .patHairTrend .keyName:after,
+  .patHairTrend .keyName:before {
+    content: '';
+    height: 2px;
+    border-top: 2px dashed #26332e;
+    position: absolute;
+    top: 50%;
+  }
+  .patHairTrend .keyName:after {
+    left: 2px;
+    right: calc(50% + 10px);
+  }
+  .patHairTrend .keyName:before {
+    left: calc(50% + 10px);
+    right: 2px;
+  }
+  .patHairTrend .keyName.err {
+    font-weight: bold;
+    color: #d11d1d;
+    position: relative;
+  }
+  .patHairTrend .keyName .text {
+    display: none;
+    width: 48px;
+    height: 26px;
+    background-color: #0a1936;
+    box-shadow: inset 0 0 10px #d11d1d;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: calc(50% - 24px);
+    top: -16px;
+  }
+  .patHairTrend .keyName.err .text:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid rgba(209,29,29,.6);
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    margin-left: -5px;
+  }
+  .patHairTrend .keyName.err:hover .text {
+    display: flex;
+  }
+  .patHairTrend .times {
+    display: flex;
+  }
+  .patHairTrend .times .time {
+    height: 22px;
+    border-top: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .patHairTrend .times .time:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid transparent;
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    margin-left: -4px;
+  }
+  .patHairTrend .times .time.dot {
+    border-top-color: #34b34c;
+    background-color: #0a4b15;
+  }
+  .patHairTrend .times .time.line {
+    border-top-color: #c99a3b;
+    background-color: rgba(201,154,59,.3);
+  }
+  .patHairTrend .times .time.gap {
+    border-top-color: #ffffff;
+    background-color: rgba(226,242,255,.3);
+    max-width: 500px;
+  }
+  .patHairTrend .times .time.dot:after {
+    border-bottom-color: #34b34c;
+  }
+  .patHairTrend .times .time.line:after {
+    border-bottom-color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap:after {
+    border-bottom-color: #ffffff;
+  }
+  .patHairTrend .times .time .num {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    line-height: 1;
+    transform: scale(.8);
+    position: absolute;
+    top: -20px;
+    left: 0;
+  }
+  .patHairTrend .times .time.dot .num {
+    color: #34b34c;
+  }
+  .patHairTrend .times .time.line .num {
+    color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap .num {
+    color: #ffffff;
+  }
+  .patHairTrend .times .time .abno {
+    width: 12px;
+    height: 12px;
+    background: url("../../../assets/LJ/train/leg-abnormal.png") no-repeat center;
+    position: relative;
+  }
+  .patHairTrend .times .time .nimi {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .patHairTrend .times .time.dot .nimi {
+    background: url("../../../assets/LJ/train/nimiety-0.png") repeat left;
+  }
+  .patHairTrend .times .time.line .nimi {
+    background: url("../../../assets/LJ/train/nimiety-1.png") repeat left;
+  }
+  .patHairTrend .omission {
+    position: relative;
+  }
+  .patHairTrend .omission:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #252e2b, #1a2420);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+    left: 0;
+  }
+  .patHairTrend .omis {
+    height: 22px;
+    background-color: #252f2c;
+    border: 2px solid #363e3b;
+    border-left: none;
+    width: 36px;
+  }
+
+
+  .main_b .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 16px;
+  }
+  .main_b .title .tabs {
+    display: flex;
+  }
+  .main_b .title .tabs .tab {
+    color: #26332e;
+    font-size: 13px;
+    padding: 0 8px;
+    border: 1px solid #26332e;
+    height: 24px;
+    line-height: 22px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+  }
+  .main_b .title .tabs .tab + .tab {
+    margin-left: -1px;
+  }
+  .main_b .title .tabs .tab:hover,
+  .main_b .title .tabs .tab.active {
+    color: #34b34c;
+    border-color: #34b34c;
+    z-index: 2;
+  }
+  .main_b .title .legend {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .main_b .title .legend .leg {
+    color: #ffffff;
+    font-size: 12px;
+    padding-right: 18px;
+    margin-right: 20px;
+    position: relative;
+  }
+  .main_b .title .legend .leg:after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 1px solid transparent;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .main_b .title .legend .leg.dot:after {
+    background-color: #0a4b15;
+    border-color: #008b0d;
+  }
+  .main_b .title .legend .leg.line:after {
+    background-color: #d1a03c;
+    border-color: #d1a03c;
+  }
+  .main_b .title .legend .leg.gap:after {
+    background-color: #ffffff;
+    border-color: #ffffff;
+  }
+  .main_b .title .legend .leg.alter:after {
+    background-color: #d11d1d;
+    border-color: #d11d1d;
+  }
+  .main_b .title .legend .leg.omission:after {
+    background-color: #252f2c;
+    border-color: #363e3b;
+  }
+  .main_b .title .legend .leg.nimiety:after {
+    background: url("../../../assets/LJ/train/leg-nimiety.png") no-repeat center;
+  }
+  .main_b .title .legend .leg.abnormal:after {
+    background: url("../../../assets/LJ/train/leg-abnormal.png") no-repeat center;
+  }
+}
+.GD{
+  .dataBox .top {
+    width: 100%;
+    height: 128px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 70px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 35px;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: 72px;
+    padding: 3% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 6%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .desc{
+    font-size: 12px;
+    color: #a9abaa;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox {
+    width: 100%;
+    height: calc(100% - 200px);
+  }
+  .chartBox .tabs {
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox .tabs .tab {
+    height: 30px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background-color: #24423a;
+    border: 1px solid #2f5249;
+    color: #fff;
+    font-size: 13px;
+    margin-right: 2px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    z-index: 8;
+  }
+  .chartBox .tabs .tab + .tab {
+    border-left: transparent;
+  }
+  .chartBox .tabs .tab.on {
+    color:#fff!important; ;
+    background: linear-gradient(to bottom,#4a5151,#24423a);
+    border-bottom: transparent;
+    border-top:2px solid #e9deb2;
+  }
+  .chartBox .tabs .tab .ico {
+    margin-right: 6px;
+  }
+  .chartBox .box {
+    height: calc(100% - 40px);
+    border: 1px solid #2d4039;
+    background: #0e3040;
+    position: relative;
+  }
+  .chartBox .box:before{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/LJ/postTrain/leftTop.png"),url("../../../assets/LJ/postTrain/leftBottom.png");
+    background-repeat: no-repeat;
+    background-position: left top,left bottom;
+    width: 12px;
+    left: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .box:after{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/LJ/postTrain/rightTop.png"),url("../../../assets/LJ/postTrain/rightBottom.png");
+    background-repeat: no-repeat;
+    background-position: right top,right bottom;
+    width: 12px;
+    right: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .chart {
+    height: 100%;
+  }
+  .chartBox .totalChart {
+    width: calc(100% - 5px);
+    height: calc(100% - 5px);
+  }
+  .chartBox .box .title {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    color: #70c9ff;
+    font-size: 15px;
+    font-weight: bold;
+    padding-left: 6px;
+  }
+  .chartBox .box .title .lab {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+
+  .totalTable {
+    height: 100%;
+    color: #fff;
+  }
+  .totalTable .head,
+  .totalTable .row {
+    display: flex;
+    height: calc(100% / 12);
+  }
+  .totalTable .item {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid #5d7f76;
+    border-right: 1px solid #5d7f76;
+  }
+  .totalTable .lab {
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .totalTable .full {
+    background-color: #0b2733;
+  }
+  .totalTable .head .lab {
+    border: 1px solid #5d7f76;
+    position: relative;
+    overflow: hidden;
+  }
+  .totalTable .head .lab:after,
+  .totalTable .head .lab:before {
+    content: '';
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .totalTable .head .lab:after {
+    border-right: 100px solid transparent;
+    border-bottom: 28px solid #5d7f76;
+    z-index: 2;
+  }
+  .totalTable .head .lab:before {
+    border-right: 98px solid transparent;
+    border-bottom: 27px solid #0b2733;
+    z-index: 3;
+  }
+  .totalTable .head .full {
+    border-top: 1px solid #5d7f76;
+  }
+  .totalTable .row .full {
+    border-left: 1px solid #5d7f76;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #fff;
+    font-size: 14px;
+    background: url("../../../assets/LJ/postTrain/totalBg.png") no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+  .telegraphBox .totalBox .page {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .telegraphBox .totalBox .page .pag {
+    width: 100px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    position: relative;
+    padding: 0 20px;
+    border: 1px solid #7e928b;
+  }
+  .telegraphBox .totalBox .page .pag:first-child:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/LJ/postTrain/left.png");
+    height: 7px;
+    width: 8px;
+    left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/LJ/postTrain/right.png");
+    height: 7px;
+    width: 8px;
+    right: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag {
+    margin-left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag.disabled {
+    opacity: .4;
+  }
+  //y右侧报底
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 78px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #a9abaa;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 36px) / 10);
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 36px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    background-color: #0e3040;
+    border-top: 2px solid #343e37;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: rgba(255,255,255,0.8);
+    font-size: 16px;
+    font-weight: bolder;
+    width: 10%;
+    height: 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #5d7f76;
+  }
+  .patTelegraph .telegraph .key.warning {
+    color: #45a515;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.more {
+    color: #af9510 !important;
+    font-weight: bolder;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.error {
+    color: #d11d1d;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.omission {
+    color: rgba(255,255,255,0.8);
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #5d7f76;
+  }
+  .patTelegraph .telegraph .key .keyErr,
+  .patTelegraph .telegraph .key .keyOmis {
+    display: none;
+    min-width: 80px;
+    height: 56px;
+    font-size: 16px;
+    position: absolute;
+    top: -36px;
+    left: 50%;
+  }
+  .patTelegraph .telegraph .key .keyOmis {
+    width: 105px;
+    height: 57px;
+    font-size: 15px;
+    background: url("../../../assets/LJ/postTrain/keyPopBg.png") no-repeat center;
+  }
+  .patTelegraph .telegraph .key .keyErr:before,
+  .patTelegraph .telegraph .key .keyErr:after {
+    content: '';
+    height: 56px;
+    position: absolute;
+    top: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:before {
+    width: 36px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg-l.png") no-repeat center;
+    left: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:after {
+    width: 16px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg-r.png") no-repeat center;
+    right: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr .box,
+  .patTelegraph .telegraph .key .keyOmis .box {
+    height: 31px;
+    text-align: center;
+    line-height: 31px;
+    padding: 0 12px 0 32px;
+    position: relative;
+    z-index: 6;
+  }
+  .patTelegraph .telegraph .key .keyErr .text {
+    height: 31px;
+    background: url("../../../assets/LJ/postTrain/keyErrorBg.png");
+    line-height: 31px;
+    white-space: nowrap;
+    font-weight: bolder;
+  }
+  .patTelegraph .telegraph .key.more:hover .keyErr,
+  .patTelegraph .telegraph .key.warning:hover .keyErr,
+  .patTelegraph .telegraph .key.error:hover .keyErr ,
+  .patTelegraph .telegraph .key.omission:hover .keyOmis {
+    display: block;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #a9abaa;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #38403d;
+    border: none;
+  }
+  //底部
+  .patHairTrendBox {
+    display: flex;
+  }
+  .patHairTrendBox .labs {
+    font-size: 12px;
+    color: #a9abaa;
+    padding: 0 0 12px 0;
+    flex-shrink: 0;
+  }
+  .patHairTrendBox .labs ._t {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .patHairTrendBox .labs ._t+._t {
+    transform: scale(.88);
+  }
+  .patHairTrend {
+    width: 100%;
+    padding: 20px 10px 12px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .patHairTrend .name {
+    color: #a9abaa;
+    font-size: 18px;
+    text-align: center;
+    line-height: 30px;
+    background-color: #38403d;
+    padding: 0 4px;
+    border-top: none;
+    letter-spacing: 5px;
+  }
+  .patHairTrend .codeContLog {
+    height: 80px;
+    display: flex;
+    box-shadow: inset 0 -60px 80px -60px rgb(56,64,61,0.4);
+  }
+  .patHairTrend .key {
+    position: relative;
+  }
+  .patHairTrend .key:after,
+  .patHairTrend .key:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to top, #252e2b, #1a2420);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+  }
+  .patHairTrend .key:after {
+    right: 0;
+  }
+  .patHairTrend .key:before {
+    left: 0;
+  }
+  .patHairTrend .key+.omission:before {
+    display: none;
+  }
+  .patHairTrend .keyGap {
+    height: 58px;
+    position: relative;
+  }
+  .patHairTrend .keyName {
+    height: 58px;
+    color: #00910d;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .patHairTrend .keyName:after,
+  .patHairTrend .keyName:before {
+    content: '';
+    height: 2px;
+    border-top: 2px dashed #26332e;
+    position: absolute;
+    top: 50%;
+  }
+  .patHairTrend .keyName:after {
+    left: 2px;
+    right: calc(50% + 10px);
+  }
+  .patHairTrend .keyName:before {
+    left: calc(50% + 10px);
+    right: 2px;
+  }
+  .patHairTrend .keyName.err {
+    font-weight: bold;
+    color: #d11d1d;
+    position: relative;
+  }
+  .patHairTrend .keyName .text {
+    display: none;
+    width: 48px;
+    height: 26px;
+    background-color: #0a1936;
+    box-shadow: inset 0 0 10px #d11d1d;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: calc(50% - 24px);
+    top: -16px;
+  }
+  .patHairTrend .keyName.err .text:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid rgba(209,29,29,.6);
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    margin-left: -5px;
+  }
+  .patHairTrend .keyName.err:hover .text {
+    display: flex;
+  }
+  .patHairTrend .times {
+    display: flex;
+  }
+  .patHairTrend .times .time {
+    height: 22px;
+    border-top: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .patHairTrend .times .time:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid transparent;
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    margin-left: -4px;
+  }
+  .patHairTrend .times .time.dot {
+    border-top-color: #34b34c;
+    background-color: #0a4b15;
+  }
+  .patHairTrend .times .time.line {
+    border-top-color: #c99a3b;
+    background-color: rgba(201,154,59,.3);
+  }
+  .patHairTrend .times .time.gap {
+    border-top-color: #ffffff;
+    background-color: rgba(226,242,255,.3);
+    max-width: 500px;
+  }
+  .patHairTrend .times .time.dot:after {
+    border-bottom-color: #34b34c;
+  }
+  .patHairTrend .times .time.line:after {
+    border-bottom-color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap:after {
+    border-bottom-color: #ffffff;
+  }
+  .patHairTrend .times .time .num {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    line-height: 1;
+    transform: scale(.8);
+    position: absolute;
+    top: -20px;
+    left: 0;
+  }
+  .patHairTrend .times .time.dot .num {
+    color: #34b34c;
+  }
+  .patHairTrend .times .time.line .num {
+    color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap .num {
+    color: #ffffff;
+  }
+  .patHairTrend .times .time .abno {
+    width: 12px;
+    height: 12px;
+    background: url("../../../assets/LJ/train/leg-abnormal.png") no-repeat center;
+    position: relative;
+  }
+  .patHairTrend .times .time .nimi {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .patHairTrend .times .time.dot .nimi {
+    background: url("../../../assets/LJ/train/nimiety-0.png") repeat left;
+  }
+  .patHairTrend .times .time.line .nimi {
+    background: url("../../../assets/LJ/train/nimiety-1.png") repeat left;
+  }
+  .patHairTrend .omission {
+    position: relative;
+  }
+  .patHairTrend .omission:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #252e2b, #1a2420);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+    left: 0;
+  }
+  .patHairTrend .omis {
+    height: 22px;
+    background-color: #252f2c;
+    border: 2px solid #363e3b;
+    border-left: none;
+    width: 36px;
+  }
+}
+.KJ{
+  .dataBox .top {
+    width: 100%;
+    height: 128px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 70px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 35px;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: 72px;
+    padding: 3% 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 6%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .desc{
+    font-size: 12px;
+    color: #a9abaa;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox {
+    width: 100%;
+    height: calc(100% - 200px);
+  }
+  .chartBox .tabs {
+    height: 30px;
+    display: flex;
+    align-items: center;
+  }
+  .chartBox .tabs .tab {
+    height: 30px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background-color: @tox-menubar;
+    border: 1px solid @maskbgColor;
+    color: #fff;
+    font-size: 13px;
+    margin-right: 2px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+    z-index: 8;
+  }
+  .chartBox .tabs .tab + .tab {
+    border-left: transparent;
+  }
+  .chartBox .tabs .tab.on {
+    color:#fff!important; ;
+    background: linear-gradient(to bottom,@KJbgColer,@TableBtnColer);
+    border-bottom: transparent;
+    border-top:2px solid #e9deb2;
+  }
+  .chartBox .tabs .tab .ico {
+    margin-right: 6px;
+  }
+  .chartBox .box {
+    height: calc(100% - 40px);
+    border: 1px solid @TableBtnColer;
+    background: @maskbgColor;
+    position: relative;
+  }
+  .chartBox .box:before{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/KJ/postTrain/leftTop.png"),url("../../../assets/KJ/postTrain/leftBottom.png");
+    background-repeat: no-repeat;
+    background-position: left top,left bottom;
+    width: 12px;
+    left: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .box:after{
+    position: absolute;
+    content: "";
+    background-image: url("../../../assets/KJ/postTrain/rightTop.png"),url("../../../assets/KJ/postTrain/rightBottom.png");
+    background-repeat: no-repeat;
+    background-position: right top,right bottom;
+    width: 12px;
+    right: -2px;
+    top: -2px;
+    bottom: -2px;
+  }
+  .chartBox .chart {
+    height: 100%;
+  }
+  .chartBox .totalChart {
+    width: calc(100% - 5px);
+    height: calc(100% - 5px);
+  }
+  .chartBox .box .title {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    color: #70c9ff;
+    font-size: 15px;
+    font-weight: bold;
+    padding-left: 6px;
+  }
+  .chartBox .box .title .lab {
+    margin-right: 10px;
+    font-weight: bold;
+  }
+
+  .totalTable {
+    height: 100%;
+    color: #fff;
+  }
+  .totalTable .head,
+  .totalTable .row {
+    display: flex;
+    height: calc(100% / 12);
+  }
+  .totalTable .item {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid @TableBtnColer2;
+    border-right: 1px solid @TableBtnColer2;
+  }
+  .totalTable .lab {
+    width: 100px;
+    flex-shrink: 0;
+  }
+  .totalTable .full {
+    background-color: @tox-menu;
+  }
+  .totalTable .head .lab {
+    border: 1px solid @TableBtnColer2;
+    border-top-color: #a9abaa;
+    position: relative;
+    overflow: hidden;
+  }
+  .totalTable .head .lab:after,
+  .totalTable .head .lab:before {
+    content: '';
+    width: 0;
+    height: 0;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .totalTable .head .lab:after {
+    border-right: 100px solid transparent;
+    border-bottom: 28px solid #a9abaa;
+    z-index: 2;
+  }
+  .totalTable .head .lab:before {
+    border-right: 98px solid transparent;
+    border-bottom: 27px solid @tox-menu;
+    z-index: 3;
+  }
+  .totalTable .head .full {
+    border-top: 1px solid #a9abaa;
+  }
+  .totalTable .row .full {
+    //border-left: 1px solid #a9abaa;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #fff;
+    font-size: 14px;
+    background: url("../../../assets/KJ/postTrain/totalBg.png") no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+  .telegraphBox .totalBox .page {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .telegraphBox .totalBox .page .pag {
+    width: 100px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+    position: relative;
+    padding: 0 20px;
+    border: 1px solid #7e928b;
+  }
+  .telegraphBox .totalBox .page .pag:first-child:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/KJ/postTrain/left.png");
+    height: 7px;
+    width: 8px;
+    left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag:before{
+    position: absolute;
+    content: "";
+    background: url("../../../assets/KJ/postTrain/right.png");
+    height: 7px;
+    width: 8px;
+    right: 10px;
+  }
+  .telegraphBox .totalBox .page .pag + .pag {
+    margin-left: 10px;
+  }
+  .telegraphBox .totalBox .page .pag.disabled {
+    opacity: .4;
+  }
+  //y右侧报底
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 78px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #a9abaa;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 36px) / 10);
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 36px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    background-color: @maskbgColor;
+    border-top: 2px solid @KJbgColer;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bolder;
+    width: 10%;
+    height: 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key.warning {
+    color: #45a515;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.more {
+    color: #af9510 !important;
+    font-weight: bolder;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.error {
+    color: #d11d1d;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key.omission {
+    color: #a9abaa;
+    font-weight: bold;
+    position: relative;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key .keyErr,
+  .patTelegraph .telegraph .key .keyOmis {
+    display: none;
+    min-width: 80px;
+    height: 56px;
+    font-size: 16px;
+    position: absolute;
+    top: -36px;
+    left: 50%;
+  }
+  .patTelegraph .telegraph .key .keyOmis {
+    width: 105px;
+    height: 57px;
+    font-size: 15px;
+    background: url("../../../assets/KJ/postTrain/keyPopBg.png") no-repeat center;
+  }
+  .patTelegraph .telegraph .key .keyErr:before,
+  .patTelegraph .telegraph .key .keyErr:after {
+    content: '';
+    height: 56px;
+    position: absolute;
+    top: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:before {
+    width: 36px;
+    background: url("../../../assets/KJ/postTrain/keyErrorBg-l.png") no-repeat center;
+    left: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr:after {
+    width: 16px;
+    background: url("../../../assets/KJ/postTrain/keyErrorBg-r.png") no-repeat center;
+    right: 0;
+  }
+  .patTelegraph .telegraph .key .keyErr .box,
+  .patTelegraph .telegraph .key .keyOmis .box {
+    height: 31px;
+    text-align: center;
+    line-height: 31px;
+    padding: 0 12px 0 32px;
+    position: relative;
+    z-index: 6;
+  }
+  .patTelegraph .telegraph .key .keyErr .text {
+    height: 31px;
+    background: url("../../../assets/KJ/postTrain/keyErrorBg.png");
+    line-height: 31px;
+    white-space: nowrap;
+    font-weight: bolder;
+  }
+  .patTelegraph .telegraph .key.more:hover .keyErr,
+  .patTelegraph .telegraph .key.warning:hover .keyErr,
+  .patTelegraph .telegraph .key.error:hover .keyErr ,
+  .patTelegraph .telegraph .key.omission:hover .keyOmis {
+    display: block;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #a9abaa;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: @TableBtnColer;
+    border: none;
+  }
+  //底部
+  .patHairTrendBox {
+    display: flex;
+  }
+  .patHairTrendBox .labs {
+    font-size: 12px;
+    color: #a9abaa;
+    padding: 0 0 12px 0;
+    flex-shrink: 0;
+  }
+  .patHairTrendBox .labs ._t {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .patHairTrendBox .labs ._t+._t {
+    transform: scale(.88);
+  }
+  .patHairTrend {
+    width: 100%;
+    padding: 20px 10px 12px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .patHairTrend .name {
+    color: #ffffff;
+    font-size: 18px;
+    text-align: center;
+    line-height: 30px;
+    background-color: @maskbgColor;
+    padding: 0 4px;
+    border-top: none;
+    letter-spacing: 5px;
+  }
+  .patHairTrend .codeContLog {
+    height: 80px;
+    display: flex;
+    box-shadow: inset 0 -60px 80px -60px @TableBtnColer;
+  }
+  .patHairTrend .key {
+    position: relative;
+  }
+  .patHairTrend .key:after,
+  .patHairTrend .key:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to top, @TableBtnColer2, @TableBtnColer);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+  }
+  .patHairTrend .key:after {
+    right: 0;
+  }
+  .patHairTrend .key:before {
+    left: 0;
+  }
+  .patHairTrend .key+.omission:before {
+    display: none;
+  }
+  .patHairTrend .keyGap {
+    height: 58px;
+    position: relative;
+  }
+  .patHairTrend .keyName {
+    height: 58px;
+    color: #00910d;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+  }
+  .patHairTrend .keyName:after,
+  .patHairTrend .keyName:before {
+    content: '';
+    height: 2px;
+    border-top: 2px dashed @TableBtnColer;
+    position: absolute;
+    top: 50%;
+  }
+  .patHairTrend .keyName:after {
+    left: 2px;
+    right: calc(50% + 10px);
+  }
+  .patHairTrend .keyName:before {
+    left: calc(50% + 10px);
+    right: 2px;
+  }
+  .patHairTrend .keyName.err {
+    font-weight: bold;
+    color: #d11d1d;
+    position: relative;
+  }
+  .patHairTrend .keyName .text {
+    display: none;
+    width: 48px;
+    height: 26px;
+    background-color: #0a1936;
+    box-shadow: inset 0 0 10px #d11d1d;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: calc(50% - 24px);
+    top: -16px;
+  }
+  .patHairTrend .keyName.err .text:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid rgba(209,29,29,.6);
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    margin-left: -5px;
+  }
+  .patHairTrend .keyName.err:hover .text {
+    display: flex;
+  }
+  .patHairTrend .times {
+    display: flex;
+  }
+  .patHairTrend .times .time {
+    height: 22px;
+    border-top: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .patHairTrend .times .time:after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid transparent;
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    margin-left: -4px;
+  }
+  .patHairTrend .times .time.dot {
+    border-top-color: #34b34c;
+    background-color: #0a4b15;
+  }
+  .patHairTrend .times .time.line {
+    border-top-color: #c99a3b;
+    background-color: rgba(201,154,59,.3);
+  }
+  .patHairTrend .times .time.gap {
+    border-top-color: #ffffff;
+    background-color: rgba(226,242,255,.3);
+    max-width: 500px;
+  }
+  .patHairTrend .times .time.dot:after {
+    border-bottom-color: #34b34c;
+  }
+  .patHairTrend .times .time.line:after {
+    border-bottom-color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap:after {
+    border-bottom-color: #ffffff;
+  }
+  .patHairTrend .times .time .num {
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+    line-height: 1;
+    transform: scale(.8);
+    position: absolute;
+    top: -20px;
+    left: 0;
+  }
+  .patHairTrend .times .time.dot .num {
+    color: #34b34c;
+  }
+  .patHairTrend .times .time.line .num {
+    color: #c99a3b;
+  }
+  .patHairTrend .times .time.gap .num {
+    color: #ffffff;
+  }
+  .patHairTrend .times .time .abno {
+    width: 12px;
+    height: 12px;
+    background: url("../../../assets/KJ/train/leg-abnormal.png") no-repeat center;
+    position: relative;
+  }
+  .patHairTrend .times .time .nimi {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .patHairTrend .times .time.dot .nimi {
+    background: url("../../../assets/KJ/train/nimiety-0.png") repeat left;
+  }
+  .patHairTrend .times .time.line .nimi {
+    background: url("../../../assets/KJ/train/nimiety-1.png") repeat left;
+  }
+  .patHairTrend .omission {
+    position: relative;
+  }
+  .patHairTrend .omission:before {
+    content: '';
+    width: 2px;
+    background-image: linear-gradient(to bottom, #252e2b, #1a2420);
+    position: absolute;
+    top: 22px;
+    bottom: 0;
+    left: 0;
+  }
+  .patHairTrend .omis {
+    height: 22px;
+    background-color: #252f2c;
+    border: 2px solid #363e3b;
+    border-left: none;
+    width: 36px;
+  }
+
+
+  .main_b .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 16px;
+  }
+  .main_b .title .tabs {
+    display: flex;
+  }
+  .main_b .title .tabs .tab {
+    color: #26332e;
+    font-size: 13px;
+    padding: 0 8px;
+    border: 1px solid #26332e;
+    height: 24px;
+    line-height: 22px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+  }
+  .main_b .title .tabs .tab + .tab {
+    margin-left: -1px;
+  }
+  .main_b .title .tabs .tab:hover,
+  .main_b .title .tabs .tab.active {
+    color: #34b34c;
+    border-color: #34b34c;
+    z-index: 2;
+  }
+  .main_b .title .legend {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .main_b .title .legend .leg {
+    color: #ffffff;
+    font-size: 12px;
+    padding-right: 18px;
+    margin-right: 20px;
+    position: relative;
+  }
+  .main_b .title .legend .leg:after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 1px solid transparent;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .main_b .title .legend .leg.dot:after {
+    background-color: #0a4b15;
+    border-color: #008b0d;
+  }
+  .main_b .title .legend .leg.line:after {
+    background-color: #d1a03c;
+    border-color: #d1a03c;
+  }
+  .main_b .title .legend .leg.gap:after {
+    background-color: #ffffff;
+    border-color: #ffffff;
+  }
+  .main_b .title .legend .leg.alter:after {
+    background-color: #d11d1d;
+    border-color: #d11d1d;
+  }
+  .main_b .title .legend .leg.omission:after {
+    background-color: #252f2c;
+    border-color: #363e3b;
+  }
+  .main_b .title .legend .leg.nimiety:after {
+    background: url("../../../assets/KJ/train/leg-nimiety.png") no-repeat center;
+  }
+  .main_b .title .legend .leg.abnormal:after {
+    background: url("../../../assets/KJ/train/leg-abnormal.png") no-repeat center;
+  }
+}
+
+.patHairTrend .lackgroup,
+.patHairTrend .moreCode,
+.patHairTrend .lackCode,
+.patHairTrend .bunchGroup {
+  position: relative;
+}
+.patHairTrend .lackgroup:before,
+.patHairTrend .lackCode:before,
+.patHairTrend .moreCode:before,
+.patHairTrend .bunchGroup:before {
+  content: '';
+  width: 2px;
+  background-image: linear-gradient(to bottom, #252e2b, #1a2420);
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  left: 0;
+}
+.patTelegraph .telegraph .key.lackgroup:hover .keyOmis,
+.patTelegraph .telegraph .key.moreCode:hover .keyErr,
+.patTelegraph .telegraph .key.lackCode:hover .keyErr,
+.patTelegraph .telegraph .key.bunchGroup:hover .keyErr {
+  display: block;
+}
+
+
+.patTelegraph .telegraph .key.lackgroup {
+  color: #297afa;
+  font-weight: bold;
+  position: relative;
+}
+
+.patTelegraph .telegraph .key.bunchGroup {
+  color: #c647d3;
+  font-weight: bold;
+  position: relative;
+}
+.patTelegraph .telegraph .key.moreCode {
+  color: #fd9c05;
+  font-weight: bold;
+  position: relative;
+}
+
+.patTelegraph .telegraph .key.lackCode {
+  color: #804f03;
+  font-weight: bold;
+  position: relative;
+}
+.totalDesc{
+  .colorbox{
+    width: 12px;
+    height: 12px;
+    margin:0 20px 0 5px;
+  }
+  .key {
+    background: #fff;
+  }
+  .warning {
+    background: #45a515;
+  }
+  .more {
+    background: #af9510 !important;
+  }
+  .error {
+    background: #cb5524;
+  }
+  .omission {
+    background: #4c7595;
+  }
+  .lackgroup {
+    background: #297afa;
+  }
+  .bunchGroup {
+    background: #c647d3;
+  }
+  .moreCode {
+    background: #fd9c05;
+  }
+  .lackCode {
+    background: #804f03;
+  }
+}
+
+.patTelegraph .telegraph .key:nth-child(10n) .keyErr,
+.patTelegraph .telegraph .key:nth-child(10n) .keyErr .text{
+  transform: rotateY(180deg);
+  left: -50%;
+}
+

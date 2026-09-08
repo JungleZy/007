@@ -1,0 +1,58 @@
+import axios from '../http/axios.js'
+
+export const findAllTheoryKnowledgeQuestionLevel = () => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel"
+   })
+}
+export const saveTheoryKnowledgeQuestionLevel = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+      data
+   })
+}
+export const deleteTheoryKnowledgeQuestionLevelById = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestionLevelById",
+      data
+   })
+}
+export const saveTheoryKnowledgeQuestion = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+      data
+   })
+}
+export const findAllQuestionByLevelId = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+      data
+   })
+}
+export const deleteTheoryKnowledgeQuestion = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion",
+      data
+   })
+}
+export const downloadTemplate = (data) => {
+  return axios({
+    method: "post",
+    url: "/api/theoryKnowledgeQuestion/exportTemplate",
+    responseType:'blob',
+    data
+  })
+}
+export const exportQuestionBank = (data) => {
+  return axios({
+    method: 'post',
+    url: '/api/theoryKnowledgeQuestion/exportQuestionByLevelId',
+    data
+  })
+}

@@ -1,0 +1,279 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'public.less';
+
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px white inset !important;
+}
+
+:-webkit-autofill {
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+.edui-default .edui-dialog-buttons{
+  height: 40px!important;
+}
+a:focus,
+a:active,
+button,
+div,
+svg,
+span {
+  outline: none !important;
+}
+
+
+.span-center {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-content: stretch;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/*------鼠标指针形状------*/
+.cursor-pointer-def {
+  cursor: pointer;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-pointer:hover {
+  background: rgba(236, 236, 236, 0.7) !important;
+  color: #001529;
+}
+
+.cursor-pointer-blue {
+  cursor: pointer;
+}
+
+.cursor-pointer-blue:hover {
+  background: #108ee9 !important;
+  color: #fff;
+}
+
+.selected {
+  background: #108ee9 !important;
+  color: #fff;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+.hover-rotate-90 {
+  transition: all 0.3s;
+}
+
+.hover-rotate-90:hover {
+  transform: rotate(90deg);
+}
+
+.bg-white {
+  background: white;
+}
+
+.dynamic {
+  transition: all 0.2s;
+}
+
+.overflow-auto {
+  overflow: auto;
+}
+
+.overflow-x-auto {
+  overflow-x: auto;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+/*------布局------*/
+.display-flex {
+  display: flex !important;
+  flex-wrap: wrap;
+}
+
+.display-flex-row {
+  .display-flex();
+  flex-direction: row;
+}
+
+.display-flex-col {
+  .display-flex();
+  flex-direction: column;
+}
+
+@flex-start: flex-start;
+@f-center: center;
+@flex-end: flex-end;
+@f-space-between: space-between;
+@f-space-around: space-around;
+
+/*左上起*/
+.layout-left-top {
+  .display-flex-row();
+  justify-content: @flex-start;
+  align-items: @flex-start;
+}
+
+/* 左中起*/
+
+.layout-left-center {
+  .display-flex-row();
+  justify-content: @flex-start;
+  align-items: @f-center;
+}
+
+/* 左下起*/
+
+.layout-left-bottom {
+  .display-flex-row();
+
+  justify-content: @flex-start;
+  align-items: @flex-end;
+}
+
+/* 中上起*/
+
+.layout-center-top {
+  .display-flex-col();
+
+  justify-content: @flex-start;
+  align-items: @f-center;
+}
+
+.layout-center-h {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.layout-center-v {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 居中*/
+
+.layout-center {
+  .display-flex-row();
+
+  justify-content: @f-center;
+  align-items: @f-center;
+}
+
+/* 分散在两边*/
+
+.layout-side {
+  .display-flex-row();
+
+  justify-content: @f-space-between;
+  align-items: @f-center;
+}
+
+/*两端对齐，中间间隔相等*/
+
+.layout-side-n {
+  .display-flex-row();
+  justify-content: @f-space-between;
+}
+
+/*模块间间隔相等*/
+.layout-side-na {
+  .display-flex-row();
+
+  justify-content: @f-space-around;
+}
+
+/* 右上起*/
+
+.layout-right-top {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @flex-start;
+}
+
+/* 右中起*/
+
+.layout-right-center {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @f-center;
+}
+
+/* 右下起*/
+
+.layout-right-bottom {
+  .display-flex-row();
+
+  justify-content: @flex-end;
+  align-items: @flex-end;
+}
+
+.plot-draw-tip-container {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.637);
+  font-size: 12px;
+  padding: 10px;
+  color: white;
+  pointer-events: none;
+}
+
+.plot-draw-tip-container::before {
+  position: absolute;
+  content: "";
+  top: calc(50% - 10px);
+  left: -10px;
+  border-bottom: 10px solid transparent;
+  border-top: 10px solid transparent;
+  border-right: 10px solid rgba(0, 0, 0, 0.637);
+}
+
+.map-menus-bg {
+  background: rgba(255, 255, 255, 1);
+  color: #000c17;
+  //background: rgba(35, 35, 35, 0.85);
+  //color: #fff;
+}
+
+.border-top-radius {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.border-bottom-radius {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.nobr {
+  overflow: hidden;
+  -ms-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nobr-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  -moz-box-orient: vertical;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-align: justify;
+}

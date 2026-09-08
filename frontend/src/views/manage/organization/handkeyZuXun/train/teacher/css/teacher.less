@@ -1,0 +1,853 @@
+.HJJ,.HJ{
+  .zuXunBox {
+    display: flex;
+    align-items: stretch;
+  }
+  .trainTime {
+    width: 280px;
+    .grouping_content {
+      height: 160px;
+      background: url("../../../../../../../assets/HJ/train/train-time-bg.png") no-repeat center bottom;
+      background-size: 100% 100%;
+      padding-top: 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .desc {
+      color: #bfcde0;
+      font-size: 12px;
+      padding-bottom: 16px;
+      text-align: center;
+    }
+  }
+  .userListBox {
+    height: calc(100% - 62px);
+    padding-bottom: 6px;
+    .title {
+      font-size: 16px;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      background-color: #3d5d79;
+      position: relative;
+      top: -1px;
+    }
+    .userList {
+      padding: 10px 0;
+      height: calc(100% - 100px);
+      .user {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        cursor: pointer;
+        margin-bottom: 4px;
+        &:hover,&.active {
+          background-color: #3d5d79;
+        }
+        .use {
+          display: flex;
+          align-items: center;
+          font-size: 14px;
+          width: 100%;
+          padding-right: 10px;
+          .avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+        }
+        .r {
+          flex-shrink: 0;
+        }
+        .off {
+          color: #c50808;
+        }
+        .on {
+          color: #009ca7;
+        }
+        .ready {
+          color: #206bff;
+        }
+        .afoot {
+          color: #56e60f;
+        }
+        .finish {
+          color: #ff9338;
+        }
+        .none {
+          color: #999;
+        }
+      }
+    }
+  }
+  .exerciseBtn {
+    background: url("../../../../../../../assets/HJ/postTrain/btnBg.png") no-repeat;
+    padding: 10px;
+    width:246px ;
+    height: 40px;
+    margin: 0 auto;
+    text-align: center;
+    color: #bfcde0;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 19px;
+  }
+  .exerciseBtn.endTrain{
+    background: url("../../../../../../../assets/HJ/postTrain/btnBg_end.png") no-repeat;
+    color: #ff2232!important;
+  }
+  .exerciseBtn .start{
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+    z-index: 9;
+    position: relative;
+  }
+  .trainCenter {
+    height: 100%;
+    width: calc(100% - 300px);
+    margin-left: 10px;
+  }
+  .trainMessage {
+    height: 120px;
+    padding: 12px;
+    text-align: center;
+    border-bottom: 2px dashed #3d5d79;
+    .trainName {
+      font-size: 24px;
+      font-weight: bolder;
+      padding: 10px;
+    }
+    .descItem {
+      font-size: 18px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      strong {
+        color: #ff6922;
+      }
+      &+.descItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .trainLogsBox {
+    height: calc(100% - 130px);
+    padding-top: 16px;
+    .userLogs {
+      margin-bottom: 20px;
+      .user {
+        display: flex;
+        align-items: flex-end;
+        .name {
+          height: 26px;
+          background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+          padding: 0 15px 0 12px;
+          line-height: 24px;
+          color: #021a4c;
+          position: relative;
+          z-index: 2;
+          &:after {
+            content: '';
+            width: 20px;
+            height: 26px;
+            background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+            transform: skew(30deg);
+            position: absolute;
+            right: -10px;
+            z-index: 1;
+          }
+        }
+      }
+    }
+  }
+  .startBtn {
+    width: 200px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bolder;
+    background-color: #063081;
+    border: 1px solid #014de6;
+    color: #c4dafb;
+    cursor: pointer;
+    position: relative;
+    &:hover:after {
+      content: '';
+      width: 100%;
+      height: 100%;
+      animation: broaden 0.5s linear;
+      background-image: linear-gradient(to right, transparent, rgba(255,82,0,.3));
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+  }
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+  ._top .bg {
+    width: 100%;
+    height: 70px;
+  }
+  ._top .cont {
+    position: absolute;
+    top: 8px;
+    left: 16px;
+    right: 16px;
+    bottom: 6px;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../../assets/HJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 12px;
+    min-height: 8px;
+    background-color: #5178a8;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color: #5178a8;
+    text-align: center;
+    max-width: 240px;
+  }
+  .chartHead {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 30px 20px;
+    .tabItem {
+      width: 200px;
+      height: 50px;
+      background: url("../../../../../../../assets/HJ/receive/trainbtn-bg.png") no-repeat center;
+      background-size: 100% 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bolder;
+      padding-bottom: 3px;
+      cursor: pointer;
+      &.on,&:hover {
+        background: url("../../../../../../../assets/HJ/receive/trainBtn-bg-hover.png") no-repeat center;
+        background-size: 100% 100%;
+      }
+      &+.tabItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .chartCont {
+    height: calc(100% - 80px);
+    padding-top: 10px;
+  }
+
+
+}
+.LJ{
+  .zuXunBox {
+    display: flex;
+    align-items: stretch;
+  }
+  .trainTime {
+    width: 280px;
+    .grouping_content {
+      height: 160px;
+      background: url("../../../../../../../assets/LJ/train/train-time-bg.png") no-repeat center bottom;
+      background-size: 100% 100%;
+      padding-top: 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .desc {
+      position: absolute;
+      top: 5px;
+      left: auto;
+      color: #bfcde0;
+      font-size: 12px;
+      padding-bottom: 16px;
+      text-align: center;
+    }
+  }
+  .userListBox {
+    height: calc(100% - 160px);
+    padding-bottom: 6px;
+    .title {
+      font-size: 16px;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      background-color: #3d5d79;
+      position: relative;
+      top: -1px;
+    }
+    .userList {
+      padding: 10px 0;
+      height: calc(100% - 100px);
+      .user {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        cursor: pointer;
+        margin-bottom: 4px;
+        &:hover,&.active {
+          background-color: #3d5d79;
+        }
+        .use {
+          display: flex;
+          align-items: center;
+          font-size: 14px;
+          width: 100%;
+          padding-right: 10px;
+          .avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+        }
+        .r {
+          flex-shrink: 0;
+        }
+        .off {
+          color: #c50808;
+        }
+        .on {
+          color: #009ca7;
+        }
+        .ready {
+          color: #206bff;
+        }
+        .afoot {
+          color: #56e60f;
+        }
+        .finish {
+          color: #ff9338;
+        }
+        .none {
+          color: #999;
+        }
+      }
+    }
+  }
+  .exerciseBtn {
+    background: url("../../../../../../../assets/LJ/postTrain/btnBg.png") no-repeat;
+    padding: 10px;
+    width:246px ;
+    height: 40px;
+    margin: 0 auto;
+    text-align: center;
+    color: #bfcde0;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 19px;
+  }
+  .exerciseBtn.endTrain{
+    background: url("../../../../../../../assets/LJ/postTrain/btnBg_end.png") no-repeat;
+    color: #ffffff!important;
+  }
+  .exerciseBtn .start{
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+    z-index: 9;
+    position: relative;
+  }
+  .trainCenter {
+    height: 100%;
+    width: calc(100% - 300px);
+    margin-left: 10px;
+  }
+  .trainMessage {
+    height: 120px;
+    padding: 12px;
+    text-align: center;
+    border-bottom: 2px dashed #3d5d79;
+    .trainName {
+      font-size: 24px;
+      font-weight: bolder;
+      padding: 10px;
+    }
+    .descItem {
+      font-size: 18px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      strong {
+        color: #ff6922;
+      }
+      &+.descItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .trainLogsBox {
+    height: calc(100% - 130px);
+    padding-top: 16px;
+    .userLogs {
+      margin-bottom: 20px;
+      .user {
+        display: flex;
+        align-items: flex-end;
+        .name {
+          height: 26px;
+          background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+          padding: 0 15px 0 12px;
+          line-height: 24px;
+          color: #021a4c;
+          position: relative;
+          z-index: 2;
+          &:after {
+            content: '';
+            width: 20px;
+            height: 26px;
+            background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+            transform: skew(30deg);
+            position: absolute;
+            right: -10px;
+            z-index: 1;
+          }
+        }
+      }
+    }
+  }
+  .startBtn {
+    width: 200px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bolder;
+    background-color: #063081;
+    border: 1px solid #014de6;
+    color: #c4dafb;
+    cursor: pointer;
+    position: relative;
+    &:hover:after {
+      content: '';
+      width: 100%;
+      height: 100%;
+      animation: broaden 0.5s linear;
+      background-image: linear-gradient(to right, transparent, rgba(255,82,0,.3));
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+  }
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  ._top .bg {
+    width: 100%;
+    height: 70px;
+  }
+
+  ._top .cont {
+    position: absolute;
+    top: 8px;
+    left: 16px;
+    right: 16px;
+    bottom: 6px;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../../assets/LJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 12px;
+    min-height: 8px;
+    background-color: #e9deb2;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color: #e9deb2;
+    text-align: center;
+    max-width: 240px;
+  }
+  .chartHead {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 30px 20px;
+    .tabItem {
+      width: 200px;
+      height: 50px;
+      background: url("../../../../../../../assets/LJ/receive/trainbtn-bg.png") no-repeat center;
+      background-size: 100% 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bolder;
+      padding-bottom: 3px;
+      cursor: pointer;
+      &.on,&:hover {
+        background: url("../../../../../../../assets/LJ/receive/trainBtn-bg-hover.png") no-repeat center;
+        background-size: 100% 100%;
+      }
+      &+.tabItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .chartCont {
+    height: calc(100% - 80px);
+    padding-top: 10px;
+  }
+
+
+}
+.KJ{
+  .zuXunBox {
+    display: flex;
+    align-items: stretch;
+  }
+  .trainTime {
+    width: 280px;
+    .grouping_content {
+      height: 160px;
+      background: url("../../../../../../../assets/KJ/train/train-time-bg.png") no-repeat center bottom;
+      background-size: 100% 100%;
+      padding-top: 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .desc {
+      position: absolute;
+      top: 5px;
+      left: auto;
+      color: #bfcde0;
+      font-size: 12px;
+      padding-bottom: 16px;
+      text-align: center;
+    }
+  }
+  .userListBox {
+    height: calc(100% - 0px);
+    padding-bottom: 6px;
+    .title {
+      font-size: 16px;
+      text-align: center;
+      line-height: 40px;
+      font-weight: bold;
+      background-color: #3d5d79;
+      position: relative;
+      top: -1px;
+    }
+    .userList {
+      padding: 10px 0;
+      height: calc(100% - 100px);
+      .user {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        cursor: pointer;
+        margin-bottom: 4px;
+        &:hover,&.active {
+          background-color: #3d5d79;
+        }
+        .use {
+          display: flex;
+          align-items: center;
+          font-size: 14px;
+          width: 100%;
+          padding-right: 10px;
+          .avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+        }
+        .r {
+          flex-shrink: 0;
+        }
+        .off {
+          color: #c50808;
+        }
+        .on {
+          color: #009ca7;
+        }
+        .ready {
+          color: #206bff;
+        }
+        .afoot {
+          color: #56e60f;
+        }
+        .finish {
+          color: #ff9338;
+        }
+        .none {
+          color: #999;
+        }
+      }
+    }
+  }
+  .exerciseBtn {
+    background: url("../../../../../../../assets/KJ/postTrain/btnBg.png") no-repeat;
+    padding: 10px;
+    width:246px ;
+    height: 40px;
+    margin: 0 auto;
+    text-align: center;
+    color: #bfcde0;
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 19px;
+  }
+  .exerciseBtn.endTrain{
+    background: url("../../../../../../../assets/KJ/postTrain/btnBg_end.png") no-repeat;
+    color: #ffffff!important;
+  }
+  .exerciseBtn .start{
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+    z-index: 9;
+    position: relative;
+  }
+  .trainCenter {
+    height: 100%;
+    width: calc(100% - 300px);
+    margin-left: 10px;
+  }
+  .trainMessage {
+    height: 120px;
+    padding: 12px;
+    text-align: center;
+    border-bottom: 2px dashed #3d5d79;
+    .trainName {
+      font-size: 24px;
+      font-weight: bolder;
+      padding: 10px;
+    }
+    .descItem {
+      font-size: 18px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      strong {
+        color: #ff6922;
+      }
+      &+.descItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .trainLogsBox {
+    height: calc(100% - 130px);
+    padding-top: 16px;
+    .userLogs {
+      margin-bottom: 20px;
+      .user {
+        display: flex;
+        align-items: flex-end;
+        .name {
+          height: 26px;
+          background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+          padding: 0 15px 0 12px;
+          line-height: 24px;
+          color: #021a4c;
+          position: relative;
+          z-index: 2;
+          &:after {
+            content: '';
+            width: 20px;
+            height: 26px;
+            background-image: linear-gradient(to top, #4a71a5, #a2b6cf);
+            transform: skew(30deg);
+            position: absolute;
+            right: -10px;
+            z-index: 1;
+          }
+        }
+      }
+    }
+  }
+  .startBtn {
+    width: 200px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bolder;
+    background-color: #063081;
+    border: 1px solid #014de6;
+    color: #c4dafb;
+    cursor: pointer;
+    position: relative;
+    &:hover:after {
+      content: '';
+      width: 100%;
+      height: 100%;
+      animation: broaden 0.5s linear;
+      background-image: linear-gradient(to right, transparent, rgba(255,82,0,.3));
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+  }
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  ._top .bg {
+    width: 100%;
+    height: 70px;
+  }
+
+  ._top .cont {
+    position: absolute;
+    top: 8px;
+    left: 16px;
+    right: 16px;
+    bottom: 6px;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../../assets/KJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 12px;
+    min-height: 8px;
+    background-color: #e9deb2;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color: #e9deb2;
+    text-align: center;
+    max-width: 240px;
+  }
+  .chartHead {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 30px 20px;
+    .tabItem {
+      width: 200px;
+      height: 50px;
+      background: url("../../../../../../../assets/KJ/receive/trainbtn-bg.png") no-repeat center;
+      background-size: 100% 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bolder;
+      padding-bottom: 3px;
+      cursor: pointer;
+      &.on,&:hover {
+        background: url("../../../../../../../assets/KJ/receive/trainBtn-bg-hover.png") no-repeat center;
+        background-size: 100% 100%;
+      }
+      &+.tabItem {
+        margin-left: 30px;
+      }
+    }
+  }
+  .chartCont {
+    height: calc(100% - 80px);
+    padding-top: 10px;
+  }
+
+
+}

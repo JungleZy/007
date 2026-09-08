@@ -1,0 +1,412 @@
+.tabBtn {
+  width: 120px;
+  height: 36px;
+  background-color: #0f223b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid;
+  border-image: linear-gradient(160deg, #366081, #192f4f) 1;
+  &:hover,
+  &.on {
+    border-image: linear-gradient(160deg, #70c9ff, #2e527b) 1;
+    background-image: linear-gradient(to right, #346f95, #203c60);
+  }
+  & + .tabBtn {
+    margin-left: 10px;
+  }
+}
+.equipmentMain {
+  height: calc(100% - 160px);
+  display: flex;
+  align-items: stretch;
+  padding: 20px 20px 0 0;
+  .imgBox {
+    width: 44%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: url('../../../assets/HJ/equipment/equipmentBigBg.png') no-repeat
+      top center;
+    padding-right: 20px;
+    .equipBox {
+      width: 100%;
+      max-height: 100%;
+      min-height: 156px;
+      background: url('../../../assets/HJ/equipment/dizuo.png') no-repeat center
+        bottom;
+      background-size: 100% auto;
+      padding-bottom: 10%;
+      position: relative;
+    }
+    .img {
+      display: block;
+      max-width: 72%;
+      max-height: calc(100vh - 360px);
+      margin: 0 auto;
+      cursor: pointer;
+    }
+    .name {
+      width: 76%;
+      height: 44px;
+      background: url('../../../assets/HJ/equipment/nameBg.png') no-repeat;
+      background-size: 100% 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 24px;
+      font-weight: bolder;
+      cursor: pointer;
+      position: absolute;
+      left: 12%;
+      bottom: -40px;
+    }
+  }
+  .textBox {
+    width: 56%;
+    .tabs {
+      display: flex;
+    }
+    .uEditText {
+      height: calc(100% - 46px);
+      padding: 10px 16px;
+      margin-top: 10px;
+      background-image: linear-gradient(to bottom, #224165, transparent);
+      :deep(table) {
+        border-collapse: collapse;
+        &:not([cellpadding]) {
+          td,
+          th {
+            padding: 0.4rem;
+          }
+        }
+        &[border]:not([border='0']):not([style*='border-width']) {
+          td,
+          th {
+            border: 1px solid #6d737b;
+          }
+        }
+      }
+    }
+  }
+}
+.equipListBox {
+  width: 100%;
+  height: 158px;
+  background: url('../../../assets/HJ/equipment/listBg-l.png') no-repeat left,
+    url('../../../assets/HJ/equipment/listBg-r.png') no-repeat right;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  .bg {
+    height: 158px;
+    background: url('../../../assets/HJ/equipment/listBg.png');
+    position: absolute;
+    left: 211px;
+    right: 69px;
+    bottom: 0;
+  }
+  .typeBox {
+    width: 152px;
+    height: 110px;
+    background: url('../../../assets/HJ/equipment/menuBg.png') no-repeat center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: absolute;
+    bottom: 9px;
+    left: 11px;
+    z-index: 6;
+    cursor: pointer;
+    &:hover {
+      box-shadow: 0 0 40px rgb(26 92 173 / 0.8) inset;
+    }
+    .ico {
+      width: 57px;
+      height: 36px;
+      background: url('../../../assets/HJ/equipment/menu.png') no-repeat center;
+    }
+    .name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: bolder;
+      width: 90%;
+      margin-top: 16px;
+      text-align: center;
+    }
+    .typeList {
+      display: none;
+      width: 160px;
+      padding-bottom: 3px;
+      position: absolute;
+      left: 0;
+      bottom: 108px;
+      .typeItem {
+        width: 152px;
+        height: 42px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        line-height: 40px;
+        text-align: center;
+        padding: 0 8px;
+        font-size: 15px;
+        font-weight: bolder;
+        color: #fff;
+        background: url('../../../assets/HJ/equipment/typeBtnBg.png') no-repeat
+          center;
+        position: relative;
+        &.on,
+        &:hover {
+          background: url('../../../assets/HJ/equipment/typeBtnOnBg.png') no-repeat
+            center;
+        }
+        &.add {
+          cursor: pointer;
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .typeIco {
+          display: none;
+          background: #0d172c;
+          padding: 2px;
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          .edit,
+          .del {
+            display: block;
+            margin-left: 2px;
+            cursor: pointer;
+          }
+        }
+        &:hover .typeIco {
+          display: flex;
+        }
+      }
+    }
+    &:hover .typeList {
+      display: block;
+    }
+  }
+  .listBox {
+    height: 115px;
+    display: flex;
+    position: absolute;
+    bottom: 3px;
+    left: 207px;
+    right: 44px;
+    .switchL,
+    .switchR {
+      width: 24px;
+      height: 40px;
+      position: absolute;
+      bottom: calc(50% - 18px);
+      cursor: pointer;
+    }
+    .switchL {
+      background: url('../../../assets/HJ/equipment/l.png') no-repeat center;
+      left: -34px;
+      &:hover {
+        background: url('../../../assets/HJ/equipment/l-hover.png') no-repeat
+          center;
+      }
+    }
+    .switchR {
+      background: url('../../../assets/HJ/equipment/r.png') no-repeat center;
+      right: -34px;
+      &:hover {
+        background: url('../../../assets/HJ/equipment/r-hover.png') no-repeat
+          center;
+      }
+    }
+    .deviceListBox {
+      display: flex;
+      align-items: flex-start;
+      max-width: calc(100% - 130px);
+      padding-right: 10px;
+      overflow-x: auto;
+      &::-webkit-scrollbar {
+        height: 0px;
+      }
+    }
+    .item {
+      width: 128px;
+      height: 108px;
+      padding: 5px 9px 24px;
+      background: url('../../../assets/HJ/equipment/equipmentBg.png') no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+      &.on,
+      &:hover {
+        background: url('../../../assets/HJ/equipment/equipmentOnBg.png') no-repeat;
+        .name {
+          color: #000;
+        }
+      }
+      & + .item {
+        margin-left: 6px;
+      }
+      .img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .ico {
+        font-size: 48px;
+        font-weight: bolder;
+      }
+      .deviceIco {
+        display: none;
+        background: #0d172c;
+        padding: 4px;
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        .edit,
+        .del {
+          display: block;
+          cursor: pointer;
+        }
+        .edit {
+          margin-left: 4px;
+        }
+      }
+      &:hover .deviceIco {
+        display: flex;
+      }
+      .name {
+        height: 22px;
+        line-height: 20px;
+        font-size: 12px;
+        text-align: center;
+        color: #8fa3c0;
+        padding: 0 6px;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+    }
+  }
+}
+
+.createDrillBtn {
+  width: 96px;
+  height: 30px;
+  color: #e2f2ff;
+  font-size: 15px;
+  text-align: center;
+  line-height: 28px;
+  box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  background-image: linear-gradient(#22acff, #0068de);
+  &.loadingBtn {
+    cursor: no-drop;
+    opacity: 0.8;
+  }
+}
+
+.configurationBox {
+  padding: 16px 0;
+  color: #fff;
+  .rowItem {
+    display: flex;
+    align-items: center;
+    & + .rowItem {
+      margin-top: 12px;
+    }
+    .lab {
+      width: 100px;
+      flex-shrink: 0;
+      color: #7b90af;
+      text-align: right;
+    }
+    .item {
+      color: #7b90af;
+      text-align: center;
+    }
+  }
+}
+
+.messageBox {
+  //border-top: 1px solid #364e7b;
+  margin-top: 20px;
+  padding-top: 20px;
+  position: relative;
+  .title {
+    line-height: 20px;
+    padding: 0 36px;
+    color: #7b90af;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    &:after,
+    &:before {
+      content: '';
+      height: 1px;
+      background-color: #364e7b;
+      position: absolute;
+      top: 10px;
+    }
+    &:after {
+      left: 0;
+      width: 30px;
+    }
+    &:before {
+      left: 100px;
+      right: 0;
+    }
+  }
+  .msgLeft {
+    width: 160px;
+    padding-right: 10px;
+    border-right: 1px solid #364e7b;
+    .msgItem {
+      width: 100%;
+      height: 36px;
+      border-left: 3px solid transparent;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      margin-bottom: 2px;
+      .close {
+        color: red;
+        display: none;
+      }
+      &:hover,
+      &.active {
+        background: #24578c !important;
+        color: #ffffff;
+        border-left: 3px solid #70c9ff;
+        .close {
+          display: block;
+        }
+      }
+    }
+  }
+  .msgUEditorBox {
+    width: calc(100% - 170px);
+    height: 100%;
+    background: #071633;
+    border: 1px solid #28476a;
+  }
+}
+
+.msgUEditorItem {
+  height: 100%;
+  background: #071633;
+  border: 1px solid #28476a;
+}
