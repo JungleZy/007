@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 完成 `docs/reviews/2026-08-28-fix-spec-remediation.md` 中仍有源码证据的后续工作，消除测试误连/毁库风险、评分静默降级、ID 时钟回拨、统计契约漂移、动态及格线错误、主要 N+1/无效分配和安全可删的死代码，并重新生成可复核的迁移演练证据。
+**Goal:** 完成 `docs/reviews/archive/2026-08-28-fix-spec-remediation.md` 中仍有源码证据的后续工作，消除测试误连/毁库风险、评分静默降级、ID 时钟回拨、统计契约漂移、动态及格线错误、主要 N+1/无效分配和安全可删的死代码，并重新生成可复核的迁移演练证据。
 
 **Architecture:** 先关闭测试数据库和错误处理两条安全边界，再处理独立的 ID/排序契约；随后在同一文件域内依次修动态成绩分档和理论知识查询批处理，最后清理跨文件分配/N+1 与零调用代码。迁移演练依赖测试地基切换，使用一次性 MySQL 8.0 容器和两个历史快照，不接触配置中的 `project006` 或真实生产地址。
 
@@ -864,10 +864,10 @@ Run `test-compile` first, then controller-adjacent tests. Static gate: deleted c
 Update:
 
 ```text
-docs/reviews/2026-08-26-service-core-review.md
-docs/reviews/2026-08-26-common-build-review.md
-docs/reviews/2026-08-26-controller-api-review.md
-docs/reviews/2026-08-28-fix-spec-remediation.md
+docs/reviews/archive/2026-08-26-service-core-review.md
+docs/reviews/archive/2026-08-26-common-build-review.md
+docs/reviews/archive/2026-08-26-controller-api-review.md
+docs/reviews/archive/2026-08-28-fix-spec-remediation.md
 ```
 
 Mark already-completed P2-07/P2-13/P2-77/pass-count half of P2-78/P2-84/P2-94 accurately; correct the stale claim that SnowflakeIdKit has zero callers; separate this task's deletions from the public endpoint decision list.
@@ -892,10 +892,10 @@ git add src/main/java/com/nip/common/utils/CharsetUtils.java \
   src/main/java/com/nip/service/TheoryKnowledgeQuestionService.java \
   src/main/java/com/nip/service/PostEnteringExerciseWordStockService.java \
   docs/guides/code.java \
-  docs/reviews/2026-08-26-service-core-review.md \
-  docs/reviews/2026-08-26-common-build-review.md \
-  docs/reviews/2026-08-26-controller-api-review.md \
-  docs/reviews/2026-08-28-fix-spec-remediation.md
+  docs/reviews/archive/2026-08-26-service-core-review.md \
+  docs/reviews/archive/2026-08-26-common-build-review.md \
+  docs/reviews/archive/2026-08-26-controller-api-review.md \
+  docs/reviews/archive/2026-08-28-fix-spec-remediation.md
 git commit -m "refactor: 删除零调用内部代码并校准审计状态"
 ```
 
@@ -910,8 +910,8 @@ git commit -m "refactor: 删除零调用内部代码并校准审计状态"
 - Create: `src/test/java/com/nip/rehearsal/EntitySchemaSnapshotRehearsal.java` (name intentionally does not end in `Test`, so default Surefire excludes it)
 - Create: `backend/database/rehearsal/2026-08-28/README.md`
 - Create during execution, schema-only: `backend/database/rehearsal/2026-08-28/current-schema.tsv`, `base-schema.tsv`, `entity-schema.tsv`, `diff-current.txt`, `diff-base.txt`
-- Create: `docs/reviews/2026-08-28-migration-rehearsal.md`
-- Modify after success: `src/main/resources/application.yml:71-74`, `docs/reviews/2026-08-28-fix-spec-remediation.md`
+- Create: `docs/reviews/archive/2026-08-28-migration-rehearsal.md`
+- Modify after success: `src/main/resources/application.yml:71-74`, `docs/reviews/archive/2026-08-28-fix-spec-remediation.md`
 
 **Interfaces:**
 - Consumes: `project006.sql`, `project006-base.sql`, migrations 01 then 02, Docker, JDK 21.
@@ -1005,7 +1005,7 @@ The report must include image digest, source snapshot checksums, migration durat
 - [ ] **Step 7: Commit**
 
 ```bash
-git add scripts/rehearse-migrations.sh src/test/java/com/nip/rehearsal backend/database/rehearsal/2026-08-28 docs/reviews/2026-08-28-migration-rehearsal.md docs/reviews/2026-08-28-fix-spec-remediation.md src/main/resources/application.yml
+git add scripts/rehearse-migrations.sh src/test/java/com/nip/rehearsal backend/database/rehearsal/2026-08-28 docs/reviews/archive/2026-08-28-migration-rehearsal.md docs/reviews/archive/2026-08-28-fix-spec-remediation.md src/main/resources/application.yml
 git commit -m "test(migration): 固化双快照迁移演练证据"
 ```
 
@@ -1016,7 +1016,7 @@ git commit -m "test(migration): 固化双快照迁移演练证据"
 ### Task 10: Run final gates and close only completed follow-up items
 
 **Files:**
-- Modify: `docs/reviews/2026-08-28-fix-spec-remediation.md`
+- Modify: `docs/reviews/archive/2026-08-28-fix-spec-remediation.md`
 - Modify: `docs/specs/2026-08-26-fix-spec.md` only if its status table now contradicts evidence
 
 - [ ] **Step 1: Run the full suite on the final branch**
@@ -1057,7 +1057,7 @@ Mark Tasks 1-9 complete only with fresh evidence. Keep the public endpoint remov
 - [ ] **Step 6: Commit final evidence**
 
 ```bash
-git add docs/reviews/2026-08-28-fix-spec-remediation.md docs/specs/2026-08-26-fix-spec.md
+git add docs/reviews/archive/2026-08-28-fix-spec-remediation.md docs/specs/2026-08-26-fix-spec.md
 git commit -m "docs: 更新 fix spec 后续工作验收状态"
 ```
 

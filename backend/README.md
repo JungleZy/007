@@ -178,20 +178,9 @@ src/main/java/com/nip/
 
 ## 文档索引
 
-- **评审权威**：[`../docs/reviews/2026-09-07-full-project-review.md`](../docs/reviews/2026-09-07-full-project-review.md)（后端汇总为最终结论，附独立审计 `*-review-audit.md`）。
-- **前后端联合评审**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md) —— 改动任何跨栈契约（`@RestQuery`/`@RestForm` 参数名、返回形态、错误码、能力边界）前必读：上一轮后端单侧整改已被证实改断 5 处前端调用面。
+- **当前全项目评审（唯一入口）**：[`../docs/reviews/2026-09-08-full-project-review.md`](../docs/reviews/2026-09-08-full-project-review.md)。
+- **前后端联合评审详细证据**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md)。
+- 历史评审、分片、审计与迁移文字记录：`../docs/reviews/archive/`。
 - 整改规格 / 计划：`../docs/specs/`、`../docs/plans/`。
 - 迁移演练：`database/rehearsal/`。
 - 全仓文档地图：[`../docs/README.md`](../docs/README.md)。
-- 面向 AI 编码代理的工程约定与红线：见 [`../AGENTS.md`](../AGENTS.md)。
-- 单仓总览与前端入口：见 [`../README.md`](../README.md)。
-
-> **路径约定（2026-09-08 文档收口后）**：**文字文档**已统一到仓库根 `docs/`，本文对文档的引用一律写 `../docs/...`；
-> 本文对代码、脚本与库资产的引用（`src/...`、`scripts/...`、`database/...`、`./mvnw`）仍以 **`backend/`** 为根。
->
-> 库快照 / 迁移脚本 / 演练证据留在 `backend/database/`（不进 `docs/`）：它们被 `scripts/rehearse-migrations.sh`
-> 与 `%prod` 的 `generation=validate` 部署流程直接消费，是工程资产而非文字文档。
->
-> `../docs/` 下的历史文档（2026-08/09 后端评审、规格、计划）其**代码**引用仍以 `backend/` 为根、未逐篇改写
-> （带行号的取证快照，改写会破坏与提交历史的对应关系）；其中**库路径已统一改写**为仓库根形式
-> `backend/database/...`。详见 [`../docs/README.md`](../docs/README.md) 的「路径约定」节。

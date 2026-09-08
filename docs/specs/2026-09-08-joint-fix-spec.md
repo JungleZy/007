@@ -162,7 +162,7 @@
 
 ### Task 2.4（FE）假成功修点
 
-`frontend/src/views/manage/systemManage/structure/js/useStructure.js:368-375`（重置密码）不判 `code` 直接 `Modal.success` 并回显 `e.data`（失败时为 null）→ 改为按 `res.code === 200` 判定。其余同型「不判 code 直接弹成功」调用点见分片 [envelope-error](../reviews/2026-09-08-joint-envelope-error.md) §附录 A，逐个按同一模式修。
+`frontend/src/views/manage/systemManage/structure/js/useStructure.js:368-375`（重置密码）不判 `code` 直接 `Modal.success` 并回显 `e.data`（失败时为 null）→ 改为按 `res.code === 200` 判定。其余同型「不判 code 直接弹成功」调用点见归档分片 [envelope-error](../reviews/archive/2026-09-08-joint-envelope-error.md) §附录 A，逐个按同一模式修。
 
 ### Task 2.5（BE）回归测试（新建 `ErrorEnvelopeContractTest`）
 
@@ -358,7 +358,7 @@ grep -rn "import axios from ['\"]axios['\"]" frontend/src --include=*.vue   # Ta
 
 - 本 Spec 的每个 Task 有「已落地 / 偏离（附原因）/ 未落地」结论；偏离项按 `2026-09-08-deviation-fix-spec.md` 的先例单独立项。
 - 联合评审报告 §3 必修清单逐行标注「已在 joint-fix-spec 批 N 处理」。
-- 若批 4 删除 `teacherBack.js` 或批 7.5 删除孤儿端点，同步更新 `docs/reviews/2026-09-08-joint-websocket.md` 的端点对账表。
+- 若批 4 删除 `teacherBack.js` 或批 7.5 删除孤儿端点，同步更新归档分片 `docs/reviews/archive/2026-09-08-joint-websocket.md` 的端点对账表。
 
 ---
 

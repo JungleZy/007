@@ -94,4 +94,4 @@ double/datetime/bit` 保持原样，故任何真实类型漂移仍会现形。
 5 张表已存在、2 处 `ADD COLUMN` 走 `DO 0`，只剩两条 `MODIFY COLUMN` 真正落盘。
 迁移 02 两侧都在 2.3–2.5 秒，是停服窗口评估的实测下界。
 
-演练权威结论以 `docs/reviews/2026-09-07-migration-rehearsal.md` 为准。
+演练权威结论以 `docs/reviews/archive/2026-09-07-migration-rehearsal.md` 为准。

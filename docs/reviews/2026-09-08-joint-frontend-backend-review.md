@@ -10,19 +10,13 @@
 | 审查范围 | **只审跨栈契约面**：HTTP 端点、响应信封与业务码、鉴权/会话生命周期、WebSocket 协议、训练主业务流、文件与富文本传输、部署形态、数据表示。单侧内部缺陷不重报 |
 | 审查日期 | 2026-09-08 |
 | 审查方式 | 8 个只读评审子代理并行分片取证（各自一份分片报告），父代理负责去重、改级、独立复核与汇总；父代理另做 1 次浏览器运行期实证（§5.1） |
-| 单侧基线 | 后端 `docs/reviews/2026-09-07-full-project-review.md`（P0 0 / P1 34 / P2 139 / P3 53，且后端**已据此改过代码**）；前端 `docs/reviews/2026-09-08-frontend-review.md`（HIGH 23 / MEDIUM 31 / LOW 17 / INFO 12，**尚未修改**） |
+| 单侧基线 | 当前全项目评审 `docs/reviews/2026-09-08-full-project-review.md`；此前单侧报告和分片已移入 `docs/reviews/archive/`，仅作历史证据 |
 | 定级口径 | J-P0 契约破裂已致功能整体不可用/跨用户串号/永久数据损坏；J-P1 特定路径静默失效、错误数据展示或落库、假成功；J-P2 契约脆弱（依赖巧合，一侧小改即炸）；J-P3 清洁度。内网部署，**纯安全缺口为已接受风险**，仅在同时造成功能性/数据性后果时正常计级 |
 | 运行验证 | 未启动后端（分片纯静态取证）。父代理用真实 Chromium 实测了「XHR `GET` 请求体被浏览器丢弃」（结论成立，但**不适用**本项目：api 层包装器已把 GET 的 `data` 转成 `params`，见 §5.0 勘误）；其余运行期后果为代码路径推断 |
 
-分片报告（本目录）：
-[http-contract](2026-09-08-joint-http-contract.md) ·
-[envelope-error](2026-09-08-joint-envelope-error.md) ·
-[auth-session](2026-09-08-joint-auth-session.md) ·
-[websocket](2026-09-08-joint-websocket.md) ·
-[training-flow](2026-09-08-joint-training-flow.md) ·
-[theory-file](2026-09-08-joint-theory-file.md) ·
-[deploy-config](2026-09-08-joint-deploy-config.md) ·
-[datamodel](2026-09-08-joint-datamodel.md)
+详细分片已归档至 `docs/reviews/archive/`，不再作为顶层阅读入口：
+`2026-09-08-joint-http-contract.md` · `2026-09-08-joint-envelope-error.md` · `2026-09-08-joint-auth-session.md` · `2026-09-08-joint-websocket.md` ·
+`2026-09-08-joint-training-flow.md` · `2026-09-08-joint-theory-file.md` · `2026-09-08-joint-deploy-config.md` · `2026-09-08-joint-datamodel.md`
 
 ---
 

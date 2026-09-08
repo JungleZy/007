@@ -141,7 +141,7 @@
 | 证据 | 内容 |
 |---|---|
 | 零消费方 | 三个端点（`theoryKnowledgeQuestion/upLoadFile`、`/exportTemplate`、`theoryKnowledge/uploadFileToNip`）全仓无引用，前端 `src/main/resources/resources/index.html` 与 `docs/` 均无命中 |
-| 作者原始声明 | `upLoadFile` 的 `@Operation` 原文写着「新框架不做上传功能」（原文见 `docs/reviews/2026-08-26-controller-api-review.md:204-220,540-544`） |
+| 作者原始声明 | `upLoadFile` 的 `@Operation` 原文写着「新框架不做上传功能」（原文见 `docs/reviews/archive/2026-08-26-controller-api-review.md:204-220,540-544`） |
 | 全项目既定约定 | 后端只回 JSON 行、Excel 文件由前端生成。范式就是保留下来的 `exportQuestionByLevelId`（`TheoryKnowledgeQuestionService.java:170-175`，直接返回实体列表，零 poi，javadoc 写明「后端只提供数据，由前端生成文件」）|
 | 计划引作参照的实现本身是空壳 | `PostEnteringExerciseWordStockService.view():48-50` 只 `return new ...Dto()`；真正的入库在 `add():52-86`，把 DTO 的 content 字符串按换行 split 后 JSON 落库 —— **全仓没有任何真实 Excel 解析代码** |
 | 被删的三个方法体 | `updateFileToNip` 取完 user 直接 `new` 全 null VO（`file` 形参从未使用且缺 `@RestForm`）；`upLoadFile` 只 `return success()`；`exportTemplate` service 体 100% 是注释、零可执行语句 |
@@ -228,7 +228,7 @@
 - Modify `src/main/java/com/nip/service/ComprehensiveService.java`（`countErrorSubject:299-349` 的 `:344` 缓存写入改幂等）
 - Add `backend/database/migrations/2026-09-08-01-unique-lazy-create.sql`
 - Modify `backend/database/project006.sql`（回灌）
-- Modify `docs/reviews/2026-09-07-full-project-review.md`（把「读接口带写副作用」的评估结论记入 `## 8` `:173` 或附录 `:189`，这才是 Step 3 要的落点）
+- Modify `docs/reviews/2026-09-08-full-project-review.md`（把「读接口带写副作用」的评估结论记入当前综合评审；原专项证据保留在归档目录）
 - Add 并发回归用例
 
 **内容：**

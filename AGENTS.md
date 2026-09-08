@@ -10,7 +10,7 @@
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
 - **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/`、`frontend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
-- 前端评审见 `docs/reviews/2026-09-08-frontend-review.md`，前后端联合评审见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`，跨栈整改方案见 `docs/specs/2026-09-08-joint-fix-spec.md`。前端**单侧**代码风格/结构约定不在本文范围。
+- 当前全项目评审见 `docs/reviews/2026-09-08-full-project-review.md`，联合评审详细证据见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`，跨栈整改方案见 `docs/specs/2026-09-08-joint-fix-spec.md`。历史分片统一在 `docs/reviews/archive/`，不作为当前状态依据。
 
 ## 构建与测试
 
@@ -60,8 +60,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 后端评审结论以 `docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
-- **跨栈问题以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**（8 份分片 `2026-09-08-joint-*.md`）：它修正了单侧评审的若干定级/责任归属（如后端 `CA-P1-01/02/03` 的责任反转、前端「后端强校验」降级前提被否证），并在 §5.0 记录了自身的两条撤回（「GET 用 `data` 传参丢参」不成立，包装器 `common/http/axios.js:20-24` 已转 `params`）。**在执行的跨栈整改计划：`docs/specs/2026-09-08-joint-fix-spec.md`（8 批次，带依赖顺序与门禁）。**
+- 当前项目评审结论以 `docs/reviews/2026-09-08-full-project-review.md` 为唯一入口；历史后端评审、审计和分片位于 `docs/reviews/archive/`，仅用于追溯。
+- **跨栈问题以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为详细证据**；当前汇总结论以全项目评审为准。执行中的跨栈整改计划为 `docs/specs/2026-09-08-joint-fix-spec.md`。
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。
 

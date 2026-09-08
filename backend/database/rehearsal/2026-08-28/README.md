@@ -45,4 +45,4 @@ bash scripts/rehearse-migrations.sh
 `general_key_pat_page.id`=varchar，base 迁前 id=int→迁后 varchar）。`int/bigint/decimal/
 double/datetime/bit` 保持原样，故任何真实类型漂移仍会现形。
 
-演练权威结论以 `docs/reviews/2026-08-28-migration-rehearsal.md` 为准。
+演练权威结论以 `docs/reviews/archive/2026-08-28-migration-rehearsal.md` 为准。
