@@ -110,7 +110,9 @@ public class EnteringExerciseService {
   }
 
   public EnteringExerciseVO getById(String id) {
-    EnteringExerciseEntity entity = exerciseDao.findById(id);
+    // Phase 7.4：不存在的 id 原先返回一个全空 VO 空壳，改为显式报错
+    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     return PojoUtils.convertOne(entity, EnteringExerciseVO.class);
   }
 

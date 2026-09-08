@@ -40,7 +40,7 @@ public class DeviceScoringRuleService {
     } else {
       //更新
       DeviceScoringRuleEntity ruleEntity = Optional.ofNullable(deviceScoringRuleDao.findById(dto.getId()))
-          .orElseThrow(() -> new RuntimeException("未查询到评分规则"));
+          .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
       ruleEntity.setRuleContent(dto.getRuleContent());
     }
   }

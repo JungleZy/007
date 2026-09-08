@@ -427,7 +427,9 @@ public class PostMilitaryTermTrainService {
   }
 
   public PostMilitaryTermTrainVO details(PostMilitaryTermTrainVO vo) {
-    PostMilitaryTermTrainEntity entity = termTrainDao.findById(vo.getId());
+    // Phase 7.4：不存在的训练 id 必须显式报错，避免 convertOne(null) / setStatus 空指针
+    PostMilitaryTermTrainEntity entity = Optional.ofNullable(termTrainDao.findById(vo.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     //查询试卷内容
     List<PostMilitaryTermTrainTestPaperEntity> testPaperEntities = testPaperDao.findAllByTrainId(vo.getId());
 
@@ -443,7 +445,8 @@ public class PostMilitaryTermTrainService {
 
   @Transactional(rollbackOn = Exception.class)
   public PostMilitaryTermTrainVO begin(String id) {
-    PostMilitaryTermTrainEntity termTrainEntity = termTrainDao.findById(id);
+    PostMilitaryTermTrainEntity termTrainEntity = Optional.ofNullable(termTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
     termTrainEntity.setStatus(PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus());
     termTrainEntity.setStartTime(LocalDateTime.now());
     return PojoUtils.convertOne(termTrainEntity, PostMilitaryTermTrainVO.class);
@@ -451,7 +454,8 @@ public class PostMilitaryTermTrainService {
 
   @Transactional(rollbackOn = Exception.class)
   public PostMilitaryTermTrainVO finish(PostMilitaryTermTrainFinishDto dto) {
-    PostMilitaryTermTrainEntity termTrainEntity = termTrainDao.findById(dto.getId());
+    PostMilitaryTermTrainEntity termTrainEntity = Optional.ofNullable(termTrainDao.findById(dto.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
 
     //状态设置成完成
     termTrainEntity.setStatus(PostMilitaryTermTrainStatusEnum.FINISH.getStatus());

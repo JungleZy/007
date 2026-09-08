@@ -8,7 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 @ApplicationScoped
-public class GeneralKeyPatPageDao extends BaseRepository<GeneralKeyPatPageEntity, Integer> {
+public class GeneralKeyPatPageDao extends BaseRepository<GeneralKeyPatPageEntity, String> {
 
   public List<GeneralKeyPatPageEntity> findByPageNumberAndTrainIdOrderBySort(Integer pageNumber, Integer trainId) {
     return find("pageNumber = ?1 and trainId = ?2", Sort.by("sort").ascending(), pageNumber, trainId).list();

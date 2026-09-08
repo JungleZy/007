@@ -20,6 +20,8 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * TheoryKnowledgeSwfService
@@ -57,12 +59,16 @@ public class TheoryKnowledgeTestService {
   public Response<TheoryKnowledgeTestDto> saveKnowledgeTest(String token, TheoryKnowledgeTestDto testDto) {
     UserEntity userEntity = userService.getUserByToken(token);
     TheoryKnowledgeTestEntity knowledgeTest = testDto.getKnowledgeTest();
+    if (knowledgeTest == null) {
+      throw new IllegalArgumentException("测验信息不能为空");
+    }
     if (StringUtils.isEmpty(knowledgeTest.getId())) {
       knowledgeTest.setCreateTime(new Date().getTime() + "");
       knowledgeTest.setCreateUserId(userEntity.getId());
     } else {
-      TheoryKnowledgeTestEntity entity = testDao.findById(knowledgeTest.getId());
-      assert entity != null;
+      // Phase 7.4：assert 在运行时被关闭，等价于裸解引用；改为显式业务异常
+      TheoryKnowledgeTestEntity entity = Optional.ofNullable(testDao.findById(knowledgeTest.getId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该测验"));
       knowledgeTest.setKnowledgeId(entity.getKnowledgeId());
       knowledgeTest.setKnowledgeSwfId(entity.getKnowledgeSwfId());
       knowledgeTest.setCreateTime(entity.getCreateTime());
@@ -71,12 +77,12 @@ public class TheoryKnowledgeTestService {
     List<TheoryKnowledgeTestEntity> tests = testDao.findAllByKnowledgeSwfIdOrderByCreateTimeAsc(
         knowledgeTest.getKnowledgeSwfId());
     if (!tests.isEmpty()) {
-      if (knowledgeTest.getVersions() == 1) {
+      if (Objects.equals(knowledgeTest.getVersions(), 1)) {
         testDao.updateVersions2CloseByKnowledgeSwfId(knowledgeTest.getKnowledgeSwfId());
       } else {
         TheoryKnowledgeTestEntity versions = testDao.findFirstByKnowledgeSwfIdAndVersions(
             knowledgeTest.getKnowledgeSwfId(), 1);
-        if (versions == null && knowledgeTest.getVersions() == 0) {
+        if (versions == null && Objects.equals(knowledgeTest.getVersions(), 0)) {
           knowledgeTest.setVersions(1);
         }
       }

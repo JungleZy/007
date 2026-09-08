@@ -33,7 +33,7 @@ public class PostTickerTapeTrainSettingVO implements Serializable {
   private String text;
 
   @Schema( title = "添加时间")
-  @JsonFormat(pattern = "yyyy-MM-dd hh:mm:ss",timezone = "GMT+8")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone = "GMT+8")
   private LocalDateTime createTime;
 
 }

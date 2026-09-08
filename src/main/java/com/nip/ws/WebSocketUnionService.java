@@ -69,13 +69,22 @@ public class WebSocketUnionService {
     Lock lock = RoomLifecycleLocks.unionUser(sid);
     lock.lock();
     try {
+      UserEntity userEntity = userDao.findUserEntityById(sid);
+      if (userEntity == null) {
+        // 端点无鉴权，sid 直接来自路径参数：库里查不到就拒连，不能带着 null 往下走。
+        log.warn("联合训练连接被拒绝，用户不存在:{}", sid);
+        send(session,
+          new ResponseModel(CodeConstants.CLOSE.getCode(), "用户不存在，拒绝建立联合训练连接"));
+        close(session);
+        return;
+      }
+
       Client existing = webSocketClientSet.get(sid);
       if (existing != null) {
         send(existing.session(),
           new ResponseModel(CodeConstants.CLOSE.getCode(), CodeConstants.CLOSE.getContent()));
       }
 
-      UserEntity userEntity = userDao.findUserEntityById(sid);
       UserModel userModel = new UserModel();
       userModel.setId(sid);
       userModel.setName(userEntity.getUserName());
@@ -119,14 +128,33 @@ public class WebSocketUnionService {
       log.warn("收到未注册连接的消息，忽略:{}", message);
       return;
     }
-    Map map = JSONUtils.fromJson(message, Map.class);
-    int code = new BigDecimal(map.get("code").toString()).intValue();
-    RequestModel msg = new RequestModel();
-    msg.setCode(code);
-    msg.setSendUser(Optional.ofNullable(map.get("sendUser")).map(Object::toString).orElse(""));
-    msg.setReceiveUser(Optional.ofNullable(map.get("receiveUser")).map(Objects::toString).orElse(""));
-    msg.setData(Optional.ofNullable(map.get("data")).map(JSONUtils::toJson).orElse(""));
-    UnionConstants byCode = UnionConstants.getByCode(code);
+    RequestModel msg;
+    UnionConstants byCode;
+    try {
+      Map map = JSONUtils.fromJson(message, Map.class);
+      int code = new BigDecimal(map.get("code").toString()).intValue();
+      msg = new RequestModel();
+      msg.setCode(code);
+      msg.setSendUser(Optional.ofNullable(map.get("sendUser")).map(Object::toString).orElse(""));
+      msg.setReceiveUser(Optional.ofNullable(map.get("receiveUser")).map(Objects::toString).orElse(""));
+      msg.setData(Optional.ofNullable(map.get("data")).map(JSONUtils::toJson).orElse(""));
+      byCode = UnionConstants.getByCode(code);
+    } catch (Exception e) {
+      log.warn("联合训练收到无法解析的报文，忽略:{}", message, e);
+      send(me.session(), new ResponseModel(UnionConstants.UNKNOWN.getCode(), "消息格式不正确"));
+      return;
+    }
+    try {
+      dispatch(me, msg, byCode);
+    } catch (Exception e) {
+      // 畸形控制帧（如 data 非数字）不得冒泡到 @OnError：那会走 userExit 把用户从所有房间里剔除
+      log.error("联合训练指令处理失败:code={},message={}", msg.getCode(), message, e);
+      send(me.session(),
+        new ResponseModel(UnionConstants.UNKNOWN.getCode(), byCode.getContent() + "处理失败"));
+    }
+  }
+
+  private void dispatch(Client me, RequestModel msg, UnionConstants byCode) {
     switch (byCode) {
       case GET_UNION_INFO:
         getUnionInfo(me);
@@ -179,10 +207,11 @@ public class WebSocketUnionService {
   public void onError(Session session, Throwable error) {
     log.error("联合训练连接发生错误", error);
     Client me = resolveClient(session);
-    if (me == null) {
-      return;
+    if (me != null) {
+      userExit(me);
     }
-    userExit(me);
+    // 出错的连接已不可用：不主动关闭会留下既不在连接表里、又没断开的僵尸连接
+    close(session);
   }
 
   /**
@@ -478,8 +507,11 @@ public class WebSocketUnionService {
       Map<String, String> dataMap = new HashMap<>();
       dataMap.put("data", msg.getData());
       UserEntity userEntity = userDao.findUserEntityById(msg.getSendUser());
-      String userName = userEntity.getUserName();
-      dataMap.put("userName", userName);
+      if (userEntity == null) {
+        log.warn("房间消息投递失败，发送者不存在:{}", msg.getSendUser());
+        return;
+      }
+      dataMap.put("userName", userEntity.getUserName());
       dataMap.put("userImg", userEntity.getUserImg());
       String data = JSONUtils.toJson(dataMap);
       roomModel.getUsers().forEach(user -> {

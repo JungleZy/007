@@ -63,6 +63,16 @@ public class PostTickerTapeTrainService {
 
   @Transactional
   public PostTickerTapeTrainAddParam add(PostTickerTapeTrainAddParam param, HttpServerRequest request) {
+    // Phase 7.4：isCable/totalNumber/type 均为可空 Integer，下面 :82-:93 的裸拆箱会 NPE 成 500
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用固定报底不能为空");
+    }
+    if (param.getTotalNumber() == null) {
+      throw new IllegalArgumentException("报文组数不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0) && param.getType() == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
     String token = request.getHeader(BaseConstants.TOKEN);
     UserEntity userEntity = userService.getUserByToken(token);
     String codeMessage = JSONUtils.toJson(param.getCodeMessageBody());
@@ -79,18 +89,24 @@ public class PostTickerTapeTrainService {
     entity.setLackGroup(0);
     entity.setErrorCode(0);
     PostTickerTapeTrainEntity save = tickerTapeTrainDao.saveAndFlush(entity);
-    if (entity.getIsCable() == 0) {
+    if (Objects.equals(entity.getIsCable(), 0)) {
       // 生成报底
       Integer generateNumber = 200;
       if (param.getTotalNumber() < 200) {
         generateNumber = param.getTotalNumber();
       }
-      int index = save.getType().compareTo(1) == 0 ? 65 : 0;
+      int index = Objects.equals(save.getType(), 1) ? 65 : 0;
       generateMessageBody(generateNumber, 1, index, save);
     } else {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = param.getTotalNumber() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立训练");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       List<PostTickerTapeTrainPageEntity> list = new ArrayList<>();
       int floorNumber = 1;
@@ -127,8 +143,9 @@ public class PostTickerTapeTrainService {
   }
 
   public PostTickerTapeTrainVo getById(String id) {
+    // Phase 7.4：不存在的 id 原先返回一个全空实体壳，与本类 findPage/checkStatus 口径不一致
     PostTickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
-        .orElse(new PostTickerTapeTrainEntity());
+        .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
 
     // 查询images
     List<PostTickerTapeTrainPageValueEntity> valueEntities = valueDao.findByTrainId(id);
@@ -143,7 +160,7 @@ public class PostTickerTapeTrainService {
       v.setCodeMessageBody(maps);
       v.setImages(images);
       v.setIsStartSign(null == e.getIsStartSign() ? 0 : e.getIsStartSign());
-      if (null != entity.getIsCable() && entity.getIsCable() == 1) {
+      if (Objects.equals(entity.getIsCable(), 1)) {
         v.setPageNumber(pageDao.findMaxPageNumber(entity.getId()));
         v.setTotalNumber(pageDao.find("trainId", entity.getId()).list().size());
       }
@@ -158,8 +175,11 @@ public class PostTickerTapeTrainService {
 
   @Transactional
   public void finish(PostTickerTapeTrainUpdateParam updateParam) {
-    checkStatus(updateParam.getId());
-    PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findById(updateParam.getId());
+    PostTickerTapeTrainEntity entity = checkStatus(updateParam.getId());
+    // 未开始的训练没有开始时间：不加这道守卫，Duration.between(null, …) 会 NPE 成 500
+    if (entity.getStatus().compareTo(NOT_STARTED.getCode()) == 0 || entity.getStartTime() == null) {
+      throw new IllegalStateException("训练还未开始，无法结算");
+    }
     LocalDateTime startTime = entity.getStartTime();
     LocalDateTime endTime = LocalDateTime.now();
     entity.setEndTime(endTime);
@@ -193,7 +213,15 @@ public class PostTickerTapeTrainService {
     int moreCode = 0;
     int lackCode = 0;
 
-    PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findById(param.getId());
+    // 入参边界：填报页与截图必须一一对应，否则下方 param.getImages().get(i) 越界/NPE 会退化成 500
+    if (param.getResult() == null || param.getResult().isEmpty()) {
+      throw new IllegalArgumentException("填报结果不能为空");
+    }
+    if (param.getImages() == null || param.getImages().size() != param.getResult().size()) {
+      throw new IllegalArgumentException("截图数量与填报页数不一致");
+    }
+    PostTickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(param.getId()))
+        .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
 
     for (int i = 0; i < param.getResult().size(); i++) {
       List<String> userPage = param.getResult().get(i);
@@ -262,6 +290,13 @@ public class PostTickerTapeTrainService {
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     // 判断页码是否正确
     Integer totalNumber = trainEntity.getTotalNumber();
+    // Phase 7.4：pageNumber/totalNumber 均为可空 Integer，裸拆箱会 NPE
+    if (pageNumber == null) {
+      throw new IllegalArgumentException("页码不能为空");
+    }
+    if (totalNumber == null) {
+      throw new IllegalArgumentException("训练总组数缺失，无法取页");
+    }
     int totalPage = totalNumber / 100;
     if (totalNumber % 100 > 0) {
       totalPage += 1;
@@ -287,10 +322,10 @@ public class PostTickerTapeTrainService {
       }
       // 根据类型找出上一次最后一个字符
       int index = 0;
-      if (trainEntity.getIsRandom().compareTo(0) == 0 || trainEntity.getIsAvg().compareTo(1) == 0) {
-        if (trainEntity.getType().compareTo(1) == 0) {
+      if (Objects.equals(trainEntity.getIsRandom(), 0) || Objects.equals(trainEntity.getIsAvg(), 1)) {
+        if (Objects.equals(trainEntity.getType(), 1)) {
           index = ((pageNumber - 1) * 400) % 26 + 65;
-        } else if (trainEntity.getType().compareTo(2) == 0) {
+        } else if (Objects.equals(trainEntity.getType(), 2)) {
           index = ((pageNumber - 1) * 400) % 36;
         }
       }
@@ -304,13 +339,19 @@ public class PostTickerTapeTrainService {
     return ret;
   }
 
-  private void checkStatus(String id) {
-    PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findById(id);
+  /**
+   * 结算前置状态校验，返回已校验的训练实体供调用方复用（避免二次 findById）。
+   * 注意：begin 也走这里，因此 NOT_STARTED 不能在此拦截——未开始的守卫属于 finish。
+   */
+  private PostTickerTapeTrainEntity checkStatus(String id) {
+    PostTickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
     // P1-08：统一用 PostTickerTapeTrainStatusEnum（finish 写 2）；已结束(2)/已评分(3) 均拦截
     if (entity.getStatus().compareTo(PostTickerTapeTrainStatusEnum.FINISH.getCode()) == 0
         || entity.getStatus().compareTo(HAS_SCORE.getCode()) == 0) {
       throw new IllegalArgumentException("训练已结束");
     }
+    return entity;
   }
 
   @Transactional
@@ -332,8 +373,13 @@ public class PostTickerTapeTrainService {
       PostTickerTapeTrainEntity train) {
     List<PostTickerTapeTrainPageEntity> ret = new ArrayList<>();
     int pageNum = pageNumber;
-    Integer isAvg = train.getIsAvg();
-    Integer isRandom = train.getIsRandom();
+    // Phase 7.4：type/isAvg/isRandom 均为可空 Integer；type 缺失无法选择生成策略，显式拒绝，
+    // isAvg/isRandom 缺省按「非均匀、非随机」处理，避免下面多处 compareTo 拆箱 NPE
+    if (train.getType() == null) {
+      throw new IllegalArgumentException("报文类型缺失，无法生成报底");
+    }
+    Integer isAvg = train.getIsAvg() == null ? 0 : train.getIsAvg();
+    Integer isRandom = train.getIsRandom() == null ? 0 : train.getIsRandom();
     java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
     List<String> avgB = new ArrayList<>();
     Deque<String> recentGroups = new ArrayDeque<>(10);
@@ -368,7 +414,7 @@ public class PostTickerTapeTrainService {
               }
             }
           }
-          if (train.getIsAvg().compareTo(1) != 0) {
+          if (isAvg.compareTo(1) != 0) {
             String key = ensureUniqueGroup(
                 body.toString(),
                 recentGroups,
@@ -415,7 +461,7 @@ public class PostTickerTapeTrainService {
               body.append(c);
             }
           }
-          if (train.getIsAvg().compareTo(1) != 0) {
+          if (isAvg.compareTo(1) != 0) {
             String key = ensureUniqueGroup(
                 body.toString(),
                 recentGroups,
@@ -469,7 +515,7 @@ public class PostTickerTapeTrainService {
               body.append(c);
             }
           }
-          if (train.getIsAvg().compareTo(1) != 0) {
+          if (isAvg.compareTo(1) != 0) {
             if (i % 100 == 0 && i != 0) {
               pageNumber += 1;
             }
@@ -491,7 +537,7 @@ public class PostTickerTapeTrainService {
       default:
         throw new IllegalArgumentException("未知类型");
     }
-    if (train.getIsAvg().compareTo(1) == 0) {
+    if (isAvg.compareTo(1) == 0) {
       Collections.shuffle(avgB, random);
       int sort = 1;
       int charCount = 0;

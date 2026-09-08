@@ -1,5 +1,6 @@
 package com.nip.common.utils;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
 /**
@@ -10,6 +11,7 @@ import lombok.Data;
  * @date 2018-09-27 15:31
  */
 @Data
+@RegisterForReflection
 public class Page {
   /**
    * 当前页
@@ -27,4 +29,18 @@ public class Page {
    * 排序字段，默认id
    */
   private String sortBy = "id";
+
+  /**
+   * 当前页，最小 1（前端传 0 或负数时归一到首页）
+   */
+  public int getPage() {
+    return Math.max(page, 1);
+  }
+
+  /**
+   * 当前页条数，钳制到 [1, 200]，防止 rows=0 除零与超大分页拖垮数据库
+   */
+  public int getRows() {
+    return Math.min(Math.max(rows, 1), 200);
+  }
 }

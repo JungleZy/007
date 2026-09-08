@@ -4,7 +4,7 @@ import com.nip.common.PageInfo;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
-import com.nip.dto.Page;
+import com.nip.common.utils.Page;
 import com.nip.dto.vo.TelexPatTrainStatisticalVO;
 import com.nip.dto.vo.TickerTapeTrainVo;
 import com.nip.dto.vo.param.TickerTapeBaseTrainAddParam;

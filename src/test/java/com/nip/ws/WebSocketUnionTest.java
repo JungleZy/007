@@ -20,6 +20,7 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Map;
+import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -344,6 +345,53 @@ class WebSocketUnionTest {
       if (new BigDecimal(map.get("code").toString()).intValue() == code) {
         return map;
       }
+    }
+  }
+
+  // Task 6.5(a)：畸形控制帧（SEAT_INSPECT 的 data 非数字）必须被隔离在 onMessage 内。
+  // 修复前 seatInspect 的 Integer.parseInt 抛 NumberFormatException 冒泡到 @OnError，
+  // userExit 把发送者从连接表和所有房间里剔除，并向全体广播 USER_EXIT(3)。
+  @Test
+  void malformedControlFrameDoesNotEvictSender() throws Exception {
+    unionMap("webSocketClientSet").clear();
+    unionMap("onlineUsers").clear();
+    unionMap("onlineRooms").clear();
+    String ownerId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    String memberId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    Probe ownerP = new Probe();
+    Probe memberP = new Probe();
+    String roomId = "300001";
+    try (Session owner = c.connectToServer(ownerP,
+             URI.create("ws://localhost:18081/websocketUnion/" + ownerId));
+         Session member = c.connectToServer(memberP,
+             URI.create("ws://localhost:18081/websocketUnion/" + memberId))) {
+      awaitRegistered(owner, ownerP);
+      awaitRegistered(member, memberP);
+      seedRoom(roomId, ownerId);
+      member.getBasicRemote().sendText("{\"code\":13,\"data\":" + roomId + "}");
+      assertNotNull(pollForCode(memberP, 130, 5), "成员必须先成功入房");
+
+      // 排掉入房阶段的广播噪音
+      Thread.sleep(500);
+      ownerP.received.clear();
+      memberP.received.clear();
+
+      // SEAT_INSPECT(18)：data 非数字 → seatInspect 的 Integer.parseInt 抛异常
+      owner.getBasicRemote().sendText(
+          "{\"code\":18,\"sendUser\":\"" + roomId + "\",\"data\":\"not-a-number\"}");
+
+      assertNotNull(pollForCode(ownerP, -1, 5), "畸形指令必须回一条 UNKNOWN(-1) 错误帧");
+      assertNull(pollForCode(memberP, 3, 2), "畸形指令不得触发 USER_EXIT(3) 广播");
+
+      ownerP.received.clear();
+      owner.getBasicRemote().sendText("{\"code\":1,\"data\":" + roomId + "}");
+      Map roomInfo = pollForCode(ownerP, 1, 5);
+      assertNotNull(roomInfo, "发送者的连接必须仍在连接表里，否则后续消息会被直接丢弃");
+      assertTrue(roomInfo.get("data").toString().contains(ownerId),
+          "发送者必须仍在房间成员列表里");
+    } finally {
+      unionMap("onlineRooms").clear();
     }
   }
 }

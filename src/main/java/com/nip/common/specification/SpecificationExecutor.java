@@ -2,27 +2,18 @@ package com.nip.common.specification;
 
 import com.nip.common.PageInfo;
 import com.nip.common.specification.exception.SpecificationExecutorException;
-import com.nip.common.specification.retMapping.ResultMappingHandler;
-import com.nip.common.specification.retMapping.ResultMappingHandlerFactory;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.inject.spi.CDI;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.SessionFactory;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @Author: wushilin
@@ -72,7 +63,7 @@ public class SpecificationExecutor<T> {
 
   /**
    * @param specification 条件构建器
-   * @param pageSize      页码
+   * @param currentPage   页码
    * @param pageSize      每页大小
    * @return 返回结果
    */
@@ -84,104 +75,35 @@ public class SpecificationExecutor<T> {
         .setFirstResult(currentPage * pageSize)
         .setMaxResults(pageSize)
         .getResultList();
-    int total = entityManager.createQuery(specification.toPredicate(root, query, builder)).getResultList().size();
+    long total = count(specification, builder);
     PageInfo<T> ret = new PageInfo<>();
     ret.setData(resultList);
     ret.setPageSize(pageSize);
     ret.setTotalNumber(total);
     ret.setCurrentPage(currentPage + 1);
-    ret.setTotalPage((total + pageSize - 1) / pageSize);
+    ret.setTotalPage((int) ((total + pageSize - 1) / pageSize));
     return ret;
   }
 
-  public <S> S nativeQuery(String sql, Class<S> retClass, Object... param) {
-    //只能是查询sql
-    if (!sql.startsWith("select") && !sql.startsWith("SELECT")) {
-      throw new IllegalArgumentException("非查询sql");
-    }
-    AtomicReference<S> ret = new AtomicReference<>();
-    try {
-      SessionFactory sessionFactory = CDI.current().select(SessionFactory.class).get();
-      sessionFactory
-          .openSession()
-          .doWork(connection -> {
-            try (PreparedStatement ps = connection.prepareStatement(sql)) {
-              //参数赋值
-              for (int i = 0; i < param.length; i++) {
-                ps.setObject(i + 1, param[i]);
-              }
-              ResultSet executeQuery = ps.executeQuery();
-              ResultSetMetaData resultSet = executeQuery.getMetaData();
-              List<ResultType> columNames = new ArrayList<>();
-              if (executeQuery.getRow() == 0) {
-                return;
-              }
-              //实例化返回对象
-              ret.set(retClass.getDeclaredConstructor().newInstance());
-              //封装返回字段类型名字
-              for (int i = 0; i < resultSet.getColumnCount(); i++) {
-                String columnName = resultSet.getColumnName(i + 1);
-                String columnNameHump = columnConvertHump(columnName);
-                String columnClassName = resultSet.getColumnClassName(i + 1);
-                ResultType resultType = new ResultType(columnName, columnNameHump, columnClassName);
-                columNames.add(resultType);
-              }
-              List<ResultMappingHandler> handlers = ResultMappingHandlerFactory.getHandlers();
-              ResultMappingHandler mappingHandler = handlers.stream()
-                  .filter(handler -> handler.getHandlerType(ret.get()))
-                  .findFirst()
-                  .orElseThrow(() -> new RuntimeException("类型未指定"));
-              mappingHandler.handler(executeQuery, columNames, retClass, ret.get());
-            } catch (Exception e) {
-              log.error("sql execute exception", e);
-            }
-          });
-
-      return ret.get();
-    } catch (Exception e) {
-      log.error("sql execute exception", e);
-    }
-    throw new IllegalArgumentException("sql execute exception");
-
-  }
-
   /**
-   * 将字段转成驼峰
+   * 统计满足条件的总条数。
+   * <p>
+   * 必须另建一条 count 查询：{@link CriteriaQuery} 与 {@link Root} 都不能与数据查询复用，
+   * 复用会让 select 列表被 count 覆盖、分页结果一起变形。条件构建器只用来复写 where；
+   * 排序对 count 无意义且在 ONLY_FULL_GROUP_BY 下非法，故条件应用完毕后清空 orderBy。
    *
-   * @param colum 列名
-   * @return 驼峰列名
+   * @param specification 条件构建器
+   * @param builder       条件构建器工厂（与数据查询共用同一个）
+   * @return 总条数
    */
-  public String columnConvertHump(String colum) {
-    StringBuilder ret = new StringBuilder();
-    char[] chars = colum.toCharArray();
-    boolean b = false;
-    for (char c : chars) {
-      if (c == 95) {
-        b = true;
-      } else {
-        if (b) {
-          String upperCase = String.valueOf(c).toUpperCase();
-          ret.append(upperCase);
-          b = false;
-        } else {
-          ret.append(c);
-        }
-      }
-    }
-    return ret.toString();
+  private long count(@Nullable Specification<T> specification, CriteriaBuilder builder) {
+    CriteriaQuery<Long> countQuery = builder.createQuery(Long.class);
+    Root<T> countRoot = countQuery.from(entityInformation.getJavaType());
+    // Specification 的签名要求 CriteriaQuery<T>；这里只借它复写 where/orderBy，不触碰 select，故转型安全
+    @SuppressWarnings("unchecked")
+    CriteriaQuery<T> asEntityQuery = (CriteriaQuery<T>) (CriteriaQuery<?>) countQuery;
+    specification.toPredicate(countRoot, asEntityQuery, builder);
+    countQuery.select(builder.count(countRoot)).orderBy(List.of());
+    return entityManager.createQuery(countQuery).getSingleResult();
   }
-
-
-  @Data
-  @AllArgsConstructor
-  public static class ResultType {
-    //sql原始字段
-    String columName;
-    //驼峰
-    String columNameHump;
-    //类型
-    String columClassName;
-  }
-
 }
-

@@ -45,7 +45,9 @@ public class CableService {
   }
 
   public CableEntity findById(String id) {
-    return cableDao.findById(id);
+    // Phase 7.4：与本类 save 口径一致，不存在的电缆 id 显式报错，不再返回 data=null
+    return cableDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该电缆"));
   }
 
   @Transactional
@@ -81,12 +83,7 @@ public class CableService {
 
   @Transactional
   public Boolean delete(String id) {
-    try {
-      cableFloorDao.deleteByCableId(id);
-      return cableDao.deleteById(id);
-    } catch (RuntimeException e) {
-      log.error("删除报文失败", e);
-      return false;
-    }
+    cableFloorDao.deleteByCableId(id);
+    return cableDao.deleteById(id);
   }
 }

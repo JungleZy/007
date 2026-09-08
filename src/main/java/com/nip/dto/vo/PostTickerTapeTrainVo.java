@@ -47,21 +47,21 @@ public class PostTickerTapeTrainVo {
    * 创建时间
    */
   //@ApiModelProperty(value = "创建时间",position = 8)
-  @JsonFormat(pattern = "yyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
   private LocalDateTime createTime;
 
   /**
    * 开始时间
    */
   //@ApiModelProperty(value = "开始时间",position = 9)
-  @JsonFormat(pattern = "yyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
   private LocalDateTime startTime;
 
   /**
    * 结束时间
    */
   //@ApiModelProperty(value = "结束时间",position = 10)
-  @JsonFormat(pattern = "yyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
   private LocalDateTime endTime;
 
   /**

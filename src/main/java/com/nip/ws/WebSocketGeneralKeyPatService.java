@@ -102,11 +102,13 @@ public class WebSocketGeneralKeyPatService {
         return true;
       });
       GeneralPatTrainUserModelDto group = room.getGroupUser();
-      if (group != null && (Objects.equals(group.getId(), uid) || userModel.getRole().compareTo(1) == 0)) {
+      // role 可能为 null（DB 未配角色）：null-safe 比较，未知角色按学员处理，不得 NPE 掉整个入房
+      boolean isGroupRole = Objects.equals(userModel.getRole(), 1);
+      if (group != null && (Objects.equals(group.getId(), uid) || isGroupRole)) {
         replaced.add(group.getSession());
         room.setGroupUser(null);
       }
-      if (userModel.getRole().compareTo(0) == 0) {
+      if (!isGroupRole) {
         room.getJoinUser().add(userModel);
         if (room.getGroupUser() != null) {
           recipients.add(room.getGroupUser().getSession());

@@ -93,9 +93,6 @@ public class GlobalMessageGeneratedUtil {
         ret.add(sb.toString());
       }
     }
-
-    // 校验一下
-    // check(ret);
     return ret;
   }
 
@@ -587,30 +584,6 @@ public class GlobalMessageGeneratedUtil {
 
     }
     return pat;
-  }
-
-  public static void check(List<String> data) {
-    StringBuilder sb = new StringBuilder();
-    List<String> strings = new ArrayList<>();
-    for (int i = 0; i < data.size(); i++) {
-      String s = data.get(i);
-      strings.add(s);
-      if (strings.size() % 10 == 0 || i == data.size() - 1) {
-        strings.forEach(sb::append);
-        String s1 = sb.toString();
-        Map<String, Integer> count = new HashMap<>();
-        for (int j = 0; j < s1.length(); j++) {
-          String e = String.valueOf(s1.charAt(j));
-          int current = count.getOrDefault(e, 0) + 1;
-          count.put(e, current);
-          if (current > 4) {
-            System.out.println(strings);
-          }
-        }
-        sb.setLength(0);
-        strings.clear();
-      }
-    }
   }
 
   /**

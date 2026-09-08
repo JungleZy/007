@@ -75,11 +75,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
+import static com.nip.common.utils.PatTrainStatisticsUtil.calculateRate;
 import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.*;
 
@@ -154,8 +156,21 @@ public class GeneralTickerPatService {
     trainUserDao.save(trainUserEntityList);
 
     // 生成报文
-    if (param.getIsCable() == 0) {
-      Integer messageNumber = param.getMessageNumber();
+    // 报底数与报文类型是下面两个分支都要用的必填项：缺失时显式报错，不再裸拆箱成 NPE
+    Integer messageNumber = param.getMessageNumber();
+    if (messageNumber == null) {
+      throw new IllegalArgumentException("报底数不能为空");
+    }
+    Integer patType = param.getType();
+    if (patType == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
+    // 平均报/随机报是 Boolean 且无默认值，null 按「否」处理
+    boolean average = Boolean.TRUE.equals(param.getIsAverage());
+    boolean random = Boolean.TRUE.equals(param.getIsRandom());
+    // isCable 声明默认值为 0（随机报）：显式传 null 时按默认值处理，其余取值分支走向不变
+    int cable = Optional.ofNullable(param.getIsCable()).orElse(0);
+    if (cable == 0) {
       int generate = 0;
       if (messageNumber > 200) {
         generate = 200;
@@ -173,18 +188,18 @@ public class GeneralTickerPatService {
         }
         List<String> messages = new ArrayList<>();
         // 类型 0 数码报 1 字码报 2 混合报
-        switch (param.getType()) {
+        switch (patType) {
           case 0:
             messages.addAll(
-                GlobalMessageGeneratedUtil.generatedNumber(generateNum, param.getIsAverage(), param.getIsRandom()));
+                GlobalMessageGeneratedUtil.generatedNumber(generateNum, average, random));
             break;
           case 1:
             messages.addAll(
-                GlobalMessageGeneratedUtil.generatedWord(generateNum, param.getIsAverage(), param.getIsRandom()));
+                GlobalMessageGeneratedUtil.generatedWord(generateNum, average, random));
             break;
           case 2:
             messages.addAll(
-                GlobalMessageGeneratedUtil.generatedMingle(generateNum, param.getIsAverage(), param.getIsRandom()));
+                GlobalMessageGeneratedUtil.generatedMingle(generateNum, average, random));
             break;
           default:
             throw new IllegalArgumentException("类型不匹配");
@@ -211,7 +226,13 @@ public class GeneralTickerPatService {
     } else {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
-      int totalPage = param.getMessageNumber() / 100;
+      int totalPage = messageNumber / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立房间");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       // 使用批量保存替代循环逐条保存，提升性能
       List<GeneralTickerPatTrainPageEntity> pageEntities = new ArrayList<>();
@@ -292,15 +313,15 @@ public class GeneralTickerPatService {
         switch (entity.getType()) {
           case 0:
             generatedMessage.addAll(GlobalMessageGeneratedUtil.generatedNumber(generateNumber,
-                entity.getIsAverage() == 0, entity.getIsRandom() == 1));
+                Objects.equals(entity.getIsAverage(), 1), Objects.equals(entity.getIsRandom(), 1)));
             break;
           case 1:
-            generatedMessage.addAll(GlobalMessageGeneratedUtil.generatedWord(generateNumber, entity.getIsAverage() == 0,
-                entity.getIsRandom() == 1));
+            generatedMessage.addAll(GlobalMessageGeneratedUtil.generatedWord(generateNumber,
+                Objects.equals(entity.getIsAverage(), 1), Objects.equals(entity.getIsRandom(), 1)));
             break;
           case 2:
             generatedMessage.addAll(GlobalMessageGeneratedUtil.generatedMingle(generateNumber,
-                entity.getIsAverage() == 0, entity.getIsRandom() == 1));
+                Objects.equals(entity.getIsAverage(), 1), Objects.equals(entity.getIsRandom(), 1)));
             break;
           default:
             throw new IllegalArgumentException("类型异常");
@@ -365,9 +386,9 @@ public class GeneralTickerPatService {
         (t, r) -> {
           List<GeneralTickerPatTrainUserDto> byTrainId = trainUserDao.findByTrainIdToMap(t.getId(), null);
           r.setUserInfoList(PojoUtils.convert(byTrainId, GeneralTickerPatTrainUserInfoVO.class));
-          r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
-          r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
-          if (t.getIsCable() == 1) {
+          r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+          r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
+          if (Objects.equals(t.getIsCable(), 1)) {
             r.setMessageNumber((int) trainPageDao.count("trainId", t.getId()));
           }
         });
@@ -385,7 +406,8 @@ public class GeneralTickerPatService {
     try {
       // log.info("用户id：{},查询训练信息:{}", Optional.ofNullable(param.getUid()).orElse(""),
       // LocalDateTime.now());
-      GeneralTickerPatTrainEntity trainEntity = trainDao.findById(param.getId());
+      GeneralTickerPatTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(param.getId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       // log.info("用户id：{},完成查询训练信息:{}",
       // Optional.ofNullable(param.getUid()).orElse(""), LocalDateTime.now());
 
@@ -443,7 +465,7 @@ public class GeneralTickerPatService {
               // log.info("完成统计页码信息:{}", LocalDateTime.now());
             }
             // 如果已完成填报，计算训练持续时长
-            if (item.getFinishTime() != null && item.getIsFinish().compareTo(1) == 0) {
+            if (item.getFinishTime() != null && Objects.equals(item.getIsFinish(), 1)) {
               LocalDateTime finishTime = Optional.of(item.getFinishTime())
                   .orElse(LocalDateTime.now());
               item.setValidTime(LocalDateTimeUtil.between(trainEntity.getStartTime(), finishTime).toMillis() / 1000);
@@ -451,14 +473,14 @@ public class GeneralTickerPatService {
           }
         }
         v.setUserInfoList(userInfoVOList);
-        if (e.getStatus().compareTo(0) == 0) {
+        if (Objects.equals(e.getStatus(), 0)) {
           v.setValidTime(0L);
-        } else if (e.getStatus().compareTo(1) == 0) {
+        } else if (Objects.equals(e.getStatus(), 1)) {
           v.setValidTime(LocalDateTimeUtil.between(e.getStartTime(), LocalDateTime.now()).toMillis() / 1000);
-        } else if (e.getStatus().compareTo(2) == 0) {
+        } else if (Objects.equals(e.getStatus(), 2)) {
           v.setValidTime(LocalDateTimeUtil.between(e.getStartTime(), e.getEndTime()).toMillis() / 1000);
         }
-        if (e.getIsCable() == 1) {
+        if (Objects.equals(e.getIsCable(), 1)) {
           v.setMessageNumber((int) trainPageDao.count("trainId", e.getId()));
           v.setPageCount(trainPageDao.findMaxPageNumber(e.getId()));
         }
@@ -474,7 +496,8 @@ public class GeneralTickerPatService {
 
   @Transactional
   public GeneralTickerPatTrainVO finish(GeneralTickerPatTrainFinishVO dto) {
-    GeneralTickerPatTrainEntity entity = trainDao.findById(dto.getId());
+    GeneralTickerPatTrainEntity entity = Optional.ofNullable(trainDao.findById(dto.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     // 校验状态是否是进行中
     // throw new RuntimeException(entity.getName() + "训练的状态不是进行中");
 
@@ -489,17 +512,19 @@ public class GeneralTickerPatService {
               "trainId", entity.getId())));
     });
     return PojoUtils.convertOne(entity, GeneralTickerPatTrainVO.class, (t, r) -> {
-      r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
-      r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
+      r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+      r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
     });
   }
 
   @Transactional
   public void saveContentValue(GeneralTickerPatTrainContentValueVO dto) {
-    GeneralTickerPatTrainEntity trainEntity = trainDao.findById(dto.getTrainId());
+    GeneralTickerPatTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
 
-    GeneralTickerPatTrainUserEntity trainUserEntity = trainUserDao.findByUserIdAndTrainId(dto.getUserId(),
-        trainEntity.getId());
+    GeneralTickerPatTrainUserEntity trainUserEntity = Optional.ofNullable(
+            trainUserDao.findByUserIdAndTrainId(dto.getUserId(), trainEntity.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
     trainUserEntity.setIsFinish(0);
 
     // 记录每页速率
@@ -553,12 +578,17 @@ public class GeneralTickerPatService {
    */
   @Transactional
   public void updateStatus(GeneralTickerPatTrainUpdateDto dto) {
-    GeneralTickerPatTrainEntity tickerPatTrain = trainDao.findById(dto.getTrainId());
+    GeneralTickerPatTrainEntity tickerPatTrain = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    // 状态是本方法唯一要写的列：为 null 时显式报错，否则会把 status 抹成 null 后照常提交
+    if (dto.getStatus() == null) {
+      throw new IllegalArgumentException("训练状态不能为空");
+    }
     tickerPatTrain.setStatus(dto.getStatus());
-    if (tickerPatTrain.getStatus().compareTo(1) == 0) {
+    if (Objects.equals(tickerPatTrain.getStatus(), 1)) {
       tickerPatTrain.setStartTime(LocalDateTime.now());
     }
-    if (tickerPatTrain.getStatus().compareTo(2) == 0) {
+    if (Objects.equals(tickerPatTrain.getStatus(), 2)) {
       tickerPatTrain.setEndTime(LocalDateTime.now());
       // 计算训练时长
       tickerPatTrain.setValidTime(
@@ -725,31 +755,31 @@ public class GeneralTickerPatService {
     }
 
     // 计算点划间隔虚粗占比
-    errorInfoVO.setDotMin(calculateRate(dotTotal, dotMin, dotTotal));
-    errorInfoVO.setDotMax(calculateRate(dotTotal, dotMax, dotTotal));
-    errorInfoVO.setLineMin(calculateRate(lineTotal, lineMin, lineTotal));
-    errorInfoVO.setLineMax(calculateRate(lineTotal, lineMax, lineTotal));
-    errorInfoVO.setCodeGapMin(calculateRate(codeTotal, codeGapMin, codeTotal));
-    errorInfoVO.setCodeGapMax(calculateRate(codeTotal, codeGapMax, codeTotal));
-    errorInfoVO.setWordGapMin(calculateRate(wordTotal, wordGapMin, wordTotal));
-    errorInfoVO.setWordGapMax(calculateRate(wordTotal, wordGapMax, wordTotal));
-    errorInfoVO.setGroupGapMin(calculateRate(groupGapMin, groupGapMin, groupTotal));
-    errorInfoVO.setGroupGapMax(calculateRate(groupGapMin, groupGapMax, groupTotal));
+    errorInfoVO.setDotMin(calculateRate(dotMin, dotTotal));
+    errorInfoVO.setDotMax(calculateRate(dotMax, dotTotal));
+    errorInfoVO.setLineMin(calculateRate(lineMin, lineTotal));
+    errorInfoVO.setLineMax(calculateRate(lineMax, lineTotal));
+    errorInfoVO.setCodeGapMin(calculateRate(codeGapMin, codeTotal));
+    errorInfoVO.setCodeGapMax(calculateRate(codeGapMax, codeTotal));
+    errorInfoVO.setWordGapMin(calculateRate(wordGapMin, wordTotal));
+    errorInfoVO.setWordGapMax(calculateRate(wordGapMax, wordTotal));
+    errorInfoVO.setGroupGapMin(calculateRate(groupGapMin, groupTotal));
+    errorInfoVO.setGroupGapMax(calculateRate(groupGapMax, groupTotal));
 
     // 构建成绩分布
     int total = trainUserEntities.size();
     GeneralTickerPatTrainScoreInfoVO goodInfo = new GeneralTickerPatTrainScoreInfoVO();
-    goodInfo.setRate(calculateRate(good, good, total));
+    goodInfo.setRate(calculateRate(good, total));
     goodInfo.setPeopleNumber(good);
     reportVO.setGood(goodInfo);
 
     GeneralTickerPatTrainScoreInfoVO niceInfo = new GeneralTickerPatTrainScoreInfoVO();
-    niceInfo.setRate(calculateRate(nice, nice, total));
+    niceInfo.setRate(calculateRate(nice, total));
     niceInfo.setPeopleNumber(nice);
     reportVO.setNice(niceInfo);
 
     GeneralTickerPatTrainScoreInfoVO belowStandardInfo = new GeneralTickerPatTrainScoreInfoVO();
-    belowStandardInfo.setRate(calculateRate(belowStandard, belowStandard, total));
+    belowStandardInfo.setRate(calculateRate(belowStandard, total));
     belowStandardInfo.setPeopleNumber(belowStandard);
     reportVO.setBelowStandard(belowStandardInfo);
 
@@ -936,9 +966,7 @@ public class GeneralTickerPatService {
       trainUserEntity.setSpeed(speed);
     }
 
-    SpeedDeduct baseWpm = rule.getWpm();
-    int wpm = baseWpm.getBase() - new BigDecimal(trainUserEntity.getSpeed()).intValue();
-    int wpmScore = (wpm > 0 ? -(wpm * baseWpm.getL()) : wpm * baseWpm.getR());
+    int wpmScore = calculateWpmScore(rule.getWpm(), new BigDecimal(trainUserEntity.getSpeed()).intValue());
     deductMap.put("wpmScore", wpmScore);
     score += wpmScore;
 
@@ -948,6 +976,24 @@ public class GeneralTickerPatService {
     trainUserEntity.setIsFinish(1);
     trainUserEntity.setFinishTime(LocalDateTime.now());
     trainUserDao.save(trainUserEntity);
+  }
+
+  /**
+   * 速率加减分：高于基准按 R 加分，低于基准按 L 扣分，与 GeneralKeyPatService:814-824、
+   * GeneralTelexPatService:763-773 同口径（SpeedDeduct 的字段注释与实际用法相反，以调用代码为准）。
+   *
+   * @param baseWpm 速率规则
+   * @param speed   本次训练的平均拍发速度
+   * @return 速率项得分，正数为加分、负数为扣分
+   */
+  public static int calculateWpmScore(SpeedDeduct baseWpm, int speed) {
+    if (speed > baseWpm.getBase()) {
+      return (speed - baseWpm.getBase()) * baseWpm.getR();
+    }
+    if (speed < baseWpm.getBase()) {
+      return -((baseWpm.getBase() - speed) * baseWpm.getL());
+    }
+    return 0;
   }
 
   public GeneralPatTrainUserDto getTrainUserInfo(String uid, Integer trainId) {

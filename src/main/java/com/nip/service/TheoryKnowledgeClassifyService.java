@@ -7,15 +7,12 @@ import com.nip.dao.TheoryKnowledgeClassifyDao;
 import com.nip.dto.TheoryKnowledgeClassifyDto;
 import com.nip.dto.vo.TheoryKnowledgeClassifyPageVO;
 import com.nip.dto.vo.TheoryKnowledgeClassifyVO;
-import com.nip.dto.vo.TheoryKnowledgeDocumentContentVO;
 import com.nip.entity.TheoryKnowledgeClassifyEntity;
 import com.nip.entity.UserEntity;
 import io.quarkus.panache.common.Sort;
-import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,8 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static com.nip.common.constants.BaseConstants.TOKEN;
 
 /**
  * @Author: wushilin
@@ -84,12 +79,5 @@ public class TheoryKnowledgeClassifyService {
     pageVO.setSpecialtyList(Optional.ofNullable(classifyMap.get(TheoryKnowledgeClassifyTypeEnum.specialty.getType()))
                                     .orElseGet(ArrayList::new));
     return pageVO;
-  }
-
-  public TheoryKnowledgeDocumentContentVO updateFileToNip(FileUpload dto, HttpServerRequest request)  {
-    String token = request.getHeader(TOKEN);
-    UserEntity userEntity = userService.getUserByToken(token);
-    String id = userEntity.getId();
-    return new TheoryKnowledgeDocumentContentVO();
   }
 }

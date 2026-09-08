@@ -360,14 +360,15 @@ public class TheoryKnowledgeService {
     UserEntity userEntity = userService.getUserByToken(token);
     if (ObjectUtil.isEmpty(record.getJoinTime())) {
       record.setJoinTime(DateTimeUtil.now());
-      return new Response<>(ResponseCode.CODE_200.getCode(), record);
+      return new Response<>(ResponseCode.SUCCESS.getCode(), record);
     }
     if (ObjectUtil.isEmpty(record.getExitTime())) {
       record.setExitTime(DateTimeUtil.now());
     }
     if (1 <= DateUtil.between(DateUtil.parse(record.getJoinTime()), DateUtil.parse(record.getExitTime()), DateUnit.MINUTE)) {
       record.setUserId(userEntity.getId());
-      TheoryKnowledgeEntity theoryKnowledgeEntity = knowledgeDao.findById(record.getKnowledgeId());
+      TheoryKnowledgeEntity theoryKnowledgeEntity = Optional.ofNullable(knowledgeDao.findById(record.getKnowledgeId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该教案"));
       record.setType(theoryKnowledgeEntity.getType());
       TheoryKnowledgeSwfRecordEntity save = knowledgeRecordDao.save(record);
       return ResponseResult.success(save);

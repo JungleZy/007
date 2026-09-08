@@ -134,8 +134,11 @@ public class MenusService {
   }
 
   public MenusButtonDto getMenuById(String id) {
+    // Phase 7.4：不存在的菜单 id 必须显式报错，避免前端拿到 menus=null 的空壳
+    MenusEntity menusEntity = Optional.ofNullable(menusDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该菜单"));
     MenusButtonDto menusButtonDto = new MenusButtonDto();
-    menusButtonDto.setMenus(menusDao.findById(id));
+    menusButtonDto.setMenus(menusEntity);
     menusButtonDto.setPermissions(menusButtonDao.findAllByMenusId(id));
     return menusButtonDto;
   }
@@ -174,8 +177,9 @@ public class MenusService {
     menusMetaDto.setIconF(menusEntity.getIconF());
     menusMetaDto.setHeight(menusEntity.getHeight());
     menusMetaDto.setTitle(menusEntity.getTitle());
-    menusMetaDto.setIsMenu(menusEntity.getIsMenu() == 0);
-    menusMetaDto.setIsBread(menusEntity.getIsBread() == 0);
+    // Phase 7.4：isMenu/isBread 是可空 Integer，裸 == 拆箱会 NPE
+    menusMetaDto.setIsMenu(Objects.equals(menusEntity.getIsMenu(), 0));
+    menusMetaDto.setIsBread(Objects.equals(menusEntity.getIsBread(), 0));
     MenusDto menusDto = new MenusDto();
     menusDto.setId(menusEntity.getId());
     menusDto.setKey(menusEntity.getKey());
@@ -196,7 +200,7 @@ public class MenusService {
       menusMetaDto.setIconF(menusEntity.getIconF());
       menusMetaDto.setHeight(menusEntity.getHeight());
       menusMetaDto.setTitle(menusEntity.getTitle());
-      menusMetaDto.setIsMenu(menusEntity.getIsMenu() == 0);
+      menusMetaDto.setIsMenu(Objects.equals(menusEntity.getIsMenu(), 0));
       MenusDto menusDto = new MenusDto();
       menusDto.setId(menusEntity.getId());
       menusDto.setParentId(menusEntity.getParentId());

@@ -192,23 +192,27 @@ public class MessageComparisonService {
     int skipCount = 0;
 
     // 1. 检测多行少行
-    DetectionResult lineResult = lineDetector.detectMoreOrLessLine(context, currentIndex, patKey, resultBuilder);
-    if (lineResult == DetectionResult.SUCCESS) {
-      // 多行少行检测成功，直接返回当前索引
+    LineDetector.LineResult lineResult = lineDetector.detectMoreOrLessLine(context, currentIndex, patKey,
+        resultBuilder);
+    if (lineResult.getResult() == DetectionResult.SUCCESS) {
+      // 多行少行检测成功；多行分支已在检测器内对后续组统计点划间隔，主循环按 skipCount 跳过避免重复
       checkDotLineGap(patKey, currentIndex, patLog, context.getStandards(),
           context.getRule(), false, context.getStatisticsVO(), context.getScoreVO());
       context.getScoreVO().setErrorNumber(context.getScoreVO().getErrorNumber() + 1);
-      return currentIndex;
+      return currentIndex + lineResult.getSkipCount();
     }
 
     // 2. 检测多组少组
+    // GroupDetector 只返回 DetectionResult，多组数已被它累加进 scoreVO.moreGroup，
+    // 故以该字段的增量还原本次跳过的组数：只推进索引，不重复计分。
+    int moreGroupBefore = context.getScoreVO().getMoreGroup();
     DetectionResult groupResult = groupDetector.detectMoreOrLessGroup(context, currentIndex, patKey, source,
         resultBuilder);
     if (groupResult == DetectionResult.SUCCESS) {
       checkDotLineGap(patKey, currentIndex, patLog, context.getStandards(),
           context.getRule(), false, context.getStatisticsVO(), context.getScoreVO());
       context.getScoreVO().setErrorNumber(context.getScoreVO().getErrorNumber() + 1);
-      return currentIndex;
+      return currentIndex + (context.getScoreVO().getMoreGroup() - moreGroupBefore);
     }
 
     // 3. 检测串组

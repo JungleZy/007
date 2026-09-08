@@ -7,11 +7,11 @@ import com.nip.common.constants.TickerTapeTrainStatisticalTypeEnum;
 import com.nip.common.constants.TickerTapeTrainStatusEnum;
 import com.nip.common.constants.TickerTapeTrainTypeEnum;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.TickerTapeTrainDao;
 import com.nip.dao.TickerTapeTrainStatisticalDao;
 import com.nip.dao.UserDao;
-import com.nip.dto.Page;
 import com.nip.dto.sql.TickerTapeTrainDaoCountBaseTrain;
 import com.nip.dto.vo.TelexPatTrainStatisticalVO;
 import com.nip.dto.vo.TickerTapeTrainVo;
@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -73,9 +74,9 @@ public class TickerTapeTrainService {
     TickerTapeTrainEntity lastTrain = tickerTapeTrainDao.lastTrain(userEntity.getId(), param.getType());
     if (lastTrain != null) {
       //如果状态是未开始，删除如是暂停则改为已完成，并统计
-      if (lastTrain.getStatus().compareTo(TickerTapeTrainStatusEnum.NOT_STARTED.getCode()) == 0) {
+      if (Objects.equals(lastTrain.getStatus(), TickerTapeTrainStatusEnum.NOT_STARTED.getCode())) {
         tickerTapeTrainDao.deleteById(lastTrain.getId());
-      } else if (lastTrain.getStatus().compareTo(TickerTapeTrainStatusEnum.PAUSE.getCode()) == 0) {
+      } else if (Objects.equals(lastTrain.getStatus(), TickerTapeTrainStatusEnum.PAUSE.getCode())) {
         lastTrain.setStatus(TickerTapeTrainStatusEnum.FINISH.getCode());
         TickerTapeTrainEntity save = tickerTapeTrainDao.save(lastTrain);
         finishStatistical(save);
@@ -105,15 +106,9 @@ public class TickerTapeTrainService {
     return new PageInfo<>(totalPages, totalNumber, (page.getPage()), page.getRows(), convert);
   }
 
-  @Transactional
-  public TickerTapeTrainUpdateParam update(TickerTapeTrainUpdateParam param) {
-    TickerTapeTrainEntity entity = BeanUtil.toBean(param, TickerTapeTrainEntity.class);
-    TickerTapeTrainEntity save = tickerTapeTrainDao.save(entity);
-    return BeanUtil.toBean(save, TickerTapeTrainUpdateParam.class);
-  }
-
   public TickerTapeTrainVo getById(String id) {
-    TickerTapeTrainEntity entity = tickerTapeTrainDao.findById(id);
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
 
     return PojoUtils.convertOne(entity, TickerTapeTrainVo.class, (e, v) -> {
       List<Map<String, Object>> maps = JSONUtils.fromJson(e.getCodeMessageBody(),
@@ -149,7 +144,8 @@ public class TickerTapeTrainService {
     tickerTapeTrainDao.finish(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(),
         updateParam.getSchedule()
     );
-    TickerTapeTrainEntity entity = tickerTapeTrainDao.findById(updateParam.getId());
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     finishStatistical(entity);
   }
 
@@ -233,8 +229,10 @@ public class TickerTapeTrainService {
   }
 
   private void checkStatus(String id) {
-    TickerTapeTrainEntity entity = tickerTapeTrainDao.findById(id);
-    if (entity.getStatus().compareTo(TickerTapeTrainStatusEnum.FINISH.getCode()) == 0) {
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    // 记录存在但 status 列为空时不得拆箱 NPE；TrainFinishedException 语义与响应码契约保持原样
+    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
       throw new TrainFinishedException("训练已结束");
     }
   }

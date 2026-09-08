@@ -7,6 +7,7 @@ import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
+import com.nip.service.MessageComparisonService;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -48,6 +49,13 @@ class TickerPatUtilsCharacterizationTest {
   static class GapCase {
     List<PostTelegramTrainFinishInfoDto> standards;
     List<GapCall> calls;
+  }
+
+  static class ComparisonCase {
+    List<String> sources;
+    List<String> patKeys;
+    List<PostTelegramTrainContentAddParam> userContents;
+    List<PostTelegramTrainFinishInfoDto> standards;
   }
 
   private static String resource(String name) {
@@ -116,6 +124,25 @@ class TickerPatUtilsCharacterizationTest {
     return payload;
   }
 
+  private static Map<String, Object> runComparison(String caseFile) {
+    ComparisonCase c = JSONUtils.fromJson(resource(caseFile), new TypeToken<>() {
+    });
+    PostTelegramTrainScoreVO scoreVO = new PostTelegramTrainScoreVO();
+    PostTelegramTrainStatisticsVO statisticsVO = new PostTelegramTrainStatisticsVO();
+    PostTelegramTrainResolverVO vo = new MessageComparisonService().comparison(
+        c.sources, c.patKeys, scoreVO, c.userContents, c.standards, rule(), statisticsVO);
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("resolverMessage", vo.getResolverMessage());
+    payload.put("resolverPatLogs", vo.getResolverPatLogs());
+    payload.put("resolverMoresTime", vo.getResolverMoresTime());
+    payload.put("resolverMoresValue", vo.getResolverMoresValue());
+    payload.put("moreGroups", vo.getMoreGroups());
+    payload.put("moreLine", vo.getMoreLine());
+    payload.put("scoreVO", scoreVO);
+    payload.put("statisticsVO", statisticsVO);
+    return payload;
+  }
+
   @Test
   void resolverMessageNormalGroupsWithBlank() {
     assertSnapshot("resolver-normal-with-blank", runResolver("resolver-case-normal-with-blank.json"));
@@ -167,5 +194,20 @@ class TickerPatUtilsCharacterizationTest {
     assertThrows(IllegalStateException.class, () -> TickerPatUtils.checkDotLineGap(
         "A", 0, "[broken", standards(), rule(), false,
         new PostTelegramTrainStatisticsVO(), new PostTelegramTrainScoreVO()));
+  }
+
+  @Test
+  void comparisonMoreGroupDetected() {
+    assertSnapshot("comparison-more-group", runComparison("comparison-case-more-group.json"));
+  }
+
+  @Test
+  void comparisonMoreLineDetected() {
+    assertSnapshot("comparison-more-line", runComparison("comparison-case-more-line.json"));
+  }
+
+  @Test
+  void comparisonLessLineDetected() {
+    assertSnapshot("comparison-less-line", runComparison("comparison-case-less-line.json"));
   }
 }

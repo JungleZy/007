@@ -137,7 +137,17 @@ public class PostTelexPatTrainService {
     } else {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(dto.getCableId(), null,
           dto.getStartPage());
-      int totalPage = dto.getGroupNumber() / 100;
+      // Phase 7.4：电缆报底分支未走 :106-116 的校验，groupNumber 为空会拆箱 NPE
+      if (groupNumber == null) {
+        throw new IllegalArgumentException("组数不能为空");
+      }
+      int totalPage = groupNumber / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立训练");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       List<PostTelexPatTrainPageEntity> list = new ArrayList<>();
       int floorNumber = 1;
@@ -188,7 +198,8 @@ public class PostTelexPatTrainService {
   }
 
   public PostTelexPatTrainVO detail(PostTelexPatTrainParam param) {
-    PostTelexPatTrainEntity entity = postTelexPatTrainDao.findById(param.getId());
+    PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(param.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
     List<PostTelexPatTrainPageEntity> pageEntities = pageDao.findByTrainIdTop2(param.getId());
     List<PostTelexPatTrainPageValueEntity> pageValueEntities = valueDao.findByTrainIdTop2(param.getId());
     List<PostTelexPatTrainPageValueVO> pageValueVOS = PojoUtils.convert(pageValueEntities,
@@ -242,17 +253,22 @@ public class PostTelexPatTrainService {
   }
 
   public PostTelexPatTrainPageInfoVO getPage(String trainId, Integer pageNumber) {
-    PostTelexPatTrainEntity trainEntity = postTelexPatTrainDao.findById(trainId);
+    PostTelexPatTrainEntity trainEntity = Optional.ofNullable(postTelexPatTrainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
     Integer groupNumber = 0;
     int generateNumber = 100;
     if (Objects.equals(trainEntity.getIsCable(), 0)) {
       groupNumber = trainEntity.getGroupNumber();
+      // Phase 7.4：groupNumber 是可空 Integer，直接 /100 会拆箱 NPE
+      if (groupNumber == null) {
+        throw new IllegalArgumentException("训练组数缺失，无法取页");
+      }
       int totalPage = groupNumber / 100;
 
       if (groupNumber % 100 > 0) {
         totalPage += 1;
       }
-      if (totalPage < pageNumber || pageNumber < 0) {
+      if (totalPage < pageNumber || pageNumber < 1) {
         throw new IllegalArgumentException("页码不正确");
       }
       if (totalPage == pageNumber) {
@@ -275,7 +291,12 @@ public class PostTelexPatTrainService {
 
   @Transactional
   public void finishPage(PostTelexPatTrainPageValueVO vo) {
-    PostTelexPatTrainEntity entity = postTelexPatTrainDao.findById(vo.getTrainId());
+    PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(vo.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
+    // Phase 7.4：pageNumber 参与 List 下标运算，为空时下面多处拆箱会 NPE
+    if (vo.getPageNumber() == null) {
+      throw new IllegalArgumentException("页码不能为空");
+    }
     // 记录每页速率
     List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
         .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
@@ -354,6 +375,10 @@ public class PostTelexPatTrainService {
    * @return
    */
   private PostTelexPatTrainEntity countScore(PostTelexPatTrainFinishParam param, PostTelexPatTrainEntity entity) {
+    // Phase 7.4：trainType 是可空 Integer，裸 compareTo 会拆箱 NPE（下方 :393/:405 同一字段由本守卫覆盖）
+    if (entity.getTrainType() == null) {
+      throw new IllegalArgumentException("训练类型缺失，无法结算");
+    }
     if (entity.getTrainType().compareTo(4) == 0) {
       // 创建扣分信息Map
       Map<String, String> deductMap = new HashMap<>();
@@ -815,12 +840,15 @@ public class PostTelexPatTrainService {
             null == pageValueEntity ? null : pageValueEntity.getPatValue(), ks, pageNumber == pageNumbers.size() - 1);
       });
       List<PostTelexPatTrainPageEntity> convert = PojoUtils.convert(pageValueResult, PostTelexPatTrainPageEntity.class);
-      pageDao.deleteByTrainId(entity.getId());
-      pageDao.saveAndFlush(convert);
       PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(entity.getRuleContent(), PostTelexPatTrainRuleDto.class);
       if (rule == null) {
         throw new IllegalArgumentException("评分规则未设定");
       }
+      // P2-2.3：报底重建改为「先构建 + 校验，后删除 + 写入」。校验不过直接抛出，delete 绝不先发生，
+      // 否则构建失败会把旧报底删空（目标表实测 MyISAM，事务回滚在其上是空操作）。
+      checkRebuiltPages(entity.getId(), pageMap, convert);
+      pageDao.deleteByTrainId(entity.getId());
+      pageDao.saveAndFlush(convert);
       // 创建扣分信息Map
       String minus = "-";
       Map<String, Object> deductMap = new HashMap<>();
@@ -913,6 +941,49 @@ public class PostTelexPatTrainService {
       entity.setEndTime(LocalDateTime.now());
       entity.setStatus(PostTelexPatTrainStatusEnum.FINISH.getStatus());
       return entity;
+    }
+  }
+
+  /**
+   * P2-2.3：校验重建后的报底集合，校验通过后调用方才可以 delete + 批量 save。
+   * 约束：结果非空、页号全部有值、页号集合与原报底一致且连续、每页行数不少于原报底行数。
+   * 任一条不满足即抛 IllegalStateException，让旧报底原封不动地留在库里。
+   *
+   * @param trainId     训练 id，写进错误信息便于定位
+   * @param sourcePages 原报底按页号分组的结果
+   * @param rebuilt     内存中重建出来的新报底集合
+   */
+  private static void checkRebuiltPages(String trainId,
+      Map<Integer, List<PostTelexPatTrainPageEntity>> sourcePages,
+      List<PostTelexPatTrainPageEntity> rebuilt) {
+    if (sourcePages.isEmpty()) {
+      // 原本就没有报底，delete 无损，直接放行
+      return;
+    }
+    if (rebuilt.isEmpty()) {
+      throw new IllegalStateException("报底重建结果为空，拒绝删除已有报底，训练ID: " + trainId);
+    }
+    if (rebuilt.stream().anyMatch(p -> Objects.isNull(p.getPageNumber()))) {
+      throw new IllegalStateException("报底重建结果存在页号为空的行，拒绝删除已有报底，训练ID: " + trainId);
+    }
+    Map<Integer, Long> rebuiltPerPage = rebuilt.stream().collect(
+        Collectors.groupingBy(PostTelexPatTrainPageEntity::getPageNumber, TreeMap::new, Collectors.counting()));
+    if (!rebuiltPerPage.keySet().equals(new TreeSet<>(sourcePages.keySet()))) {
+      throw new IllegalStateException("报底重建结果页号与原报底不一致，拒绝删除已有报底，训练ID: " + trainId
+          + "，原页号: " + new TreeSet<>(sourcePages.keySet()) + "，重建页号: " + rebuiltPerPage.keySet());
+    }
+    int min = Collections.min(rebuiltPerPage.keySet());
+    int max = Collections.max(rebuiltPerPage.keySet());
+    if (max - min + 1 != rebuiltPerPage.size()) {
+      throw new IllegalStateException("报底页号不连续，拒绝删除已有报底，训练ID: " + trainId
+          + "，页号: " + rebuiltPerPage.keySet());
+    }
+    for (Map.Entry<Integer, Long> e : rebuiltPerPage.entrySet()) {
+      int expected = sourcePages.get(e.getKey()).size();
+      if (e.getValue() < expected) {
+        throw new IllegalStateException("报底第 " + e.getKey() + " 页重建后行数变少（" + e.getValue()
+            + " < " + expected + "），拒绝删除已有报底，训练ID: " + trainId);
+      }
     }
   }
 
@@ -1362,7 +1433,12 @@ public class PostTelexPatTrainService {
       PostTelexPatTrainEntity entity, int generateNumber, int pageNumber,
       String trainId) {
     List<PostTelexPatTrainPageEntity> pageEntities = new ArrayList<>();
-    if (entity.getType() == 0) {
+    // Phase 7.4：type 是可空 Integer，下面的 == 与 switch 都会拆箱 NPE
+    Integer type = entity.getType();
+    if (type == null) {
+      throw new IllegalArgumentException("报文类型缺失，无法生成报文");
+    }
+    if (type == 0) {
       if (entity.getPatType() != null) {
         if (entity.getPatType() == 0) {
           List<String> content = bePointed(generateNumber);

@@ -1,5 +1,6 @@
 package com.nip.ws;
 
+import com.nip.common.constants.SimulationRoomTypeEnum;
 import com.nip.dao.general.key.GeneralKeyPatDao;
 import com.nip.dao.general.telex.GeneralTelexPatDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
@@ -213,20 +214,27 @@ class WebSocketDeleteOpenAtomicityTest {
     Thread openThread = Thread.ofVirtual().start(opening);
     assertTrue(barrier.validated.await(5, TimeUnit.SECONDS));
 
-    CountDownLatch deleteCompleted = new CountDownLatch(1);
+    // delete 线程到达「获取房间锁」这一点的确定性同步点：countDown 紧接 lock()，
+    // 而 onOpen 此刻仍停在校验屏障上并持有同一把锁，delete 必然阻塞于此，
+    // 无需依赖任何超时窗口。
+    CountDownLatch deleteAtLock = new CountDownLatch(1);
+    AtomicBoolean roomPresentAtRemoval = new AtomicBoolean();
     FutureTask<Void> deleting = new FutureTask<>(() -> {
+      deleteAtLock.countDown();
       roomLock.lock();
       try {
+        // 因果观测点：拿到锁时房间必须已被 onOpen 注册。若 delete 抢在注册之前
+        // 拿到锁，它就是空跑，注册后的房间会永久残留（幽灵房间）。
+        roomPresentAtRemoval.set(roomPresent.getAsBoolean());
         removeRoom.run();
         probe.close();
       } finally {
         roomLock.unlock();
-        deleteCompleted.countDown();
       }
       return null;
     });
     Thread deleteThread = Thread.ofVirtual().start(deleting);
-    boolean deleteFinishedBeforeRegistration = deleteCompleted.await(250, TimeUnit.MILLISECONDS);
+    assertTrue(deleteAtLock.await(5, TimeUnit.SECONDS), "delete 线程必须先到达房间锁获取点");
     barrier.resumeRegistration.countDown();
 
     opening.get(5, TimeUnit.SECONDS);
@@ -234,7 +242,7 @@ class WebSocketDeleteOpenAtomicityTest {
     openThread.join();
     deleteThread.join();
 
-    assertFalse(deleteFinishedBeforeRegistration,
+    assertTrue(roomPresentAtRemoval.get(),
         "delete must wait for validation plus map registration under the shared lock");
     assertFalse(roomPresent.getAsBoolean(), "successful delete must leave no room map key");
     assertFalse(probe.open().get(), "successful delete must leave no live Session");
@@ -271,7 +279,9 @@ class WebSocketDeleteOpenAtomicityTest {
     public Optional<SimulationRouterRoomEntity> findByIdOptional(Integer id) {
       SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
       room.setId(id);
-      room.setRoomType(2);
+      // roomType 必须与断言的房表一致：ROUTER(0) → SimulationGlobal.routerRoom（本用例断言的那张表）。
+      // 若用 REPORT(2)，openLocked 会注册到 reportRoom，routerRoom 恒空，因果断言必然失败。
+      room.setRoomType(SimulationRoomTypeEnum.ROUTER.getType());
       room.setCreateUserId("teacher");
       barrier.pause();
       return Optional.of(room);

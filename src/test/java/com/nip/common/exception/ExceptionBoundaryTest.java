@@ -20,7 +20,10 @@ import java.util.List;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Phase 4 异常边界集成测试：JWTInterceptor 收窄（Task 4.3）后，
@@ -43,7 +46,7 @@ class ExceptionBoundaryTest {
 
   @BeforeEach
   void seedUser() {
-    // 拦截器 response.send 的裸 JSON 未带 Content-Type，显式指定默认解析器
+    // 其它 @QuarkusTest 类的同款约定；本类的鉴权信封现已带 application/json（Task 7.2）
     RestAssured.defaultParser = Parser.JSON;
     if (userDao.findUserEntityByToken(TOKEN) == null) {
       Fixtures.user(userDao, TOKEN, DEVICE);
@@ -113,7 +116,7 @@ class ExceptionBoundaryTest {
   @Test
   void validationFailureOnJwtEndpointKeeps200WithOriginalMessage() {
     // 校验失败（permissions=null 的 addMenu）→ ValidationExceptionMapper 接管：
-    // HTTP 200 + CODE_500 + 原提示消息（不再被拦截器兜成 SYSTEM_ERROR）
+    // HTTP 200 + 业务码 500 + 原业务提示（不再被拦截器兜成裸 error）
     given()
         .header("Origin", "http://localhost")
         .header("token", TOKEN)
@@ -129,7 +132,7 @@ class ExceptionBoundaryTest {
   @Test
   void insufficientMilitaryTermOptionsSurfaceAsCode500Envelope() {
     // 终审 I-1：generateTestPaper 的 IAE（有效题目不足4条）必须穿透 add 的 catch(Exception) 包裹，
-    // 由 ValidationExceptionMapper 以 HTTP 200 + CODE_500 + 原提示送达，而非 RuntimeException → HTTP 500
+    // 由 ValidationExceptionMapper 以 HTTP 200 + 业务码 500 + 原提示送达，而非 RuntimeException → HTTP 500
     String parentId = "boundary-term-parent";
     if (militaryTermDataDao.findAllByParentIdIn(List.of(parentId)).isEmpty()) {
       // 4 条同类型但仅 3 个互异 value：通过 add 的 size>=4 类型过滤，命中 generateTestPaper 的 distinct<4 校验
@@ -173,5 +176,41 @@ class ExceptionBoundaryTest {
         .header("Origin", "http://localhost")
         .when().get("/api/no-such-endpoint-anywhere")
         .then().statusCode(404);
+  }
+
+  @Test
+  void rejectedTokenEnvelopeIsJsonAndCarriesNoHandRolledCorsHeaders() {
+    // Task 7.2：拦截器不再往 HttpServerResponse 直写裸 JSON + return null（双写），
+    // 改抛 WebApplicationException 由 mapper 单写 → 响应带 application/json 与完整信封；
+    // 手写 CORS 已删除，预检专用头不得再出现在普通响应上
+    io.restassured.response.Response resp = given()
+        .header("Origin", "http://localhost")
+        .header("deviceId", DEVICE)
+        .when().get("/api/menus/getMenusAll");
+
+    assertEquals(200, resp.statusCode());
+    assertTrue(resp.contentType().startsWith("application/json"), resp.contentType());
+    assertEquals(203, resp.jsonPath().getInt("code"));
+    assertEquals("token不能为空", resp.jsonPath().getString("message"));
+    assertNull(resp.getHeader("Access-Control-Max-Age"),
+        "预检专用头不得出现在普通响应上（JWTInterceptor 手写 CORS 已删除）");
+  }
+
+  @Test
+  void validationMessageKeepsBusinessTextAndDropsExceptionNoise() {
+    // Task 7.1：对外消息只保留首行业务文案——业务提示原样透出（既有契约），
+    // 异常类名前缀与堆栈片段剥掉，空消息兜底，超长消息截断
+    assertEquals("组数不能为空", ValidationExceptionMapper.safeMessage("组数不能为空"));
+    assertEquals("组数不能为空",
+        ValidationExceptionMapper.safeMessage("java.lang.IllegalArgumentException: 组数不能为空"));
+    assertEquals("页码不正确", ValidationExceptionMapper.safeMessage(
+        "java.lang.IllegalStateException: java.lang.IllegalArgumentException: 页码不正确"));
+    assertEquals("boom", ValidationExceptionMapper.safeMessage("boom\n\tat com.nip.Foo.bar(Foo.java:1)"));
+    assertEquals(ValidationExceptionMapper.FALLBACK_MESSAGE, ValidationExceptionMapper.safeMessage(null));
+    assertEquals(ValidationExceptionMapper.FALLBACK_MESSAGE,
+        ValidationExceptionMapper.safeMessage("java.lang.NullPointerException: "));
+    assertEquals(ValidationExceptionMapper.MAX_MESSAGE_LENGTH + 1,
+        ValidationExceptionMapper.safeMessage("x".repeat(300)).length(),
+        "无界入参不得原样回显");
   }
 }

@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -136,5 +137,41 @@ class TheoryKnowledgeExamServiceTest {
     String examId = examIdByTitle("exam-analyse");
 
     assertDoesNotThrow(() -> service.examineAnalyse(examId));
+  }
+
+  @Test
+  void twoSelfTestsOnSamePaperKeepBothSnapshots() throws Exception {
+    String token = UUID.randomUUID().toString();
+    UserEntity user = Fixtures.user(userDao, token);
+    String sourcePaperId = "self-src-paper-" + UUID.randomUUID();
+
+    String firstId = service
+        .saveTheoryKnowledgeExamSelfTesting(token, exam("self-a-" + token, paper(sourcePaperId), user.getId()))
+        .getId();
+    String secondId = service
+        .saveTheoryKnowledgeExamSelfTesting(token, exam("self-b-" + token, paper(sourcePaperId), user.getId()))
+        .getId();
+
+    assertNotEquals(firstId, secondId, "两次自测是两场考试");
+    assertEquals(1, examTestPaperDao.count("examId", firstId),
+        "前一场自测的快照不得被后一场按源试卷主键 merge 覆盖");
+    assertEquals(1, examTestPaperDao.count("examId", secondId), "后一场自测应有自己的快照");
+    assertDoesNotThrow(() -> service.examineAnalyse(firstId),
+        "前一场自测的考核分析不得因快照被抹掉而 NPE");
+  }
+
+  @Test
+  void selfTestWithMissingTypeListStoresEmptyJsonArray() throws Exception {
+    String token = UUID.randomUUID().toString();
+    UserEntity user = Fixtures.user(userDao, token);
+    TestPaperDto paper = paper(null);
+    paper.setShortAnswer(null); // 缺一个题型列表
+
+    String examId = service
+        .saveTheoryKnowledgeExamSelfTesting(token, exam("self-null-" + token, paper, user.getId()))
+        .getId();
+
+    assertEquals("[]", examTestPaperDao.findAllByExamId(examId).getShortAnswer(),
+        "自测写侧须与主路径一致做 nullToEmpty 归一");
   }
 }

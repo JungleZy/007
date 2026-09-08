@@ -53,12 +53,6 @@ public class UserController {
   }
 
   @POST
-  @Path("/test")
-  public Response<UserEntity> test() {
-    return ResponseResult.success(userService.getUserById(""));
-  }
-
-  @POST
   @Path("/getUserTrainDurationStat")
   @Operation(summary = "统计当前用户训练时长")
   public Response<UserTrainDurationStatVO> getUserTrainDurationStat(Map<String, String> map) {

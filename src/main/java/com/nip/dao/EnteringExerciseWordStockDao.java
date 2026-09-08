@@ -7,7 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import static com.nip.common.constants.BaseConstants.TYPE;
 
 @ApplicationScoped
-public class EnteringExerciseWordStockDao extends BaseRepository<EnteringExerciseWordStockEntity, String> {
+public class EnteringExerciseWordStockDao extends BaseRepository<EnteringExerciseWordStockEntity, Integer> {
   /**
    * 根据type查询
    *

@@ -23,6 +23,8 @@ import com.nip.entity.UserRoleEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -38,13 +40,16 @@ public class UserService {
   private final RoleDao roleDao;
   private final UserRoleDao userRoleDao;
   private final MenusService menusService;
+  private final TransactionManager transactionManager;
 
   @Inject
-  public UserService(UserDao userDao, RoleDao roleDao, UserRoleDao userRoleDao, MenusService menusService) {
+  public UserService(UserDao userDao, RoleDao roleDao, UserRoleDao userRoleDao, MenusService menusService,
+      TransactionManager transactionManager) {
     this.userDao = userDao;
     this.roleDao = roleDao;
     this.userRoleDao = userRoleDao;
     this.menusService = menusService;
+    this.transactionManager = transactionManager;
   }
 
   /**
@@ -53,10 +58,12 @@ public class UserService {
    * 它依赖于UserDao接口的实现，该接口负责与数据库交互
    *
    * @param id 用户的唯一标识符，用于数据库查询
-   * @return UserEntity对象，包含查询到的用户信息如果没有找到对应的用户，将返回null
+   * @return UserEntity对象，包含查询到的用户信息
+   * @throws IllegalArgumentException 未查询到该用户时抛出（Phase 7.4：与 getUserAndRoleById 口径一致）
    */
   public UserEntity getUserById(String id) {
-    return userDao.findById(id);
+    return userDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
   }
 
   /**
@@ -90,7 +97,9 @@ public class UserService {
    * @return UserInfoDto对象，包含用户和角色信息
    */
   public UserInfoDto getUserAndRoleById(String id) {
-    UserEntity userEntity = userDao.findById(id);
+    // Phase 7.4：不存在的用户 id 必须显式报错，否则下一行 getId() 直接 NPE 成 500
+    UserEntity userEntity = Optional.ofNullable(userDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
     RoleEntity role = roleDao.findRoleByUserId(userEntity.getId());
     UserInfoDto userInfoDto = new UserInfoDto();
     userInfoDto.setUser(userEntity);
@@ -253,12 +262,15 @@ public class UserService {
    */
   private void assignDefaultRole(UserEntity entity) {
     RoleEntity defaultRole = roleDao.find("isDefault", 0).firstResult();
-    if (defaultRole != null) {
-      UserRoleEntity userRoleEntity = new UserRoleEntity();
-      userRoleEntity.setUserId(entity.getId());
-      userRoleEntity.setRoleId(defaultRole.getId());
-      userRoleDao.save(userRoleEntity);
+    if (defaultRole == null) {
+      // 静默无角色比失败更糟：新用户登录时 findRoleByUserId 会直接抛 NoResultException
+      log.warn("库中不存在默认角色（isDefault=0），无法为用户 {} 分配角色", entity.getId());
+      throw new IllegalStateException("系统未配置默认角色，无法创建用户");
     }
+    UserRoleEntity userRoleEntity = new UserRoleEntity();
+    userRoleEntity.setUserId(entity.getId());
+    userRoleEntity.setRoleId(defaultRole.getId());
+    userRoleDao.save(userRoleEntity);
   }
 
   /**
@@ -270,7 +282,8 @@ public class UserService {
    * @return 返回一个包含更新后用户信息的响应对象
    */
   private Response<Object> handleExistingUser(UserEntity entity, String bDay) {
-    UserEntity existingUser = userDao.findById(entity.getId());
+    UserEntity existingUser = Optional.ofNullable(userDao.findById(entity.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
     updateExistingUser(existingUser, entity, bDay);
     setDefaultAvatarIfNull(existingUser);
     return ResponseResult.success(existingUser);
@@ -347,6 +360,12 @@ public class UserService {
       }
       return true;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记用户角色保存事务回滚", e);
+      }
       log.error("addUserRole error", e);
       return false;
     }
@@ -371,13 +390,14 @@ public class UserService {
       if (!MD5Util.encrypt(password).equals(user.getPassword())) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.LOGIN_PASSWORD_ERROR);
       }
-      if (user.getStatus() == 1) {
+      if (Objects.equals(user.getStatus(), 1)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.LOGIN_IN_REVIEW);
       }
-      if (user.getStatus() == -1) {
+      if (Objects.equals(user.getStatus(), -1)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.LOGIN_IN_DISABLE);
       }
-      if (user.getStatus() != 0) {
+      // Phase 7.4：status 为可空 Integer，裸拆箱会 NPE 后被兜底降级；null 归入「状态异常」分支
+      if (!Objects.equals(user.getStatus(), 0)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.DATA_EXCEPTION);
       }
 
@@ -397,6 +417,12 @@ public class UserService {
       userInfoDto.setMenus(menusDtoList);
       return ResponseResult.success(MessageConstants.LOGIN_SUCCESS, userInfoDto);
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记登录事务回滚", e);
+      }
       log.error("login error", e);
       return ResponseResult.error(ResponseCode.SYSTEM_ERROR.getCode(), MessageConstants.DATA_EXCEPTION);
     }
@@ -434,7 +460,8 @@ public class UserService {
   @Transactional
   public Response<Boolean> changePassword(String id, String oldPassword, String newPassword, String newPasswordV) {
     try {
-      UserEntity user = userDao.findById(id);
+      UserEntity user = Optional.ofNullable(userDao.findById(id))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
 
       if (!MD5Util.encrypt(oldPassword).equals(user.getPassword())) {
         return ResponseResult.success(MessageConstants.PASSWORD_NOW_ERROR, false);
@@ -448,7 +475,17 @@ public class UserService {
       userDao.save(user);
 
       return ResponseResult.success(MessageConstants.DATA_SUCCESS, true);
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      // Phase 7.4：校验类异常不得被下面的兜底降级成 DATA_EXCEPTION+false
+      throw e;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记密码修改事务回滚", e);
+      }
+      log.error("changePassword", e);
       return ResponseResult.success(MessageConstants.DATA_EXCEPTION, false);
     }
   }
@@ -571,7 +608,8 @@ public class UserService {
   }
   @Transactional
   public String resetPassword(String userId){
-    UserEntity user = userDao.findById(userId);
+    UserEntity user = Optional.ofNullable(userDao.findById(userId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
 
     user.setPassword(MD5Util.encrypt("123456"));
     userDao.save(user);

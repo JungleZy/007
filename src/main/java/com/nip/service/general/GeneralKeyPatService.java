@@ -128,6 +128,18 @@ public class GeneralKeyPatService {
    */
   @Transactional
   public GeneralKeyPatTrainVO add(GeneralKeyPatAddParamDto param, String token) {
+    // Phase 7.4：isCable/totalNumber/messageType/isAverage/isRandom 均为可空 Integer，
+    // 下面 :170-:211 的裸拆箱会 NPE 成 500；入参校验前置到写库之前
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用电缆报底不能为空");
+    }
+    if (param.getTotalNumber() == null) {
+      throw new IllegalArgumentException("训练总组数不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0)
+        && (param.getMessageType() == null || param.getIsAverage() == null || param.getIsRandom() == null)) {
+      throw new IllegalArgumentException("报文类型与生成方式不能为空");
+    }
     UserEntity currentUser = userService.getUserByToken(token);
     GeneralKeyPatEntity trainEntity = PojoUtils.convertOne(param, GeneralKeyPatEntity.class);
     trainEntity.setCreateUser(currentUser.getId());
@@ -136,7 +148,8 @@ public class GeneralKeyPatService {
     // 有效时间设置为0
     trainEntity.setValidTime(0L);
     // 获取ruleContent
-    GradingRuleEntity ruleOp = gradingRuleDao.findById(trainEntity.getRuleId());
+    GradingRuleEntity ruleOp = Optional.ofNullable(gradingRuleDao.findById(trainEntity.getRuleId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
     trainEntity.setRuleContent(JSONUtils.toJson(ruleOp));
     GeneralKeyPatEntity save = trainDao.save(trainEntity);
 
@@ -166,7 +179,7 @@ public class GeneralKeyPatService {
     trainUserDao.save(trainUserEntityList);
 
     // 生成报文begin
-    if (param.getIsCable() == 0) {
+    if (Objects.equals(param.getIsCable(), 0)) {
       Integer messageNumber = param.getTotalNumber();
       int generate = Math.min(messageNumber, TrainConstants.MAX_GENERATE_MESSAGE_COUNT);
       Integer type = param.getMessageType();
@@ -208,6 +221,12 @@ public class GeneralKeyPatService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = param.getTotalNumber() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立房间");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       // 使用批量保存替代循环逐条保存，提升性能
       List<GeneralKeyPatPageEntity> pageEntities = new ArrayList<>();
@@ -336,9 +355,10 @@ public class GeneralKeyPatService {
   public GeneralKeyPatTrainVO detail(GeneralKeyPatPageParamDto param) {
     try {
       // 查询该训练信息
-      GeneralKeyPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
+      GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       GeneralKeyPatTrainVO patTrainVO = PojoUtils.convertOne(keyPatEntity, GeneralKeyPatTrainVO.class);
-      if (keyPatEntity.getIsCable() == 1) {
+      if (Objects.equals(keyPatEntity.getIsCable(), 1)) {
         patTrainVO.setTotalNumber((int) trainPageDao.count("trainId", param.getTrainId()));
         patTrainVO.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
@@ -434,7 +454,8 @@ public class GeneralKeyPatService {
   @Transactional
   public List<GeneralKeyPatUserInfoVO> finish(GeneralKeyPatFinishDto dto) {
     try {
-      GeneralKeyPatEntity entity = trainDao.findById(dto.getTrainId());
+      GeneralKeyPatEntity entity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       /*
        * //校验状态是否是进行中
        * if (!Objects.equals(entity.getStatus(),
@@ -447,7 +468,9 @@ public class GeneralKeyPatService {
       List<GeneralKeyPatUserInfoVO> userInfoList = new ArrayList<GeneralKeyPatUserInfoVO>();
       // List<String> userIds =
       // trainUserDao.findTrainUserIdsByTrainId(entity.getId());
-      GeneralKeyPatUserEntity userTrainEntity = trainUserDao.findByUserIdAndTrainId(dto.getUserId(), dto.getTrainId());
+      GeneralKeyPatUserEntity userTrainEntity = Optional.ofNullable(
+              trainUserDao.findByUserIdAndTrainId(dto.getUserId(), dto.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
       userTrainEntity.setIsFinish(1);
       trainUserDao.save(userTrainEntity);
       GeneralKeyPatUserEntity generalKeyPatUserEntity = countScore(entity, dto.getUserId());
@@ -476,7 +499,8 @@ public class GeneralKeyPatService {
    */
   @Transactional
   public void updateStatus(Integer trainId, Integer status) {
-    GeneralKeyPatEntity keyPatTrain = trainDao.findById(trainId);
+    GeneralKeyPatEntity keyPatTrain = Optional.ofNullable(trainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     keyPatTrain.setStatus(status);
     if (Objects.equals(status, PostTelegramTrainEnum.UNDERWAY.getStatus())) {
       // 教员点击开始训练，设置开始时间
@@ -507,13 +531,21 @@ public class GeneralKeyPatService {
   public PostTelegraphKeyPatTrainPageVO getPage(Integer trainId, Integer pageNumber, String userId) {
     try {
       PostTelegraphKeyPatTrainPageVO ret = new PostTelegraphKeyPatTrainPageVO();
-      GeneralKeyPatEntity entity = trainDao.findById(trainId);
+      GeneralKeyPatEntity entity = Optional.ofNullable(trainDao.findById(trainId))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       List<GeneralKeyPatPageEntity> messageVO = null;
       int generateNumber = 100;
       // 页码是否正确
-      if (entity.getIsCable() == 0) {
-        int totalPage = entity.getTotalNumber() / 100;
+      // Phase 7.4：pageNumber/totalNumber 均为可空 Integer，裸拆箱会 NPE
+      if (pageNumber == null) {
+        throw new IllegalArgumentException("页码不能为空");
+      }
+      if (Objects.equals(entity.getIsCable(), 0)) {
+        if (entity.getTotalNumber() == null) {
+          throw new IllegalArgumentException("训练总组数缺失，无法取页");
+        }
         int totalNumber = entity.getTotalNumber();
+        int totalPage = totalNumber / 100;
         if (totalNumber % 100 > 0) {
           totalPage += 1;
         }
@@ -655,7 +687,8 @@ public class GeneralKeyPatService {
     // 存放扣分规则 key扣分名称，value扣分值
     Map<String, Object> deductInfo = new HashMap<>();
     // 查询扣分规则
-    GradingRuleEntity ruleEntity = gradingRuleDao.findById(entity.getRuleId());
+    GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(entity.getRuleId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
     String ruleContent = ruleEntity.getContent();
     PostKeyPatTrainRuleDto rule = JSONUtils.fromJson(ruleContent, PostKeyPatTrainRuleDto.class);
     // 积分规则
@@ -849,8 +882,11 @@ public class GeneralKeyPatService {
 
   public GeneralKeyPatUserInfoVO patDetail(GeneralKeyPatPageParamDto param) {
     // 查询该训练信息
-    GeneralKeyPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
-    GeneralKeyPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(param.getUserId(), param.getTrainId());
+    GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    GeneralKeyPatUserEntity patUserEntity = Optional.ofNullable(
+            trainUserDao.findByUserIdAndTrainId(param.getUserId(), param.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
 
     List<Integer> pageNumber = trainPageDao.countPageNumber(param.getTrainId());
     // 查询前2页数据content
@@ -887,7 +923,7 @@ public class GeneralKeyPatService {
 
     return PojoUtils.convertOne(patUserEntity, GeneralKeyPatUserInfoVO.class, (t, v) -> {
       v.setExistPage(pageNumber);
-      if (patUserEntity.getIsFinish().compareTo(1) == 0) {
+      if (Objects.equals(patUserEntity.getIsFinish(), 1)) {
         v.setContent(PojoUtils.convert(toPageValue, PostTelegraphKeyPatTrainPageMessageVO.class));
       } else {
         v.setContent(PojoUtils.convert(twoPage, PostTelegraphKeyPatTrainPageMessageVO.class));
@@ -897,7 +933,7 @@ public class GeneralKeyPatService {
       v.setRuleContent(keyPatEntity.getRuleContent());
       v.setTotalNumber(keyPatEntity.getTotalNumber());
       v.setIsCable(keyPatEntity.getIsCable());
-      if (keyPatEntity.getIsCable() == 1) {
+      if (Objects.equals(keyPatEntity.getIsCable(), 1)) {
         v.setTotalNumber((int) trainPageDao.count("trainId", param.getTrainId()));
         v.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
@@ -906,7 +942,8 @@ public class GeneralKeyPatService {
 
   public GeneralKeyPatTrainDto getTrainInfo(Integer trainId) {
     GeneralKeyPatTrainDto dto = new GeneralKeyPatTrainDto();
-    GeneralKeyPatEntity keyPatEntity = trainDao.findById(trainId);
+    GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     List<GeneralKeyPatPageEntity> pageEntities = trainPageDao.findByTrainId(trainId);
     List<GeneralKeyPatUserEntity> patUserEntities = trainUserDao.findByTrainId(trainId);
     List<GeneralKeyPatUserValueEntity> userValueEntities = userValueDao.findByTrainId(trainId);

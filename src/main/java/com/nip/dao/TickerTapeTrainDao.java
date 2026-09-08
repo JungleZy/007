@@ -107,6 +107,6 @@ public class TickerTapeTrainDao extends BaseRepository<TickerTapeTrainEntity, St
    * @return
    */
   public TickerTapeTrainEntity lastTrain(String id, Integer type) {
-    return find("userId = ?1 and type = ?2", Sort.by("createTime").ascending(), id, type).firstResult();
+    return find("userId = ?1 and type = ?2", Sort.by("createTime").descending(), id, type).firstResult();
   }
 }

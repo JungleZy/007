@@ -9,7 +9,6 @@ import com.nip.dto.TheoryKnowledgeQuestionLevelDto;
 import com.nip.entity.TheoryKnowledgeQuestionEntity;
 import com.nip.entity.TheoryKnowledgeQuestionLevelEntity;
 import com.nip.service.TheoryKnowledgeQuestionService;
-import io.vertx.core.http.HttpServerResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
@@ -77,24 +76,9 @@ public class TheoryKnowledgeQuestionController {
   }
 
   @POST
-  @Path("/upLoadFile")
-  @Operation(summary = "上传题库-新框架不做上传功能")
-  public Response<Void> upLoadFile() {
-    return ResponseResult.success();
-  }
-
-  @POST
-  @Path("/exportTemplate")
-  @Operation(summary = "导出模板")
-  public void exportTemplate(HttpServerResponse response) {
-    theoryKnowledgeQuestionService.exportTemplate(response);
-  }
-
-
-  @POST
   @Path("/exportQuestionByLevelId")
-  @Operation(summary = "导出指定题库-需要改造-后端只提供数据由前端生成文件导出")
-  public Response<List<TheoryKnowledgeQuestionEntity>> exportQuestionByLevelId(HttpServerResponse response, Map<String, String> map) {
-    return ResponseResult.success(theoryKnowledgeQuestionService.exportQuestionByLevelId(response, map.get("levelId")));
+  @Operation(summary = "导出指定题库-后端只提供数据由前端生成文件导出")
+  public Response<List<TheoryKnowledgeQuestionEntity>> exportQuestionByLevelId(Map<String, String> map) {
+    return ResponseResult.success(theoryKnowledgeQuestionService.exportQuestionByLevelId(map.get("levelId")));
   }
 }

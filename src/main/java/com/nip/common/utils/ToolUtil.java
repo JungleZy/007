@@ -22,7 +22,6 @@ import java.util.Map;
  */
 @Slf4j
 public class ToolUtil {
-  private static final BigDecimal SCALE = new BigDecimal(100);
 
   public static String handleIdCard(String idCard) {
     if (StringUtils.isNotEmpty(idCard)) {
@@ -91,10 +90,6 @@ public class ToolUtil {
       clazz = clazz.getSuperclass();
     }
     return false;
-  }
-
-  public static BigDecimal calculateRate(int min, int max, int total) {
-    return min == 0 ? BigDecimal.ZERO : new BigDecimal(max).divide(new BigDecimal(total), 10, RoundingMode.HALF_UP).multiply(SCALE).setScale(0, RoundingMode.HALF_UP);
   }
 
   public static int calculateScore(Integer max, int score, int exc) {

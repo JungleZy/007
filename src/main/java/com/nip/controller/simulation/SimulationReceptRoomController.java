@@ -52,7 +52,7 @@ public class SimulationReceptRoomController {
   @GET
   @Path("/getRoomDetail")
   @Operation(summary = "查询房间详情")
-  public Response<SimulationReportRoomVO> getRoomDetail(@RestQuery("roomgId") Integer roomId, HttpServerRequest request) {
+  public Response<SimulationReportRoomVO> getRoomDetail(@RestQuery(ROOM_ID) Integer roomId, HttpServerRequest request) {
     return ResponseResult.success(roomService.getRoomDetail(roomId, request));
   }
 

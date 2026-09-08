@@ -17,6 +17,8 @@ import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -46,12 +48,14 @@ public class TelegramTrainService {
   private final TelegramTrainLogDao telegramTrainLogDao;
   private final UserService userService;
   private final TelegramTrainStatisticalDao statisticalDao;
+  private final TransactionManager transactionManager;
 
   @Inject
   public TelegramTrainService(TelegramTrainDao telegramTrainDao, TelegramTrainFloorDao telegramTrainFloorDao,
                               TelegramTrainFloorContentDao telegramTrainFloorContentDao,
                               TelegramTrainSettingDao telegramTrainSettingDao, TelegramTrainLogDao telegramTrainLogDao,
-                              UserService userService, TelegramTrainStatisticalDao statisticalDao) {
+                              UserService userService, TelegramTrainStatisticalDao statisticalDao,
+                              TransactionManager transactionManager) {
     this.telegramTrainDao = telegramTrainDao;
     this.telegramTrainFloorDao = telegramTrainFloorDao;
     this.telegramTrainFloorContentDao = telegramTrainFloorContentDao;
@@ -59,6 +63,7 @@ public class TelegramTrainService {
     this.telegramTrainLogDao = telegramTrainLogDao;
     this.userService = userService;
     this.statisticalDao = statisticalDao;
+    this.transactionManager = transactionManager;
   }
 
   private final String[] dotArray = new String[]{"E", "I", "S", "H", "5"};
@@ -173,8 +178,12 @@ public class TelegramTrainService {
 
   @Transactional
   public Response<TelegramTrainEntity> controlTelegramTrain(int type, TelegramTrainDto trainDto) {
-    TelegramTrainEntity trainEntity = telegramTrainDao.findById(trainDto.getTrain().getId());
-    assert trainEntity != null;
+    // Phase 7.4：assert 运行时不生效，等价于裸解引用；入参与查询结果都要显式校验
+    if (trainDto == null || trainDto.getTrain() == null || trainDto.getTrain().getId() == null) {
+      throw new IllegalArgumentException("训练信息不能为空");
+    }
+    TelegramTrainEntity trainEntity = Optional.ofNullable(telegramTrainDao.findById(trainDto.getTrain().getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询该训练！"));
     boolean flag = false;
     switch (type) {
       case 0 -> {
@@ -265,6 +274,11 @@ public class TelegramTrainService {
   public Response<TelegramTrainEntity> save(String token, TelegramTrainDto trainDto) {
     try {
       UserEntity userEntity = userService.getUserByToken(token);
+      //楼层必须先校验后写，否则上一次训练的状态变更会被半量提交
+      List<TelegramTrainFloorDto> trainFloors = trainDto.getTrainFloors();
+      if (trainFloors == null || trainFloors.isEmpty()) {
+        throw new IllegalArgumentException("训练楼层不能为空");
+      }
       TelegramTrainEntity trainEntity = trainDto.getTrain();
       trainEntity.setCreateUserId(userEntity.getId());
 
@@ -304,7 +318,17 @@ public class TelegramTrainService {
       return ResponseResult.success(train);
     } catch (UnauthorizedException e) {
       throw e;
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      //入参校验失败交由专用 Mapper 返回参数错误信封，不得降级成裸 error()
+      throw e;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记手键训练保存事务回滚", e);
+      }
+      log.error("save", e);
       return ResponseResult.error();
     }
   }
@@ -318,6 +342,12 @@ public class TelegramTrainService {
       );
       return ResponseResult.success();
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记楼层内容保存事务回滚", e);
+      }
       log.error("saveFloorContent error", e);
       return ResponseResult.error();
     }

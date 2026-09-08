@@ -157,6 +157,16 @@ public class PostTelegramTrainService {
 
   @Transactional
   public PostTelegramTrainVO save(PostTelegramTrainAddParam param, String token) {
+    // Phase 7.4：isCable/messageNumber/type 均为可空包装类型，裸拆箱会 NPE 成 500
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用固定报底不能为空");
+    }
+    if (param.getMessageNumber() == null) {
+      throw new IllegalArgumentException("报文数量不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0) && param.getType() == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
     // 从token中获取用户
     UserEntity userEntity = userService.getUserByToken(token);
     GradingRuleEntity gradingRule = gradingRuleDao.findByIdOptional(param.getRuleId())
@@ -184,7 +194,7 @@ public class PostTelegramTrainService {
     PostTelegramTrainEntity save = postTelegramTrainDao.saveAndFlush(entity);
 
     // 生成随机报文
-    if (param.getIsCable() == 0) {
+    if (Objects.equals(param.getIsCable(), 0)) {
       Integer messageNumber = param.getMessageNumber();
       int generate;
       if (messageNumber > 200) {
@@ -198,11 +208,14 @@ public class PostTelegramTrainService {
       List<String> messageBody;
       // 生成对应的报文
       if (type.compareTo(NUMBER_MESSAGE.getType()) == 0) {
-        messageBody = GlobalMessageGeneratedUtil.generatedNumber(generate, param.getIsAverage(), param.getIsRandom());
+        messageBody = GlobalMessageGeneratedUtil.generatedNumber(generate,
+            Boolean.TRUE.equals(param.getIsAverage()), Boolean.TRUE.equals(param.getIsRandom()));
       } else if (type.compareTo(STRING_MESSAGE.getType()) == 0) {
-        messageBody = GlobalMessageGeneratedUtil.generatedWord(generate, param.getIsAverage(), param.getIsRandom());
+        messageBody = GlobalMessageGeneratedUtil.generatedWord(generate,
+            Boolean.TRUE.equals(param.getIsAverage()), Boolean.TRUE.equals(param.getIsRandom()));
       } else {
-        messageBody = GlobalMessageGeneratedUtil.generatedMingle(generate, param.getIsAverage(), param.getIsRandom());
+        messageBody = GlobalMessageGeneratedUtil.generatedMingle(generate,
+            Boolean.TRUE.equals(param.getIsAverage()), Boolean.TRUE.equals(param.getIsRandom()));
       }
       int floorNumber = 0;
       for (int i = 0; i < messageBody.size(); i++) {
@@ -223,6 +236,12 @@ public class PostTelegramTrainService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = param.getMessageNumber() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立训练");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       List<PostTelegramTrainFloorContentEntity> list = new ArrayList<>();
       int floorNumber = 1;
@@ -270,18 +289,18 @@ public class PostTelegramTrainService {
       String trainId) {
     List<PostTelegramTrainFloorContentEntity> floorContentEntities = new ArrayList<>();
     List<String> messageBody;
+    // Phase 7.4：type/isAverage/isRandom 均为可空 Integer，裸 compareTo 会拆箱 NPE
+    if (param.getType() == null) {
+      throw new IllegalArgumentException("报文类型缺失，无法生成报文");
+    }
+    boolean average = Objects.equals(param.getIsAverage(), 1);
+    boolean random = Objects.equals(param.getIsRandom(), 1);
     if (param.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
-      messageBody = GlobalMessageGeneratedUtil.generatedNumber(generateNumber,
-          param.getIsAverage().compareTo(1) == 0,
-          param.getIsRandom().compareTo(1) == 0);
+      messageBody = GlobalMessageGeneratedUtil.generatedNumber(generateNumber, average, random);
     } else if (param.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
-      messageBody = GlobalMessageGeneratedUtil.generatedWord(generateNumber,
-          param.getIsAverage().compareTo(1) == 0,
-          param.getIsRandom().compareTo(1) == 0);
+      messageBody = GlobalMessageGeneratedUtil.generatedWord(generateNumber, average, random);
     } else {
-      messageBody = GlobalMessageGeneratedUtil.generatedMingle(generateNumber,
-          param.getIsAverage().compareTo(1) == 0,
-          param.getIsRandom().compareTo(1) == 0);
+      messageBody = GlobalMessageGeneratedUtil.generatedMingle(generateNumber, average, random);
     }
     int currentFloor = floorNumber;
     for (int i = 0; i < messageBody.size(); i++) {
@@ -313,8 +332,8 @@ public class PostTelegramTrainService {
     List<PostTelegramTrainEntity> entities = postTelegramTrainDao.find(
         "createUser = ?1", Sort.by("createTime").descending(), userEntity.getId()).list();
     return PojoUtils.convert(entities, PostTelegramTrainVO.class, (t, r) -> {
-      r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
-      r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
+      r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+      r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
     });
   }
 
@@ -327,8 +346,8 @@ public class PostTelegramTrainService {
       if (t.getFloorNow() == null) {
         r.setFloorNow(1);
       }
-      r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
-      r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
+      r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+      r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
       List<String> messageBody = new ArrayList<>();
       List<PostTelegramTrainFloorContentEntity> floorContentEntities = floorContentDao
           .findByTrainIdOrderByFloorNumberSort(entity.getId());
@@ -384,6 +403,16 @@ public class PostTelegramTrainService {
     List<PostTelegramTrainFloorContentEntity> contentEntities = floorContentDao.findByFloorNumberAndTrainIdOrderBySort(
         param.getFloorNumber(), param.getId());
     if (contentEntities.isEmpty()) {
+      // Phase 7.4：floorNumber/messageNumber/type/isAverage/isRandom 均为可空包装类型，裸拆箱会 NPE
+      if (param.getFloorNumber() == null) {
+        throw new IllegalArgumentException("页码不能为空");
+      }
+      if (entity.getMessageNumber() == null) {
+        throw new IllegalArgumentException("训练报文数量缺失，无法生成报底");
+      }
+      if (entity.getType() == null) {
+        throw new IllegalArgumentException("报文类型缺失，无法生成报底");
+      }
       Integer currentPage = param.getFloorNumber();
       Integer messageNumber = entity.getMessageNumber();
       int totalPage = messageNumber / 100;
@@ -396,23 +425,20 @@ public class PostTelegramTrainService {
       } else if (totalPage == currentPage) {
         generateNumber = messageNumber - ((currentPage - 1) * 100);
       }
-      // 查询出上一页最后的值
-      PostTelegramTrainFloorContentEntity floorContentEntity = floorContentDao
-          .findByTrainIdOrderByFloorNumberDescSortDesc(param.getId());
       List<PostTelegramTrainFloorContentEntity> ret = new ArrayList<>();
       List<String> messageBody;
+      boolean average = Objects.equals(entity.getIsAverage(), 1);
+      boolean random = Objects.equals(entity.getIsRandom(), 1);
       // 生成对应的报文
       if (entity.getType().compareTo(NUMBER_MESSAGE.getType()) == 0) {
-        messageBody = GlobalMessageGeneratedUtil.generatedNumber(
-            generateNumber, entity.getIsAverage() == 1, entity.getIsRandom() == 1);
+        messageBody = GlobalMessageGeneratedUtil.generatedNumber(generateNumber, average, random);
       } else if (entity.getType().compareTo(STRING_MESSAGE.getType()) == 0) {
-        messageBody = GlobalMessageGeneratedUtil.generatedWord(
-            generateNumber, entity.getIsAverage() == 1, entity.getIsRandom() == 1);
+        messageBody = GlobalMessageGeneratedUtil.generatedWord(generateNumber, average, random);
       } else {
-        messageBody = GlobalMessageGeneratedUtil.generatedMingle(
-            generateNumber, entity.getIsAverage() == 1, entity.getIsRandom() == 1);
+        messageBody = GlobalMessageGeneratedUtil.generatedMingle(generateNumber, average, random);
       }
-      int floorNumber = floorContentEntity.getFloorNumber();
+      // 按请求页号落库（原取「最后一页 + 1」，跳页请求会把内容写到错误的页号上）
+      int floorNumber = currentPage - 1;
       for (int i = 0; i < messageBody.size(); i++) {
         if (i % 100 == 0) {
           floorNumber++;
@@ -491,8 +517,8 @@ public class PostTelegramTrainService {
       countScore(entity, dto);
       postTelegramTrainDao.saveAndFlush(entity);
       return PojoUtils.convertOne(entity, PostTelegramTrainVO.class, (t, r) -> {
-        r.setCodeSort(t.getCodeSort().compareTo(1) == 0);
-        r.setIsRandom(t.getIsRandom().compareTo(1) == 0);
+        r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+        r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
       });
     } catch (Exception e) {
       log.error("完成训练失败，训练ID: {}", dto.getId(), e);
@@ -504,7 +530,12 @@ public class PostTelegramTrainService {
   public void saveContentValue(PostTelegramTrainContentValueDto dto) {
     PostTelegramTrainEntity trainEntity = Optional.ofNullable(postTelegramTrainDao.findById(dto.getTrainId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询待该训练"));
-    if (trainEntity.getMessageNumber().compareTo(dto.getFloorNumber()) > 0) {
+    // Phase 7.4：floorNumber/messageNumber 均为可空 Integer，裸拆箱会 NPE
+    if (dto.getFloorNumber() == null) {
+      throw new IllegalArgumentException("页码不能为空");
+    }
+    if (trainEntity.getMessageNumber() != null
+        && trainEntity.getMessageNumber().compareTo(dto.getFloorNumber()) > 0) {
       trainEntity.setFloorNow(dto.getFloorNumber() + 1);
     }
     // 记录每页速率：按 floorNumber upsert，与下方 deleteByTrainIdAndFloorNumber 的重传语义对齐（Task 3.5）
@@ -539,9 +570,17 @@ public class PostTelegramTrainService {
   }
 
   public List<String> printBottomReport(PostTelegramTrainQueryParam param) {
-    PostTelegramTrainEntity entity = postTelegramTrainDao.findByIdOptional(param.getId()).orElseThrow();
+    PostTelegramTrainEntity entity = postTelegramTrainDao.findByIdOptional(param.getId())
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     PostTelegramTrainFloorContentEntity floorContentEntity = floorContentDao
         .findByTrainIdOrderByFloorNumberDescSortDesc(param.getId());
+    // Phase 7.4：messageNumber/type 均为可空 Integer，裸拆箱会 NPE
+    if (entity.getMessageNumber() == null) {
+      throw new IllegalArgumentException("训练报文数量缺失，无法打印报底");
+    }
+    if (entity.getType() == null) {
+      throw new IllegalArgumentException("报文类型缺失，无法打印报底");
+    }
     Integer messageNumber = entity.getMessageNumber();
     int totalPage = messageNumber / 100;
     int floorNumber = 0;
@@ -800,15 +839,15 @@ public class PostTelegramTrainService {
     }
     List<List<PostTelegramTrainContentAddParam>> messageBody = vo.getMessageBody();
     for (int i = 0; i < messageBody.size(); i++) {
-      floorNumber += i;
+      // 基准楼层之后逐页递增：第 i 页落 base + i + 1（原 floorNumber += i 会复用 base 并跳过 base+2）
+      int currentFloor = floorNumber + i + 1;
       List<PostTelegramTrainContentAddParam> addParams = messageBody.get(i);
       for (int j = 0; j < addParams.size(); j++) {
         PostTelegramTrainContentAddParam contentAddParam = addParams.get(j);
-        Integer finalFloorNumber = floorNumber;
         int finalJ = j;
         PostTelegramTrainFloorContentEntity contentEntity = PojoUtils.convertOne(
             contentAddParam, PostTelegramTrainFloorContentEntity.class, (p, e) -> {
-              e.setFloorNumber(finalFloorNumber);
+              e.setFloorNumber(currentFloor);
               e.setSort(finalJ);
               e.setTrainId(vo.getTrainId());
               e.setMoresTime(EMPTY_JSON_ARRAY);
@@ -825,22 +864,6 @@ public class PostTelegramTrainService {
     contentValueDao.delete("trainId", trainId);
     floorContentDao.delete("trainId", trainId);
     return postTelegramTrainDao.deleteById(trainId);
-  }
-
-  @Transactional
-  public List<PostTelegramTrainContentAddParam> test() {
-    // e46eefde-7d25-41ea-94d3-a2c8b84156d9
-    // 198fbf66-2573-43fb-aaf7-c4238f54f0e4
-    // 1fb5c8bc-8fc1-4eb4-bb75-962c1f798cd8
-    PostTelegramTrainContentFloorValueEntity valueEntity = contentValueDao.findByFloorNumberAndTrainId(
-        1, "46b6bfee-446e-4e71-8192-9616b7ba4ae8");
-    List<PostTelegramTrainContentAddParam> messageBody = JSONUtils.fromJson(
-        valueEntity.getMessageBody(), new TypeToken<>() {
-        });
-    messageBody = handleMessageBody(messageBody);
-    valueEntity.setMessageBody(JSONUtils.toJson(messageBody));
-    contentValueDao.saveAndFlush(valueEntity);
-    return messageBody;
   }
 
   /**

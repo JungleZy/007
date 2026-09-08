@@ -70,6 +70,17 @@ public class SimulationRouterRoomContentService {
 
   @Transactional
   public Integer addRoomAndContent(HttpServerRequest request, SimulationRoomRouterContentAddParam param) {
+    // Phase 7.4：isCable/bwCount/bwType 均为可空 Integer，下面 :96-:108 的裸拆箱会 NPE 成 500；
+    // 入参校验前置到写库之前
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用电缆报底不能为空");
+    }
+    if (param.getBwCount() == null) {
+      throw new IllegalArgumentException("报文组数不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0) && param.getBwType() == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
     // 保存房间信息
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomEntity roomEntity = new SimulationRouterRoomEntity();
@@ -93,7 +104,7 @@ public class SimulationRouterRoomContentService {
     SimulationRouterRoomContentEntity save = roomContentDao.save(roomContentEntity);
 
     // 生成房间报底
-    if (param.getIsCable() == 0) {
+    if (Objects.equals(param.getIsCable(), 0)) {
       Integer bwCount = param.getBwCount();
       Integer generateNumber = 200;
       if (bwCount.compareTo(200) < 0) {
@@ -106,6 +117,12 @@ public class SimulationRouterRoomContentService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = param.getBwCount() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立房间");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       // 使用批量保存替代循环逐条保存，提升性能
       List<SimulationRouterRoomPageEntity> pageEntities = new ArrayList<>();
@@ -134,7 +151,8 @@ public class SimulationRouterRoomContentService {
 
   @Transactional
   public Integer addStudent(HttpServerRequest request, SimulationDisturdDetailParam param) {
-    SimulationRouterRoomEntity byId = routerRoomDao.findById(param.getRoomId());
+    SimulationRouterRoomEntity byId = Optional.ofNullable(routerRoomDao.findById(param.getRoomId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该房间"));
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomUserEntity user = roomUserDao.findByUserIdAndRoomId(userEntity.getId(), param.getRoomId());
     if (user == null) {
@@ -143,7 +161,7 @@ public class SimulationRouterRoomContentService {
       roomUser.setUserType(1);
       roomUser.setRoomId(param.getRoomId());
       roomUser.setUserStatus(0);
-      if (byId.getRoomType() == 1) {
+      if (Objects.equals(byId.getRoomType(), 1)) {
         roomUser.setChannel(-1);
       }
       roomUserDao.saveAndFlush(roomUser);
@@ -172,7 +190,7 @@ public class SimulationRouterRoomContentService {
           simulationDisturdDetailVO.setContentValue(roomUserEntity.getContentValue());
         }
         simulationDisturdDetailVO.setExistPageNumber(existPageNumber);
-        if (null != simulationDisturdDetailVO.getIsCable() && simulationDisturdDetailVO.getIsCable() == 1) {
+        if (Objects.equals(simulationDisturdDetailVO.getIsCable(), 1)) {
           simulationDisturdDetailVO.setPageCount(pageDao.findMaxPageNumber(roomId));
           simulationDisturdDetailVO.setBwCount((int) pageDao.count("roomId", roomId));
         }
@@ -250,7 +268,8 @@ public class SimulationRouterRoomContentService {
    */
   @Transactional
   public SimulationDisturdSettingVO saveSetting(SimulationDisturdSettingVO vo) {
-    SimulationRouterRoomEntity roomEntity = routerRoomDao.findById(vo.getRoomId());
+    SimulationRouterRoomEntity roomEntity = Optional.ofNullable(routerRoomDao.findById(vo.getRoomId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该房间"));
     roomEntity.setSetting(vo.getSetting());
     routerRoomDao.save(roomEntity);
     return vo;

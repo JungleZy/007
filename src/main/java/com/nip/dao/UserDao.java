@@ -89,12 +89,8 @@ public class UserDao extends BaseRepository<UserEntity, String> {
   }
 
   public boolean updateUser(UserEntity user) {
-    try {
-      update("token = ?1,deviceId = ?2 where id = ?3", user.getToken(), user.getDeviceId(), user.getId());
-      return true;
-    } catch (Exception e) {
-      return false;
-    }
+    update("token = ?1,deviceId = ?2 where id = ?3", user.getToken(), user.getDeviceId(), user.getId());
+    return true;
   }
 
   public List<UserEntity> findAllByUserNameLikeOrUserAccountLikeOrderByStatusDesc(String userName, String userAccount) {

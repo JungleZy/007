@@ -1,0 +1,115 @@
+{
+  "comment": "多组命中：源报文 12 组，拍发在第 4 组位置多拍了 0000/1111 两组，GroupDetector.detectMoreGroup 在 j=2 处与源报文 6390 重新对上（skipCount=2）。patLogs 每组只给首字一个点，时长 60+10*n 使各组在 dot 容差 [70,130] 内落到虚/完美/粗不同档，便于快照体现对齐与重复统计。标准值与容差取自真实 t_grading_rule type=0（dot±30 dash±50 little±40 middle±60 large±90）。",
+  "sources": [
+    "3729",
+    "7201",
+    "4815",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "6704",
+    "3948"
+  ],
+  "patKeys": [
+    "3729",
+    "7201",
+    "4815",
+    "0000",
+    "1111",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "6704",
+    "3948"
+  ],
+  "userContents": [
+    {
+      "patLogs": "[[{\"key\":0,\"value\":60}]]",
+      "moresTime": "[[10]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":70}]]",
+      "moresTime": "[[11]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":80}]]",
+      "moresTime": "[[12]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":90}]]",
+      "moresTime": "[[13]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":100}]]",
+      "moresTime": "[[14]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":110}]]",
+      "moresTime": "[[15]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":120}]]",
+      "moresTime": "[[16]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":130}]]",
+      "moresTime": "[[17]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":140}]]",
+      "moresTime": "[[18]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":150}]]",
+      "moresTime": "[[19]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":160}]]",
+      "moresTime": "[[20]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":170}]]",
+      "moresTime": "[[21]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":180}]]",
+      "moresTime": "[[22]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":190}]]",
+      "moresTime": "[[23]]",
+      "moresValue": "[[0]]"
+    }
+  ],
+  "standards": [
+    {
+      "dot": 100,
+      "line": 300,
+      "codeGap": 100,
+      "wordGap": 200,
+      "groupGap": 400,
+      "offSize": 0
+    }
+  ]
+}

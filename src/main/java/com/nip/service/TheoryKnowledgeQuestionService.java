@@ -16,7 +16,6 @@ import com.nip.entity.TheoryKnowledgeQuestionEntity;
 import com.nip.entity.TheoryKnowledgeQuestionLevelEntity;
 import com.nip.entity.UserEntity;
 import io.quarkus.panache.common.Sort;
-import io.vertx.core.http.HttpServerResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -169,12 +168,9 @@ public class TheoryKnowledgeQuestionService {
   }
 
   /**
-   * 导出模板
+   * 导出指定题库的试题（后端只提供数据，由前端生成文件）
    */
-  public void exportTemplate(HttpServerResponse response) {
-  }
-
-  public List<TheoryKnowledgeQuestionEntity> exportQuestionByLevelId(HttpServerResponse response, String levelId) {
+  public List<TheoryKnowledgeQuestionEntity> exportQuestionByLevelId(String levelId) {
     return theoryKnowledgeQuestionDao.findAllByLevelId(levelId);
   }
 }

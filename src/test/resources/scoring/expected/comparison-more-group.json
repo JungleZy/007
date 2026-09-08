@@ -1,0 +1,112 @@
+{
+  "resolverMessage": [
+    "3729",
+    "7201",
+    "4815",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "6704",
+    "3948"
+  ],
+  "resolverPatLogs": [
+    "[[{\"key\":0,\"value\":60}]]",
+    "[[{\"key\":0,\"value\":70}]]",
+    "[[{\"key\":0,\"value\":80}]]",
+    "[[{\"key\":0,\"value\":90}]]",
+    "[[{\"key\":0,\"value\":120}]]",
+    "[[{\"key\":0,\"value\":130}]]",
+    "[[{\"key\":0,\"value\":140}]]",
+    "[[{\"key\":0,\"value\":150}]]",
+    "[[{\"key\":0,\"value\":160}]]",
+    "[[{\"key\":0,\"value\":170}]]",
+    "[[{\"key\":0,\"value\":180}]]",
+    "[[{\"key\":0,\"value\":190}]]"
+  ],
+  "resolverMoresTime": [
+    "[[10]]",
+    "[[11]]",
+    "[[12]]",
+    "[[13]]",
+    "[[16]]",
+    "[[17]]",
+    "[[18]]",
+    "[[19]]",
+    "[[20]]",
+    "[[21]]",
+    "[[22]]",
+    "[[23]]"
+  ],
+  "resolverMoresValue": [
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]",
+    "[[0]]"
+  ],
+  "moreGroups": [
+    {
+      "point": 3,
+      "message": [
+        "0000",
+        "1111"
+      ]
+    }
+  ],
+  "moreLine": [],
+  "scoreVO": {
+    "lack": 0,
+    "correct": 11,
+    "errorNumber": 1,
+    "moreGroup": 2,
+    "lackGroup": 0,
+    "bunchGroup": 0,
+    "moreOrLackWord": 0,
+    "moreOrLackLine": 0,
+    "patTotalNum": 14,
+    "dotScore": 0,
+    "lineScore": 0,
+    "codeScore": 0,
+    "wordScore": 0,
+    "groupScore": 0,
+    "alterErrorScore": 0,
+    "dotTotalTime": 1690,
+    "lineTotalTime": 0,
+    "codeTotalTime": 0,
+    "wordTotalTime": 0,
+    "groupTotalTime": 0
+  },
+  "statisticsVO": {
+    "dotMinNumber": 0,
+    "dotMaxNumber": 6,
+    "dotPerfectNumber": 7,
+    "lineMinNumber": 0,
+    "lineMaxNumber": 0,
+    "linePerfectNumber": 0,
+    "codeMinNumber": 0,
+    "codeMaxNumber": 0,
+    "codePerfectNumber": 0,
+    "wordMinNumber": 0,
+    "wordMaxNumber": 0,
+    "wordPerfectNumber": 0,
+    "groupMinNumber": 0,
+    "groupMaxNumber": 0,
+    "groupPerfectNumber": 0,
+    "dotAvg": 0,
+    "lineAvg": 0,
+    "codeAvg": 0,
+    "wordAvg": 0,
+    "groupAvg": 0
+  }
+}

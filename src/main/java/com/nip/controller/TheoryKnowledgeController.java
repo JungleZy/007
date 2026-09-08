@@ -12,12 +12,10 @@ import com.nip.dto.TheoryKnowledgesDto;
 import com.nip.dto.sql.FindTheoryKnowledgeDto;
 import com.nip.dto.vo.TheoryKnowledgeClassifyPageVO;
 import com.nip.dto.vo.TheoryKnowledgeClassifyVO;
-import com.nip.dto.vo.TheoryKnowledgeDocumentContentVO;
 import com.nip.entity.TheoryKnowledgeEntity;
 import com.nip.entity.TheoryKnowledgeSwfRecordEntity;
 import com.nip.service.TheoryKnowledgeClassifyService;
 import com.nip.service.TheoryKnowledgeService;
-import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
@@ -26,7 +24,6 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.resteasy.reactive.RestHeader;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.List;
 import java.util.Map;
@@ -171,12 +168,5 @@ public class TheoryKnowledgeController {
   public Response<Void> removeClassify(@RequestBody TheoryKnowledgeClassifyDto dto) {
     classifyService.remove(dto);
     return ResponseResult.success();
-  }
-
-  @POST
-  @Path("/uploadFileToNip")
-  @Operation(summary = "上传文件到NIP服务中")
-  public Response<TheoryKnowledgeDocumentContentVO> updateFileToNip(FileUpload file, HttpServerRequest request) {
-    return ResponseResult.success(classifyService.updateFileToNip(file, request));
   }
 }

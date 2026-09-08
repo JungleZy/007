@@ -46,15 +46,9 @@ public class CableTypeService {
 
   @Transactional
   public boolean delete(String id) {
-    try {
-      cableTypeDao.deleteById(id);
-      cableDao.delete("typeId", id);
-      cableFloorDao.delete("typeId", id);
-      return true;
-    } catch (RuntimeException e) {
-      log.error("删除报文失败", e);
-      return false;
-    }
-
+    cableTypeDao.deleteById(id);
+    cableDao.delete("typeId", id);
+    cableFloorDao.delete("typeId", id);
+    return true;
   }
 }

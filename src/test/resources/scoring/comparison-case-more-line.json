@@ -1,0 +1,219 @@
+{
+  "comment": "多行检测：源报文 2 行共 20 组，拍发把第 1 行重复拍了一遍（30 组）。i=10 处 sourceIndex%10==0 且 patKeys[10]==sources[0]，后 9 组与上一行逐组命中（matchCount=9≥5）→ LineDetector.detectMoreLine 命中，检测器内部已对后 9 组 checkDotLineGap。",
+  "sources": [
+    "3729",
+    "7201",
+    "4815",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "6704",
+    "3948",
+    "5162",
+    "8390",
+    "2745",
+    "1938",
+    "4076",
+    "6521",
+    "9184",
+    "3057"
+  ],
+  "patKeys": [
+    "3729",
+    "7201",
+    "4815",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "3729",
+    "7201",
+    "4815",
+    "6390",
+    "2584",
+    "1073",
+    "9462",
+    "5837",
+    "8016",
+    "4251",
+    "6704",
+    "3948",
+    "5162",
+    "8390",
+    "2745",
+    "1938",
+    "4076",
+    "6521",
+    "9184",
+    "3057"
+  ],
+  "userContents": [
+    {
+      "patLogs": "[[{\"key\":0,\"value\":60}]]",
+      "moresTime": "[[10]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":70}]]",
+      "moresTime": "[[11]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":80}]]",
+      "moresTime": "[[12]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":90}]]",
+      "moresTime": "[[13]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":100}]]",
+      "moresTime": "[[14]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":110}]]",
+      "moresTime": "[[15]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":120}]]",
+      "moresTime": "[[16]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":130}]]",
+      "moresTime": "[[17]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":140}]]",
+      "moresTime": "[[18]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":150}]]",
+      "moresTime": "[[19]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":160}]]",
+      "moresTime": "[[20]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":170}]]",
+      "moresTime": "[[21]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":180}]]",
+      "moresTime": "[[22]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":190}]]",
+      "moresTime": "[[23]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":200}]]",
+      "moresTime": "[[24]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":210}]]",
+      "moresTime": "[[25]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":220}]]",
+      "moresTime": "[[26]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":230}]]",
+      "moresTime": "[[27]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":240}]]",
+      "moresTime": "[[28]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":250}]]",
+      "moresTime": "[[29]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":260}]]",
+      "moresTime": "[[30]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":270}]]",
+      "moresTime": "[[31]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":280}]]",
+      "moresTime": "[[32]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":290}]]",
+      "moresTime": "[[33]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":300}]]",
+      "moresTime": "[[34]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":310}]]",
+      "moresTime": "[[35]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":320}]]",
+      "moresTime": "[[36]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":330}]]",
+      "moresTime": "[[37]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":340}]]",
+      "moresTime": "[[38]]",
+      "moresValue": "[[0]]"
+    },
+    {
+      "patLogs": "[[{\"key\":0,\"value\":350}]]",
+      "moresTime": "[[39]]",
+      "moresValue": "[[0]]"
+    }
+  ],
+  "standards": [
+    {
+      "dot": 100,
+      "line": 300,
+      "codeGap": 100,
+      "wordGap": 200,
+      "groupGap": 400,
+      "offSize": 0
+    }
+  ]
+}

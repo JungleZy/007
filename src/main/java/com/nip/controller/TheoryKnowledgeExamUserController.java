@@ -1,8 +1,10 @@
 package com.nip.controller;
 
+import com.nip.common.constants.ResponseCode;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
+import com.nip.dto.AllExamDto;
 import com.nip.dto.vo.TheoryKnowledgeExamUserSelfVO;
 import com.nip.entity.TheoryKnowledgeExamUserEntity;
 import com.nip.service.TheoryKnowledgeExamService;
@@ -43,21 +45,32 @@ public class TheoryKnowledgeExamUserController {
 
   @POST
   @Path("/findAllTheoryKnowledgeExamUser")
-  public Response<Map<String, Object>> findAllTheoryKnowledgeExamUser(@RestHeader(TOKEN) String token, Map<String, Boolean> map) throws Exception {
-    //创建返回结果集
-    Map<String, Object> ret = new HashMap<>();
+  public Response<Map<String, Object>> findAllTheoryKnowledgeExamUser(@RestHeader(TOKEN) String token,
+      Map<String, Boolean> map) throws Exception {
     Boolean type = map.get(TYPE);
     Object exam = null;
     List<TheoryKnowledgeExamUserSelfVO> examSelfVos = null;
-    //如果是Null 则查询自测和考评
-    if (Objects.isNull(type)) {
-      exam = theoryKnowledgeExamUserService.findAllTheoryKnowledgeExamUser(token, map.get("state")).getData();
-      examSelfVos = theoryKnowledgeExamService.listPageSelfTesting(token);
-    } else if (type) { //如果是true 只查询自测
-      examSelfVos = theoryKnowledgeExamService.listPageSelfTesting(token);
-    } else { //只查询考评
-      exam = theoryKnowledgeExamUserService.findAllTheoryKnowledgeExamUser(token, map.get("state")).getData();
+    // type 为 null 查自测 + 考评；true 只查自测；false 只查考评
+    if (!Boolean.TRUE.equals(type)) {
+      Boolean state = map.get("state");
+      if (Objects.isNull(state)) {
+        // 原来直接把 null 传给 boolean 形参会拆箱 NPE → 500
+        throw new IllegalArgumentException("state 不能为空");
+      }
+      Response<List<AllExamDto>> examResponse = theoryKnowledgeExamUserService
+          .findAllTheoryKnowledgeExamUser(token, state);
+      if (examResponse.getCode() != ResponseCode.SUCCESS.getCode()) {
+        // 内层业务码必须透传，不能被外层 success 信封盖住
+        return ResponseResult.error(examResponse.getCode(), examResponse.getMessage(),
+            examResponse.getDescription());
+      }
+      exam = examResponse.getData();
     }
+    if (!Boolean.FALSE.equals(type)) {
+      examSelfVos = theoryKnowledgeExamService.listPageSelfTesting(token);
+    }
+    //创建返回结果集
+    Map<String, Object> ret = new HashMap<>();
     ret.put("exam", exam);
     ret.put("examSelf", examSelfVos);
     return ResponseResult.success(ret);

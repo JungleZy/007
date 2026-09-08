@@ -5,6 +5,6 @@ import com.nip.entity.PostTrainGlobalRuleEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
-public class PostTrainGlobalRuleDao extends BaseRepository<PostTrainGlobalRuleEntity, String> {
+public class PostTrainGlobalRuleDao extends BaseRepository<PostTrainGlobalRuleEntity, Integer> {
 
 }

@@ -7,7 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 @ApplicationScoped
-public class GeneralTickerPatTrainPageDao extends BaseRepository<GeneralTickerPatTrainPageEntity, Integer> {
+public class GeneralTickerPatTrainPageDao extends BaseRepository<GeneralTickerPatTrainPageEntity, String> {
 
   public List<GeneralTickerPatTrainPageEntity> findByFloorNumberAndTrainIdOrderBySort(Integer floorNumber, Integer trainId) {
     return find("floorNumber = ?1 and trainId = ?2 order by sort", floorNumber, trainId).list();

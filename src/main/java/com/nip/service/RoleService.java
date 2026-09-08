@@ -53,29 +53,32 @@ public class RoleService {
 
   @Transactional
   public RoleEntity addRole(SaveRoleDto entity) {
-    if (entity.getRole().getIsAdmin() == 1 && entity.getRole().getIsDefault() == 0) {
-      List<RoleEntity> allByIsDefault = roleDao.findAllByIsDefault(0);
-      allByIsDefault.forEach(r -> {
+    RoleEntity role = entity.getRole();
+    if (role == null) {
+      throw new IllegalArgumentException("角色信息不能为空");
+    }
+    // isAdmin/isDefault 可能未传，判空后再比较，避免裸拆箱 NPE
+    if (Integer.valueOf(1).equals(role.getIsAdmin()) && Integer.valueOf(0).equals(role.getIsDefault())) {
+      roleDao.findAllByIsDefault(0).forEach(r -> {
         r.setIsDefault(1);
         roleDao.save(r);
       });
     }
-    if (StringUtils.isEmpty(entity.getRole().getId())) {
-      roleDao.save(entity.getRole());
+    if (StringUtils.isEmpty(role.getId())) {
+      role.setId(null);
     }
-
-    if (entity.getRole().getId() != null) {
-      roleMenusDao.deleteAllByRoleId(entity.getRole().getId());
-    }
+    // 新增走 persist、编辑走 merge：编辑分支此前完全不落库，标量字段改动永远丢失
+    RoleEntity saved = roleDao.save(role);
+    roleMenusDao.deleteAllByRoleId(saved.getId());
     entity.getMenus().forEach(m -> {
       Map<String, Object> map = JSONUtils.fromJson(m, new TypeToken<>() {});
       RoleMenusEntity roleMenusEntity = new RoleMenusEntity();
-      roleMenusEntity.setRoleId(entity.getRole().getId());
+      roleMenusEntity.setRoleId(saved.getId());
       roleMenusEntity.setMenuId(map.get("menusId").toString());
       roleMenusEntity.setPer(map.get("per").toString());
       roleMenusDao.save(roleMenusEntity);
     });
-    return entity.getRole();
+    return saved;
   }
 
   public List<RoleInfoDto> getRoleAll() {
@@ -100,12 +103,14 @@ public class RoleService {
   }
 
   public RoleMenusDto getRoleMenusInfo(String id) {
-    RoleEntity roleEntity = roleDao.findById(id);
+    // Phase 7.4：与 getRoleById 口径一致——不存在的角色 id 显式报错，不再返回 role=null 的空壳
+    RoleEntity roleEntity = roleDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该角色"));
     RoleMenusDto roleInfoDto = new RoleMenusDto();
     roleInfoDto.setRole(roleEntity);
     roleInfoDto.setMenusAll(menusService.getMenusDtos());
     roleInfoDto.setMenusChecked(
-        objectMapper.convertValue(getMenusEntityByRoleId(roleEntity == null ? null : roleEntity.getId()),
+        objectMapper.convertValue(getMenusEntityByRoleId(roleEntity.getId()),
             new TypeReference<>() {
             }
         ));

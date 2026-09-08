@@ -3,6 +3,7 @@ package com.nip.common.utils;
 import com.nip.dto.TelexPatPageTransferDto;
 import com.nip.dto.TelexPatStatisticalDto;
 import com.nip.dto.TelexPatValueTransferDto;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class TelexPatUtils {
   private static final Pattern PAGE_PATTERN = Pattern.compile("(.+?)-(\\d{1,3})/(\\d{1,3})");
   private static final Pattern PAGE_PATTERN1 = Pattern.compile("[^/]+/[^/]+");
@@ -448,7 +450,7 @@ public class TelexPatUtils {
         int flag = 1;
         if (rowNum < neatenResult.size()) {
           for (int k = colNum + 1; k < neatenResult.get(rowNum).size(); k++) {
-            System.out.println("行尾多组" + neatenResult.get(rowNum).get(k));
+            log.debug("行尾多组: {}", neatenResult.get(rowNum).get(k));
             ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + 1);
             flag++;
           }
@@ -632,33 +634,6 @@ public class TelexPatUtils {
     if (input == null)
       return false;
     return PAGE_PATTERN1.matcher(input).find();
-  }
-
-  public static void main(String[] args) {
-    String[] testCases = {
-        "09*22/0922", // true - 有效模式
-        "aa*aa/0922", // true - 有效模式
-        "////", // false - 无有效序列
-        "a///", // false - 右侧序列为空
-        "1///", // false - 右侧序列为空
-        "////1", // false - 左侧序列为空
-        "////a", // false - 左侧序列为空
-        "a/b", // true - 最小有效模式
-        "a//b", // false - 斜杠之间无有效序列
-        "test/page", // true - 常规有效模式
-        "/alone", // false - 缺少左侧序列
-        "only/", // false - 缺少右侧序列
-        "no_slash", // false - 无斜杠
-        "multiple/a/b/c" // true - 包含多个有效模式
-    };
-
-    for (String test : testCases) {
-      boolean result = containsPattern(test);
-      System.out.printf("输入: %-20s 结果: %-5b %s\n",
-          "\"" + test + "\"",
-          result,
-          result ? "✓" : "✗");
-    }
   }
 
   /**
@@ -914,7 +889,7 @@ public class TelexPatUtils {
   public static void insertElement(List<String> list, int index, String element) {
     // 处理负数索引
     if (index < 0) {
-      System.out.println("错误: 索引不能为负数");
+      log.warn("insertElement 收到负数下标 {}，忽略本次插入", index);
       return;
     }
 

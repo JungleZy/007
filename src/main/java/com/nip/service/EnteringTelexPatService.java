@@ -73,10 +73,14 @@ public class EnteringTelexPatService {
             .setAvgSpeed(new BigDecimal(0))
             .setTotalCount(0)
             .setTotalTime("0"));
-    queryStatisticalEntity.setTotalTime(String.valueOf(save.getTotalTime()));
-    queryStatisticalEntity.setTotalCount(queryStatisticalEntity.getTotalCount() + 1);
+    // Phase 7.4：totalTime/totalNum/totalCount 均为可空 Integer，裸拆箱会 NPE（与 TelexPatService 口径一致）
+    int totalTime = save.getTotalTime() == null ? 0 : save.getTotalTime();
+    int totalNum = save.getTotalNum() == null ? 0 : save.getTotalNum();
+    int totalCount = queryStatisticalEntity.getTotalCount() == null ? 0 : queryStatisticalEntity.getTotalCount();
+    queryStatisticalEntity.setTotalTime(String.valueOf(totalTime));
+    queryStatisticalEntity.setTotalCount(totalCount + 1);
     //计算平均速率=拍发总次数/时长(秒)折算次/分钟（ScoreMath 统一口径，时长为 0 返 0，P2-68）
-    queryStatisticalEntity.setAvgSpeed(ScoreMath.rate(save.getTotalNum(), save.getTotalTime() * 1000L));
+    queryStatisticalEntity.setAvgSpeed(ScoreMath.rate(totalNum, totalTime * 1000L));
     statisticalDao.save(queryStatisticalEntity);
     return PojoUtils.convertOne(save, EnteringTelexPatVO.class);
   }

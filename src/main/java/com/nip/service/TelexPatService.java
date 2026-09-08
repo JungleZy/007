@@ -98,14 +98,23 @@ public class TelexPatService {
       telexPatDao.deleteByUserIdAndType(userEntity.getId(), type);
       //清除统计信息
       TelexPatTrainStatisticalEntity statisticalEntity = statisticalDao.findByUserIdAndType(userEntity.getId(), type);
-      statisticalEntity.setTotalTime("0");
-      statisticalEntity.setTotalCount(0);
-      statisticalEntity.setAvgSpeed(BigDecimal.ZERO);
-      statisticalDao.save(statisticalEntity);
+      //统计行缺失属正常情形（用户从未训练过），跳过清零
+      if (statisticalEntity != null) {
+        statisticalEntity.setTotalTime("0");
+        statisticalEntity.setTotalCount(0);
+        statisticalEntity.setAvgSpeed(BigDecimal.ZERO);
+        statisticalDao.save(statisticalEntity);
+      }
       return ResponseResult.success();
     } catch (UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
+      try {
+        transactionManager.setRollbackOnly();
+      } catch (SystemException rollbackFailure) {
+        e.addSuppressed(rollbackFailure);
+        throw new IllegalStateException("无法标记训练删除事务回滚", e);
+      }
       log.error("deleteTexPatByToken", e);
       return ResponseResult.error();
     }

@@ -91,6 +91,22 @@ public class GeneralTelexPatService {
 
   @Transactional
   public GeneralTelexPatTrainVO add(GeneralTelexPatAddParamDto param, String token) {
+    // Phase 7.4：isCable/totalNumber/type/patType 均为可空 Integer，下面 :131-:155 的裸拆箱会 NPE 成 500；
+    // 入参校验前置到写库之前
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用电缆报底不能为空");
+    }
+    if (param.getTotalNumber() == null) {
+      throw new IllegalArgumentException("训练总组数不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0)) {
+      if (param.getType() == null) {
+        throw new IllegalArgumentException("报文类型不能为空");
+      }
+      if (Objects.equals(param.getType(), 0) && param.getPatType() == null) {
+        throw new IllegalArgumentException("拍发类型不能为空");
+      }
+    }
     UserEntity userEntity = userService.getUserByToken(token);
     GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(param.getRuleId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
@@ -130,7 +146,7 @@ public class GeneralTelexPatService {
     trainUserDao.save(trainUserEntityList);
     Integer groupNumber = entity.getTotalNumber();
     int generateNumber = groupNumber < 200 ? groupNumber : 200;
-    if (save.getIsCable() == 0) {
+    if (Objects.equals(save.getIsCable(), 0)) {
       if (0 == entity.getType()) {
         if (0 == entity.getPatType()) {
           List<String> bePointed = bePointed(generateNumber);
@@ -153,6 +169,12 @@ public class GeneralTelexPatService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null,
           param.getStartPage());
       int totalPage = groupNumber / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立房间");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       List<GeneralTelexPatPageEntity> list = new ArrayList<>();
       int floorNumber = 1;
@@ -217,9 +239,10 @@ public class GeneralTelexPatService {
   public GeneralTelexPatTrainVO detail(GeneralTelexPatPageParamDto param) {
     try {
       // 查询该训练信息
-      GeneralTelexPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
+      GeneralTelexPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       GeneralTelexPatTrainVO patTrainVO = PojoUtils.convertOne(keyPatEntity, GeneralTelexPatTrainVO.class);
-      if (keyPatEntity.getIsCable() == 1) {
+      if (Objects.equals(keyPatEntity.getIsCable(), 1)) {
         patTrainVO.setTotalNumber((int) trainPageDao.count("trainId", param.getTrainId()));
         patTrainVO.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
       }
@@ -281,9 +304,11 @@ public class GeneralTelexPatService {
   public GeneralTelexPatUserInfoVO patDetail(GeneralTelexPatPageParamDto param) {
     try {
       // 查询该训练信息
-      GeneralTelexPatEntity keyPatEntity = trainDao.findById(param.getTrainId());
-      GeneralTelexPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(param.getUserId(),
-          param.getTrainId());
+      GeneralTelexPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+      GeneralTelexPatUserEntity patUserEntity = Optional.ofNullable(
+              trainUserDao.findByUserIdAndTrainId(param.getUserId(), param.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
 
       List<Integer> pageNumber = trainPageDao.countPageNumber(param.getTrainId());
       // 查询前2页数据content
@@ -314,7 +339,7 @@ public class GeneralTelexPatService {
 
       return PojoUtils.convertOne(patUserEntity, GeneralTelexPatUserInfoVO.class, (t, v) -> {
         v.setExistPage(pageNumber);
-        if (patUserEntity.getIsFinish().compareTo(1) == 0) {
+        if (Objects.equals(patUserEntity.getIsFinish(), 1)) {
           v.setContent(PojoUtils.convert(toPageValue, PostTelegraphKeyPatTrainPageMessageVO.class));
         } else {
           v.setContent(PojoUtils.convert(twoPage, PostTelegraphKeyPatTrainPageMessageVO.class));
@@ -324,7 +349,7 @@ public class GeneralTelexPatService {
         v.setRuleContent(keyPatEntity.getRuleContent());
         v.setTotalNumber(keyPatEntity.getTotalNumber());
         v.setIsCable(keyPatEntity.getIsCable());
-        if (keyPatEntity.getIsCable() == 1) {
+        if (Objects.equals(keyPatEntity.getIsCable(), 1)) {
           v.setTotalNumber((int) trainPageDao.count("trainId", param.getTrainId()));
           v.setPageCount(trainPageDao.findMaxPageNumber(param.getTrainId()));
         }
@@ -338,13 +363,22 @@ public class GeneralTelexPatService {
 
   }
 
+  /**
+   * 查询指定 trainId 对应页码的报底
+   */
   public GeneralTelexPatPageDto findMessageBody(GeneralTelexPatPageParamDto param) {
-    return null;
+    // 查询出该训练对应页码的报底
+    final List<GeneralTelexPatPageEntity> trainPageList = trainPageDao
+        .findByTrainIdAndPageNumberOrderBySort(param.getTrainId(), param.getPageNumber());
+    GeneralTelexPatPageDto dto = new GeneralTelexPatPageDto();
+    dto.setMessageContent(PojoUtils.convert(trainPageList, GeneralTelexPatPageDetailDto.class));
+    return dto;
   }
 
   @Transactional
   public void updateStatus(String trainId, Integer status) {
-    GeneralTelexPatEntity keyPatTrain = trainDao.findById(trainId);
+    GeneralTelexPatEntity keyPatTrain = Optional.ofNullable(trainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     keyPatTrain.setStatus(status);
     if (Objects.equals(status, PostTelegramTrainEnum.UNDERWAY.getStatus())) {
       // 教员点击开始训练，设置开始时间
@@ -361,7 +395,9 @@ public class GeneralTelexPatService {
   @Transactional
   public void saveContentValue(GeneralTelexPatPageSubmitDto dto, String token) {
     String userId = userService.getUserByToken(token).getId();
-    GeneralTelexPatUserEntity entity = trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId());
+    GeneralTelexPatUserEntity entity = Optional.ofNullable(
+            trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
     List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
         .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
         })).orElseGet(ArrayList::new);
@@ -430,7 +466,8 @@ public class GeneralTelexPatService {
   @Transactional
   public List<GeneralTelexPatUserInfoVO> finish(GeneralTelexPatFinishDto dto) {
     try {
-      GeneralTelexPatEntity entity = trainDao.findById(dto.getTrainId());
+      GeneralTelexPatEntity entity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       // 分数计算，计算该训练下所有人员的分数
       List<GeneralTelexPatUserInfoVO> userInfoList = new ArrayList<>();
       GeneralTelexPatUserEntity userTrainEntity = countScore(entity, dto.getUserId());
@@ -458,13 +495,21 @@ public class GeneralTelexPatService {
   public PostTelegraphTelexPatTrainPageVO getPage(String trainId, Integer pageNumber, String userId) {
     try {
       PostTelegraphTelexPatTrainPageVO ret = new PostTelegraphTelexPatTrainPageVO();
-      GeneralTelexPatEntity entity = trainDao.findById(trainId);
+      GeneralTelexPatEntity entity = Optional.ofNullable(trainDao.findById(trainId))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
       List<GeneralTelexPatPageEntity> messageVO = null;
       int generateNumber = 100;
       // 页码是否正确
-      if (entity.getIsCable() == 0) {
-        int totalPage = entity.getTotalNumber() / 100;
+      // Phase 7.4：pageNumber/totalNumber 均为可空 Integer，裸拆箱会 NPE
+      if (pageNumber == null) {
+        throw new IllegalArgumentException("页码不能为空");
+      }
+      if (Objects.equals(entity.getIsCable(), 0)) {
+        if (entity.getTotalNumber() == null) {
+          throw new IllegalArgumentException("训练总组数缺失，无法取页");
+        }
         int totalNumber = entity.getTotalNumber();
+        int totalPage = totalNumber / 100;
         if (totalNumber % 100 > 0) {
           totalPage += 1;
         }
@@ -669,7 +714,9 @@ public class GeneralTelexPatService {
    * @param
    */
   private GeneralTelexPatUserEntity countScore(GeneralTelexPatEntity entity, String userId) {
-    GeneralTelexPatUserEntity kehPatUserEntity = trainUserDao.findByUserIdAndTrainId(userId, entity.getId());
+    GeneralTelexPatUserEntity kehPatUserEntity = Optional.ofNullable(
+            trainUserDao.findByUserIdAndTrainId(userId, entity.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
     TelexPatStatisticalDto ks = new TelexPatStatisticalDto();
 
     List<Integer> pageNumbers = trainPageDao.countPageNumber(entity.getId());

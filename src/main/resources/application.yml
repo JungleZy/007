@@ -16,7 +16,9 @@ quarkus:
   datasource:
     db-kind: mysql
     jdbc:
-      max-size: 200
+      # 池上限与 MySQL 默认 max_connections=151 对齐：原 200 单实例就能顶满整库连接数。
+      # 50 条留出多实例部署与运维会话的余量（50 × 3 实例 + 运维 < 151）。
+      max-size: 50
       min-size: 20
   hibernate-orm:
     jdbc:
@@ -59,7 +61,13 @@ quarkus:
       username: root
       password: root
       jdbc:
-        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true
+        # 原 URL 尾部的 idleTimeout/connectionTestQuery 是 HikariCP 专有参数，
+        # 本项目连接池是 Agroal，这两个参数在 URL 里既不被驱动识别也不被池识别，等于没配。
+        # 下面三项是 Agroal 等价配置：空闲连接 1 分钟回收 + 每 2 分钟后台校验存活连接。
+        idle-removal-interval: 1M
+        background-validation-interval: 2M
+        validation-query-sql: SELECT 1
 "%test":
   quarkus:
     datasource:
@@ -78,7 +86,12 @@ quarkus:
       username: root
       password: root
       jdbc:
-        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true&idleTimeout=60000&connectionTestQuery=SELECT 1
+        url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true
+        # 同 %dev：HikariCP 专有的 idleTimeout/connectionTestQuery 从 URL 移除，
+        # 改用 Agroal 的空闲回收与后台校验配置。
+        idle-removal-interval: 1M
+        background-validation-interval: 2M
+        validation-query-sql: SELECT 1
     hibernate-orm:
       database:
         # 顺序硬约束：必须先执行 docs/database/migrations/2026-08-26-01-schema-sync.sql

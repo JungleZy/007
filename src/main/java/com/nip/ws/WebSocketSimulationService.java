@@ -104,6 +104,9 @@ public class WebSocketSimulationService {
       if (userEntity == null) {
         return new OpenTransition("人员或房间信息未找到", null, null, null);
       }
+      // 合成成员：无 roomUser 行的连接（干扰房/路由房的组训与旁观）。
+      // channel 置 -1（不落在任何真实频道上）；userType 保持 null——messageHandleRouter:576 正是以
+      // userType==null 识别组训人员，这里不能填默认值。下游所有 userType/channel 比较均已 null-safe。
       roomUserMap = new SimulationRouterRoomUserSimpDto();
       roomUserMap.setId(userEntity.getId());
       roomUserMap.setName(userEntity.getUserAccount());
@@ -444,7 +447,9 @@ public class WebSocketSimulationService {
         item.setChannel(selectedChannel);
         roomUserDao.save(roomUser);
         for (SimulationSessionHolder simulation : simulations) {
-          if (simulation.userModel().getUserType().compareTo(0) == 0) {
+          // 合成成员（无 roomUser 行，openLocked:107-111）userType 为 null：null-safe 比较，
+          // 不得让一个非在册连接的 NPE 中断整条广播
+          if (Objects.equals(simulation.userModel().getUserType(), 0)) {
             sendMessage(simulation.session(), message, "", "");
           } else if (Objects.equals(simulation.userModel().getId(), userId)) {
             simulation.userModel().setChannel(selectedChannel);
@@ -453,7 +458,7 @@ public class WebSocketSimulationService {
       });
     } else if (TOPIC_RESULT.getType().equals(topic)) {
       for (SimulationSessionHolder simulation : simulations) {
-        if (simulation.userModel().getUserType().compareTo(0) == 0) {
+        if (Objects.equals(simulation.userModel().getUserType(), 0)) {
           sendMessage(simulation.session(), message, "", "");
         }
       }
@@ -513,7 +518,7 @@ public class WebSocketSimulationService {
         if (Objects.equals(simulation.userModel().getId(), userId)) {
           //将装备设置成已准备
           simulation.userModel().setStatus(2);
-        } else if (simulation.userModel().getUserType().compareTo(0) == 0) {
+        } else if (Objects.equals(simulation.userModel().getUserType(), 0)) {
           mesg.put(ID, userId);
           WebSocketSimulationService.sendMessage(
               simulation.session(), JSONObject.toJSONString(mesg), "", "");
@@ -528,7 +533,8 @@ public class WebSocketSimulationService {
         roomUserEntity.setUserStatus(1);
         roomUserDao.save(roomUserEntity);
         for (SimulationSessionHolder socketSimulation : socketSimulations) {
-          if (socketSimulation.userModel().getChannel().compareTo(0) == 0) {
+          // channel 为 null 的连接（合成成员/DB 未配频道）只是不匹配，不得中断结果下发
+          if (Objects.equals(socketSimulation.userModel().getChannel(), 0)) {
             WebSocketSimulationService.sendMessage(
                 socketSimulation.session(), JSONObject.toJSONString(mesg), "", "");
             break;
@@ -576,10 +582,16 @@ public class WebSocketSimulationService {
                   .toList();
             } else {  //参训人员给对应频道人员
               Integer channel = socketSimulation.userModel().getChannel();
-              collect = socketSimulations.stream()
-                  .filter(item -> item.userModel().getChannel().compareTo(channel) == 0 &&
-                      !Objects.equals(item.userModel().getId(), socketSimulation.userModel().getId()))
-                  .toList();
+              if (channel == null) {
+                // DB 未配频道：不下发也不 NPE，其余成员的收发不受影响
+                log.warn("推演路由房参训人员未配置频道，消息不下发:roomId={},userId={}", roomId, userId);
+                collect = List.of();
+              } else {
+                collect = socketSimulations.stream()
+                    .filter(item -> Objects.equals(item.userModel().getChannel(), channel) &&
+                        !Objects.equals(item.userModel().getId(), socketSimulation.userModel().getId()))
+                    .toList();
+              }
             }
 
             collect.forEach(item -> WebSocketSimulationService.sendMessage(

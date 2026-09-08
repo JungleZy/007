@@ -65,6 +65,13 @@ public class PostTelegraphKeyPatTrainService {
 
   @Transactional
   public PostTelegraphKeyPatTrainVO add(PostTelegraphKeyPatTrainDto dto, String token) {
+    // Phase 7.4：isCable/totalNumber 是可空 Integer，下面 :82-:91 的裸拆箱会 NPE 成 500
+    if (dto.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用固定报底不能为空");
+    }
+    if (dto.getTotalNumber() == null) {
+      throw new IllegalArgumentException("训练总组数不能为空");
+    }
     UserEntity userEntity = userService.getUserByToken(token);
     PostTelegraphKeyPatTrainEntity entity = PojoUtils.convertOne(dto, PostTelegraphKeyPatTrainEntity.class);
     entity.setAccuracy(0)
@@ -79,7 +86,7 @@ public class PostTelegraphKeyPatTrainService {
     entity.setScore(new BigDecimal(ruleEntity.getScore()));
     entity.setRuleContent(ruleEntity.getContent());
     PostTelegraphKeyPatTrainEntity save = patTrainDao.saveAndFlush(entity);
-    if (dto.getIsCable() == 0) {
+    if (Objects.equals(dto.getIsCable(), 0)) {
       Integer totalNumber = save.getTotalNumber();
       if (totalNumber > 200) {
         totalNumber = 200;
@@ -89,6 +96,12 @@ public class PostTelegraphKeyPatTrainService {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(dto.getCableId(), null,
           dto.getStartPage());
       int totalPage = dto.getTotalNumber() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立训练");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       // 使用批量保存替代循环逐条保存，提升性能
       List<PostTelegraphKeyPatTrainPageEntity> pageEntities = new ArrayList<>();
@@ -188,13 +201,14 @@ public class PostTelegraphKeyPatTrainService {
       });
 
       return PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class, (t, v) -> {
-        if (t.getStatus().compareTo(PostTelegraphKeyPatTrainEnum.FINISH.getStatus()) != 0 && t.getRuleId() != null) {
+        if (!Objects.equals(t.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())
+            && t.getRuleId() != null) {
           String ruleContent = Optional.ofNullable(gradingRuleDao.findById(t.getRuleId()))
               .map(GradingRuleEntity::getContent).orElse("");
           v.setRuleContent(ruleContent);
         }
         v.setExistPage(pageNumber);
-        if (v.getStatus().compareTo(2) == 0) {
+        if (Objects.equals(v.getStatus(), 2)) {
           // 在大于2页报文时，用户拍发的页数少于生成页数，需用生成的报文补足2数据
           if (twoPageValue.size() < twoPage.size()) {
             int index = twoPage.size() - twoPageValue.size();
@@ -235,12 +249,19 @@ public class PostTelegraphKeyPatTrainService {
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练id"));
     List<PostTelegraphKeyPatTrainPageEntity> messageVO;
     // 页码是否正确
+    // Phase 7.4：pageNumber/isCable/totalNumber 均为可空 Integer，裸拆箱会 NPE
+    if (pageNumber == null) {
+      throw new IllegalArgumentException("页码不能为空");
+    }
     int totalPage;
     int totalNumber;
     int generateNumber = 100;
-    if (entity.getIsCable() == 0) {
-      totalPage = entity.getTotalNumber() / 100;
+    if (Objects.equals(entity.getIsCable(), 0)) {
+      if (entity.getTotalNumber() == null) {
+        throw new IllegalArgumentException("训练总组数缺失，无法取页");
+      }
       totalNumber = entity.getTotalNumber();
+      totalPage = totalNumber / 100;
       if (totalNumber % 100 > 0) {
         totalPage += 1;
       }
@@ -368,13 +389,20 @@ public class PostTelegraphKeyPatTrainService {
 
     List<PostTelegraphKeyPatTrainPageValueEntity> pv = PojoUtils.convert(pageValueResult,
         PostTelegraphKeyPatTrainPageValueEntity.class);
+    // P2-2.3：拍发记录重建改为「先构建 + 校验，后删除 + 写入」。校验不过直接抛出，delete 绝不先发生，
+    // 否则构建失败会把旧拍发记录删空（目标表实测 MyISAM，事务回滚在其上是空操作）。
+    checkRebuiltPageValues(entity.getId(), pageNumbers, pv);
     valueDao.deleteByTrainId(entity.getId());
     valueDao.saveAndFlush(pv);
 
     // 存放扣分规则 key扣分名称，value扣分值
     Map<String, Object> deductInfo = new HashMap<>();
     // 计算少行
-    int totalGroups = entity.getIsCable() == 1 ? (int) pageDao.count("trainId", entity.getId())
+    // Phase 7.4：isCable/totalNumber 均为可空 Integer，三元与赋值都会拆箱 NPE
+    if (!Objects.equals(entity.getIsCable(), 1) && entity.getTotalNumber() == null) {
+      throw new IllegalArgumentException("训练总组数缺失，无法结算");
+    }
+    int totalGroups = Objects.equals(entity.getIsCable(), 1) ? (int) pageDao.count("trainId", entity.getId())
         : entity.getTotalNumber();
     int fullPages = totalGroups / 100;
     int lastPageGroups = totalGroups % 100;
@@ -479,6 +507,42 @@ public class PostTelegraphKeyPatTrainService {
     entity.setDeductInfo(JSONUtils.toJson(deductInfo));
 
     return patTrainDao.save(entity);
+  }
+
+  /**
+   * P2-2.3：校验重建后的拍发记录集合，校验通过后调用方才可以 delete + 批量 save。
+   * 约束：结果非空、页号全部有值、页号集合与原有页号一致且连续。
+   * 任一条不满足即抛 IllegalStateException，让旧拍发记录原封不动地留在库里。
+   *
+   * @param trainId           训练 id，写进错误信息便于定位
+   * @param sourcePageNumbers 原拍发记录里出现过的页号（升序去重）
+   * @param rebuilt           内存中重建出来的新拍发记录集合
+   */
+  private static void checkRebuiltPageValues(String trainId, List<Integer> sourcePageNumbers,
+      List<PostTelegraphKeyPatTrainPageValueEntity> rebuilt) {
+    if (sourcePageNumbers.isEmpty()) {
+      // 原本就没有拍发记录，delete 无损，直接放行
+      return;
+    }
+    if (rebuilt.isEmpty()) {
+      throw new IllegalStateException("拍发记录重建结果为空，拒绝删除已有拍发记录，训练ID: " + trainId);
+    }
+    if (rebuilt.stream().anyMatch(v -> Objects.isNull(v.getPageNumber()))) {
+      throw new IllegalStateException("拍发记录重建结果存在页号为空的行，拒绝删除已有拍发记录，训练ID: " + trainId);
+    }
+    Set<Integer> rebuiltPages = rebuilt.stream()
+        .map(PostTelegraphKeyPatTrainPageValueEntity::getPageNumber)
+        .collect(Collectors.toCollection(TreeSet::new));
+    if (!rebuiltPages.equals(new TreeSet<>(sourcePageNumbers))) {
+      throw new IllegalStateException("拍发记录重建结果页号与原记录不一致，拒绝删除已有拍发记录，训练ID: " + trainId
+          + "，原页号: " + new TreeSet<>(sourcePageNumbers) + "，重建页号: " + rebuiltPages);
+    }
+    int min = Collections.min(rebuiltPages);
+    int max = Collections.max(rebuiltPages);
+    if (max - min + 1 != rebuiltPages.size()) {
+      throw new IllegalStateException("拍发记录页号不连续，拒绝删除已有拍发记录，训练ID: " + trainId
+          + "，页号: " + rebuiltPages);
+    }
   }
 
   /**

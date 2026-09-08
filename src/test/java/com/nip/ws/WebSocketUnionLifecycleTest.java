@@ -162,6 +162,22 @@ class WebSocketUnionLifecycleTest {
   }
 
   @Test
+  void unknownSidIsRejectedWithoutRegisteringOrDereferencingNull() throws Exception {
+    WebSocketUnionService endpoint = endpoint(new MissingUserDao());
+    TestSession ghost = session("ghost-session");
+
+    endpoint.onOpen(ghost.session(), "no-such-user");
+
+    assertFalse(unionMap("webSocketClientSet").containsKey("no-such-user"),
+        "a sid with no user row must never be registered as a client");
+    assertFalse(unionMap("onlineUsers").containsKey("no-such-user"),
+        "a sid with no user row must never appear in the online user list");
+    assertFalse(ghost.open().get(), "the rejected connection must be closed, not left open");
+    assertTrue(ghost.outbound().stream().anyMatch(message -> message.contains("用户不存在")),
+        "the client must be told why it was rejected; outbound was " + ghost.outbound());
+  }
+
+  @Test
   void disconnectInterleavedWithJoinCannotPublishIntoDetachedRoom() throws Exception {
     WebSocketUnionService endpoint = endpoint(new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
     TestSession owner = session("owner-session");
@@ -261,6 +277,13 @@ class WebSocketUnionLifecycleTest {
         signal.countDown();
       }
       return entity(id);
+    }
+  }
+
+  private static final class MissingUserDao extends UserDao {
+    @Override
+    public UserEntity findUserEntityById(String id) {
+      return null;
     }
   }
 

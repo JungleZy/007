@@ -91,6 +91,17 @@ public class SimulationRouterRoomService {
    */
   @Transactional(rollbackOn = Exception.class)
   public void addRoom(HttpServerRequest request, SimulationRoomRouterAddParam param) {
+    // Phase 7.4：isCable/bwCount/bwType 均为可空 Integer，下面 :115-:126 的裸拆箱会 NPE 成 500；
+    // 入参校验前置到写库之前
+    if (param.getIsCable() == null) {
+      throw new IllegalArgumentException("是否使用电缆报底不能为空");
+    }
+    if (param.getBwCount() == null) {
+      throw new IllegalArgumentException("报文组数不能为空");
+    }
+    if (Objects.equals(param.getIsCable(), 0) && param.getBwType() == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
     //保存房间信息
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomEntity roomEntity = new SimulationRouterRoomEntity();
@@ -112,7 +123,7 @@ public class SimulationRouterRoomService {
     SimulationRouterRoomContentEntity save = roomContentDao.save(roomContentEntity);
 
     //生成房间报底
-    if (param.getIsCable() == 0) {
+    if (Objects.equals(param.getIsCable(), 0)) {
       Integer bwCount = param.getBwCount();
       Integer generateNumber = 200;
       if (bwCount.compareTo(200) < 0) {
@@ -124,6 +135,12 @@ public class SimulationRouterRoomService {
     } else {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
       int totalPage = param.getBwCount() / 100;
+      if (totalPage <= 0) {
+        throw new IllegalArgumentException("报文组数不足一页，无法建立房间");
+      }
+      if (totalPage > cableFloor.size()) {
+        throw new IllegalArgumentException("所选电缆可用楼层不足");
+      }
       cableFloor = cableFloor.subList(0, totalPage);
       // 使用批量保存替代循环逐条保存，提升性能
       List<SimulationRouterRoomPageEntity> pageEntities = new ArrayList<>();
@@ -287,7 +304,7 @@ public class SimulationRouterRoomService {
       v.setStartTime(Optional.ofNullable(roomEntity.getStartTime())
           .map(item -> item.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
           .orElse(""));
-      if (roomEntity.getIsCable() == 1) {
+      if (Objects.equals(roomEntity.getIsCable(), 1)) {
         v.setPageCount(pageDao.findMaxPageNumber(roomId));
         v.setBwCount((int) pageDao.count("roomId", roomId));
       }

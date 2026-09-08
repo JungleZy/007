@@ -21,6 +21,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @Author: wushilin
@@ -55,6 +56,10 @@ public class PostEnteringExerciseService {
     entity.setCorrectNum(0);
     entity.setErrorNum(0);
     //如果是军语则选则默认的军语文章
+    // Phase 7.4：type 是可空 Integer，裸 compareTo 会拆箱 NPE
+    if (entity.getType() == null) {
+      throw new IllegalArgumentException("训练类型不能为空");
+    }
     if (entity.getType().compareTo(PostEnteringExerciseTypeEnum.JYCZ.getCode()) == 0) {
       entity.setContent(wordStockDao.findByType(PostEnteringExerciseTypeEnum.JYCZ.getCode()).getContent());
     } else if (entity.getType().compareTo(PostEnteringExerciseTypeEnum.TZYY.getCode()) == 0) {
@@ -72,9 +77,13 @@ public class PostEnteringExerciseService {
   public List<PostEnteringExerciseVO> listPage(PostEnteringExercisePageParam param, String token) {
     UserEntity userEntity = userDao.findUserEntityByToken(token);
     String sql;
-    if (param.getType() == 0) {
+    // Phase 7.4：type 是可空 Integer，裸 == 会拆箱 NPE；null 无法映射到三种查询口径，显式拒绝
+    if (param.getType() == null) {
+      throw new IllegalArgumentException("训练类型不能为空");
+    }
+    if (Objects.equals(param.getType(), 0)) {
       sql = "type > 2";
-    } else if (param.getType() == 1) {
+    } else if (Objects.equals(param.getType(), 1)) {
       sql = "type < 2";
     } else {
       sql = "type = 2";
@@ -102,7 +111,10 @@ public class PostEnteringExerciseService {
   }
 
   public PostEnteringExerciseVO getById(String id) {
-    return PojoUtils.convertOne(exerciseDao.findById(id), PostEnteringExerciseVO.class);
+    // Phase 7.4：不存在的 id 原先返回一个全空 VO 空壳，改为显式报错
+    PostEnteringExerciseEntity entity = exerciseDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    return PojoUtils.convertOne(entity, PostEnteringExerciseVO.class);
   }
 
   @Transactional

@@ -115,36 +115,28 @@ public class GradingRuleService {
   public Response<Void> changeGradingRuleIsDefault(String id) {
     GradingRuleEntity entity = gradingRuleDao.findByIdOptional(id)
         .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
-    try {
-      List<GradingRuleEntity> byType = gradingRuleDao.findByType(entity.getType());
-      byType.forEach(e -> {
-        e.setIsDefault(1);
-        if (id.equals(e.getId())) {
-          e.setIsDefault(0);
-        }
-      });
-      return ResponseResult.success();
-    } catch (Exception e) {
-      return ResponseResult.error();
-    }
+    List<GradingRuleEntity> byType = gradingRuleDao.findByType(entity.getType());
+    byType.forEach(e -> {
+      e.setIsDefault(1);
+      if (id.equals(e.getId())) {
+        e.setIsDefault(0);
+      }
+    });
+    return ResponseResult.success();
   }
 
   @Transactional
   public Response<Void> deleteGradingRule(String id) {
-    try {
-      long c1 = postTelegramTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      long c2 = postTelexPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      long c3 = postTelegraphKeyPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      long c4 = generalTelexPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      long c5 = generalKeyPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      long c6 = generalTickerPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
-      if (c1 + c2 + c3 + c4 + c5 + c6 > 0) {
-        return ResponseResult.error("存在未开始或进行中的训练引用该评分规则，禁止删除");
-      }
-      gradingRuleDao.deleteById(id);
-      return ResponseResult.success();
-    } catch (Exception e) {
-      return ResponseResult.error();
+    long c1 = postTelegramTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    long c2 = postTelexPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    long c3 = postTelegraphKeyPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    long c4 = generalTelexPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    long c5 = generalKeyPatDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    long c6 = generalTickerPatTrainDao.count("ruleId = ?1 and (status = 0 or status = 1)", id);
+    if (c1 + c2 + c3 + c4 + c5 + c6 > 0) {
+      return ResponseResult.error("存在未开始或进行中的训练引用该评分规则，禁止删除");
     }
+    gradingRuleDao.deleteById(id);
+    return ResponseResult.success();
   }
 }

@@ -12,10 +12,10 @@ import com.nip.service.simulation.SimulationRouterRoomService;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.websocket.server.PathParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
@@ -70,7 +70,7 @@ public class SimulationRouterRoomController {
   @Path("/getRoomDetail")
   @Operation(summary = "查询房间详情")
   public Response<SimulationRouterRoomVO> getRoomDetail(HttpServerRequest request,
-      @RestQuery("roomgId") Integer roomId) {
+      @RestQuery(ROOM_ID) Integer roomId) {
     return ResponseResult.success(roomService.getRoomDetail(request, roomId));
   }
 

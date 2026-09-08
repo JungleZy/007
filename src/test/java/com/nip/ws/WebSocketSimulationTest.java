@@ -17,6 +17,7 @@ import jakarta.websocket.ClientEndpoint;
 import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnMessage;
+import jakarta.websocket.RemoteEndpoint;
 import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
 import org.junit.jupiter.api.Test;
@@ -24,10 +25,15 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.nip.common.constants.SimulationDisturdTopicEnum.TOPIC_RESULT;
+import static com.nip.common.constants.SimulationDisturdTopicEnum.TOPIC_SELECT;
+import static com.nip.common.constants.SimulationRoomTypeEnum.DISTURB;
 import static com.nip.common.constants.SimulationRoomTypeEnum.REPORT;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -298,5 +304,129 @@ class WebSocketSimulationTest {
       Thread.sleep(100);
     }
     throw new AssertionError("学员断线后 10s 内未被移出房间列表");
+  }
+
+  // Task 6.5(b)：干扰房里既有在册成员，也有无 roomUser 行的合成成员（channel=-1、userType 为 null）。
+  // 修复前 messageHandleDisturb 的 getUserType().compareTo(0) 在合成成员上 NPE，
+  // 整条 select 广播被打断，排在后面的在册成员一个字也收不到。
+  @Test
+  void disturbRoomBroadcastReachesMembersDespiteSyntheticMember() {
+    String senderId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("disturb-room-synthetic");
+    room.setCreateUserId(senderId);
+    room.setRoomType(DISTURB.getType());
+    room.setStats(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+    saveRoomUser(roomId, senderId, 1, 1); // 在册参训人员：切换频道需要 roomUser 行
+
+    // 合成成员排在最前：修复前它会先把整个循环 NPE 掉
+    RecordingSession synthetic = recordingSession("synthetic");
+    SimulationUserModel syntheticModel = new SimulationUserModel();
+    syntheticModel.setId("synthetic-observer");
+    syntheticModel.setChannel(-1); // openLocked 合成成员：userType 保持 null
+    RecordingSession organizer = recordingSession("organizer");
+    SimulationUserModel organizerModel = new SimulationUserModel();
+    organizerModel.setId("organizer-user");
+    organizerModel.setChannel(0);
+    organizerModel.setUserType(0);
+    SimulationGlobal.disturbRoom.put(roomId, new CopyOnWriteArrayList<>(List.of(
+        new SimulationSessionHolder(synthetic.session(), syntheticModel),
+        new SimulationSessionHolder(organizer.session(), organizerModel))));
+
+    try {
+      String message = "{\"topic\":\"" + TOPIC_SELECT.getType() + "\",\"body\":{\"road\":2}}";
+      assertDoesNotThrow(() -> service.messageHandleDisturb(message, roomId, senderId),
+          "合成成员不得让在册成员的消息处理抛异常");
+
+      assertFalse(organizer.outbound().isEmpty(),
+          "排在合成成员之后的在册成员必须收到 select 广播");
+      // data 字段里嵌的是原始报文字符串（引号被转义），按裸词匹配
+      assertTrue(organizer.outbound().stream()
+              .anyMatch(m -> m.contains(TOPIC_SELECT.getType()) && m.contains("road")),
+          "广播内容必须是发送者的原始 select 帧");
+      assertEquals(2, roomUserDao.findByUserIdAndRoomId(senderId, roomId).getChannel().intValue(),
+          "切换频道必须落库");
+    } finally {
+      SimulationGlobal.disturbRoom.remove(roomId);
+    }
+  }
+
+  // Task 6.5(c)：REPORT 房里 channel 为 null 的成员不得阻断结果下发。
+  // 修复前 messageHandleReport 的 getChannel().compareTo(0) 在该成员上 NPE，
+  // 收报席的结果帧与随后的整房广播全部丢失。
+  @Test
+  void nullChannelMemberDoesNotBlockReportRoomResultDelivery() {
+    String senderId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("report-room-null-channel");
+    room.setCreateUserId(senderId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(1);
+    room.setPlayStatus(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+    saveRoomUser(roomId, senderId, 1, 1);
+
+    RecordingSession nullChannel = recordingSession("null-channel");
+    SimulationUserModel nullChannelModel = new SimulationUserModel();
+    nullChannelModel.setId("null-channel-user");
+    nullChannelModel.setUserType(1); // channel 未配置
+    RecordingSession teacher = recordingSession("teacher");
+    SimulationUserModel teacherModel = new SimulationUserModel();
+    teacherModel.setId("teacher-user");
+    teacherModel.setChannel(0);
+    teacherModel.setUserType(0);
+    SimulationGlobal.reportRoom.put(roomId, new CopyOnWriteArrayList<>(List.of(
+        new SimulationSessionHolder(nullChannel.session(), nullChannelModel),
+        new SimulationSessionHolder(teacher.session(), teacherModel))));
+
+    try {
+      String message = "{\"type\":\"" + TOPIC_RESULT.getType() + "\"}";
+      assertDoesNotThrow(() -> service.messageHandleReport(message, roomId, senderId),
+          "channel 为 null 的成员不得让结果上报抛异常");
+
+      assertTrue(teacher.outbound().stream().anyMatch(m -> m.contains(senderId)),
+          "0 号频道（收报席）必须收到带填报人 id 的结果帧");
+      assertEquals(1, roomUserDao.findByUserIdAndRoomId(senderId, roomId).getUserStatus().intValue(),
+          "填报状态必须落库");
+    } finally {
+      SimulationGlobal.reportRoom.remove(roomId);
+    }
+  }
+
+  private record RecordingSession(Session session, List<String> outbound) {}
+
+  /** 记录出站帧的 Session 桩：service 只用 isOpen()/getAsyncRemote()/close()。 */
+  private static RecordingSession recordingSession(String id) {
+    AtomicBoolean open = new AtomicBoolean(true);
+    List<String> outbound = new CopyOnWriteArrayList<>();
+    RemoteEndpoint.Async async = (RemoteEndpoint.Async) Proxy.newProxyInstance(
+        RemoteEndpoint.Async.class.getClassLoader(),
+        new Class<?>[]{RemoteEndpoint.Async.class},
+        (proxy, method, args) -> {
+          if ("sendText".equals(method.getName()) && args != null && args.length > 0) {
+            outbound.add(String.valueOf(args[0]));
+          }
+          return null;
+        });
+    Session session = (Session) Proxy.newProxyInstance(
+        Session.class.getClassLoader(),
+        new Class<?>[]{Session.class},
+        (proxy, method, args) -> switch (method.getName()) {
+          case "getId" -> id;
+          case "isOpen" -> open.get();
+          case "getAsyncRemote" -> async;
+          case "close" -> {
+            open.set(false);
+            yield null;
+          }
+          case "hashCode" -> System.identityHashCode(proxy);
+          case "equals" -> proxy == args[0];
+          case "toString" -> "Session[" + id + "]";
+          default -> null;
+        });
+    return new RecordingSession(session, outbound);
   }
 }

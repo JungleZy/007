@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * @version v1.0.01
@@ -149,7 +150,9 @@ public class TestPaperService {
    */
   @Transactional
   public Response<TestPaperDto> findTestPaperById(String id) {
-    TestPaperEntity entity = testPaperDao.findById(id);
+    // Phase 7.4：不存在的试卷 id 必须显式报错，否则 getTestPaper 里 entity.getId() 直接 NPE
+    TestPaperEntity entity = Optional.ofNullable(testPaperDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该试卷"));
     return ResponseResult.success(getTestPaper(entity));
   }
 
@@ -245,13 +248,9 @@ public class TestPaperService {
 
   @Transactional
   public Response<Void> deleteTestPaper(String id) {
-    try {
-      testPaperQuestionDao.deleteAllByTestPaperId(id);
-      testPaperDao.deleteById(id);
-      return ResponseResult.success();
-    } catch (Exception e) {
-      return ResponseResult.error();
-    }
+    testPaperQuestionDao.deleteAllByTestPaperId(id);
+    testPaperDao.deleteById(id);
+    return ResponseResult.success();
   }
 
 }
