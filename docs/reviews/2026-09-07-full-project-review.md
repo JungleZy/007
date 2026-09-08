@@ -101,7 +101,7 @@
 | PT-P1-04 | `service/TelegraphKeyPatTrainService.java:114-130`（128）| 新用户 `clear()`：`save(statisticalEntity)` 在判空之外 → `save(null)` 抛 `IllegalArgumentException` 回滚，清空功能对新用户不可用（上一轮改级 #21 机制未变）|
 | PT-P1-05 | `service/PostTickerTapeTrainService.java:159-171`（`reset` 在 :173-185）| `reset` 置 `startTime=null` 后直接 finish：`checkStatus:307-314` 只拦 FINISH/HAS_SCORE、放行 NOT_STARTED → `Duration.between(null,…)` NPE 500 |
 | PT-P1-06 | `service/PostTickerTapeTrainService.java:188-258`（232）| `uploadResult` 页数 > 截图数或未传 images → 下标越界/NPE，成绩无法提交 |
-| SM-P1-04 | `service/RadiotelephoneService.java:53-61` | 未先 `listPage` 懒建记录即 finish → `:56` 查得 null，`:57` 直接对 null 解引用 NPE（非拆箱），`:58` 的 `Integer.parseInt` 另可抛 NFE；事务回滚，本次结算丢失 |
+| SM-P1-04 | `service/RadiotelephoneService.java:53-61` | 未先 `listPage` 懒建记录即 finish → `:56` 查得 null，`:57` 直接对 null 解引用 NPE（非拆箱），`:58` 的 `Integer.parseInt` 另可抛 NFE；事务回滚，本次结算丢失。**2026-09-08 已修复**：`finish` 改走与 `listPage` 同一条幂等懒建路径（现 `RadiotelephoneService.java:54-61`），`totalTime` 非数字按 0 计（`:104-112`）；同批还消除了本条未报出的并发双插，详见 §9 |
 | SM-P1-06 | `service/simulation/SimulationRouterRoomService.java:125-127` | `bwCount/100 > 可用楼层数` → 越界建房失败；`bwCount<100` → `subList(0,0)` 空 → **房间建成但没有任何报底**，无日志 |
 | SM-P1-07 | `service/simulation/SimulationRouterRoomContentService.java:106-109` | 同 SM-P1-06（干扰房）|
 | SM-P1-08 | `service/simulation/SimulationReceptRoomService.java:104-107` | 同 SM-P1-06（抄收房）|
@@ -176,6 +176,8 @@
 - ~~`t_cable_floor` 引擎~~ → 已实测 InnoDB，SM-P1-05 降级 P2。
 - ~~`t_theory_knowledge_swf`/`t_test_paper_question` 族引擎~~ → 实测 `t_theory_knowledge_swf`、`t_theory_knowledge_exam_test_paper`、`t_theory_knowledge_exam_user`、`t_theory_knowledge_test_paper_question` 均为 InnoDB，理论考试分片先删后写路径确可回滚。
 - ~~`GET /api/test/start` 的硬编码 trainId 是否存在~~ → 当前库不存在（生产库仍需核实）。
+- ~~两条读路径懒建行在并发首调下是否真会各插一行~~ → 已实测成立并修复：摘掉唯一约束时
+  `ReadPathLazyCreateConcurrencyTest` 3 例报 `expected: <1> but was: <2>`，加约束后收敛到 1 行（详见 §9）。
 - 仍待验证：`PostTelegramTrainService.test()` 的硬编码 trainId `46b6bfee-…` 在生产库是否存在。
 - 仍待验证：仿真 `channel`/`role`/`userType` 列是否存在 NULL 值（决定 WS-P2-03..06 是否可触发）。
 - 仍待验证：`WebSocketSimulationService` 内 `this.` 自调用 `@Transactional` 方法在 ArC 下是否生效（WS-P3-03）。
@@ -183,6 +185,66 @@
 - 仍待验证：`ValidationExceptionMapper` 回显的 `e.getMessage()` 是否进入前端与日志（CA-P2-14）。
 - 仍待验证：native 产物的功能冒烟（CI 矩阵一律 `-DskipTests`，reflection/资源类 native-only 缺陷 JVM 测试守不住，BD-P2-04）。
 - 仍待验证：`WebSocketDeleteOpenAtomicityTest` 250ms 负向时序断言在受控负载下的假绿概率（TS-P2-02）。
+
+---
+
+## 9. 读接口带写副作用（2026-09-08 评估完成并修复）
+
+**结论：仓内共两处「读接口在查不到记录时于读请求里补建一行」的懒建家族，均已在 2026-09-08 偏离收口批 4 中修复（唯一约束 + 独立事务幂等重读），并由并发回归测试锁定。真实危害不是数据丢失、也不是跨用户状态错乱，而是并发首调各插一行导致的计数割裂与孤儿行。** 本节是本仓记录此类「已评估事项」的落点——源码中不存在 `// 待评估` / `// TODO` 之类的标注惯例（全 `src` grep 0 命中），已知事项一律记在本文件的 §8 与本节这类持久落点里。
+
+### 9.1 两处家族与 HTTP 方法
+
+| 家族 | 端点（HTTP 方法） | 懒建目标 | 服务入口 |
+|---|---|---|---|
+| 话报训练统计 | **POST** `/api/radiotelephone/listPage`、**POST** `/api/radiotelephone/finish`（`controller/RadiotelephoneController.java:38-39`、`:46-47`；类级 `@JWT` `:26`）| `t_radiotelephone_train` 的 `(user_id, type)` 统计行 | `service/RadiotelephoneService.java:41-52`（`listPage`，懒建在 `:45-48`）、`:54-61`（`finish`，懒建在 `:59`）|
+| 易错题缓存 | **GET** `/api/comprehensive/getUserOverallInfo`（`controller/ComprehensiveController.java:39-40`；类级 `@JWT` `:26`）| `t_theory_knowledge_test_fallible` 的 `user_id` 缓存行 | `service/ComprehensiveService.java:303-348`（`countErrorSubject`，写副作用在 `:343`）|
+
+**后者危害更大**：`GET` 在语义上是安全方法，会被浏览器/代理预取、被通用重试中间件重放、被前端首屏多个组件并发拉取（「用户总信息」正是典型首屏聚合接口）。同一用户的两个并发首调因此比需要显式提交的 `POST` 更容易真实发生，而 `POST /listPage` 至少受前端一次点击一次请求的约束。
+
+### 9.2 并发双插的机理与后果
+
+修复前两张表都只有 `PRIMARY KEY (id)`（`id` 是与业务键无关的 UUID 字符串），业务唯一键在 DB 侧没有任何保护。两个并发首调各自读到 `null`、各自 `save`，**两行同键并存**：
+
+- 话报统计：统计页出现同一 `type` 的两条记录；此后 `finish` 只累加 `findByUserIdAndType` 的 `firstResult()` 命中的那一行，另一行成为**永不再被更新的孤儿行**（`totalCount`/`totalTime` 停在懒建时的 0/"0"）。
+- 易错题缓存：同一 `user_id` 两行；`countErrorSubject:307` 的「`number` 与已考场次不等则重算」判定读到哪一行取决于 `firstResult()`，缓存可能被反复重算，或读到另一行的过期内容。
+
+**明确不是**：不是数据丢失（没有任何已提交行被删除或覆盖），也不是跨用户状态错乱（两行的 `user_id` 相同，不会把 A 的统计记到 B 身上）。按头部「审查口径」的 P0 门槛（永久数据损坏 / 跨用户状态错乱 / 核心功能整体不可用 / 资源耗尽），该项不构成 P0；它落在「计数割裂 + 孤儿行」这一档。
+
+### 9.3 为何静态评审没抓住
+
+两条查询路径的 DAO 都以 `firstResult()` 收口，**主动容忍**多行返回：
+
+- `dao/RadiotelephoneDao.java:23-24`：`find("userId = ?1 and type = ?2", userId, type).firstResult()`
+- `dao/TheoryKnowledgeTestFallibleDao.java:10-11`：`find("userId", userId).firstResult()`
+
+`firstResult()` 在多行时静默取第一行（要抛 `NonUniqueResultException` 得用 `getSingleResult()`）。这个写法在本仓 dao 层是主流用法，读起来像是「有意允许多行、取其一」的设计选择，而不是「缺少唯一约束」的征兆。分片评审因此只报到了 `SM-P1-04`（未先 `listPage` 直接 `finish` 的裸解引用 NPE，见 §3），没有从「读路径会写」推进到「并发首调会双插」。真正的判据只在 schema 侧：两张表的建表 DDL 里没有任何 `UNIQUE`——而分片是按源码目录切的，服务代码与 DDL 不在同一双眼睛底下。
+
+### 9.4 已修方式与回归锁定
+
+| 层 | 改动 |
+|---|---|
+| 实体 | `entity/RadiotelephoneEntity.java:20-21` `@UniqueConstraint(name = "uk_radiotelephone_train_user_type", columnNames = {"user_id", "type"})`；`entity/TheoryKnowledgeTestFallibleEntity.java:26-27` `uk_theory_test_fallible_user(user_id)` |
+| 迁移 | `docs/database/migrations/2026-09-08-01-unique-lazy-create.sql`（54 行）：`information_schema.statistics` 判存 + `PREPARE`/`EXECUTE`/`DEALLOCATE`，索引已存在时 `DO 0`，故幂等（MySQL 8.0 无 `ADD CONSTRAINT IF NOT EXISTS`）|
+| 支撑件 | `common/repository/IdempotentWrite.java`：`inNewTransaction` 是 `@Transactional(REQUIRES_NEW)`（`:31-34`），`isConstraintConflict` 遍历异常链识别 1062/23000（`:42-52`）。必须是独立 bean——`REQUIRES_NEW` 靠 CDI 拦截器生效，同类内部自调用不过拦截器（javadoc `:23-25`），故重试逻辑留在调用方 |
+| 调用方 | `RadiotelephoneService.accumulate:70-87`（撞键**只重试一次**，非约束冲突原样抛）、`applyDelta:89-102`（必须 `saveAndFlush`，冲突要在独立事务内部抛出才接得住）；`ComprehensiveService.cacheErrorSubject:359-372`、`writeErrorSubject:374-384` |
+| 空键闸门 | `RadiotelephoneService.java:72-77`、`ComprehensiveService.java:360-363`：两处唯一键列均可空，而 MySQL 唯一索引允许多个 NULL 行——不挡空键则约束形同虚设 |
+| 回归锁定 | `src/test/java/com/nip/service/ReadPathLazyCreateConcurrencyTest.java` 4 例（`:58` listPage 双调只落 1 行、`:81` 并发 finish 累加到同一行且 `totalCount=2`/`totalTime="60"`、`:100` GET 路径只缓存 1 行、`:122` 空 `type` 被拒而非写出空键行）。确定性不靠抢跑概率：两线程先各自在 `QuarkusTransaction.requiringNew()` 里读一次固定的 REPEATABLE READ 快照，都读完才由 `CyclicBarrier` 放行，双方必然都进懒建分支。**RED 实证**：摘掉两个实体的唯一约束 → 3 例 `expected: <1> but was: <2>` |
+
+为何必须「独立事务里查不到就插，撞键换新事务重读」而不是「原地插入后重读」，三条硬理由写在 `IdempotentWrite` javadoc `:12-21`：(a) 撞唯一键会把当前事务标记 rollback-only，同一事务无法继续重读；(b) MySQL 默认 REPEATABLE READ，同一事务的一致性读快照看不到对方在快照之后提交的行，重读仍是 `null`；(c) 从别的事务读出的行回到调用方事务 `merge`，会因快照里查不到而退化成 INSERT，再次撞键。
+
+### 9.5 行为面取舍（照实记录）
+
+写入移进独立事务后，**不再随外层 `@Transactional` 回滚**。`RadiotelephoneService.finish` 声明的是 `@Transactional(rollbackOn = Exception.class)`（`:54`），但 `accumulate` 的写入在独立事务里已提交；若其后的 `PojoUtils.convertOne(save, RadiotelephoneVO.class)`（`:60`）抛异常，外层回滚**不会**撤掉这次累加。`listPage` 同理（`:47` 懒建、`:49` 转换）。
+
+判定为可接受，理由是写点之后的剩余动作已被压到最小：独立事务内部仍然原子（整行写入或整个回滚），写点之后只剩一次纯内存 POJO 拷贝，没有任何其他库写。这是换取「撞唯一键可恢复」的必要代价。**约束**：若将来在写点之后追加任何库写或外部副作用，必须重新评估本取舍。
+
+### 9.6 仓内正确参照
+
+同族「按 (用户, 类型) 查一条统计」的只读接口，正确写法是查不到就返回 transient 默认 VO、**不落库**：
+
+`service/EnteringTelexPatService.findByUserIdAndType:88-97`——`Optional.ofNullable(entity)` 命中则转 VO，未命中 `orElse(new EnteringTelexPatVO().setTotalError(0).setTotalNum(0).setTotalTime(0).setType(type))`；方法体上**没有** `@Transactional`，读接口就是纯读。
+
+判据：读接口只是要给前端一个零值展示时，一律照此写；只有确实需要持久化累计基线（本节两处：话报统计要在其上累加、易错题要缓存重算结果）才允许懒建，且必须同时具备唯一约束与幂等写。
 
 ---
 
