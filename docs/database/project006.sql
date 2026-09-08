@@ -28675,6 +28675,7 @@ CREATE TABLE `t_radiotelephone_train`  (
   `type` int(0) NULL DEFAULT NULL COMMENT '0 通报用语 1 军语密语',
   `total_time` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '总时长',
   `total_count` int(0) NULL DEFAULT NULL COMMENT '训练次数',
+  UNIQUE INDEX `uk_radiotelephone_train_user_type`(`user_id`, `type`) USING BTREE,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '报话训练\r\n' ROW_FORMAT = Dynamic;
 
@@ -29534,6 +29535,7 @@ CREATE TABLE `t_theory_knowledge_test_fallible`  (
   `user_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
   `number` int(0) NULL DEFAULT NULL,
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
+  UNIQUE INDEX `uk_theory_test_fallible_user`(`user_id`) USING BTREE,
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;
 
@@ -36458,8 +36460,15 @@ SET FOREIGN_KEY_CHECKS = 1;
 --   * 两处 `is_start_sign` 缺列已写入上方 `simulation_router_room` 与
 --     `t_post_ticker_tape_train` 的 CREATE TABLE 块（迁移 01 第 2 节的等价结果）。
 -- 业务数据行未改动（保持原快照的 34626 条 INSERT）。
--- 迁移演练证据：docs/database/rehearsal/2026-09-07-postbackfill/
--- 权威结论：docs/reviews/2026-09-07-migration-rehearsal.md
+-- 迁移演练证据：docs/database/rehearsal/2026-09-08/（前一轮 2026-09-07-postbackfill 仍保留）
+-- 权威结论：docs/reviews/2026-09-07-migration-rehearsal.md（迁移 01/02）
+--           docs/reviews/2026-09-08-migration-rehearsal.md（迁移 03，本次追加）
+--
+-- 2026-09-08 追加回灌（deviation-fix-spec 批 4）：
+--   * `t_radiotelephone_train` 加 `uk_radiotelephone_train_user_type`(user_id, type)；
+--   * `t_theory_knowledge_test_fallible` 加 `uk_theory_test_fallible_user`(user_id)。
+--   二者是迁移 2026-09-08-01-unique-lazy-create.sql 的等价结果，为读路径懒建提供并发闸门
+--   （无索引时两个并发首调会各插一行）。数据行仍未改动（34626 条 INSERT）。
 -- ============================================================================
 
 SET NAMES utf8mb4;

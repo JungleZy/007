@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.TheoryKnowledgeTypeEnum;
+import com.nip.common.repository.IdempotentWrite;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
 import com.nip.dto.ComprehensiveTheoryYearDto;
@@ -40,6 +41,7 @@ public class ComprehensiveService {
   private final TheoryKnowledgeTestUserDao testUserDao;
   private final TestPaperQuestionDao testPaperQuestionDao;
   private final TheoryKnowledgeTestFallibleDao testFallibleDao;
+  private final IdempotentWrite idempotentWrite;
 
   @Inject
   public ComprehensiveService(UserService userService,
@@ -50,7 +52,8 @@ public class ComprehensiveService {
                               TheoryKnowledgeSwfDao swfDao,
                               TheoryKnowledgeTestUserDao testUserDao,
                               TestPaperQuestionDao testPaperQuestionDao,
-                              TheoryKnowledgeTestFallibleDao testFallibleDao
+                              TheoryKnowledgeTestFallibleDao testFallibleDao,
+                              IdempotentWrite idempotentWrite
   ) {
     this.userService = userService;
     this.examUserDao = examUserDao;
@@ -61,6 +64,7 @@ public class ComprehensiveService {
     this.testUserDao = testUserDao;
     this.testPaperQuestionDao = testPaperQuestionDao;
     this.testFallibleDao = testFallibleDao;
+    this.idempotentWrite = idempotentWrite;
   }
 
   @Transactional
@@ -336,16 +340,47 @@ public class ComprehensiveService {
               .orElse(null))
           .filter(Objects::nonNull)
           .toList();
-      TheoryKnowledgeTestFallibleEntity fallible;
-      fallible = Objects.requireNonNullElseGet(byUserId, TheoryKnowledgeTestFallibleEntity::new);
-      fallible.setNumber(examUserEntityList.size());
-      fallible.setUserId(id);
-      fallible.setContent(JSONUtils.toJson(list));
-      testFallibleDao.save(fallible);
+      cacheErrorSubject(id, examUserEntityList.size(), JSONUtils.toJson(list));
       return list;
     }
     return JSONUtils.fromJson(byUserId.getContent(), new TypeToken<>() {
     });
+  }
+
+  /**
+   * 幂等缓存易错题：{@code GET /comprehensive/getUserInfo} 是读接口带写副作用，
+   * 两个并发首调都会走到这里，而 {@code t_theory_knowledge_test_fallible.user_id} 上有唯一键
+   * {@code uk_theory_test_fallible_user}，只能落 1 行。
+   *
+   * <p>整段读-改-写放在独立事务里执行（{@link IdempotentWrite#inNewTransaction}）。撞唯一键说明
+   * 并发方刚插了同一行：只回滚那个独立事务，换新事务原样重跑一次，新快照能读到对方那行，
+   * 于是走更新分支而不是再插一行。约束冲突之外的异常原样抛出，不吞。
+   */
+  private void cacheErrorSubject(String userId, int number, String content) {
+    // user_id 可空，而 MySQL 唯一索引允许多个 NULL 行 —— 缓存前必须挡住空键，否则唯一约束形同虚设
+    if (userId == null || userId.isBlank()) {
+      throw new IllegalArgumentException("易错题缓存缺少用户标识");
+    }
+    try {
+      idempotentWrite.inNewTransaction(() -> writeErrorSubject(userId, number, content));
+    } catch (RuntimeException e) {
+      if (!IdempotentWrite.isConstraintConflict(e)) {
+        throw e;
+      }
+      idempotentWrite.inNewTransaction(() -> writeErrorSubject(userId, number, content));
+    }
+  }
+
+  private TheoryKnowledgeTestFallibleEntity writeErrorSubject(String userId, int number, String content) {
+    TheoryKnowledgeTestFallibleEntity fallible = testFallibleDao.findByUserId(userId);
+    if (fallible == null) {
+      fallible = new TheoryKnowledgeTestFallibleEntity();
+      fallible.setUserId(userId);
+    }
+    fallible.setNumber(number);
+    fallible.setContent(content);
+    // 必须 flush：唯一键冲突要在独立事务内部抛出，才能被上面的重试逻辑接住
+    return testFallibleDao.saveAndFlush(fallible);
   }
 
   private List<TestPaperQuestionEntity> handleQuestionEntities(List<TheoryKnowledgeQuestionEntity> paperDtos) {

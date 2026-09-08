@@ -59,8 +59,9 @@ if [[ ! -f "$ENTITY_SCHEMA" ]]; then
 fi
 MIG01="$REPO_ROOT/docs/database/migrations/2026-08-26-01-schema-sync.sql"
 MIG02="$REPO_ROOT/docs/database/migrations/2026-08-26-02-engine-innodb.sql"
+MIG03="$REPO_ROOT/docs/database/migrations/2026-09-08-01-unique-lazy-create.sql"
 
-for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02"; do
+for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02" "$MIG03"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
@@ -156,8 +157,11 @@ rehearse() {
   # 迁移 02（计时 ms）
   local s02 e02 ms02
   s02=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG02"; e02=$(date +%s%3N); ms02=$((e02 - s02))
-  echo "  TIMING migration-01=${ms01}ms migration-02=${ms02}ms"
-  printf '%s\t%s\t%s\n' "$label" "$ms01" "$ms02" >> "$OUTDIR/timings.tsv"
+  # 迁移 03（计时 ms）——读路径懒建的唯一约束
+  local s03 e03 ms03
+  s03=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG03"; e03=$(date +%s%3N); ms03=$((e03 - s03))
+  echo "  TIMING migration-01=${ms01}ms migration-02=${ms02}ms migration-03=${ms03}ms"
+  printf '%s\t%s\t%s\t%s\n' "$label" "$ms01" "$ms02" "$ms03" >> "$OUTDIR/timings.tsv"
 
   # ---- 断言 ----
   assert_eq "[$label] post-migration table count=105" "105" \
@@ -176,6 +180,13 @@ rehearse() {
   local post_id; post_id="$(mysql_scalar "$cname" \
     "select data_type from information_schema.columns where table_schema=database() and table_name='general_key_pat_page' and column_name='id'")"
   assert_eq "[$label] general_key_pat_page.id data_type=varchar" "varchar" "$post_id"
+  for uk in "t_radiotelephone_train:uk_radiotelephone_train_user_type:2" \
+            "t_theory_knowledge_test_fallible:uk_theory_test_fallible_user:1"; do
+    local uk_table="${uk%%:*}"; local uk_rest="${uk#*:}"
+    local uk_name="${uk_rest%%:*}"; local uk_cols="${uk_rest##*:}"
+    assert_eq "[$label] unique index exists: $uk_table.$uk_name ($uk_cols cols, non_unique=0)" "$uk_cols" \
+      "$(mysql_scalar "$cname" "select count(*) from information_schema.statistics where table_schema=database() and table_name='$uk_table' and index_name='$uk_name' and non_unique=0")"
+  done
 
   # ---- schema 转储（仅实体表，6 列，带表头） ----
   local schema_tsv="$OUTDIR/${label}-schema.tsv"
