@@ -12,6 +12,7 @@ import com.nip.dao.UserDao;
 import com.nip.dto.TheoryKnowledgeQuestionAllDto;
 import com.nip.dto.TheoryKnowledgeQuestionDto;
 import com.nip.dto.TheoryKnowledgeQuestionLevelDto;
+import com.nip.dto.vo.TheoryKnowledgeQuestionTemplateColumnVO;
 import com.nip.entity.TheoryKnowledgeQuestionEntity;
 import com.nip.entity.TheoryKnowledgeQuestionLevelEntity;
 import com.nip.entity.UserEntity;
@@ -172,5 +173,70 @@ public class TheoryKnowledgeQuestionService {
    */
   public List<TheoryKnowledgeQuestionEntity> exportQuestionByLevelId(String levelId) {
     return theoryKnowledgeQuestionDao.findAllByLevelId(levelId);
+  }
+
+  /**
+   * 批量导入题库。Excel 由前端解析成 JSON 行后提交，后端不引入 poi ——
+   * 与 {@code MilitaryTermDataService#saveBatch} 同一分工（其 API 原文即
+   * 「批量保存军语密语-代替之前文件导入」）。
+   *
+   * <p>整批单事务：任何一行校验失败都抛异常，已处理的行一并回滚，不做「部分导入」。
+   */
+  @Transactional
+  public List<TheoryKnowledgeQuestionEntity> saveBatch(String token, List<TheoryKnowledgeQuestionDto> params) {
+    if (params == null || params.isEmpty()) {
+      throw new IllegalArgumentException("导入数据为空或格式不完整");
+    }
+    UserEntity userEntity = userService.getUserByToken(token);
+    List<TheoryKnowledgeQuestionEntity> saved = new ArrayList<>(params.size());
+    for (int i = 0; i < params.size(); i++) {
+      TheoryKnowledgeQuestionDto dto = params.get(i);
+      int rowNumber = i + 1;
+      if (dto == null) {
+        throw new IllegalArgumentException("第 " + rowNumber + " 行为空");
+      }
+      if (StringUtils.isBlank(dto.getTopic())) {
+        throw new IllegalArgumentException("第 " + rowNumber + " 行缺少题目");
+      }
+      if (dto.getType() == null) {
+        throw new IllegalArgumentException("第 " + rowNumber + " 行缺少测验类型");
+      }
+      if (StringUtils.isBlank(dto.getLevelId())) {
+        throw new IllegalArgumentException("第 " + rowNumber + " 行缺少所属题库");
+      }
+      TheoryKnowledgeQuestionEntity entity = new TheoryKnowledgeQuestionEntity();
+      entity.setTopic(dto.getTopic());
+      entity.setType(dto.getType());
+      entity.setOptions(dto.getOptions());
+      entity.setAnswer(dto.getAnswer());
+      entity.setAnalysis(dto.getAnalysis());
+      entity.setLevelId(dto.getLevelId());
+      entity.setCreateUserId(userEntity.getId());
+      saved.add(theoryKnowledgeQuestionDao.save(entity));
+    }
+    return saved;
+  }
+
+  /**
+   * 导入模板的列规格。前端据此生成 .xlsx 模板，用户填好后再由前端解析成
+   * JSON 行提交 {@link #saveBatch}。
+   *
+   * <p>列顺序与字段名必须与 {@link TheoryKnowledgeQuestionDto} 保持一致，
+   * 否则用户按模板填的表导不进来。
+   */
+  public List<TheoryKnowledgeQuestionTemplateColumnVO> exportTemplate() {
+    return List.of(
+        new TheoryKnowledgeQuestionTemplateColumnVO("type", "测验类型", true, "1",
+            "1 单选题、2 多选题、3 判断题、4 填空题、5 简答题"),
+        new TheoryKnowledgeQuestionTemplateColumnVO("topic", "题目", true, "下列关于短波通信的说法正确的是",
+            "题干正文"),
+        new TheoryKnowledgeQuestionTemplateColumnVO("options", "选项", false, "[\"A.选项一\",\"B.选项二\"]",
+            "选择题必填；判断题、填空题、简答题留空"),
+        new TheoryKnowledgeQuestionTemplateColumnVO("answer", "答案", false, "A",
+            "多选题多个答案连写，如 AC"),
+        new TheoryKnowledgeQuestionTemplateColumnVO("analysis", "解析", false, "见教材第三章",
+            "可留空"),
+        new TheoryKnowledgeQuestionTemplateColumnVO("levelId", "所属题库 ID", true,
+            "取自 findAllTheoryKnowledgeQuestionLevel 的 id", "必须是已存在的题库节点 ID"));
   }
 }

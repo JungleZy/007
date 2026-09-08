@@ -12,6 +12,7 @@ import com.nip.dto.TheoryKnowledgesDto;
 import com.nip.dto.sql.FindTheoryKnowledgeDto;
 import com.nip.dto.vo.TheoryKnowledgeClassifyPageVO;
 import com.nip.dto.vo.TheoryKnowledgeClassifyVO;
+import com.nip.dto.vo.TheoryKnowledgeDocumentContentVO;
 import com.nip.entity.TheoryKnowledgeEntity;
 import com.nip.entity.TheoryKnowledgeSwfRecordEntity;
 import com.nip.service.TheoryKnowledgeClassifyService;
@@ -23,7 +24,9 @@ import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestHeader;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.util.List;
 import java.util.Map;
@@ -168,5 +171,13 @@ public class TheoryKnowledgeController {
   public Response<Void> removeClassify(@RequestBody TheoryKnowledgeClassifyDto dto) {
     classifyService.remove(dto);
     return ResponseResult.success();
+  }
+
+  @POST
+  @Path("/uploadFileToNip")
+  @Operation(summary = "上传纯文本文档并返回内容-仅支持 txt/md/csv，Word/PPT 由前端解析后提交")
+  public Response<TheoryKnowledgeDocumentContentVO> uploadFileToNip(@RestForm("file") FileUpload file,
+                                                                    @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(classifyService.readDocumentContent(file, token));
   }
 }

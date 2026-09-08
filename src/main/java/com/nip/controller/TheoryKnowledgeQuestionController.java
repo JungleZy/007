@@ -8,6 +8,7 @@ import com.nip.dto.TheoryKnowledgeQuestionDto;
 import com.nip.dto.TheoryKnowledgeQuestionLevelDto;
 import com.nip.entity.TheoryKnowledgeQuestionEntity;
 import com.nip.entity.TheoryKnowledgeQuestionLevelEntity;
+import com.nip.dto.vo.TheoryKnowledgeQuestionTemplateColumnVO;
 import com.nip.service.TheoryKnowledgeQuestionService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -80,5 +81,20 @@ public class TheoryKnowledgeQuestionController {
   @Operation(summary = "导出指定题库-后端只提供数据由前端生成文件导出")
   public Response<List<TheoryKnowledgeQuestionEntity>> exportQuestionByLevelId(Map<String, String> map) {
     return ResponseResult.success(theoryKnowledgeQuestionService.exportQuestionByLevelId(map.get("levelId")));
+  }
+
+  @POST
+  @Path("/saveBatch")
+  @Operation(summary = "批量导入题库-代替之前的文件导入（Excel 由前端解析后提交 JSON 行）")
+  public Response<List<TheoryKnowledgeQuestionEntity>> saveBatch(@RestHeader(TOKEN) String token,
+                                                                 List<TheoryKnowledgeQuestionDto> params) {
+    return ResponseResult.success(theoryKnowledgeQuestionService.saveBatch(token, params));
+  }
+
+  @POST
+  @Path("/exportTemplate")
+  @Operation(summary = "导出导入模板-后端只提供列规格由前端生成文件")
+  public Response<List<TheoryKnowledgeQuestionTemplateColumnVO>> exportTemplate() {
+    return ResponseResult.success(theoryKnowledgeQuestionService.exportTemplate());
   }
 }
