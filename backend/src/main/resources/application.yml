@@ -94,8 +94,8 @@ quarkus:
         validation-query-sql: SELECT 1
     hibernate-orm:
       database:
-        # 顺序硬约束：必须先执行 docs/database/migrations/2026-08-26-01-schema-sync.sql
+        # 顺序硬约束：必须先执行 backend/database/migrations/2026-08-26-01-schema-sync.sql
         # 与 02-engine-innodb.sql，再部署本配置，否则启动即失败。
         # 已于 2026-08-28 在 current+base 双快照库演练通过（迁移 01→02 → %prod
-        # generation:validate 启动零校验错误；证据 docs/reviews/2026-08-28-migration-rehearsal.md）。
+        # generation:validate 启动零校验错误；证据 <仓库根>/docs/reviews/2026-08-28-migration-rehearsal.md）。
         generation: validate

@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 审查范围 | service/TheoryKnowledgeService.java、TheoryKnowledgeExamService.java、TheoryKnowledgeTestService.java、TheoryKnowledgeQuestionService.java、TheoryKnowledgeClassifyService.java、TheoryKnowledgeExamUserService.java、TestPaperService.java、UserService.java、MenusService.java、RoleService.java、ComprehensiveService.java、UserTrainStatisticsService.java；旁证 UserDao、BaseRepository、PojoUtils、ListUtils、JSONUtils、common/exception/*、相关 Controller、src/test 对应用例、docs/database/project006.sql |
+| 审查范围 | service/TheoryKnowledgeService.java、TheoryKnowledgeExamService.java、TheoryKnowledgeTestService.java、TheoryKnowledgeQuestionService.java、TheoryKnowledgeClassifyService.java、TheoryKnowledgeExamUserService.java、TestPaperService.java、UserService.java、MenusService.java、RoleService.java、ComprehensiveService.java、UserTrainStatisticsService.java；旁证 UserDao、BaseRepository、PojoUtils、ListUtils、JSONUtils、common/exception/*、相关 Controller、src/test 对应用例、backend/database/project006.sql |
 | 审查日期 | 2026-09-07 |
 | 审查方式 | 静态阅读 + grep 取证（未运行构建/测试）|
 | 计数 | P0 0 / P1 2 / P2 8 / P3 3（纯安全项不计入，见附录）|

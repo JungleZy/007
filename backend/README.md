@@ -42,7 +42,7 @@ docker run -d --name mysql-project006 \
   -p 3306:3306 mysql:8.0.26
 
 # 导入库结构与数据
-docker exec -i mysql-project006 mysql -uroot -proot project006 < docs/database/project006.sql
+docker exec -i mysql-project006 mysql -uroot -proot project006 < database/project006.sql
 ```
 
 > 数据源默认连接 `jdbc:mysql://localhost:3306/project006`，账号 `root/root`（见 `application.yml` 的 `%dev`/`%prod`）。
@@ -89,7 +89,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast |
 
 > **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先执行迁移脚本
-> `docs/database/migrations/2026-08-26-01-schema-sync.sql` 与 `2026-08-26-02-engine-innodb.sql`，否则启动校验失败。
+> `database/migrations/2026-08-26-01-schema-sync.sql` 与 `2026-08-26-02-engine-innodb.sql`，否则启动校验失败。
 
 ---
 
@@ -149,10 +149,10 @@ WebSocket 类位于 `com.nip.ws`，端点路径（相对根，非 `/api` 前缀�
 
 ## 数据库与迁移
 
-- 快照：`docs/database/project006.sql`（当前）、`project006-base.sql`（基线）。
-- 迁移脚本：`docs/database/migrations/`（`01-schema-sync` 结构对齐 → `02-engine-innodb` 引擎转 InnoDB）。
+- 快照：`database/project006.sql`（当前）、`project006-base.sql`（基线）。
+- 迁移脚本：`database/migrations/`（`01-schema-sync` 结构对齐 → `02-engine-innodb` 引擎转 InnoDB）。
 - **存储引擎自检**：`common/LifecycleApplication` 在启动时扫描 `information_schema`，发现 MyISAM 表时——生产（`NORMAL`）抛异常阻断启动并提示执行迁移 02，dev/test 仅告警。原因：MyISAM 不支持事务，`@Transactional` 回滚在其上是空操作，结算类「先删后插」一旦中断即永久丢数据。
-- 迁移演练记录见 `docs/database/rehearsal/` 与 `docs/reviews/*-migration-rehearsal.md`。
+- 迁移演练记录见 `database/rehearsal/` 与 `../docs/reviews/*-migration-rehearsal.md`。
 
 ---
 
@@ -178,16 +178,20 @@ src/main/java/com/nip/
 
 ## 文档索引
 
-- **评审权威**：`docs/reviews/2026-09-07-full-project-review.md`（汇总为最终结论，附独立审计 `*-review-audit.md`）。
-- 整改规格 / 计划：`docs/specs/`、`docs/plans/`。
-- 迁移演练：`docs/database/rehearsal/`。
+- **评审权威**：[`../docs/reviews/2026-09-07-full-project-review.md`](../docs/reviews/2026-09-07-full-project-review.md)（后端汇总为最终结论，附独立审计 `*-review-audit.md`）。
+- **前后端联合评审**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md) —— 改动任何跨栈契约（`@RestQuery`/`@RestForm` 参数名、返回形态、错误码、能力边界）前必读：上一轮后端单侧整改已被证实改断 5 处前端调用面。
+- 整改规格 / 计划：`../docs/specs/`、`../docs/plans/`。
+- 迁移演练：`database/rehearsal/`。
+- 全仓文档地图：[`../docs/README.md`](../docs/README.md)。
 - 面向 AI 编码代理的工程约定与红线：见 [`../AGENTS.md`](../AGENTS.md)。
 - 单仓总览与前端入口：见 [`../README.md`](../README.md)。
 
-> **路径约定**：本文与 `docs/` 下全部后端文档的相对路径（`src/...`、`docs/...`、
-> `scripts/...`、`./mvnw`）均以 **`backend/`** 为根 —— 后端子树在 2026-09-08
-> 迁入 `backend/` 时刻意整体平移，正是为了让这些引用无需改写。
+> **路径约定（2026-09-08 文档收口后）**：**文字文档**已统一到仓库根 `docs/`，本文对文档的引用一律写 `../docs/...`；
+> 本文对代码、脚本与库资产的引用（`src/...`、`scripts/...`、`database/...`、`./mvnw`）仍以 **`backend/`** 为根。
 >
-> 唯一例外是 `.github/`：它必须留在**仓库根**。历史评审/规格文档里写作
-> `.github/workflows/build-quarkus-native.yml` 的引用，实际位置是
-> `../.github/workflows/build-quarkus-native.yml`。
+> 库快照 / 迁移脚本 / 演练证据留在 `backend/database/`（不进 `docs/`）：它们被 `scripts/rehearse-migrations.sh`
+> 与 `%prod` 的 `generation=validate` 部署流程直接消费，是工程资产而非文字文档。
+>
+> `../docs/` 下的历史文档（2026-08/09 后端评审、规格、计划）其**代码**引用仍以 `backend/` 为根、未逐篇改写
+> （带行号的取证快照，改写会破坏与提交历史的对应关系）；其中**库路径已统一改写**为仓库根形式
+> `backend/database/...`。详见 [`../docs/README.md`](../docs/README.md) 的「路径约定」节。

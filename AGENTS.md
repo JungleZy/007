@@ -8,8 +8,9 @@
 
 - 所有 Maven 命令在 **`backend/`** 下执行。
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
-- 文档路径相对仓库根写全（如 `backend/docs/reviews/...`）。
-- 前端评审见 `frontend/docs/2026-09-08-frontend-review.md`；前端改动不在本文约定内。
+- **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/`、`frontend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
+- **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
+- 前端评审见 `docs/reviews/2026-09-08-frontend-review.md`，前后端联合评审见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；前端代码改动不在本文约定内。
 
 ## 构建与测试
 
@@ -31,7 +32,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 - **端口 18001**，不是 8080。REST 前缀 **`/api`**（`common/MainApplication.java` 的 `@ApplicationPath`）。测试端口 18081。
 - **响应恒为 HTTP 200**，业务状态在 JSON `code` 字段。禁止用 HTTP 状态码表达业务错误。
 - **鉴权头**：`token` + `deviceId`（`common/constants/BaseConstants`）。类级 `@JWT` 拦截，`controller/free/**` 免鉴权。
-- 生产库 schema 策略 `validate`：改实体/表结构必须同步 `backend/docs/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
+- 生产库 schema 策略 `validate`：改实体/表结构必须同步 `backend/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
 
 ## 代码约定
 
@@ -45,9 +46,11 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 ## 红线（评审已确认的系统性缺陷，改动时务必规避）
 
 1. **`@Transactional` 内 catch 吞异常 → 部分提交/数据丢失**。事务方法里捕获异常后若要中止，必须重抛或 `setRollbackOnly()`；不要「catch 后 `return error()`」让事务照常提交。
-2. **MyISAM 表不可回滚**：`backend/docs/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
+2. **MyISAM 表不可回滚**：`backend/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
 3. **WebSocket 端点是 `@ApplicationScoped` 单例**：实例字段跨连接共享，禁止把会话态存实例字段；用 `Session` 维度的容器。
 4. `getUserByToken` 等在凭证过期时返回 `null`：下游调用点必须判空。
+5. **跨栈契约不可单侧改**（2026-09-08 联合评审确认）：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点。上一轮后端单侧整改已改断 5 处（`roomgId`→`roomId`、`getMenuById` 改抛异常、`uploadFileToNip` 收窄到 `txt/md/csv`、`saveBatch`/`exportTemplate` 成孤儿端点、`Page.getRows()` 钳到 200）。
+6. **鉴权 ≠ 授权**：后端管理写端点（`user/role/menu` 的 delete/reset/addUserRole/addRole）目前只有类级 `@JWT`，无任何角色校验，前端 `v-per` 只是可篡改的软门控。新增管理类端点必须自己做服务端授权判定。
 
 ## 测试约定
 
@@ -56,8 +59,9 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 评审结论以 `backend/docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
-- 整改规格/计划在 `backend/docs/specs/`、`backend/docs/plans/`；迁移演练在 `backend/docs/database/rehearsal/`。
+- 后端评审结论以 `docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
+- **跨栈问题以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**（8 份分片报告 `2026-09-08-joint-*.md`）：单侧评审的若干定级/责任归属已被它修正（如后端 `CA-P1-01/02/03` 的责任反转、前端「GET 用 `data` 传参」从 LOW 升为 J-P1）。
+- 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。
 
 ## 提交前检查
@@ -66,3 +70,4 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 - [ ] 改了导出符号 / 端点 / 实体，已用 `lsp references` 核对所有调用点与迁移脚本。
 - [ ] 未新增 shim/别名/废弃路径；调用点已整体切换。
 - [ ] 未触碰 203/204/206 契约；未在事务内吞异常。
+- [ ] 改了跨栈契约（参数名/返回形态/业务码/能力边界），已核对前端调用面并同步（见红线 5）。

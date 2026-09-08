@@ -908,8 +908,8 @@ git commit -m "refactor: 删除零调用内部代码并校准审计状态"
 **Files:**
 - Create: `scripts/rehearse-migrations.sh`
 - Create: `src/test/java/com/nip/rehearsal/EntitySchemaSnapshotRehearsal.java` (name intentionally does not end in `Test`, so default Surefire excludes it)
-- Create: `docs/database/rehearsal/2026-08-28/README.md`
-- Create during execution, schema-only: `docs/database/rehearsal/2026-08-28/current-schema.tsv`, `base-schema.tsv`, `entity-schema.tsv`, `diff-current.txt`, `diff-base.txt`
+- Create: `backend/database/rehearsal/2026-08-28/README.md`
+- Create during execution, schema-only: `backend/database/rehearsal/2026-08-28/current-schema.tsv`, `base-schema.tsv`, `entity-schema.tsv`, `diff-current.txt`, `diff-base.txt`
 - Create: `docs/reviews/2026-08-28-migration-rehearsal.md`
 - Modify after success: `src/main/resources/application.yml:71-74`, `docs/reviews/2026-08-28-fix-spec-remediation.md`
 
@@ -1005,7 +1005,7 @@ The report must include image digest, source snapshot checksums, migration durat
 - [ ] **Step 7: Commit**
 
 ```bash
-git add scripts/rehearse-migrations.sh src/test/java/com/nip/rehearsal docs/database/rehearsal/2026-08-28 docs/reviews/2026-08-28-migration-rehearsal.md docs/reviews/2026-08-28-fix-spec-remediation.md src/main/resources/application.yml
+git add scripts/rehearse-migrations.sh src/test/java/com/nip/rehearsal backend/database/rehearsal/2026-08-28 docs/reviews/2026-08-28-migration-rehearsal.md docs/reviews/2026-08-28-fix-spec-remediation.md src/main/resources/application.yml
 git commit -m "test(migration): 固化双快照迁移演练证据"
 ```
 

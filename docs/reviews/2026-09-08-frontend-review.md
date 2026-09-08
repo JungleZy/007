@@ -7,7 +7,7 @@
 - 方法：6 个只读评审子代理并行覆盖「架构/构建、安全、网络/数据层、路由/状态/鉴权、组件/代码质量、性能/可访问性」，父代理独立复核关键结论后合并。
 - 权威性：所有 HIGH 结论均已用 `read`/`grep` 独立落到 `文件:行` 证据；带 `[INFERENCE]` 者为推断。
 
-> 与后端评审（`backend/docs/reviews/2026-09-07-full-project-review.md`）同为「以本汇总为准」的评审文档。
+> 与后端评审（`docs/reviews/2026-09-07-full-project-review.md`）同为「以本汇总为准」的评审文档。前后端**联合评审**见 [`docs/reviews/2026-09-08-joint-frontend-backend-review.md`](2026-09-08-joint-frontend-backend-review.md)：本文 3.1/3.4 的「安全性完全依赖后端强校验」这一降级前提被**否证**（后端零角色授权，见联合评审 `AS-J-P1-02`）；3.3 的「GET 统一 `data`→`params`」经联合评审 §5.0 勘误**维持 LOW**（包装器 `common/http/axios.js:20-24` 已把 GET 的 `data` 转成 `params`，不丢参）。跨栈整改方案见 [`docs/specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md)。
 >
 > 本文所有相对路径以 **`frontend/`** 为根（`src/` 内文件再省略 `src/`，如 `common/http/index.js`）。
 

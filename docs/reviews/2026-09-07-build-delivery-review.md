@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 审查范围 | `.github/workflows/build-quarkus-native.yml`、`src/main/docker/Dockerfile.jvm\|legacy-jar\|native\|native-micro`、`scripts/rehearse-migrations.sh`、`mvnw`/`mvnw.cmd`/`.mvn/wrapper/**`、`README.md`、`.gitignore`、`docs/guides/**`、`docs/specs/**`、`docs/plans/**`、`pom.xml`（仅 build 插件与 native profile）、及交叉取证 `src/main/resources/application.yml`、`docs/database/migrations/**`、`docs/database/rehearsal/2026-08-28/**` |
+| 审查范围 | `.github/workflows/build-quarkus-native.yml`、`src/main/docker/Dockerfile.jvm\|legacy-jar\|native\|native-micro`、`scripts/rehearse-migrations.sh`、`mvnw`/`mvnw.cmd`/`.mvn/wrapper/**`、`README.md`、`.gitignore`、`docs/guides/**`、`docs/specs/**`、`docs/plans/**`、`pom.xml`（仅 build 插件与 native profile）、及交叉取证 `src/main/resources/application.yml`、`backend/database/migrations/**`、`backend/database/rehearsal/2026-08-28/**` |
 | 审查日期 | 2026-09-07 |
 | 审查方式 | 静态阅读 + grep/glob 取证（未运行构建/测试/formatter/linter）|
 | 计数 | P0 0 / P1 0 / P2 4 / P3 5（纯安全项列附录，不计数）|
@@ -42,7 +42,7 @@
 |---|---|---|---|---|
 | BD-P3-01 | `README.md:1` | 任何人克隆仓库查看根 README | 内容仅 3 字节 `111`，无构建命令、端口(18001)、鉴权(token+deviceId 头)、部署/迁移前置说明的根级入口文档。信息实际散落在 Dockerfile 注释与 `docs/`，但根 README 作为交付门面为占位符，构成上手/交付缺口（非功能阻断）。 | `read README.md` 返回单行 `111`。 |
 | BD-P3-02 | `.gitignore:45` | 维护 .gitignore | `/hs_err_pid160488.log` 硬编码单个特定 PID 的 JVM 崩溃日志名，属一次性崩溃残留，应删除或泛化为 `hs_err_pid*.log`。 | `.gitignore` 第 45 行原文。 |
-| BD-P3-03 | `scripts/rehearse-migrations.sh:38`、`:39`、`:43-47` | 在 2026-08-28 之后重跑演练脚本 | `OUTDIR` 硬编码 `docs/database/rehearsal/2026-08-28`：无论何时运行都写入该「日期目录」，会用当日结果覆盖 2026-08-28 的历史证据、造成产物日期与实际运行日期不符；且脚本依赖手工预生成并提交的 `entity-schema.tsv`（缺失即 `exit 3`），若实体自 2026-08-28 起漂移而未按 README 先重生成该 tsv，则演练是在**过期实体快照**上做 validate 差分，给出虚假的「差分为空」。可复现性/证据可信度隐患，非功能错误。 | `OUTDIR="$REPO_ROOT/docs/database/rehearsal/2026-08-28"`；`ENTITY_SCHEMA="$OUTDIR/entity-schema.tsv"`；缺失分支 `exit 3` 及提示。tsv 是否已随实体漂移而过期 **待运行验证**。 |
+| BD-P3-03 | `scripts/rehearse-migrations.sh:38`、`:39`、`:43-47` | 在 2026-08-28 之后重跑演练脚本 | `OUTDIR` 硬编码 `backend/database/rehearsal/2026-08-28`：无论何时运行都写入该「日期目录」，会用当日结果覆盖 2026-08-28 的历史证据、造成产物日期与实际运行日期不符；且脚本依赖手工预生成并提交的 `entity-schema.tsv`（缺失即 `exit 3`），若实体自 2026-08-28 起漂移而未按 README 先重生成该 tsv，则演练是在**过期实体快照**上做 validate 差分，给出虚假的「差分为空」。可复现性/证据可信度隐患，非功能错误。 | `OUTDIR="$REPO_ROOT/backend/database/rehearsal/2026-08-28"`；`ENTITY_SCHEMA="$OUTDIR/entity-schema.tsv"`；缺失分支 `exit 3` 及提示。tsv 是否已随实体漂移而过期 **待运行验证**。 |
 | BD-P3-04 | `.github/workflows/build-quarkus-native.yml:131-132` | 每次 upload-artifact | `path:` 第一行 `target/*-runner*` 已覆盖 `.exe`（含重命名后的 `-runner-windows-amd64.exe`），第二行 `target/*-runner.exe` 为死冗余（重命名后已无 `*-runner.exe` 精确匹配）。无功能影响，纯冗余，上一轮 P2-23 尾注亦提及。 | `path: \| target/*-runner* / target/*-runner.exe`。 |
 | BD-P3-05 | `.gitignore:17` + 工作树 `.idea/`（compiler.xml/encodings.xml/jarRepositories.xml/misc.xml/vcs.xml/.gitignore）| 团队协作、IDE 生成配置 | `.gitignore` 第 17 行 `.idea` 已忽略，但工作树中 `.idea/` 仍存在 5 个 IDE 配置文件，说明其在忽略规则加入前已入库、`.gitignore` 对已跟踪文件不生效，IDE 个人配置随仓库分发产生无意义 diff。上一轮 P2-24；内网/单人维护场景影响轻微，降为 P3。 | glob（gitignore:false）列出 `.idea/{compiler,encodings,jarRepositories,misc,vcs}.xml` 与 `.idea/.gitignore` 在盘；`.gitignore:17` 为 `.idea`。「是否仍被 git 跟踪」**待运行验证**（需 `git ls-files .idea`）。 |
 
@@ -74,7 +74,7 @@
 2. BD-P2-03：GitHub runner 自带 `mvn` 版本与 wrapper pin 的 3.9.9 是否产生可观察的构建差异。
 3. BD-P2-04：对三平台 native 二进制做一次真实启动 + `/api/cable/type/find`、`/q/openapi`、无 token `code=203` 等冒烟，确认无 native-only 反射/资源缺失。
 4. 汇总§3 断言2：在真实 `ubuntu-24.04-arm` runner 上确认 `armv8-a` native 构建 + glibc≤2.28 校验通过。
-5. BD-P3-03：核对当前 HEAD 实体导出的 `entity-schema.tsv` 是否与 `docs/database/rehearsal/2026-08-28/entity-schema.tsv`（103 表，sha256 520f39f8…）一致，判断演练证据是否已过期。
+5. BD-P3-03：核对当前 HEAD 实体导出的 `entity-schema.tsv` 是否与 `backend/database/rehearsal/2026-08-28/entity-schema.tsv`（103 表，sha256 520f39f8…）一致，判断演练证据是否已过期。
 6. BD-P3-05：`git ls-files .idea` 确认 5 个 IDE 配置文件是否仍被跟踪。
 
 ---
@@ -94,6 +94,6 @@
 
 1. 该文 §「八个提交后的全量验证」称 `docker build -f src/main/docker/Dockerfile.jvm .` 成功——当前 `Dockerfile.jvm` 结构完整（多层 COPY + run-java.sh 入口），与「可构建」一致。
 2. §DoD 第 4 条称「Docker `EXPOSE` 属批 6、端口批次映射修正」——当前四个 Dockerfile 全部 `EXPOSE 18001`，与该修复叙述一致。
-3. §剩余已知工作第 6 项与 §Task 10 第 6 条称迁移 01 经双快照演练补入 `general_ticker_pat_train_page.id` int→varchar——`docs/database/migrations/2026-08-26-01-schema-sync.sql:106-107` 确实同时含 `general_key_pat_page.id` 与 `general_ticker_pat_train_page.id` 的 `MODIFY COLUMN id varchar(64) NOT NULL`，与 `2026-08-28-migration-rehearsal.md:75-79` 的补丁描述及 `rehearsal/2026-08-28/diff-*.txt`（0 字节）互证，无矛盾。
+3. §剩余已知工作第 6 项与 §Task 10 第 6 条称迁移 01 经双快照演练补入 `general_ticker_pat_train_page.id` int→varchar——`backend/database/migrations/2026-08-26-01-schema-sync.sql:106-107` 确实同时含 `general_key_pat_page.id` 与 `general_ticker_pat_train_page.id` 的 `MODIFY COLUMN id varchar(64) NOT NULL`，与 `2026-08-28-migration-rehearsal.md:75-79` 的补丁描述及 `rehearsal/2026-08-28/diff-*.txt`（0 字节）互证，无矛盾。
 
 `docs/guides/` 现仅存 `handleMessageBody.MD`（评分算法示例规格，Task 8 已删 `code.java`）、`docs/specs/2026-08-26-fix-spec.md`、`docs/plans/2026-08-26-fix-plan.md`；三者为历史规格/计划文档，与当前构建/交付配置无直接自相矛盾之处（其所述算法缺陷归对应 service 分片，非本片交付链路范围）。

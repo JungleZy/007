@@ -2,7 +2,7 @@
 # ============================================================================
 # rehearse-migrations.sh — 双快照迁移演练（一次性 Docker 容器，纯 schema 证据）
 #
-# 对 docs/database/project006.sql（current）与 project006-base.sql（base）两个快照，
+# 对 database/project006.sql（current）与 project006-base.sql（base）两个快照（路径以 backend/ 为根），
 # 各起一个全新、唯一命名的 mysql:8.0 容器+卷，导入快照，顺序执行迁移
 # 01（schema-sync）→ 02（engine-innodb），断言最终 schema，并对实体表生成
 # 与实体权威 schema（EntitySchemaSnapshotRehearsal 导出的 entity-schema.tsv）
@@ -18,7 +18,7 @@
 #
 # 可调项（只影响证据落盘位置，不影响数据源）：
 #   REHEARSAL_OUT_NAME    证据目录名（默认当天日期），仅允许 [0-9A-Za-z._-]，
-#                         防止逃出 docs/database/rehearsal/；重跑不再覆盖历史证据。
+#                         防止逃出 database/rehearsal/；重跑不再覆盖历史证据。
 #   REHEARSAL_ENTITY_SCHEMA  实体权威 schema TSV 路径；默认先找证据目录，
 #                         再回退 target/migration-rehearsal/entity-schema.tsv 并自动复制。
 # ============================================================================
@@ -35,31 +35,32 @@ for banned in DB_HOST JDBC_URL QUARKUS_DATASOURCE_JDBC_URL; do
   fi
 done
 
-# ---- 定位仓库根（不依赖 CWD，绝不读取 application.yml） ----
+# ---- 定位工程根（不依赖 CWD，绝不读取 application.yml） ----
+# PROJECT_ROOT = backend/：库快照、迁移脚本、演练证据（database/）与构建产物（target/）都在其下
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 IMAGE="mysql:8.0"
 ROOT_PASSWORD="rehearsal-$(date +%s)-$$"
 OUT_NAME="${REHEARSAL_OUT_NAME:-$(date +%Y-%m-%d)}"
 [[ "$OUT_NAME" =~ ^[0-9A-Za-z._-]+$ ]] || {
   echo "Invalid REHEARSAL_OUT_NAME '$OUT_NAME': only [0-9A-Za-z._-] allowed" >&2; exit 2; }
-OUTDIR="$REPO_ROOT/docs/database/rehearsal/$OUT_NAME"
+OUTDIR="$PROJECT_ROOT/database/rehearsal/$OUT_NAME"
 mkdir -p "$OUTDIR"
 
 # 实体权威 schema：证据目录 → 显式覆盖 → 构建产物（自动复制，免手工搬运）
 ENTITY_SCHEMA="${REHEARSAL_ENTITY_SCHEMA:-$OUTDIR/entity-schema.tsv}"
 if [[ ! -f "$ENTITY_SCHEMA" ]]; then
-  EXPORTED="$REPO_ROOT/target/migration-rehearsal/entity-schema.tsv"
+  EXPORTED="$PROJECT_ROOT/target/migration-rehearsal/entity-schema.tsv"
   if [[ -f "$EXPORTED" ]]; then
     cp "$EXPORTED" "$OUTDIR/entity-schema.tsv"
     ENTITY_SCHEMA="$OUTDIR/entity-schema.tsv"
     echo "Copied entity schema from $EXPORTED"
   fi
 fi
-MIG01="$REPO_ROOT/docs/database/migrations/2026-08-26-01-schema-sync.sql"
-MIG02="$REPO_ROOT/docs/database/migrations/2026-08-26-02-engine-innodb.sql"
-MIG03="$REPO_ROOT/docs/database/migrations/2026-09-08-01-unique-lazy-create.sql"
+MIG01="$PROJECT_ROOT/database/migrations/2026-08-26-01-schema-sync.sql"
+MIG02="$PROJECT_ROOT/database/migrations/2026-08-26-02-engine-innodb.sql"
+MIG03="$PROJECT_ROOT/database/migrations/2026-09-08-01-unique-lazy-create.sql"
 
 for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02" "$MIG03"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
@@ -224,8 +225,8 @@ rehearse() {
 }
 
 : > "$OUTDIR/timings.tsv"
-rehearse current "$REPO_ROOT/docs/database/project006.sql"
-rehearse base    "$REPO_ROOT/docs/database/project006-base.sql"
+rehearse current "$PROJECT_ROOT/database/project006.sql"
+rehearse base    "$PROJECT_ROOT/database/project006-base.sql"
 
 echo "=================================================================="
 if [[ "$FAILURES" -ne 0 ]]; then

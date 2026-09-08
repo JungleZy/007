@@ -9,13 +9,13 @@
 | 演练日期 | 2026-09-07（快照回灌之后，故证据目录后缀 `-postbackfill`） |
 | 脚本 | `scripts/rehearse-migrations.sh`（224 行），调用方式 `REHEARSAL_OUT_NAME=2026-09-07-postbackfill bash scripts/rehearse-migrations.sh` |
 | 引擎镜像 | `mysql:8.0`（`scripts/rehearse-migrations.sh:42` 硬编码），字符集 `utf8mb4` / `utf8mb4_0900_ai_ci`（`:126`） |
-| current 快照 | `docs/database/project006.sql`（回灌后），36551 行 / 105 `CREATE TABLE` / 34626 `INSERT`。校验和随尾注注释变动：演练后、尾注交叉引用补写前实测 `sha256:2a93ff80…0532c5`，本报告定稿时 `sha256:444ebd08755d16ad1378c75d8081290c8903afb5f729f33a1e8e4fcc8bfce5eb`；两者差异仅在尾注注释区块（`:36451-36463`，补入证据目录与权威结论的交叉引用），DDL 与 34626 条数据行逐行一致，不影响演练结论 |
-| base 快照 | `docs/database/project006-base.sql`，`sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`，31960 行 / 100 `CREATE TABLE` / 30139 `INSERT` |
-| 迁移 01 | `docs/database/migrations/2026-08-26-01-schema-sync.sql`（128 行） |
-| 迁移 02 | `docs/database/migrations/2026-08-26-02-engine-innodb.sql`（37 行，其中 `:16-37` 为 22 条 `ALTER TABLE … ENGINE = InnoDB`） |
-| 实体权威 schema | `docs/database/rehearsal/2026-09-07-postbackfill/entity-schema.tsv`，`sha256:520f39f86a268280aa01dc928dc2f7757030886b367e6b642a1883e83137075f`，103 张实体表 / 875 列行 |
+| current 快照 | `backend/database/project006.sql`（回灌后），36551 行 / 105 `CREATE TABLE` / 34626 `INSERT`。校验和随尾注注释变动：演练后、尾注交叉引用补写前实测 `sha256:2a93ff80…0532c5`，本报告定稿时 `sha256:444ebd08755d16ad1378c75d8081290c8903afb5f729f33a1e8e4fcc8bfce5eb`；两者差异仅在尾注注释区块（`:36451-36463`，补入证据目录与权威结论的交叉引用），DDL 与 34626 条数据行逐行一致，不影响演练结论 |
+| base 快照 | `backend/database/project006-base.sql`，`sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`，31960 行 / 100 `CREATE TABLE` / 30139 `INSERT` |
+| 迁移 01 | `backend/database/migrations/2026-08-26-01-schema-sync.sql`（128 行） |
+| 迁移 02 | `backend/database/migrations/2026-08-26-02-engine-innodb.sql`（37 行，其中 `:16-37` 为 22 条 `ALTER TABLE … ENGINE = InnoDB`） |
+| 实体权威 schema | `backend/database/rehearsal/2026-09-07-postbackfill/entity-schema.tsv`，`sha256:520f39f86a268280aa01dc928dc2f7757030886b367e6b642a1883e83137075f`，103 张实体表 / 875 列行 |
 | 断言口径 | 表计数、MyISAM=0、5 张命名表存在、两处 `is_start_sign` 默认=1、`general_key_pat_page.id`=varchar、实体列 ⊆ 快照列（validate 等价差分为空）；详见「断言矩阵」 |
-| 证据目录 | `docs/database/rehearsal/2026-09-07-postbackfill/`（8 个文件 + README） |
+| 证据目录 | `backend/database/rehearsal/2026-09-07-postbackfill/`（8 个文件 + README） |
 | 边界 | 一次性 Docker 容器 + 卷，全新唯一命名，`trap` 全出口清理；脚本不接受位置参数、拒绝 `DB_HOST`/`JDBC_URL`/`QUARKUS_DATASOURCE_JDBC_URL`、绝不读 `application.yml` 数据源（`:11-17,28-36`） |
 
 演练总墙钟 550.61s（含两次容器冷启动与 6 万余行快照导入，非迁移耗时）。
@@ -31,7 +31,7 @@
 
 **评估依据：**
 
-- 迁移 02 的全部工作量就是 `docs/database/migrations/2026-08-26-02-engine-innodb.sql:16-37`
+- 迁移 02 的全部工作量就是 `backend/database/migrations/2026-08-26-02-engine-innodb.sql:16-37`
   的 **22 条 `ALTER TABLE … ENGINE = InnoDB`**（逐行数得 22 条，与脚本头注 `:11-12` 所述
   “22 张表”一致）。每条都会**重建整表并持表锁**（脚本头注 `:6-7` 已写明必须停服窗口执行）。
 - 演练库不是空库：current 快照含 **34626 条 INSERT 数据行**，base 含 30139 条；22 张目标表
@@ -76,7 +76,7 @@ Profile prod activated.
 `SchemaManagementException: Schema-validation: missing table [general_telex_pat]`。
 即：**validate 契约由活库实证满足，不是纸面推断。**
 
-## 3. 快照回灌（`docs/database/project006.sql`）
+## 3. 快照回灌（`backend/database/project006.sql`）
 
 回灌把迁移 01+02 的结果就地写进版本化快照，使仓库快照与活库、与实体三者一致
 （消除评审 PS-P2-18 的自相矛盾）。改动口径记录在文件尾注 `:36451-36463`：
@@ -100,7 +100,7 @@ Profile prod activated.
 方言）。原脚本靠注释「重复 ADD COLUMN 会报 1060（可忽略）」把非幂等当成可容忍——但脚本
 经 `mysql` 客户端执行时 1060 是致命错误，会**中断后续语句**，迁移 02 根本不会被执行。
 
-**改法（`docs/database/migrations/2026-08-26-01-schema-sync.sql:91-115`）：** 改为
+**改法（`backend/database/migrations/2026-08-26-01-schema-sync.sql:91-115`）：** 改为
 `information_schema.columns` 判存 + 动态 SQL：
 
 ```sql
@@ -193,7 +193,7 @@ InnoDB 的表仅触发一次无害重建，脚本头注 `:13`）。因此**回�
 前滚**都是安全动作。
 
 **⚠ 前置提醒：** `/tmp` 会被系统清理，该备份**不可当作长期回滚资产**。上线前必须把它复制
-到受控留存路径（例如运维备份卷）。另需知悉：仓库内 `docs/database/project006.sql` 现已是
+到受控留存路径（例如运维备份卷）。另需知悉：仓库内 `backend/database/project006.sql` 现已是
 **迁移后**的等价快照（第 3 节），它可以用来重建「迁移完成态」，但**不能**用来回滚。
 
 **回滚（回到迁移前状态）：**
@@ -215,10 +215,10 @@ docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql-project006 \
 ```bash
 docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql-project006 \
   mysql -uroot --default-character-set=utf8mb4 project006 \
-  < docs/database/migrations/2026-08-26-01-schema-sync.sql
+  < backend/database/migrations/2026-08-26-01-schema-sync.sql
 docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql-project006 \
   mysql -uroot --default-character-set=utf8mb4 project006 \
-  < docs/database/migrations/2026-08-26-02-engine-innodb.sql
+  < backend/database/migrations/2026-08-26-02-engine-innodb.sql
 ```
 
 **校验 SQL（前滚后应全部满足；回滚后应得到括号内的迁移前值）：**
@@ -268,4 +268,4 @@ select table_name, data_type from information_schema.columns
 7. **数据正确性未断言。** 全部断言均为 schema 层（表/列/类型/引擎/默认值）；
    `ALTER ENGINE` 前后的行数与内容一致性不在演练范围内。
 
-演练产物与复现命令见 `docs/database/rehearsal/2026-09-07-postbackfill/README.md`。
+演练产物与复现命令见 `backend/database/rehearsal/2026-09-07-postbackfill/README.md`。

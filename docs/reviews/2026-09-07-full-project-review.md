@@ -11,6 +11,7 @@
 | 上一轮基线 | `docs/reviews/2026-08-26-full-project-review.md`（338 条，确认 P0 8 条）与 `2026-08-26-review-audit.md`；整改记录 `2026-08-28-fix-spec-remediation.md` |
 | 验证边界 | 未做 Native Image、Docker 镜像、ARM64 runner、WebSocket 压测与生产库写路径验证；未执行会破坏业务数据的 P1 触发请求（唯一例外见 §5 关于 `GET /api/test/start` 的说明） |
 | 独立审计 | 本文已由 5 个独立审计代理逐条复核 93 项断言（确认 84 / 部分成立 9 / 误报 0），9 处表述已回改并标注「审计修正」；审计报告见 [review-audit](2026-09-07-review-audit.md) |
+| 后续联合评审 | 2026-09-08 已做前后端联合评审（[joint review](2026-09-08-joint-frontend-backend-review.md)）：本文的 `CA-P1-01/02/03`（`roomgId`）等 5 处整改被证实**未对照前端调用面**，跨栈失效；另确认后端管理写端点零角色授权。改动跨栈契约前须先读该报告 |
 
 ---
 
@@ -63,7 +64,7 @@
 | SM-P1-03 | `service/TelexPatService.java:95-112` | 有 `t_telex_pat` 数据但无统计行 → :101 NPE 被吞，删除照常提交却返回 error 误导前端（重试恒复现）。审计修正：触发条件本身就是「无统计行」，因此不存在「统计陈旧」，真实后果是提交与返回码矛盾 |
 | PT-P1-09 | `service/PostTelexPatTrainService.java:796-819` | `deleteByTrainId(818)` → `saveAndFlush(819)` 之间中断；两张 page/value 表实测 MyISAM → 报底与回写值永久丢失 |
 | PT-P1-10 | `service/PostTelegraphKeyPatTrainService.java:333-482`（371-372）| 同上模式，`t_post_telegraph_key_pat_train_page_value` 实测 MyISAM → 拍发记录永久丢失 |
-| PS-P1-02 | `docs/database/project006.sql` 22 张 `ENGINE=MyISAM` + `application.yml:88` | 部署未执行迁移 02 时，`rollbackOn=Exception` 给出虚假安全感：删训练主记录失败→报底/答卷已消失；新建报底失败→残留无报底训练 |
+| PS-P1-02 | `backend/database/project006.sql` 22 张 `ENGINE=MyISAM` + `application.yml:88` | 部署未执行迁移 02 时，`rollbackOn=Exception` 给出虚假安全感：删训练主记录失败→报底/答卷已消失；新建报底失败→残留无报底训练 |
 
 评分与业务正确性：
 
@@ -112,7 +113,7 @@
 ## 4. 系统性根因
 
 1. **`@Transactional` 方法内 catch 吞异常 → 部分提交**：上一轮的 P0 家族（先校验后删、异常逸出触发回滚）已在理论考试、菜单权限、试卷、军语等主路径修好，但同一反模式在 `TelegramTrainService.save`、`CableService.delete`、`CableTypeService.delete`、`TelexPatService.deleteTexPatByToken` 仍然原样存在（PT-P1-01、SM-P1-01/02/03，对应上一轮 P1-63/64/65）。`TelexPatService.saveTelexPat:70-76` 已改用 `transactionManager.setRollbackOnly()`，说明修法已知但未推广。
-2. **MyISAM 表把「删除+重建」变成不可回滚**：活库实测 22 张 MyISAM 表，主体是训练报底/拍发明细表（`general_*` 10 张、`simulation_router_room_page`/`_value`、`t_post_*_page(_value)`、`t_ticker_tape_train_stage_setting`），另有 3 张不落入该命名规律：`hand_key_err_log`（错误日志追加表，不参与 delete→重建）、`t_post_telegram_train_content_value`、`t_post_telegraph_key_pat_train_more`。关键点是评分结算 `delete→saveAndFlush` 的目标表（`t_post_telex_pat_train_page(_value)`、`t_post_telegraph_key_pat_train_page(_value)`）确实在这 22 张之内。迁移脚本 `docs/database/migrations/2026-08-26-02-engine-innodb.sql` 已提供，但 `generation: validate` 不校验存储引擎，部署漏执行不会被拦住。
+2. **MyISAM 表把「删除+重建」变成不可回滚**：活库实测 22 张 MyISAM 表，主体是训练报底/拍发明细表（`general_*` 10 张、`simulation_router_room_page`/`_value`、`t_post_*_page(_value)`、`t_ticker_tape_train_stage_setting`），另有 3 张不落入该命名规律：`hand_key_err_log`（错误日志追加表，不参与 delete→重建）、`t_post_telegram_train_content_value`、`t_post_telegraph_key_pat_train_more`。关键点是评分结算 `delete→saveAndFlush` 的目标表（`t_post_telex_pat_train_page(_value)`、`t_post_telegraph_key_pat_train_page(_value)`）确实在这 22 张之内。迁移脚本 `backend/database/migrations/2026-08-26-02-engine-innodb.sql` 已提供，但 `generation: validate` 不校验存储引擎，部署漏执行不会被拦住。
 3. **同一算法多套互相矛盾的实现**：速率加减分（Ticker 与 Key/Telex 符号相反）、比率计算（`ToolUtil.calculateRate` 三参错版 vs `PatTrainStatisticsUtil` 正确版）、`lastTrain` 排序（1 处 asc vs 2 处 desc）、分页类（`dto/Page` 与 `common/utils/Page` 双胞胎）。上一轮 §3 第 6 条「复制粘贴漂移」仍是首要维护风险。
 4. **异常可观测性已建立但口径未收口**：新增 6 个 `@Provider` ExceptionMapper（Global/Validation/IllegalState/InvalidTitle/Unauthorized/WebApplication）、`JWTInterceptor` 的 `context.proceed()` 移出 try、`getUserByToken` 改抛 `UnauthorizedException`，上一轮「全仓无 ExceptionMapper + token 返回 null 传播 NPE」的系统性根因已消除。残余问题是三套响应口径并存（HTTP 200 业务码、`GlobalExceptionMapper` 的 HTTP 500 信封、`ValidationExceptionMapper` 的 200+CODE_500 且回显 `e.getMessage()`），以及 `ResponseCode` 同码多义。
 5. **调试端点仍在生产路径**：`GET /api/test/start`、`GET /postTelegramTrain/test`、`POST /user/test` 三个调试端点都写死主键或返回含凭据的实体，且前两个会写库。整改批次只删掉了同目录的死类 `test/Test.java` 与 `free/DemoController`，漏掉真正危险的两个写端点。
@@ -224,7 +225,7 @@
 | 层 | 改动 |
 |---|---|
 | 实体 | `entity/RadiotelephoneEntity.java:20-21` `@UniqueConstraint(name = "uk_radiotelephone_train_user_type", columnNames = {"user_id", "type"})`；`entity/TheoryKnowledgeTestFallibleEntity.java:26-27` `uk_theory_test_fallible_user(user_id)` |
-| 迁移 | `docs/database/migrations/2026-09-08-01-unique-lazy-create.sql`（54 行）：`information_schema.statistics` 判存 + `PREPARE`/`EXECUTE`/`DEALLOCATE`，索引已存在时 `DO 0`，故幂等（MySQL 8.0 无 `ADD CONSTRAINT IF NOT EXISTS`）|
+| 迁移 | `backend/database/migrations/2026-09-08-01-unique-lazy-create.sql`（54 行）：`information_schema.statistics` 判存 + `PREPARE`/`EXECUTE`/`DEALLOCATE`，索引已存在时 `DO 0`，故幂等（MySQL 8.0 无 `ADD CONSTRAINT IF NOT EXISTS`）|
 | 支撑件 | `common/repository/IdempotentWrite.java`：`inNewTransaction` 是 `@Transactional(REQUIRES_NEW)`（`:31-34`），`isConstraintConflict` 遍历异常链识别 1062/23000（`:42-52`）。必须是独立 bean——`REQUIRES_NEW` 靠 CDI 拦截器生效，同类内部自调用不过拦截器（javadoc `:23-25`），故重试逻辑留在调用方 |
 | 调用方 | `RadiotelephoneService.accumulate:70-87`（撞键**只重试一次**，非约束冲突原样抛）、`applyDelta:89-102`（必须 `saveAndFlush`，冲突要在独立事务内部抛出才接得住）；`ComprehensiveService.cacheErrorSubject:359-372`、`writeErrorSubject:374-384` |
 | 空键闸门 | `RadiotelephoneService.java:72-77`、`ComprehensiveService.java:360-363`：两处唯一键列均可空，而 MySQL 唯一索引允许多个 NULL 行——不挡空键则约束形同虚设 |

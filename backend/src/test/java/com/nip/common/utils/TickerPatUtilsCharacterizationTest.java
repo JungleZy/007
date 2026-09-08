@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Task 3.1：TickerPatUtils 评分核心的 characterization 快照。
- * 输入样本在 src/test/resources/scoring/（patKeys 与规则取自 docs/database/project006.sql 真实数据），
+ * 输入样本在 src/test/resources/scoring/（patKeys 与规则取自 backend/database/project006.sql 真实数据），
  * 期望输出在 src/test/resources/scoring/expected/。
  * 重新生成快照：SCORING_UPDATE=1 运行本测试后人工核对 diff。
  */

@@ -1,6 +1,6 @@
 # 2026-09-08 双快照迁移演练（迁移 03 加入后）验收报告
 
-**结论：迁移 01→02→03 在 `docs/database/project006.sql`（current）与 `docs/database/project006-base.sql`（base）两个快照上均演练通过（`exit=0`，`REHEARSAL PASSED`，两侧差分 0 字节、105 表 / 0 MyISAM），本轮新增的两条唯一索引断言在两侧各 2 条全 PASS；迁移 03（`2026-09-08-01-unique-lazy-create.sql`）实测 current 110ms / base 165ms，比迁移 02 的 2.4 秒小一个半数量级——因为它的两张目标表在演练库里都是 0 行。迁移 03 已由活库连跑三次确证幂等（第三次 `mysql exit=0`、索引列数仍为 3）；prod jar 在默认 `%prod`（`generation: validate`）下启动成功，无 `SchemaManagementException`，即实体新增的唯一约束被 validate 接受。** 本轮没有捕获新缺陷（上一轮捕获的「MySQL 8.0 不支持 `ADD COLUMN IF NOT EXISTS`」已在 2026-09-07 修复）。所有版本化产物为纯 schema，不含业务数据行、容器凭据或令牌。
+**结论：迁移 01→02→03 在 `backend/database/project006.sql`（current）与 `backend/database/project006-base.sql`（base）两个快照上均演练通过（`exit=0`，`REHEARSAL PASSED`，两侧差分 0 字节、105 表 / 0 MyISAM），本轮新增的两条唯一索引断言在两侧各 2 条全 PASS；迁移 03（`2026-09-08-01-unique-lazy-create.sql`）实测 current 110ms / base 165ms，比迁移 02 的 2.4 秒小一个半数量级——因为它的两张目标表在演练库里都是 0 行。迁移 03 已由活库连跑三次确证幂等（第三次 `mysql exit=0`、索引列数仍为 3）；prod jar 在默认 `%prod`（`generation: validate`）下启动成功，无 `SchemaManagementException`，即实体新增的唯一约束被 validate 接受。** 本轮没有捕获新缺陷（上一轮捕获的「MySQL 8.0 不支持 `ADD COLUMN IF NOT EXISTS`」已在 2026-09-07 修复）。所有版本化产物为纯 schema，不含业务数据行、容器凭据或令牌。
 
 ## 元信息
 
@@ -9,21 +9,21 @@
 | 演练日期 | 2026-09-08（偏离收口批 4 之后，证据目录 `2026-09-08`） |
 | 脚本 | `scripts/rehearse-migrations.sh`（**235 行**，上一轮 224 行），调用方式 `REHEARSAL_OUT_NAME=2026-09-08 bash scripts/rehearse-migrations.sh` |
 | 引擎镜像 | `mysql:8.0`（`scripts/rehearse-migrations.sh:42` 硬编码），字符集 `utf8mb4` / `utf8mb4_0900_ai_ci`（`:127`） |
-| current 快照 | `docs/database/project006.sql`，本报告定稿时实测 `sha256:678829b3b1dc15b9c2f5ab61602d48500d1bbf4efc7302b44f4f803ad83b1662`，36559 行 / 105 `CREATE TABLE` / 34626 `INSERT`。已含本波回灌的两条 `UNIQUE INDEX`（`:28678`、`:29538`） |
-| base 快照 | `docs/database/project006-base.sql`，`sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`，31960 行 / 100 `CREATE TABLE` / 30139 `INSERT`（与上一轮逐字节相同，未改动） |
-| 迁移 01 | `docs/database/migrations/2026-08-26-01-schema-sync.sql`（128 行，已幂等） |
-| 迁移 02 | `docs/database/migrations/2026-08-26-02-engine-innodb.sql`（37 行，22 条 `ALTER TABLE … ENGINE = InnoDB`） |
-| 迁移 03（本轮新增） | `docs/database/migrations/2026-09-08-01-unique-lazy-create.sql`（**54 行**，2 条 `ADD CONSTRAINT … UNIQUE`，`information_schema.statistics` 判存 + `PREPARE`） |
-| 实体权威 schema | `docs/database/rehearsal/2026-09-08/entity-schema.tsv`，`sha256:520f39f86a268280aa01dc928dc2f7757030886b367e6b642a1883e83137075f`，103 张实体表 / 875 列行（与上一轮**逐字节相同**——唯一约束不增列，不改变 validate 的列契约） |
+| current 快照 | `backend/database/project006.sql`，本报告定稿时实测 `sha256:678829b3b1dc15b9c2f5ab61602d48500d1bbf4efc7302b44f4f803ad83b1662`，36559 行 / 105 `CREATE TABLE` / 34626 `INSERT`。已含本波回灌的两条 `UNIQUE INDEX`（`:28678`、`:29538`） |
+| base 快照 | `backend/database/project006-base.sql`，`sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`，31960 行 / 100 `CREATE TABLE` / 30139 `INSERT`（与上一轮逐字节相同，未改动） |
+| 迁移 01 | `backend/database/migrations/2026-08-26-01-schema-sync.sql`（128 行，已幂等） |
+| 迁移 02 | `backend/database/migrations/2026-08-26-02-engine-innodb.sql`（37 行，22 条 `ALTER TABLE … ENGINE = InnoDB`） |
+| 迁移 03（本轮新增） | `backend/database/migrations/2026-09-08-01-unique-lazy-create.sql`（**54 行**，2 条 `ADD CONSTRAINT … UNIQUE`，`information_schema.statistics` 判存 + `PREPARE`） |
+| 实体权威 schema | `backend/database/rehearsal/2026-09-08/entity-schema.tsv`，`sha256:520f39f86a268280aa01dc928dc2f7757030886b367e6b642a1883e83137075f`，103 张实体表 / 875 列行（与上一轮**逐字节相同**——唯一约束不增列，不改变 validate 的列契约） |
 | 断言口径 | 表计数、MyISAM=0、5 张命名表存在、两处 `is_start_sign` 默认=1、`general_key_pat_page.id`=varchar、**两条唯一索引存在且 `non_unique=0`**、实体列 ⊆ 快照列（validate 等价差分为空）；详见「4. 断言矩阵」 |
-| 证据目录 | `docs/database/rehearsal/2026-09-08/`（8 个证据文件 + README） |
+| 证据目录 | `backend/database/rehearsal/2026-09-08/`（8 个证据文件 + README） |
 | 边界 | 一次性 Docker 容器 + 卷，全新唯一命名，`trap` 全出口清理；脚本不接受位置参数、拒绝 `DB_HOST`/`JDBC_URL`/`QUARKUS_DATASOURCE_JDBC_URL`、绝不读 `application.yml` 数据源（`:11-17,27-36`） |
 
 墙钟未由脚本打印；按证据目录产物 mtime 推算约 **551 秒**（`entity-schema.tsv` 13:19:17 → `diff-base.txt` 13:28:28），与上一轮 550.61s 同量级，主体仍是两次容器冷启动与 6 万余行快照导入，非迁移耗时。
 
 ## 1. 停服窗口评估（迁移 03）
 
-**实测（毫秒，两快照分别计时，来源 `docs/database/rehearsal/2026-09-08/timings.tsv`）：**
+**实测（毫秒，两快照分别计时，来源 `backend/database/rehearsal/2026-09-08/timings.tsv`）：**
 
 | 快照 | 迁移 01（schema-sync） | 迁移 02（engine-innodb） | 迁移 03（unique-lazy-create） |
 |---|---|---|---|
@@ -32,7 +32,7 @@
 
 `timings.tsv` 原文两行：`current 182 2450 110`、`base 644 2431 165`。
 
-**迁移 03 为什么这么快——两张表都是 0 行。** 迁移脚本头注 `docs/database/migrations/2026-09-08-01-unique-lazy-create.sql:24-26` 记录了 2026-09-08 活库实测：`t_radiotelephone_train` **0 行 / 0 重复**、`t_theory_knowledge_test_fallible` **0 行 / 0 重复**。演练库同样来自快照，这两张表在快照里也没有数据行。`ADD CONSTRAINT … UNIQUE` 的代价主要是**建索引时的全表扫描 + 排序 + 索引落盘**，行数为 0 时几乎只剩元数据操作，所以 110–165ms 里绝大部分是 `mysql` 客户端连接、`information_schema.statistics` 判存查询与两次 `PREPARE`/`EXECUTE` 的固定开销，而不是索引构建本身。
+**迁移 03 为什么这么快——两张表都是 0 行。** 迁移脚本头注 `backend/database/migrations/2026-09-08-01-unique-lazy-create.sql:24-26` 记录了 2026-09-08 活库实测：`t_radiotelephone_train` **0 行 / 0 重复**、`t_theory_knowledge_test_fallible` **0 行 / 0 重复**。演练库同样来自快照，这两张表在快照里也没有数据行。`ADD CONSTRAINT … UNIQUE` 的代价主要是**建索引时的全表扫描 + 排序 + 索引落盘**，行数为 0 时几乎只剩元数据操作，所以 110–165ms 里绝大部分是 `mysql` 客户端连接、`information_schema.statistics` 判存查询与两次 `PREPARE`/`EXECUTE` 的固定开销，而不是索引构建本身。
 
 对比迁移 02 的 2.4 秒也印证这一点：迁移 02 的 22 条 `ALTER … ENGINE=InnoDB` 作用在**有数据**的业务表上（current 快照 34626 条 INSERT / base 30139 条），是带数据重建；迁移 03 作用在空表上。**两者的耗时不可类比，也不能互相外推。**
 
@@ -81,7 +81,7 @@ select count(*) from information_schema.statistics
 
 | 变更 | 当前行号 | 内容 |
 |---|---|---|
-| 迁移 03 路径常量 | `:62` | `MIG03="$REPO_ROOT/docs/database/migrations/2026-09-08-01-unique-lazy-create.sql"`，并加入 `:64-68` 的存在性前置检查循环 |
+| 迁移 03 路径常量 | `:62` | `MIG03="$REPO_ROOT/backend/database/migrations/2026-09-08-01-unique-lazy-create.sql"`，并加入 `:64-68` 的存在性前置检查循环 |
 | 计时第三段 | `:160-162` | `s03=$(date +%s%3N); mysql_exec … < "$MIG03"; e03=$(date +%s%3N); ms03=$((e03 - s03))` |
 | 计时输出行 | `:163` | `TIMING migration-01=…ms migration-02=…ms migration-03=…ms` |
 | `timings.tsv` 3 列 → **4 列** | `:164` | `printf '%s\t%s\t%s\t%s\n' "$label" "$ms01" "$ms02" "$ms03"`，列义 `label  ms01  ms02  ms03` |
@@ -130,21 +130,21 @@ base-schema.tsv      903 行    sha256:a61581d0e4efb2d2020aa14d497965c6756e2227b
 
 **与上一轮的一致性：** 本目录 5 份 TSV（`entity-schema`/`current-schema`/`base-schema`/`current-engine`/`base-engine`）与 `2026-09-07-postbackfill/` 的同名文件**逐字节相同**（`cmp` 实测）。这是预期的：迁移 03 只加二级索引，不增删列、不改列类型、不改存储引擎，而这些 TSV 只投影列与引擎。**因此唯一索引的证据只能来自 #13/#14 两条断言，不在任何 TSV 里** ——差分为空不构成唯一索引存在的证据。
 
-## 5. 快照回灌（`docs/database/project006.sql`）
+## 5. 快照回灌（`backend/database/project006.sql`）
 
 本波把迁移 03 的结果就地写进版本化快照，使仓库快照与活库、与实体三者继续保持一致：
 
 - 两张表的 `CREATE TABLE` 块内各加一行唯一索引（原文逐字如下，标识符在快照里带反引号）：
 
   ```sql
-  -- docs/database/project006.sql:28678（t_radiotelephone_train 建表块内）
+  -- backend/database/project006.sql:28678（t_radiotelephone_train 建表块内）
   UNIQUE INDEX `uk_radiotelephone_train_user_type`(`user_id`, `type`) USING BTREE,
-  -- docs/database/project006.sql:29538（t_theory_knowledge_test_fallible 建表块内）
+  -- backend/database/project006.sql:29538（t_theory_knowledge_test_fallible 建表块内）
   UNIQUE INDEX `uk_theory_test_fallible_user`(`user_id`) USING BTREE,
   ```
 
 - **34626 条 INSERT 数据行一行未动**（实测计数与回灌前一致）；
-- 尾注已更新（`:36466-36470`）：记录本次追加的两条索引、指明二者是迁移 `2026-09-08-01-unique-lazy-create.sql` 的等价结果、并说明「无索引时两个并发首调会各插一行」的动机；`:36463` 的演练证据指针指向 `docs/database/rehearsal/2026-09-08/`。
+- 尾注已更新（`:36466-36470`）：记录本次追加的两条索引、指明二者是迁移 `2026-09-08-01-unique-lazy-create.sql` 的等价结果、并说明「无索引时两个并发首调会各插一行」的动机；`:36463` 的演练证据指针指向 `backend/database/rehearsal/2026-09-08/`。
 
 回灌后快照仍是可导入的完整库：演练 current 分支即以它为输入，导入后跑完三条迁移仍是 105 表 / 0 MyISAM / 差分为空 / 两条唯一索引在位。
 
@@ -211,7 +211,7 @@ docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql-project006 mysql -uroot pr
 ```bash
 docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql-project006 \
   mysql -uroot --default-character-set=utf8mb4 project006 \
-  < docs/database/migrations/2026-09-08-01-unique-lazy-create.sql
+  < backend/database/migrations/2026-09-08-01-unique-lazy-create.sql
 ```
 
 **校验 SQL（前滚后应得 3；回滚后应得 0）：**
@@ -241,4 +241,4 @@ select count(*) from information_schema.statistics
 9. **数据正确性未断言。** 全部断言均为 schema 层（表/列/类型/引擎/默认值/索引）；行数与内容一致性不在演练范围内。
 10. **墙钟未由脚本记录。** 551 秒是按产物 mtime 推算，非脚本输出。
 
-演练产物与复现命令见 `docs/database/rehearsal/2026-09-08/README.md`。读路径懒建本身的评估结论见 `docs/reviews/2026-09-07-full-project-review.md` §9。
+演练产物与复现命令见 `backend/database/rehearsal/2026-09-08/README.md`。读路径懒建本身的评估结论见 `docs/reviews/2026-09-07-full-project-review.md` §9。

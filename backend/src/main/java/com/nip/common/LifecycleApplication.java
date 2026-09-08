@@ -34,8 +34,9 @@ public class LifecycleApplication {
       "select table_name from information_schema.tables"
           + " where table_schema = database() and engine = 'MyISAM' order by table_name";
 
-  /** 迁移脚本路径，出现在自检失败信息里，保证报错可操作 */
-  private static final String ENGINE_MIGRATION_SQL = "docs/database/migrations/2026-08-26-02-engine-innodb.sql";
+  /** 迁移脚本路径（相对仓库根，2026-09-08 起全仓文档收口到根 `docs/`），出现在自检失败信息里，保证报错可操作 */
+  private static final String ENGINE_MIGRATION_SQL =
+      "backend/database/migrations/2026-08-26-02-engine-innodb.sql";
 
   @Inject
   DataSource dataSource;

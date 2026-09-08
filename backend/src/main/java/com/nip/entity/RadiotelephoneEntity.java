@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Entity(name = "t_radiotelephone_train")
 // (user_id, type) 是业务唯一键：listPage/finish 在读路径懒建统计行，没有这条唯一约束时
 // 两个并发首调会各插一行，统计页重复显示该 type，且后续结算只累加 firstResult() 命中的那行。
-// 配套迁移：docs/database/migrations/2026-09-08-01-unique-lazy-create.sql
+// 配套迁移：backend/database/migrations/2026-09-08-01-unique-lazy-create.sql
 @Table(name = "t_radiotelephone_train", uniqueConstraints =
     @UniqueConstraint(name = "uk_radiotelephone_train_user_type", columnNames = {"user_id", "type"}))
 @Cacheable(value = false)

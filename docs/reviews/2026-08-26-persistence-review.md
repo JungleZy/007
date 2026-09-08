@@ -2,7 +2,7 @@
 
 **结论：共发现 28 个问题 —— P0 2 个、P1 9 个、P2 15 个、P3 2 个。**
 
-审查范围：`src/main/java/com/nip/dao/`（84 文件）、`src/main/java/com/nip/entity/`（85 文件，含 simulation 子包），以及 DAO 直接继承的持久层基础设施 `common/repository/BaseRepository.java`、`common/specification/SpecificationExecutor.java`（已与 CommonBuild 确认归属本报告）。表结构核对以 `docs/database/project006.sql`（当前 dump，36447 行）为准，`project006-base.sql` 为旧基线，两者主键类型已不同，**不能用 base 版本下结论**。
+审查范围：`src/main/java/com/nip/dao/`（84 文件）、`src/main/java/com/nip/entity/`（85 文件，含 simulation 子包），以及 DAO 直接继承的持久层基础设施 `common/repository/BaseRepository.java`、`common/specification/SpecificationExecutor.java`（已与 CommonBuild 确认归属本报告）。表结构核对以 `backend/database/project006.sql`（当前 dump，36447 行）为准，`project006-base.sql` 为旧基线，两者主键类型已不同，**不能用 base 版本下结论**。
 
 三条需要先说清楚的全局事实，它们决定了下面很多问题的严重程度：
 
@@ -53,7 +53,7 @@ public List<GeneralKeyPatPageEntity> findTwoPage(Integer id) {
 ```
 两处都错：
 1. **字段错**：调用方传的是训练 ID。`GeneralKeyPatService.java:833` 明确写 `trainPageDao.findTwoPage(param.getTrainId())`。但查询过滤的是 `id`（该页记录自己的主键），不是 `trainId`。同族的正确写法见 `PostTelegraphKeyPatTrainPageDao.java:34-36`：`find("trainId =?1 and (pageNumber = 1 or pageNumber = 2) order by pageNumber,sort", trainId)`。
-2. **类型错**：`GeneralKeyPatPageEntity.java:20-22` 主键是 `@GeneratedValue(strategy = GenerationType.UUID) private String id;`（表侧 `docs/database/project006.sql:73` 起的 `general_key_pat_page.id` 为 `varchar(64)`，与实体一致）。而方法签名是 `Integer id`，把 Integer 绑到 String 类型的路径上。
+2. **类型错**：`GeneralKeyPatPageEntity.java:20-22` 主键是 `@GeneratedValue(strategy = GenerationType.UUID) private String id;`（表侧 `backend/database/project006.sql:73` 起的 `general_key_pat_page.id` 为 `varchar(64)`，与实体一致）。而方法签名是 `Integer id`，把 Integer 绑到 String 类型的路径上。
 
 **影响**：`GeneralKeyPatService.patDetail`（`GeneralKeyPatService.java:826-881`）**没有 try/catch**，异常直接抛到 controller。要么 Hibernate 在参数绑定阶段抛类型不匹配异常导致「通用手键拍发-拍发详情」接口 500；要么参数被强转成 `"123"` 这类字符串，与 UUID 主键永远匹配不上，返回空列表。后者会让 `GeneralKeyPatService.java:869`（学员未完成时 `v.setContent(PojoUtils.convert(twoPage, ...))`）**恒返回空报底内容**。无论哪条分支，这个功能 100% 不可用，不是边界情况。
 
@@ -203,7 +203,7 @@ public PageInfo<T> findPage(@Nullable Specification<T> specification, int curren
 
 ### P1-7 22 张 MyISAM 表参与 `@Transactional` 事务，删除/新建训练没有原子性
 
-**位置**：`docs/database/project006.sql`（引擎声明）+ 各 service 的删除方法
+**位置**：`backend/database/project006.sql`（引擎声明）+ 各 service 的删除方法
 
 **现象**：当前 dump 里以下表是 `ENGINE = MyISAM`（MyISAM 不支持事务）：
 ```
@@ -216,12 +216,12 @@ t_post_telegraph_key_pat_train_page, t_post_telegraph_key_pat_train_page_value,
 t_post_telex_pat_train_page, t_post_telex_pat_train_page_value,
 t_post_ticker_tape_train_page, t_post_ticker_tape_train_page_value, t_ticker_tape_train_stage_setting
 ```
-（可核对 `docs/database/project006.sql:48` general_key_pat、`:73` general_key_pat_page、`:125` general_key_pat_user_value、`:319` simulation_router_room_page 等处的 `) ENGINE = MyISAM`。）
+（可核对 `backend/database/project006.sql:48` general_key_pat、`:73` general_key_pat_page、`:125` general_key_pat_user_value、`:319` simulation_router_room_page 等处的 `) ENGINE = MyISAM`。）
 
 对应的事务方法：
 - `GeneralKeyPatService.java:228-237` 标了 `@Transactional(rollbackOn = Exception.class)`，依次删 `general_key_pat_user_value`、`general_key_pat_user_value_resolver`、`general_key_pat_train_more`、`general_key_pat_page`、`general_key_pat_user`、`general_key_pat` —— 六张表全是 MyISAM。
-- `PostTelexPatTrainService.java:305-309`：先删 MyISAM 的 `t_post_telex_pat_train_page` / `_page_value`，最后删 InnoDB 的 `t_post_telex_pat_train`（`docs/database/project006.sql:28492`，`ENGINE = InnoDB`）—— **同一事务里混用两种引擎**。
-- `SimulationRouterRoomService` / `SimulationReceptRoomService` / `SimulationReportRoomService` 的 `delete`（如 `SimulationReportRoomService.java:199-206`）同样混用 MyISAM 的 page/page_value 与 InnoDB 的 `simulation_router_room`（`docs/database/project006.sql:283`）。
+- `PostTelexPatTrainService.java:305-309`：先删 MyISAM 的 `t_post_telex_pat_train_page` / `_page_value`，最后删 InnoDB 的 `t_post_telex_pat_train`（`backend/database/project006.sql:28492`，`ENGINE = InnoDB`）—— **同一事务里混用两种引擎**。
+- `SimulationRouterRoomService` / `SimulationReceptRoomService` / `SimulationReportRoomService` 的 `delete`（如 `SimulationReportRoomService.java:199-206`）同样混用 MyISAM 的 page/page_value 与 InnoDB 的 `simulation_router_room`（`backend/database/project006.sql:283`）。
 - 新建路径同理：`GeneralKeyPatService.java:123-226` 的 `add` 在同一事务里先存训练主记录、再存参训人员、最后批量生成报底页；`GeneralTickerPatService.java:209` 的 `cableFloor.subList(0, totalPage)` 在 `cableFloor.size() < totalPage` 时会抛 `IndexOutOfBoundsException`。
 
 **影响**：MyISAM 表上的写入**立即生效且无法回滚**。任一步失败后，子表已删/已写的行永久留下：删除训练时主记录删失败 → 报底和答卷已消失但训练还在；新建训练时报底生成失败 → 数据库里留下一个没有任何报底的训练和一批参训人员记录。`rollbackOn = Exception.class` 给的是虚假的安全感。
@@ -232,13 +232,13 @@ t_post_ticker_tape_train_page, t_post_ticker_tape_train_page_value, t_ticker_tap
 
 ### P1-8 实体与仓库内 schema 文件严重脱节，且无迁移工具、无启动校验
 
-**位置**：`src/main/resources/application.yml:32`、`docs/database/*.sql`、多个实体
+**位置**：`src/main/resources/application.yml:32`、`backend/database/*.sql`、多个实体
 
-**现象**：以当前 dump `docs/database/project006.sql` 为基准逐表比对，发现三类脱节：
+**现象**：以当前 dump `backend/database/project006.sql` 为基准逐表比对，发现三类脱节：
 
 1. **5 张实体声明的表在两份 dump 里都不存在**（已对 `project006.sql` 与 `project006-base.sql` 的全部 `CREATE TABLE` 做过集合差）：
    `general_telex_pat`、`general_telex_pat_page`、`general_telex_pat_user`、`general_telex_pat_user_value`（通用电传拍发整个功能族）、`t_masthead`。
-2. **`simulation_router_room.is_start_sign` 列在两份 dump 里都不存在**（对 `docs/database/` 整目录 grep `is_start_sign` 零命中），但 `SimulationRouterRoomEntity.java:123` 声明了 `private Integer isStartSign = 1;`，且 3 条命名原生查询显式 SELECT 该列：`SimulationRouterRoomEntity.java:27`、`:36`、`:45`。表实际列见 `docs/database/project006.sql:283-296`，共 11 列，无此列。
+2. **`simulation_router_room.is_start_sign` 列在两份 dump 里都不存在**（对 `backend/database/` 整目录 grep `is_start_sign` 零命中），但 `SimulationRouterRoomEntity.java:123` 声明了 `private Integer isStartSign = 1;`，且 3 条命名原生查询显式 SELECT 该列：`SimulationRouterRoomEntity.java:27`、`:36`、`:45`。表实际列见 `backend/database/project006.sql:283-296`，共 11 列，无此列。
 3. **两份 dump 之间主键类型已经漂移**：`general_key_pat_page.id` 在 `project006-base.sql:74` 是 `int(0) AUTO_INCREMENT`，在 `project006.sql:73` 起是 `varchar(64)`；`general_ticker_pat_train_page.id` 同样从 int 变成 varchar(64)。
 
 同时 `application.yml:32` 是 `generation: none`，项目里没有 Flyway / Liquibase（无 migration 目录、无相关依赖引用）。
@@ -388,7 +388,7 @@ return value == null || value == "";     // :84  引用比较，不是值比较
 
 ### P2-6 `EnteringExerciseWordStockEntity` 声明 IDENTITY，但表主键没有 AUTO_INCREMENT
 
-**位置**：`src/main/java/com/nip/entity/EnteringExerciseWordStockEntity.java:17-19`，表定义见 `docs/database/project006.sql:28525` 起
+**位置**：`src/main/java/com/nip/entity/EnteringExerciseWordStockEntity.java:17-19`，表定义见 `backend/database/project006.sql:28525` 起
 
 **现象**：
 ```java
@@ -650,5 +650,5 @@ public GeneralTickerPatTrainPageEntity findByTrainIdOrderByFloorNumberDescSortDe
 
 - 所有 file:line 均来自对源文件的实际读取，未做推断。
 - 标注 `[INFERENCE]` 的条目是「代码写法确定有问题、但具体失败模式依赖 Hibernate 6 / MySQL sql_mode 运行时行为」，本机无 Java 环境无法运行验证，已在各条目内明确标出。
-- 表结构以 `docs/database/project006.sql`（36447 行，当前 dump）为准。`project006-base.sql` 是旧基线，两者在 `general_key_pat_page.id` / `general_ticker_pat_train_page.id` 上主键类型已经不同（int AUTO_INCREMENT → varchar(64)），**用 base 版本核对会得出错误结论**。
+- 表结构以 `backend/database/project006.sql`（36447 行，当前 dump）为准。`project006-base.sql` 是旧基线，两者在 `general_key_pat_page.id` / `general_ticker_pat_train_page.id` 上主键类型已经不同（int AUTO_INCREMENT → varchar(64)），**用 base 版本核对会得出错误结论**。
 - 实体表名集合与两份 dump 的 `CREATE TABLE` 集合做过完整差集比对，结果见 P1-8。

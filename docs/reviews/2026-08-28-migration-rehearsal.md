@@ -9,10 +9,10 @@
 | 引擎镜像 | `mysql:8.0`，digest `sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b` |
 | Docker | 29.1.3 |
 | JDK | Temurin 21.0.12.1（`~/.local/opt/jdk21`） |
-| current 快照校验和 | `sha256:b18e5b1743517e61066dcad5da5a54ba81c7b114cc6ed75f600532c64aeab408`（`docs/database/project006.sql`） |
-| base 快照校验和 | `sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`（`docs/database/project006-base.sql`） |
-| 迁移 01 | `docs/database/migrations/2026-08-26-01-schema-sync.sql` |
-| 迁移 02 | `docs/database/migrations/2026-08-26-02-engine-innodb.sql` |
+| current 快照校验和 | `sha256:b18e5b1743517e61066dcad5da5a54ba81c7b114cc6ed75f600532c64aeab408`（`backend/database/project006.sql`） |
+| base 快照校验和 | `sha256:725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a`（`backend/database/project006-base.sql`） |
+| 迁移 01 | `backend/database/migrations/2026-08-26-01-schema-sync.sql` |
+| 迁移 02 | `backend/database/migrations/2026-08-26-02-engine-innodb.sql` |
 | 实体权威 schema | `entity-schema.tsv`，`sha256:520f39f86a268280aa01dc928dc2f7757030886b367e6b642a1883e83137075f`（103 张实体表） |
 
 ## 迁移耗时（毫秒，各快照分别计时）

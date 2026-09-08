@@ -100,7 +100,7 @@
 
 ## 6. 待运行验证清单
 
-1. **表引擎口径冲突(影响 SM-P1-05 定级)**：上轮汇总 #21 称“相关表为 InnoDB”，而本轮背景事实为“22 张 MyISAM 表不可回滚”。SM-P1-01/02/03/04 因异常被 catch 吞、与引擎无关(恒提交)；但 SM-P1-05(CableService.save)异常逸出，是否永久丢失取决于 cable_floor 是否 MyISAM。请以 `docs/database/project006.sql` 实际 ENGINE 为准确认。
+1. **表引擎口径冲突(影响 SM-P1-05 定级)**：上轮汇总 #21 称“相关表为 InnoDB”，而本轮背景事实为“22 张 MyISAM 表不可回滚”。SM-P1-01/02/03/04 因异常被 catch 吞、与引擎无关(恒提交)；但 SM-P1-05(CableService.save)异常逸出，是否永久丢失取决于 cable_floor 是否 MyISAM。请以 `backend/database/project006.sql` 实际 ENGINE 为准确认。
 2. **gson toJsonTree(SM-P2-04)**：确认 `JSONUtils.gson.toJsonTree(<原始JSON字符串>).getAsJsonObject()` 是否抛 IllegalStateException 使 `/saveAll` 端点恒失败(静态判断高置信，未运行)。
 3. **空 IN 展开(SM-P2-01/02)**：Hibernate ORM 6.6(Quarkus 3.20)对 `delete/find ... in (?1)` 传空 List 的展开策略(`1=0` 静默匹配 0 行 还是抛异常)，验证 `DeviceDescriptionDao.deleteAllByDeviceIdIn(空)` 与 `CableService.findAll` 空 scope。
 4. **懒建统计并发重复(SM-P2-06)**：并发两次 `statisticalPage`/相关 statistical 初始化是否产生重复行(表无唯一约束)。
