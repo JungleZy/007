@@ -64,7 +64,7 @@ CREATE TABLE `general_key_pat`  (
   `valid_time` bigint(0) NULL DEFAULT NULL,
   `up_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 131 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 131 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_key_pat_page
@@ -79,7 +79,7 @@ CREATE TABLE `general_key_pat_page`  (
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 12425 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 12425 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_key_pat_train_more
@@ -93,7 +93,7 @@ CREATE TABLE `general_key_pat_train_more`  (
   `more_line` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `page_number` int(0) NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 100 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 100 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_key_pat_user
@@ -116,7 +116,7 @@ CREATE TABLE `general_key_pat_user`  (
   `speed` varchar(64) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `statistic_info` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 602 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 602 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_key_pat_user_value
@@ -132,7 +132,7 @@ CREATE TABLE `general_key_pat_user_value`  (
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 9605 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9605 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_key_pat_user_value_resolver
@@ -148,7 +148,7 @@ CREATE TABLE `general_key_pat_user_value_resolver`  (
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 9616 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 9616 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_ticker_pat
@@ -174,7 +174,7 @@ CREATE TABLE `general_ticker_pat`  (
   `valid_time` bigint(0) NULL DEFAULT NULL,
   `up_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 75 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 75 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_ticker_pat_train_page
@@ -190,7 +190,7 @@ CREATE TABLE `general_ticker_pat_train_page`  (
   `pat_keys` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `mores_time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 8529 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 8529 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_ticker_pat_train_user
@@ -213,7 +213,7 @@ CREATE TABLE `general_ticker_pat_train_user`  (
   `speed_log` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `statistic_info` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 306 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 306 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for general_ticker_pat_train_user_value
@@ -229,7 +229,7 @@ CREATE TABLE `general_ticker_pat_train_user_value`  (
   `resolver` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   `standard` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 67 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 67 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for group_net_train
@@ -261,7 +261,7 @@ CREATE TABLE `hand_key_err_log`  (
   `train_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `user_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for seq
@@ -292,6 +292,7 @@ CREATE TABLE `simulation_router_room`  (
   `play_status` int(0) NULL DEFAULT NULL COMMENT '0 暂停 1继续',
   `setting` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   `start_time` datetime(0) NULL DEFAULT NULL,
+  `is_start_sign` int(0) NULL DEFAULT 1 COMMENT '是否发送开始标识',
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '仿真训练 线路通报 房间类' ROW_FORMAT = Dynamic;
 
@@ -323,7 +324,7 @@ CREATE TABLE `simulation_router_room_page`  (
   `sort` int(0) NULL DEFAULT NULL,
   `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 101508 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 101508 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for simulation_router_room_page_value
@@ -336,7 +337,7 @@ CREATE TABLE `simulation_router_room_page_value`  (
   `value` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   `user_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 381 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 381 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for simulation_router_room_user
@@ -28379,7 +28380,7 @@ CREATE TABLE `t_post_telegram_train_content_value`  (
   `message_body` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `train_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_telegram_train_floor_content
@@ -28453,7 +28454,7 @@ CREATE TABLE `t_post_telegraph_key_pat_train_more`  (
   `more_line` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   `more_group` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 139 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 139 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_telegraph_key_pat_train_page
@@ -28468,7 +28469,7 @@ CREATE TABLE `t_post_telegraph_key_pat_train_page`  (
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 69082 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 69082 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_telegraph_key_pat_train_page_value
@@ -28483,7 +28484,7 @@ CREATE TABLE `t_post_telegraph_key_pat_train_page_value`  (
   `value` text CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   `time` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 68782 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 68782 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_telex_pat_train
@@ -28530,7 +28531,7 @@ CREATE TABLE `t_post_telex_pat_train_page`  (
   `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 94853 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 94853 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_telex_pat_train_page_value
@@ -28542,7 +28543,7 @@ CREATE TABLE `t_post_telex_pat_train_page_value`  (
   `page_number` int(0) NULL DEFAULT NULL COMMENT '页码',
   `pat_value` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL COMMENT '页内容',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 1273 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1273 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_ticker_tape_train
@@ -28577,6 +28578,7 @@ CREATE TABLE `t_post_ticker_tape_train`  (
   `total_number` int(0) NULL DEFAULT NULL,
   `ratio` int(0) NULL DEFAULT NULL,
   `message_number` int(0) NULL DEFAULT NULL,
+  `is_start_sign` int(0) NULL DEFAULT 1 COMMENT '是否发送开始标识',
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '收报管理-训练表' ROW_FORMAT = Dynamic;
 
@@ -28592,7 +28594,7 @@ CREATE TABLE `t_post_ticker_tape_train_page`  (
   `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `value` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 42783 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 42783 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_ticker_tape_train_page_value
@@ -28605,7 +28607,7 @@ CREATE TABLE `t_post_ticker_tape_train_page_value`  (
   `train_id` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL,
   `value` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 414 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 414 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for t_post_ticker_tape_train_setting
@@ -36361,7 +36363,7 @@ CREATE TABLE `t_ticker_tape_train_stage_setting`  (
   `id` int(0) NOT NULL AUTO_INCREMENT,
   `stage_array` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = MyISAM AUTO_INCREMENT = 3 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of t_ticker_tape_train_stage_setting
@@ -36443,5 +36445,107 @@ CREATE TABLE `t_user_role`  (
 -- ----------------------------
 INSERT INTO `t_user_role` VALUES ('1616325f-562e-4b7f-ae47-03992a838e8b', '1', '1');
 INSERT INTO `t_user_role` VALUES ('da199cd5-5c4c-4070-9cc5-1b6091a0054e', '2', '2');
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================================
+-- 2026-09-07 迁移回灌（fix-plan Task 2.4）
+-- 本快照原为迁移前状态（100 表、22 张 MyISAM、缺 5 表 2 列），与实体和
+-- application.yml 的 %prod generation:validate 不一致（评审 PS-P2-18）。
+-- 本次回灌内容 = 迁移 01（schema-sync）+ 迁移 02（engine-innodb）的结果：
+--   * 上方全部 22 处 `ENGINE = MyISAM` 已就地改为 `ENGINE = InnoDB`；
+--   * 下方补齐 5 张缺表 DDL 与主键类型对齐；
+--   * 两处 `is_start_sign` 缺列已写入上方 `simulation_router_room` 与
+--     `t_post_ticker_tape_train` 的 CREATE TABLE 块（迁移 01 第 2 节的等价结果）。
+-- 业务数据行未改动（保持原快照的 34626 条 INSERT）。
+-- 迁移演练证据：docs/database/rehearsal/2026-09-07-postbackfill/
+-- 权威结论：docs/reviews/2026-09-07-migration-rehearsal.md
+-- ============================================================================
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `general_telex_pat` (
+  `is_cable` int DEFAULT NULL,
+  `pat_type` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `total_number` int DEFAULT NULL,
+  `train_type` int DEFAULT NULL,
+  `type` int DEFAULT NULL,
+  `create_time` datetime(6) DEFAULT NULL,
+  `end_time` datetime(6) DEFAULT NULL,
+  `start_time` datetime(6) DEFAULT NULL,
+  `valid_time` bigint DEFAULT NULL,
+  `create_user` varchar(255) DEFAULT NULL,
+  `id` varchar(255) NOT NULL,
+  `rule_content` varchar(255) DEFAULT NULL,
+  `rule_id` varchar(255) DEFAULT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `general_telex_pat_page` (
+  `page_number` int DEFAULT NULL,
+  `sort` int DEFAULT NULL,
+  `id` varchar(255) NOT NULL,
+  `key` varchar(255) DEFAULT NULL,
+  `train_id` varchar(255) DEFAULT NULL,
+  `value` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `general_telex_pat_user` (
+  `accuracy` decimal(38,2) DEFAULT NULL,
+  `error_number` int DEFAULT NULL,
+  `is_finish` int DEFAULT NULL,
+  `role` int DEFAULT NULL,
+  `score` decimal(38,2) DEFAULT NULL,
+  `speed` decimal(38,2) DEFAULT NULL,
+  `valid_time` int DEFAULT NULL,
+  `create_time` datetime(6) DEFAULT NULL,
+  `finish_time` datetime(6) DEFAULT NULL,
+  `deduct_info` varchar(255) DEFAULT NULL,
+  `duration` varchar(255) DEFAULT NULL,
+  `id` varchar(255) NOT NULL,
+  `speed_log` varchar(255) DEFAULT NULL,
+  `statistic_info` varchar(255) DEFAULT NULL,
+  `train_id` varchar(255) DEFAULT NULL,
+  `user_id` varchar(255) DEFAULT NULL,
+  `valid_time_log` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `general_telex_pat_user_value` (
+  `page_number` int DEFAULT NULL,
+  `sort` int DEFAULT NULL,
+  `id` varchar(255) NOT NULL,
+  `key` varchar(255) DEFAULT NULL,
+  `train_id` varchar(255) DEFAULT NULL,
+  `user_id` varchar(255) DEFAULT NULL,
+  `value` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `t_masthead` (
+  `content` varchar(255) DEFAULT NULL,
+  `id` varchar(255) NOT NULL,
+  `train_id` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+-- 缺列 is_start_sign 已就地写入上方 simulation_router_room 与 t_post_ticker_tape_train
+-- 的 CREATE TABLE 定义（迁移 01 的 ADD COLUMN 等价形式）；两处主键 varchar(64)
+-- 在本快照中本已正确，无需 MODIFY。
 
 SET FOREIGN_KEY_CHECKS = 1;

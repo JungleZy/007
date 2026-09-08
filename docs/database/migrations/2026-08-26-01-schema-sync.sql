@@ -14,8 +14,8 @@
 --
 -- 执行顺序硬约束：本脚本 → 02-engine-innodb.sql → 才可启用
 -- %prod quarkus.hibernate-orm.database.generation=validate。
--- 本脚本幂等：IF NOT EXISTS + 缺列判断由执行者保证只跑一次；重复执行
--- CREATE 安全，重复 ADD COLUMN 会报 1060（可忽略）。
+-- 本脚本幂等：CREATE TABLE IF NOT EXISTS + information_schema 判存的条件 ADD COLUMN，
+-- 可安全重复执行（2026-09-07 起，迁移演练会对已迁移的 current 快照再跑一次）。
 -- ============================================================================
 
 -- ---- 1. 缺表（DDL 取自 Hibernate 实体导出，validate 的权威期望） ----
@@ -89,9 +89,30 @@ CREATE TABLE IF NOT EXISTS `t_masthead` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---- 2. 缺列（实体默认 isStartSign=1，存量行按业务默认回填为 1） ----
+-- MySQL 8.0 不支持 `ADD COLUMN IF NOT EXISTS`（那是 MariaDB 语法），因此用
+-- information_schema 判存 + PREPARE 做成幂等：列已存在时执行 `DO 0` 空操作。
+-- 幂等是硬需求——2026-09-07 快照回灌后 project006.sql 已含该列，迁移演练
+-- （scripts/rehearse-migrations.sh）会对 current 快照再跑一次本脚本。
 
-ALTER TABLE `simulation_router_room` ADD COLUMN `is_start_sign` int NULL DEFAULT 1;
-ALTER TABLE `t_post_ticker_tape_train` ADD COLUMN `is_start_sign` int NULL DEFAULT 1;
+SET @add_router_sign = (SELECT IF(
+    (SELECT COUNT(*) FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = 'simulation_router_room'
+        AND column_name = 'is_start_sign') = 0,
+    'ALTER TABLE `simulation_router_room` ADD COLUMN `is_start_sign` int NULL DEFAULT 1',
+    'DO 0'));
+PREPARE add_router_sign FROM @add_router_sign;
+EXECUTE add_router_sign;
+DEALLOCATE PREPARE add_router_sign;
+
+SET @add_ticker_sign = (SELECT IF(
+    (SELECT COUNT(*) FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = 't_post_ticker_tape_train'
+        AND column_name = 'is_start_sign') = 0,
+    'ALTER TABLE `t_post_ticker_tape_train` ADD COLUMN `is_start_sign` int NULL DEFAULT 1',
+    'DO 0'));
+PREPARE add_ticker_sign FROM @add_ticker_sign;
+EXECUTE add_ticker_sign;
+DEALLOCATE PREPARE add_ticker_sign;
 
 -- ---- 3. 主键类型对齐（P1-8 第 3 类） ----
 -- 旧基线（project006-base.sql）general_key_pat_page.id 与 general_ticker_pat_train_page.id

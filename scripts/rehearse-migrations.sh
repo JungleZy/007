@@ -9,12 +9,18 @@
 # 的规范化差分。差分必须为空。
 #
 # 硬安全约束：
-#   - 不接受任何参数（不接受主机 / JDBC URL）。
+#   - 不接受任何位置参数（不接受主机 / JDBC URL）。
 #   - 拒绝环境变量 DB_HOST / JDBC_URL / QUARKUS_DATASOURCE_JDBC_URL。
 #   - 绝不读取 application.yml 的 datasource 配置。
 #   - 每个快照使用全新、唯一命名的容器与卷；仅通过 docker exec -i 导入。
 #   - 所有出口路径 trap 清理容器与卷。
 #   - 只写 schema 元数据（表/列/引擎），绝不导出业务数据行或凭据。
+#
+# 可调项（只影响证据落盘位置，不影响数据源）：
+#   REHEARSAL_OUT_NAME    证据目录名（默认当天日期），仅允许 [0-9A-Za-z._-]，
+#                         防止逃出 docs/database/rehearsal/；重跑不再覆盖历史证据。
+#   REHEARSAL_ENTITY_SCHEMA  实体权威 schema TSV 路径；默认先找证据目录，
+#                         再回退 target/migration-rehearsal/entity-schema.tsv 并自动复制。
 # ============================================================================
 set -euo pipefail
 
@@ -35,18 +41,32 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
 IMAGE="mysql:8.0"
 ROOT_PASSWORD="rehearsal-$(date +%s)-$$"
-OUTDIR="$REPO_ROOT/docs/database/rehearsal/2026-08-28"
-ENTITY_SCHEMA="$OUTDIR/entity-schema.tsv"
+OUT_NAME="${REHEARSAL_OUT_NAME:-$(date +%Y-%m-%d)}"
+[[ "$OUT_NAME" =~ ^[0-9A-Za-z._-]+$ ]] || {
+  echo "Invalid REHEARSAL_OUT_NAME '$OUT_NAME': only [0-9A-Za-z._-] allowed" >&2; exit 2; }
+OUTDIR="$REPO_ROOT/docs/database/rehearsal/$OUT_NAME"
+mkdir -p "$OUTDIR"
+
+# 实体权威 schema：证据目录 → 显式覆盖 → 构建产物（自动复制，免手工搬运）
+ENTITY_SCHEMA="${REHEARSAL_ENTITY_SCHEMA:-$OUTDIR/entity-schema.tsv}"
+if [[ ! -f "$ENTITY_SCHEMA" ]]; then
+  EXPORTED="$REPO_ROOT/target/migration-rehearsal/entity-schema.tsv"
+  if [[ -f "$EXPORTED" ]]; then
+    cp "$EXPORTED" "$OUTDIR/entity-schema.tsv"
+    ENTITY_SCHEMA="$OUTDIR/entity-schema.tsv"
+    echo "Copied entity schema from $EXPORTED"
+  fi
+fi
 MIG01="$REPO_ROOT/docs/database/migrations/2026-08-26-01-schema-sync.sql"
 MIG02="$REPO_ROOT/docs/database/migrations/2026-08-26-02-engine-innodb.sql"
 
 for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
-    [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  then copy target/migration-rehearsal/entity-schema.tsv into $OUTDIR/" >&2
+    [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
 done
 
-mkdir -p "$OUTDIR"
+# OUTDIR 已在上方创建
 
 # 实体表名集合（差分范围仅限实体表；快照中的非实体表被排除）。
 ENTITY_TABLES="$(mktemp)"
