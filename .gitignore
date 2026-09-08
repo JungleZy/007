@@ -42,6 +42,6 @@ nb-configuration.xml
 
 # Plugin directory
 /.quarkus/cli/plugins/
-/hs_err_pid160488.log
+/hs_err_pid*.log
 logs/
 .superpowers/

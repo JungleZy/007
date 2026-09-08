@@ -24,9 +24,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-${{ runner.arch }}-maven-
 
       # 测试套件依赖 Testcontainers 起 Linux MySQL 容器，只能在 Linux runner 跑；
       # native 矩阵（含 Windows）一律 -DskipTests，测试由本 job 统一守门
@@ -69,9 +69,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-${{ runner.arch }}-maven-
 
       - name: Build Native Binary
         if: matrix.os == 'windows-2022'
@@ -104,6 +104,50 @@ jobs:
           fi
           echo "glibc baseline OK: ${MAX_VER} <= ${REQ}"
 
+      # native 制品此前从未做过功能冒烟，只验证过「能编译 + glibc 基线」。
+      # 这里启动真实 runner 并请求一个只读端点，证明 native 镜像可启动并提供 HTTP 服务。
+      # 绕开 DB 的方式（三选一里选「不起 MySQL」）：%prod 默认
+      # hibernate-orm.database.generation=validate 会在启动时连库校验 schema，
+      # 这里覆盖为 none，并把连接池 min-size 归零避免后台预热连接刷错误日志；
+      # 请求 /q/openapi —— smallrye-openapi 在 prod 模式同样注册该端点，且不查库。
+      # 选它而不是加 MySQL service container 的原因：service container 只在 Linux
+      # runner 可用，而本矩阵含 windows-2022，job 级 services 会让 Windows 分支直接失败。
+      - name: Smoke test native runner
+        shell: bash
+        run: |
+          set -uo pipefail
+          BIN=$(find target -maxdepth 1 -type f \( -name '*-runner' -o -name '*-runner.exe' \) | head -n 1)
+          if [ -z "$BIN" ]; then
+            echo "No native runner found in target/"
+            exit 1
+          fi
+          chmod +x "$BIN" || true
+          "$BIN" -Dquarkus.hibernate-orm.database.generation=none \
+                 -Dquarkus.datasource.jdbc.min-size=0 \
+                 -Dquarkus.http.port=18001 > native-smoke.log 2>&1 &
+          PID=$!
+          status=1
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:18001/q/openapi; then
+              status=0
+              break
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "native runner exited before answering"
+              break
+            fi
+            sleep 1
+          done
+          kill "$PID" 2>/dev/null || true
+          wait "$PID" 2>/dev/null || true
+          echo '----- native runner log -----'
+          cat native-smoke.log || true
+          if [ "$status" -ne 0 ]; then
+            echo 'Smoke test failed: /q/openapi did not return 200'
+            exit 1
+          fi
+          echo 'Smoke test OK: native runner served /q/openapi'
+
       - name: Rename binary with architecture suffix
         shell: bash
         run: |
@@ -127,9 +171,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: quarkus-native-${{ matrix.os }}-${{ runner.arch }}
-          path: |
-            target/*-runner*
-            target/*-runner.exe
+          path: target/*-runner*
           if-no-files-found: error
 
   release:
