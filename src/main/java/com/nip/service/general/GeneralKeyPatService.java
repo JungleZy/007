@@ -13,6 +13,7 @@ import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.controller.general.GeneralKeyPatTrainController;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.UserDao;
@@ -842,18 +843,18 @@ public class GeneralKeyPatService {
         .subtract(bunchGroupScore)
         .subtract(lackGapScore);
 
-    // 判断速率是+分开始扣分
+    // 速率加减分：高于基准按 R 加分、低于基准按 L 扣分，走全仓唯一实现 ScoreMath.wpmScore
     deductInfo.put("speedNumber", speed.toString());
-    if (speed.compareTo(new BigDecimal(rule.getWpm().getBase())) > 0) {
-      int diff = speed.intValue() - rule.getWpm().getBase();
-      BigDecimal speedScore = rule.getWpm().getR().multiply(new BigDecimal(diff));
-      score = score.add(speedScore);
+    int wpmBase = rule.getWpm().getBase();
+    BigDecimal speedScore = ScoreMath.wpmScore(wpmBase, rule.getWpm().getR(),
+        rule.getWpm().getL(), speed.intValue());
+    score = score.add(speedScore);
+    // 下面只负责 deductInfo 的历史文本口径（等于基准不出 key、正值补 "+"、负值出绝对值），
+    // 不参与算分；用方向而非 speedScore 的符号判断，是为了在系数为 0 时仍输出既有的 "+0"/"-0"。
+    if (speed.intValue() > wpmBase) {
       deductInfo.put("speedScore", "+" + speedScore);
-    } else if (speed.compareTo(new BigDecimal(rule.getWpm().getBase())) < 0) {
-      int diff = rule.getWpm().getBase() - speed.intValue();
-      BigDecimal speedScore = rule.getWpm().getL().multiply(new BigDecimal(diff));
-      score = score.subtract(speedScore);
-      deductInfo.put("speedScore", minus + speedScore);
+    } else if (speed.intValue() < wpmBase) {
+      deductInfo.put("speedScore", minus + speedScore.negate());
     }
 
     kehPatUserEntity.setScore(score);

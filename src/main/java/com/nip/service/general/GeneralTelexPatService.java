@@ -12,6 +12,7 @@ import com.nip.common.utils.ArraySafeGetUtils;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.general.telex.GeneralTelexPatDao;
 import com.nip.dao.general.telex.GeneralTelexPatPageDao;
@@ -807,16 +808,17 @@ public class GeneralTelexPatService {
         .subtract(correctMistakesScore);
     BigDecimal avgSpeed = calculateAverage(JSONUtils.fromJson(kehPatUserEntity.getSpeedLog(), new TypeToken<>() {
     }), 0, RoundingMode.HALF_UP).orElse(BigDecimal.ZERO);
-    if (avgSpeed.compareTo(new BigDecimal(rule.getWpm().getBase())) > 0) {
-      int diff = avgSpeed.intValue() - rule.getWpm().getBase();
-      BigDecimal speedScore = rule.getWpm().getR().multiply(new BigDecimal(diff));
-      score = score.add(speedScore);
+    // 速率加减分：高于基准按 R 加分、低于基准按 L 扣分，走全仓唯一实现 ScoreMath.wpmScore
+    int wpmBase = rule.getWpm().getBase();
+    BigDecimal speedScore = ScoreMath.wpmScore(wpmBase, rule.getWpm().getR(),
+        rule.getWpm().getL(), avgSpeed.intValue());
+    score = score.add(speedScore);
+    // 下面只负责 deductMap 的历史文本口径（等于基准不出 key、正值补 "+"、负值出绝对值），
+    // 不参与算分；用方向而非 speedScore 的符号判断，是为了在系数为 0 时仍输出既有的 "+0"/"-0"。
+    if (avgSpeed.intValue() > wpmBase) {
       deductMap.put("speedScore", "+" + speedScore);
-    } else if (avgSpeed.compareTo(new BigDecimal(rule.getWpm().getBase())) < 0) {
-      int diff = rule.getWpm().getBase() - avgSpeed.intValue();
-      BigDecimal speedScore = rule.getWpm().getL().multiply(new BigDecimal(diff));
-      score = score.subtract(speedScore);
-      deductMap.put("speedScore", minus + speedScore);
+    } else if (avgSpeed.intValue() < wpmBase) {
+      deductMap.put("speedScore", minus + speedScore.negate());
     }
     List<Integer> validTimeLog = JSONUtils.fromJson(kehPatUserEntity.getValidTimeLog(), new TypeToken<>() {
     });

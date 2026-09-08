@@ -47,4 +47,27 @@ public final class ScoreMath {
         .divide(new BigDecimal(total), 2, RoundingMode.HALF_UP)
         .multiply(HUNDRED);
   }
+
+  /**
+   * 速率加减分：<b>高于基准按 r 加分、低于基准按 l 扣分</b>，等于基准不加不减。
+   * 全仓唯一实现——Ticker / Key / Telex 三条速率路径一律委托此处，禁止再内联该分支。
+   *
+   * <p>注意：{@code SpeedDeduct} 与 {@code Wpm} 的 {@code r}/{@code l} 字段注释与实际用法相反
+   * （注释写「r 低于扣分 / l 高于加分」，调用代码一直是「r 加、l 扣」），<b>以调用代码为准</b>。
+   *
+   * @param base  速率基准值
+   * @param r     高于基准时每高 1 的加分系数；{@code null} 按零系数处理，不抛
+   * @param l     低于基准时每低 1 的扣分系数；{@code null} 按零系数处理，不抛
+   * @param speed 本次训练的平均速率（取整口径由调用方决定，Ticker HALF_DOWN、Key/Telex HALF_UP）
+   * @return 速率项得分，<b>带符号</b>：正数为加分、负数为扣分；{@code speed == base} 时为 0
+   */
+  public static BigDecimal wpmScore(int base, BigDecimal r, BigDecimal l, int speed) {
+    if (speed > base) {
+      return r == null ? BigDecimal.ZERO : r.multiply(new BigDecimal(speed - base));
+    }
+    if (speed < base) {
+      return l == null ? BigDecimal.ZERO : l.multiply(new BigDecimal(base - speed)).negate();
+    }
+    return BigDecimal.ZERO;
+  }
 }

@@ -11,6 +11,7 @@ import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.controller.general.GeneralTickerPatTrainController;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
@@ -979,21 +980,21 @@ public class GeneralTickerPatService {
   }
 
   /**
-   * 速率加减分：高于基准按 R 加分，低于基准按 L 扣分，与 GeneralKeyPatService:814-824、
-   * GeneralTelexPatService:763-773 同口径（SpeedDeduct 的字段注释与实际用法相反，以调用代码为准）。
+   * 速率加减分：委托全仓唯一实现 {@link ScoreMath#wpmScore(int, BigDecimal, BigDecimal, int)}，
+   * 高于基准按 R 加分、低于基准按 L 扣分（SpeedDeduct 的字段注释与实际用法相反，以调用代码为准）。
+   * SpeedDeduct 四字段全 Integer，转 BigDecimal 再 intValue() 与旧的纯 int 运算逐值相等。
    *
    * @param baseWpm 速率规则
    * @param speed   本次训练的平均拍发速度
    * @return 速率项得分，正数为加分、负数为扣分
    */
   public static int calculateWpmScore(SpeedDeduct baseWpm, int speed) {
-    if (speed > baseWpm.getBase()) {
-      return (speed - baseWpm.getBase()) * baseWpm.getR();
-    }
-    if (speed < baseWpm.getBase()) {
-      return -((baseWpm.getBase() - speed) * baseWpm.getL());
-    }
-    return 0;
+    Integer r = baseWpm.getR();
+    Integer l = baseWpm.getL();
+    return ScoreMath.wpmScore(baseWpm.getBase(),
+        r == null ? null : BigDecimal.valueOf(r),
+        l == null ? null : BigDecimal.valueOf(l),
+        speed).intValue();
   }
 
   public GeneralPatTrainUserDto getTrainUserInfo(String uid, Integer trainId) {
