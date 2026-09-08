@@ -10,6 +10,11 @@ jobs:
   test:
     name: Test (JVM, Testcontainers)
     runs-on: ubuntu-22.04
+    # 后端已移入 backend/；working-directory 只作用于 run 步骤，
+    # 不影响 uses 动作的输入路径（见下方 upload-artifact 的 path）。
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,6 +59,9 @@ jobs:
             runner: windows-2022
             asset_suffix: windows-amd64
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -171,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: quarkus-native-${{ matrix.os }}-${{ runner.arch }}
-          path: target/*-runner*
+          path: backend/target/*-runner*
           if-no-files-found: error
 
   release:

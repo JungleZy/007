@@ -5,44 +5,45 @@
 - 技术栈：Vue 3.5 + Vite 4 + Less/Tailwind + ant-design-vue 2.x，运行于**外部 Electron 外壳**内（另有残留的 Tauri 脚手架）
 - 规模：265 个 `.vue`、282 个 `.js`、约 155K LOC（其中大量为 vendored/生成的大文件）
 - 方法：6 个只读评审子代理并行覆盖「架构/构建、安全、网络/数据层、路由/状态/鉴权、组件/代码质量、性能/可访问性」，父代理独立复核关键结论后合并。
-- 权威性：所有 CRITICAL/HIGH 结论均已用 `read`/`grep` 独立落到 `文件:行` 证据；带 `[INFERENCE]` 者为推断。
+- 权威性：所有 HIGH 结论均已用 `read`/`grep` 独立落到 `文件:行` 证据；带 `[INFERENCE]` 者为推断。
 
-> 与后端评审（`docs/reviews/2026-08-26-full-project-review.md`）同为「以本汇总为准」的评审文档。
+> 与后端评审（`backend/docs/reviews/2026-09-07-full-project-review.md`）同为「以本汇总为准」的评审文档。
+>
+> 本文所有相对路径以 **`frontend/`** 为根（`src/` 内文件再省略 `src/`，如 `common/http/index.js`）。
 
 ---
 
 ## 1. 执行摘要
 
-前端功能可用，但建立在**脆弱且大量复制粘贴**的基础之上，并把客户端当成了授权与鉴权的信任锚。最突出的三点：
+前端功能可用，但建立在**脆弱且大量复制粘贴**的基础之上，并把客户端当成了鉴权与权限门控的信任锚。最突出的三点：
 
-1. **授权校验完全在客户端、可离线伪造、且内置万能绕过码**（CRITICAL）。AES 密钥 `wisdom23`、万能解锁串 `wjkj2025~` 硬编码在随包分发的源码里，生成与校验用同一密钥（对称），`<VerifyLicense>` 只挡 DOM、不挡任何后端能力。
-2. **鉴权/授权全靠客户端信任**：token/deviceId/userInfo/userRole/userRouter 全存 `localStorage`；路由守卫只看 token「是否存在」而非「是否有效」；`v-per` 按钮权限**失败即放行**且非响应式；登出**从不调用后端**失效 token。叠加富文本 XSS sink（`v-html` / `iframe.document.write`）+ 无 CSP，一次注入即可窃取 token 完成账号接管。
-3. **工程债务巨大**：271MB 的 `node_modules.zip` 入库且 `package-lock.json` 被忽略（构建不可复现）；约 1.3MB 字节级完全相同的文件多路径重复（`unpkg.js` 763KB×2、`table.js` 278KB×2、`wb_color*.js` 251KB×2）；**vuex 与 pinia 双状态并存**；三套 3D/表格/编辑器引擎并存与大量死依赖；构建 `manualChunks` 每包一 chunk 造成碎片化。
+1. **XSS→账号接管链**（HIGH）：后端富文本经 `v-html`(`equipmentIndex.vue:24`)/`iframe.document.write`(`useDetails.js:50+`) 未净化渲染 + token/deviceId/userInfo/userRole/userRouter 全存 `localStorage` + 无 CSP + 自动登录明文存密码 → 一次注入即可外带凭据完成账号接管。
+2. **鉴权/权限门控全靠客户端信任**（HIGH）：路由守卫只看 token「是否存在」而非「是否有效」；`v-per` 按钮权限**失败即放行**且非响应式；登出**从不调用后端**失效 token。安全性完全依赖后端强校验。
+3. **工程债务巨大**：271MB 的 `node_modules.zip` 滞留工作树（已核实**未入库**，见 §3.2）且 `package-lock.json` 被忽略（构建不可复现）；约 1.3MB 字节级完全相同的文件多路径重复（`unpkg.js` 763KB×2、`table.js` 278KB×2、`wb_color*.js` 251KB×2）；**vuex 与 pinia 双状态并存**；三套 3D/表格/编辑器引擎并存与大量死依赖；构建 `manualChunks` 每包一 chunk 造成碎片化。
 
 ### 必修清单（Must-fix，按风险排序）
 
 | # | 结论 | 严重度 | 证据 |
 |---|------|--------|------|
-| 1 | 授权校验客户端可伪造 + 万能绕过码 + 硬编码 AES-ECB 密钥 | CRITICAL | `common/utils/VerifyLicense.js:6-12`、`VerifyLicenseDB.js:11-17` |
-| 2 | 后端富文本经 `v-html`/`document.write` 未净化渲染 → 存储型 XSS | HIGH | `equipment/equipmentIndex.vue:24`、`study/basic/details/js/useDetails.js:50-95` |
-| 3 | 全量会话态（含 token）存 `localStorage`，无 CSP → XSS 窃取即接管 | HIGH | `login/useLogin.js:122-126`、`common/http/index.js:15-18` |
-| 4 | 自动登录明文持久化用户名/密码到 localforage | HIGH | `login/useLogin.js:127-134`、`:14-20` |
-| 5 | 271MB `node_modules.zip` 入库 + 无 lockfile → 构建不可复现 | HIGH | `frontend/node_modules.zip`、`.gitignore:7` |
-| 6 | axios 无 timeout 且吞掉传输层错误（请求可永久挂起、用户无反馈） | HIGH | `common/http/index.js:7,70-111` |
-| 7 | WebSocket 无退避/无上限/无心跳；部分用 `httpUrl` 拼 URL 在 Web 部署下畸形 | HIGH | `ws/Ws.js:74-81`、`unionJob/js/UnionWs.js:41` |
-| 8 | 约 1.3MB 字节级重复文件 + 已开始分叉的整文件重复组件 | HIGH | `equipment(Operate)/trainScore/js/table.js`、`gradingRule/{Telex,IndexDelete}.vue` |
+| 1 | 后端富文本经 `v-html`/`document.write` 未净化渲染 → 存储型 XSS | HIGH | `equipment/equipmentIndex.vue:24`、`study/basic/details/js/useDetails.js:50-95` |
+| 2 | 全量会话态（含 token）存 `localStorage`，无 CSP → XSS 窃取即接管 | HIGH | `login/useLogin.js:122-126`、`common/http/index.js:15-18` |
+| 3 | 自动登录明文持久化用户名/密码到 localforage | HIGH | `login/useLogin.js:127-134`、`:14-20` |
+| 4 | 无 lockfile → 构建不可复现（`node_modules.zip` 已确认未入库，本条半闭合） | HIGH | `.gitignore:8`、`frontend/node_modules.zip` |
+| 5 | axios 无 timeout 且吞掉传输层错误（请求可永久挂起、用户无反馈） | HIGH | `common/http/index.js:7,70-111` |
+| 6 | WebSocket 无退避/无上限/无心跳；部分用 `httpUrl` 拼 URL 在 Web 部署下畸形 | HIGH | `ws/Ws.js:74-81`、`unionJob/js/UnionWs.js:41` |
+| 7 | 约 1.3MB 字节级重复文件 + 已开始分叉的整文件重复组件 | HIGH | `equipment(Operate)/trainScore/js/table.js`、`gradingRule/{Telex,IndexDelete}.vue` |
 
 ### 严重度统计（按域，含跨域重复计数）
 
 | 域 | CRITICAL | HIGH | MEDIUM | LOW | INFO | 小计 |
 |----|:--:|:--:|:--:|:--:|:--:|:--:|
-| 安全 | 1 | 4 | 5 | 3 | 0 | 13 |
+| 安全 | 0 | 3 | 5 | 3 | 1 | 12 |
 | 架构/构建/依赖 | 0 | 4 | 6 | 4 | 1 | 15 |
 | 网络/数据层 | 0 | 4 | 6 | 3 | 2 | 15 |
 | 路由/状态/鉴权 | 0 | 4 | 5 | 4 | 2 | 15 |
 | 组件/代码质量 | 0 | 2 | 4 | 2 | 3 | 11 |
 | 性能/可访问性/国际化 | 0 | 6 | 5 | 1 | 3 | 15 |
-| **合计** | **1** | **24** | **31** | **17** | **11** | **84** |
+| **合计** | **0** | **23** | **31** | **17** | **12** | **83** |
 
 > 说明：跨域重复计入（如「双状态」「node_modules.zip」「死 POST 分支」「localStorage 会话态」在多域各计一次）。去重后的系统性主题见 §2。
 
@@ -50,7 +51,7 @@
 
 ## 2. 系统性主题（跨域重复出现）
 
-- **客户端信任锚**：授权（§3.1）与鉴权（§3.4 的 `v-per`/路由守卫）都只在前端判定；安全性完全依赖后端强校验。任何 UI 门控都应视为「装饰」，服务端必须是唯一权威。
+- **客户端信任锚**：鉴权（路由守卫）与权限门控（§3.4 的 `v-per`）都只在前端判定；安全性完全依赖后端强校验。任何 UI 门控都应视为「装饰」，服务端必须是唯一权威。授权/license 门控经负责人确认为**有意的客户端软门控、非安全边界**（详见 §3.1，不计缺陷）。
 - **复制粘贴主导的结构债**：四个 `*ZuXun` 训练变体、`telegram`/`datagram` teaching 子树、`equipment`/`equipmentOperate` 近乎整树复制；已出现**跨域污染**（`telexZuXun/.../datagramTrain.js` 导入 electronKey API）与**同键碰撞**（telex/datagram `student.vue` 都写 `'datagramZuXun'+trainId`）。一处修复需改 N 份，且副本已开始分叉。
 - **双状态管理**：vuex（`config/store/index.js`，持 `router/permissions/online`）与 pinia（`config/pinia/*`，持 theme/traffic）同时注册于 `main.js:97,100`。vuex 大部分是死代码（`setRouter/getRouter/setOnline/getOnline` 从未使用，`online` 永为 `{}` → `Room.js` 读到 `undefined`），仅 `setPermissions` 活跃且仅在 HJJ/LJ 主题提交。
 - **Vue2 残留与死代码**：`main.js` 用 Vue2 指令钩子 `bind/update/unbind`（Vue3 永不触发 → `waves` 的 `mouseover` 监听泄漏）、`app.config.productionTip`（Vue3 no-op）；`Waves.vue` 逻辑整段注释却仍 `import three`；`ShortcutMenu.vue` 递归定时器无卸载清理。
@@ -61,13 +62,12 @@
 
 ## 3. 分域详述
 
-### 3.1 安全（1 CRITICAL / 4 HIGH / 5 MEDIUM / 3 LOW）
+### 3.1 安全（0 CRITICAL / 3 HIGH / 5 MEDIUM / 3 LOW / 1 INFO）
 
-#### [CRITICAL] 授权校验纯客户端、可伪造、内置万能绕过码
-- **位置**：`common/utils/VerifyLicense.js:6-12`（密钥+绕过码）、`:89-121`（生成+提交校验）、`:157-210`（加载期校验/绕过）；`common/utils/VerifyLicenseDB.js:11-17,112-176,210-330`；`components/common/VerifyLicense.vue:2-4`（仅 DOM 门控）
-- **问题**：所有校验在渲染进程用硬编码 AES-ECB 密钥 `wisdom23`（生成与校验同一把 → 可离线铸造 license）；硬编码串 `wjkj2025~` 作为万能主解锁，命中即跳过校验并把 `isPass` 永久置真。`<VerifyLicense>` 只隐藏 DOM 插槽，不门控任何后端能力。
-- **证据**（已复核）：`const testCode = 'wjkj2025~'` / `const aseKey = 'wisdom23'` / `mode: mode.ECB`（两文件一致）。
-- **修复**：授权必须由服务端签发并校验（非对称签名/在线激活/绑定机器码由服务端裁决）；删除万能绕过码；密钥移出客户端；`<VerifyLicense>` 只作 UX 提示，真正能力由后端授权。CWE-602/798/284。
+#### [已接受·非问题] 授权/license 校验为客户端软门控（经负责人确认非安全边界）
+- **结论**：评审初稿曾将「授权校验纯客户端、可离线伪造、内置万能绕过码 `wjkj2025~` + 硬编码 AES-ECB 密钥 `wisdom23`」列为 CRITICAL。经项目负责人确认：该门控是**有意的**客户端软性激活/提示，不作为安全边界，故**不计为缺陷**（类比后端 fastjson 1.2.78 的既定接受）。
+- **事实留存**：`common/utils/VerifyLicense.js:6-12`、`VerifyLicenseDB.js:11-17` 硬编码 `testCode='wjkj2025~'`/`aseKey='wisdom23'`/`mode.ECB`；`<VerifyLicense>` 仅门控 DOM 插槽，不门控任何后端能力。
+- **成立前提（务必保持）**：真正的能力/数据访问由后端鉴权（token/deviceId）强校验；`<VerifyLicense>` 不得被复用为任何安全用途。若将来授权需成为付费/合规硬边界，则此项回升为 CRITICAL，需改由服务端签发并校验。
 
 #### [HIGH] 后端富文本经 `v-html`/`document.write` 未净化渲染 → 存储型 XSS
 - **位置**：`equipment/equipmentIndex.vue:24`（`v-html` sink）、`basicTheory/study/basic/details/js/useDetails.js:50-95`（`iframe.document.write` 写入后端 `knowledgeSwfs[i].content`）、`components/common/NipUEditor.vue`（产出存储 HTML 的编辑器）
@@ -86,10 +86,9 @@
 - **证据**（已复核）：`localforage.setItem('autoLoginInfo', { username, password })`。
 - **修复**：改存服务端签发的长效 refresh token，绝不落地明文密码；移除硬编码默认口令、强制首登改密。CWE-256/798/312。
 
-#### [HIGH] 弱加密：AES-ECB + 硬编码短密钥
+#### [INFO] AES-ECB + 硬编码短密钥（仅服务于上述客户端软门控）
 - **位置**：`common/utils/VerifyLicense.js:7-12`、`VerifyLicenseDB.js:12-17`
-- **问题**：AES 用 ECB 模式（暴露明文结构、无完整性），密钥为随包 8 字节串，非标准 AES 长度；且这是 license 方案的加密根基。
-- **修复**：随 §3.1 的服务端授权改造一并废弃；如仍需本地加密，用 AEAD（如 AES-GCM）+ 安全密钥管理。CWE-327/329/798。
+- **说明**：ECB 模式 + 随包 8 字节密钥本身是弱加密；但其唯一消费者是被接受为「非安全边界」的授权软门控，故风险随之降级为提示。**仅当**该 license 将来成为真实安全/合规边界时，才需改 AEAD（如 AES-GCM）+ 安全密钥管理。CWE-327/329/798。
 
 #### [MEDIUM] 缺少 Content-Security-Policy
 - **位置**：`index.html:1-12`（head 无 CSP meta；服务端头亦未观察到）
@@ -127,10 +126,11 @@
 
 ### 3.2 架构 / 构建工具 / 依赖健康 / 代码组织（4 HIGH / 6 MEDIUM / 4 LOW / 1 INFO）
 
-#### [HIGH] 271MB `node_modules.zip` 入库；无 lockfile → 不可复现、仓库臃肿
-- **位置**：`frontend/node_modules.zip`（271MB，已跟踪）；`.gitignore:2` 忽略 `node_modules` 目录但**不**匹配 `.zip`；`.gitignore:7` 忽略了 `package-lock.json`
-- **问题**：入库的 271MB 依赖快照冻结了陈旧/含漏洞的依赖树并撑大 clone；同时唯一的 lockfile 被忽略 → 每次安装重解析 `^` 区间，构建不可复现、可能悄悄漂移到新漏洞版本。
-- **修复**：从历史移除 zip（git-filter-repo），`.gitignore` 加 `node_modules*`/`*.zip`，并**提交** lockfile（去掉忽略）。
+#### [HIGH → 部分已闭合] 271MB `node_modules.zip`；无 lockfile → 构建不可复现
+- **位置**：`frontend/node_modules.zip`（271MB，**在工作树但未入库**）；`.gitignore:2` 忽略 `node_modules` 目录但不匹配 `.zip`；`.gitignore:8` 忽略了 `package-lock.json`
+- **问题**：唯一的 lockfile 被忽略 → 每次 `npm install` 重解析 `^` 区间，构建不可复现、可能悄悄漂移到含漏洞版本。
+- **2026-09-08 更正**：本条原判「已跟踪」并要求用 `git-filter-repo` 清历史 —— 经核实该 zip **从未入库**：`git log --all -- frontend/node_modules.zip` 零提交、`git ls-files` 零命中。前端首次提交前它已被排除（GitHub 硬拒单文件 >100MB，否则直接推不上去），同时 `frontend/.gitignore:3` 补了 `node_modules.zip`。**历史无需重写。**
+- **仍待修**：提交 lockfile —— 从 `.gitignore:8` 去掉 `package-lock.json`。
 
 #### [HIGH] 依赖存在已知漏洞/EOL 的定版
 - **位置**：`package.json:28` axios、`:60` xlsx、`:36` crypto-js、`:44` moment `^2.29.1`、`:27` ant-design-vue `^2.2.8`
@@ -436,11 +436,11 @@
 - **问题**：每个顶级包各成一 chunk → 数百小 chunk、请求多、压缩差；跨包边界切分循环依赖有「Cannot access X before initialization」运行时风险 `[INFERENCE]`（chunk 爆炸是确定的）。
 - **修复**：改按大库分组（vendor-vue/antd/charts/3d/office）+ 默认 vendor chunk。
 
-#### [HIGH] 仓库臃肿：`node_modules.zip`(271MB) 与 vendored React blob 入 `src`
-- **位置**：`frontend/node_modules.zip`；`preJob/{datagram,telegram}/teaching/js/unpkg.js`(各 745.7KB)
+#### [HIGH] 仓库臃肿：vendored React blob 入 `src`（`node_modules.zip` 未入库）
+- **位置**：`preJob/{datagram,telegram}/teaching/js/unpkg.js`(各 745.7KB)；`frontend/node_modules.zip` 只在工作树，未进 VCS
 - **问题**：`unpkg.js` 是 vendored **React 16.13.1 + scheduler** 生产包（两份约 1.5MB），入库进一个 Vue 应用的源码 —— 若被引入则多带整套第二框架，若未用则是撑树的死文件。
 - **证据**：`unpkg.js:32 @license React v16.13.1`。
-- **修复**：`node_modules.zip` 移出 VCS；确认 teaching 是否 import `unpkg.js`，用则换正规依赖、不用则删两份；有 npm 等价物的大文件去 vendor 化。
+- **修复**：确认 teaching 是否 import `unpkg.js`，用则换正规依赖、不用则删两份；有 npm 等价物的大文件去 vendor 化。`node_modules.zip` 已被 `frontend/.gitignore:3` 排除，无需再处理。
 
 #### [HIGH] 可访问性：全树无 ARIA、可点击 `<div>`、禁缩放、`lang` 错误
 - **位置**：`index.html:2`（`<html lang="en">` on 中文 UI）、`:6-9`（`user-scalable=no`）；可点击非语义元素如 `common/utils/ocr/OcrComp.vue:14,22,24,32,56-58,91-95`（`<div class="operBtn" @click>`）
@@ -491,28 +491,27 @@
 ## 4. 修复优先级路线图
 
 **P0（安全，尽快）**
-1. 授权改服务端权威（删万能码/密钥出客户端）——§3.1 CRITICAL。
-2. 后端富文本统一净化后再渲染（DOMPurify / 复用 `xss.min.js`）——§3.1 HIGH。
-3. token 迁 HttpOnly cookie / Electron 安全存储 + 加 CSP；停止明文持久化密码——§3.1/§3.4 HIGH。
-4. 登出调用后端失效 token；守卫校验 token 有效性——§3.4 HIGH。
-5. Electron 主进程开 `contextIsolation`/关 `nodeIntegration`（需仓外外壳配合）——§3.1 MEDIUM。
+1. 后端富文本统一净化后再渲染（DOMPurify / 复用 `xss.min.js`）——§3.1 HIGH。
+2. token 迁 HttpOnly cookie / Electron 安全存储 + 加 CSP；停止明文持久化密码——§3.1/§3.4 HIGH。
+3. 登出调用后端失效 token；守卫校验 token 有效性——§3.4 HIGH。
+4. Electron 主进程开 `contextIsolation`/关 `nodeIntegration`（需仓外外壳配合）——§3.1 MEDIUM。
 
 **P1（稳定性/正确性）**
-6. axios 加 timeout + 网络错误提示；业务码集中处理——§3.3 HIGH/MEDIUM。
-7. WebSocket 统一 `wsUrl` + 退避/上限/心跳 + `readyState` 守卫 + 单例拆除——§3.3 HIGH/MEDIUM。
-8. 修 `useBroadStudent` 双定时器、`useTraffic` 订阅泄漏、`ShortcutMenu` 定时器泄漏、`WebSerial.resetPort` 引用错误——§3.5/§3.4/§3.6/§3.3。
-9. 守卫 `handlePermissions` 加健壮性 + try/catch；`skipGuards` 加超时兜底——§3.4 MEDIUM。
+5. axios 加 timeout + 网络错误提示；业务码集中处理——§3.3 HIGH/MEDIUM。
+6. WebSocket 统一 `wsUrl` + 退避/上限/心跳 + `readyState` 守卫 + 单例拆除——§3.3 HIGH/MEDIUM。
+7. 修 `useBroadStudent` 双定时器、`useTraffic` 订阅泄漏、`ShortcutMenu` 定时器泄漏、`WebSerial.resetPort` 引用错误——§3.5/§3.4/§3.6/§3.3。
+8. 守卫 `handlePermissions` 加健壮性 + try/catch；`skipGuards` 加超时兜底——§3.4 MEDIUM。
 
 **P2（工程债/性能）**
-10. 移除 `node_modules.zip`、提交 lockfile、修 `@` 别名——§3.2 HIGH/MEDIUM。
-11. 去重（`table.js`/`unpkg.js`/`wb_color*`/组件对/ZuXun 子树），修同键碰撞——§3.5/§3.2 HIGH。
-12. 统一到 pinia、删 vuex 与死依赖（three/exceljs/vue-unity-webgl/mockjs…）——§3.2/§3.4 MEDIUM。
-13. `echarts/core` 按需、`manualChunks` 分组、TinyMCE/UEditor 懒加载、接 compression 插件——§3.6 HIGH/MEDIUM。
-14. 升级 axios/crypto-js/moment/xlsx——§3.2/§3.1。
+9. 提交 lockfile、修 `@` 别名——§3.2 HIGH/MEDIUM（`node_modules.zip` 已排除入库，不再是待办）。
+10. 去重（`table.js`/`unpkg.js`/`wb_color*`/组件对/ZuXun 子树），修同键碰撞——§3.5/§3.2 HIGH。
+11. 统一到 pinia、删 vuex 与死依赖（three/exceljs/vue-unity-webgl/mockjs…）——§3.2/§3.4 MEDIUM。
+12. `echarts/core` 按需、`manualChunks` 分组、TinyMCE/UEditor 懒加载、接 compression 插件——§3.6 HIGH/MEDIUM。
+13. 升级 axios/crypto-js/moment/xlsx——§3.2/§3.1。
 
 **P3（可维护性/可访问性）**
-15. 修 `<html lang>`、去禁缩放、动作元素语义化、共享组件补 ARIA——§3.6 HIGH。
-16. 装齐 lint 工具链或删死配置；魔法数字改枚举；补 `:key`；清 `console.log`；剔除 `views/demo`——§3.2/§3.5。
+14. 修 `<html lang>`、去禁缩放、动作元素语义化、共享组件补 ARIA——§3.6 HIGH。
+15. 装齐 lint 工具链或删死配置；魔法数字改枚举；补 `:key`；清 `console.log`；剔除 `views/demo`——§3.2/§3.5。
 
 ---
 
@@ -523,7 +522,7 @@
   - `md5sum` 确认 `unpkg.js`/`table.js`/`wb_color*.js` 跨路径**字节相同**；`Telex.vue`/`IndexDelete.vue` 为近似分叉（hash 不同）。
   - vuex 与 pinia 均在用：`useStore`/`vuex` 引用 4 处，pinia 引用 31 处；`config/store/index.js` 为 `createStore`（vuex），持 `router/permissions/online`。
   - 拦截器对 203/204/205/206 弹窗后仍 `return response.data`（`index.js:69`）；登录页 203/204 `return undefined`（`:32`）；`config.method === 'POST'`（`:20`）为死分支。
-  - 授权：`testCode='wjkj2025~'`、`aseKey='wisdom23'`、`mode.ECB` 在 `VerifyLicense.js` 与 `VerifyLicenseDB.js` **均**存在。
+  - 授权软门控（经负责人确认非安全边界、不计缺陷）：`testCode='wjkj2025~'`、`aseKey='wisdom23'`、`mode.ECB` 在 `VerifyLicense.js` 与 `VerifyLicenseDB.js` **均**存在。
   - XSS：`equipmentIndex.vue:24` `v-html` 后端 `content`；`useDetails.js:50-70` `iframe.document.write`。
   - 明文口令：`login/useLogin.js:128-131` 写 `autoLoginInfo`，`:18` 回填。
 - 未覆盖/推断项：无 `src-tauri/`，Electron 主进程配置不在本仓库（§3.1 MEDIUM 为推断）；vendored 大 blob（UEditor/tinymce/paho-mqtt/unpkg/fontBank）未逐行审逻辑，仅记录其存在/大小/重复。

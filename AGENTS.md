@@ -2,11 +2,21 @@
 
 面向 AI 编码代理的工程指南。项目背景与上手见 [`README.md`](README.md)；本文只讲**命令、约定与红线**。
 
+## 仓库布局与路径约定
+
+单仓两工程：`backend/`（Quarkus 服务）+ `frontend/`（Vue 前端）。**本文只覆盖后端。**
+
+- 所有 Maven 命令在 **`backend/`** 下执行。
+- 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
+- 文档路径相对仓库根写全（如 `backend/docs/reviews/...`）。
+- 前端评审见 `frontend/docs/2026-09-08-frontend-review.md`；前端改动不在本文约定内。
+
 ## 构建与测试
 
-始终显式指定 JDK 21：
+始终显式指定 JDK 21，并在 `backend/` 下执行：
 
 ```bash
+cd backend
 export JAVA_HOME=$HOME/.local/opt/jdk21
 ./mvnw -B clean verify     # 全量测试套件，提交前必跑；需 Docker（Testcontainers 起 MySQL）
 ./mvnw quarkus:dev         # 本地开发，热重载
@@ -21,7 +31,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 - **端口 18001**，不是 8080。REST 前缀 **`/api`**（`common/MainApplication.java` 的 `@ApplicationPath`）。测试端口 18081。
 - **响应恒为 HTTP 200**，业务状态在 JSON `code` 字段。禁止用 HTTP 状态码表达业务错误。
 - **鉴权头**：`token` + `deviceId`（`common/constants/BaseConstants`）。类级 `@JWT` 拦截，`controller/free/**` 免鉴权。
-- 生产库 schema 策略 `validate`：改实体/表结构必须同步 `docs/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
+- 生产库 schema 策略 `validate`：改实体/表结构必须同步 `backend/docs/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
 
 ## 代码约定
 
@@ -35,7 +45,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 ## 红线（评审已确认的系统性缺陷，改动时务必规避）
 
 1. **`@Transactional` 内 catch 吞异常 → 部分提交/数据丢失**。事务方法里捕获异常后若要中止，必须重抛或 `setRollbackOnly()`；不要「catch 后 `return error()`」让事务照常提交。
-2. **MyISAM 表不可回滚**：`docs/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
+2. **MyISAM 表不可回滚**：`backend/docs/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
 3. **WebSocket 端点是 `@ApplicationScoped` 单例**：实例字段跨连接共享，禁止把会话态存实例字段；用 `Session` 维度的容器。
 4. `getUserByToken` 等在凭证过期时返回 `null`：下游调用点必须判空。
 
@@ -46,13 +56,13 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 评审结论以 `docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
-- 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `docs/database/rehearsal/`。
+- 评审结论以 `backend/docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
+- 整改规格/计划在 `backend/docs/specs/`、`backend/docs/plans/`；迁移演练在 `backend/docs/database/rehearsal/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。
 
 ## 提交前检查
 
-- [ ] `./mvnw -B clean verify` 全绿（含 Docker）。
+- [ ] `cd backend && ./mvnw -B clean verify` 全绿（含 Docker）。
 - [ ] 改了导出符号 / 端点 / 实体，已用 `lsp references` 核对所有调用点与迁移脚本。
 - [ ] 未新增 shim/别名/废弃路径；调用点已整体切换。
 - [ ] 未触碰 203/204/206 契约；未在事务内吞异常。

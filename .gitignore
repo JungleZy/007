@@ -1,30 +1,18 @@
-#Maven
-target/
-apps/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-release.properties
-.flattened-pom.xml
+# 只放跨 backend/ 与 frontend/ 的通用忽略。
+# 各子项目的构建产物忽略在 backend/.gitignore 与 frontend/.gitignore。
+
+# IDE
+.idea
+*.ipr
+*.iml
+*.iws
+.vscode
+.factorypath
 
 # Eclipse
 .project
 .classpath
 .settings/
-bin/
-
-# IntelliJ
-.idea
-*.ipr
-*.iml
-*.iws
-
-# NetBeans
-nb-configuration.xml
-
-# Visual Studio Code
-.vscode
-.factorypath
 
 # OSX
 .DS_Store
@@ -40,8 +28,5 @@ nb-configuration.xml
 # Local environment
 .env
 
-# Plugin directory
-/.quarkus/cli/plugins/
-/hs_err_pid*.log
-logs/
+# 代理脚手架（本地工作产物）
 .superpowers/
