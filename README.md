@@ -7,8 +7,8 @@
 | [`backend/`](backend/) | Quarkus 3.20.4 / Java 21，REST + WebSocket 服务 | [`backend/README.md`](backend/README.md) |
 | [`frontend/`](frontend/) | Vue 3.5 + Vite 4 桌面前端，运行于外部 Electron 外壳 | [`frontend/README.md`](frontend/README.md) |
 
-- 仓库：`JungleZy/007`
-- 面向 AI 编码代理的命令、约定与红线：[`AGENTS.md`](AGENTS.md)
+- 仓库：`JungleZy/007`；当前发布版本 `backend/pom.xml` = `1.1.0`
+- 面向 AI 编码代理的命令、约定与红线：[`AGENTS.md`](AGENTS.md)（含**提交约定**：完成一个任务就提交，不攒批）
 
 ---
 
@@ -76,12 +76,29 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 
 ---
 
+## 当前状态与在执行的整改
+
+| 项 | 状态 |
+|---|---|
+| 后端测试基线 | **216 测试全绿**（`./mvnw -B clean verify`，需 Docker）|
+| 后端单侧整改（2026-09-07 轮，34 条 P1）| 已完成，4 项偏离已于 2026-09-08 闭合（`docs/plans/2026-09-07-fix-plan.md`）|
+| **跨栈整改（2026-09-08 联合评审，41 条）** | **待执行** —— 方案见 [`docs/specs/2026-09-08-joint-fix-spec.md`](docs/specs/2026-09-08-joint-fix-spec.md)（8 批次，批 0 后端授权与批 1 前端契约对账可并行）|
+| 前端单侧整改（83 条，HIGH 23）| **未开始** —— `docs/reviews/2026-09-08-frontend-review.md` |
+| 已知未收口项 | 前端无 lockfile（构建不可复现）；三处版本号互不相关（`pom.xml` 1.1.0 / `package.json` 0.0.0 / `application.yml` 4.0.1）；CI 只构建后端 |
+
+最高优先的两条（联合评审 §3）：后端管理写端点**零角色校验**（任意登录学员可删任意用户 / 重置管理员密码），
+以及前端 7 处仍传 `roomgId` 而后端已改读 `roomId`（房间详情三路失效）。
+
+---
+
 ## 文档索引
 
 | 主题 | 路径 |
 |---|---|
 | **文档地图（先看这个）** | [`docs/README.md`](docs/README.md) |
 | **前后端联合评审（跨栈问题权威）** | [`docs/reviews/2026-09-08-joint-frontend-backend-review.md`](docs/reviews/2026-09-08-joint-frontend-backend-review.md) |
+| **跨栈修复 spec（在执行）** | [`docs/specs/2026-09-08-joint-fix-spec.md`](docs/specs/2026-09-08-joint-fix-spec.md) |
+| 联合评审分片（8 份） | `docs/reviews/2026-09-08-joint-*.md` |
 | 后端评审权威结论 | [`docs/reviews/2026-09-07-full-project-review.md`](docs/reviews/2026-09-07-full-project-review.md) |
 | 评审独立审计 | `docs/reviews/2026-09-07-review-audit.md` |
 | 前端评审 | [`docs/reviews/2026-09-08-frontend-review.md`](docs/reviews/2026-09-08-frontend-review.md) |

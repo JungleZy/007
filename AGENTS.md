@@ -4,13 +4,13 @@
 
 ## 仓库布局与路径约定
 
-单仓两工程：`backend/`（Quarkus 服务）+ `frontend/`（Vue 前端）。**本文只覆盖后端。**
+单仓两工程：`backend/`（Quarkus 服务）+ `frontend/`（Vue 前端）。**本文以后端为主**；「红线 5/6」与「提交约定」对两侧同时适用。
 
 - 所有 Maven 命令在 **`backend/`** 下执行。
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
 - **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/`、`frontend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
-- 前端评审见 `docs/reviews/2026-09-08-frontend-review.md`，前后端联合评审见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；前端代码改动不在本文约定内。
+- 前端评审见 `docs/reviews/2026-09-08-frontend-review.md`，前后端联合评审见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`，跨栈整改方案见 `docs/specs/2026-09-08-joint-fix-spec.md`。前端**单侧**代码风格/结构约定不在本文范围。
 
 ## 构建与测试
 
@@ -26,6 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
+- 当前基线 **216 测试全绿**（`docs/specs/2026-09-08-deviation-fix-spec.md` 验收状态节）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 
@@ -48,8 +49,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 1. **`@Transactional` 内 catch 吞异常 → 部分提交/数据丢失**。事务方法里捕获异常后若要中止，必须重抛或 `setRollbackOnly()`；不要「catch 后 `return error()`」让事务照常提交。
 2. **MyISAM 表不可回滚**：`backend/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
 3. **WebSocket 端点是 `@ApplicationScoped` 单例**：实例字段跨连接共享，禁止把会话态存实例字段；用 `Session` 维度的容器。
-4. `getUserByToken` 等在凭证过期时返回 `null`：下游调用点必须判空。
-5. **跨栈契约不可单侧改**（2026-09-08 联合评审确认）：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点。上一轮后端单侧整改已改断 5 处（`roomgId`→`roomId`、`getMenuById` 改抛异常、`uploadFileToNip` 收窄到 `txt/md/csv`、`saveBatch`/`exportTemplate` 成孤儿端点、`Page.getRows()` 钳到 200）。
+4. **token 查询有两条口径，别混用**：`UserService.getUserByToken:517-521` 查无即抛 `UnauthorizedException`（→ 200 + 203），可直接用；而裸 DAO `UserDao.findUserEntityByToken:78-80` 用 `firstResult()`，**查无返回 null**，当前约 20 个调用点（`EnteringExerciseService`、`TickerTapeTrainService`、`RadiotelephoneService`、`GeneralKeyPatService` 等 10 个 service）直接 `userEntity.getId()` 解引用 → 凭证失效即 NPE。新代码走 `getUserByToken`，不要新增裸 DAO 解引用。
+5. **跨栈契约不可单侧改**（2026-09-08 联合评审确认）：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点。上一轮后端单侧整改已改断 **4 处**：`roomgId`→`roomId`（前端 7 处仍传旧键）、`uploadFileToNip` 收窄到 `txt/md/csv`（前端 `accept` 仍 `.doc/.docx/.pptx`）、`saveBatch`/`exportTemplate` 成孤儿端点（前端从未接线）、`Page.getRows()` 钳到 200（前端仍传 `rows:999`）。
 6. **鉴权 ≠ 授权**：后端管理写端点（`user/role/menu` 的 delete/reset/addUserRole/addRole）目前只有类级 `@JWT`，无任何角色校验，前端 `v-per` 只是可篡改的软门控。新增管理类端点必须自己做服务端授权判定。
 
 ## 测试约定
@@ -60,9 +61,18 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 ## 文档与权威来源
 
 - 后端评审结论以 `docs/reviews/2026-09-07-full-project-review.md` 汇总为准（附 `*-review-audit.md` 独立审计）。
-- **跨栈问题以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**（8 份分片报告 `2026-09-08-joint-*.md`）：单侧评审的若干定级/责任归属已被它修正（如后端 `CA-P1-01/02/03` 的责任反转、前端「GET 用 `data` 传参」从 LOW 升为 J-P1）。
+- **跨栈问题以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**（8 份分片 `2026-09-08-joint-*.md`）：它修正了单侧评审的若干定级/责任归属（如后端 `CA-P1-01/02/03` 的责任反转、前端「后端强校验」降级前提被否证），并在 §5.0 记录了自身的两条撤回（「GET 用 `data` 传参丢参」不成立，包装器 `common/http/axios.js:20-24` 已转 `params`）。**在执行的跨栈整改计划：`docs/specs/2026-09-08-joint-fix-spec.md`（8 批次，带依赖顺序与门禁）。**
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。
+
+## 提交约定
+
+- **完成一个任务就提交，不要攒批**：一个 Task / 一条缺陷 / 一处可独立回滚的改动 = 一个 commit。禁止把多个不相关改动堆成一个大提交（历史上「每条 P1 一次提交」的口径就是因为攒批而永久未达成，见 `docs/specs/2026-09-07-fix-spec.md` DoD 第 2 条）。
+- 提交粒度判据：这个 commit 能不能被单独 revert 而不破坏其余功能？不能 → 拆小或合并到它真正依赖的那个 commit。
+- 例外（必须同一 commit）：跨栈契约改动的两侧、重命名/移动与其引用更新、修复与其回归测试 —— 拆开会产生编译不过或链接悬空的中间提交。
+- 每个 commit 交付前至少跑受影响的单测类；**推送前**跑一次 `./mvnw -B clean verify` 全绿。
+- 信息格式沿用 `type(scope): 中文摘要`（`feat`/`fix`/`refactor`/`docs`/`test`/`chore`）。正文写「为什么」与验证方式；改了跨栈契约的，把 grep 前端调用面的结果贴进正文（红线 5）。
+- 不要 `--amend` 或 `rebase` 已推送的提交；不要用 `git add -A` 顺手带入无关文件（提交前 `git status --short` 过一遍）。
 
 ## 提交前检查
 
@@ -71,3 +81,4 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 - [ ] 未新增 shim/别名/废弃路径；调用点已整体切换。
 - [ ] 未触碰 203/204/206 契约；未在事务内吞异常。
 - [ ] 改了跨栈契约（参数名/返回形态/业务码/能力边界），已核对前端调用面并同步（见红线 5）。
+- [ ] 本次改动是一个**独立可回滚**的任务单元（见「提交约定」），不是多任务攒批。
