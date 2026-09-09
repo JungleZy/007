@@ -1,5 +1,7 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.CableFindAllVO;
@@ -19,6 +21,7 @@ import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
 
+@JWT
 @Path("/cable")
 @Tag(name = "固定报文")
 @ApplicationScoped
@@ -52,6 +55,7 @@ public class CableController {
   @POST
   @Path("/save")
   @Operation(summary = "新增/修改报文")
+  @RequireAdmin
   public Response<CableEntity> save(CableVO vo) {
     return ResponseResult.success(cableService.save(vo));
   }
@@ -59,6 +63,7 @@ public class CableController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除报文")
+  @RequireAdmin
   public Response<Boolean> delete(@RestQuery("id") String id) {
     return ResponseResult.success(cableService.delete(id));
   }

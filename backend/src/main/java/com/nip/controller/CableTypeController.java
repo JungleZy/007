@@ -1,5 +1,7 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.entity.CableTypeEntity;
@@ -14,6 +16,7 @@ import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
 
+@JWT
 @Path("/cable/type")
 @Tag(name = "固定报文")
 @ApplicationScoped
@@ -35,6 +38,7 @@ public class CableTypeController {
   @POST
   @Path("/save")
   @Operation(summary = "新增/修改类型")
+  @RequireAdmin
   public Response<List<CableTypeEntity>> typeSave(CableTypeEntity entity) {
     return ResponseResult.success(cableTypeService.save(entity));
   }
@@ -42,6 +46,7 @@ public class CableTypeController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除类型")
+  @RequireAdmin
   public Response<Boolean> typeDelete(@RestQuery("id") String id) {
     return ResponseResult.success(cableTypeService.delete(id));
   }

@@ -103,11 +103,13 @@ K --> L[长尾与交付收口]
 
 - [x] 使用 `UserProfile`/`UserSummary` DTO 覆盖 `getAllUser`、`getAllUserByContent`、`getUserById`、`getUsersByIds`、`getUsersByToken` 等返回用户信息路径；现有 `UserInfoDto` 不再嵌入 `UserEntity`。
 - [x] 清点用户选择调用：管理列表继续走受保护 `getAllUser`；训练选人和通知人员改走已登录可用的 `getUserDirectory` 最小 DTO。
-- [ ] `CableController`、`CableTypeController`、`DeviceController` 等无 `@JWT` 写/删端点仍需按各自消费者逐项整改；不属于已完成的八个 user/role/menu 管理方法。
+- [x] `CableController`、`CableTypeController`、`DeviceController` 的写/删/设备说明端点已接入 `@RequireAdmin`；控制器类保留 `@JWT`，读端点继续使用原契约。`CatalogAuthorizationTest` 验证普通用户调用 7 个管理操作均返回 HTTP 200 + `code:207`。
+- [ ] 其他未列入本批的管理写删端点仍需按各自消费者逐项整改。
 - [x] 登录/注册使用独立会话/注册响应：用户资料不含 password，token/deviceId 仅作为登录会话字段；同步 `useLogin.js` 读取路径。
 - [x] `AdminAuthorizationTest` 与 `AnonymousSigninTest` 断言目录、登录/注册用户资料不含 password/token/deviceId；未用 `@JsonIgnore` 掩盖实体响应。
 
 **出口证据（2026-09-09）：** 后端 Java 21 + Docker `./mvnw -B clean verify`：226 tests，0 failures，0 errors，0 skipped（本轮输出 `artifact://64`）；授权/注册/异常边界定向 22 项通过（`artifact://61`）。前端三处 API/HTTP JS `node --check` 通过，`npm run build` 成功（`artifact://39`）。LSP 未配置，使用 grep 核对调用面。浏览器打开前端后停在设备授权页，真实登录、管理与训练选人页面尚未联调；不能把构建成功等同于页面回归通过。
+**目录授权增量证据（2026-09-09）：** `CatalogAuthorizationTest` 与 `AdminAuthorizationTest` 定向 8 项通过；前端 `CableApi.js`、`EquipmentApi.js` 及设备管理调用面已核对，未修改参数或返回形态；后端最新 `./mvnw -B clean verify` 为 239 tests，0 failures，0 errors，0 skipped。
 
 ### Phase 2：活跃 HTTP 契约对账
 

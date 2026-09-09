@@ -93,17 +93,16 @@ class ExceptionBoundaryTest {
   }
 
   @Test
-  void unknownTokenOnNonJwtEndpointReturns203Envelope() {
-    // Task 4.2：非 @JWT 的 DeviceController 路径，getUserByToken 抛 UnauthorizedException
-    // → UnauthorizedExceptionMapper：HTTP 200 + code 203（原为 NPE→500）
+  void unknownTokenOnJwtEndpointReturns206Envelope() {
     given()
         .header("Origin", "http://localhost")
         .header("token", "expired-token-nowhere")
+        .header("deviceId", "device-nowhere")
         .contentType("application/json")
         .body("{}")
         .when().post("/api/device/save")
         .then().statusCode(200)
-        .body("code", is(203));
+        .body("code", is(206));
   }
 
   @Test

@@ -1,5 +1,7 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.DeviceDescriptionVO;
@@ -26,6 +28,7 @@ import static com.nip.common.constants.BaseConstants.TOKEN;
  * @Data: 2023-07-07 10:16
  * @Description:
  */
+@JWT
 @Path("/device")
 @Tag(name = "装备操作-设备操作")
 @ApplicationScoped
@@ -40,6 +43,7 @@ public class DeviceController {
   @POST
   @Path("save")
   @Operation(summary = "添加/修改")
+  @RequireAdmin
   public Response<DeviceVO> save(@RequestBody DeviceUpdateParam param, HttpServerRequest request) throws Exception {
     String token = request.getHeader(TOKEN);
     return ResponseResult.success(deviceService.save(param, token));
@@ -55,6 +59,7 @@ public class DeviceController {
   @POST
   @Path("delete")
   @Operation(summary = "删除")
+  @RequireAdmin
   public Response<Void> delete(@RequestBody DeviceDeleteParam param) {
     deviceService.delete(param.getId());
     return ResponseResult.success();
@@ -63,6 +68,7 @@ public class DeviceController {
   @POST
   @Path("addDeviceDescription")
   @Operation(summary = "添加设备说明")
+  @RequireAdmin
   public Response<DeviceDescriptionVO> addDeviceDescription(
       DeviceDescriptionAddParam param,
       HttpServerRequest request) throws Exception {
