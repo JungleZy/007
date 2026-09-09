@@ -3,8 +3,8 @@ import {message, Modal} from 'ant-design-vue';
 //创建axios的一个实例
 console.log(window.httpUrl)
 const instance = axios.create({
-  baseURL: window.httpUrl.indexOf("http")>-1?`${window.httpUrl}`:`http://${window.httpUrl}`, //接口统一域名
-  // timeout: 6000, //设置超时
+  baseURL: window.httpUrl.indexOf("http")>-1?`${window.httpUrl}`:`http://${window.httpUrl}`,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8;'
   }
@@ -90,7 +90,11 @@ instance.interceptors.response.use((response) => {
       default:
         msg = '请求失败'
     }
-    message.error(msg)
+    if (!error.config?.skipErrorToast) message.error(msg)
+  } else if (!error.config?.skipErrorToast) {
+    message.error(error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'
+      ? '请求超时，请稍后重试'
+      : '网络连接失败，请检查网络')
   }
   return Promise.reject(error)
 })

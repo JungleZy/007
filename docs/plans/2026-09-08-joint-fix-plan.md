@@ -139,7 +139,7 @@ K --> L[长尾与交付收口]
 
 - [x] 删除后端无产生点的 205 分支；203/204/206 在登录页不再返回 undefined，任何分支返回 `response.data`。
 - [x] 对非 200 业务码集中 toast，支持 `skipErrorToast`；用户管理 207 假成功、保存失败继续赋权问题已修复。
-- [ ] 网络错误和 timeout 留 Phase 5 同文件接力。
+- [x] 共享 Axios 默认 timeout 已启用 30 秒；HTTP 响应错误尊重 `skipErrorToast`，无响应的网络失败和超时分别提示网络连接失败/请求超时。
 
 ### Phase 4：文档与题库
 
@@ -154,9 +154,10 @@ K --> L[长尾与交付收口]
 
 - [x] 新增协议感知 `apiUrl`/`wsUrl`，迁移 2 个实际 HTTP 上传地址和 4 个协同 WS 手工拼接点；另清理 3 个未绑定的旧上传地址配置；保留 Electron 的 `window.wsUrl`。
 - [x] throwaway 浏览器脚本对 `https://host/data` 与 `host/data` 两种输入验证 HTTP/WS 协议，结果为 `https://.../data/api`、`wss://.../push/...` 和 `http://.../api`、`ws://.../push/...`；仓内无真实反代，未宣称外部形态已联调。
-- [ ] 后端 body 上限、前端文件大小预检、共享 timeout 未完成；反代 `client_max_body_size` 仍作为仓外前置记录。
+- [ ] 后端 body 上限和前端文件大小预检仍未完成；共享 Axios timeout 已完成，默认 30 秒且单请求可覆盖。
 - [x] CI 新增 Node 20、`npm ci`、`npm run build`；`frontend/package-lock.json` 已解除忽略并纳入本提交。dist 仍由现有 Electron/Tauri 外壳按其既有加载路径消费，未新增外壳配置。
 - [x] `pom.xml`、`frontend/package.json`、`package-lock.json`、`application.yml`、OpenAPI 信息已统一为 `1.1.0`；发布仍由 tag 驱动。
+**HTTP 网络异常增量证据（2026-09-09）：** 浏览器实际请求验证默认 timeout 为 30000ms；对不可达地址验证 Axios 产生 `ECONNABORTED` 超时和无 `response` 网络错误，前端 `npm run build` 成功。由于当前浏览器停留设备授权页，未将全局 toast DOM 显示冒充为业务页面回归。
 
 ### Phase 6：训练域与结算
 
