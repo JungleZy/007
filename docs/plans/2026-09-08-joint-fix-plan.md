@@ -186,9 +186,11 @@ K --> L[长尾与交付收口]
 
 ### Phase 9：密码、会话协议和剩余单侧风险
 
-- [ ] 设计并评审 hash 版本、PBKDF2/Argon2id 选择、旧 MD5 渐进升级、密码重置、失败回滚；存量数据和 `password` 列长度先盘点。
-- [ ] 设计随机有期限 access token、refresh/revoke、device 绑定和 Web/Electron 安全存储迁移；在设计落地前保留明文自动登录/确定性 token 的接受风险。
-- [ ] 删除 query token/deviceId 兼容前，完成所有客户端 header 迁移并做日志观察；改生产凭据为 Secret/最小权限账号。
+- [x] 密码迁移设计已完成：选择 PBKDF2-HMAC-SHA-256 版本化格式，规划 legacy MD5 登录成功渐进升级、重置/改密统一新格式和最终退役门禁；尚未执行代码和生产迁移。详见 `docs/plans/2026-09-09-password-session-migration-plan.md`。
+- [x] 随机会话令牌设计已完成：规划 `SecureRandom` opaque token、`user_session` 会话表、过期/撤销/设备绑定和密码事件全量撤销；尚未执行代码和 schema migration，产品/部署门禁仍待确认。
+- [ ] 删除 query token/deviceId 兼容前，仍需完成所有客户端 header 迁移、日志观察和生产 Secret/最小权限账号改造。
+
+**Phase 9 设计出口证据（2026-09-09）：** 已完成密码存储、token 生命周期、迁移顺序、回滚边界和未决产品/部署门禁盘点；未宣称密码算法、随机 token、refresh/revoke 或 query fallback 删除已经落地。
 - [ ] 处理生产 OpenAPI、CORS、demo/死端点、Tauri 残留等 P3：逐项选择实施、接受或另开 Spec。
 
 ## 4. 总验收清单
