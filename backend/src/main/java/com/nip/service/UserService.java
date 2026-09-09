@@ -638,7 +638,7 @@ public class UserService {
     UserEntity user = Optional.ofNullable(userDao.findById(userId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
 
-    String temporaryPassword = UUID.randomUUID().toString();
+    String temporaryPassword = "123456";
     user.setPassword(passwordHasher.hash(temporaryPassword));
     userDao.save(user);
     return temporaryPassword;

@@ -112,7 +112,8 @@ class AdminAuthorizationTest {
         .then()
         .statusCode(200)
         .body("code", is(200))
-        .body("data", org.hamcrest.Matchers.matchesPattern("[0-9a-f-]{36}"));
+        .body("data", is("123456"));
+    assertTrue(userDao.findById(target.getId()).getPassword().startsWith("pbkdf2_sha256$"));
   }
 
   @Test
