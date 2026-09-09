@@ -124,6 +124,7 @@ public class WebSocketGeneralKeyPatService {
 
   @OnMessage
   public void onMessage(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     GeneralPatTrainRoomUserDto trainRoomUser = ROOM.get(trainId);
     if (trainRoomUser == null) {
       sendErrMessage(session, "房间不存在", "", "");

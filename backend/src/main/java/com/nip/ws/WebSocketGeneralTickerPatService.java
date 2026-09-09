@@ -140,6 +140,7 @@ public class WebSocketGeneralTickerPatService {
 
   @OnMessage
   public void onMessage(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
 //    log.info("收到{}训练：{}的消息：{}", trainId, uid, message);
     GeneralTickerPatTrainRoomUserModel roomUser = PAT_ROOM.get(trainId);
     //房间可能已被 REST 删除（delete 只清 map 不关 session），判空短路

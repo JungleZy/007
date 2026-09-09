@@ -27,6 +27,7 @@ public class StatusWebSocket {
 
   @OnMessage
   public void onMessage(String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     log.info("onMessage> : {}", message);
     session.getAsyncRemote().sendText("pong");
   }

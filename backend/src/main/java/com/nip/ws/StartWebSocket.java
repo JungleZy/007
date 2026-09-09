@@ -46,7 +46,8 @@ public class StartWebSocket {
   }
 
   @OnMessage
-  public void onMessage(String message, @PathParam("sid") String sid) {
+  public void onMessage(String message, @PathParam("sid") String sid, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     log.info("onMessage: {}, {}", sid, message);
   }
 

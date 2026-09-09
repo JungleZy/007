@@ -76,6 +76,7 @@ public class WebSocketService {
    */
   @OnMessage
   public void onMessage(String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     Map<String, Object> model = JSONUtils.fromJson(message, new TypeToken<>() {
     });
 

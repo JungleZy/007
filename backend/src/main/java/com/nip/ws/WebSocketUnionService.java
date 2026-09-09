@@ -122,6 +122,7 @@ public class WebSocketUnionService {
    */
   @OnMessage
   public void onMessage(String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     log.info("receive message :{}", message);
     Client me = resolveClient(session);
     if (me == null) {

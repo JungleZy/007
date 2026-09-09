@@ -355,6 +355,7 @@ public class WebSocketSimulationService {
   @OnMessage
   public void onMessage(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
       String message, Session session) {
+    if (WebSocketHeartbeat.respond(session, message)) return;
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
       sendErrorMessage(session, "房间不存在", id, id);

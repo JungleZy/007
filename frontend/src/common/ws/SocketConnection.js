@@ -1,0 +1,111 @@
+// Reserved transport frames; business messages remain unchanged JSON payloads.
+export const HEARTBEAT_PING = '__nip_heartbeat_ping__'
+export const HEARTBEAT_PONG = '__nip_heartbeat_pong__'
+const HEARTBEAT_INTERVAL = 30000
+const STALE_TIMEOUT = 90000
+
+export default class SocketConnection {
+  constructor() {
+    this.socket = null
+    this.active = false
+    this.generation = 0
+    this.retryCount = 0
+    this.reconnectTimer = null
+    this.heartbeatTimer = null
+  }
+
+  connect(url, onMessage, onOpen) {
+    this.close()
+    this.active = true
+    this.url = url
+    this.onMessage = onMessage
+    this.onOpen = onOpen
+    this.open(this.generation)
+  }
+
+  open(generation) {
+    if (!this.active || generation !== this.generation) return
+    let socket
+    try {
+      socket = new WebSocket(this.url)
+    } catch (error) {
+      this.reconnect(generation)
+      return
+    }
+    this.socket = socket
+    const current = () => this.active && generation === this.generation && socket === this.socket
+    let lastReply = Date.now()
+    const disconnected = () => {
+      if (!current()) return
+      this.releaseSocket()
+      this.reconnect(generation)
+    }
+    // Also bound CONNECTING, which otherwise need not deliver onclose promptly.
+    this.heartbeatTimer = setInterval(() => {
+      if (!current()) return
+      if (Date.now() - lastReply >= STALE_TIMEOUT) {
+        disconnected()
+      } else if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.send(HEARTBEAT_PING)
+        } catch (error) {
+          disconnected()
+        }
+      }
+    }, HEARTBEAT_INTERVAL)
+    socket.onopen = event => {
+      if (!current()) return
+      lastReply = Date.now()
+      this.retryCount = 0
+      this.onOpen?.(event)
+    }
+    socket.onclose = disconnected
+    socket.onerror = disconnected
+    socket.onmessage = event => {
+      if (!current()) return
+      if (event.data === HEARTBEAT_PONG) {
+        lastReply = Date.now()
+        return
+      }
+      if (event.data === HEARTBEAT_PING) return
+      this.onMessage?.(event)
+    }
+  }
+
+  reconnect(generation) {
+    if (!this.active || generation !== this.generation || this.reconnectTimer !== null) return
+    const delay = Math.min(30000, 1000 * (2 ** Math.min(this.retryCount++, 5)) + Math.floor(Math.random() * 250))
+    this.reconnectTimer = setTimeout(() => {
+      if (!this.active || generation !== this.generation) return
+      this.reconnectTimer = null
+      this.open(generation)
+    }, delay)
+  }
+
+  releaseSocket() {
+    clearInterval(this.heartbeatTimer)
+    this.heartbeatTimer = null
+    const socket = this.socket
+    this.socket = null
+    if (!socket) return
+    socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close()
+  }
+
+  close() {
+    this.active = false
+    this.generation++
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
+    this.retryCount = 0
+    this.releaseSocket()
+  }
+
+  send(message) {
+    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(message)
+  }
+
+  get isOpen() {
+    return this.socket?.readyState === WebSocket.OPEN
+  }
+}
