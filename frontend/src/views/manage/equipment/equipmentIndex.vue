@@ -193,7 +193,7 @@
                                     <div class="w-full" style="height: calc(100% - 32px);background: #183a66;">
                                         <NipUEditor :top="0"/>
                                         <div v-if="uploadType" class="layout-center UploadLoading" >
-                                            文件解析中...&nbsp;&nbsp;({{convertData.currentPage}}/{{convertData.totalPage}})&nbsp;&nbsp;{{convertData.percent}}%
+                                            文件读取中...
                                         </div>
                                     </div>
                                 </div>
@@ -201,7 +201,7 @@
                         </div>
 
                         <a-upload name="file" style="display: none" :action="action" :showUploadList="false"
-                                  accept=".doc,.docx,.pptx" :headers="headers"  :before-upload="beforeUploadFile"
+                                  accept=".txt,.md,.csv" :headers="headers" :before-upload="beforeUploadFile"
                                   @change="uploadChange" >
                             <a-button id="uploadBtn" style="display: none">上传</a-button>
                         </a-upload>
@@ -237,13 +237,13 @@
                             <div class="w-full h-full" style="background: #183a66;">
                                 <NipUEditor :top="0"/>
                                 <div v-if="uploadType" class="layout-center UploadLoading" >
-                                    文件解析中...&nbsp;&nbsp;({{convertData.currentPage}}/{{convertData.totalPage}})&nbsp;&nbsp;{{convertData.percent}}%
+                                    文件读取中...
                                 </div>
                             </div>
                         </div>
 
                         <a-upload name="file" style="display: none" :action="action" :showUploadList="false"
-                                  accept=".doc,.docx,.pptx" :headers="headers"  :before-upload="beforeUploadFile"
+                                  accept=".txt,.md,.csv" :headers="headers" :before-upload="beforeUploadFile"
                                   @change="uploadChange" >
                             <a-button id="uploadBtn" style="display: none">上传</a-button>
                         </a-upload>
@@ -265,6 +265,7 @@
     import {createFromIconfontCN, PlusOutlined, LoadingOutlined, CloseCircleOutlined} from "@ant-design/icons-vue";
     import equipmentJS from './equipmentIndex.js'
     import {useRouter,useRoute} from "vue-router";
+    import {message} from 'ant-design-vue'
 
     const fs = ref(JSON.parse(localStorage.getItem('fs')));
     const userRole = ref(JSON.parse(localStorage.getItem('userRole')));
@@ -281,11 +282,6 @@
     const IconFont = createFromIconfontCN({
         scriptUrl: window.iconUrl,
     });
-    const convertData = ref({
-        percent:0,
-        currentPage:0,
-        totalPage:0,
-    })
     const deviceListBoxRef = ref(null);
     watch(route,()=>{
         if(route.matched[route.matched.length-1].path==='/preview/equipmentOperationHJBW/equipmentUnityHJBW'){
@@ -330,21 +326,35 @@
         const q = document.getElementById("uploadBtn")
         q.click()
     }
-    const beforeUploadFile = ()=>{
-        uploadType.value = true
-    }
-    const uploadChange = (e)=>{
-        if(e.file.response){
-            if(e.file.response.data.imgUrls){
-                uploadType.value = false
-            }else {
-                uploadType.value = false
-                const arr = e.file.response.data.wordContent.split("\r")
-                for (let v of arr){
-                    UEditorMsgContent.value+=`<p style="text-indent: 2em">${v}</p>`
-                }
-            }
+    const beforeUploadFile = file => {
+        if (!/\.(txt|md|csv)$/i.test(file.name || '')) {
+            message.error('仅支持 UTF-8 纯文本文档（txt/md/csv）')
+            return false
         }
+        uploadType.value = true
+        return true
+    }
+    const uploadChange = ({file}) => {
+        if (file.status !== 'done' && file.status !== 'error') return
+        uploadType.value = false
+        const response = file.response
+        if (file.status === 'error' || response?.code !== 200) {
+            file.status = 'error'
+            message.error(response?.message || '文档上传失败，请重试')
+            return
+        }
+        const text = response.data?.wordContent
+        if (typeof text !== 'string' || !text.trim()) {
+            file.status = 'error'
+            message.error('文档内容为空或响应格式错误')
+            return
+        }
+        const paragraph = document.createElement('p')
+        paragraph.style.textIndent = '2em'
+        UEditorMsgContent.value += text.split(/\r\n|\r|\n/).map(line => {
+            paragraph.textContent = line
+            return paragraph.outerHTML
+        }).join('')
     }
 
     provide('content', UEditorMsgContent);

@@ -141,12 +141,12 @@ K --> L[长尾与交付收口]
 
 ### Phase 4：文档与题库
 
-- [ ] 上传 UI 的 `accept` 对齐 `txt/md/csv`；`data` 为 null、`imgUrls=[]` 均安全处理。
-- [ ] 题库 Word 解析后一次 `saveBatch`；等待完整响应并展示行级错误，删除定时器假成功。
-- [x] 已删除无实际引用的 `exportTemplate1`、`downloadTemplate` 及相关导入；保留仍有调用者的 `exportQuestionBank`。模板 JSON 列规格与 xlsx 可打开文件仍属后续批次。
-- [ ] 实测 txt 成功插入编辑器、docx 被能力边界拦截、批量失败不部分成功、xlsx 可由 Excel 打开。
+- [x] 上传 UI 的 `accept` 对齐真实能力：文档编辑页与设备说明页仅允许 `txt/md/csv`，题库页允许前端解析的 `docx/xlsx`；`data`、`wordContent` 和 `imgUrls` 空值均有安全分支。
+- [x] 题库 DOCX/XLSX 解析后一次调用 `saveBatch`；等待响应且只在 `code===200` 刷新和提示成功，删除逐行 fire-and-forget 与定时器假成功。
+- [x] 已删除无实际引用的 `exportTemplate1`、`downloadTemplate` 及旧上传端点配置；模板按钮改请求后端 JSON 列规格并由现有 xlsx 生成器输出 `.xlsx`，保留仍有调用者的 `exportQuestionBank`。
+- [ ] 真实页面文件上传、后端 saveBatch Network、数据库回滚和 Excel 客户端打开尚未在设备授权页之外完成；浏览器已直接验证 DOCX 文本解析、XLSX 行归一化，后端既有 `TheoryKnowledgeUploadExportTest` 覆盖 API/DB 契约。
 
-**出口证据：** 一次 `saveBatch` Network、DB 行数/回滚结果、下载文件打开结果；不得把 JSON 响应改名为 docx blob。
+**出口证据（2026-09-09）：** 后端全量 `clean verify` 228 tests 全绿；前端 `node --check`/`npm run build` 成功；浏览器解析 smoke：DOCX 2 行题目得到 `[1,3]` 类型、单选答案 `"1"`、判断答案 `"1"`，XLSX 行回退当前题库 ID 后正确归一化。真实设备授权/页面联调仍是外部前置。
 
 ### Phase 5：地址、上传链和 CI
 

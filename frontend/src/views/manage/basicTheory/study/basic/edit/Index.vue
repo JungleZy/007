@@ -113,7 +113,7 @@
       </div>
       <div class="w-full overflow-hidden relative editor">
         <NipUEditor :top="0" />
-        <div v-if="uploadType" class="layout-center UploadLoading">文件解析中...&nbsp;&nbsp;({{ convertData.currentPage }}/{{ convertData.totalPage }})&nbsp;&nbsp;{{ convertData.percent }}%</div>
+        <div v-if="uploadType" class="layout-center UploadLoading">文档上传中...</div>
       </div>
     </div>
     <div class="shadow fade-in" v-if="testVisible">
@@ -165,7 +165,7 @@
         </div>-->
       </div>
     </div>
-    <a-upload name="file" style="display: none" :action="action" :showUploadList="false" accept=".doc,.docx,.pptx" :headers="headers" :before-upload="beforeUploadFile" @change="uploadChange">
+    <a-upload name="file" style="display: none" :action="action" :showUploadList="false" accept=".txt,.md,.csv" :headers="headers" :before-upload="beforeUploadFile" @change="uploadChange">
       <a-button id="uploadBtn" style="display: none">上传</a-button>
     </a-upload>
   </div>
@@ -184,13 +184,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { LoadingOutlined, PlusOutlined, SaveOutlined, EditOutlined, DeleteOutlined, CloseOutlined, RollbackOutlined, CheckOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import NipUEditor from '../../../../../../components/common/NipUEditor.vue'
 import leftico from '../../../../../../assets/HJ/train/left-ico.png'
-import { createVNode, onUnmounted, provide, ref, onMounted } from 'vue'
+import { createVNode, onUnmounted, provide, ref } from 'vue'
 import useForm from './js/useForm.js'
 import useEdit from './js/useEdit.js'
 
 import useUpload from '../../../../../../common/mixin/useUpload.js'
 import { PubSub } from '../../../../../../common/utils/PubSub.js'
-import { Modal } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 const roomtest = ref()
 const fileUrl = ref(window.fileUrl)
 const content = ref('')
@@ -199,49 +199,37 @@ const action = ref('http://' + window.httpUrl + '/api/theoryKnowledge/uploadFile
 const token = window.localStorage.getItem('token')
 const deviceId = window.localStorage.getItem('deviceId')
 const headers = ref({ token, deviceId })
-const uploadChange = e => {
-  if (e.file.response) {
-    if (e.file.response.data.imgUrls) {
-      uploadType.value = false
-      // for (let v of e.file.response.data.imgUrls){
-      //   content.value+=`<p style="text-align: center"><img src="${window.fileUrl+"/"}${v}" ></p>`
-      // }
-    } else {
-      uploadType.value = false
-      const arr = e.file.response.data.wordContent.split('\r')
-      for (let v of arr) {
-        content.value += `<p style="text-indent: 2em">${v}</p>`
-      }
-    }
+const uploadChange = ({ file }) => {
+  if (file.status !== 'done' && file.status !== 'error') return
+  uploadType.value = false
+  const response = file.response
+  if (file.status === 'error' || response?.code !== 200) {
+    file.status = 'error'
+    message.error(response?.message || '文档上传失败，请重试')
+    return
   }
+  const wordContent = response.data?.wordContent
+  if (typeof wordContent !== 'string' || !wordContent.trim()) {
+    file.status = 'error'
+    message.error('文档内容为空或响应格式错误')
+    return
+  }
+  const paragraph = document.createElement('p')
+  paragraph.style.textIndent = '2em'
+  content.value += wordContent.split(/\r\n|\r|\n/).map(line => {
+    paragraph.textContent = line
+    return paragraph.outerHTML
+  }).join('')
 }
-const beforeUploadFile = () => {
+const beforeUploadFile = file => {
+  if (!/\.(txt|md|csv)$/i.test(file.name)) {
+    message.error('仅支持 UTF-8 纯文本文档（txt/md/csv）')
+    return false
+  }
   uploadType.value = true
+  return true
 }
-let eventSource = null
-const convertData = ref({
-  percent: 0,
-  currentPage: 0,
-  totalPage: 0
-})
 provide('content', content)
-const sourceLink = () => {
-  const id = JSON.parse(localStorage.getItem('userInfo')).id
-  eventSource = new EventSource('http://' + window.httpUrl + '/Sse/connect?uid=' + id)
-  eventSource.onmessage = e => {
-    const data = JSON.parse(e.data)
-    if (data.path) {
-      convertData.value.percent = data.percent
-      convertData.value.currentPage = data.currentPage
-      convertData.value.totalPage = data.totalPage
-      // uploadType.value = false
-      content.value += `<p style="text-align: center"><img src="${window.fileUrl + '/'}${data.path}" ></p>`
-    }
-  }
-}
-onMounted(() => {
-  sourceLink()
-})
 const uploadFile = () => {
   const q = document.getElementById('uploadBtn')
   q.click()
@@ -309,7 +297,6 @@ PubSub.subscribe('send_theoryEdit_close', () => {
 
 onUnmounted(() => {
   PubSub.unsubscribe('send_theoryEdit_close')
-  eventSource.close()
 })
 </script>
 

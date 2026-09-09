@@ -27,6 +27,19 @@ export const saveTheoryKnowledgeQuestion = (data) => {
       data
    })
 }
+export const saveBatch = (data) => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/saveBatch",
+      data
+   })
+}
+export const exportTemplate = () => {
+   return axios({
+      method: "post",
+      url: "/api/theoryKnowledgeQuestion/exportTemplate"
+   })
+}
 export const findAllQuestionByLevelId = (data) => {
    return axios({
       method: "post",

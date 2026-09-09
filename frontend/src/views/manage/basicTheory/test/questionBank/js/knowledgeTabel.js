@@ -3,12 +3,13 @@ import { ref, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
-import { deleteTheoryKnowledgeQuestionLevelById, saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, exportQuestionBank } from '../../../../../../common/api/TheoryQuestionBankApi'
+import { deleteTheoryKnowledgeQuestionLevelById, saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, saveBatch, exportTemplate as exportQuestionTemplate, exportQuestionBank } from '../../../../../../common/api/TheoryQuestionBankApi'
 import { deepClone } from '../../../../../../common/utils/Utils.js'
 import { listSort } from '../../../../../../components/test/nodeTree/listSort'
-import { saveAs } from 'file-saver'
 import * as mammoth from "mammoth";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+import { Document, Packer, Paragraph, TextRun } from 'docx'
+import * as XLSX from 'xlsx'
+import { parseWordQuestions, parseSpreadsheetRows } from './questionImport.js'
 export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, activeList, activeKnowledge) {
   // onMounted(()=>{
   //   radio()
@@ -320,295 +321,60 @@ export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, a
     }
     emit('clickActive', obj, bool)
   }
-  //单选
-  let num = 0
-  let arrObj = []
-  let type = true
-  //单选
-  const radio = (arr)=>{
-    let  obj = {
-      analysis: "",
-      answer: "",
-      levelId:activeAction.value.key,
-      options: [],
-      topic: "",
-      type: "1"
-    }
-    obj.topic = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length)
-    const answerStr = arr[num+2].substring(arr[num+2].indexOf("：")+1,arr[num+2].length).replace("\r","")
-    switch (answerStr) {
-      case "A":
-        obj.answer = "0"
-        break;
-      case "B":
-        obj.answer = "1"
-        break;
-      case "C":
-        obj.answer = "2"
-        break;
-      case "D":
-        obj.answer = "3"
-        break;
-    }
-    const options=[]
-    options.push(arr[num+1].substring(arr[num+1].indexOf("A"),arr[num+1].indexOf("B")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("B"),arr[num+1].indexOf("C")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("C"),arr[num+1].indexOf("D")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("D"),arr[num+1].length).trim())
-    // arr[num-1].split("   ")
-    for (let i in options){
-      obj.options.push({
-        value:i,
-        label:options[i].substring(options[i].indexOf("、")+1,options[i].length)
-      })
-    }
-    obj = deepClone(obj)
-    obj.answer = JSON.stringify(obj.answer)
-    obj.options = JSON.stringify(obj.options)
-    arrObj.push(obj)
-    num+=3
-  }
-  //多选
-  const multiSelect = (arr)=>{
-    const obj = {
-      analysis: "",
-      answer: "",
-      levelId: activeAction.value.key,
-      options: [],
-      topic: "",
-      type: "2"
-    }
-    obj.topic = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length)
-    const answerStr = arr[num+2].substring(arr[num+2].indexOf("：")+1,arr[num+2].length).replace("\r","")
-    const answerArr = answerStr.split("")
-    obj.answer = []
-    for (let v of answerArr){
-      switch (v) {
-        case "A":
-          obj.answer.push("0")
-          break;
-        case "B":
-          obj.answer.push("1")
-          break;
-        case "C":
-          obj.answer.push("2")
-          break;
-        case "D":
-          obj.answer.push("3")
-          break;
-      }
-    }
-    const options=[]
-    // arr[num-1].split("   ")
-    options.push(arr[num+1].substring(arr[num+1].indexOf("A"),arr[num+1].indexOf("B")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("B"),arr[num+1].indexOf("C")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("C"),arr[num+1].indexOf("D")).trim())
-    options.push(arr[num+1].substring(arr[num+1].indexOf("D"),arr[num+1].length).trim())
-    for (let i in options){
-      obj.options.push({
-        value:i,
-        label:options[i].substring(options[i].indexOf("、")+1,options[i].length)
-      })
-    }
-    obj.answer = JSON.stringify(obj.answer)
-    obj.options = JSON.stringify(obj.options)
-    arrObj.push(obj)
-    num+=3
-  }
-  //填空
-  const blanks = (arr)=>{
-    const obj = {
-      analysis: "",
-      answer: [],
-      levelId: activeAction.value.key,
-      options: [],
-      topic: "",
-      type: "4"
-    }
-    obj.topic = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length)
-    obj.topic = obj.topic.replace("（）","$_$")
-    const answerStr = arr[num+1].substring(arr[num+1].indexOf("：")+1,arr[num+1].length).replace("\r","")
-    obj.answer.push(answerStr)
-    obj.answer = JSON.stringify(obj.answer)
-    obj.options = JSON.stringify(obj.options)
-    arrObj.push(obj)
-    num+=2
-  }
-  //简答
-  const short = (arr)=>{
-    const obj = {
-      analysis: "",
-      answer: [],
-      levelId: activeAction.value.key,
-      options: [],
-      topic: "",
-      type: "5"
-    }
-    obj.topic = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length)
-    const answerStr = arr[num+1].substring(arr[num+1].indexOf("：")+1,arr[num+1].length).replace("\r","")
-    obj.answer.push(answerStr)
-    obj.answer = JSON.stringify(obj.answer)
-    obj.options = JSON.stringify(obj.options)
-    arrObj.push(obj)
-    num+=2
-  }
-  //判断
-  const judge = (arr)=>{
-    const obj = {
-      analysis: "",
-      answer: "",
-      levelId: activeAction.value.key,
-      options: [{
-        id:"1",
-        name:"对"
-      },
-        {
-          id:"2",
-          name:"错"
-        }
-      ],
-      topic: "",
-      type: "3"
-    }
-    obj.topic = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length)
-    const answerStr = arr[num+1].substring(arr[num+1].indexOf("：")+1,arr[num+1].length).replace("\r","")
-    switch (answerStr) {
-      case "对":
-        obj.answer = "1"
-        break;
-      case "错":
-        obj.answer = "2"
-        break;
-    }
-    obj.answer = JSON.stringify(obj.answer)
-    obj.options = JSON.stringify(obj.options)
-    arrObj.push(obj)
-    num+=2
-    // for (let v of arrObj){
-    //   saveTheoryKnowledgeQuestion(v)
-    // }
-    // console.log(arrObj)
-  }
-  const uploadKnowledge = () => {}
-  // 处理批量上传文件的数据
-  const uploadDataHandle = (str)=>{
-    num = 0
-    type = true
-    const arrStr = ["一、单项选择题","二、不定项选择题","三、判断题","四、填空题","五、简答题"]
-    if(str){
-      str = str.replaceAll("\nB","B")
-      str = str.replaceAll("\nC","C")
-      str = str.replaceAll("\nD","D")
-      str = str.replaceAll("\r","")
-      const arr = str.split("\n")
-      arrStr.forEach(str=>{
-        const index = arr.findIndex(item=>item.indexOf(str)>-1)
-        if(index>-1){
-          arr.splice(index,1)
-        }
-      })
-      //删除空字符串
-      for (let i=0;i<arr.length;i++){
-        if (arr[i]==""){
-          arr.splice(i,1)
-          i--
-        }
-      }
-      do{
-        let answerStr,answerStr2, topicStr
-        if(arr[num+2]){
-          answerStr =  (arr[num+2].substring(arr[num+2].indexOf("：")+1,arr[num+2].length)).replaceAll("\r","")
-        }
-        answerStr2 = arr[num+1].substring(arr[num+1].indexOf("：")+1,arr[num+1].length).replaceAll("\r","")
-        topicStr = arr[num].substring(arr[num].indexOf("、")+1,arr[num].length).replaceAll("\r","")
-        const reg = /^[A-Z]/
-        if(reg.test(answerStr)&&answerStr.length<5&&/^[A-Z]+$/i.test(answerStr)){
-          if(arr[num+2].indexOf("答案")==-1){
-            message.error("关键字"+arr[num]+"临近几题格式有误！")
-            // console.log(arr[num])
-            num = arr.length
-            return;
-          }
-          if(answerStr.length==1){
-            radio(arr)
-          }else {
-            multiSelect(arr)
-          }
-        }else {
-          if(arr[num+1].indexOf("答案")==-1){
-            message.error("关键字"+arr[num]+"临近几题格式有误！")
-            // console.log(arr[num])
-            num = arr.length
-            return;
-          }
-          if(answerStr2.length==1){
-            judge(arr)
-          }else {
-            if (topicStr.indexOf('（）') > -1) {
-              blanks(arr)
-            } else {
-              short(arr)
-            }
-          }
-        }
-      }while (num<=arr.length-1)
-      if(arrObj.length!=0){
-        for (let v of arrObj){
-          saveTheoryKnowledgeQuestion(v)
-        }
-      }
-      setTimeout(()=>{
-        findAllQuestion( activeAction.value)
-        message.success("上传成功！")
-      },2000)
+
+  const uploadChange = async ({ file, onSuccess, onError }) => {
+    try {
+      if (!file) throw new Error('未收到上传文件')
+      const buffer = await file.arrayBuffer()
+      const isSpreadsheet = /\.xlsx?$/i.test(file.name || '')
+      const workbook = isSpreadsheet ? XLSX.read(buffer, {type: 'array'}) : null
+      const rows = workbook ? XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {defval: ''}) : null
+      const params = isSpreadsheet
+        ? parseSpreadsheetRows(rows, activeAction.value.key)
+        : parseWordQuestions((await mammoth.extractRawText({arrayBuffer: buffer, preserveWhiteSpace: true})).value, activeAction.value.key)
+      if (!params.length) throw new Error('未识别到有效题目')
+      const response = await saveBatch(params)
+      if (response.code !== 200) throw new Error(response.message || '题库批量导入失败')
+      await findAllQuestion(activeAction.value)
+      file.status = 'done'
+      onSuccess?.(response)
+      message.success('题库导入成功！')
+    } catch (error) {
+      file.status = 'error'
+      onError?.(error)
+      message.error(error.message || '题库导入失败')
     }
   }
-  const uploadChange = async (e)=>{
-    // return
-    // uploadDataHandle(e)
-    if (!e.file) return false
-    let reader = new FileReader()
-    reader.readAsArrayBuffer(e.file)
-    reader.onload = (ev) => {
-      mammoth.extractRawText({arrayBuffer: ev.target.result, preserveWhiteSpace: true}).then(res => {
-        // console.log(JSON.stringify(res.value));
-        arrObj=[]
-        uploadDataHandle(res.value)
-      })
-    }
-    e.file.status = 'done';
-    e.onSuccess()
-  }
-  const exportTemplate = (type)=>{
-    if(type==1&&selectID==-1){
-      message.error("请先选择要导出的题库！")
+
+  const exportTemplate = async type => {
+    if (type == 1 && selectID == -1) {
+      message.error('请先选择要导出的题库！')
       return
     }
     if (type == 0) {
-      const tempLink = document.createElement('a')
-      tempLink.style.display = 'none'
-      tempLink.href = window.fileUrl+'/006/题库-模板.docx'
-      document.body.appendChild(tempLink)
-      tempLink.click()
-      document.body.removeChild(tempLink)
-    } else {
-      exportQuestionBank({
-        levelId:selectID
-      }).then(res => {
-        if (res.code === 200) {
-          let arr = [],filterArr = [];
-          for (let i=1;i<=5;i++) {
-            filterArr = res.data.filter(item => item.type==i)
-            if (filterArr.length > 0) {
-              arr.push(filterArr)
-            }
-          }
-          if (arr.length > 0) {
-            handleExportWordDataInfo(arr)
-          }
-        }
-      })
+      const response = await exportQuestionTemplate()
+      if (response.code !== 200 || !Array.isArray(response.data)) {
+        message.error(response.message || '模板获取失败')
+        return
+      }
+      const row = Object.fromEntries(response.data.map(column => [column.field, column.example ?? '']))
+      const sheet = XLSX.utils.json_to_sheet([row])
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, sheet, '题库模板')
+      XLSX.writeFile(workbook, '题库-模板.xlsx')
+      return
     }
+    const response = await exportQuestionBank({levelId: selectID})
+    if (response.code !== 200 || !Array.isArray(response.data)) {
+      message.error(response.message || '题库导出失败')
+      return
+    }
+    const arr = []
+    for (let i = 1; i <= 5; i++) {
+      const group = response.data.filter(item => item.type == i)
+      if (group.length) arr.push(group)
+    }
+    if (arr.length) handleExportWordDataInfo(arr)
   }
 
   const handleExportWordDataInfo = (arr) => {

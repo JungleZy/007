@@ -116,11 +116,11 @@ public class PostTelegramTrainController {
       }
       return ResponseResult.success(postTelegramTrainService.finish(dto));
     } catch (IndexOutOfBoundsException e) {
-      return ResponseResult.error("数组越界错误");
+      return ResponseResult.error(ResponseCode.PARAMS_ERROR, "数组越界错误", "数组越界错误");
     } catch (IllegalArgumentException e) {
-      return ResponseResult.error(e.getMessage());
+      return ResponseResult.error(ResponseCode.PARAMS_ERROR, e.getMessage(), e.getMessage());
     } catch (Exception e) {
-      return ResponseResult.error("服务器错误");
+      throw new RuntimeException(e);
     }
   }
 

@@ -102,7 +102,7 @@
                     ? 'cursor-not-allowed'
                     : ''
                 ]"
-                  accept=".docx"
+                  accept=".docx,.xlsx"
                   :customRequest="uploadChange"
               >
                 <a-button class="layout-center btns">
@@ -282,7 +282,6 @@ import NipLeftMenu from "../../../../../components/common/NipLeftMenu.vue";
 import RoomTest from '../../../../../components/test/roomTest/RoomTest.vue'
 import PreviewTheTopic from '../../../../../components/test/previewTheTopic/PreviewTheTopic.vue'
 import {useRouter, useRoute} from 'vue-router'
-import {saveAs} from "file-saver"
 
 provide("realTimeAnwser", "")
 const IconFont = createFromIconfontCN({
@@ -304,10 +303,6 @@ if (interfaceStyle === "HJJ") {
 const atRoute = ref({
   name: ''
 })
-const action = ref("http://" + window.httpUrl + "/api/theoryKnowledgeQuestion/upLoadFile")
-const token = window.localStorage.getItem('token');
-const deviceId = window.localStorage.getItem('deviceId');
-const headers = ref({token, deviceId})
 const page = ref({
   showQuickJumper: true,
   showSizeChanger: true,
@@ -317,13 +312,17 @@ onMounted(() => {
   clickKnowledge('知识总览', -1);
   findAllQuestion(-1);
 })
-const beforeUpload = (file) => {
+const beforeUpload = file => {
   if (knowledgeId.value == -1 || knowledgeId.value == 1) {
-    message.error("请先选择需要上传题库的二级知识节点！")
-    return false;
+    message.error('请先选择需要上传题库的二级知识节点！')
+    return false
   }
-
-};
+  if (!/\.(docx|xlsx)$/i.test(file.name || '')) {
+    message.error('仅支持 DOCX 或 XLSX 题库文件')
+    return false
+  }
+  return true
+}
 const roomtest = ref();
 const emit = defineEmits(['clickActive']);
 const {
