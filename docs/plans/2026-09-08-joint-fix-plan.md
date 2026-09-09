@@ -1,0 +1,222 @@
+# 联合整改实施计划（2026-09-08）
+
+> 对应 Spec：[`../specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md)。权威依据：[`../reviews/2026-09-08-full-project-review.md`](../reviews/2026-09-08-full-project-review.md)；跨栈证据：[`../reviews/2026-09-08-joint-frontend-backend-review.md`](../reviews/2026-09-08-joint-frontend-backend-review.md)。
+>
+> 本文是**执行中计划**，仅 `[x]` 且有证据的条目表示完成。代码现状若与历史行号冲突，以执行时符号/LSP/运行结果为准；不要把既有 `2026-09-07-fix-plan.md` 已完成项重复实现。
+
+## 1. 交付策略
+
+### 1.1 成功标准
+
+- P0-01 有匿名 REST+数据库回归证据：带已有 id 的 `/signin` 不改变目标行，正常注册仍可创建。
+- BE-P1-01 与 AS-J-P1-02 先于前端修复：无凭据泄露、普通用户不能调用管理端点；未授权统一 HTTP 200 + `code:207`。
+- 活跃 J-P1 功能（房间、上传、时间、HTTPS 地址、错误码）有浏览器 Network/页面证据；撤回的尾空格结论不再计入 DoD。
+- J-P2/J-P3 每一组都有“完成、判定不修（理由+风险接收人）、或另立项”的终态，不能留未决条目。
+- 后端基线为 full review §9.1 的 216 测试；收口后必须 `>=216 + 新增回归`，并通过前端 `npm ci && npm run build`。
+
+### 1.2 提交和验证规则
+
+1. 一个独立可回滚任务一个提交；跨栈契约与其前端/后端/回归测试同提交。历史已合并的大批提交不伪造拆分。
+2. 修改导出符号、端点、DTO 或 API 导出前，使用 LSP references 覆盖调用者；删除前确认零引用。
+3. 业务错误不改成 HTTP 4xx/5xx；203/204/206 码值与文案逐字保护。
+4. 后端每个 P0/P1 先写会失败的行为测试，再实施修复；测试断言 DB、响应信封或协议，不断言注解存在。
+5. 前端无测试地基；使用静态门禁、`npm run build`、真实浏览器和部署矩阵，禁止为“有测试”引入临时框架。
+6. 各阶段完成后立即在本计划填写证据路径和日期；未跑的命令不能写成通过。
+
+## 2. 依赖图
+
+```mermaid
+graph LR
+A[基线取证与 lockfile] --> P[P0 匿名注册止血]
+P --> B[服务端授权与脱敏]
+A --> D[活跃 API 对账]
+B --> E[错误码 BE]
+E --> F[错误码 FE]
+D --> G[上传题库]
+D --> H[训练域切换]
+F --> I[浏览器综合回归]
+G --> I
+H --> I
+A --> J[地址/体积/CI]
+J --> I
+I --> K[会话 WS]
+K --> L[长尾与交付收口]
+```
+
+- A 必须先完成；P 与 B 共享 `UserService`/Fixtures，P 完成后再做 B；D/J 可与 P/B 并行但不能编辑同一文件。
+- E 必须在 F 前；G 与 H 可并行；I 是首次完整跨栈验收，不可被单元测试替代。
+- 会话 token/hash 迁移依赖产品/部署确认，不能用“改几行 MD5”冒充完成。
+
+### 2.1 文件所有权与串行抵达点
+
+| 文件 | 阶段 | 规则 |
+|---|---|---|
+| `frontend/src/views/manage/basicTheory/test/questionBank/js/knowledgeTabel.js` | G → J | G 先接 `saveBatch`/模板，J 再处理导出地址；禁止并行 |
+| `frontend/src/views/manage/basicTheory/study/basic/edit/Index.vue` | G → J | G 先改 accept/空值，J 再改上传 action/SSE |
+| `frontend/src/views/manage/equipment/equipmentIndex.vue` | G → J → L | 上传能力、地址、富文本按序接力 |
+| `frontend/src/common/http/index.js` | F → J | 错误码拦截器先定型，再补 timeout/网络提示 |
+| `frontend/src/views/manage/organization/telexZuXun/list/js/list.js` | D + H | 分页和错域合并一个集成提交 |
+| `backend/src/main/java/com/nip/service/UserService.java` | P → B | 注册语义先拆，再做授权/自限定改密 |
+
+每一行只允许一个集成者；阶段交接必须先读取最新文件并更新 references。
+
+## 3. 阶段任务
+
+### Phase 0：基线和可复现安装
+
+#### 0.1 建立当前基线
+
+- [ ] 记录当前源码 commit、后端 `clean verify`、前端 `npm install --ignore-scripts --no-audit --no-fund && npm run build` 结果。
+- [ ] 重新核对 P0、用户管理端点、三类凭据字段、`ResponseCode`、活跃前端 API 调用；把证据写入本计划。
+- [ ] 读 `docs/reviews` 的“已修复/撤回”章节，排除 `GET data` 丢参、尾空格必 404、v-per 查无权限放行等旧结论。
+
+#### 0.2 固化前端依赖
+
+- [ ] 从 `frontend/.gitignore` 删除 `package-lock.json`，确认 `frontend/package-lock.json` 被 Git 跟踪且与 `package.json` 同提交。
+- [ ] 本地用 `npm ci` 构建；若 lockfile 由不同 npm 版本生成，记录版本并统一 CI 版本。
+
+**出口证据：** 基线命令输出、lockfile 状态、差异排除清单。
+
+### Phase P0：匿名注册止血（最高优先）
+
+- [x] 测试 `AnonymousSigninTest`：预置 victim（合法身份证字段），匿名带已有 id 请求必须返回非成功且目标行身份字段不变；无 id 正常注册仍创建新行；重复账号不得改写原用户，注册成功响应不含敏感字段。
+- [x] 实现：`/signin` 明确拒绝非空 id（含空白），并保证服务层不会让匿名入口进入 `handleExistingUser`；管理更新保留在受保护端点；注册只复制公开注册字段。
+- [ ] 生产存量 `user_account`/`id_card` 重复盘点及清理尚未执行；本轮不增加唯一索引，保留已有服务层重复账号检查，不据此宣称并发注册唯一性已解决。
+
+**已取得证据（2026-09-09）：** 修复前运行复现见全项目 Review §9.4；修复后 `AnonymousSigninTest` 三项通过（已有 id 拒绝、重复账号不改写、正常注册及敏感响应检查）。没有重新执行修复前 RED 用例；未做生产数据变更。
+
+### Phase 1：服务端授权与脱敏（对应 Spec 批 1）
+
+#### 1.1 授权基础设施
+
+- [x] 新增 `RequireAdmin` interceptor 和业务码 207；复用既有 `WebApplicationExceptionMapper` 返回 HTTP 200 信封，异常链不吞 token 失效。
+- [x] 由 token 查用户、由 user 查角色；按既有语义 `isAdmin == 0` 判超管。无角色和普通角色均返回 207；多角色使用 `count > 0` 存在性判定。
+- [x] 为 `UserController` 的 `saveUser/importUser/addUserRole/delete/resetPassword/getAllUser`、`RoleController.addRole`、`MenusController.addMenu` 加方法级保护；同类查询端点不因类级注解误伤。
+- [x] `AdminAuthorizationTest` 覆盖普通用户删除、无角色授予角色、超管重置密码、用户目录脱敏及响应信封；`ExceptionBoundaryTest` 已补管理员夹具以保留其业务异常断言。
+
+#### 1.2 自限定改密
+
+- [x] `changePassword` 从 token 推导当前 user id；移除 body id 的必填校验但保留旧密码/新密码校验。
+- [x] `AdminAuthorizationTest.changePasswordUsesTokenOwnerInsteadOfBodyUserId` 验证 A token 携 B id 只修改 A，B 保持不变。
+
+#### 1.3 用户响应脱敏
+
+- [x] 使用 `UserProfile`/`UserSummary` DTO 覆盖 `getAllUser`、`getAllUserByContent`、`getUserById`、`getUsersByIds`、`getUsersByToken` 等返回用户信息路径；现有 `UserInfoDto` 不再嵌入 `UserEntity`。
+- [x] 清点用户选择调用：管理列表继续走受保护 `getAllUser`；训练选人和通知人员改走已登录可用的 `getUserDirectory` 最小 DTO。
+- [ ] `CableController`、`CableTypeController`、`DeviceController` 等无 `@JWT` 写/删端点仍需按各自消费者逐项整改；不属于已完成的八个 user/role/menu 管理方法。
+- [x] 登录/注册使用独立会话/注册响应：用户资料不含 password，token/deviceId 仅作为登录会话字段；同步 `useLogin.js` 读取路径。
+- [x] `AdminAuthorizationTest` 与 `AnonymousSigninTest` 断言目录、登录/注册用户资料不含 password/token/deviceId；未用 `@JsonIgnore` 掩盖实体响应。
+
+**出口证据（2026-09-09）：** 后端 Java 21 + Docker `./mvnw -B clean verify`：226 tests，0 failures，0 errors，0 skipped（本轮输出 `artifact://64`）；授权/注册/异常边界定向 22 项通过（`artifact://61`）。前端三处 API/HTTP JS `node --check` 通过，`npm run build` 成功（`artifact://39`）。LSP 未配置，使用 grep 核对调用面。浏览器打开前端后停在设备授权页，真实登录、管理与训练选人页面尚未联调；不能把构建成功等同于页面回归通过。
+
+### Phase 2：活跃 HTTP 契约对账
+
+#### 2.1 房间和时间
+
+- [ ] 前端 7 处 `roomgId` 改 `roomId`，对照三个 simulation controller 的实际绑定。
+- [ ] 自测列表读取后端实际字段；短期改 `start_time` 和排序字段，长期 snake/camel 统一另列 Phase 7。
+- [ ] `rows:999` 改真实分页；若产品接受 200 上限，UI 必须显示限制且不能假装全量。
+
+#### 2.2 死导出
+
+- [ ] 对 `StructureApi.getAllUserByContent`、`UnionApi.editStatus`、`UnionApi.addUser`、其它疑似孤儿导出逐个 LSP references；零引用才删除，否则按实际后端方法/路径修正。
+- [ ] `preJob/.../Index.vue` 注释代码中的 raw axios import 仅在无动态使用证据后删除。
+- [ ] `deleteThroyKnowledgeById` 尾空格可顺手清理，作为 P3 卫生项；不得以 `%20`、必然 404 或“修复后才刷新”作为验收。真实当前客户端若失败，另立有证据的缺陷。
+
+**出口证据：** 调用面对账表、LSP 零引用输出、浏览器房间请求和自测列表截图/Network。
+
+### Phase 3：错误码和响应信封（BE → FE）
+
+#### 3.1 后端码语义
+
+- [ ] 仅将业务 `NULL_ERROR` 产生点迁到 `PARAMS_ERROR(202)`；确认 204 唯一剩鉴权设备缺失。
+- [ ] `ValidationExceptionMapper`、`IllegalStateExceptionMapper`、`InvalidTitleExceptionMapper` 的业务校验码改为 202，保留 safeMessage、HTTP 200；Global mapper 保留 HTTP 500。
+- [ ] 测试业务空参、校验异常、未预期异常、缺 deviceId 四类可观察结果；不要用“全仓 116 处都各写一测”制造低价值测试。
+
+#### 3.2 前端拦截器
+
+- [ ] 删除后端无产生点的 205 分支；203/204/206 统一幂等登录页抑制，任何分支返回 `response.data`。
+- [ ] 对非 200 业务码集中 toast，允许 `skipErrorToast` 并记录调用点；修复所有已确认的高风险假成功调用方。
+- [ ] 先完成错误码骨架；网络错误和 timeout 在 Phase 5 的同文件接力中补齐。
+
+### Phase 4：文档与题库
+
+- [ ] 上传 UI 的 `accept` 对齐 `txt/md/csv`；`data` 为 null、`imgUrls=[]` 均安全处理。
+- [ ] 题库 Word 解析后一次 `saveBatch`；等待完整响应并展示行级错误，删除定时器假成功。
+- [ ] 模板按钮调用后端 JSON 列规格，使用仓内已有 xlsx 生成器；删除 `exportTemplate1`、死 `downloadTemplate` 前完成 references 核对。
+- [ ] 实测 txt 成功插入编辑器、docx 被能力边界拦截、批量失败不部分成功、xlsx 可由 Excel 打开。
+
+**出口证据：** 一次 `saveBatch` Network、DB 行数/回滚结果、下载文件打开结果；不得把 JSON 响应改名为 docx blob。
+
+### Phase 5：地址、上传链和 CI
+
+- [ ] 新增协议感知 `apiUrl`/`wsUrl`，迁移 6 个上传、SSE、导出和 4 个协同 WS 手工拼接点；不破坏 Electron 的既有 `window.wsUrl`。
+- [ ] 用 throwaway 脚本给 `https://host/data` 与 `host/data` 两种输入断言 HTTP/WS 协议正确；仓内无真实反代，不能把外部形态写成已实测。
+- [ ] 明确后端 body 上限、前端文件大小预检、共享 timeout；反代 `client_max_body_size` 作为仓外前置记录，不伪造仓内完成。
+- [ ] CI 新增固定 Node/npm 安装、`npm ci`、`npm run build` 和必要静态门禁；README 写清 dist→Electron 外壳链。
+- [ ] 版本采用 tag 驱动的单一发布规则；同步 `pom.xml`、`package.json`，处理 `application.yml` 顶层 version，而非继续保留三套无关数字。
+
+### Phase 6：训练域与结算
+
+- [ ] telexZuXun 6 个文件改 `datagramZuXun.js`/`generalTelexPat`，WS 改 `/generalTelexPatTrain`，localStorage 使用 telex 专属键。
+- [ ] 后端增加 `generalKeyPat/reset`（仅在确认当前服务无此端点后），前端电子键 reset 调本域；测试清理本域 value/page 且不影响 ticker。
+- [ ] finish 立即提交守卫并与后端幂等短路对齐；评分/速率以既有 `ScoreMath`/后端结果为唯一权威，前端上传字段须按真实服务消费关系决定删除或标预估。
+- [ ] 修 handkey/electronKey 的 `setItem`/后端权威断点读取；修 `patDetail` 姓名字段；状态枚举按域固定并做协议表。
+
+**出口证据：** 域 API/WS Network、数据库域查询、reset 隔离测试、重复 finish 和断点续训行为。
+
+### Phase 7：会话与 WebSocket
+
+- [ ] 登出调用 `userOut`，无论网络结果如何都完成本地/WS 清理；旧 token 行为用后端请求证明。
+- [ ] 为 PublicSocket/Ws/MessageWebSocket/UnionWs 实现受控指数退避、抖动、上限、心跳看门狗、readyState 和退出置空；关闭不触发重连。
+- [ ] 仿真 WS 对坏消息逐条返回协议错误，不让单条解析异常触发正常参与者清理；必要时保留未知 room/id 的拒绝日志。
+- [ ] 将 WS idle-timeout 单列为 spike：在当前 Quarkus 版本确认配置键和实际关闭行为，输出选定值/不支持时的应用层替代；该 spike 不阻塞 FE logout/重连交付。
+- [ ] WS token/deviceId 握手鉴权单独记录安全决策；若不改，明确为已接受风险，不把 URL 修复冒充鉴权完成。
+
+### Phase 8：富文本与数据表示
+
+- [ ] 复用或引入一个成熟白名单净化器，建立唯一渲染入口；覆盖 `v-html` 和 iframe/document.write 两个 sink，阻断危险标签、事件属性和 javascript/data URL scheme。
+- [ ] 按字段清单处理时区、数值 wire 类型、snake/camel、字典取值、createTime；每项写完成或不修理由，不做无证据全站重命名。
+- [ ] CSP/iframe sandbox 的要求写入部署验收；净化测试断言恶意 payload 不执行且合法富文本保留。
+
+### Phase 9：密码、会话协议和剩余单侧风险
+
+- [ ] 设计并评审 hash 版本、PBKDF2/Argon2id 选择、旧 MD5 渐进升级、密码重置、失败回滚；存量数据和 `password` 列长度先盘点。
+- [ ] 设计随机有期限 access token、refresh/revoke、device 绑定和 Web/Electron 安全存储迁移；在设计落地前保留明文自动登录/确定性 token 的接受风险。
+- [ ] 删除 query token/deviceId 兼容前，完成所有客户端 header 迁移并做日志观察；改生产凭据为 Secret/最小权限账号。
+- [ ] 处理生产 OpenAPI、CORS、demo/死端点、Tauri 残留等 P3：逐项选择实施、接受或另开 Spec。
+
+## 4. 总验收清单
+
+### 4.1 静态
+
+- [ ] P0 `/signin` 不再存在“客户端 id 触发更新”的可达路径。
+- [ ] 用户管理响应 DTO 无 password/token/deviceId；目标管理方法均有服务端授权（不以 UI `v-per` 为证明）。
+- [ ] 活跃 `roomgId`、telex 错域 import、`generalKeyPatTrain`（telex 页面）和手工协议拼接均清零。
+- [ ] `NULL_ERROR` 仅保留在决定性的兼容位置或为零；203/204/206 定义逐字不变；前端不存在 205 处理分支/undefined 返回。
+- [ ] lockfile 跟踪、CI 前端 build、版本规则、上传体积规则都有文件证据。
+
+### 4.2 后端
+
+- [ ] `AdminAuthorizationTest`、`UserResponseRedactionTest`、P0 注册测试、`ErrorEnvelopeContractTest`、训练 reset/WS 回归测试通过。
+- [ ] `cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B clean verify` 通过；输出原样记录测试数、失败数和 Docker 前提。
+- [ ] 生产 `generation: validate`、迁移顺序、唯一约束、Secret 变量和启动 smoke 均有证据；不以旧计划的 216 全绿替代新行为验收。
+
+### 4.3 前端和运行期
+
+- [ ] `cd frontend && npm ci && npm run build` 通过。
+- [ ] 浏览器逐条保存 Network/截图：房间、改密错误、txt 导入、题库批量、xlsx 模板、telex 建训、登出旧 token。
+- [ ] HTTPS+反代和 Electron 直连分别验证；缺少仓外反代时明确标 `[未验证外部前置]`。
+- [ ] 最终表中每个 Spec 编号都有状态：已完成/判定不修/另立项；不得出现“部分完成但无下步”。
+
+## 5. 终态登记模板
+
+| 编号/任务 | 状态 | 代码/测试/运行证据 | 偏离或风险 | 提交 |
+|---|---|---|---|---|
+| P0-01 | 注册入口止血已完成 | `AnonymousSigninTest` 三项、全量 226 全绿 | 生产重复数据盘点与并发唯一性未完成 | `adb4949`、`649b37a` |
+| BE-P1-01 | 用户 API 脱敏已完成，跨域响应待复核 | `UserProfile`、`UserSummary`、`LoginSessionDto`；登录与当前用户响应回归 | 不宣称所有跨域 VO（如 `ComprehensiveVO.userEntity`）均已脱敏；页面联调受设备授权前置限制 | `649b37a`、`e7514ed` |
+| AS-J-P1-02 | 八个管理方法已加授权 | `AdminAuthorizationTest`、`ExceptionBoundaryTest`；207 前端提示及目录迁移 | Cable/CableType/Device 端点尚未整改 | `649b37a`、`e7514ed` |
+| HC/EC/TK/DC/DM J-P1 | 未开始 | — | — | — |
+| J-P2/J-P3 长尾 | 未开始 | — | — | — |
+
+> 关闭本计划前，将模板扩展为完整编号表，并把撤回项 `HC-J-P1-02` 单独标记为“撤回（full review §9.5 实测）”，不能标记为已修复。

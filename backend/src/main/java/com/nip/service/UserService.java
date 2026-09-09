@@ -61,7 +61,7 @@ public class UserService {
    * 它依赖于UserDao接口的实现，该接口负责与数据库交互
    *
    * @param id 用户的唯一标识符，用于数据库查询
-   * @return UserEntity对象，包含查询到的用户信息
+   * @return 不含密码和会话凭据的用户资料
    * @throws IllegalArgumentException 未查询到该用户时抛出（Phase 7.4：与 getUserAndRoleById 口径一致）
    */
   public UserProfile getUserById(String id) {
@@ -88,7 +88,7 @@ public class UserService {
    * 此方法用于查询用户名以特定前缀开始的用户实体列表通过调用UserDao中的相应方法来实现
    *
    * @param userName 用户名前缀，用于查询用户
-   * @return 包含用户名以前缀开始的用户实体列表
+   * @return 匹配用户的脱敏资料列表
    */
   public List<UserProfile> getUsersByUserNameStartingWith(String userName) {
     return userDao.findUserEntitiesByUserNameStartingWith(userName).stream().map(UserProfile::from).toList();
@@ -114,8 +114,8 @@ public class UserService {
   /**
    * 根据用户ID列表获取用户实体列表
    *
-   * @param ids 用户ID列表，用于指定需要获取的用户实体
-   * @return 返回一个UserEntity对象列表，包含所请求的用户信息
+   * @param ids 用户ID列表，用于指定需要获取的用户
+   * @return 所请求用户的脱敏资料列表
    */
   public List<UserProfile> getUsers(List<String> ids) {
     return userDao.findAllUser(ids).stream().map(UserProfile::from).toList();
@@ -127,7 +127,7 @@ public class UserService {
    * 此方法通过调用UserDao接口的findAllByOrderByStatusDesc方法来获取所有用户实体
    * 它按状态降序对用户进行排序，以便首先显示状态较高的用户
    *
-   * @return 返回一个UserEntity对象列表，包含所有用户实体
+   * @return 用户脱敏资料列表
    */
   public List<UserProfile> getAllUser() {
     return userDao.findAllByOrderByStatusDesc().stream().map(UserProfile::from).toList();
@@ -489,7 +489,7 @@ public class UserService {
   /**
    * 修改用户密码
    *
-   * @param id           用户ID，用于定位需要修改密码的用户
+   * @param token        当前会话令牌，只修改令牌所属用户
    * @param oldPassword  用户当前的密码，用于验证身份
    * @param newPassword  用户的新密码，用于替换旧密码
    * @param newPasswordV 新密码的验证值，确保用户正确输入新密码
@@ -583,7 +583,7 @@ public class UserService {
    *
    * @param userName    用户名，用于模糊查询
    * @param userAccount 用户账号，用于模糊查询
-   * @return 返回一个Response对象，包含用户实体列表
+   * @return 包含用户脱敏资料列表的响应信封
    * <p>
    * 此方法根据提供的用户名和用户账号参数，通过用户数据访问对象（userDao）查询匹配的用户列表
    * 如果两个参数都提供，则使用两个参数进行模糊查询；如果只提供其中一个参数，则只使用该参数查询；

@@ -1,6 +1,6 @@
 # 前后端联合评审总报告（joint review）
 
-> 结论：**联合视角确认 41 条跨栈契约缺陷（J-P1 7 / J-P2 19 / J-P3 15，J-P0 0）**。最高风险不是任何单侧代码，而是**「后端按自己的单侧评审改，未对照前端调用面」造成的契约回归**：至少 4 处后端整改把原本前后端一致（或一致地坏）的契约改成了单侧正确、跨栈失效。第二大风险是**授权只存在于前端**——后端管理写端点只做 token 二值鉴权，任意已登录学员可删除任意用户、重置管理员密码、给自己加角色。
+> 结论：联合视角原始统计为 41 条跨栈缺陷（J-P1 7 / J-P2 19 / J-P3 15，J-P0 0）。该统计保留为联合取证口径；全项目整改还必须纳入 `docs/reviews/2026-09-08-full-project-review.md` 的 P0-01、敏感凭据暴露、匿名写删端点等单侧数据后果，统一去向见 [`../specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md) 与 [`../plans/2026-09-08-joint-fix-plan.md`](../plans/2026-09-08-joint-fix-plan.md)。最高风险不是任何单侧代码，而是前后端契约未联动造成的回归；第二大风险是授权只存在于前端。
 >
 > ⚠️ **2026-09-08 勘误（见 §5.0）**：初版曾把「前端 GET 用 `data` 传参」判为 J-P1（26 个端点恒丢参）并据此派生「菜单/角色回显恒 500」，**两条均已撤回**——前端 28 个 api 模块走的是包装器 `frontend/src/common/http/axios.js:20-24`，它对 GET 走 `instance.get(url, { params: data })`，参数正常进查询串。同时更正：`IllegalArgumentException` 由 `ValidationExceptionMapper` 映射为 **HTTP 200 + 业务码 500 + 可读 message**，全仓只有 `GlobalExceptionMapper` 返 HTTP 500。
 
@@ -35,7 +35,7 @@
 | **分片原始合计** | | **8** | **20** | **16** | **44** | 13 / 3 / 28 |
 | 去重（3 处，见 §1.1） | | −1 | −1 | −1 | **−3** | |
 | 父代理新增 | | 0 | 0 | 0 | **0** | |
-| **本汇总最终** | | **7** | **19** | **15** | **41** | 13 / 3 / 25 |
+| **联合原始汇总（历史口径）** | | **7** | **19** | **15** | **41** | **13 / 3 / 25** |
 
 ### 1.1 去重与改级
 
@@ -67,11 +67,11 @@
 
 **已撤回的判断**（§5.0 勘误）：前端 `common/api/*.js` 有 37 处 `method:"get"` + `data`，初版据「浏览器丢弃 GET 请求体」判为恒丢参 —— 但这 28 个模块 import 的是包装器 `frontend/src/common/http/axios.js`，其 `:20-24` 对 GET 走 `instance.get(url, { params: data })`，参数正常进查询串。全仓两处直连 raw axios 的调用点（`knowledgeTabel.js:589`、`preJob/receive/explain/Index.vue:136`）分别是 POST 与已注释代码，**无一处真丢参**。
 
-**仍然成立的真缺陷**（同一面上的键名/形态漂移，需逐条对账而非一刀切）：查询键名与后端 `@RestQuery` 名不一致（`HC-J-P1-01` roomgId）、URL 字面量带尾空格（`HC-J-P1-02`）、方法与后端不匹配（`HC-J-P3-04` GET vs POST）、指向不存在端点（`HC-J-P3-05/06`）。前端单侧评审的 3.3 LOW「GET 统一 `data`→`params`」维持 LOW（可读性/一致性，非功能缺陷）。
+**仍然成立的真缺陷**（同一面上的键名/形态漂移，需逐条对账而非一刀切）：查询键名与后端 `@RestQuery` 名不一致（`HC-J-P1-01` roomgId）、方法与后端不匹配（`HC-J-P3-04` GET vs POST）、指向不存在端点（`HC-J-P3-05/06`）。URL 尾空格仅保留为 P3 卫生项；全项目评审 §9.5 已撤回“必然 404”。前端单侧评审的 3.3 LOW「GET 统一 `data`→`params`」维持 LOW（可读性/一致性，非功能缺陷）。
 
 ### 主题 3：授权只存在于前端
 
-后端全仓无任何角色/权限判定（`grep @RolesAllowed|hasPermission` 零命中；`isAdmin` 仅在 `RoleService.java:61` 用于「默认角色互斥」业务逻辑，非授权）。而前端 `v-per` 是可篡改的 vuex 软门控、路由由 `localStorage.userRouter` 重建。前端单侧评审把这三条降级的前提是「**安全性完全依赖后端强校验**」——该前提被本轮**否证**。`GET /api/user/delete?userId=` 与 `GET /api/user/resetPassword?userId=`（`UserController.java:166-178`，仅类级 `@JWT`）任意已登录学员可直调。
+后端全仓无任何角色/权限判定（`grep @RolesAllowed|hasPermission` 零命中；`isAdmin` 仅在 `RoleService.java:61` 用于默认角色业务逻辑，非端点授权）。前端 `v-per` 是可篡改的 vuex 软门控，路由由 `localStorage.userRouter` 重建；其真实问题是权限尚未加载时 fail-open、且 mounted-only，不是“查不到权限反而放行”。`GET /api/user/delete?userId=` 与 `GET /api/user/resetPassword?userId=`（`UserController.java:166-178`，仅类级 `@JWT`）任意已登录学员可直调。
 
 ### 主题 4：204/205/500 三码语义错位
 
@@ -100,11 +100,11 @@
 
 | # | 编号 | 结论 | 定级 | 修复侧 | 关键证据 |
 |---|---|---|---|:--:|---|
-| 1 | `AS-J-P1-02` | 后端管理写端点零授权 + 前端软门控 → 任意学员删任意用户 / 重置管理员密码 / 自我提权 | J-P1 | **BE** | `controller/UserController.java:166-178`、`:79-86`、`RoleController.java:43-47`；`config/directive/ButtonPermission.js:15-25`（`indexOf(value)===-1` 时置 `isExist=true`，即**查不到权限反而放行**）✔ |
+| 1 | `AS-J-P1-02` | 后端管理写端点零授权 + 前端软门控 → 任意学员删任意用户 / 重置管理员密码 / 自我提权 | J-P1 | **BE** | `controller/UserController.java:166-178`、`:79-86`、`RoleController.java:43-47`；`config/directive/ButtonPermission.js:15-25`（权限未加载时 fail-open；UI 不是安全边界）✔ |
 | 2 | `HC-J-P1-01` | 前端查询键传 `roomgId`，后端已改读 `roomId` → 房间详情三路全失效，router 路返回信封 `code:500` | J-P1 | **FE** | FE 7 处：`Issue.js:149,290`、`ListenIn.vue:404,483`、`useBroadStudent.js:265`、`useBroadTeacher.js:288`、`useBroadcastTrain.js:21`；BE：`SimulationRouterRoomController.java:72`、`SimulationReportRoomController.java:56`、`SimulationReceptRoomController.java:55` ✔ |
 | 3 | `EC-J-P1-01` | 后端 204 一码两义 + 前端把 204 一律当鉴权失效 → 改密漏填字段即被强制登出、未提交数据丢失 | J-P1 | 双侧 | `ResponseCode.java:12,20`、`UserController.java:65-67`、`PostTelegramTrainController.java:105-106`；`common/http/index.js:30-33`、`personal.js:172` ✔ |
 | 4 | `TK-J-P1-01` | 「导入文档」：前端 `accept=".doc,.docx,.pptx"` × 后端只收 `txt/md/csv` 且抛 `IllegalArgumentException`（→ HTTP 200 + 业务码 500 + `data=null`）→ 按钮恒失败且前端解引用 null；成功路径 `imgUrls=[]` 又使 Word 内容分支永不执行 | J-P1 | 双侧 | `equipmentIndex.vue:204,246`、`study/basic/edit/Index.vue:168`；`TheoryKnowledgeClassifyService.java:43,110-127,132`、`ValidationExceptionMapper.java:31-37` ✔ |
-| 5 | `HC-J-P1-02` | `deleteThroyKnowledgeById` URL 末尾多一个空格 → `%20` 真 404，删除静默失败（无 catch） | J-P1 | **FE** | `common/api/TestApi.js:58-63` ✔；BE `TheoryKnowledgeController.java:135-139` |
+| 5 | `HC-J-P1-02` | URL 尾空格“必然 404” | **撤回** | — | 全项目评审 §8.2、§9.5 的 Chromium 复核显示浏览器规范化该 URL；可作为 P3 卫生清理，不计 P1 |
 | 6 | `DM-J-P1-01` | 自测列表读 `d.startTime`，后端 VO 只有 `start_time` → 开始时间恒空 + 时间排序失效（`Number(undefined)=NaN`） | J-P1 | **FE** | `studentGradeList/Index.vue:32`；`TheoryKnowledgeExamUserSelfVO.java:28-29` ✔ |
 | 7 | `DC-J-P1-01` | Web+反代(https) 形态下上传/SSE/导出/协同 WS 全部畸形失效（后端无 TLS，只能靠反代） | J-P1 | **FE**(+运维) | `index.html:80-88`；`study/basic/edit/Index.vue:198,230`、`knowledgeTabel.js:588`、`UnionWs.js:41`；`application.yml:8-15,32-33` |
 | 8 | `EC-J-P2-02` | 业务失败无集中处理：92/176 个处理文件不判 `res.code`；后端把参数校验错误（`IllegalArgumentException`/`IllegalStateException`）与真服务器错误同编码为业务码 500 → 前端无法安全加集中分支 | J-P2 | 双侧 | `common/http/index.js:29-69`；`ValidationExceptionMapper.java:31-37`、`IllegalStateExceptionMapper.java:19-23`、`GlobalExceptionMapper.java:20-25` |
@@ -142,7 +142,7 @@
 | `PA-J-P1-02` | 菜单/角色回显「GET 丢参 × `orElseThrow`」→ HTTP 500 | 参数不丢（同上），且 `IllegalArgumentException` 有专用 Mapper | **撤回** |
 | 事实更正 | `orElseThrow(IllegalArgumentException)` 落 `GlobalExceptionMapper` → HTTP 500 | `ValidationExceptionMapper.java:21` 声明 `implements ExceptionMapper<IllegalArgumentException>`，`:31-37` 返回 **`Response.ok`（HTTP 200）+ 业务码 500 + `safeMessage`**；全仓只有 `GlobalExceptionMapper.java:20-25` 走 `Response.serverError()` | 受影响表述已在 §2 主题 1、§3 第 4 行改写。影响面：全仓约 **116 处** `orElseThrow(IAE)`（38 个 service）统一走这条路径 |
 
-仍然成立的相关结论（不受勘误影响）：`HC-J-P1-01`（查询键 `roomgId` ≠ 后端 `roomId`，7 处）、`HC-J-P1-02`（URL 尾空格 → 404）、以及「前端大量消费点不判 `res.code` 直接用 `res.data.*`」——后者在**业务码 500 且 `data=null`** 时同样炸，只是原因是错误码语义而非丢参。
+仍然成立的相关结论（不受 GET 勘误影响）：`HC-J-P1-01`（查询键 `roomgId` ≠ 后端 `roomId`，7 处），以及前端大量消费点不判 `res.code` 直接用 `res.data.*` 的风险。`HC-J-P1-02` 的“必然 404”已由全项目评审 §9.5 撤回。
 
 方法论教训（值得写进流程）：**父代理的「运行期实证」也必须实证到调用链末端**。这次 Chromium 探针测的是浏览器 XHR 语义（结论正确），却没验证「项目里的 axios 调用真的以那种形态发出」——中间隔了一层 4 行的包装器。凡是「共同前提」型断言，必须连同项目自己的适配层一起验证。
 
@@ -167,14 +167,14 @@
 
 ## 6. 修复落地顺序建议
 
-1. **BE 先补授权**（`AS-J-P1-02`）：8 个管理写端点（`UserController` 6 个 + `RoleController.addRole` + `MenusController.addMenu`）加服务端角色校验；`changePassword` 改为从 token 推导 userId（照 `userOut` 范式）。这是唯一「不修就没有安全边界」的一条，也是前端所有软门控降级的前提。
-2. **FE 契约对账修点**（`HC-J-P1-01`/`HC-J-P1-02`/`DM-J-P1-01`/`HC-J-P2-03`）：`roomgId`→`roomId`（7 处）、删 URL 尾空格、`d.startTime`→`d.start_time`、`rows:999` 改真分页。全部集中在 `common/api/*.js` 与少数视图，风险低。
-3. **双侧对齐错误码**（`EC-J-P1-01`/`EC-J-P2-02`/`AS-J-P2-01`）：BE 把业务「参数为空」迁出鉴权码段（`NULL_ERROR`→`PARAMS_ERROR`）、把参数校验错误与真服务器错误分码；FE 随后删 205 死分支、把登录页抑制统一到全部鉴权码、加「非 200 集中提示」默认分支。**顺序不可颠倒**（前端先加集中分支会把用户输入错误报成服务器错误）。
-4. **修文档导入与题库导入分工**（`TK-J-P1-01`/`TK-J-P2-02/03`）：FE `accept` 对齐 `txt/md/csv`、`imgUrls` 判定改 `Array.isArray && length`；接线 `saveBatch` 取代逐行 fire-and-forget 假成功。
-5. **FE 修错域调用**（`TF-J-P2-01/02`）：telexZuXun 6 文件改指 `datagramZuXun.js`（`generalTelexPat`）与 `/generalTelexPatTrain`；electronKey reset 改指本域（需 BE 补 `generalKeyPat/reset`）。
-6. 其余 J-P2/J-P3 见分片报告，可与各自域的常规迭代合并。
+1. **先处理全项目 P0 与敏感响应**：修复匿名 `/signin` 非空 id 更新路径、用户响应脱敏，然后补服务端角色授权（`AS-J-P1-02`）。
+2. **FE 活跃契约对账**：`HC-J-P1-01`、`DM-J-P1-01`、`HC-J-P2-03`；尾空格只作 P3 卫生项。
+3. **错误码严格 BE→FE**（`EC-J-P1-01`/`EC-J-P2-02`/`AS-J-P2-01`）：先迁移业务空参/校验错误，再收口前端拦截器。
+4. **文件、题库、训练域**：按当前 JSON/纯文本能力接线，不用静态 docx/blob 冒充后端 JSON。
+5. **地址、体积、CI、会话和 WS**：按 Spec/Plan 依赖图实施；纯 WS 握手鉴权、MD5 和安全存储若无前置必须写接受风险或另立项。
 
 > 逐条可执行的任务分解、验收口径与门禁见 [修复 Spec](../specs/2026-09-08-joint-fix-spec.md)。
+> 实施步骤、共享文件串行规则和终态登记见 [联合整改 Plan](../plans/2026-09-08-joint-fix-plan.md)。
 
 ---
 

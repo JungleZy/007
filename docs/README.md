@@ -17,7 +17,7 @@
 |---|---|
 | 了解当前全项目状态 | [`reviews/2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) |
 | 修改跨栈契约 | [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) + 全项目评审 |
-| 承接整改任务 | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) |
+| 承接整改任务 | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) + [`plans/2026-09-08-joint-fix-plan.md`](plans/2026-09-08-joint-fix-plan.md) |
 | 查询历史分片证据 | [`reviews/archive/`](reviews/archive/) |
 | 查询数据库迁移证据 | `backend/database/rehearsal/` + `reviews/archive/*migration-rehearsal.md` |
 
