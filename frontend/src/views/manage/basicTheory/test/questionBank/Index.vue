@@ -289,6 +289,7 @@ const IconFont = createFromIconfontCN({
 });
 import {ref, onMounted, defineEmits} from "vue";
 import {message} from "ant-design-vue";
+import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
 
 const userRole = ref(JSON.parse(localStorage.getItem('userRole')));
 const leftMenuWidth = ref(215)
@@ -319,6 +320,10 @@ const beforeUpload = file => {
   }
   if (!/\.(docx|xlsx)$/i.test(file.name || '')) {
     message.error('仅支持 DOCX 或 XLSX 题库文件')
+    return false
+  }
+  if (!isUploadSizeAllowed(file)) {
+    message.error(uploadSizeMessage())
     return false
   }
   return true
@@ -359,7 +364,7 @@ const {
   takeNoTestVisible,
   bornTest,
   findAllQuestion,
-  uploadChange,
+  uploadChange: uploadQuestionFile,
   deleteTheoryKnowledge,
   queryModal,
   toView,
@@ -368,6 +373,14 @@ const {
   handlePrevious,
   handleNext
 } = knowledgeTabel(selecttreeA, roomtest, props.topicType, emit, props.activeList, activeKnowledge)
+const uploadChange = async (options) => {
+  if (!isUploadSizeAllowed(options?.file)) {
+    message.error(uploadSizeMessage())
+    if (options?.onError) options.onError(new Error(uploadSizeMessage()))
+    return false
+  }
+  return uploadQuestionFile(options)
+}
 const atMenus = ref({
   children: [{
     meta: {

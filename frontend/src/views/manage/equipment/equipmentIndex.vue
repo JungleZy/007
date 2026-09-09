@@ -266,6 +266,7 @@
     import {useRouter,useRoute} from "vue-router";
     import {message} from 'ant-design-vue'
     import {sanitizeHtml} from '../../../common/utils/sanitizeHtml.js'
+    import {isUploadSizeAllowed, uploadSizeMessage} from '../../../common/utils/uploadLimits.js'
 
     const fs = ref(JSON.parse(localStorage.getItem('fs')));
     const userRole = ref(JSON.parse(localStorage.getItem('userRole')));
@@ -329,6 +330,10 @@
     const beforeUploadFile = file => {
         if (!/\.(txt|md|csv)$/i.test(file.name || '')) {
             message.error('仅支持 UTF-8 纯文本文档（txt/md/csv）')
+            return false
+        }
+        if (!isUploadSizeAllowed(file)) {
+            message.error(uploadSizeMessage())
             return false
         }
         uploadType.value = true

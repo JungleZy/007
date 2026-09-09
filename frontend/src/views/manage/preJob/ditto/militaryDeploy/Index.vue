@@ -94,6 +94,7 @@ import { message, Modal } from 'ant-design-vue'
 import { getMilitaryAll, addMilitarys, updateMilitarys, deleteMilitarys, moveMilitarys,saveBatchData } from '../../../../../common/api/MilitaryTermApi'
 import parting from '../../../../../assets/HJ/term/parting.png'
 import * as xlsx from "xlsx";
+import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })
@@ -131,6 +132,11 @@ const upload = (file) => {
 }
 const uploadChange = async (e) => {
   if (!e.file) return false
+  if (!isUploadSizeAllowed(e.file)) {
+    message.error(uploadSizeMessage())
+    if (e.onError) e.onError(new Error(uploadSizeMessage()))
+    return false
+  }
   let reader = await upload(e.file)
   const worker = xlsx.read(reader, {type: 'binary'})
   let arr = [];

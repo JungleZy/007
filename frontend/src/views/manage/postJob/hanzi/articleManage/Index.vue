@@ -108,6 +108,7 @@ import { addPostArticle, deleteArticleByID } from '../../../../../common/api/pos
 import telegramList from './js/telex'
 import {createFromIconfontCN, ExclamationCircleOutlined,DeleteOutlined} from '@ant-design/icons-vue'
 import {message, Modal} from 'ant-design-vue'
+import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
 import * as mammoth from "mammoth";
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
@@ -139,6 +140,11 @@ const deleteModel = (v)=>{
 const uploadChange = async (e)=>{
   if (!e.file) return false
   let i = e.file.name.lastIndexOf('.')
+  if (!isUploadSizeAllowed(e.file)) {
+    message.error(uploadSizeMessage())
+    if (e.onError) e.onError(new Error(uploadSizeMessage()))
+    return false
+  }
   data.value.name = e.file.name.substr(0, i)
   let reader = new FileReader()
   if (e.file.type === 'text/plain') {

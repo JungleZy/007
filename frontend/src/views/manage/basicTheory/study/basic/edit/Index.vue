@@ -192,6 +192,7 @@ import useUpload from '../../../../../../common/mixin/useUpload.js'
 import { apiUrl } from '../../../../../../common/http/endpoint.js'
 import { PubSub } from '../../../../../../common/utils/PubSub.js'
 import { message, Modal } from 'ant-design-vue'
+import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../../common/utils/uploadLimits.js'
 const roomtest = ref()
 const fileUrl = ref(window.fileUrl)
 const content = ref('')
@@ -225,6 +226,10 @@ const uploadChange = ({ file }) => {
 const beforeUploadFile = file => {
   if (!/\.(txt|md|csv)$/i.test(file.name)) {
     message.error('仅支持 UTF-8 纯文本文档（txt/md/csv）')
+    return false
+  }
+  if (!isUploadSizeAllowed(file)) {
+    message.error(uploadSizeMessage())
     return false
   }
   uploadType.value = true

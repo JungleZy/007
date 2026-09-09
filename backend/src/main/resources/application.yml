@@ -12,6 +12,9 @@ quarkus:
   http:
     host: 0.0.0.0
     port: 18001
+    limits:
+      # 10 MiB 文件 + multipart 边界与表单字段；文件本身由解析端点限制到 10 MiB。
+      max-body-size: 11M
     cors:
       ~: true
       headers: '*'

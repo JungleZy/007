@@ -3,6 +3,7 @@ import {useRoute,useRouter} from 'vue-router'
 import {message} from 'ant-design-vue'
 import {getCableType,getCableFloorAllByID,saveMesage,getCableAllByID} from '../../../../../common/api/CableApi'
 import * as mammoth from "mammoth";
+import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
 
 export default function details(){
   const route = useRoute()
@@ -181,6 +182,11 @@ export default function details(){
     let str = ''
     let name = ''
     name = e.file.name.substr(0, i)
+    if (!isUploadSizeAllowed(e.file)) {
+      message.error(uploadSizeMessage())
+      if (e.onError) e.onError(new Error(uploadSizeMessage()))
+      return false
+    }
     let reader = new FileReader()
     if (e.file.type === 'text/plain') {
       reader.readAsText(e.file,'UTF-8')

@@ -109,6 +109,9 @@ public class TheoryKnowledgeClassifyService {
     if (file == null || file.uploadedFile() == null) {
       throw new IllegalArgumentException("未收到上传文件");
     }
+    if (file.size() > 10L * 1024 * 1024) {
+      throw new IllegalArgumentException("上传文件不能超过10MiB");
+    }
     String fileName = file.fileName() == null ? "" : file.fileName();
     String suffix = fileName.contains(".")
         ? fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)
