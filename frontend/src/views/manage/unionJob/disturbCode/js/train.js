@@ -1,6 +1,6 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { getDisturbCodeTrainData, reportIntoTrainRoom, getDisturbCodeTrainUserList, editDisturbTrainRoomStatus, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
+import { getDisturbCodeTrainData, reportIntoTrainRoom, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
 import { useRoute } from 'vue-router'
 import Voice from '../../../../../common/utils/MorseVoice'
 import useMorse from '../../../../../common/mixin/useMorse'

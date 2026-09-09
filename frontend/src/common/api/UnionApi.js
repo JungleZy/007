@@ -40,13 +40,6 @@ export const getDisturbCodeTrainUserList = (data) => {
   })
 }
 
-export const editDisturbTrainRoomStatus = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/simulation/routerRoomContent/editStatus",
-    data
-  })
-}
 
 export const uploadUnionTrainResult = (data) => {
   return axios({

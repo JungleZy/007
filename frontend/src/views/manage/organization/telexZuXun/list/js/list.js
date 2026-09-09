@@ -134,8 +134,8 @@ export default function broaddcastTeacheing(selectCable) {
       }
     })
   }
-  const findRoomInfo = (currPage = 1) => {
-    getElectronKeyZuXunList({page: currPage, rows: 10}).then(res => {
+  const findRoomInfo = (page = 1) => {
+    getElectronKeyZuXunList({page, rows: 10}).then(res => {
       tableLoading.value = false
       if (res.code === 200) {
         const data = res.data.data
@@ -151,12 +151,12 @@ export default function broaddcastTeacheing(selectCable) {
         tableData.value = data
         totalPage.value = res.data.totalPage
         totalAll.value = res.data.totalNumber
+        currPage.value = page
       }
     })
   }
   const changeListPage = pag => {
     if (pag < 1 || pag > totalPage.value) return false
-    currPage.value = pag
     findRoomInfo(pag)
   }
 

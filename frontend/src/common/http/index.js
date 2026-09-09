@@ -25,29 +25,31 @@ instance.interceptors.request.use((config) => {
   // 对请求错误做些什么
   Promise.reject(error));
 
+let authPromptOpen = false
+
 //响应拦截器
 instance.interceptors.response.use((response) => {
   const code = response.data?.code
-  if (code === 207) {
-    message.error(response.data.message || '您没有权限执行此操作')
-  }
   if (code === 203 || code === 204 || code === 206) {
-    if (location.href.indexOf('login') === -1) {
-      Modal.destroyAll()
+    if (location.hash.split('?')[0] !== '#/login' && !authPromptOpen) {
+      authPromptOpen = true
       Modal.error({
         keyboard: false,
         title: '您的登录唯一凭证异常',
         content: '请点击下方按钮返回登录页面重新登录本系统',
         okText: '返回登录页面',
+        afterClose() {
+          authPromptOpen = false
+        },
         onOk() {
           location.href = '#/login'
         }
       })
     }
   }
-  if (code !== 200 && code !== 203 && code !== 204 && code !== 206 && code !== 207
+  if (typeof code === 'number' && code !== 200 && code !== 203 && code !== 204 && code !== 206
       && !response.config?.skipErrorToast) {
-    message.error(response.data?.message || '请求失败')
+    message.error(response.data.message || '请求失败')
   }
   return response.data
 }, (error) => {

@@ -120,7 +120,7 @@ K --> L[长尾与交付收口]
 #### 2.2 死导出
 
 - [x] `StructureApi.getAllUserByContent`、`UserApi.addUser`、`TheoryQuestionBankApi.downloadTemplate` 与题库 `exportTemplate1` 经全仓 grep 无实际引用，已删除；`deleteThroyKnowledgeById` 有两个实际调用，保留。
-- [x] `UnionApi.editDisturbTrainRoomStatus`、`updateTrainRoomDispose` 有实际训练调用，保留；注释 raw axios 未改动。
+- [x] `UnionApi.editDisturbTrainRoomStatus` 经全仓 grep 无实际调用，已删除；`updateTrainRoomDispose` 有实际训练调用，保留；注释 raw axios 未改动。
 - [ ] `deleteThroyKnowledgeById` URL 尾空格不作为确定性缺陷，本批不改。
 
 **出口证据（2026-09-09）：** 全仓 grep 清零 `roomgId`、`rows:999`、`d.startTime`；目标 JS `node --check` 与前端 `npm run build` 通过。浏览器当前受设备授权页阻断，未写房间 Network/截图为已通过。

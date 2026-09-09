@@ -6,6 +6,7 @@ export const userLogin = (data) => {
     method: "post",
     url: "/api/user/login",
     data,
+    config: {skipErrorToast: true}
   })
 }
 export const addSignin = (data) => {
@@ -83,7 +84,8 @@ export const changePassword = (data) => {
   return axios({
     method: "post",
     url: "/api/user/changePassword",
-    data
+    data,
+    config: {skipErrorToast: true}
   })
 }
 export const importUser = (data) => {
