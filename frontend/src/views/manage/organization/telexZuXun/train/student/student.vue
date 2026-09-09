@@ -196,7 +196,7 @@
 
   onMounted(() => {
     if (route.query.id && route.query.id !== '') {
-      trainData.value.trainId = route.query.id * 1
+      trainData.value.trainId = String(route.query.id)
       getDatagramDetail({
         trainId: trainData.value.trainId,
         userId: userInfo.id
@@ -252,7 +252,7 @@
         speed: trainData.value.speed,
         pageCodes: pageCodes.value
       }
-      window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))
+      window.localStorage.setItem('telexZuXun' + trainData.value.trainId, JSON.stringify(obj))
     }
     PubSub.unsubscribe('message')
   })
@@ -265,7 +265,7 @@
         speed: trainData.value.speed,
         pageCodes: pageCodes.value
       }
-      window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))
+      window.localStorage.setItem('telexZuXun' + trainData.value.trainId, JSON.stringify(obj))
     }
   }
 </script>

@@ -65,7 +65,7 @@ export default function () {
 
   onMounted(() => {
     if (route.query.id && route.query.id !== '') {
-      trainId.value = route.query.id * 1
+      trainId.value = String(route.query.id)
       getZuXunTrainDetails();
     }
 
@@ -116,7 +116,7 @@ export default function () {
         } else {
           trainData.value.userInfoList = trainData.value.userInfoList.sort((x,y)=>y.isFinish-x.isFinish);
           // timeAreaShow(trainData.value.validTime * 1000);
-          timeAreaShow(571 * 1000);
+          timeAreaShow(trainData.value.validTime * 1000);
           trainStatistics()
         }
       }

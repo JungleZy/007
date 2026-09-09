@@ -168,11 +168,13 @@ K --> L[长尾与交付收口]
 
 ### Phase 7：会话与 WebSocket
 
-- [ ] 登出调用 `userOut`，无论网络结果如何都完成本地/WS 清理；旧 token 行为用后端请求证明。
-- [ ] 为 PublicSocket/Ws/MessageWebSocket/UnionWs 实现受控指数退避、抖动、上限、心跳看门狗、readyState 和退出置空；关闭不触发重连。
+- [x] 登出调用 `userOut`，网络失败也在 `finally` 完成本地/WS 清理；`SessionLogoutTest` 证明旧 token 返回 `206` 且另一会话仍可用。浏览器 smoke 证明清理后跳转 `/login`。
+- [ ] PublicSocket/Ws/MessageWebSocket/UnionWs 的受控重连、抖动、上限、readyState 和退出置空已落地，关闭不触发重连；心跳看门狗尚未实现，保留为未完成项。
 - [ ] 仿真 WS 对坏消息逐条返回协议错误，不让单条解析异常触发正常参与者清理；必要时保留未知 room/id 的拒绝日志。
 - [ ] 将 WS idle-timeout 单列为 spike：在当前 Quarkus 版本确认配置键和实际关闭行为，输出选定值/不支持时的应用层替代；该 spike 不阻塞 FE logout/重连交付。
 - [ ] WS token/deviceId 握手鉴权单独记录安全决策；若不改，明确为已接受风险，不把 URL 修复冒充鉴权完成。
+ 
+**Phase 7 已交付部分的出口证据（2026-09-09）：** 后端 `SessionLogoutTest` 通过，后端 `./mvnw -B clean verify`：230 tests，0 failures，0 errors，0 skipped；前端全部相关脚本 `node --check` 通过，`npm run build` 成功；浏览器 smoke 验证关闭后不重连（创建连接数保持 1）、登出清理 `token/deviceId/userInfo/userRole/userRouter/tabCache` 并跳转 `/login`。心跳、仿真坏消息、idle-timeout spike、WS 握手鉴权仍未完成，不宣称 Phase 7 全部收口。
 
 ### Phase 8：富文本与数据表示
 

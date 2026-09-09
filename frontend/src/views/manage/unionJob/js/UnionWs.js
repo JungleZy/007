@@ -40,9 +40,9 @@ export default class UnionWs {
       this.userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
       this.flag = true
       this.url = wsUrl(`/websocketUnion/${this.userInfo.id}`)
-      this.socket = null
-      this.isOpen = false
-      UnionWs.instance = this
+      this.reconnectTimer = null
+      this.retryCount = 0
+      this.callback = null
     }
     return UnionWs.instance
   }
@@ -54,23 +54,29 @@ export default class UnionWs {
     return this.instance
   }
 
-  run(callback) {
+  run(callback = this.callback) {
+    this.callback = callback || this.callback
     this.socket = new WebSocket(this.url)
-    this.socket.onopen = e => {
+    this.socket.onopen = () => {
       this.flag = true
       this.isOpen = true
+      this.retryCount = 0
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
     }
-    this.socket.onclose = e => {
-      this.reconnect()
+    this.socket.onclose = () => {
+      this.isOpen = false
+      if (this.flag) this.reconnect()
     }
-    this.socket.onerror = e => {}
-    this.socket.onmessage = e => {
-      const data = JSON.parse(e.data)
-      callback(data)
+    this.socket.onerror = () => {}
+    this.socket.onmessage = event => {
+      const data = JSON.parse(event.data)
+      this.callback?.(data)
     }
   }
 
   getUnionInfo() {
+    if (this.socket?.readyState !== WebSocket.OPEN) return
     this.socket.send(
       JSON.stringify({
         code: UnionWsCode.GET_UNION_INFO
@@ -79,45 +85,44 @@ export default class UnionWs {
   }
 
   getRoomInfo(data) {
+    if (this.socket?.readyState !== WebSocket.OPEN) return
     this.socket.send(
       JSON.stringify({
         code: UnionWsCode.GET_ROOM_INFO,
-        data: data
+        data
       })
     )
   }
 
   sendData(code, data) {
-    this.socket.send(
-      JSON.stringify({
-        code: code,
-        data: data
-      })
-    )
+    if (this.socket?.readyState !== WebSocket.OPEN) return
+    this.socket.send(JSON.stringify({code, data}))
   }
 
   sendReceiveData(code, sendUser, receiveUser, data) {
-    this.socket.send(
-      JSON.stringify({
-        code: code,
-        sendUser: sendUser,
-        receiveUser: receiveUser,
-        data: data
-      })
-    )
+    if (this.socket?.readyState !== WebSocket.OPEN) return
+    this.socket.send(JSON.stringify({code, sendUser, receiveUser, data}))
   }
 
   reconnect() {
-    const that = this
-    if (this.flag) {
-      setTimeout(() => {
-        that.run()
-      }, 3000)
-    }
+    if (!this.flag) return
+    clearTimeout(this.reconnectTimer)
+    const delay = Math.min(30000, 1000 * (2 ** this.retryCount++)) + Math.floor(Math.random() * 250)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (this.flag) this.run()
+    }, delay)
   }
 
-  exit() {
-    this.flag = false
-    this.socket.close()
+
+  static shutdown() {
+    if (!UnionWs.instance) return
+    UnionWs.instance.flag = false
+    clearTimeout(UnionWs.instance.reconnectTimer)
+    UnionWs.instance.reconnectTimer = null
+    if (UnionWs.instance.socket) UnionWs.instance.socket.close()
+    UnionWs.instance.socket = null
+    UnionWs.instance.isOpen = false
+    UnionWs.instance = null
   }
 }

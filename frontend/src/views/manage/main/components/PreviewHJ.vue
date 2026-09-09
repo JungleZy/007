@@ -477,6 +477,7 @@
   import useFontSize from "../../../../common/mixin/useFontSize.js";
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
   import {changePassword} from "../../../../common/api/UserApi";
+  import {closeSession} from '../../../../common/session/logout.js'
 
   const interfaceStyle = window.interfaceStyle
   const cool = inject('cool')
@@ -688,7 +689,7 @@
       cancelText: () => '取消',
       maskClosable: true,
       onOk: () => {
-        router.replace('/login').then()
+        closeSession(router)
       }
     })
   }

@@ -16,6 +16,11 @@ export default function telegramList(showChart,selfId) {
   const trendLogKeyData = ref([]);
   const patTotal = ref([]);
   const {codeKey} = useMorse();
+  const parseList = value => {
+    if (Array.isArray(value)) return value
+    if (!value) return []
+    try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : String(parsed).split('') } catch { return String(value).split('') }
+  }
   const short = ref(null);
   const scoreData = ref({
     trainId: '',
@@ -55,7 +60,7 @@ export default function telegramList(showChart,selfId) {
     }
 
     if (route.query.id && route.query.id !== '') {
-      scoreData.value.trainId = Number(route.query.id);
+      scoreData.value.trainId = String(route.query.id);
       endPatDetail({
         trainId: scoreData.value.trainId,
         userId: selfId,
@@ -63,30 +68,34 @@ export default function telegramList(showChart,selfId) {
       }).then(res => {
         loading.value = false;
         if (res.code === 200) {
-          for (let key in res.data) {
-            scoreData.value[key] = res.data[key];
-          }
-          res.data.content.forEach(item => {
-            item.key = JSON.parse(item.key)
-            item.time = JSON.parse(item.time ?? '[]')
-            item.value = JSON.parse(item.value ?? '[]')
+          for (let key in res.data) scoreData.value[key] = res.data[key]
+          ;(res.data.content || []).forEach(item => {
+            item.key = parseList(item.key)
+            item.time = parseList(item.time)
+            item.value = parseList(item.value)
           })
-          scoreData.value.content = res.data.content.slice(0, 100)
-          scoreData.value.nextContent = res.data.content.slice(100, 200)
+          scoreData.value.content = (res.data.content || []).slice(0, 100)
+          scoreData.value.nextContent = (res.data.content || []).slice(100, 200)
           scoreData.value.deductInfo = JSON.parse(res.data.deductInfo || '{}')
           scoreData.value.ruleContent = JSON.parse(res.data.ruleContent || '{}')
           scoreData.value.pag = res.data.pageCount || Math.ceil(scoreData.value.totalNumber / 100)
           scoreData.value.duration = partTimeFormatInfo((scoreData.value.duration || 0) * 1000, 'number').replace(/：/g, ':')
           trendLogKeyData.value = scoreData.value.content
           patTotal.value = res.data.pageAnalyzeVOS || []
-          resolve.value = [{message: [], moreGroups: [], moreObj: {}, moreLine: []}]
-          if (scoreData.value.pag > 1) resolve.value.push({message: [], moreGroups: [], moreObj: {}, moreLine: []})
+          resolve.value = []
+          const byPage = new Map()
+          ;(res.data.content || []).forEach(item => {
+            const page = item.pageNumber || 1
+            if (!byPage.has(page)) byPage.set(page, {message: [], moreGroups: [], moreObj: {}, moreLine: []})
+            byPage.get(page).message.push(item.value || '')
+          })
+          resolve.value = Array.from({length: scoreData.value.pag}, (_, i) => byPage.get(i + 1) || {message: [], moreGroups: [], moreObj: {}, moreLine: []})
           totalTelegraghMsg()
         }
       })
     }
   });
-
+  
   onUnmounted(() => {
     numberChart = null;
     columnChart = null;
@@ -131,12 +140,8 @@ export default function telegramList(showChart,selfId) {
       pageNumber: page
     }).then(res => {
       if (res.code !== 200) return
-      const content = res.data.messageContent.map(item => ({
-        ...item,
-        key: JSON.parse(item.key),
-        time: JSON.parse(item.time ?? '[]'),
-        value: JSON.parse(item.value ?? '[]')
-      }))
+      const raw = Array.isArray(res.data.messageVO) ? res.data.messageVO : []
+      const content = raw.map(item => ({...item, key: parseList(item.key), time: parseList(item.time), value: parseList(item.value)}))
       if (num === 1) scoreData.value.nextContent = content
       else scoreData.value.preContent = content
     })

@@ -180,6 +180,7 @@ export default function broaddcastTeacheing(selectCable) {
   let userList = ref([])
   let checkUser = ref([])
   let checkUserId = ref([])
+  const checked = ref(false)
 
   onMounted(() => {
     const info = JSON.parse(localStorage.getItem('userInfo'))

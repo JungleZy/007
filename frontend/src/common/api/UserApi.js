@@ -27,6 +27,7 @@ export const userLoginOut = () => {
   return axios({
     method: "post",
     url: "/api/user/userOut",
+    config: {timeout: 5000, skipErrorToast: true}
   })
 }
 export const getUserInfo = () => {

@@ -1,5 +1,6 @@
 import {PubSub} from "../utils/PubSub.js";
 import useNotification from "../mixin/useNotification";
+import { wsUrl } from '../http/endpoint.js'
 
 export const wsCode = {
   FLOOR_CONTENT_DATA: "1000", // 报底中的报文数据传输指令
@@ -15,8 +16,11 @@ export class Ws {
     if (!Ws.instance) {
       this.userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
       this.flag = true;
-      this.url = `${window.wsUrl}/websocket/${this.userInfo.id}`;
       this.socket = null;
+      this.reconnectTimer = null;
+      this.retryCount = 0;
+      this.callback = null;
+      this.url = wsUrl(`/websocket/${this.userInfo.id}`)
       this.un = useNotification()
       Ws.instance = this;
     }
@@ -31,18 +35,21 @@ export class Ws {
     return this.instance;
   }
 
-  async run() {
+  async run(callback = this.callback) {
+    this.callback = callback || this.callback
     this.socket = new WebSocket(this.url);
-    this.socket.onopen = (e) => {
+    this.socket.onopen = () => {
       this.flag = true;
+      this.retryCount = 0;
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
     };
-    this.socket.onclose = (e) => {
-      this.reconnect();
+    this.socket.onclose = () => {
+      if (this.flag) this.reconnect();
     };
-    this.socket.onerror = (e) => {
-    };
-    this.socket.onmessage = (e) => {
-      const data = JSON.parse(e.data);
+    this.socket.onerror = () => {};
+    this.socket.onmessage = event => {
+      const data = JSON.parse(event.data);
       switch (data.code + "") {
         case wsCode.FLOOR_CONTENT_DATA:
           PubSub.publish(wsCode.FLOOR_CONTENT_DATA, JSON.parse(data.data));
@@ -65,6 +72,7 @@ export class Ws {
   }
 
   sendData(code, data) {
+    if (this.socket?.readyState !== WebSocket.OPEN) return
     this.socket.send(JSON.stringify({
       code: code,
       data: data
@@ -72,11 +80,22 @@ export class Ws {
   }
 
   reconnect() {
-    const that = this;
-    if (this.flag) {
-      setTimeout(() => {
-        that.run().then();
-      }, 3000)
-    }
+    if (!this.flag) return
+    clearTimeout(this.reconnectTimer)
+    const delay = Math.min(30000, 1000 * (2 ** this.retryCount++)) + Math.floor(Math.random() * 250)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (this.flag) this.run().then()
+    }, delay)
+  }
+
+  static shutdown() {
+    if (!Ws.instance) return
+    Ws.instance.flag = false
+    clearTimeout(Ws.instance.reconnectTimer)
+    Ws.instance.reconnectTimer = null
+    if (Ws.instance.socket) Ws.instance.socket.close()
+    Ws.instance.socket = null
+    Ws.instance = null
   }
 }

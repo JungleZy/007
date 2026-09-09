@@ -190,6 +190,7 @@
   import Instructions from '../../../../components/instructions/instructions.vue'
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
   import {changePassword} from "../../../../common/api/UserApi";
+  import {closeSession} from '../../../../common/session/logout.js'
 
   let pagMan, pagWoman, home2, otherBg, logoTitle,
       goback, settingPic
@@ -384,7 +385,7 @@
       cancelText: () => '取消',
       maskClosable: true,
       onOk: () => {
-        router.replace('/login').then()
+        closeSession(router)
       }
     })
   }

@@ -12,9 +12,9 @@ export default function () {
   const trainTimeRef = ref(null);
   const trainTimer = ref(null);
   const loading = ref(true)
-  const trainId = ref(0)
+  const trainId = ref('')
   const trainData = ref({
-    trainId: 0,
+    trainId: '',
     status: 0
   })
   const activeUserId = ref(null)
@@ -41,7 +41,7 @@ export default function () {
 
   onMounted(() => {
     if (route.query.id && route.query.id !== '') {
-      trainId.value = route.query.id * 1
+      trainId.value = String(route.query.id)
       getZuXunTrainDetails();
     }
   })

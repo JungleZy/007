@@ -158,6 +158,7 @@
   import NipMenusHJJ from "../../../../components/dashboard/NipMenusHJJ_LJ.vue";
   import {message} from 'ant-design-vue'
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
+  import {closeSession} from '../../../../common/session/logout.js'
   // import homeTitle from '../../../../assets/HJJ/homeTitle.png'
   const interfaceStyle = window.interfaceStyle
   const isOpen = ref(false);
@@ -295,7 +296,7 @@
       cancelText: () => '取消',
       maskClosable: true,
       onOk: () => {
-        router.replace('/login').then()
+        closeSession(router)
       },
     })
   }

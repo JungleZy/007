@@ -104,8 +104,9 @@ export default function (trainData, loading, emits) {
     }
   }
 
-  const switchTelegram = type => {
-    handlerSubmit()
+  let submitPromise = null
+  let finishPromise = null
+  const switchTelegram = async type => {
     if (type === 'prev' && trainData.value.floorNow <= 1) {
       message.error('已经是第一页！')
       return false
@@ -114,6 +115,7 @@ export default function (trainData, loading, emits) {
       message.error('已经是最后一页！')
       return false
     }
+    if (!await handlerSubmit()) return false
     if (type === 'prev') trainData.value.floorNow--
     if (type === 'next') {
       trainData.value.floorNow++
@@ -123,69 +125,88 @@ export default function (trainData, loading, emits) {
     if (!trainData.value.telegraph[trainData.value.floorNow + 1] && trainData.value.floorNow < trainData.value.pag) {
       getPostTrainKeyInfo(trainData.value.floorNow + 1)
     }
+    return true
   }
 
-  const getPostTrainKeyInfo = page => {
-    getDatagramZuXunPageNumber({
-      trainId: trainData.value.trainId,
-      userId: userInfo.id,
-      pageNumber: page
-    }).then(res => {
+  const getPostTrainKeyInfo = pageNumber => {
+    getDatagramZuXunPageNumber({trainId: trainData.value.trainId, userId: userInfo.id, pageNumber}).then(res => {
       if (res.code === 200) {
-        res.data.messageContent.forEach(item => {
-          item.key = JSON.parse(item.key)
+        const content = Array.isArray(res.data.messageVO) ? res.data.messageVO : []
+        content.forEach(item => {
+          item.key = JSON.parse(item.key || '[]')
           item.value = []
         })
-        trainData.value.telegraph[page - 1] = res.data.messageContent.filter(item => item.sort > -1)
+        trainData.value.telegraph[pageNumber - 1] = content.filter(item => item.sort > -1)
       }
-    })
-  }
-
-  const handlerSubmit = type => {
-    pageTime = pageTime === 0 ? trainData.value.duration : trainData.value.duration - pageTime
-    const value = pageCodes.value[currPatKeyIndex.value]
-    if (!value) return
-    const groups = value.split(' ')
-    const speed = (groups.length / (pageTime / 60)).toFixed(1)
-    uploadDatagramResult({
-      trainId: trainData.value.trainId,
-      patValue: value,
-      pageNumber: trainData.value.floorNow,
-      validTime: pageTime,
-      speed: Number(speed)
-    }).then(res => {
-      if (res.code === 200 && type === 'end') finishTrainInfo()
     })
   }
 
   const finishTrainInfo = () => {
-    patUser.value.isFinish = 1
-    sendMessage({topic: 'finish', id: userInfo.id})
+    if (finishPromise) return finishPromise
+    if (!trainData.value.trainId || !userInfo?.id || patUser.value.isFinish === 1) return Promise.resolve(false)
     loading.value = true
-    finishDatagramZuXun({trainId: trainData.value.trainId, userId: userInfo.id}).then(res => {
-      loading.value = false
+    finishPromise = finishDatagramZuXun({trainId: trainData.value.trainId, userId: userInfo.id}).then(res => {
       if (res.code !== 200) {
-        message.error(res.message)
-        return
+        message.error(res.message || '完成训练失败')
+        return false
       }
+      patUser.value.isFinish = 1
+      sendMessage({topic: 'finish', id: userInfo.id})
       router.push({path: scorePath.value, query: {id: trainData.value.trainId, status: 2}})
       emits('changeStatus')
+      return true
+    }).finally(() => {
+      loading.value = false
+      finishPromise = null
     })
+    return finishPromise
+  }
+
+  const handlerSubmit = type => {
+    if (submitPromise) return submitPromise
+    const value = pageCodes.value[currPatKeyIndex.value]
+    if (!value) return type === 'end' ? finishTrainInfo() : Promise.resolve(true)
+    const currentTime = Number(trainData.value.validTime) || 0
+    const elapsedTime = Math.max(0, currentTime - pageTime)
+    const groups = value.split(' ')
+    const speed = elapsedTime > 0 ? (groups.length / (elapsedTime / 60)).toFixed(1) : '0'
+    submitPromise = uploadDatagramResult({
+      trainId: trainData.value.trainId,
+      patValue: value,
+      pageNumber: trainData.value.floorNow,
+      validTime: elapsedTime,
+      speed
+    }).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '提交训练内容失败')
+        return false
+      }
+      pageTime = currentTime
+      return type === 'end' ? finishTrainInfo() : true
+    }).catch(error => {
+      message.error(error.message || '提交训练内容失败')
+      return false
+    }).finally(() => {
+      submitPromise = null
+    })
+    return submitPromise
   }
 
   const readyTrainPat = type => {
     readyPat.value = true
     if (type === 1) {
-      const saved = JSON.parse(window.localStorage.getItem('datagramZuXun' + trainData.value.trainId))
+      const saved = JSON.parse(window.localStorage.getItem('telexZuXun' + trainData.value.trainId) || 'null')
       if (saved) {
         trainData.value.floorNow = saved.patPage
         trainData.value.validTime = saved.time
         trainData.value.speed = saved.speed
+        pageTime = Number(saved.time) || 0
         currPatKeyIndex.value = saved.patKeyIndex
       }
     } else {
       trainData.value.floorNow = 1
       currPatKeyIndex.value = 0
+      pageTime = 0
       trainData.value.validTime = 0
       trainData.value.errorNumber = 0
       trainData.value.accuracy = '0'
