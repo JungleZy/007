@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import java.util.concurrent.locks.Lock;
 
 import com.nip.common.utils.PatTrainStatisticsBuilder;
-import static com.nip.common.constants.PostTelexPatTrainStatusEnum.NOT_STARTED;
+import static com.nip.common.constants.PostTelegramTrainEnum.NOT_STARTED;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.bePointed;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.generatedNumber;
 import static com.nip.common.utils.TelexPatUtils.*;

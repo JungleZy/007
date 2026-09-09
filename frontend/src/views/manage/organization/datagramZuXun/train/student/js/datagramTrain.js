@@ -16,6 +16,8 @@ export default function (trainData,loading,emits) {
   const currPatKeyIndex = ref(0); // 正在拍发的电报纸字码的下标
   const trainTimeRef = ref(null); // 训练时间展示区域的容器
   const patUser = ref({});
+  let submitPromise = null
+  let finishPromise = null
   const readyPat = ref(false);
   let isFirstKey = true
   let enterTimer = 0
@@ -167,57 +169,42 @@ export default function (trainData,loading,emits) {
   /**
    * 提交当前页面拍发的数据
    */
-  const handlerSubmit = (type)=>{
-    pageTime = pageTime===0?trainData.value.duration:trainData.value.duration-pageTime
-    if(pageCodes.value[currPatKeyIndex.value]===undefined||pageCodes.value[currPatKeyIndex.value].length===0){
-      return
-    }
-    const groups = pageCodes.value[currPatKeyIndex.value]?pageCodes.value[currPatKeyIndex.value].split(' '):''
-    // const groups = pageCodes.value[currPatKeyIndex.value].split(' ')
-    const speed = (groups.length / (pageTime / 60)).toFixed(1) * 1
-    const data = {
-      trainId: trainData.value.trainId,
-      patValue: pageCodes.value[currPatKeyIndex.value],
-      pageNumber: trainData.value.floorNow,
-      validTime:pageTime,
-      speed:speed
-    }
-    uploadDatagramResult(data).then(res => {
-      if (res.code === 200) {
-        if (type == 'end') {
-          // patWsData.value.log.key = '完结'
-          // sendMessage(patWsData.value)
-          finishTrainInfo(type)
-        }
-      }
-    })
-  };
-
-  const endTrain = ()=>{
-    handlerSubmit('end')
+  const handlerSubmit = type => {
+    if (submitPromise) return submitPromise
+    const value = pageCodes.value[currPatKeyIndex.value]
+    if (!value) return type === 'end' ? finishTrainInfo(type) : Promise.resolve(true)
+    const currentTime = Number(trainData.value.validTime) || 0
+    const elapsed = Math.max(0, currentTime - pageTime)
+    const groups = value.split(' ')
+    const speed = elapsed > 0 ? (groups.length / (elapsed / 60)).toFixed(1) : '0'
+    submitPromise = uploadDatagramResult({trainId: trainData.value.trainId, patValue: value,
+      pageNumber: trainData.value.floorNow, validTime: elapsed, speed}).then(res => {
+      if (res.code !== 200) { message.error(res.message || '提交训练内容失败'); return false }
+      pageTime = currentTime
+      return type === 'end' ? finishTrainInfo(type) : true
+    }).finally(() => { submitPromise = null })
+    return submitPromise
   }
+
+  const endTrain = () => handlerSubmit('end')
   /**
    * 结束训练
    * @param type
    */
-  const finishTrainInfo = (type) => {
-    if (type === 'end') {
+  const finishTrainInfo = type => {
+    if (finishPromise) return finishPromise
+    if (patUser.value.isFinish === 1) return Promise.resolve(false)
+    loading.value = true
+    finishPromise = finishDatagramZuXun({trainId: trainData.value.trainId, userId: userInfo.id}).then(res => {
+      if (res.code !== 200) { message.error(res.message || '完成训练失败'); return false }
       patUser.value.isFinish = 1
-      sendMessage({ topic: 'finish', id: userInfo.id })
-    }
-    loading.value = true;
-    finishDatagramZuXun({
-      trainId: trainData.value.trainId,
-      userId: userInfo.id,
-    }).then(res => {
-      loading.value = false;
-      if (res.code === 200) {} else {
-        message.error(res.message);
-      }
-      router.push({path: scorePath.value, query: {id: trainData.value.trainId,status: 2}})
+      sendMessage({topic: 'finish', id: userInfo.id})
+      router.push({path: scorePath.value, query: {id: trainData.value.trainId, status: 2}})
       emits('changeStatus')
-    });
-  };
+      return true
+    }).finally(() => { loading.value = false; finishPromise = null })
+    return finishPromise
+  }
 
   const readyTrainPat = (type) => {
     readyPat.value = true;

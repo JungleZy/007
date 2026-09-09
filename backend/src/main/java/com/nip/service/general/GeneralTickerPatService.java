@@ -499,18 +499,20 @@ public class GeneralTickerPatService {
   public GeneralTickerPatTrainVO finish(GeneralTickerPatTrainFinishVO dto) {
     GeneralTickerPatTrainEntity entity = Optional.ofNullable(trainDao.findById(dto.getId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    // 校验状态是否是进行中
-    // throw new RuntimeException(entity.getName() + "训练的状态不是进行中");
-
-    // 分数计算
+    GeneralTickerPatTrainUserEntity user = Optional.ofNullable(
+        trainUserDao.findByUserIdAndTrainId(dto.getUserId(), entity.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
+    if (Objects.equals(user.getIsFinish(), 1)) {
+      return PojoUtils.convertOne(entity, GeneralTickerPatTrainVO.class, (t, r) -> {
+        r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+        r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
+      });
+    }
     countScore(entity, dto);
     trainDao.saveAndFlush(entity);
     trainUserDao.findRoleAdminByUserId(dto.getId()).forEach(admin -> {
       WebSocketService.sendInfo(admin.getUserId(), new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),
-          Map.of(
-              "type", "ticker",
-              "userId", dto.getUserId(),
-              "trainId", entity.getId())));
+          Map.of("type", "ticker", "userId", dto.getUserId(), "trainId", entity.getId())));
     });
     return PojoUtils.convertOne(entity, GeneralTickerPatTrainVO.class, (t, r) -> {
       r.setCodeSort(Objects.equals(t.getCodeSort(), 1));

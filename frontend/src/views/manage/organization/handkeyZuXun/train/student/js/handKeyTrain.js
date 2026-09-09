@@ -871,11 +871,13 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
     if(!devOnline.value) {message.error('电子键设备未连接！'); return false;}
     readyPat.value = true;
     if (type == 1) {
-      let obj = JSON.parse(window.localStorage.getItem('handKeyZuXun'+trainData.value.trainId))
-      trainData.value.floorNow = obj.patPage;
-      trainData.value.validTime = obj.time;
-      trainData.value.speed = obj.speed;
-      currPatKeyIndex.value = obj.patKeyIndex;
+      const saved = JSON.parse(window.localStorage.getItem('handKeyZuXun'+trainData.value.trainId) || 'null')
+      if (saved) {
+        trainData.value.floorNow = saved.patPage
+        trainData.value.validTime = saved.time
+        trainData.value.speed = saved.speed
+        currPatKeyIndex.value = saved.patKeyIndex
+      }
     } else {
       cachePatCode.value = [];
       logsPatStandardCode.value = [];

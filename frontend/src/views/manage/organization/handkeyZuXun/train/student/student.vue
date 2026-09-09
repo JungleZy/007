@@ -338,7 +338,7 @@
         time: trainData.value.validTime,
         speed: trainData.speed
       }
-      JSON.parse(window.localStorage.getItem('handKeyZuXun'+trainData.value.trainId, JSON.stringify(obj)))
+      window.localStorage.setItem('handKeyZuXun'+trainData.value.trainId, JSON.stringify(obj))
     }
     PubSub.unsubscribe('message')
   })
@@ -350,7 +350,7 @@
         time: trainData.value.validTime,
         speed: trainData.speed
       }
-      JSON.parse(window.localStorage.getItem('handKeyZuXun'+trainData.value.trainId, JSON.stringify(obj)))
+      window.localStorage.setItem('handKeyZuXun'+trainData.value.trainId, JSON.stringify(obj))
     }
   }
   watch(handKeyValue, () => {

@@ -44,7 +44,7 @@ export default function telegramList(patHairTrendBoxRef,selfId) {
       }).then(res => {
         loading.value = false
         if (res.code === 200) {
-          scoreData.value.name = res.data.title
+          scoreData.value.name = res.data.userName
           page.value.pageAll = res.data.totalNumber
           scoreData.value.speed = res.data.speed
           scoreData.value.accuracy = res.data.accuracy
