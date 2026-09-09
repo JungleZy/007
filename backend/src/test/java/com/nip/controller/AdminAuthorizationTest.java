@@ -134,6 +134,52 @@ class AdminAuthorizationTest {
         .body("data.deviceId", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue()));
   }
 
+  @Test
+  void ordinaryUserCannotSaveOrImportUsers() {
+    UserEntity actor = createUser("editor");
+    UserEntity victim = createUser("edit-victim");
+    attachRole(actor, 1);
+    given().contentType(ContentType.JSON)
+        .header("token", actor.getToken()).header("deviceId", actor.getDeviceId())
+        .body(Map.of("id", victim.getId(), "userAccount", "changedAccount", "userName", "changed",
+            "idCard", "110101199001010011"))
+        .post("/api/user/saveUser").then().statusCode(200).body("code", is(207));
+    assertEquals(victim.getUserName(), userDao.findById(victim.getId()).getUserName());
+
+    String account = "import" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    given().contentType(ContentType.JSON)
+        .header("token", actor.getToken()).header("deviceId", actor.getDeviceId())
+        .body(java.util.List.of(Map.of("userAccount", account, "userName", "imported", "password", "password")))
+        .post("/api/user/importUser").then().statusCode(200).body("code", is(207));
+    assertEquals(0, userDao.count("userAccount", account));
+  }
+
+  @Test
+  void loginSeparatesCredentialsFromUserProfile() {
+    UserEntity actor = createUser("login");
+    actor.setStatus(0);
+    userDao.saveAndFlush(actor);
+    attachRole(actor, 0);
+    String device = "login-device-" + UUID.randomUUID();
+    var session = given().contentType(ContentType.JSON)
+        .body(Map.of("userAccount", actor.getUserAccount(), "password", "password", "deviceId", device))
+        .post("/api/user/login").then().statusCode(200).body("code", is(200))
+        .body("data.user.id", is(actor.getId()))
+        .body("data.user", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("password")))
+        .body("data.user", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("token")))
+        .body("data.user", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("deviceId")))
+        .body("data.deviceId", is(device))
+        .extract().jsonPath();
+    String token = session.getString("data.token");
+    assertNotNull(token);
+    given().header("token", token).header("deviceId", device)
+        .post("/api/user/getUsersByToken").then().statusCode(200).body("code", is(200))
+        .body("data.id", is(actor.getId()))
+        .body("data", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("password")))
+        .body("data", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("token")))
+        .body("data", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasKey("deviceId")));
+  }
+
   private UserEntity createUser(String prefix) {
     UserEntity user = new UserEntity();
     user.setUserAccount(prefix + UUID.randomUUID().toString().replace("-", "").substring(0, 20));

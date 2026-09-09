@@ -46,6 +46,7 @@ public class UserController {
   @POST
   @Path("/saveUser")
   @Operation(summary = "更新用户")
+  @RequireAdmin
   public Response<Object> saveUser(UserEntity entity) {
     Response<Object> response = userService.addUser(entity, true);
     if (response.getCode() == ResponseCode.SUCCESS.getCode() && response.getData() instanceof UserEntity user) {
@@ -78,6 +79,7 @@ public class UserController {
   @POST
   @Path("/importUser")
   @Operation(summary = "导入用户")
+  @RequireAdmin
   public Response<List<UserProfile>> importUser(List<UserEntity> entity) {
     return ResponseResult.success(userService.importUser(entity).stream().map(UserProfile::from).toList());
   }
