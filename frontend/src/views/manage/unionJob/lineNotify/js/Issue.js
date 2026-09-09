@@ -4,6 +4,7 @@ import { deepClone } from '../../../../../common/utils/Utils.js'
 import { useRouter, useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { apiSimulationRouterRoomChannels, apiSimulationRouterRoomDetail, apiSimulationRouterSendFinish, getRoomUserList, apiSimulationRouterFindPage } from '../../../../../common/api/UserApi'
+import { wsUrl } from '../../../../../common/http/endpoint.js'
 
 export default function issue(trainData, trainTimeRef) {
   onMounted(() => {
@@ -58,12 +59,10 @@ export default function issue(trainData, trainTimeRef) {
 
   const activeSend = ref(null)
   const activePutAway = ref(false)
-  let ws = null
-  const urls = window.httpUrl
   const init = () => {
     const roomId = route.query.id
     if (trainData.value.userStatus == 1) return //房间状态为1表示已完成
-    ws = new WebSocket(`ws://${urls}/simulation/${userId.id}/${roomId}`)
+    ws = new WebSocket(wsUrl(`/simulation/${userId.id}/${roomId}`))
     ws.onopen = function onopen() {
       sendUserList.value.forEach(item => {
         if (item.id == trainData.value.trainId) {

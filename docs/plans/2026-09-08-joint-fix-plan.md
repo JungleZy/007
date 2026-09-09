@@ -150,11 +150,11 @@ K --> L[长尾与交付收口]
 
 ### Phase 5：地址、上传链和 CI
 
-- [ ] 新增协议感知 `apiUrl`/`wsUrl`，迁移 6 个上传、SSE、导出和 4 个协同 WS 手工拼接点；不破坏 Electron 的既有 `window.wsUrl`。
-- [ ] 用 throwaway 脚本给 `https://host/data` 与 `host/data` 两种输入断言 HTTP/WS 协议正确；仓内无真实反代，不能把外部形态写成已实测。
-- [ ] 明确后端 body 上限、前端文件大小预检、共享 timeout；反代 `client_max_body_size` 作为仓外前置记录，不伪造仓内完成。
-- [ ] CI 新增固定 Node/npm 安装、`npm ci`、`npm run build` 和必要静态门禁；README 写清 dist→Electron 外壳链。
-- [ ] 版本采用 tag 驱动的单一发布规则；同步 `pom.xml`、`package.json`，处理 `application.yml` 顶层 version，而非继续保留三套无关数字。
+- [x] 新增协议感知 `apiUrl`/`wsUrl`，迁移 2 个实际 HTTP 上传地址和 4 个协同 WS 手工拼接点；另清理 3 个未绑定的旧上传地址配置；保留 Electron 的 `window.wsUrl`。
+- [x] throwaway 浏览器脚本对 `https://host/data` 与 `host/data` 两种输入验证 HTTP/WS 协议，结果为 `https://.../data/api`、`wss://.../push/...` 和 `http://.../api`、`ws://.../push/...`；仓内无真实反代，未宣称外部形态已联调。
+- [ ] 后端 body 上限、前端文件大小预检、共享 timeout 未完成；反代 `client_max_body_size` 仍作为仓外前置记录。
+- [x] CI 新增 Node 20、`npm ci`、`npm run build`；`frontend/package-lock.json` 已解除忽略并纳入本提交。dist 仍由现有 Electron/Tauri 外壳按其既有加载路径消费，未新增外壳配置。
+- [x] `pom.xml`、`frontend/package.json`、`package-lock.json`、`application.yml`、OpenAPI 信息已统一为 `1.1.0`；发布仍由 tag 驱动。
 
 ### Phase 6：训练域与结算
 

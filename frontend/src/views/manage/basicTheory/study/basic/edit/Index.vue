@@ -189,13 +189,14 @@ import useForm from './js/useForm.js'
 import useEdit from './js/useEdit.js'
 
 import useUpload from '../../../../../../common/mixin/useUpload.js'
+import { apiUrl } from '../../../../../../common/http/endpoint.js'
 import { PubSub } from '../../../../../../common/utils/PubSub.js'
 import { message, Modal } from 'ant-design-vue'
 const roomtest = ref()
 const fileUrl = ref(window.fileUrl)
 const content = ref('')
 const uploadType = ref(false)
-const action = ref('http://' + window.httpUrl + '/api/theoryKnowledge/uploadFileToNip')
+const action = ref(apiUrl('/api/theoryKnowledge/uploadFileToNip'))
 const token = window.localStorage.getItem('token')
 const deviceId = window.localStorage.getItem('deviceId')
 const headers = ref({ token, deviceId })

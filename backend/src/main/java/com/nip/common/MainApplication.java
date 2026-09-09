@@ -18,7 +18,7 @@ import org.eclipse.microprofile.openapi.annotations.info.Info;
  * @date 2023-07-25 9:24
  */
 @ApplicationPath("/api")
-@OpenAPIDefinition(info = @Info(title = "海军报务api", version = "1.0.0", description = "基于Quarkus框架，海军报务系统",contact = @Contact(name="N.I.P")))
+@OpenAPIDefinition(info = @Info(title = "海军报务api", version = "1.1.0", description = "基于Quarkus框架，海军报务系统",contact = @Contact(name="N.I.P")))
 @QuarkusMain
 @Slf4j
 public class MainApplication extends Application {

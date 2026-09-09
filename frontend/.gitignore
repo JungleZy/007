@@ -5,7 +5,6 @@ node_modules.zip
 /output
 /file
 /manage
-package-lock.json
 auto-imports.d.ts
 components.d.ts
 

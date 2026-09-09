@@ -116,10 +116,6 @@ const inputsData = ref({
   militaryType: '',
   militarySecret: ''
 })
-const action = ref('http://' + window.httpUrl + '/api/mtd/upload')
-const token = window.localStorage.getItem('token')
-const deviceId = window.localStorage.getItem('deviceId')
-const headers = ref({ token, deviceId })
 const fs = ref(JSON.parse(localStorage.getItem('fs')));
 onMounted(() => {
   init()

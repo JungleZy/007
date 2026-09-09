@@ -1,4 +1,5 @@
 import { PubSub } from '../../../../common/utils/PubSub.js'
+import { wsUrl } from '../../../../common/http/endpoint.js'
 
 export const UnionWsCode = {
   GET_UNION_INFO: 0,
@@ -38,7 +39,7 @@ export default class UnionWs {
     if (!UnionWs.instance) {
       this.userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
       this.flag = true
-      this.url = `ws://${window.httpUrl}/websocketUnion/${this.userInfo.id}`
+      this.url = wsUrl(`/websocketUnion/${this.userInfo.id}`)
       this.socket = null
       this.isOpen = false
       UnionWs.instance = this

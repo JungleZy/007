@@ -1,6 +1,7 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getDisturbCodeTrainData, reportIntoTrainRoom, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
+import {wsUrl} from '../../../../../common/http/endpoint.js'
 import { useRoute } from 'vue-router'
 import Voice from '../../../../../common/utils/MorseVoice'
 import useMorse from '../../../../../common/mixin/useMorse'
@@ -221,7 +222,7 @@ export default function train() {
    */
   const initWebSocket = () => {
     if (ws) return false
-    ws = new WebSocket('ws://' + window.httpUrl + '/simulation/' + userInfo.value.id + '/' + route.query.id)
+    ws = new WebSocket(wsUrl(`/simulation/${userInfo.value.id}/${route.query.id}`))
     ws.onopen = e => {
       WSConnect.value = true
     }

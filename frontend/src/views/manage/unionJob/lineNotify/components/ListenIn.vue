@@ -84,6 +84,7 @@ export default {
 <script setup>
 import { ref, onUnmounted, onMounted, nextTick } from 'vue'
 import { apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList, apiSimulationRouterSendFinish } from '../../../../../common/api/UserApi'
+import { wsUrl } from '../../../../../common/http/endpoint.js'
 import { message, Modal } from 'ant-design-vue'
 import FillInResult from '../../disturbCode/FillInResult.vue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
@@ -297,7 +298,7 @@ const init = () => {
   const userId = JSON.parse(localStorage.getItem('userInfo'))
   const roomId = route.query.id
   if (pinUserState.value == 1) return
-  ws = new WebSocket(`ws://${window.httpUrl}/simulation/${userId.id}/${roomId}`)
+  ws = new WebSocket(wsUrl(`/simulation/${userId.id}/${roomId}`))
   ws.onopen = function onopen() {
     putAwayUserList.value.forEach(item => {
       if (item.id == pinUserId.value) {

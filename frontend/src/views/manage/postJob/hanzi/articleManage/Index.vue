@@ -117,10 +117,6 @@ const route = useRoute()
 const loading = ref(false)
 const addDrillModal = ref(false)
 const basicTrainDeployModal = ref(false)
-const action = ref('http://' + window.httpUrl + '/api/postEnteringExerciseWordStock/view')
-const token = window.localStorage.getItem('token')
-const deviceId = window.localStorage.getItem('deviceId')
-const headers = ref({ token, deviceId })
 const data = ref({
   name: '',
   content: '',
