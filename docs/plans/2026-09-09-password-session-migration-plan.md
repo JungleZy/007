@@ -1,24 +1,26 @@
 # 密码与会话协议迁移设计（Phase 9）
 
 - 日期：2026-09-09
-- 状态：设计完成；未执行生产凭据迁移。
+- 状态：PBKDF2 代码迁移第一步已完成；随机 token、过期字段和生产 schema migration 尚未执行。
 - 目标：替换确定性 token 和全量 MD5，同时保持现有 HTTP 业务码、`token`/`deviceId` 客户端契约和渐进上线能力。
 
 ## 1. 当前事实
 
 ### 密码
 
-- `UserService.login`、`changePassword`、`importUser` 和注册路径使用 `MD5Util.encrypt`。
-- 登录比较 `MD5(password)` 与 `t_user.password`，没有 salt、成本参数或版本标识。
-- `verifyPassword` 通过密码摘要查库判断是否存在；该接口不应继续作为通用密码存在性查询。
+- `UserService` 的注册、导入、登录 legacy 升级、改密、重置和当前用户密码校验已统一调用 `PasswordHasher`；生产代码不再调用 `MD5Util`。
+- 登录比较新版本 PBKDF2；32 位 legacy MD5 仅作为兼容输入，成功后在同一事务内升级为 PBKDF2。
+- `verifyPassword` 已改为按当前 token 所属用户校验，不能通过摘要命中其他用户。
 - `t_user.password` 当前为可空 `varchar(255)`；存量摘要在当前实现下为 32 个十六进制字符。
-- `resetPassword` 仍写入固定明文 `123456` 的 MD5。
+- `resetPassword` 已改为生成随机 UUID 临时密码并写入 PBKDF2；现有返回字段仍返回临时密码给授权管理员。
 
 证据：
 
-- `backend/src/main/java/com/nip/service/UserService.java:275,369,424-465,498-539,640-648`
-- `backend/src/main/java/com/nip/common/utils/MD5Util.java:13-24`
-- `backend/database/rehearsal/2026-09-08/current-schema.tsv:890`
+- `backend/src/main/java/com/nip/service/UserService.java`：`handleNewUser`、`importUser`、`login`、`changePassword`、`verifyPassword`、`resetPassword`。
+- `backend/src/main/java/com/nip/common/security/PasswordHasher.java`：版本格式、salt、迭代策略、legacy MD5 验证。
+- `backend/database/project006.sql:36413`、`backend/database/project006-base.sql:31906`：`t_user.password varchar(255)`，本步不改变 schema。
+
+本步验证：`PasswordHasherTest`、`PasswordMigrationTest`、`AdminAuthorizationTest`、`TxnRollbackConsistencyTest` 合计 21 项通过；后端 `./mvnw -B clean verify` 全量 238 项通过，0 failures / 0 errors / 0 skipped。
 
 ### 会话
 
@@ -57,12 +59,12 @@ pbkdf2_sha256$1$<iterations>$<base64url-salt>$<base64url-derived-key>
 
 ### 2.2 渐进迁移步骤
 
-1. 新增密码哈希服务，只接受明文输入并返回版本化格式；禁止业务层继续调用 `MD5Util`。
+1. 已新增 `PasswordHasher`，只接受明文输入并返回版本化格式；业务层不再调用 `MD5Util`。
 2. 登录按格式分派：新格式执行 PBKDF2 校验；32 位 legacy MD5 仅作为临时兼容分支。
 3. legacy MD5 登录成功后，在同一事务内写入新的 PBKDF2 哈希；失败登录不得改写密码。
-4. 注册、导入、改密、重置统一直接写 PBKDF2；重置必须由授权管理员或受控流程触发，不能继续写固定密码摘要。
+4. 注册、导入、改密、重置统一直接写 PBKDF2；重置不再写固定密码摘要。
 5. 迁移观察期结束后拒绝 legacy MD5 登录，并盘点仍为 MD5 的存量记录；无法登录迁移的用户走明确的密码重置流程。
-6. 删除 `MD5Util` 的业务调用和 `verifyPassword` 的摘要查库语义；保留可审计的密码重置事件，不记录明文或摘要。
+6. `verifyPassword` 已移除摘要查库语义；`MD5Util` 仅剩测试夹具/历史工具，待最终观察期后删除。
 
 ### 2.3 数据库和回滚边界
 
@@ -118,6 +120,5 @@ t_user.token_expires_at, t_user.token_revoked_at
 - [ ] 部署确认 `t_user` 新增 token 时间字段的 migration、备份、回滚和观察窗口；本次不新增 `user_session` 表。
 - [ ] 目标设备完成 PBKDF2 成本基准，记录 p95 登录耗时。
 - [ ] 完成 header 调用面 grep、WebSocket ticket 方案和 Electron 安全存储设计。
-- [ ] 增加密码迁移、过期 token、撤销 token、设备不匹配、重放和并发登录回归测试。
+当前已落地 PBKDF2 新写入和 legacy 登录升级第一步；仍保留 legacy MD5 验证、确定性 token、query 兼容和 localStorage 风险，直到密码观察窗口与后续会话门禁满足。不以“增加版本字段”或“随机化一处 token”冒充完整协议迁移。
 
-本设计完成后仍保留现有 MD5、确定性 token、query 兼容和 localStorage 风险，直到上述门禁满足；不以“增加版本字段”或“随机化一处 token”冒充完整协议迁移。

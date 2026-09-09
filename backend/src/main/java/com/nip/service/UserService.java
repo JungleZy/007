@@ -6,7 +6,7 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.AESUtil;
-import com.nip.common.utils.MD5Util;
+import com.nip.common.security.PasswordHasher;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ToolUtil;
 import com.nip.dao.RoleDao;
@@ -44,15 +44,17 @@ public class UserService {
   private final UserRoleDao userRoleDao;
   private final MenusService menusService;
   private final TransactionManager transactionManager;
+  private final PasswordHasher passwordHasher;
 
   @Inject
   public UserService(UserDao userDao, RoleDao roleDao, UserRoleDao userRoleDao, MenusService menusService,
-      TransactionManager transactionManager) {
+      TransactionManager transactionManager, PasswordHasher passwordHasher) {
     this.userDao = userDao;
     this.roleDao = roleDao;
     this.userRoleDao = userRoleDao;
     this.menusService = menusService;
     this.transactionManager = transactionManager;
+    this.passwordHasher = passwordHasher;
   }
 
   /**
@@ -272,7 +274,7 @@ public class UserService {
     if (existingUser != null) {
       return ResponseResult.error(MessageConstants.USER_ACCOUNT_REPEAT);
     }
-    entity.setPassword(MD5Util.encrypt(entity.getPassword()));
+    entity.setPassword(passwordHasher.hash(entity.getPassword()));
     entity.setBday(bDay);
     entity.setStatus(0);
     setDefaultAvatarIfNull(entity);
@@ -366,7 +368,7 @@ public class UserService {
         list.add(entity);
         continue;
       }
-      entity.setPassword(MD5Util.encrypt(entity.getPassword()));
+      entity.setPassword(passwordHasher.hash(entity.getPassword()));
       UserEntity save = userDao.save(entity);
       List<RoleEntity> allByIsDefault = roleDao.find("isDefault", 0).list();
       if (!allByIsDefault.isEmpty()) {
@@ -428,7 +430,8 @@ public class UserService {
       if (null == user) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.LOGIN_USERACCOUNT_ERROR);
       }
-      if (!MD5Util.encrypt(password).equals(user.getPassword())) {
+      PasswordHasher.Verification passwordVerification = passwordHasher.verify(password, user.getPassword());
+      if (!passwordVerification.matches()) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.LOGIN_PASSWORD_ERROR);
       }
       if (Objects.equals(user.getStatus(), 1)) {
@@ -440,6 +443,10 @@ public class UserService {
       // Phase 7.4：status 为可空 Integer，裸拆箱会 NPE 后被兜底降级；null 归入「状态异常」分支
       if (!Objects.equals(user.getStatus(), 0)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.DATA_EXCEPTION);
+      }
+      if (passwordVerification.needsUpgrade()) {
+        user.setPassword(passwordHasher.hash(password));
+        userDao.save(user);
       }
 
       String token = AESUtil.encrypt(userAccount + "-" + password + "-" + deviceId, AESUtil.UKDAI_AES_KEY);
@@ -499,13 +506,13 @@ public class UserService {
   public Response<Boolean> changePassword(String token, String oldPassword, String newPassword, String newPasswordV) {
     UserEntity user = getUserByToken(token);
     try {
-      if (!MD5Util.encrypt(oldPassword).equals(user.getPassword())) {
+      if (!passwordHasher.verify(oldPassword, user.getPassword()).matches()) {
         return ResponseResult.success(MessageConstants.PASSWORD_NOW_ERROR, false);
       }
       if (!newPassword.equals(newPasswordV)) {
         return ResponseResult.success(MessageConstants.PASSWORD_INCONFORMITY, false);
       }
-      user.setPassword(MD5Util.encrypt(newPassword));
+      user.setPassword(passwordHasher.hash(newPassword));
       userDao.save(user);
       return ResponseResult.success(MessageConstants.DATA_SUCCESS, true);
     } catch (IllegalArgumentException | IllegalStateException e) {
@@ -522,22 +529,11 @@ public class UserService {
     }
   }
 
-  /**
-   * 验证密码是否存在的方法
-   * <p>
-   * 该方法接收一个明文密码作为输入，使用MD5加密后，查询数据库中是否存在对应的密文密码
-   * 如果存在则返回成功，否则返回失败
-   *
-   * @param password 明文密码
-   * @return Response<Object> 包含是否存在该密码的响应对象
-   */
-  public Response<Object> verifyPassword(String password) {
-    try {
-      boolean exists = userDao.findUserEntityByPassword(MD5Util.encrypt(password)) != null;
-      return ResponseResult.success(MessageConstants.DATA_SUCCESS, exists);
-    } catch (Exception e) {
-      return ResponseResult.error(MessageConstants.DATA_EXCEPTION);
-    }
+  /** 验证当前会话所属用户的密码，不按摘要扫描其他用户。 */
+  public Response<Boolean> verifyPassword(String token, String password) {
+    UserEntity user = getUserByToken(token);
+    return ResponseResult.success(MessageConstants.DATA_SUCCESS,
+        passwordHasher.verify(password, user.getPassword()).matches());
   }
 
   /**
@@ -642,8 +638,9 @@ public class UserService {
     UserEntity user = Optional.ofNullable(userDao.findById(userId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
 
-    user.setPassword(MD5Util.encrypt("123456"));
+    String temporaryPassword = UUID.randomUUID().toString();
+    user.setPassword(passwordHasher.hash(temporaryPassword));
     userDao.save(user);
-    return "123456";
+    return temporaryPassword;
   }
 }

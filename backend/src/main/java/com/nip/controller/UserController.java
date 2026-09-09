@@ -162,8 +162,8 @@ public class UserController {
   @POST
   @Path("/verifyPassword")
   @Operation(summary = "校验用户密码")
-  public Response<Object> verifyPassword(String password) {
-    return userService.verifyPassword(password);
+  public Response<Boolean> verifyPassword(@RestHeader(TOKEN) String token, String password) {
+    return userService.verifyPassword(token, password);
   }
 
   @POST

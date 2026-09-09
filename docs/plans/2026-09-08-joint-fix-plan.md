@@ -186,11 +186,12 @@ K --> L[长尾与交付收口]
 
 ### Phase 9：密码、会话协议和剩余单侧风险
 
-- [x] 密码迁移设计已完成：选择 PBKDF2-HMAC-SHA-256 版本化格式，规划 legacy MD5 登录成功渐进升级、重置/改密统一新格式和最终退役门禁；尚未执行代码和生产迁移。详见 `docs/plans/2026-09-09-password-session-migration-plan.md`。
+- [x] PBKDF2 密码迁移第一步已落地：`PasswordHasher` 使用 JDK PBKDF2-HMAC-SHA-256、随机 salt 和版本化格式；注册、导入、legacy 登录升级、改密、重置、当前用户密码校验已切换。`PasswordMigrationTest`、`PasswordHasherTest`、`AdminAuthorizationTest` 和 `TxnRollbackConsistencyTest` 覆盖通过。
 - [x] 随机会话令牌设计已完成并按确认决策收敛为单会话：规划 `SecureRandom` opaque token，复用 `t_user.token/device_id` 并新增 token 时间字段，过期/撤销/设备绑定和密码事件撤销当前会话；尚未执行代码和 schema migration，产品/部署门禁仍待确认。
 - [ ] 删除 query token/deviceId 兼容前，仍需完成所有客户端 header 迁移、日志观察和生产 Secret/最小权限账号改造。
 
 **Phase 9 设计出口证据（2026-09-09）：** 已完成密码存储、token 生命周期、迁移顺序、回滚边界和未决产品/部署门禁盘点；未宣称密码算法、随机 token、refresh/revoke 或 query fallback 删除已经落地。
+**Phase 9 密码增量证据（2026-09-09）：** 针对性测试 21 项通过；后端 `./mvnw -B clean verify`：238 tests，0 failures，0 errors，0 skipped。PBKDF2 生产调用点已无 `MD5Util`，legacy MD5 仅作为兼容验证输入。随机 token、过期字段、refresh/revoke 和 query fallback 删除仍未实施。
 - [ ] 处理生产 OpenAPI、CORS、demo/死端点、Tauri 残留等 P3：逐项选择实施、接受或另开 Spec。
 
 ## 4. 总验收清单

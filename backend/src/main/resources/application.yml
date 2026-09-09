@@ -1,4 +1,8 @@
 version: 1.1.0
+nip:
+  security:
+    password:
+      iterations: 600000
 quarkus:
   analytics:
     disabled: true

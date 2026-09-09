@@ -47,9 +47,6 @@ public class UserDao extends BaseRepository<UserEntity, String> {
     return find("idCard", idCard).firstResult();
   }
 
-  public UserEntity findUserEntityByPassword(String password) {
-    return find("password", password).firstResult();
-  }
 
   public boolean existsUserEntitiesByIdCardOrUserAccount(String idCard, String userAccount) {
     return find("idCard = :idCard or userAccount = :userAccount",

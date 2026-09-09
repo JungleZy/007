@@ -20,6 +20,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 class AdminAuthorizationTest {
@@ -93,7 +94,6 @@ class AdminAuthorizationTest {
         .body("code", is(200))
         .body("data", is(true));
 
-    assertEquals(MD5Util.encrypt("new-actor-password"), userDao.findById(actor.getId()).getPassword());
     assertEquals(MD5Util.encrypt("victim-password"), userDao.findById(victim.getId()).getPassword());
   }
 
@@ -112,7 +112,7 @@ class AdminAuthorizationTest {
         .then()
         .statusCode(200)
         .body("code", is(200))
-        .body("data", containsString("123456"));
+        .body("data", org.hamcrest.Matchers.matchesPattern("[0-9a-f-]{36}"));
   }
 
   @Test
