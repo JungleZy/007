@@ -401,7 +401,7 @@ const init = () => {
       isEnd.value = false
       clearInterval(autoTime.value)
       apiSimulationRouterRoomDetail({
-        roomgId: route.query.id
+        roomId: route.query.id
       }).then(res => {
         roomDetails.value = res.data
       })
@@ -480,7 +480,7 @@ const getSimulationRouterRoomChannels = () => {
 
 const getSimulationRouterRoomDetail = () => {
   apiSimulationRouterRoomDetail({
-    roomgId: route.query.id
+    roomId: route.query.id
   }).then(res => {
     pinValue.value = res.data.currentUserChannel
     pinUserId.value = res.data.currentUserId

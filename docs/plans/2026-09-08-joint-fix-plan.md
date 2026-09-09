@@ -113,37 +113,37 @@ K --> L[长尾与交付收口]
 
 #### 2.1 房间和时间
 
-- [ ] 前端 7 处 `roomgId` 改 `roomId`，对照三个 simulation controller 的实际绑定。
-- [ ] 自测列表读取后端实际字段；短期改 `start_time` 和排序字段，长期 snake/camel 统一另列 Phase 7。
-- [ ] `rows:999` 改真实分页；若产品接受 200 上限，UI 必须显示限制且不能假装全量。
+- [x] 前端 7 处 `roomgId` 改 `roomId`，并与三个 simulation controller 的 `@RestQuery(ROOM_ID)` 对照。
+- [x] 自测列表显示和排序使用后端真实 `start_time` 字段；snake/camel 全站统一仍留后续任务。
+- [x] 电传组训从 `rows:999` 改为服务端 `page`/`rows:10`，绑定 `totalPage`/`totalNumber`；其余合法分页调用未做无证据重写。
 
 #### 2.2 死导出
 
-- [ ] 对 `StructureApi.getAllUserByContent`、`UnionApi.editStatus`、`UnionApi.addUser`、其它疑似孤儿导出逐个 LSP references；零引用才删除，否则按实际后端方法/路径修正。
-- [ ] `preJob/.../Index.vue` 注释代码中的 raw axios import 仅在无动态使用证据后删除。
-- [ ] `deleteThroyKnowledgeById` 尾空格可顺手清理，作为 P3 卫生项；不得以 `%20`、必然 404 或“修复后才刷新”作为验收。真实当前客户端若失败，另立有证据的缺陷。
+- [x] `StructureApi.getAllUserByContent`、`UserApi.addUser`、`TheoryQuestionBankApi.downloadTemplate` 与题库 `exportTemplate1` 经全仓 grep 无实际引用，已删除；`deleteThroyKnowledgeById` 有两个实际调用，保留。
+- [x] `UnionApi.editDisturbTrainRoomStatus`、`updateTrainRoomDispose` 有实际训练调用，保留；注释 raw axios 未改动。
+- [ ] `deleteThroyKnowledgeById` URL 尾空格不作为确定性缺陷，本批不改。
 
-**出口证据：** 调用面对账表、LSP 零引用输出、浏览器房间请求和自测列表截图/Network。
+**出口证据（2026-09-09）：** 全仓 grep 清零 `roomgId`、`rows:999`、`d.startTime`；目标 JS `node --check` 与前端 `npm run build` 通过。浏览器当前受设备授权页阻断，未写房间 Network/截图为已通过。
 
 ### Phase 3：错误码和响应信封（BE → FE）
 
 #### 3.1 后端码语义
 
-- [ ] 仅将业务 `NULL_ERROR` 产生点迁到 `PARAMS_ERROR(202)`；确认 204 唯一剩鉴权设备缺失。
-- [ ] `ValidationExceptionMapper`、`IllegalStateExceptionMapper`、`InvalidTitleExceptionMapper` 的业务校验码改为 202，保留 safeMessage、HTTP 200；Global mapper 保留 HTTP 500。
-- [ ] 测试业务空参、校验异常、未预期异常、缺 deviceId 四类可观察结果；不要用“全仓 116 处都各写一测”制造低价值测试。
+- [x] 业务 `NULL_ERROR` 产生点迁到 `PARAMS_ERROR(202)`；`NULL_ERROR` 枚举已删除，204 仅由 JWT 设备缺失路径产生。
+- [x] `ValidationExceptionMapper`、`IllegalStateExceptionMapper`、`InvalidTitleExceptionMapper` 的业务校验码改为 202，保留 safeMessage、HTTP 200；Global mapper 保留 HTTP 500。
+- [x] `ExceptionBoundaryTest` 覆盖业务空参 202、校验异常 202、未预期异常 HTTP500/code500、缺 deviceId 204；定向 22 项和全量 228 项均通过。
 
 #### 3.2 前端拦截器
 
-- [ ] 删除后端无产生点的 205 分支；203/204/206 统一幂等登录页抑制，任何分支返回 `response.data`。
-- [ ] 对非 200 业务码集中 toast，允许 `skipErrorToast` 并记录调用点；修复所有已确认的高风险假成功调用方。
-- [ ] 先完成错误码骨架；网络错误和 timeout 在 Phase 5 的同文件接力中补齐。
+- [x] 删除后端无产生点的 205 分支；203/204/206 在登录页不再返回 undefined，任何分支返回 `response.data`。
+- [x] 对非 200 业务码集中 toast，支持 `skipErrorToast`；用户管理 207 假成功、保存失败继续赋权问题已修复。
+- [ ] 网络错误和 timeout 留 Phase 5 同文件接力。
 
 ### Phase 4：文档与题库
 
 - [ ] 上传 UI 的 `accept` 对齐 `txt/md/csv`；`data` 为 null、`imgUrls=[]` 均安全处理。
 - [ ] 题库 Word 解析后一次 `saveBatch`；等待完整响应并展示行级错误，删除定时器假成功。
-- [ ] 模板按钮调用后端 JSON 列规格，使用仓内已有 xlsx 生成器；删除 `exportTemplate1`、死 `downloadTemplate` 前完成 references 核对。
+- [x] 已删除无实际引用的 `exportTemplate1`、`downloadTemplate` 及相关导入；保留仍有调用者的 `exportQuestionBank`。模板 JSON 列规格与 xlsx 可打开文件仍属后续批次。
 - [ ] 实测 txt 成功插入编辑器、docx 被能力边界拦截、批量失败不部分成功、xlsx 可由 Excel 打开。
 
 **出口证据：** 一次 `saveBatch` Network、DB 行数/回滚结果、下载文件打开结果；不得把 JSON 响应改名为 docx blob。

@@ -159,7 +159,7 @@ class FindByIdResidualTest {
         .body("{}")
         .when().post("/api/keyPoints/findKeyPointsByType")
         .then().statusCode(200)
-        .body("code", is(500))
+        .body("code", is(202))
         .body("message", equalTo("要点讲解类型不能为空"));
   }
 

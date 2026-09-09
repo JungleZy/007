@@ -71,7 +71,7 @@ public class UserController {
     String newPasswordV = data.get("newPasswordV");
     if (StringUtils.isEmpty(oldPassword) || StringUtils.isEmpty(newPassword)
         || StringUtils.isEmpty(newPasswordV)) {
-      return ResponseResult.error(ResponseCode.NULL_ERROR);
+      return ResponseResult.error(ResponseCode.PARAMS_ERROR);
     }
     return userService.changePassword(token, oldPassword, newPassword, newPasswordV);
   }

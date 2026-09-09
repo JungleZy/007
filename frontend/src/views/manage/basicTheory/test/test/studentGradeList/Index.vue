@@ -29,7 +29,7 @@
 <!--                      </div>-->
                       <div style="padding-left: 10px">
                         <div style="font-size: 12px;color: rgb(111, 127, 152);">开始时间</div>
-                        <div style="font-size: 16px;color: #70b9ec;font-weight: bold">{{d.startTime}}</div>
+                        <div style="font-size: 16px;color: #70b9ec;font-weight: bold">{{d['start_time']}}</div>
                       </div>
                     </div>
                     <div style="display: flex;margin-top: 10px" >

@@ -146,7 +146,7 @@ export default function issue(trainData, trainTimeRef) {
       else if (newData.topic == 'end') {
         clearInterval(autoTime.value)
         apiSimulationRouterRoomDetail({
-          roomgId: route.query.id
+          roomId: route.query.id
         }).then(res => {
           trainData.value['stats'] = res.data.stats
           trainData.value.currPatKeyIndex = -1
@@ -287,7 +287,7 @@ export default function issue(trainData, trainTimeRef) {
 
   const getRoomDetails = () => {
     apiSimulationRouterRoomDetail({
-      roomgId: route.query.id
+      roomId: route.query.id
     }).then(res => {
       trainData.value.type = res.data.bwType
       if (res.data.bwType == 2) {

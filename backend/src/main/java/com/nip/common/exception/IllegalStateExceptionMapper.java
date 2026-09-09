@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * 状态校验类异常（Assert.state / 业务前置校验）：与 {@link ValidationExceptionMapper} 同构，
- * HTTP 200 + 业务码 500（SYSTEM_ERROR）+ 经 safeMessage 收口的业务提示消息。
+ * HTTP 200 + 业务码 202（PARAMS_ERROR）+ 经 safeMessage 收口的业务提示消息。
  */
 @Provider
 @Slf4j
@@ -20,7 +20,7 @@ public class IllegalStateExceptionMapper implements ExceptionMapper<IllegalState
     log.warn("业务状态校验失败: {}", e.getMessage(), e);
     String message = ValidationExceptionMapper.safeMessage(e.getMessage());
     return Response.ok(
-            ResponseResult.error(ResponseCode.SYSTEM_ERROR, message, message))
+            ResponseResult.error(ResponseCode.PARAMS_ERROR, message, message))
         .type(MediaType.APPLICATION_JSON)
         .build();
   }

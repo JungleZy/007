@@ -103,7 +103,7 @@ public class PostTelegramTrainController {
   public Response<PostTelegramTrainVO> finish(PostTelegramTrainFinishDto dto) {
     try {
       if (dto == null) {
-        return ResponseResult.error(ResponseCode.NULL_ERROR);
+        return ResponseResult.error(ResponseCode.PARAMS_ERROR);
       }
       if (dto.getId() == null || dto.getId().isBlank()) {
         return ResponseResult.error(ResponseCode.PARAMS_ERROR);

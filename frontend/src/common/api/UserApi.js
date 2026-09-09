@@ -22,13 +22,6 @@ export const userSignIn = (data) => {
     data
   })
 }
-export const addUser = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/user/addUser",
-    data
-  })
-}
 export const userLoginOut = () => {
   return axios({
     method: "post",

@@ -131,9 +131,32 @@ class ExceptionBoundaryTest {
   }
 
   @Test
+  void businessEmptyLoginParamsUses202InsteadOfAuth204() {
+    given()
+        .header("Origin", "http://localhost")
+        .contentType("application/json")
+        .body("{}")
+        .when().post("/api/user/login")
+        .then().statusCode(200)
+        .body("code", is(202));
+  }
+
+  @Test
+  void businessEmptyChangePasswordParamsUses202WithValidSession() {
+    given()
+        .header("Origin", "http://localhost")
+        .header("token", TOKEN)
+        .header("deviceId", DEVICE)
+        .contentType("application/json")
+        .body("{\"oldPassword\":\"\",\"newPassword\":\"new\",\"newPasswordV\":\"new\"}")
+        .when().post("/api/user/changePassword")
+        .then().statusCode(200)
+        .body("code", is(202));
+  }
+  @Test
   void validationFailureOnJwtEndpointKeeps200WithOriginalMessage() {
     // 校验失败（permissions=null 的 addMenu）→ ValidationExceptionMapper 接管：
-    // HTTP 200 + 业务码 500 + 原业务提示（不再被拦截器兜成裸 error）
+    // HTTP 200 + 业务码 202 + 原业务提示
     given()
         .header("Origin", "http://localhost")
         .header("token", TOKEN)
@@ -142,14 +165,14 @@ class ExceptionBoundaryTest {
         .body("{\"menus\":{\"title\":\"px\"},\"permissions\":null}")
         .when().post("/api/menus/addMenu")
         .then().statusCode(200)
-        .body("code", is(500))
+        .body("code", is(202))
         .body("message", equalTo("permissions 缺失，拒绝编辑菜单权限"));
   }
 
   @Test
   void insufficientMilitaryTermOptionsSurfaceAsCode500Envelope() {
     // 终审 I-1：generateTestPaper 的 IAE（有效题目不足4条）必须穿透 add 的 catch(Exception) 包裹，
-    // 由 ValidationExceptionMapper 以 HTTP 200 + 业务码 500 + 原提示送达，而非 RuntimeException → HTTP 500
+    // 由 ValidationExceptionMapper 以 HTTP 200 + 业务码 202 + 原提示送达，而非 RuntimeException → HTTP 500
     String parentId = "boundary-term-parent";
     if (militaryTermDataDao.findAllByParentIdIn(List.of(parentId)).isEmpty()) {
       // 4 条同类型但仅 3 个互异 value：通过 add 的 size>=4 类型过滤，命中 generateTestPaper 的 distinct<4 校验
@@ -166,7 +189,7 @@ class ExceptionBoundaryTest {
         .body("{\"types\":[\"" + parentId + "\"],\"totalNumber\":1,\"name\":\"boundary\"}")
         .when().post("/api/postMilitaryTermTrain/add")
         .then().statusCode(200)
-        .body("code", is(500))
+        .body("code", is(202))
         .body("message", equalTo("类型 " + parentId + " 有效题目不足4条，无法生成干扰项"));
   }
 

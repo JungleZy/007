@@ -41,7 +41,7 @@ public class UserController {
     String password = data.get("password");
     String deviceId = data.get(DEVICE_ID);
     if (StringUtils.isEmpty(userAccount) || StringUtils.isEmpty(password) || StringUtils.isEmpty(deviceId)) {
-      return ResponseResult.error(ResponseCode.NULL_ERROR);
+      return ResponseResult.error(ResponseCode.PARAMS_ERROR);
     }
     return userService.login(userAccount, password, deviceId);
   }

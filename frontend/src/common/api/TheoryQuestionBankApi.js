@@ -41,14 +41,6 @@ export const deleteTheoryKnowledgeQuestion = (data) => {
       data
    })
 }
-export const downloadTemplate = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/theoryKnowledgeQuestion/exportTemplate",
-    responseType:'blob',
-    data
-  })
-}
 export const exportQuestionBank = (data) => {
   return axios({
     method: 'post',

@@ -27,92 +27,71 @@ instance.interceptors.request.use((config) => {
 
 //响应拦截器
 instance.interceptors.response.use((response) => {
-  if (response.data.code === 207) {
+  const code = response.data?.code
+  if (code === 207) {
     message.error(response.data.message || '您没有权限执行此操作')
   }
-  if (response.data.code === 203 || response.data.code === 204) {
-    if(location.href.indexOf('login')>-1){
-      return
+  if (code === 203 || code === 204 || code === 206) {
+    if (location.href.indexOf('login') === -1) {
+      Modal.destroyAll()
+      Modal.error({
+        keyboard: false,
+        title: '您的登录唯一凭证异常',
+        content: '请点击下方按钮返回登录页面重新登录本系统',
+        okText: '返回登录页面',
+        onOk() {
+          location.href = '#/login'
+        }
+      })
     }
-    Modal.destroyAll()
-    Modal.error({
-      keyboard: false,
-      title: '您的登录唯一凭证异常',
-      content: '请点击下方按钮返回登录页面重新登录本系统',
-      okText: '返回登录页面',
-      onOk() {
-        location.href = '#/login';
-      }
-    })
   }
-  if (response.data.code === 205) {
-    Modal.destroyAll()
-    Modal.error({
-      keyboard: false,
-      title: '您的登录唯一凭证已过期',
-      content: '请点击下方按钮返回登录页面重新登录本系统',
-      okText: '返回登录页面',
-      onOk() {
-        location.href = '#/login';
-      }
-    })
+  if (code !== 200 && code !== 203 && code !== 204 && code !== 206 && code !== 207
+      && !response.config?.skipErrorToast) {
+    message.error(response.data?.message || '请求失败')
   }
-  if (response.data.code === 206) {
-    Modal.destroyAll()
-    Modal.error({
-      keyboard: false,
-      title: '您的账号已被异地登录',
-      content: '请点击下方按钮返回登录页面重新登录本系统',
-      okText: '返回登录页面',
-      onOk() {
-        location.href = '#/login';
-      }
-    })
-  }
-  return response.data;
-}, (error) => {//响应错误
+  return response.data
+}, (error) => {
   if (error.response && error.response.status) {
-    let msg = "";
+    let msg = ''
     const status = error.response.status
     switch (status) {
       case 400:
-        msg = '请求错误';
-        break;
+        msg = '请求错误'
+        break
       case 401:
-        msg = '请求错误';
-        break;
+        msg = '请求错误'
+        break
       case 404:
-        msg = '请求地址出错';
-        break;
+        msg = '请求地址出错'
+        break
       case 408:
-        msg = '请求超时';
-        break;
+        msg = '请求超时'
+        break
       case 500:
-        msg = '服务器内部错误!';
-        break;
+        msg = '服务器内部错误!'
+        break
       case 501:
-        msg = '服务未实现!';
-        break;
+        msg = '服务未实现!'
+        break
       case 502:
-        msg = '网关错误!';
-        break;
+        msg = '网关错误!'
+        break
       case 503:
-        msg = '服务不可用!';
-        break;
+        msg = '服务不可用!'
+        break
       case 504:
-        msg = '网关超时!';
-        break;
+        msg = '网关超时!'
+        break
       case 505:
-        msg = 'HTTP版本不受支持';
-        break;
+        msg = 'HTTP版本不受支持'
+        break
       default:
         msg = '请求失败'
     }
-    message.error(msg);
-    return Promise.reject(error);
+    message.error(msg)
   }
-  return Promise.reject(error);
-});
+  return Promise.reject(error)
+})
 
 
 export default instance;

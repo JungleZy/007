@@ -18,7 +18,7 @@ export default function useBroadcastTrain() {
 
   const findTrainDataInfo = () => {
     getRoomDetail({
-      roomgId: Number(route.query.id)
+      roomId: Number(route.query.id)
     }).then(res => {
       if (res.code === 200) {
         res.data.content = JSON.parse(res.data.content)

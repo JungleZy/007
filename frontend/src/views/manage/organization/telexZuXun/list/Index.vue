@@ -51,7 +51,7 @@
           </a-table>
         </div>
         <div class="table_pagination">
-          <div class="total">共{{ cacheData.length }}条数据</div>
+          <div class="total">共{{ totalAll }}条数据</div>
           <div class="item prev" @click="changeListPage(currPage - 1)"></div>
           <template v-for="(item, i) in totalPage" :key="i">
             <div :class="{ item: true, active: item == currPage }" v-if="item > currPage - 3 && item < currPage + 3"
@@ -219,7 +219,7 @@ const startTrain = item => {
 }
 const fileUrl = window.fileUrl
 const {
-  columns, tableData, totalPage, cacheData, currPage, tableLoading, addDrillModal,
+  columns, tableData, totalPage, totalAll, currPage, tableLoading, addDrillModal,
   changeListPage, cancelTrainModal, trainData, addTelexTrain, userList, checkUser, formData, ruleList, loading,
   isRandom, isAverage, checked, changeChecked, selectUserLIst, changeUserList
 } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容.

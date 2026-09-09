@@ -3,10 +3,9 @@ import { ref, nextTick, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
-import { deleteTheoryKnowledgeQuestionLevelById, saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, downloadTemplate,exportQuestionBank } from '../../../../../../common/api/TheoryQuestionBankApi'
+import { deleteTheoryKnowledgeQuestionLevelById, saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, exportQuestionBank } from '../../../../../../common/api/TheoryQuestionBankApi'
 import { deepClone } from '../../../../../../common/utils/Utils.js'
 import { listSort } from '../../../../../../components/test/nodeTree/listSort'
-import axios from 'axios'
 import { saveAs } from 'file-saver'
 import * as mammoth from "mammoth";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -579,66 +578,6 @@ export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, a
     }
     e.file.status = 'done';
     e.onSuccess()
-  }
-  const exportTemplate1 = type => {
-    if (type == 1 && selectID == -1) {
-      message.error('请先选择要导出的题库！')
-      return
-    }
-    const url = type == 0 ? 'http://' + window.httpUrl + '/api/theoryKnowledgeQuestion/exportTemplate' : 'http://' + window.httpUrl + '/api/theoryKnowledgeQuestion/exportQuestionByLevelId'
-    axios({
-      // 用axios发送post请求
-      method: 'POST',
-      url,
-      // data: formData, // 参数
-      responseType: 'blob', // 表明返回服务器返回的数据类型
-      headers: {
-        token: localStorage.getItem('token'),
-        deviceId: localStorage.getItem('deviceId')
-      },
-      data: {
-        levelId: selectID
-      }
-    }).then(res => {
-      // 处理返回的文件流
-      const filename = type == 0 ? '模板' : activeAction.value.title
-      let blob = new Blob([res.data], { type: 'application/force-download' }) //type是文件类，详情可以参阅blob文件类型
-      // 创建新的URL并指向File对象或者Blob对象的地址
-      const blobURL = window.URL.createObjectURL(blob)
-      // 创建a标签，用于跳转至下载链接
-      const tempLink = document.createElement('a')
-      tempLink.style.display = 'none'
-      tempLink.href = blobURL
-      tempLink.setAttribute('download', filename + '.docx')
-      // 兼容：某些浏览器不支持HTML5的download属性
-      if (typeof tempLink.download === 'undefined') {
-        tempLink.setAttribute('target', '_blank')
-      }
-      // 挂载a标签
-      document.body.appendChild(tempLink)
-      tempLink.click()
-      document.body.removeChild(tempLink)
-      // 释放blob URL地址
-      window.URL.revokeObjectURL(blobURL)
-    })
-    // const str =
-    //     `<div style='font-weight: bold;font-size: 16px;line-height: 40px'>一、单项选择题\n</div>
-    //      <div style='font-size: 13px;line-height: 22px'>1、无线电话务联络回答时，回答守听对方信号强度（）次，询问守听这里信号强度1次。</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;A、1-3&nbsp;&nbsp;B、1、0&nbsp;&nbsp;C、2、0&nbsp;&nbsp;D、3、0</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;答案：B</div>
-    //      <div style='font-weight: bold;font-size: 16px;line-height: 40px'>二、不定项选择题\n</div>
-    //      <div style='font-size: 13px;line-height: 22px'>1、如有数份同等级电报应按哪些方式处理（）。</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;D、4A、时间的先后&nbsp;&nbsp;B、号数的顺序&nbsp;&nbsp;C、通信方向的主次&nbsp;&nbsp;D、上级的指示</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;答案：ABCD</div>
-    //      <div style='font-weight: bold;font-size: 16px;line-height: 40px'>三、判断题\n</div>
-    //      <div style='font-size: 13px;line-height: 22px'>1、接力转话是边收边译逐句转出。</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;答案：错</div>
-    //      <div style='font-weight: bold;font-size: 16px;line-height: 40px'>四、填空题\n</div>
-    //      <div style='font-size: 13px;line-height: 22px'>2、自动通信网通报程序与工作方法：办报手续发报办理中，电报发出后，在打印的报头第一行右侧填写给收据的（）。</div>
-    //      <div style='font-size: 13px;line-height: 22px'>&nbsp;答案：时间和签名</div>`
-    // // const bolb = new Blob([str],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})表格
-    // const bolb = new Blob(["str"],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"})
-    // saveAs(bolb,"配置.docx")
   }
   const exportTemplate = (type)=>{
     if(type==1&&selectID==-1){

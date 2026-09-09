@@ -12,7 +12,7 @@ export default function knowledgeTabel() {
   const testPaper = () => {
     listPageSelfTesting({}).then(res => {
       if (res.code === 200) {
-        listData.value = listSort(res.data)
+        listData.value = res.data.sort((a, b) => moment(b.start_time).valueOf() - moment(a.start_time).valueOf())
       }
     })
   }

@@ -262,7 +262,7 @@ export default function useBroadStudent() {
   })
   const findTrainDataInfo = () => {
     getRoomDetail({
-      roomgId: Number(roomId)
+      roomId: Number(roomId)
     }).then(res => {
       if (res.code === 200) {
         findHeader(route.query.id).then(res=>{

@@ -71,7 +71,7 @@ export default function broaddcastTeacheing(selectCable) {
       slots: {customRender: 'action'}
     }
   ])
-  const cacheData = ref([])
+  const totalAll = ref(0)
   const tableData = ref([])
   const ruleList = ref([])
   const totalPage = ref(1)
@@ -134,25 +134,30 @@ export default function broaddcastTeacheing(selectCable) {
       }
     })
   }
-  const findRoomInfo = () => {
-    getElectronKeyZuXunList({page: 1, rows: 999}).then(res => {
+  const findRoomInfo = (currPage = 1) => {
+    getElectronKeyZuXunList({page: currPage, rows: 10}).then(res => {
       tableLoading.value = false
       if (res.code === 200) {
         const data = res.data.data
-        data.forEach((item, i) => {
+        data.forEach(item => {
           item.userInfoList.forEach(user => {
             if (user.role == 1) {
-              item['userName'] = user.userName;
-              item['userImg'] = user.userImg;
+              item['userName'] = user.userName
+              item['userImg'] = user.userImg
               return
             }
           })
         })
-        cacheData.value = data
-        tableData.value = data.filter((item, i) => i < 10)
-        totalPage.value = Math.ceil(cacheData.value.length / 10)
+        tableData.value = data
+        totalPage.value = res.data.totalPage
+        totalAll.value = res.data.totalNumber
       }
     })
+  }
+  const changeListPage = pag => {
+    if (pag < 1 || pag > totalPage.value) return false
+    currPage.value = pag
+    findRoomInfo(pag)
   }
 
   const tableLoading = ref(false)
@@ -192,13 +197,6 @@ export default function broaddcastTeacheing(selectCable) {
     getAllRuleInfo()
     findRoomInfo()
   })
-  const changeListPage = pag => {
-    if (pag < 1) return false
-    if(cacheData.value.length>((pag-1)*10)){
-      currPage.value = pag
-      tableData.value = cacheData.value.filter((item, i) => i >= (pag - 1) * 10 && i < pag * 10)
-    }
-  }
 
   const changeChecked = () => {
     if (checked.value) {
@@ -234,7 +232,7 @@ export default function broaddcastTeacheing(selectCable) {
   return {
     columns,
     tableData,
-    cacheData,
+    totalAll,
     totalPage,
     currPage,
     tableLoading,

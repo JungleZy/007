@@ -8,13 +8,6 @@ export const getAllUser = data => {
   })
 }
 
-export const getAllUserByContent = data => {
-  return axios({
-    method: 'get',
-    url: '/api/user/getAllUserByContent',
-    data
-  })
-}
 export const getUserById = data => {
   return axios({
     method: 'post',
