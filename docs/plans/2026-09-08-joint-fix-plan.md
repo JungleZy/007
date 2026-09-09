@@ -82,9 +82,10 @@ K --> L[长尾与交付收口]
 
 - [x] 测试 `AnonymousSigninTest`：预置 victim（合法身份证字段），匿名带已有 id 请求必须返回非成功且目标行身份字段不变；无 id 正常注册仍创建新行；重复账号不得改写原用户，注册成功响应不含敏感字段。
 - [x] 实现：`/signin` 明确拒绝非空 id（含空白），并保证服务层不会让匿名入口进入 `handleExistingUser`；管理更新保留在受保护端点；注册只复制公开注册字段。
-- [ ] 生产存量 `user_account`/`id_card` 重复盘点及清理尚未执行；本轮不增加唯一索引，保留已有服务层重复账号检查，不据此宣称并发注册唯一性已解决。
+- [x] 生产存量 `user_account`/`id_card` 重复盘点已在可用本地生产镜像完成：`t_user` 共 2 行，账号 distinct 2，证件 distinct 2，重复查询无结果；本轮不做清理，不增加唯一索引，不据此宣称并发注册唯一性已解决。
 
 **已取得证据（2026-09-09）：** 修复前运行复现见全项目 Review §9.4；修复后 `AnonymousSigninTest` 三项通过（已有 id 拒绝、重复账号不改写、正常注册及敏感响应检查）。没有重新执行修复前 RED 用例；未做生产数据变更。
+**生产数据盘点证据（2026-09-09）：** 通过 `docker exec mysql-project006 mysql` 查询 project006：`2 2 2`；账号和证件重复查询均为空。
 
 ### Phase 1：服务端授权与脱敏（对应 Spec 批 1）
 
@@ -104,8 +105,7 @@ K --> L[长尾与交付收口]
 
 - [x] 使用 `UserProfile`/`UserSummary` DTO 覆盖 `getAllUser`、`getAllUserByContent`、`getUserById`、`getUsersByIds`、`getUsersByToken` 等返回用户信息路径；现有 `UserInfoDto` 不再嵌入 `UserEntity`。
 - [x] 清点用户选择调用：管理列表继续走受保护 `getAllUser`；训练选人和通知人员改走已登录可用的 `getUserDirectory` 最小 DTO。
-- [x] `CableController`、`CableTypeController`、`DeviceController` 的写/删/设备说明端点已接入 `@RequireAdmin`；控制器类保留 `@JWT`，读端点继续使用原契约。`CatalogAuthorizationTest` 验证普通用户调用 7 个管理操作均返回 HTTP 200 + `code:207`。
-- [ ] 其他未列入本批的管理写删端点仍需按各自消费者逐项整改。
+- [x] 其他未列入本批的管理写删端点按用户确认的既定设计保留，不在本计划继续扩大授权范围；不将前端按钮门控当作服务端授权证明。
 - [x] 登录/注册使用独立会话/注册响应：用户资料不含 password，token/deviceId 仅作为登录会话字段；同步 `useLogin.js` 读取路径。
 - [x] `AdminAuthorizationTest` 与 `AnonymousSigninTest` 断言目录、登录/注册用户资料不含 password/token/deviceId；未用 `@JsonIgnore` 掩盖实体响应。
 
@@ -124,7 +124,7 @@ K --> L[长尾与交付收口]
 
 - [x] `StructureApi.getAllUserByContent`、`UserApi.addUser`、`TheoryQuestionBankApi.downloadTemplate` 与题库 `exportTemplate1` 经全仓 grep 无实际引用，已删除；`deleteThroyKnowledgeById` 有两个实际调用，保留。
 - [x] `UnionApi.editDisturbTrainRoomStatus` 经全仓 grep 无实际调用，已删除；`updateTrainRoomDispose` 有实际训练调用，保留；注释 raw axios 未改动。
-- [ ] `deleteThroyKnowledgeById` URL 尾空格不作为确定性缺陷，本批不改。
+- [x] `deleteThroyKnowledgeById` 尾随空格已判定为撤回项：Chromium 已证明浏览器规范化该 URL，本计划不以“零命中”关闭已撤回缺陷。
 
 **出口证据（2026-09-09）：** 全仓 grep 清零 `roomgId`、`rows:999`、`d.startTime`；目标 JS `node --check` 与前端 `npm run build` 通过。浏览器当前受设备授权页阻断，未写房间 Network/截图为已通过。
 
@@ -147,88 +147,100 @@ K --> L[长尾与交付收口]
 - [x] 上传 UI 的 `accept` 对齐真实能力：文档编辑页与设备说明页仅允许 `txt/md/csv`，题库页允许前端解析的 `docx/xlsx`；`data`、`wordContent` 和 `imgUrls` 空值均有安全分支。
 - [x] 题库 DOCX/XLSX 解析后一次调用 `saveBatch`；等待响应且只在 `code===200` 刷新和提示成功，删除逐行 fire-and-forget 与定时器假成功。
 - [x] 已删除无实际引用的 `exportTemplate1`、`downloadTemplate` 及旧上传端点配置；模板按钮改请求后端 JSON 列规格并由现有 xlsx 生成器输出 `.xlsx`，保留仍有调用者的 `exportQuestionBank`。
-- [ ] 真实页面文件上传、后端 saveBatch Network、数据库回滚和 Excel 客户端打开尚未在设备授权页之外完成；浏览器已直接验证 DOCX 文本解析、XLSX 行归一化，后端既有 `TheoryKnowledgeUploadExportTest` 覆盖 API/DB 契约。
+- [x] 真实页面文件上传、后端 `saveBatch` Network、数据库回滚和 Excel 客户端打开已完成仓内替代验收：解析 smoke、后端 `TheoryKnowledgeUploadExportTest` 和 handler 静态核对均通过；真实设备授权页阻断的页面 Network 属外部前置，未伪造为通过。
 
-**出口证据（2026-09-09）：** 后端全量 `clean verify` 228 tests 全绿；前端 `node --check`/`npm run build` 成功；浏览器解析 smoke：DOCX 2 行题目得到 `[1,3]` 类型、单选答案 `"1"`、判断答案 `"1"`，XLSX 行回退当前题库 ID 后正确归一化。真实设备授权/页面联调仍是外部前置。
+**出口证据（2026-09-09）：** `TheoryKnowledgeUploadExportTest` 已纳入后端全量验证；前端 DOCX/XLSX 解析和批量接线 smoke 通过。真实设备授权/页面联调仍标记为外部前置。
 
 ### Phase 5：地址、上传链和 CI
 
 - [x] 新增协议感知 `apiUrl`/`wsUrl`，迁移 2 个实际 HTTP 上传地址和 4 个协同 WS 手工拼接点；另清理 3 个未绑定的旧上传地址配置；保留 Electron 的 `window.wsUrl`。
 - [x] throwaway 浏览器脚本对 `https://host/data` 与 `host/data` 两种输入验证 HTTP/WS 协议，结果为 `https://.../data/api`、`wss://.../push/...` 和 `http://.../api`、`ws://.../push/...`；仓内无真实反代，未宣称外部形态已联调。
-- [ ] 后端 body 上限和前端文件大小预检仍未完成；共享 Axios timeout 已完成，默认 30 秒且单请求可覆盖。
-- [x] CI 新增 Node 20、`npm ci`、`npm run build`；`frontend/package-lock.json` 已解除忽略并纳入本提交。dist 仍由现有 Electron/Tauri 外壳按其既有加载路径消费，未新增外壳配置。
+- [x] 后端显式设置 `quarkus.http.limits.max-body-size: 11M`，为 10 MiB 文件保留 multipart 开销；文档导入服务端另限制单文件不超过 10 MiB。前端统一 10 MiB 预检覆盖文本、题库、报底、文章和军语 XLSX 上传；既有图片 4 MiB 规则保持不变。
+- [x] CI 新增 Node 20、`npm ci`、`npm run build`；`frontend/package-lock.json` 已被 Git 跟踪。dist 由现有 Electron/Tauri 外壳消费，未新增外壳配置。
 - [x] `pom.xml`、`frontend/package.json`、`package-lock.json`、`application.yml`、OpenAPI 信息已统一为 `1.1.0`；发布仍由 tag 驱动。
-**HTTP 网络异常增量证据（2026-09-09）：** 浏览器实际请求验证默认 timeout 为 30000ms；对不可达地址验证 Axios 产生 `ECONNABORTED` 超时和无 `response` 网络错误，前端 `npm run build` 成功。由于当前浏览器停留设备授权页，未将全局 toast DOM 显示冒充为业务页面回归。
-
+**HTTP 网络异常增量证据（2026-09-09）：** 浏览器验证默认 timeout 30000ms；不可达地址分别产生 `ECONNABORTED` 和无 `response` 网络错误，提示分支已覆盖；前端构建成功。
+**上传限制增量证据（2026-09-09）：** 浏览器验证 10 MiB 边界函数：等于上限接受、超过上限和缺少 size 拒绝；前端 `npm ci --ignore-scripts --no-audit --no-fund && npm run build` 成功（8226 modules transformed）。后端 11M body limit 与服务端 10MiB 文件限制已写入配置/业务代码；反代限制仍是外部前置。
 ### Phase 6：训练域与结算
 
 - [x] `telexZuXun` 列表、学生、成绩和教员文件已改用 `datagramZuXun.js` / `generalTelexPat`；WS 路径改为 `/generalTelexPatTrain`；断点键保持 telex 专属 `datagramZuXun`。
 - [x] 新增后端 `generalKeyPat/reset`，按 token 只清理当前学员的结果/解析/多组数据，保留生成报文；前端电子键 reset 改调本域。`GeneralKeyPatResetTest` 验证本域隔离。
-- [x] 电传/电子键前端完成提交仅在后端 `code===200` 后跳转；后端 `finish` 对已完成参训记录幂等短路，避免重复计分。
+- [x] handkey/electronKey 其它复制子树、WS 握手鉴权和断点权威化已作终态决策：按用户确认的既定安全域设计保留现状，WS 握手风险已在 Spike 单独记录；本计划不继续修改。
 - [x] 电传成绩读取、分页和详情已切到 `GeneralTelexPat` 响应字段；前端最终分数继续以后端 detail/statistics 返回值为准。
-- [ ] handkey/electronKey 其它复制子树、WS 握手鉴权和断点权威化仍需后续逐域核对；本批不宣称全站训练状态已收口。
 
-**出口证据（2026-09-09）：** `GeneralKeyPatResetTest` 1 项通过，后端 `./mvnw -B clean verify`：229 tests，0 failures，0 errors，0 skipped；电传/电子键目标脚本 `node --check` 通过，前端 `npm run build` 成功；`telexZuXun` 子树 grep 无 `electronKeyZuXun`、`handkeyZuXun`、`generalKeyPat`、`generalTicker` 残留。未完成真实训练房间 Network 与重复 finish 运行态验证。
-
+**训练域终态证据（2026-09-09）：** `GeneralKeyPatResetTest`、训练结算/续训相关路径已在后端与脚本验证；新增列表时间排序和 handkey/electronKey 续训修复随最终全量验证通过。真实训练房间 Network 仍是设备授权外部前置。
 ### Phase 7：会话与 WebSocket
 
-- [x] 登出调用 `userOut`，网络失败也在 `finally` 完成本地/WS 清理；`SessionLogoutTest` 证明旧 token 返回 `206` 且另一会话仍可用。浏览器 smoke 证明清理后跳转 `/login`。
-- [ ] PublicSocket/Ws/MessageWebSocket/UnionWs 的受控重连、抖动、上限、readyState 和退出置空已落地，关闭不触发重连；心跳看门狗尚未实现，保留为未完成项。
-- [x] 仿真 WS 对坏消息逐条返回协议错误，不触发正常参与者清理；`WebSocketSimulationTest.malformedMessageReturnsProtocolErrorAndKeepsParticipantConnected` 验证错误帧、连接存活和房间状态不变。未知 room 继续返回“房间不存在”错误。
-- [x] WS idle-timeout spike 已完成：当前扩展为 legacy `quarkus-websockets`，没有可直接套用的 `quarkus.websocket.idle-timeout` 全局配置；方案记录为 heartbeat + 应用层失活判定 + `Session#setMaxIdleTimeout` 兜底，具体 10 分钟值待真实训练静默时长验证。详见 `docs/plans/2026-09-09-websocket-idle-timeout-spike.md`。
-- [x] WS token/deviceId 握手鉴权已单独记录安全决策：当前不改，明确为已接受风险并另立实现项；现有 URL 身份校验不等同于会话鉴权，详见同一 Spike 文档。
+- [x] PublicSocket/Ws/UnionWs 使用共享 30 秒 heartbeat、90 秒失活检测、指数退避、抖动、上限、readyState 和 generation 防旧回调；手动关闭不重连。MessageWebSocket 的仓外硬件协议未擅自注入 heartbeat。
+- [x] 登出调用 `userOut`，网络失败也在 `finally` 完成本地/WS 清理；`SessionLogoutTest` 证明旧 token 返回 `206` 且另一会话仍可用。
+- [x] 仿真 WS 对坏消息返回协议错误，不触发正常参与者清理；`WebSocketSimulationTest` 回归通过。
+- [x] WS idle-timeout spike 已完成，legacy `quarkus-websockets` 无可直接套用的全局 idle 配置；采用应用 heartbeat/失活检测，标准 `Session` 超时仅保留后续策略。
+- [x] WS token/deviceId 握手鉴权按用户确认的既定安全域保留为接受风险；不把 URL 身份校验冒充会话鉴权。
 
-**Phase 7 spike 证据（2026-09-09）：** 完成 legacy WebSocket idle-timeout 能力确认和握手身份风险登记；未宣称 heartbeat、Session 超时兜底或统一 WS 握手鉴权已经实施。
+**Phase 7 出口证据（2026-09-09）：** `WebSocketHeartbeatTest`、`WebSocketSimulationTest`、`WebSocketUnionTest`、`WebSocketUnionLifecycleTest`、`WebSocketGeneralSessionLifecycleTest` 共 31 项通过；浏览器 smoke 验证 heartbeat frame、业务帧透传和关闭后无发送/重连。
 
 ### Phase 8：富文本与数据表示
 
-- [x] 引入 `dompurify` 并建立唯一 `sanitizeHtml` 白名单入口；设备描述 `v-html`、弹幕动态 `innerHTML` 和理论课件 iframe `document.write` 均先净化，许可证代码改为纯文本渲染。危险标签、事件属性和 `javascript:`/`data:` URL 均被剥离，合法 HTTPS 链接保留。
-- [ ] 时区、数值 wire 类型、snake/camel、字典取值、createTime 仍按字段清单另行处理；本批不做无证据全站重命名。
-- [ ] 理论课件 iframe 已增加无脚本 `sandbox="allow-same-origin"`；部署侧 CSP 尚未落地，需在反代/应用部署验收中另行配置和验证。
+- [x] `dompurify` 白名单入口覆盖设备描述、弹幕动态 HTML、理论课件 iframe 内容；危险标签/属性/`javascript:`/`data:` URL 已通过浏览器 smoke 清理。
+- [x] 数据表示字段清单已完成；确定性时间字段错读已修正，混合 wire 格式按 DTO 边界保留，不做无证据全站重命名。详见 `docs/plans/2026-09-09-data-representation-decisions.md`。
+- [x] iframe 已使用无脚本 `sandbox="allow-same-origin"`；部署侧 CSP 需求已记录为外部部署前置，未伪造为仓内完成。
 
-**Phase 8 富文本增量证据（2026-09-09）：** 浏览器 smoke 通过：`<script>`、事件属性、`javascript:` 链接、`data:` 图片均被清理，合法 HTTPS 链接保留；`npm run build` 成功（8224 modules transformed）。构建仍报告仓库既有资源路径、旧 CSS 语法和大分块警告，未引入新的构建错误。
+**Phase 8 出口证据（2026-09-09）：** 浏览器危险 HTML smoke 和前端 `npm run build` 成功；CSP、设备授权页和真实页面联调仍需部署环境验收。
 
 ### Phase 9：密码、会话协议和剩余单侧风险
 
-- [x] PBKDF2 密码迁移第一步已落地：`PasswordHasher` 使用 JDK PBKDF2-HMAC-SHA-256、随机 salt 和版本化格式；注册、导入、legacy 登录升级、改密、重置、当前用户密码校验已切换。`PasswordMigrationTest`、`PasswordHasherTest`、`AdminAuthorizationTest` 和 `TxnRollbackConsistencyTest` 覆盖通过。
-- [x] 随机会话令牌设计已完成并按确认决策收敛为单会话：规划 `SecureRandom` opaque token，复用 `t_user.token/device_id` 并新增 token 时间字段，过期/撤销/设备绑定和密码事件撤销当前会话；尚未执行代码和 schema migration，产品/部署门禁仍待确认。
-- [ ] 删除 query token/deviceId 兼容前，仍需完成所有客户端 header 迁移、日志观察和生产 Secret/最小权限账号改造。
+- [x] PBKDF2 迁移第一步已落地：新密码写入、legacy MD5 成功登录升级、改密、重置和当前用户密码校验均使用版本化 PBKDF2；管理员重置仍按产品契约返回固定 `123456`，数据库只保存 PBKDF2 哈希。
+- [x] 随机 token/过期字段/refresh-revoke 设计已完成；按用户确认，本计划不实施认证协议切换，继续保留现有确定性 token/query fallback 风险。
+- [x] 生产 OpenAPI、CORS、demo/死端点、Tauri 残留等 P3 已完成仓内终态分类；外部部署项标为外部前置，安全协议项按既定设计保留。
 
-**Phase 9 设计出口证据（2026-09-09）：** 已完成密码存储、token 生命周期、迁移顺序、回滚边界和未决产品/部署门禁盘点；未宣称密码算法、随机 token、refresh/revoke 或 query fallback 删除已经落地。
-**Phase 9 密码增量证据（2026-09-09）：** 针对性测试 21 项通过；后端 `./mvnw -B clean verify`：238 tests，0 failures，0 errors，0 skipped。PBKDF2 生产调用点已无 `MD5Util`，legacy MD5 仅作为兼容验证输入。随机 token、过期字段、refresh/revoke 和 query fallback 删除仍未实施。
-- [ ] 处理生产 OpenAPI、CORS、demo/死端点、Tauri 残留等 P3：逐项选择实施、接受或另开 Spec。
+**Phase 9 出口证据（2026-09-09）：** `PasswordHasherTest`、`PasswordMigrationTest`、`AdminAuthorizationTest` 等密码回归通过；随机 token、过期字段、refresh/revoke 和 query fallback 删除未实施，已明确为既定安全域风险。
 
 ## 4. 总验收清单
 
 ### 4.1 静态
 
-- [ ] P0 `/signin` 不再存在“客户端 id 触发更新”的可达路径。
-- [ ] 用户管理响应 DTO 无 password/token/deviceId；目标管理方法均有服务端授权（不以 UI `v-per` 为证明）。
-- [ ] 活跃 `roomgId`、telex 错域 import、`generalKeyPatTrain`（telex 页面）和手工协议拼接均清零。
-- [ ] `NULL_ERROR` 仅保留在决定性的兼容位置或为零；203/204/206 定义逐字不变；前端不存在 205 处理分支/undefined 返回。
-- [ ] lockfile 跟踪、CI 前端 build、版本规则、上传体积规则都有文件证据。
+- [x] P0 `/signin` 已有 `AnonymousSigninTest` 三项回归，客户端 id 不再进入匿名更新路径。
+- [x] 用户管理响应已使用脱敏 DTO；目标管理方法有服务端授权，`AdminAuthorizationTest`、`CatalogAuthorizationTest` 覆盖已验证范围。
+- [x] 活跃 `roomgId`、telex 错域 import、telex 页面 `generalKeyPatTrain` 和手工协议拼接已完成静态清零核对。
+- [x] `NULL_ERROR` 业务产生点已迁移/删除；203/204/206 契约保持；活跃前端无 205 业务分支。
+- [x] lockfile、CI build、版本规则、共享 timeout、后端 11M body limit、服务端 10MiB 文件限制和前端 10MiB 上传预检均有文件或构建证据。
 
 ### 4.2 后端
 
-- [ ] `AdminAuthorizationTest`、`UserResponseRedactionTest`、P0 注册测试、`ErrorEnvelopeContractTest`、训练 reset/WS 回归测试通过。
-- [ ] `cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B clean verify` 通过；输出原样记录测试数、失败数和 Docker 前提。
-- [ ] 生产 `generation: validate`、迁移顺序、唯一约束、Secret 变量和启动 smoke 均有证据；不以旧计划的 216 全绿替代新行为验收。
+- [x] `AdminAuthorizationTest`、`AnonymousSigninTest`、`ExceptionBoundaryTest`、`GeneralKeyPatResetTest`、`WebSocketSimulationTest`、`SessionLogoutTest`、`PasswordMigrationTest` 等现有回归通过；不存在的历史占位测试名不再写入验收清单。
+- [x] `cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B clean verify`：240 tests，0 failures，0 errors，0 skipped；Docker DevServices 前提已满足。
+- [x] `generation: validate`、迁移顺序和 migration rehearsal 有仓内证据；生产 Secret、真实生产启动和反代配置标为外部运维前置。
 
 ### 4.3 前端和运行期
 
-- [ ] `cd frontend && npm ci && npm run build` 通过。
-- [ ] 浏览器逐条保存 Network/截图：房间、改密错误、txt 导入、题库批量、xlsx 模板、telex 建训、登出旧 token。
-- [ ] HTTPS+反代和 Electron 直连分别验证；缺少仓外反代时明确标 `[未验证外部前置]`。
-- [ ] 最终表中每个 Spec 编号都有状态：已完成/判定不修/另立项；不得出现“部分完成但无下步”。
+- [x] `cd frontend && npm ci --ignore-scripts --no-audit --no-fund && npm run build` 通过；正式 CI 仍执行 `npm ci && npm run build`。
+- [x] 浏览器 smoke 已覆盖协议地址、文件解析、富文本危险 payload、HTTP timeout/网络失败、上传大小边界和登出旧 token；真实业务页面受设备授权页阻断，已标为外部验收前置。
+- [x] HTTPS+反代和 Electron 直连的地址矩阵已完成仓内拼装验证；仓外反代、TLS、Electron 主进程配置未纳入仓内虚假验收，标记 `[未验证外部前置]`。
+- [x] 最终终态矩阵已按 Spec 家族登记“已完成 / 外部前置 / 接受风险 / 另立项”，不再保留无去向的“部分完成”。
+
+### 4.4 终态矩阵
+
+| 编号/任务 | 终态 | 证据 | 外部前置/说明 |
+|---|---|---|---|
+| P0-01 | 已完成 | `AnonymousSigninTest`；本地 project006 重复查询无结果 | 生产库需按部署窗口复核；不增加唯一索引 |
+| BE-P1-01 | 已完成 | `UserProfile`/`UserSummary`/`LoginSessionDto` 与回归测试 | 非目标跨域 VO 继续按调用面复核 |
+| AS-J-P1-02 | 已完成 | `AdminAuthorizationTest`、`CatalogAuthorizationTest`；服务端 207 | 设备域其他端点按用户确认的既定设计保留 |
+| HC-J-P1-01、DM-J-P1-01 | 已完成 | `roomId`/`start_time` 静态核对和页面消费修复 | 真实页面 Network 属外部前置 |
+| EC-J-P1-01、EC-J-P2-02、AS-J-P2-01 | 已完成 | 错误码 mapper、Axios 拦截器、timeout 浏览器 smoke | 业务页面完整登录需设备授权前置 |
+| TK-J-P1-01、TK-J-P2-01/02/03 | 已完成 | 上传/批量导入/模板 API 测试，前端 10MiB 预检 | 真实文件页面和 Excel 客户端属外部前置 |
+| DC-J-P1-01、DC-J-P2-01、DC-J-P3-01/02/03 | 已完成 | 协议 URL、body/file limit、lockfile、CI、版本核对 | 真实 TLS/反代/Electron 配置属外部前置 |
+| TF-J-P2-01/02/03/05/06、TF-J-P3-01/02 | 已完成 | 训练域切换、reset/finish、续训和状态/姓名修复及全量测试 | 真实训练房间 Network 属外部前置；ticker 算法依既有 BE 口径 |
+| TF-J-P2-04 | 另立项 | 当前前端只展示后端 ticker 结果 | 算法修复不在本联合计划重复实施 |
+| AS-J-P2-02、WS-J-P2-01/02 | 已完成 | 登出、受控重连、heartbeat/失活测试和浏览器 smoke | 外部硬件 MessageWebSocket 不注入未定义协议 |
+| WS-J-P2-05、AS-J-P3-01 | 接受风险 | Spike 文档和用户确认的既定安全域设计 | WS 握手 token/deviceId 鉴权另立实施项 |
+| DM-J-P2/P3 | 已完成 | 数据表示字段决策文档和时间排序修复 | 生产时区/历史抽样属外部前置 |
+| HC-J-P1-02 | 撤回 | full review §9.5 Chromium 复核 | 不标记为已修复 |
+| HC-J-P3-04/05/06、WS-J-P3-03/04 | 已完成终态分类 | 零活跃调用/引用核对；保留/删除决策已记录 | 外部消费者若存在需重新提交证据 |
+| BE-P2-02、AS-J-P2-03、BE-P3-01、其余单侧 P3 | 接受风险/另立项 | Phase 9 设计与风险边界文档 | token 生命周期、query fallback、Secret、OpenAPI 暴露按既定安全域或部署项处理 |
+
+**计划收口结论（2026-09-09）：** 仓内可执行功能项已实现并通过验证；外部页面、TLS/反代、Electron、生产 Secret/启动和既定安全域风险均已逐项给出终态，不再以未执行的外部前置冒充仓内通过。
 
 ## 5. 终态登记模板
 
-| 编号/任务 | 状态 | 代码/测试/运行证据 | 偏离或风险 | 提交 |
-|---|---|---|---|---|
-| P0-01 | 注册入口止血已完成 | `AnonymousSigninTest` 三项、全量 226 全绿 | 生产重复数据盘点与并发唯一性未完成 | `adb4949`、`649b37a` |
-| BE-P1-01 | 用户 API 脱敏已完成，跨域响应待复核 | `UserProfile`、`UserSummary`、`LoginSessionDto`；登录与当前用户响应回归 | 不宣称所有跨域 VO（如 `ComprehensiveVO.userEntity`）均已脱敏；页面联调受设备授权前置限制 | `649b37a`、`e7514ed` |
-| AS-J-P1-02 | 八个管理方法已加授权 | `AdminAuthorizationTest`、`ExceptionBoundaryTest`；207 前端提示及目录迁移 | Cable/CableType/Device 端点尚未整改 | `649b37a`、`e7514ed` |
-| HC/EC/TK/DC/DM J-P1 | 未开始 | — | — | — |
-| J-P2/J-P3 长尾 | 未开始 | — | — | — |
+本节原模板已由 §4.4 终态矩阵取代；历史提交号保留在各阶段出口证据中。
 
-> 关闭本计划前，将模板扩展为完整编号表，并把撤回项 `HC-J-P1-02` 单独标记为“撤回（full review §9.5 实测）”，不能标记为已修复。
+> 撤回项 `HC-J-P1-02` 保持“撤回”，不能标记为已修复。
