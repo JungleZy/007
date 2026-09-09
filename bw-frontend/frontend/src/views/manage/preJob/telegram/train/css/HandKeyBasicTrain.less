@@ -1,0 +1,1568 @@
+.HJ{
+  .statisticsBox {
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    z-index: 6;
+  }
+
+  .practiseBtn {
+    padding: 2px 16px;
+    border: 1px solid rgb(4 90 198);
+    margin-top: 20px;
+    width: max-content;
+    height: max-content;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #dbe5fa;
+    box-shadow: inset 0 -10px 10px -10px rgba(12, 114, 226, .8);
+  }
+
+  .practiseBtn + .practiseBtn {
+    margin-left: 10px;
+  }
+
+  .practiseBtn:hover {
+    box-shadow: inset 0 10px 10px -10px rgba(12, 114, 226, .8);
+  }
+
+  .trainTime {
+    height: 54px;
+    width: 278px;
+    background: url("../../../../../../assets/HJ/receive/trainTime.gif") no-repeat center;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 9;
+  }
+
+  .cool .trainTime {
+    background: url("../../../../../../assets/HJ/receive/trainTime.png") no-repeat center;
+  }
+
+  .trainTime .timeNum {
+    width: 29px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 6px;
+  }
+
+  .trainTime .timeNum .num {
+    height: 40px;
+    font-size: 28px;
+    line-height: 40px;
+    overflow: hidden;
+    display: flex;
+    text-align: center;
+    color: #dbe5fa;
+  }
+
+  .codeBodyBox {
+    width: 220px;
+    padding-top: 18px;
+    position: absolute;
+    right: 10px;
+    top: 64px;
+    bottom: 80px;
+    z-index: 6;
+  }
+
+  .codeBodyBox:after {
+    content: '';
+    width: 220px;
+    height: 18px;
+    background: url("../../../../../../assets/HJ/receive/code-title.png") no-repeat;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .codeBody {
+    background-color: rgba(32, 66, 107, .5);
+    border-left: 1px solid #2a4777;
+    border-right: 1px solid #2a4777;
+    border-bottom: 1px solid #2a4777;
+    padding: 0 10px 10px;
+    border-radius: 0 0 10px 10px;
+    position: relative;
+    max-height: 100%;
+  }
+
+  .codeBody .item {
+    width: 198px;
+    height: 30px;
+    border: 1px solid #2a4777;
+    background-color: #1b385e;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    margin-top: 6px;
+  }
+
+  .codeBody .key {
+    font-size: 12px;
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+    color: #6ebdff;
+  }
+
+  .codeBody .value {
+    padding-left: 8px;
+    display: flex;
+  }
+
+  .trainCenter {
+    padding: 12px;
+    height: 100%;
+  }
+
+  .trainCenter .head {
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .trainCenter .head .tab {
+    height: 54px;
+    width: 186px;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    background: url("../../../../../../assets/HJ/telexTrain/tab.png") no-repeat center;
+    margin: 0 6px;
+    font-weight: bold;
+    font-size: 18px;
+    transition: all 1s;
+    padding-top: 6px;
+  }
+
+  .trainCenter .head .tab .range {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .trainCenter .head .tab.on {
+    background: url("../../../../../../assets/HJ/telexTrain/tabActive.png") no-repeat center;
+    color: #814200;
+  }
+
+  .barrageBox {
+    width: 100%;
+    height: calc(100% - 580px);
+    position: relative;
+    overflow: hidden;
+    z-index: 5;
+  }
+
+  .barrageBox .barrage {
+    width: 340px;
+    height: 80px;
+    background: url("../../../../../../assets/HJ/train/barrage.png") no-repeat left center;
+    position: absolute;
+    left: -400px;
+    animation: barrage-move 12s linear;
+    -webkit-animation: barrage-move 12s linear;
+  }
+
+  .barrageBox .barrage.perfect {
+    background: url("../../../../../../assets/HJ/train/perfect-barrage.png") no-repeat left center;
+  }
+
+  .barrageBox .barrage.abnormal {
+    background: url("../../../../../../assets/HJ/train/abnormal-barrage.png") no-repeat left center;
+  }
+
+  .barrage .lab {
+    width: 90px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-size: 16px;
+    color: #baeef7;
+    letter-spacing: 3px;
+    position: absolute;
+    left: 0;
+    top: 53px;
+  }
+
+  .barrage .mark {
+    font-size: 24px;
+    color: #c9f4fb;
+    line-height: 1;
+    font-style: italic;
+    position: absolute;
+    left: 110px;
+    top: 15px;
+  }
+
+  .barrage .msg {
+    font-size: 15px;
+    color: #3f8793;
+    position: absolute;
+    left: 110px;
+    top: 44px;
+  }
+
+  .barrage.perfect .lab {
+    color: #ccb37a;
+  }
+
+  .barrage.perfect .mark {
+    color: #fbeddd;
+  }
+
+  .barrage.perfect .msg {
+    color: #b79344;
+  }
+
+  .barrage.abnormal .lab {
+    color: #d78989;
+  }
+
+  .barrage.abnormal .mark {
+    color: #ffdddd;
+  }
+
+  .barrage.abnormal .msg {
+    color: #d11d1d;
+  }
+
+  .trainCenter .handKeyImg {
+    position: relative;
+    height: 240px;
+  }
+
+  .trainCenter .handKeyImg .text {
+    color: #7b90af;
+    font-size: 13px;
+    text-align: center;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -20px;
+  }
+
+  .trainCenter .handKeyImg .handKey {
+    height: 220px;
+    width: 600px;
+    background: url("../../../../../../assets/HJ/train/hand-key-basic-pedestal.png") no-repeat bottom center;
+    background-size: 100% auto;
+    margin-left: -500px;
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+  }
+
+  .trainCenter .handKeyImg .handShank {
+    height: 180px;
+    width: 450px;
+    background: url("../../../../../../assets/HJ/train/hand-key-shank-down.png") no-repeat bottom center;
+    background-size: 100% auto;
+    position: absolute;
+    left: 111px;
+    top: 0;
+  }
+
+  .trainCenter .handKeyImg .handShank.up {
+    background: url("../../../../../../assets/HJ/train/hand-key-shank-up.png") no-repeat bottom center;
+    background-size: 100% auto;
+    left: 105px;
+    top: 3px;
+  }
+
+  .patLogs {
+    max-width: 425px;
+    width: calc(50% - 80px);
+    min-width: 230px;
+    height: 200px;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: 80px;
+  }
+
+  .patLogs .log {
+    width: 230px;
+    height: 30px;
+    background: url("../../../../../../assets/HJ/train/pat-log-bg.png") no-repeat center;
+    display: flex;
+    align-items: center;
+    padding-left: 24px;
+    margin-top: 8px;
+    margin-left: 40px;
+    opacity: 1;
+  }
+
+  .patLogs .log .val {
+    width: 110px;
+    font-style: italic;
+    font-size: 20px;
+    color: #c9f4fb;
+  }
+
+  .patLogs .log .status {
+    font-size: 15px;
+    color: #3f8793;
+  }
+
+  .patLogs .log.perfect {
+    background: url("../../../../../../assets/HJ/train/pat-log-per-bg.png") no-repeat center;
+  }
+
+  .patLogs .log.perfect .val {
+    color: #fbeddd;
+  }
+
+  .patLogs .log.perfect .status {
+    color: #b79344;
+  }
+
+  .patLogs .log.abnormal {
+    background: url("../../../../../../assets/HJ/train/pat-log-abn-bg.png") no-repeat center;
+  }
+
+  .patLogs .log.abnormal .val {
+    color: #ffdddd;
+  }
+
+  .patLogs .log.abnormal .status {
+    color: #d11d1d;
+  }
+
+  .patLogs .log:nth-of-type(2) {
+    opacity: .8;
+  }
+
+  .patLogs .log:nth-of-type(3) {
+    opacity: .6;
+  }
+
+  .patLogs .log:nth-of-type(4) {
+    opacity: .4;
+  }
+
+  .patLogs .log:nth-of-type(5) {
+    opacity: .2;
+  }
+
+  .chartLogBox {
+    height: 260px;
+    border-top: 1px solid #1f304d;
+    margin-top: 18px;
+  }
+
+  .chartTitle {
+    display: flex;
+    padding: 12px 0;
+    justify-content: flex-end;
+  }
+
+  .chartTitle .item {
+    padding: 0 24px;
+    text-align: center;
+    line-height: 1.2;
+    position: relative;
+  }
+
+  .chartTitle .item + .item:before {
+    content: '';
+    width: 1px;
+    height: 12px;
+    background-color: #4d7cb0;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+
+  .chartTitle .item .lab {
+    color: #7b90af;
+    font-size: 12px;
+  }
+
+  .chartTitle .item .num {
+    color: #6ebdff;
+    font-size: 16px;
+  }
+
+  .patChartLog {
+    height: 200px;
+    width: 100%;
+    position: relative;
+  }
+
+  .handKeyChart {
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .patChartLog:after {
+    content: '';
+    width: 100%;
+    height: 62px;
+    background: url("../../../../../../assets/HJ/basicTheory/studyManage/chart-bg.png") no-repeat left bottom;
+    background-size: 100% auto;
+    position: absolute;
+    left: 0;
+    bottom: 13px;
+    z-index: 0;
+  }
+
+  .patChartLog.empty:after {
+    bottom: 4px;
+  }
+
+  .patChartLog .text {
+    color: #7b90af;
+    font-size: 12px;
+    position: absolute;
+    left: 8px;
+    top: -30px;
+  }
+
+  @keyframes barrage-move {
+    0% {
+      left: 100%;
+      opacity: 1;
+    }
+    50% {
+      left: calc(50% - 170px);
+      opacity: 1
+    }
+    100% {
+      left: -340px;
+      opacity: .1
+    }
+  }
+
+  @media (max-width: 1440px) {
+    .trainCenter .handKeyImg .handKey {
+      transform: scale(.7);
+    }
+
+    .patLogs {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 1260px) {
+    .trainCenter .handKeyImg .handKey {
+      display: none;
+    }
+
+    .patLogs {
+      width: 400px;
+      margin-left: -200px;
+    }
+
+    .patLogs .log {
+      margin: 8px auto 0;
+    }
+  }
+}
+.HJJ{
+  .statisticsBox {
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    z-index: 6;
+  }
+  .practiseBtn {
+    padding: 2px 16px;
+    border:1px solid rgb(4 90 198);
+    margin-top: 20px;
+    width: max-content;
+    height: max-content;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #dbe5fa;
+    box-shadow: inset 0 -10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .practiseBtn + .practiseBtn {
+    margin-left: 10px;
+  }
+  .practiseBtn:hover {
+    box-shadow: inset 0 10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .codeBodyBox {
+    width: 232px;
+    padding-top: 18px;
+    position: absolute;
+    right: 10px;
+    top: 90px;
+    bottom: 80px;
+    z-index: 6;
+  }
+  .codeBody {
+    background:url("../../../../../../assets/HJJ/train/cardBg.png") ;
+    padding: 0 20px 10px;
+    border-radius: 0 0 10px 10px;
+    position: relative;
+    max-height: 100%;
+    background-size: 100% 100%;
+  }
+  .codeBody .item {
+    width: 198px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px 6px 20px;
+    margin-top: 6px;
+    border-bottom: 1px solid #273d4b;
+  }
+  .codeBody .key {
+    font-size: 12px;
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+    color: #70a3b8;
+  }
+  .codeBody .value {
+    padding-left: 10px;
+    display: flex;
+  }
+  .trainCenter {
+    padding: 12px;
+    height: 100%;
+  }
+  .trainCenter .head {
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainCenter .head .tab {
+    height: 54px;
+    width: 159px;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    background:  url("../../../../../../assets/HJJ/receive/trainbtn-bg.png") no-repeat center;
+    margin: 0 6px;
+    font-weight: bold;
+    font-size: 17px;
+    transition: all 1s ;
+    padding-top: 10px;
+    color: #bfcde0;
+  }
+  .trainCenter .head .tab .range {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .trainCenter .head .tab.on {
+    background:  url("../../../../../../assets/HJJ/receive/trainBtn-bg-hover.png") no-repeat center;
+    color: #e9deb2;
+  }
+  .barrageBox {
+    width: 100%;
+    height: calc(100% - 580px);
+    position: relative;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .barrageBox .barrage {
+    width: 340px;
+    height: 80px;
+    background: url("../../../../../../assets/HJJ/train/barrage.png") no-repeat left center;
+    position: absolute;
+    left: -400px;
+    animation: barrage-move 12s linear;
+    -webkit-animation: barrage-move 12s linear;
+  }
+  .barrageBox .barrage.perfect {
+    background: url("../../../../../../assets/HJJ/train/perfect-barrage.png") no-repeat left center;
+  }
+  .barrageBox .barrage.abnormal {
+    background: url("../../../../../../assets/HJJ/train/abnormal-barrage.png") no-repeat left center;
+  }
+  .barrage .lab {
+    width: 90px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-size: 16px;
+    color: #baeef7;
+    letter-spacing: 3px;
+    position: absolute;
+    left: 0;
+    top: 53px;
+  }
+  .barrage .mark {
+    font-size: 24px;
+    color: #c9f4fb;
+    line-height: 1;
+    font-style: italic;
+    position: absolute;
+    left: 110px;
+    top: 15px;
+  }
+  .barrage .msg {
+    font-size: 15px;
+    color: #3f8793;
+    position: absolute;
+    left: 110px;
+    top: 44px;
+  }
+  .barrage.perfect .lab {
+    color: #ccb37a;
+  }
+  .barrage.perfect .mark {
+    color: #fbeddd;
+  }
+  .barrage.perfect .msg {
+    color: #b79344;
+  }
+  .barrage.abnormal .lab {
+    color: #d78989;
+  }
+  .barrage.abnormal .mark {
+    color: #ffdddd;
+  }
+  .barrage.abnormal .msg {
+    color: #d11d1d;
+  }
+  .trainCenter .handKeyImg {
+    position: relative;
+    height: 240px;
+  }
+
+  .trainCenter .handKeyImg .text {
+    color: #7b90af;
+    font-size: 13px;
+    text-align: center;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -20px;
+  }
+
+  .trainCenter .handKeyImg .handKey {
+    height: 220px;
+    width: 600px;
+    background: url("../../../../../../assets/HJJ/train/hand-key-basic-pedestal.png") no-repeat bottom center;
+    background-size: 100% auto;
+    margin-left: -500px;
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+  }
+
+  .trainCenter .handKeyImg .handShank {
+    height: 180px;
+    width: 450px;
+    background: url("../../../../../../assets/HJJ/train/hand-key-shank-down.png") no-repeat bottom center;
+    background-size: 100% auto;
+    position: absolute;
+    left: 111px;
+    top: 0;
+  }
+
+  .trainCenter .handKeyImg .handShank.up {
+    background: url("../../../../../../assets/HJJ/train/hand-key-shank-up.png") no-repeat bottom center;
+    background-size: 100% auto;
+    left: 105px;
+    top: 3px;
+  }
+  .patLogs {
+    max-width: 425px;
+    width: calc(50% - 80px);
+    min-width: 230px;
+    height: 150px;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: 80px;
+  }
+  .patLogs .log {
+    width: 230px;
+    height: 30px;
+    background: url("../../../../../../assets/HJJ/train/pat-log-bg.png") no-repeat center;
+    display: flex;
+    align-items: center;
+    padding-left: 24px;
+    margin-top: 8px;
+    margin-left: 40px;
+    opacity: 1;
+  }
+  .patLogs .log .val {
+    width: 110px;
+    font-style: italic;
+    font-size: 20px;
+    color: #c9f4fb;
+  }
+  .patLogs .log .status {
+    font-size: 15px;
+    color: #3f8793;
+  }
+  .patLogs .log.perfect {
+    background: url("../../../../../../assets/HJJ/train/pat-log-per-bg.png") no-repeat center;
+  }
+  .patLogs .log.perfect .val {
+    color: #fbeddd;
+  }
+  .patLogs .log.perfect .status {
+    color: #b79344;
+  }
+  .patLogs .log.abnormal {
+    background: url("../../../../../../assets/HJJ/train/pat-log-abn-bg.png") no-repeat center;
+  }
+  .patLogs .log.abnormal .val {
+    color: #ffdddd;
+  }
+  .patLogs .log.abnormal .status {
+    color: #d11d1d;
+  }
+  .patLogs .log:nth-of-type(2) {
+    opacity: .8;
+  }
+  .patLogs .log:nth-of-type(3) {
+    opacity: .6;
+  }
+  .patLogs .log:nth-of-type(4) {
+    opacity: .4;
+  }
+  .patLogs .log:nth-of-type(5) {
+    opacity: .2;
+  }
+  .chartLogBox {
+    height: 260px;
+    border-top: 1px solid #1f304d;
+    margin-top: 18px;
+  }
+  .chartTitle {
+    display: flex;
+    padding: 12px 0;
+    justify-content: flex-end;
+  }
+  .chartTitle .item {
+    padding: 0 24px;
+    text-align: center;
+    line-height: 1.2;
+    position: relative;
+  }
+  .chartTitle .item + .item:before {
+    content: '';
+    width: 1px;
+    height: 12px;
+    background-color: #4d7cb0;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .chartTitle .item .lab {
+    color: #7b90af;
+    font-size: 12px;
+  }
+  .chartTitle .item .num {
+    color: #e9deb2;
+    font-size: 16px;
+  }
+  .patChartLog {
+    height: 200px;
+    width: 100%;
+    position: relative;
+  }
+  .handKeyChart {
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+  .patChartLog:after {
+    content: '';
+    width: 100%;
+    height: 62px;
+    background: url("../../../../../../assets/HJJ/basicTheory/studyManage/chart-bg.png") no-repeat left bottom;
+    background-size: 100% auto;
+    position: absolute;
+    left: 0;
+    bottom: 13px;
+    z-index: 0;
+  }
+  .patChartLog.empty:after {
+    bottom: 4px;
+  }
+  .patChartLog .text {
+    color: #7b90af;
+    font-size: 12px;
+    position: absolute;
+    left: 8px;
+    top: -30px;
+  }
+  @keyframes barrage-move {
+    0% {left: 100%;opacity: 1;}
+    50% {left: calc(50% - 170px);opacity: 1}
+    100% {left: -340px;opacity: .1}
+  }
+  @media (max-width: 1440px) {
+    .trainCenter .handKeyImg .handKey {
+      transform: scale(.7);
+    }
+    .patLogs {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 1260px) {
+    .trainCenter .handKeyImg .handKey {
+      display: none;
+    }
+    .patLogs {
+      width: 400px;
+      margin-left: -200px;
+    }
+    .patLogs .log {
+      margin: 8px auto 0;
+    }
+  }
+}
+.LJ{
+  .statisticsBox {
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    z-index: 6;
+  }
+  .practiseBtn {
+    padding: 2px 16px;
+    border:1px solid rgb(4 90 198);
+    margin-top: 20px;
+    width: max-content;
+    height: max-content;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #dbe5fa;
+    box-shadow: inset 0 -10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .practiseBtn + .practiseBtn {
+    margin-left: 10px;
+  }
+  .practiseBtn:hover {
+    box-shadow: inset 0 10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .codeBodyBox {
+    width: 232px;
+    padding-top: 18px;
+    position: absolute;
+    right: 10px;
+    top: 90px;
+    bottom: 80px;
+    z-index: 6;
+  }
+  .codeBody {
+    background:url("../../../../../../assets/LJ/train/cardBg.png") ;
+    padding: 0 20px 10px;
+    border-radius: 0 0 10px 10px;
+    position: relative;
+    max-height: 100%;
+    background-size: 100% 100%;
+  }
+  .codeBody .item {
+    width: 198px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px 6px 20px;
+    margin-top: 6px;
+    border-bottom: 1px solid #323c38;
+  }
+  .codeBody .key {
+    font-size: 12px;
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+    color: #a9abaa;
+  }
+  .codeBody .value {
+    padding-left: 10px;
+    display: flex;
+    color: #fff;
+  }
+  .trainCenter {
+    padding: 12px;
+    height: 100%;
+  }
+  .trainCenter .head {
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainCenter .head .tab {
+    width: 203px;
+    height:54px;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    background:  url("../../../../../../assets/LJ/receive/trainbtn-bg.png") no-repeat center/100% 100%;
+    margin: 0 6px;
+    font-weight: bold;
+    font-size: 17px;
+    transition: all 1s ;
+    padding-top: 10px;
+    color: #ffffff;
+    text-shadow: 1px 1px 1px #000;
+    /*line-height: 54px!important;*/
+  }
+  .trainCenter .head .tab .range {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .trainCenter .head .tab.on {
+    background:  url("../../../../../../assets/LJ/receive/trainBtn-bg-hover.png") no-repeat center/100% 100%;
+    /*color: #e9deb2;*/
+  }
+  .barrageBox {
+    width: 100%;
+    height: calc(100% - 580px);
+    position: relative;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .barrageBox .barrage {
+    width: 340px;
+    height: 80px;
+    background: url("../../../../../../assets/LJ/train/barrage.png") no-repeat left center;
+    position: absolute;
+    transform: translateX(-400px);
+    animation: barrage-move 12s linear;
+    -webkit-animation: barrage-move 12s linear;
+  }
+  .barrageBox .barrage.perfect {
+    background: url("../../../../../../assets/LJ/train/perfect-barrage.png") no-repeat left center;
+  }
+  .barrageBox .barrage.abnormal {
+    background: url("../../../../../../assets/LJ/train/abnormal-barrage.png") no-repeat left center;
+  }
+  .barrage .lab {
+    width: 90px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-size: 16px;
+    color: #c1f6e1;
+    letter-spacing: 3px;
+    position: absolute;
+    left: 0;
+    top: 53px;
+  }
+  .barrage .mark {
+    font-size: 24px;
+    color: #33b34b;
+    line-height: 1;
+    font-style: italic;
+    position: absolute;
+    left: 110px;
+    top: 15px;
+  }
+  .barrage .msg {
+    font-size: 15px;
+    color: #a9abaa;
+    position: absolute;
+    left: 110px;
+    top: 44px;
+  }
+  .barrage.perfect .lab {
+    color: #ccb37a;
+  }
+  .barrage.perfect .mark {
+    color: #fbeddd;
+  }
+  .barrage.perfect .msg {
+    color: #b79344;
+  }
+  .barrage.abnormal .lab {
+    color: #d78989;
+  }
+  .barrage.abnormal .mark {
+    color: #ffdddd;
+  }
+  .barrage.abnormal .msg {
+    color: #d11d1d;
+  }
+  .trainCenter .handKeyImg {
+    position: relative;
+    height: 240px;
+  }
+
+  .trainCenter .handKeyImg .text {
+    color: #a9abaa;
+    font-size: 13px;
+    text-align: center;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -20px;
+  }
+
+  .trainCenter .handKeyImg .handKey {
+    height: 220px;
+    width: 600px;
+    background: url("../../../../../../assets/LJ/train/hand-key-basic-pedestal.png") no-repeat bottom center;
+    background-size: 100% auto;
+    margin-left: -500px;
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+  }
+
+  .trainCenter .handKeyImg .handShank {
+    height: 180px;
+    width: 450px;
+    background-size: 100% auto;
+    position: absolute;
+    background-repeat: no-repeat;
+    background-position: bottom center;
+    /*left: 111px;*/
+    /*top: 0;*/
+  }
+  .trainCenter .handKeyImg .down{
+    background-image: url("../../../../../../assets/LJ/train/hand-key-shank-down.png");
+    transform: translateX(111px);
+  }
+
+  .trainCenter .handKeyImg .up {
+    background-image: url("../../../../../../assets/LJ/train/hand-key-shank-up.png");
+    transform: translateX(105px) translateY(3px);
+    /*left: 105px;*/
+    /*top: 3px;*/
+  }
+  .patLogs {
+    max-width: 425px;
+    width: calc(50% - 80px);
+    min-width: 230px;
+    height: 150px;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: 80px;
+  }
+  .patLogs .log {
+    width: 230px;
+    height: 30px;
+    background: url("../../../../../../assets/LJ/train/pat-log-bg.png") no-repeat center;
+    display: flex;
+    align-items: center;
+    padding-left: 24px;
+    margin-top: 8px;
+    margin-left: 40px;
+    opacity: 1;
+  }
+  .patLogs .log .val {
+    width: 110px;
+    font-style: italic;
+    font-size: 20px;
+    color: #33b34b;
+  }
+  .patLogs .log .status {
+    font-size: 15px;
+    color: #a9abaa;
+  }
+  .patLogs .log.perfect {
+    background: url("../../../../../../assets/LJ/train/pat-log-per-bg.png") no-repeat center;
+  }
+  .patLogs .log.perfect .val {
+    color: #fbeddd;
+  }
+  .patLogs .log.perfect .status {
+    color: #b79344;
+  }
+  .patLogs .log.abnormal {
+    background: url("../../../../../../assets/LJ/train/pat-log-abn-bg.png") no-repeat center;
+  }
+  .patLogs .log.abnormal .val {
+    color: #ffdddd;
+  }
+  .patLogs .log.abnormal .status {
+    color: #d11d1d;
+  }
+  .patLogs .log:nth-of-type(2) {
+    opacity: .8;
+  }
+  .patLogs .log:nth-of-type(3) {
+    opacity: .6;
+  }
+  .patLogs .log:nth-of-type(4) {
+    opacity: .4;
+  }
+  .patLogs .log:nth-of-type(5) {
+    opacity: .2;
+  }
+  .chartLogBox {
+    height: 260px;
+    border-top: 1px solid #273c34;
+    margin-top: 18px;
+  }
+  .chartTitle {
+    background: url('../../../../../../assets/LJ/basicTheory/studyManage/analyze/yicuoti.png') no-repeat;
+    width: 321px;
+    height: 34px;
+    padding-left: 30px;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .chartTitle .item {
+    padding: 0 24px;
+    text-align: center;
+    line-height: 1.2;
+    position: relative;
+  }
+  .chartTitle .item + .item:before {
+    content: '';
+    width: 1px;
+    height: 12px;
+    background-color: #273c34;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .chartTitle .item .lab {
+    color: #a9abaa;
+    font-size: 12px;
+  }
+  .chartTitle .item .num {
+    color: #e9deb2;
+    font-size: 16px;
+  }
+  .patChartLog {
+    height: 200px;
+    width: 100%;
+    position: relative;
+  }
+  .handKeyChart {
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+  .patChartLog:after {
+    content: '';
+    width: 100%;
+    height: 62px;
+    /*background: url("/src/assets/basicTheory/studyManage/chart-bg.png") no-repeat left bottom;*/
+    background-size: 100% auto;
+    position: absolute;
+    left: 0;
+    bottom: 13px;
+    z-index: 0;
+  }
+  .patChartLog.empty:after {
+    bottom: 4px;
+  }
+  .patChartLog .text {
+    color: #a9abaa;
+    font-size: 12px;
+    position: absolute;
+    left: 8px;
+    top: -30px;
+  }
+  @keyframes barrage-move {
+    0% {transform: translateX(300%);}
+    50% {transform: translateX(calc(100% - 170px));}
+    100% {transform: translateX(-340px);}
+  }
+
+  @media (max-width: 1440px) {
+    .trainCenter .handKeyImg .handKey {
+      transform: scale(.7);
+    }
+    .patLogs {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 1260px) {
+    .trainCenter .handKeyImg .handKey {
+      display: none;
+    }
+    .patLogs {
+      width: 400px;
+      margin-left: -200px;
+    }
+    .patLogs .log {
+      margin: 8px auto 0;
+    }
+  }
+}
+.KJ{
+  .statisticsBox {
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    z-index: 6;
+  }
+  .practiseBtn {
+    padding: 2px 16px;
+    border:1px solid rgb(4 90 198);
+    margin-top: 20px;
+    width: max-content;
+    height: max-content;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #dbe5fa;
+    box-shadow: inset 0 -10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .practiseBtn + .practiseBtn {
+    margin-left: 10px;
+  }
+  .practiseBtn:hover {
+    box-shadow: inset 0 10px 10px -10px rgba(12, 114, 226, .8);
+  }
+  .codeBodyBox {
+    width: 232px;
+    padding-top: 18px;
+    position: absolute;
+    right: 10px;
+    top: 90px;
+    bottom: 80px;
+    z-index: 6;
+  }
+  .codeBody {
+    background:url("../../../../../../assets/KJ/train/cardBg.png") ;
+    padding: 0 20px 10px;
+    border-radius: 0 0 10px 10px;
+    position: relative;
+    max-height: 100%;
+    background-size: 100% 100%;
+  }
+  .codeBody .item {
+    width: 198px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px 6px 20px;
+    margin-top: 6px;
+    border-bottom: 1px solid #323c38;
+  }
+  .codeBody .key {
+    font-size: 12px;
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+    color: #a9abaa;
+  }
+  .codeBody .value {
+    padding-left: 10px;
+    display: flex;
+    color: #fff;
+  }
+  .trainCenter {
+    padding: 12px;
+    height: 100%;
+  }
+  .trainCenter .head {
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainCenter .head .tab {
+    width: 203px;
+    height:54px;
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    background:  url("../../../../../../assets/KJ/receive/trainbtn-bg.png") no-repeat center/100% 100%;
+    margin: 0 6px;
+    font-weight: bold;
+    font-size: 17px;
+    transition: all 1s ;
+    padding-top: 10px;
+    color: #ffffff;
+    text-shadow: 1px 1px 1px #000;
+    /*line-height: 54px!important;*/
+  }
+  .trainCenter .head .tab .range {
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .trainCenter .head .tab.on {
+    background:  url("../../../../../../assets/KJ/receive/trainBtn-bg-hover.png") no-repeat center/100% 100%;
+    /*color: #e9deb2;*/
+  }
+  .barrageBox {
+    width: 100%;
+    height: calc(100% - 580px);
+    position: relative;
+    overflow: hidden;
+    z-index: 5;
+  }
+  .barrageBox .barrage {
+    width: 340px;
+    height: 80px;
+    background: url("../../../../../../assets/KJ/train/barrage.png") no-repeat left center;
+    position: absolute;
+    transform: translateX(-400px);
+    animation: barrage-move 12s linear;
+    -webkit-animation: barrage-move 12s linear;
+  }
+  .barrageBox .barrage.perfect {
+    background: url("../../../../../../assets/KJ/train/perfect-barrage.png") no-repeat left center;
+  }
+  .barrageBox .barrage.abnormal {
+    background: url("../../../../../../assets/KJ/train/abnormal-barrage.png") no-repeat left center;
+  }
+  .barrage .lab {
+    width: 90px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-size: 16px;
+    color: #c1f6e1;
+    letter-spacing: 3px;
+    position: absolute;
+    left: 0;
+    top: 53px;
+  }
+  .barrage .mark {
+    font-size: 24px;
+    color: #33b34b;
+    line-height: 1;
+    font-style: italic;
+    position: absolute;
+    left: 110px;
+    top: 15px;
+  }
+  .barrage .msg {
+    font-size: 15px;
+    color: #a9abaa;
+    position: absolute;
+    left: 110px;
+    top: 44px;
+  }
+  .barrage.perfect .lab {
+    color: #ccb37a;
+  }
+  .barrage.perfect .mark {
+    color: #fbeddd;
+  }
+  .barrage.perfect .msg {
+    color: #b79344;
+  }
+  .barrage.abnormal .lab {
+    color: #d78989;
+  }
+  .barrage.abnormal .mark {
+    color: #ffdddd;
+  }
+  .barrage.abnormal .msg {
+    color: #d11d1d;
+  }
+  .trainCenter .handKeyImg {
+    position: relative;
+    height: 240px;
+  }
+
+  .trainCenter .handKeyImg .text {
+    color: #a9abaa;
+    font-size: 13px;
+    text-align: center;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -20px;
+  }
+
+  .trainCenter .handKeyImg .handKey {
+    height: 220px;
+    width: 600px;
+    background: url("../../../../../../assets/KJ/train/hand-key-basic-pedestal.png") no-repeat bottom center;
+    background-size: 100% auto;
+    margin-left: -500px;
+    position: absolute;
+    left: 50%;
+    bottom: 20px;
+  }
+
+  .trainCenter .handKeyImg .handShank {
+    height: 180px;
+    width: 450px;
+    background-size: 100% auto;
+    position: absolute;
+    background-repeat: no-repeat;
+    background-position: bottom center;
+    /*left: 111px;*/
+    /*top: 0;*/
+  }
+  .trainCenter .handKeyImg .down{
+    background-image: url("../../../../../../assets/KJ/train/hand-key-shank-down.png");
+    transform: translateX(111px);
+  }
+
+  .trainCenter .handKeyImg .up {
+    background-image: url("../../../../../../assets/KJ/train/hand-key-shank-up.png");
+    transform: translateX(105px) translateY(3px);
+    /*left: 105px;*/
+    /*top: 3px;*/
+  }
+  .patLogs {
+    max-width: 425px;
+    width: calc(50% - 80px);
+    min-width: 230px;
+    height: 150px;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: 80px;
+  }
+  .patLogs .log {
+    width: 230px;
+    height: 30px;
+    background: url("../../../../../../assets/KJ/train/pat-log-bg.png") no-repeat center;
+    display: flex;
+    align-items: center;
+    padding-left: 24px;
+    margin-top: 8px;
+    margin-left: 40px;
+    opacity: 1;
+  }
+  .patLogs .log .val {
+    width: 110px;
+    font-style: italic;
+    font-size: 20px;
+    color: #33b34b;
+  }
+  .patLogs .log .status {
+    font-size: 15px;
+    color: #a9abaa;
+  }
+  .patLogs .log.perfect {
+    background: url("../../../../../../assets/KJ/train/pat-log-per-bg.png") no-repeat center;
+  }
+  .patLogs .log.perfect .val {
+    color: #fbeddd;
+  }
+  .patLogs .log.perfect .status {
+    color: #b79344;
+  }
+  .patLogs .log.abnormal {
+    background: url("../../../../../../assets/KJ/train/pat-log-abn-bg.png") no-repeat center;
+  }
+  .patLogs .log.abnormal .val {
+    color: #ffdddd;
+  }
+  .patLogs .log.abnormal .status {
+    color: #d11d1d;
+  }
+  .patLogs .log:nth-of-type(2) {
+    opacity: .8;
+  }
+  .patLogs .log:nth-of-type(3) {
+    opacity: .6;
+  }
+  .patLogs .log:nth-of-type(4) {
+    opacity: .4;
+  }
+  .patLogs .log:nth-of-type(5) {
+    opacity: .2;
+  }
+  .chartLogBox {
+    height: 260px;
+    border-top: 1px solid #273c34;
+    margin-top: 18px;
+  }
+  .chartTitle {
+    background: url('../../../../../../assets/KJ/basicTheory/studyManage/analyze/yicuoti.png') no-repeat;
+    width: 321px;
+    height: 34px;
+    padding-left: 30px;
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .chartTitle .item {
+    padding: 0 24px;
+    text-align: center;
+    line-height: 1.2;
+    position: relative;
+  }
+  .chartTitle .item + .item:before {
+    content: '';
+    width: 1px;
+    height: 12px;
+    background-color: #273c34;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -6px;
+  }
+  .chartTitle .item .lab {
+    color: #a9abaa;
+    font-size: 12px;
+  }
+  .chartTitle .item .num {
+    color: #e9deb2;
+    font-size: 16px;
+  }
+  .patChartLog {
+    height: 200px;
+    width: 100%;
+    position: relative;
+  }
+  .handKeyChart {
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+  .patChartLog:after {
+    content: '';
+    width: 100%;
+    height: 62px;
+    /*background: url("/src/assets/basicTheory/studyManage/chart-bg.png") no-repeat left bottom;*/
+    background-size: 100% auto;
+    position: absolute;
+    left: 0;
+    bottom: 13px;
+    z-index: 0;
+  }
+  .patChartLog.empty:after {
+    bottom: 4px;
+  }
+  .patChartLog .text {
+    color: #a9abaa;
+    font-size: 12px;
+    position: absolute;
+    left: 8px;
+    top: -30px;
+  }
+  @keyframes barrage-move {
+    0% {transform: translateX(300%);}
+    50% {transform: translateX(calc(100% - 170px));}
+    100% {transform: translateX(-340px);}
+  }
+
+  @media (max-width: 1440px) {
+    .trainCenter .handKeyImg .handKey {
+      transform: scale(.7);
+    }
+    .patLogs {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 1260px) {
+    .trainCenter .handKeyImg .handKey {
+      display: none;
+    }
+    .patLogs {
+      width: 400px;
+      margin-left: -200px;
+    }
+    .patLogs .log {
+      margin: 8px auto 0;
+    }
+  }
+}

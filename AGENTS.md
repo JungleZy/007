@@ -4,11 +4,11 @@
 
 ## 仓库布局与路径约定
 
-单仓两工程：`backend/`（Quarkus 服务）+ `frontend/`（Vue 前端）。**本文以后端为主**；「红线 5/6」与「提交约定」对两侧同时适用。
+单仓两工程：`backend/`（Quarkus 服务）+ `bw-frontend/`（Electron 桌面外壳，Vue 前端在 `bw-frontend/frontend/`）。**本文以后端为主**；「红线 5/6」与「提交约定」对两侧同时适用。
 
 - 所有 Maven 命令在 **`backend/`** 下执行。
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
-- **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/`、`frontend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
+- **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
 - 当前全项目评审见 `docs/reviews/2026-09-08-full-project-review.md`，联合评审详细证据见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`，跨栈整改方案见 `docs/specs/2026-09-08-joint-fix-spec.md`。历史分片统一在 `docs/reviews/archive/`，不作为当前状态依据。
 
@@ -50,7 +50,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 2. **MyISAM 表不可回滚**：`backend/database/project006.sql` 仍有 22 张 MyISAM 表。「先删后插」结算逻辑在这些表上中断即永久丢数据。改动结算路径前确认目标表已转 InnoDB（迁移 02）。
 3. **WebSocket 端点是 `@ApplicationScoped` 单例**：实例字段跨连接共享，禁止把会话态存实例字段；用 `Session` 维度的容器。
 4. **token 查询有两条口径，别混用**：`UserService.getUserByToken:517-521` 查无即抛 `UnauthorizedException`（→ 200 + 203），可直接用；而裸 DAO `UserDao.findUserEntityByToken:78-80` 用 `firstResult()`，**查无返回 null**，当前约 20 个调用点（`EnteringExerciseService`、`TickerTapeTrainService`、`RadiotelephoneService`、`GeneralKeyPatService` 等 10 个 service）直接 `userEntity.getId()` 解引用 → 凭证失效即 NPE。新代码走 `getUserByToken`，不要新增裸 DAO 解引用。
-5. **跨栈契约不可单侧改**（2026-09-08 联合评审确认）：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点。上一轮后端单侧整改已改断 **4 处**：`roomgId`→`roomId`（前端 7 处仍传旧键）、`uploadFileToNip` 收窄到 `txt/md/csv`（前端 `accept` 仍 `.doc/.docx/.pptx`）、`saveBatch`/`exportTemplate` 成孤儿端点（前端从未接线）、`Page.getRows()` 钳到 200（前端仍传 `rows:999`）。
+5. **跨栈契约不可单侧改**（2026-09-08 联合评审确认）：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `bw-frontend/frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点。上一轮后端单侧整改已改断 **4 处**：`roomgId`→`roomId`（前端 7 处仍传旧键）、`uploadFileToNip` 收窄到 `txt/md/csv`（前端 `accept` 仍 `.doc/.docx/.pptx`）、`saveBatch`/`exportTemplate` 成孤儿端点（前端从未接线）、`Page.getRows()` 钳到 200（前端仍传 `rows:999`）。
 6. **鉴权 ≠ 授权**：后端管理写端点（`user/role/menu` 的 delete/reset/addUserRole/addRole）目前只有类级 `@JWT`，无任何角色校验，前端 `v-per` 只是可篡改的软门控。新增管理类端点必须自己做服务端授权判定。
 
 ## 测试约定

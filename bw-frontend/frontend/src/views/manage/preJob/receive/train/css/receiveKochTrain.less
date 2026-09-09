@@ -1,0 +1,1179 @@
+.HJ{
+  .tootlipR{
+    position: relative;
+    /*background: linear-gradient(to right,#444e52 20%,#182d4f);*/
+    color: #f0a13b;
+    padding: 0 15px;
+    height:20px;
+    line-height: 20px;
+    margin: 0 20px;
+    font-size: 13px
+  }
+  .tootlipR:before{
+    content: "";
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: url("../../../../../../assets/HJ/preTrain/ico-tooltip-on.png");
+    background-size: 100% 100%;
+    left: -15px;
+    top: -7px;
+  }
+  .mark{
+    position: absolute;top: -10px;background: linear-gradient(to right,#ee7400,#0866bd);
+    transform: skew(30deg);
+    padding: 0 8px;
+    left: 0px;
+    color: white;
+    width: 100px;
+    height: 20px;
+    z-index:9;
+  }
+  .createDrillBtn {
+    width: 96px;
+    height: 30px;
+    color: #e2f2ff;
+    font-size: 15px;
+    text-align: center;
+    line-height: 28px;
+    box-shadow: 2px 2px 3px rgba(0, 0, 0, .2);
+    border-radius: 2px;
+    background-image: linear-gradient(#22acff, #0068de);
+    cursor: pointer;
+  }
+  .createDrillBtn.prev {
+    background-image: linear-gradient(#e6c165, #bf6c2a);
+  }
+  .createDrillBtn.loadingBtn {
+    cursor: no-drop;
+    opacity: .8;
+  }
+  .basicBody {
+    background-color: rgba(24, 45, 86, 0.45);
+  }
+
+  .basicBody:before {
+    content: '';
+    width: 288px;
+    background: url('../../../../../../assets/HJ/basicTheory/studyManage/analyze/zuo.png') no-repeat left;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  .basicBody:after {
+    content: '';
+    width: 288px;
+    background: url('../../../../../../assets/HJ/basicTheory/studyManage/analyze/you.png') no-repeat right;
+    background-size: auto 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  .trainTime {
+    height: 54px;
+    width: 278px;
+    background: url("../../../../../../assets/HJ/receive/trainTime.gif") no-repeat center;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 9;
+  }
+  .cool .trainTime {
+    background: url("../../../../../../assets/HJ/receive/trainTime.png") no-repeat center;
+  }
+
+  .trainTime .timeNum {
+    width: 29px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 6px;
+  }
+
+  .trainTime .timeNum .num {
+    height: 40px;
+    font-size: 28px;
+    line-height: 40px;
+    overflow: hidden;
+    display: flex;
+    text-align: center;
+    color: #dbe5fa;
+  }
+
+  .basicTitle {
+    height: 54px;
+    background-image: linear-gradient(to bottom, #122345, #1d355a);
+    padding: 0 280px 0 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 8;
+  }
+  .stageBox {
+    display: flex;
+    margin-right: 20px;
+  }
+  .stageBox .stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 34px;
+    color: #d7dfe9;
+  }
+  .stageBox .prev {
+    padding-right: 10px;
+    background: url("../../../../../../assets/HJ/receive/stageBg-prev.png") no-repeat center;
+    cursor: pointer;
+  }
+  .stageBox .prev:hover {
+    background: url("../../../../../../assets/HJ/receive/stageBg-prev-hover.png") no-repeat center;
+  }
+  .stageBox .curr {
+    width: 114px;
+    color: #7b90af;
+    font-size: 12px;
+    background: url("../../../../../../assets/HJ/receive/stageBg-curr.png") no-repeat center;
+  }
+  .stageBox .next {
+    padding-left: 10px;
+    background: url("../../../../../../assets/HJ/receive/stageBg-next.png") no-repeat center;
+    cursor: pointer;
+  }
+  .stageBox .next:hover {
+    background: url("../../../../../../assets/HJ/receive/stageBg-next-hover.png") no-repeat center;
+  }
+  .stageBox .disabled {
+    cursor: no-drop;
+    color: #6485aa;
+  }
+  .stageBox .disabled .ico {
+    opacity: .3;
+  }
+  .stageBox .num {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+  }
+  .stageBox .ico {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+    height: 14px;
+  }
+  .trainBtn {
+    width: 100px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #814200;
+    font-size: 15px;
+    border: 1px solid #f4cb94;
+    background-image: linear-gradient(to bottom, #f4cb94, #e4942d);
+    font-weight: bolder;
+    cursor: pointer;
+  }
+  .trainBtn:hover {
+    background-image: linear-gradient(to top, #f4cb94, #e4942d);
+  }
+  .trainBtn.end {
+    color: #7d1a10;
+    border: 1px solid #ff8a8a;
+    background-image: linear-gradient(to bottom, #f3b9b2, #ca4e45);
+  }
+  .trainBtn.end:hover {
+    background-image: linear-gradient(to top, #f3b9b2, #ca4e45);
+  }
+  .keyCodeBody {
+    height: calc(100% - 54px);
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+  .deployBox {
+    padding-left: 30px;
+    background: url("../../../../../../assets/HJ/receive/deployBg.png") no-repeat center bottom;
+    background-size: 90% auto;
+    position: relative;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .deployBox .group {
+    padding-left: 30px;
+    margin-bottom: 20px;
+  }
+  .deployBox .unit {
+    color: #3f6089;
+    font-size: 12px;
+    position: absolute;
+    right: 8px;
+    top: 100%;
+  }
+  .codeBodyBox {
+    height: 100%;
+    padding: 30px 12px 0;
+  }
+  .codeBody {
+    min-height: 67px;
+    background: url("../../../../../../assets/HJ/receive/keyCodeBg.png");
+    background-size: 100% 67px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 8px;
+    position: relative;
+  }
+  .codeBody .code {
+    width: 30px;
+    height: 57px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    opacity: .8;
+  }
+  .codeBody .code.last {
+    opacity: 1;
+    background: url("../../../../../../assets/HJ/receive/lastCodeBg.png") no-repeat center;
+  }
+  .codeBody .code .img {
+    width: 30px;
+  }
+  .stageSettingBox {
+    padding-top: 12px;
+  }
+  .stageSettingBox .row {
+    display: flex;
+    align-items: flex-start;
+    color: #bbcdef;
+    line-height: 24px;
+  }
+  .stageSettingBox .row + .row {
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+  .stageSettingBox .row .lab {
+    width: 100px;
+    text-align: right;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .stageSettingBox .row .tag {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-content: center;
+    justify-content: center;
+    border: solid 1px  #36659e;
+    color: #75a6e2;
+    margin: 0 5px 5px 0;
+    cursor: pointer;
+  }
+  .stageSettingBox .row .tag.on,
+  .stageSettingBox .row .tag:hover {
+    background-color: #22acff;
+    border-color: #22acff;
+    color: #fff;
+  }
+  .stageSettingBox .row .tag.drag {
+    cursor: move;
+    margin: 0 7px 7px 0;
+  }
+  .stageSettingBox .row .tag.drag.curr {
+    background-color: transparent;
+  }
+  .stageSettingBox .row .tag.drag .txt {
+    user-select: none;
+  }
+  .stageBtn {
+    display: flex;
+    align-items: center;
+    padding-top: 8px;
+  }
+  .stageBtn .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    width: 22px;
+    border: 1px solid #bbcdef;
+  }
+  .stageBtn .btn + .btn {
+    margin-left: 10px;
+  }
+  .stageBtn .btn:hover {
+    background-color: #22acff;
+    border-color: #22acff;
+    color: #fff;
+  }
+}
+.HJJ{
+  .lab {
+    color: #909db0;
+  }
+  .tootlipR {
+    position: relative;
+    background: linear-gradient(to bottom, #1f2b3a 20%, rgba(173, 162, 136, 0.3));
+    color: #f0a13b;
+    padding: 0 15px;
+    height: 20px;
+    line-height: 20px;
+    margin: 0 20px;
+    font-size: 13px;
+  }
+  .tootlipR:before {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: url('../../../../../../assets/HJJ/preTrain/ico-tooltip-on.png');
+    background-size: 100% 100%;
+    left: -15px;
+    top: -7px;
+  }
+  .mark {
+    background: url('../../../../../../assets/HJJ/receive/page.png');
+    position: absolute;
+    top: -23px;
+    /*background: linear-gradient(to right,#ee7400,#0866bd);*/
+    /*transform: skew(30deg);*/
+    left: -8px;
+    color: white;
+    width: 86px;
+    height: 24px;
+    line-height: 24px;
+  }
+  .createDrillBtn {
+    width: 96px;
+    height: 30px;
+    color: #e2f2ff;
+    font-size: 15px;
+    text-align: center;
+    line-height: 28px;
+    box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    background-image: linear-gradient(#70a3b8, #4c7595);
+    cursor: pointer;
+    position: relative;
+  }
+  .createDrillBtn.prev {
+    background-image: linear-gradient(#e6c165, #bf6c2a);
+  }
+  .createDrillBtn.loadingBtn {
+    cursor: no-drop;
+    opacity: 0.8;
+  }
+  .basicBody {
+    background-color: rgba(23, 31, 41, 0.7);
+  }
+
+  .trainTime {
+    z-index: 9;
+  }
+
+  .basicTitle {
+    height: 73px;
+    background-image: url('../../../../../../assets/HJJ/receive/top-bg.png');
+    background-size: 100% 100%;
+    padding: 0 280px 0 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 8;
+  }
+  .stageBox {
+    display: flex;
+    margin-right: 20px;
+    color: #909db0;
+  }
+  .stageBox .stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 34px;
+    color: #d7dfe9;
+  }
+  .stageBox .prev {
+    padding-right: 10px;
+    background: url('../../../../../../assets/HJJ/receive/stageBg-prev.png') no-repeat center;
+    cursor: pointer;
+  }
+  .stageBox .prev:hover {
+    background: url('../../../../../../assets/HJJ/receive/stageBg-prev-hover.png') no-repeat center;
+  }
+  .stageBox .curr {
+    width: 114px;
+    color: #7b90af;
+    font-size: 12px;
+    background: url('../../../../../../assets/HJJ/receive/stageBg-curr.png') no-repeat center;
+  }
+  .stageBox .next {
+    padding-left: 10px;
+    background: url('../../../../../../assets/HJJ/receive/stageBg-next.png') no-repeat center;
+    cursor: pointer;
+  }
+  .stageBox .next:hover {
+    background: url('../../../../../../assets/HJJ/receive/stageBg-next-hover.png') no-repeat center;
+  }
+  .stageBox .disabled {
+    cursor: no-drop;
+    color: #6485aa;
+  }
+  .stageBox .disabled .ico {
+    opacity: 0.3;
+  }
+  .stageBox .num {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+  }
+  .stageBox .ico {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+    height: 14px;
+  }
+  .trainBtn {
+    width: 102px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #610000;
+    font-size: 15px;
+    background-image: url('../../../../../../assets/HJJ/receive/trainBtb.png');
+    font-weight: bolder;
+    cursor: pointer;
+  }
+  .trainBtn:hover {
+    /*background-image: linear-gradient(to top, #f4cb94, #e4942d);*/
+  }
+  .trainBtn.end {
+    color: #7d1a10;
+    border: 1px solid #ff8a8a;
+    background-image: linear-gradient(to bottom, #f3b9b2, #ca4e45);
+  }
+  .trainBtn.end:hover {
+    background-image: linear-gradient(to top, #f3b9b2, #ca4e45);
+  }
+  .keyCodeBody {
+    height: calc(100% - 54px);
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+  .deployBox {
+    padding-left: 30px;
+    background: url('../../../../../../assets/HJJ/receive/deployBg.png') no-repeat center bottom;
+    background-size: 100% 100%;
+    position: relative;
+    padding-bottom: 10px;
+    padding-top: 10px;
+    flex-shrink: 0;
+  }
+  .deployBox .group {
+    padding-left: 30px;
+    margin-bottom: 20px;
+  }
+  .deployBox .unit {
+    color: #3f6089;
+    font-size: 12px;
+    position: absolute;
+    right: 0px;
+    left: -10px;
+    top: 100%;
+  }
+  .codeBodyBox {
+    height: 100%;
+    padding: 30px 12px 0;
+  }
+  .codeBody {
+    min-height: 67px;
+    background: url('../../../../../../assets/HJJ/receive/keyCodeBg.png');
+    background-size: 100% 67px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 8px;
+    position: relative;
+  }
+  .codeBody .code {
+    width: 30px;
+    height: 57px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .codeBody .code.last {
+    opacity: 1;
+    background: url('../../../../../../assets/HJJ/receive/lastCodeBg.png') no-repeat center;
+  }
+  .codeBody .code .img {
+    width: 30px;
+  }
+  .stageSettingBox {
+    padding-top: 12px;
+  }
+  .stageSettingBox .row {
+    display: flex;
+    align-items: flex-start;
+    color: #bbcdef;
+    line-height: 24px;
+  }
+  .stageSettingBox .row + .row {
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+  .stageSettingBox .row .lab {
+    width: 100px;
+    text-align: right;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .stageSettingBox .row .tag {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-content: center;
+    justify-content: center;
+    border: solid 1px #4c7595;
+    color: #70a3b8;
+    margin: 0 5px 5px 0;
+    cursor: pointer;
+  }
+  .stageSettingBox .row .tag.on,
+  .stageSettingBox .row .tag:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+    font-weight: bolder;
+  }
+  .stageSettingBox .row .tag.drag {
+    cursor: move;
+    margin: 0 7px 7px 0;
+  }
+  .stageSettingBox .row .tag.drag.curr {
+    background-color: transparent;
+  }
+  .stageSettingBox .row .tag.drag .txt {
+    user-select: none;
+  }
+  .stageBtn {
+    display: flex;
+    align-items: center;
+    padding-top: 8px;
+  }
+  .stageBtn .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    width: 22px;
+    border: 1px solid #4c7595;
+  }
+  .stageBtn .btn + .btn {
+    margin-left: 10px;
+  }
+  .stageBtn .btn:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+  }
+}
+.LJ{
+  .lab {
+    color: #fff;
+  }
+  .tootlipR {
+    position: relative;
+    background: linear-gradient(to bottom, #1f2b3a 20%, rgba(173, 162, 136, 0.3));
+    color: #f0a13b;
+    padding: 0 15px;
+    height: 20px;
+    line-height: 20px;
+    margin: 0 20px;
+    font-size: 13px;
+  }
+  .tootlipR:before {
+    content: "";
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: url("../../../../../../assets/LJ/preTrain/ico-tooltip-on.png");
+    background-size: 100% 100%;
+    left: -15px;
+    top: -7px;
+  }
+  .mark {
+    background: url("../../../../../../assets/LJ/receive/page.png");
+    position: absolute;
+    top: -23px;
+    /*background: linear-gradient(to right,#ee7400,#0866bd);*/
+    /*transform: skew(30deg);*/
+    left: -8px;
+    color: white;
+    width: 86px;
+    height: 24px;
+    line-height: 24px;
+  }
+  .createDrillBtn {
+    width: 96px;
+    height: 30px;
+    color: #ffffff;
+    font-size: 15px;
+    text-align: center;
+    line-height: 28px;
+    box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    background-image: linear-gradient(#70a3b8, #4c7595);
+    cursor: pointer;
+    position: relative;
+  }
+  .createDrillBtn.prev {
+    background-image: linear-gradient(#e6c165, #bf6c2a);
+  }
+  .createDrillBtn.loadingBtn {
+    cursor: no-drop;
+    opacity: 0.8;
+  }
+  .basicBody {
+    background-color: rgba(38, 41, 36, 0.3);
+  }
+
+  .trainTime {
+    z-index: 9;
+  }
+
+  .basicTitle {
+    height: 73px;
+    background-image: url("../../../../../../assets/LJ/receive/top-bg.png");
+    background-size: 100% 100%;
+    padding: 0 280px 0 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 8;
+  }
+  .stageBox {
+    display: flex;
+    margin-right: 20px;
+    color: #fff;
+  }
+  .stageBox .stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 34px;
+    color: #d7dfe9;
+  }
+  .stageBox .prev {
+    padding-right: 10px;
+    background: url("../../../../../../assets/LJ/receive/stageBg-prev.png") no-repeat
+    center;
+    cursor: pointer;
+  }
+  .stageBox .prev:hover {
+    background: url("../../../../../../assets/LJ/receive/stageBg-prev-hover.png")
+    no-repeat center;
+  }
+  .stageBox .curr {
+    width: 114px;
+    color: #a9abaa;
+    font-size: 12px;
+    background: url("../../../../../../assets/LJ/receive/stageBg-curr.png") no-repeat
+    center;
+  }
+  .stageBox .next {
+    padding-left: 10px;
+    background: url("../../../../../../assets/LJ/receive/stageBg-next.png") no-repeat
+    center;
+    cursor: pointer;
+  }
+  .stageBox .next:hover {
+    background: url("../../../../../../assets/LJ/receive/stageBg-next-hover.png")
+    no-repeat center;
+  }
+  .stageBox .disabled {
+    cursor: no-drop;
+    color: #6485aa;
+  }
+  .stageBox .disabled .ico {
+    opacity: 0.3;
+  }
+  .stageBox .num {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+  }
+  .stageBox .ico {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+    height: 14px;
+  }
+  .trainBtn {
+    width: 102px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #610000;
+    font-size: 15px;
+    background-image: url("../../../../../../assets/LJ/receive/trainBtb.png");
+    font-weight: bolder;
+    cursor: pointer;
+  }
+  .trainBtn:hover {
+    /*background-image: linear-gradient(to top, #f4cb94, #e4942d);*/
+  }
+  .trainBtn.end {
+    color: #7d1a10;
+    border: 1px solid #ff8a8a;
+    background-image: linear-gradient(to bottom, #f3b9b2, #ca4e45);
+  }
+  .trainBtn.end:hover {
+    background-image: linear-gradient(to top, #f3b9b2, #ca4e45);
+  }
+  .keyCodeBody {
+    height: calc(100% - 54px);
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+  .deployBox {
+    padding-left: 30px;
+    background: url("../../../../../../assets/LJ/receive/deployBg.png") no-repeat center
+    bottom;
+    background-size: 100% 100%;
+    position: relative;
+    padding-bottom: 10px;
+    padding-top: 10px;
+    flex-shrink: 0;
+  }
+  .deployBox .group {
+    padding-left: 30px;
+    margin-bottom: 20px;
+  }
+  .deployBox .unit {
+    color: #3f6089;
+    font-size: 12px;
+    position: absolute;
+    right: 0px;
+    left: -10px;
+    top: 100%;
+    width: 100px;
+  }
+  .codeBodyBox {
+    height: 100%;
+    padding: 30px 12px 0;
+  }
+  .codeBody {
+    min-height: 67px;
+    background: url("../../../../../../assets/LJ/receive/keyCodeBg.png");
+    background-size: 100% 67px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 8px;
+    position: relative;
+  }
+  .codeBody .code {
+    width: 30px;
+    height: 57px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .codeBody .code.last {
+    opacity: 1;
+    background: url("../../../../../../assets/LJ/receive/lastCodeBg.png") no-repeat
+    center;
+  }
+  .codeBody .code .img {
+    width: 30px;
+  }
+  .stageSettingBox {
+    padding-top: 12px;
+  }
+  .stageSettingBox .row {
+    display: flex;
+    align-items: flex-start;
+    color: #bbcdef;
+    line-height: 24px;
+  }
+  .stageSettingBox .row + .row {
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+  .stageSettingBox .row .lab {
+    width: 100px;
+    text-align: right;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .stageSettingBox .row .tag {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-content: center;
+    justify-content: center;
+    border: solid 1px #4c7595;
+    color: #70a3b8;
+    margin: 0 5px 5px 0;
+    cursor: pointer;
+    border: solid 1px #52675f;
+    color: #57907a;
+  }
+  .stageSettingBox .row .tag.on,
+  .stageSettingBox .row .tag:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+    font-weight: bolder;
+  }
+  .stageSettingBox .row .tag.drag {
+    cursor: move;
+    margin: 0 7px 7px 0;
+  }
+  .stageSettingBox .row .tag.drag.curr {
+    background-color: transparent;
+  }
+  .stageSettingBox .row .tag.drag .txt {
+    user-select: none;
+  }
+  .stageBtn {
+    display: flex;
+    align-items: center;
+    padding-top: 8px;
+  }
+  .stageBtn .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    width: 22px;
+    border: solid 1px #52675f;
+    color: #57907a;
+  }
+  .stageBtn .btn + .btn {
+    margin-left: 10px;
+  }
+  .stageBtn .btn:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+  }
+}
+.KJ{
+  .lab {
+    color: #fff;
+  }
+  .tootlipR {
+    position: relative;
+    background: linear-gradient(to bottom, #1f2b3a 20%, rgba(173, 162, 136, 0.3));
+    color: #f0a13b;
+    padding: 0 15px;
+    height: 20px;
+    line-height: 20px;
+    margin: 0 20px;
+    font-size: 13px;
+  }
+  .tootlipR:before {
+    content: "";
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: url("../../../../../../assets/KJ/preTrain/ico-tooltip-on.png");
+    background-size: 100% 100%;
+    left: -15px;
+    top: -7px;
+  }
+  .mark {
+    background: url("../../../../../../assets/KJ/receive/page.png");
+    position: absolute;
+    top: -23px;
+    /*background: linear-gradient(to right,#ee7400,#0866bd);*/
+    /*transform: skew(30deg);*/
+    left: -8px;
+    color: white;
+    width: 86px;
+    height: 24px;
+    line-height: 24px;
+  }
+  .createDrillBtn {
+    width: 96px;
+    height: 30px;
+    color: #ffffff;
+    font-size: 15px;
+    text-align: center;
+    line-height: 28px;
+    box-shadow: 2px 2px 3px rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    background-image: linear-gradient(#70a3b8, #4c7595);
+    cursor: pointer;
+    position: relative;
+  }
+  .createDrillBtn.prev {
+    background-image: linear-gradient(#e6c165, #bf6c2a);
+  }
+  .createDrillBtn.loadingBtn {
+    cursor: no-drop;
+    opacity: 0.8;
+  }
+  .basicBody {
+    background-color: rgba(38, 41, 36, 0.3);
+  }
+
+  .trainTime {
+    z-index: 9;
+  }
+
+  .basicTitle {
+    height: 73px;
+    background-image: url("../../../../../../assets/KJ/receive/top-bg.png");
+    background-size: 100% 100%;
+    padding: 0 280px 0 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 8;
+  }
+  .stageBox {
+    display: flex;
+    margin-right: 20px;
+    color: #fff;
+  }
+  .stageBox .stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 34px;
+    color: #d7dfe9;
+  }
+  .stageBox .prev {
+    padding-right: 10px;
+    background: url("../../../../../../assets/KJ/receive/stageBg-prev.png") no-repeat
+    center;
+    cursor: pointer;
+  }
+  .stageBox .prev:hover {
+    background: url("../../../../../../assets/KJ/receive/stageBg-prev-hover.png")
+    no-repeat center;
+  }
+  .stageBox .curr {
+    width: 114px;
+    color: #a9abaa;
+    font-size: 12px;
+    background: url("../../../../../../assets/KJ/receive/stageBg-curr.png") no-repeat
+    center;
+  }
+  .stageBox .next {
+    padding-left: 10px;
+    background: url("../../../../../../assets/KJ/receive/stageBg-next.png") no-repeat
+    center;
+    cursor: pointer;
+  }
+  .stageBox .next:hover {
+    background: url("../../../../../../assets/KJ/receive/stageBg-next-hover.png")
+    no-repeat center;
+  }
+  .stageBox .disabled {
+    cursor: no-drop;
+    color: #6485aa;
+  }
+  .stageBox .disabled .ico {
+    opacity: 0.3;
+  }
+  .stageBox .num {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+  }
+  .stageBox .ico {
+    color: #70c9ff;
+    font-weight: bolder;
+    font-size: 22px;
+    margin-right: 6px;
+    height: 14px;
+  }
+  .trainBtn {
+    width: 102px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #610000;
+    font-size: 15px;
+    background-image: url("../../../../../../assets/KJ/receive/trainBtb.png");
+    font-weight: bolder;
+    cursor: pointer;
+  }
+  .trainBtn:hover {
+    /*background-image: linear-gradient(to top, #f4cb94, #e4942d);*/
+  }
+  .trainBtn.end {
+    color: #7d1a10;
+    border: 1px solid #ff8a8a;
+    background-image: linear-gradient(to bottom, #f3b9b2, #ca4e45);
+  }
+  .trainBtn.end:hover {
+    background-image: linear-gradient(to top, #f3b9b2, #ca4e45);
+  }
+  .keyCodeBody {
+    height: calc(100% - 54px);
+    padding: 20px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+  .deployBox {
+    padding-left: 30px;
+    background: url("../../../../../../assets/KJ/receive/deployBg.png") no-repeat center
+    bottom;
+    background-size: 100% 100%;
+    position: relative;
+    padding-bottom: 10px;
+    padding-top: 10px;
+    flex-shrink: 0;
+  }
+  .deployBox .group {
+    padding-left: 30px;
+    margin-bottom: 20px;
+  }
+  .deployBox .unit {
+    color: #3f6089;
+    font-size: 12px;
+    position: absolute;
+    right: 0px;
+    left: -10px;
+    top: 100%;
+    width: 100px;
+  }
+  .codeBodyBox {
+    height: 100%;
+    padding: 30px 12px 0;
+  }
+  .codeBody {
+    min-height: 67px;
+    background: url("../../../../../../assets/KJ/receive/keyCodeBg.png");
+    background-size: 100% 67px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 8px;
+    position: relative;
+  }
+  .codeBody .code {
+    width: 30px;
+    height: 57px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .codeBody .code.last {
+    opacity: 1;
+    background: url("../../../../../../assets/KJ/receive/lastCodeBg.png") no-repeat
+    center;
+  }
+  .codeBody .code .img {
+    width: 30px;
+  }
+  .stageSettingBox {
+    padding-top: 12px;
+  }
+  .stageSettingBox .row {
+    display: flex;
+    align-items: flex-start;
+    color: #bbcdef;
+    line-height: 24px;
+  }
+  .stageSettingBox .row + .row {
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+  .stageSettingBox .row .lab {
+    width: 100px;
+    text-align: right;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .stageSettingBox .row .tag {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-content: center;
+    justify-content: center;
+    border: solid 1px #4c7595;
+    color: #70a3b8;
+    margin: 0 5px 5px 0;
+    cursor: pointer;
+    border: solid 1px #52675f;
+    color: #57907a;
+  }
+  .stageSettingBox .row .tag.on,
+  .stageSettingBox .row .tag:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+    font-weight: bolder;
+  }
+  .stageSettingBox .row .tag.drag {
+    cursor: move;
+    margin: 0 7px 7px 0;
+  }
+  .stageSettingBox .row .tag.drag.curr {
+    background-color: transparent;
+  }
+  .stageSettingBox .row .tag.drag .txt {
+    user-select: none;
+  }
+  .stageBtn {
+    display: flex;
+    align-items: center;
+    padding-top: 8px;
+  }
+  .stageBtn .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    width: 22px;
+    border: solid 1px #52675f;
+    color: #57907a;
+  }
+  .stageBtn .btn + .btn {
+    margin-left: 10px;
+  }
+  .stageBtn .btn:hover {
+    background-color: #e9deb2;
+    border-color: #e9deb2;
+    color: #692609;
+  }
+}

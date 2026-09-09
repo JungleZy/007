@@ -1,0 +1,43 @@
+.DS_Store
+node_modules
+node_modules.zip
+/dist
+/output
+/file
+/manage
+auto-imports.d.ts
+components.d.ts
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw*
+*.iws
+*.iml
+*.ipr
+*.DS_Store
+*.vs
+*.user
+*~
+
+*.log
+.clang-format
+.clang_format.hook
+
+build/
+dist/
+.history/
+.vite/

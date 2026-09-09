@@ -1,5 +1,5 @@
-# 只放跨 backend/ 与 frontend/ 的通用忽略。
-# 各子项目的构建产物忽略在 backend/.gitignore 与 frontend/.gitignore。
+# 只放跨 backend/ 与 bw-frontend/ 的通用忽略。
+# 各子项目的构建产物忽略在 backend/.gitignore 与 bw-frontend/.gitignore。
 
 # IDE
 .idea

@@ -1,11 +1,12 @@
 # 007 — 舰船报务综合训练系统
 
-单仓两工程：Quarkus 后端 + Vue 桌面前端。
+单仓两工程：Quarkus 后端 + Electron 桌面端（内含 Vue 前端）。
 
 | 目录 | 内容 | 详细文档 |
 |---|---|---|
 | [`backend/`](backend/) | Quarkus 3.20.4 / Java 21，REST + WebSocket 服务 | [`backend/README.md`](backend/README.md) |
-| [`frontend/`](frontend/) | Vue 3.5 + Vite 4 桌面前端，运行于外部 Electron 外壳 | [`frontend/README.md`](frontend/README.md) |
+| [`bw-frontend/`](bw-frontend/) | Electron 桌面外壳（主进程、本地 HTTP 服务、串口桥接、授权校验） | [`bw-frontend/README.md`](bw-frontend/README.md) |
+| [`bw-frontend/frontend/`](bw-frontend/frontend/) | Vue 3.5 + Vite 4 前端页面工程 | [`bw-frontend/frontend/README.md`](bw-frontend/frontend/README.md) |
 
 - 仓库：`JungleZy/007`；当前发布版本 `backend/pom.xml` = `1.1.0`
 - 面向 AI 编码代理的命令、约定与红线：[`AGENTS.md`](AGENTS.md)（含**提交约定**：完成一个任务就提交，不攒批）
@@ -29,14 +30,19 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 ### 前端
 
 ```bash
-cd frontend
-npm install
+cd bw-frontend/frontend
+npm ci             # 已有 package-lock.json，安装结果可复现
 npm run dev        # vite --host
 npm run build      # 产物 dist/
 ```
 
-> 仓库内无 lockfile（`frontend/.gitignore` 忽略 `package-lock.json`），
-> `npm install` 每次重解析 `^` 区间，安装结果不可复现。
+Electron 外壳在 `bw-frontend/` 根（主进程入口 `main.js`）：
+
+```bash
+cd bw-frontend
+npm ci
+npm run dev-e      # 仅起 Electron；dev-f 仅起 Vite；build-e-w / build-e-l 打包
+```
 > 详见当前综合评审 [`docs/reviews/2026-09-08-full-project-review.md`](docs/reviews/2026-09-08-full-project-review.md)。
 
 ---
@@ -51,7 +57,11 @@ npm run build      # 产物 dist/
 │   ├── scripts/          #   rehearse-migrations.sh（双快照迁移演练）
 │   ├── pom.xml           #   com.nip:quarkus-template
 │   └── mvnw, mvnw.cmd    #   Maven Wrapper，无需预装 Maven
-├── frontend/             # Vue 前端（src/、public/、vite.config.js）
+├── bw-frontend/          # Electron 桌面端
+│   ├── electron/         #   主进程、controller、本地 HTTP 服务、串口桥接
+│   ├── frontend/         #   Vue 前端（src/、public/、vite.config.js）
+│   ├── bin/              #   随包资源（server/ 与 file/ 为产物，不入库）
+│   └── main.js           #   Electron 入口
 ├── docs/                 # 全仓文档唯一位置（2026-09-08 收口）
 │   ├── README.md         #   文档地图与路径约定
 │   ├── reviews/          #   后端评审 + 前端评审 + 前后端联合评审

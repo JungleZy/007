@@ -1,0 +1,497 @@
+.ico1{
+  background: url("../../../../../../assets/HJ/receive/audio.png");
+  height: 36px;
+  width: 36px;
+  margin-right: 5px;
+}
+.ico1.active,
+.ico1:hover{
+  background: url("../../../../../../assets/HJ/receive/audio-hover.png");
+}
+.ico2{
+  background: url("../../../../../../assets/HJ/receive/audio2.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 3px;
+}
+.ico2.active,
+.ico2:hover{
+  background: url("../../../../../../assets/HJ/receive/audio2-hover.png");
+}
+.ico3{
+  background: url("../../../../../../assets/HJ/receive/speed.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 5px;
+}
+.ico3.active,
+.ico3:hover{
+  background: url("../../../../../../assets/HJ/receive/speed-hove.png");
+}
+.ico4{
+  background: url("../../../../../../assets/HJ/receive/disturb.png");
+  height: 36px;
+  width: 36px;
+  margin-left: 3px;
+}
+.ico4.active,
+.ico4:hover{
+  background: url("../../../../../../assets/HJ/receive/disturb-hover.png");
+}
+.myvideo {
+  height: 100%;
+  width: 100%;
+  z-index: 100;
+  background-color: rgba(0,0,0,.5);
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.playEnd {
+  height: 67px;
+  width: 359px;
+  background: url("../../../../../../assets/HJ/receive/tipsBg.png") no-repeat center;
+  color: #fda24a;
+  font-size: 20px;
+  font-weight: bolder;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 63px;
+  left: calc(50% - 180px);
+  z-index: 5;
+  transform: scale(.8);
+}
+.basicBody {
+  background-color: rgba(23, 31, 41, 0.7);
+}
+
+.scoreBody:before, .scoreBody:after {
+  content: '';
+  width: 288px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.scoreBody:before {
+  background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/zuo.png") no-repeat left;
+  background-size: auto 100%;
+  left: 0;
+}
+.scoreBody:after {
+  background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/you.png") no-repeat right;
+  background-size: auto 100%;
+  right: 0;
+}
+.basicTitle {
+  height: 73px;
+  background-image: url("../../../../../../assets/HJ/receive/top-bg.png") ;
+  background-size: 100% 100%;
+  color: #ffffff;
+  padding-left: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.basicTitle .text {
+  font-size: 13px;
+  margin-left: 20px;
+  flex-shrink: 0;
+  color: #909db0;
+}
+
+.basicTitle .the {
+  font-size: 12px;
+  flex-shrink: 0;
+  color: #009afd;
+}
+
+.trainBtn.end {
+  width: 80px;
+  height: 29px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: bolder;
+  cursor: pointer;
+  color: #7d1a10;
+  border: 1px solid #ff8a8a;
+  background-image: linear-gradient(to bottom, #f3b9b2, #ca4e45);
+  margin-left: 10px;
+}
+.trainBtn.end:hover {
+  background-image: linear-gradient(to top, #f3b9b2, #ca4e45);
+}
+
+
+.trainBtnBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+}
+
+.trainBtnBox .btns {
+  height: 36px;
+  padding: 0 6px;
+  background-color: #161e29;
+  border: 2px solid #2a3a4b;
+  display: flex;
+  border-radius: 5px;
+}
+
+.trainBtnBox .btns .btnIco {
+  width: 42px;
+  padding: 6px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.trainBtnBox .btns .btnIco + .btnIco {
+  border-left: 2px solid #2a3a4b;
+}
+
+.trainBtnBox .btns .btnIco.active:after,
+.trainBtnBox .btns .btnIco:hover:after {
+  content: '';
+  height: 24px;
+  width: 42px;
+  background: url("../../../../../../assets/HJ/home/itemHover.png") no-repeat bottom center;
+  background-size: auto 100%;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+.trainBtnBox .btns .btnIco div {
+  position: relative;
+  z-index: 9;
+}
+
+.configureBox {
+  width: 360px;
+  background-color: #161e29;
+  border: 1px solid #2a3a4b;
+  margin-bottom: 10px;
+  padding: 10px;
+  color: #b4d5f0;
+  position: absolute;
+  left: 20px;
+  top: 60px;
+  z-index: 999;
+}
+
+.configureBox .typeBtn {
+  border: 1px solid #2a3a4b;
+  border-radius: 2px;
+  line-height: 18px;
+  padding: 0 10px;
+  color: #909db0;
+  margin-right: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.configureBox .typeBtn.active {
+  border-color: #777163;
+  color: #e9deb2;
+}
+
+.configureBox .auditionBtn {
+  background-color: #38556d;
+  line-height: 20px;
+  flex-shrink: 0;
+  font-size: 12px;
+  padding: 0 10px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.configureBox .text {
+  font-size: 12px;
+  color: #e9deb2;
+}
+
+.volumeSlider.voice {
+  width: 100%;
+  padding-bottom: 12px;
+  border-left: 1px solid #354971;
+  border-right: 1px solid #354971;
+}
+
+.switch {
+  position: relative;
+  height: 34px;
+  width: 88px;
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/switch.png");
+  cursor: pointer;
+}
+
+.slider {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/slider.png");
+  background-repeat: no-repeat;
+  position: absolute;
+  height: 34px;
+  width: 39px;
+  transition: all linear .1s;
+}
+
+.light {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/light.png");
+  background-repeat: no-repeat;
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  right: -5px;
+  top: 7px;
+}
+
+.light.active {
+  background-image: url("../../../../../../assets/HJ/telexTrain/switch/lightActive.png");
+}
+
+.bbType {
+  width: 87px;
+  height: 29px;
+  margin-left: 10px;
+  background: url("../../../../../../assets/HJ/receive/btn-bg.png") no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #70a3b8;
+  cursor: pointer;
+}
+
+.bbType.on,
+.bbType:hover {
+  background: url("../../../../../../assets/HJ/receive/btn-bg-on.png") no-repeat;
+  color: #fc9e44;
+}
+
+.keyCodeBody {
+  height: calc(100% - 126px - 50px);
+  width: 100%;
+  background-repeat: no-repeat;
+  background-position: top;
+  padding:20px 50px;
+  margin-top: -20px;
+}
+
+.keyCode {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  z-index: 99;
+}
+.keyItem1 {
+  width: calc(100% / 9);
+  height: 25%;
+}
+.keyItem2 {
+  width: calc(100% / 5);
+  height: 45%;
+}
+.keyItem {
+  padding: 10px 15px;
+  position: relative;
+}
+
+.keyItem .bg {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  background: url("../../../../../../assets/HJ/receive/keyCode-bg.png") no-repeat top;
+  background-size: 100% 100%;
+  border-radius: 10px 10px 4px 4px;
+  position: relative;
+}
+.keyItem .bg .bg-content{
+  position: relative;
+}
+
+.bg::after{
+  content:"";
+  width: 30px;
+  position: absolute;
+  height: 17px;
+  background: url("../../../../../../assets/HJ/receive/joint.png") repeat ;
+  background-size: 100% 100%;
+  /*background: red;*/
+  right: -30px;
+  top: calc(50% - 8px);
+}
+.noAfter::after{
+  content: ""!important;
+  width: 0px;
+  height: 0px;
+}
+.keyItem .bg.active {
+  background: url("../../../../../../assets/HJ/receive/keyCode-bg-on.png") no-repeat top;
+  background-size: 100% 100%;
+}
+.keyItem .bg.active {
+  background: url("../../../../../../assets/HJ/receive/keyCode-bg-on.png") no-repeat top;
+  background-size: 100% 100%;
+}
+.keyItem .bg.sltOk {
+  background: url("../../../../../../assets/HJ/receive/keyCode-bg-ok.png") no-repeat top;
+  background-size: 100% 100%;
+  box-shadow: 0 0 20px #034440;
+}
+.keyItem .bg.sltUn {
+  background: url("../../../../../../assets/HJ/receive/keyCode-bg-un.png") no-repeat top;
+  background-size: 100% 100%;
+  box-shadow: 0 0 20px #7b0606;
+}
+.keyItem:hover .bg.active,
+.keyItem:hover .bg {
+  transform: scale(.95);
+}
+.keyItem .bg.sltOk .bb,
+.keyItem .bg.sltUn .bb {
+  display: none;
+}
+
+.keyItem .bg .item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 1.6%;
+  left: 12%;
+  right: 12%;
+  bottom: 0%;
+}
+
+.keyItem .bg.active .item {
+  /*animation: glint 2s linear infinite;*/
+  /*-webkit-animation: glint 2s linear infinite;*/
+}
+
+.keyItem .bg .key {
+  width: 70%;
+  margin-bottom: 35px;
+}
+.keyItem .bg .key.error {
+  filter: hue-rotate(90deg);
+}
+.keyItem .bg .key.success {
+  filter: hue-rotate(-90deg);
+}
+
+.keyItem .bg .val {
+  width: 4px;
+  height: 4px;
+  /*border-radius: 4px;*/
+  background-color: #909db0;
+}
+.keyItem .bg .val.error {
+  background-color: #d11d1d;
+}
+.keyItem .bg .val.success {
+  background-color: #28a956;
+}
+
+.keyItem .bg .val[data="1"] {
+  width: 12%;
+}
+
+.keyItem .bg .val.on {
+  background-color: #fc9e44;
+}
+
+.keyItem .bg .val + .val {
+  margin-left: 4px;
+}
+
+.keyItem .bg .bbContent{
+  position: absolute;
+  right: 20px;
+  top: 10px;
+  background: #948369;
+  padding: 2px 5px;
+  border-radius: 5px;
+}
+.keyItem .bg .bbContent .bb {
+  width: 30px;
+  height: 15px;
+}
+
+@keyframes glint {
+  0% {
+    -webkit-box-shadow: inset 0 0 5px rgba(110, 189, 255, .2);
+    box-shadow: inset 0 0 5px rgba(110, 189, 255, .2);
+  }
+  25% {
+    -webkit-box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+  }
+  50% {
+    -webkit-box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+  }
+  75% {
+    -webkit-box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+  }
+  100% {
+    -webkit-box-shadow: inset 0 0 5px rgba(110, 189, 255, .2);
+    box-shadow: inset 0 0 5px rgba(110, 189, 255, .2);
+  }
+}
+.deployBox{
+  margin-top: 16px;
+  padding-top: 6px;
+  width: 100%;
+  height: 100px;
+}
+.deployBox .item {
+  display: flex;
+}
+.deployBox .deploy {
+  height: 44px;
+  width: 159px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #bfcde0;
+  background: url("../../../../../../assets/HJ/receive/trainbtn-bg.png") no-repeat center;
+}
+.deployBox .deploy:hover,
+.deployBox .deploy.on {
+  background: url("../../../../../../assets/HJ/receive/trainBtn-bg-hover.png") no-repeat center;
+  color: #e9deb2;
+}
+.deployBox .deploy + .deploy {
+  margin-left: 8px
+}
+.numberCode{
+  width: 955px;
+  height: 400px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.disturbBox {
+  padding-left: 20px;
+}
+.disturbBox >>> input[type='checkbox'].ant-checkbox-input {
+  width: 14px !important;
+  height: 14px !important;
+}
+.disturbBox >>> .ant-checkbox-wrapper {
+  color: #909db0;
+  font-size: 13px;
+}
+.disturbBox >>> .ant-checkbox-wrapper .ant-checkbox-inner {
+  width: 16px !important;
+  height: 16px !important;
+}

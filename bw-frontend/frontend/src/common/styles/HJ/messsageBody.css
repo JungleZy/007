@@ -1,0 +1,387 @@
+/*手键、电子键、数据报、电传右侧样式*/
+
+._top {
+  width: 100%;
+  height: 80px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+._top .bg {
+  width: 100%;
+  height: 100%;
+}
+
+._top .cont {
+  position: absolute;
+  top: 16%;
+  left: 3.5%;
+  right: 3.5%;
+  bottom: 10%;
+}
+._top .scale {
+  height: 8px;
+  background: url("../../../assets/HJ/postTrain/scale.png");
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.HJJ ._top .scale {
+  height: 8px;
+  background: url("../../../assets/HJJ/postTrain/scale.png");
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.LJ ._top .scale {
+  height: 8px;
+  background: url("../../../assets/LJ/postTrain/scale.png");
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+._top .vals {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+._top .vals::-webkit-scrollbar-thumb {
+  visibility: hidden;
+}
+._top .val {
+  min-width: 2px;
+  height: 20%;
+  min-height: 8px;
+  background-color: #5178a8;
+  border-radius: 1px;
+  flex-shrink: 0;
+  max-width: 80px;
+}
+._top .gap {
+  min-height: 5px;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: #5178a8;
+  text-align: center;
+  max-width: 240px;
+}
+
+.LJ ._top .val {
+  min-width: 2px;
+  height: 20%;
+  min-height: 8px;
+  background-color:  #e9deb2;
+  border-radius: 1px;
+  flex-shrink: 0;
+  max-width: 80px;
+}
+.LJ ._top .gap {
+  min-height: 5px;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  color:  #e9deb2;
+  text-align: center;
+  max-width: 240px;
+}
+.trainCenter ._main {
+  width: 100%;
+  height: calc(100% - 80px);
+  padding: 0 .96% .9%;
+  position: relative;
+}
+._bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+._bottom .bg {
+  width: 100%;
+}
+._bottom .pag {
+  width: 540px;
+  height: 38%;
+  min-height: 24px;
+  background: url("../../../assets/HJ/postTrain/pag.png") no-repeat center;
+  background-size:  auto 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #bfcde0;
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  margin-left: -270px;
+}
+.HJJ ._bottom .pag {
+  width: 540px;
+  height: 38%;
+  min-height: 24px;
+  background: url("../../../assets/HJJ/postTrain/pag.png") no-repeat center;
+  background-size:  auto 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #bfcde0;
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  margin-left: -270px;
+}
+.LJ ._bottom .pag {
+  width: 540px;
+  height: 38%;
+  min-height: 24px;
+  background: url("../../../assets/LJ/postTrain/pag.png") no-repeat center;
+  background-size:  auto 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #bfcde0;
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  margin-left: -270px;
+}
+._bottom .pag .line {
+  margin: 0 4%;
+  height: 12px;
+  width: 1px;
+  background-color: rgba(0,0,0,0);
+}
+._bottom .pag .num {
+  color: #e9deb2;
+  font-size: 18px;
+  font-weight: bold;
+}
+._main .cont {
+  width: 100%;
+  height: 100%;
+  background-size:  100% auto;
+  padding-bottom: 2%;
+  padding-top: 2%;
+  display: flex!important;
+  flex-direction: column;
+  align-items: center;
+}
+.HJ ._main .cont{
+  box-shadow: inset 0 0 16px rgba(110, 189, 255, .4);
+  background: url("../../../assets/HJ/postTrain/bg.png");
+}
+._main .patKey {
+  width: 90%;
+  max-width: 1253px;
+  flex-shrink: 0;
+  position: relative;
+}
+._main .patKey .bg {
+  height: 180px;
+}
+._main .patKey .keys {
+  position: absolute;
+  top: 6px;
+  left: 2%;
+  right: 2%;
+  bottom: 5px;
+}
+._main .patKey .keysRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+._main .patKey .key {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-right: 20px;
+  color: white;
+}
+._main .patTelegraphBox {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 2% 0 1%;
+}
+._main .switch {
+  width: 10%;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+._main .switch .img {
+  width: 30px;
+  cursor: pointer;
+  opacity: 0.9;
+}
+._main .switch .img:hover{
+  opacity: 1;
+}
+._main .patTelegraph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  position: relative;
+}
+._main .patTelegraph .tag {
+  width: 70px;
+  height: 24px;
+
+  color: #fff;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 24px;
+  position: absolute;
+  top: 6px;
+  left: -76px;
+}
+.HJ ._main .patTelegraph .tag{
+  background: url("../../../assets/HJ/postTrain/tag.png") no-repeat center;
+}
+.HJJ ._main .patTelegraph .tag{
+  background: url("../../../assets/HJJ/postTrain/tag.png") no-repeat center;
+}
+.LJ ._main .patTelegraph .tag{
+  background: url("../../../assets/LJ/postTrain/tag.png") no-repeat center;
+}
+
+
+.HJ ._main .serial,.HJJ ._main .serial {
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  color: #8eafca;
+  align-content: stretch;
+}
+
+.LJ ._main .serial {
+  margin-left: 6px;
+  display: flex;
+  flex-direction: column;
+  color: #a9abaa;
+  align-content: stretch;
+}
+._main .serial .ser {
+  height: calc((100% - 36px) / 10);
+  flex-grow: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+._main .serial .ser.head {
+  height: 36px;
+  flex-grow: 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+._main .machineBox {
+  width: 100%;
+  height: 100%;
+  padding: 3% 15%;
+  position: relative;
+  overflow: hidden;
+}
+._main .machineBox:before {
+  content: '';
+  width: 80%;
+  background: url("../../../assets/HJ/postTrain/machineBg.png") no-repeat;
+  background-size: 100% auto;
+  position: absolute;
+  left: 10%;
+  top: 0;
+  bottom: 0;
+}
+
+
+.LJ ._main .machineBox:before {
+  content: '';
+  width: 80%;
+  background: url("../../../assets/LJ/postTrain/machineBg.png") no-repeat;
+  background-size: 100% auto;
+  position: absolute;
+  left: 10%;
+  top: 0;
+  bottom: 0;
+}
+
+/*报文纸样式*/
+.telegraph {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #171e27;
+  background-color: rgba(255,255,255,0.9);
+  display: flex;
+  flex-direction: column;
+}
+.telegraph .rowHead {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  flex-shrink: 0;
+}
+.telegraph .keyBox {
+  display: flex;
+  flex-wrap: wrap;
+  height: 100%;
+}
+.telegraph .key {
+  color: #000;
+  font-weight: bold;
+  font-size: 20px;
+  width: 10%;
+  height: 10%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid rgba(0,0,0,0.2);
+}
+.telegraph .key.curr {
+  /*color: #70c9ff;*/
+}
+.telegraph .key:nth-of-type(10n) {
+  border-right: none;
+}
+.telegraph .key:nth-child(10){
+  border-top: 0px!important;
+}
+.telegraph .key:nth-of-type(n+10) {
+  border-top: 1px solid rgba(0,0,0,0.2);
+}
+.telegraph .key:nth-of-type(41),
+.telegraph .key:nth-of-type(42),
+.telegraph .key:nth-of-type(43),
+.telegraph .key:nth-of-type(44),
+.telegraph .key:nth-of-type(45),
+.telegraph .key:nth-of-type(46),
+.telegraph .key:nth-of-type(47),
+.telegraph .key:nth-of-type(48),
+.telegraph .key:nth-of-type(49),
+.telegraph .key:nth-of-type(50) {
+  border-bottom: 2px solid rgba(0,0,0,0.5) !important;
+}
+
+.telegraph .key:nth-of-type(5n){
+  border-right: 2px solid rgba(0,0,0,0.4) !important;
+}
+.telegraph .rowHead .key {
+  color: #161e29;
+  height: 100%;
+  font-weight: bold;
+  font-size: 18px;
+  background-color: #4c7595;
+  border: none;
+}
