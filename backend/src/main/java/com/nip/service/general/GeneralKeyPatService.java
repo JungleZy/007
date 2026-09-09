@@ -465,13 +465,13 @@ public class GeneralKeyPatService {
        * }
        */
 
-      // 分数计算，计算该训练下所有人员的分数
-      List<GeneralKeyPatUserInfoVO> userInfoList = new ArrayList<GeneralKeyPatUserInfoVO>();
-      // List<String> userIds =
-      // trainUserDao.findTrainUserIdsByTrainId(entity.getId());
+      List<GeneralKeyPatUserInfoVO> userInfoList = new ArrayList<>();
       GeneralKeyPatUserEntity userTrainEntity = Optional.ofNullable(
               trainUserDao.findByUserIdAndTrainId(dto.getUserId(), dto.getTrainId()))
           .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
+      if (Objects.equals(userTrainEntity.getIsFinish(), 1)) {
+        return List.of(PojoUtils.convertOne(userTrainEntity, GeneralKeyPatUserInfoVO.class));
+      }
       userTrainEntity.setIsFinish(1);
       trainUserDao.save(userTrainEntity);
       GeneralKeyPatUserEntity generalKeyPatUserEntity = countScore(entity, dto.getUserId());
@@ -1042,5 +1042,29 @@ public class GeneralKeyPatService {
       patUserEntity.setIsFinish(2);
       trainUserDao.save(patUserEntity);
     }
+  }
+
+  @Transactional
+  public void reset(Integer trainId, String token) {
+    if (trainId == null || trainDao.findById(trainId) == null) {
+      throw new IllegalArgumentException("未查询到训练");
+    }
+    String userId = userService.getUserByToken(token).getId();
+    GeneralKeyPatUserEntity participant = Optional.ofNullable(trainUserDao.findByUserIdAndTrainId(userId, trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
+    userValueDao.deleteByTrainIdAndUserId(trainId, userId);
+    resolverDao.deleteByTrainIdAndUserId(trainId, userId);
+    moreEntityDao.delete("trainId = ?1 and userId = ?2", trainId, userId);
+    participant.setIsFinish(0);
+    participant.setAccuracy("0.00");
+    participant.setSpeed("0");
+    participant.setErrorNumber(0);
+    participant.setScore(BigDecimal.ZERO);
+    participant.setDuration("0");
+    participant.setFinishTime(null);
+    participant.setContent(null);
+    participant.setDeductInfo(null);
+    participant.setStatisticInfo(null);
+    trainUserDao.save(participant);
   }
 }

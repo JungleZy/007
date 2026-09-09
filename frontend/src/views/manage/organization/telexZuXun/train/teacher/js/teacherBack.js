@@ -1,5 +1,5 @@
 import {onMounted, ref, onUnmounted,nextTick} from "vue";
-import {getHandKeyZuXunDetails,resetHandKeyZuXunStatistics} from "../../../../../../../common/api/electronKeyZuXun.js";
+import {getDatagramDetail, getDatagramStatistics} from '../../../../../../../common/api/datagramZuXun.js'
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import { useRoute } from 'vue-router'
 import * as echarts from "echarts"
@@ -90,9 +90,7 @@ export default function () {
 
   /** 获取训练详情 */
   const getZuXunTrainDetails = () => {
-    getHandKeyZuXunDetails({
-      id: trainId.value
-    }).then(res => {
+    getDatagramDetail({trainId: trainId.value}).then(res => {
       loading.value = false;
       if (res.code === 200) {
         res.data.userInfoList = res.data.userInfoList.filter(user => {
@@ -127,7 +125,7 @@ export default function () {
 
   /** websocket连接 */
   const connectWebsocket = () => {
-    const url =`/generalTickerPat/${userInfo.id}/${trainId.value}`
+    const url = `/generalTelexPatTrain/${userInfo.id}/${trainId.value}`
     ws_connect(url, receiveWebSocketMessage)
   }
 
@@ -176,7 +174,7 @@ export default function () {
 
   /** 获取训练统计信息 */
   const trainStatistics = () => {
-    resetHandKeyZuXunStatistics({id:trainId.value}).then(res => {
+    getDatagramStatistics({trainId: trainId.value}).then(res => {
       if (res.code === 200) {
         chartData.value.pie = [
           {name: "70分以下", value:res.data.schoolReport.belowStandard.peopleNumber},

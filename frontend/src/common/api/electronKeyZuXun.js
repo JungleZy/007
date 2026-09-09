@@ -35,10 +35,10 @@ export const uploadElectronKeyZuXunPatResult = (data) => {
     data
   })
 }
-export const resetHandKeyZuXunTrain = (data) => {
+export const resetElectronKeyZuXunTrain = (data) => {
   return axios({
     method: "post",
-    url: "/api/generalTickerPatTrain/reset",
+    url: "/api/generalKeyPat/reset",
     data
   })
 }

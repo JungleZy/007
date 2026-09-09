@@ -2,7 +2,7 @@ import {ref, onMounted, onUnmounted, watch, nextTick} from "vue";
 import {useRoute} from "vue-router"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
 import {partTimeFormatInfo,sum} from "../../../../../../../common/utils/Utils.js";
-import {getElectronKeyZuXunPageNumber,updateElectronKeyPatTrainDetails} from "../../../../../../../common/api/electronKeyZuXun.js";
+import {endPatDetail, getDatagramZuXunPageNumber} from '../../../../../../../common/api/datagramZuXun.js'
 import * as echarts from "echarts"
 import { deepClone } from '../../../../../../../common/utils/Utils'
 
@@ -56,68 +56,32 @@ export default function telegramList(showChart,selfId) {
 
     if (route.query.id && route.query.id !== '') {
       scoreData.value.trainId = Number(route.query.id);
-      updateElectronKeyPatTrainDetails({
+      endPatDetail({
         trainId: scoreData.value.trainId,
-        userId: selfId
+        userId: selfId,
+        pageNumber: 1
       }).then(res => {
         loading.value = false;
         if (res.code === 200) {
           for (let key in res.data) {
             scoreData.value[key] = res.data[key];
           }
-          res.data.content.forEach((item)=>{
-            item.key=JSON.parse(item.key)
-            item.time=JSON.parse(item.time??'[]')
-            item.value=JSON.parse(item.value??'[]')
+          res.data.content.forEach(item => {
+            item.key = JSON.parse(item.key)
+            item.time = JSON.parse(item.time ?? '[]')
+            item.value = JSON.parse(item.value ?? '[]')
           })
-          scoreData.value.content = res.data.content.slice(0,100)
-          scoreData.value.nextContent = res.data.content.slice(100,200)
-          scoreData.value.deductInfo = JSON.parse(scoreData.value.deductInfo);
-          scoreData.value.ruleContent = JSON.parse(scoreData.value.ruleContent);
-          if(res.data.isCable===1){
-            scoreData.value.pag = res.data.pageCount
-          }else {
-            scoreData.value.pag = Math.ceil(scoreData.value.totalNumber/100);
-          }
-          scoreData.value.duration = partTimeFormatInfo(scoreData.value.duration*1000, 'number');
-          scoreData.value.duration = scoreData.value.duration.replace(/：/g, ':');
-          trendLogKeyData.value = scoreData.value.content;
-          patTotal.value = scoreData.value.pageAnalyzeVOS;
-          if (scoreData.value.pageAnalyzeVOS.length < scoreData.value.pag) {
-            const num = (scoreData.value.pag - scoreData.value.pageAnalyzeVOS.length);
-            for(let p=0;p<num;p++) {
-              patTotal.value.push({patNumber:0,totalTime: 1})
-            }
-          }
-          resolve.value = [];
-          let obj = {};
-          if(scoreData.value.moreGroupLine.length>0){
-            scoreData.value.moreGroupLine[0].moreGroups.map(item => {
-              obj[(item.point-1)+''] = item.message.join(',')
-            })
-          }
-          scoreData.value.resolverMessage = scoreData.value.resolverMessage.map(item => {
-            return (item=='[]'?'':item)
-          })
-          resolve.value.push({
-            message: scoreData.value.resolverMessage.slice(0,100),
-            moreGroups: scoreData.value.moreGroupLine.length>0?scoreData.value.moreGroupLine[0].moreGroups:[],
-            moreObj: obj,
-            moreLine: []
-          })
-          if (scoreData.value.pag > 1) {
-            obj = {};
-            scoreData.value.moreGroupLine[1].moreGroups.map(item => {
-              obj[item.point+''] = item.message.join(',')
-            })
-            resolve.value.push({
-              message: scoreData.value.resolverMessage.slice(100,200),
-              moreGroups: scoreData.value.moreGroupLine[1].moreGroups,
-              moreObj: obj,
-              moreLine: []
-            })
-          }
-          totalTelegraghMsg();
+          scoreData.value.content = res.data.content.slice(0, 100)
+          scoreData.value.nextContent = res.data.content.slice(100, 200)
+          scoreData.value.deductInfo = JSON.parse(res.data.deductInfo || '{}')
+          scoreData.value.ruleContent = JSON.parse(res.data.ruleContent || '{}')
+          scoreData.value.pag = res.data.pageCount || Math.ceil(scoreData.value.totalNumber / 100)
+          scoreData.value.duration = partTimeFormatInfo((scoreData.value.duration || 0) * 1000, 'number').replace(/：/g, ':')
+          trendLogKeyData.value = scoreData.value.content
+          patTotal.value = res.data.pageAnalyzeVOS || []
+          resolve.value = [{message: [], moreGroups: [], moreObj: {}, moreLine: []}]
+          if (scoreData.value.pag > 1) resolve.value.push({message: [], moreGroups: [], moreObj: {}, moreLine: []})
+          totalTelegraghMsg()
         }
       })
     }
@@ -158,71 +122,26 @@ export default function telegramList(showChart,selfId) {
    * 获取指定页的报底
    * @param
    */
-  const getPostTrainKeyInfo = (num) => {
-    let page =scoreData.value.currPage+num
-    if(page>scoreData.value.pag || page < 1)return
-    getElectronKeyZuXunPageNumber({
-      trainId: route.query.id,
+  const getPostTrainKeyInfo = num => {
+    const page = scoreData.value.currPage + num
+    if (page > scoreData.value.pag || page < 1) return
+    getDatagramZuXunPageNumber({
+      trainId: scoreData.value.trainId,
       userId: selfId,
       pageNumber: page
     }).then(res => {
-      if (res.code === 200) {
-        res.data.messageVO.forEach((item)=>{
-          item.key=JSON.parse(item.key)
-          item.time=JSON.parse(item.time??'[]')
-          item.value=JSON.parse(item.value??'[]')
-        })
-        if(num==1){
-          scoreData.value.nextContent = res.data.messageVO
-        }else{
-          scoreData.value.preContent = res.data.messageVO
-        }
-        let obj = {};
-        res.data.moreGroup.map(item => {
-          obj[item.point+''] = item.message.join(',')
-        })
-        res.data.resolverMessage = res.data.resolverMessage.map(item => {
-          return (item=='[]'?'':item)
-        })
-        resolve.value.push({
-          message: res.data.resolverMessage,
-          moreGroups: res.data.moreGroup,
-          moreObj: obj,
-          moreLine: []
-        })
-      }
+      if (res.code !== 200) return
+      const content = res.data.messageContent.map(item => ({
+        ...item,
+        key: JSON.parse(item.key),
+        time: JSON.parse(item.time ?? '[]'),
+        value: JSON.parse(item.value ?? '[]')
+      }))
+      if (num === 1) scoreData.value.nextContent = content
+      else scoreData.value.preContent = content
     })
-  };
-
-  const resDataHandle = (leaf,finishInfo) => {
-    let leafLogs = finishInfo&&finishInfo.patLogs?finishInfo.patLogs:[],
-        pushNumber=0,cacheArr = [];
-
-    if (leafLogs.length > 0) {
-      leafLogs = leafLogs.filter((a,b) => b>0)
-    }
-    leaf = JSON.parse(leaf).map(item => {
-      item['patLog'] = [];
-      item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
-      item.patKeys = JSON.parse(item.patKeys);
-      item.moresValue = JSON.parse(item.moresValue);
-      item.moresTime = JSON.parse(item.moresTime);
-      item.patLogs = JSON.parse(item.patLogs);
-      if (leafLogs.length > 0) {
-        item.moresTime.map(cod => {
-          cacheArr = leafLogs.filter((log,lo) => lo>=pushNumber&&lo<(pushNumber+cod.length*2));
-          item['patLog'].push(cacheArr);
-          pushNumber += cod.length * 2
-          if (pushNumber > leafLogs.length) {
-            item['patLog'][item['patLog'].length-1].push({key: 2, name: "间隔"+pushNumber, value: 1000})
-          }
-        })
-      }
-      return item
-    });
-    trendLogKeyData.value.push(leaf);
-    return leaf
   }
+
 
   /**
    * 统计当前电报纸拍发数据信息

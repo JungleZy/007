@@ -17,10 +17,10 @@
         <div class="table_list_box overflow-auto" style=" padding: 0 10px">
           <a-table :columns="columns" :loading="tableLoading" :rowKey="record => record.id" :pagination="false"
                    :data-source="tableData">
-            <template #isAverage="{ text }">
-              {{ text ? '平均报底' : '乱码报底' }}
+            <template #patType="{ text }">
+              {{ text == 0 ? '挨指报底' : text == 1 ? '对手报底' : text == 2 ? '随机' : '--' }}
             </template>
-            <template #messageType="{ text }">
+            <template #type="{ text }">
               {{ text == 0 ? '数码' : text == 1 ? '字码' : text == 2 ? '混合报' : '--' }}
             </template>
             <template #totalNumber="{ text }"> {{ text }} 组</template>
@@ -154,7 +154,7 @@
 <!--              </div>-->
               <div class="lab">报底类型：</div>
               <div class="item" style="padding-left: 2px">
-                <a-radio-group v-model:value="trainData.patType" @change="selectType">
+                <a-radio-group v-model:value="formData.patType">
                   <a-radio :value="0">挨指报底</a-radio>
                   <a-radio :value="1">对手报底</a-radio>
                   <a-radio :value="2">随机</a-radio>

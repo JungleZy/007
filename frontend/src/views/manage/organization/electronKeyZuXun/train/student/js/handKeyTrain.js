@@ -7,7 +7,7 @@ import {useRouter} from "vue-router";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {
   finishElectronKeyZuXun,
-  getElectronKeyZuXunPageNumber,uploadElectronKeyZuXunPatResult,resetHandKeyZuXunTrain,startTrainUser
+  getElectronKeyZuXunPageNumber,uploadElectronKeyZuXunPatResult,resetElectronKeyZuXunTrain,startTrainUser
 } from "../../../../../../../common/api/electronKeyZuXun.js";
 
 export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,patKey) {
@@ -486,9 +486,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
    * 重置训练
    */
   const resetTrainInfo = () => {
-    resetHandKeyZuXunTrain({
-      id: trainData.value.trainId
-    }).then(res => {});
+    resetElectronKeyZuXunTrain({trainId: trainData.value.trainId}).then(res => {});
   };
 
   const connectWebsocket = () => {

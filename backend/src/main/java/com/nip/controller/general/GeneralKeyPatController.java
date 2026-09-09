@@ -177,6 +177,14 @@ public class GeneralKeyPatController {
     return ResponseResult.success();
   }
 
+  @POST
+  @Path("/reset")
+  @Operation(summary = "重置当前学员的电子键训练数据")
+  public Response<Void> reset(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    patTrainService.reset(param.getTrainId(), token);
+    return ResponseResult.success();
+  }
+
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")

@@ -23,7 +23,7 @@
                       <div>
                         <div class="title">报文类型</div>
                         <div class="tags nobr">
-                          {{ trainData.messageType==0?'数据报':trainData.messageType==1?'字码报':'混合报' }}
+                          {{ trainData.type==0?'数据报':trainData.type==1?'字码报':'混合报' }}
                         </div>
                       </div>
                     </div>
@@ -157,7 +157,7 @@
   import { PubSub } from '../../../../../../common/utils/PubSub.js'
   import { wsCode } from '../../../../../../common/ws/Ws.js'
   import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
-  import {getElectronKeyZuXunDetails} from "../../../../../../common/api/electronKeyZuXun.js";
+  import {getDatagramDetail} from '../../../../../../common/api/datagramZuXun.js'
   import useControl from './js/useControl.js'
   import details from './js/datagramTrain.js'
   import Number from '../../../../../../components/number/Number.vue'
@@ -197,9 +197,9 @@
   onMounted(() => {
     if (route.query.id && route.query.id !== '') {
       trainData.value.trainId = route.query.id * 1
-      getElectronKeyZuXunDetails({
+      getDatagramDetail({
         trainId: trainData.value.trainId,
-        uid: userInfo.id
+        userId: userInfo.id
       }).then(res => {
         loading.value = false
         if (res.code === 200) {
@@ -244,14 +244,12 @@
     }
   })
   onUnmounted(() => {
-    console.log(trainData.value);
     if (trainData.value.status === 1) {
-      console.log(11111111111);
       let obj = {
-        patPage: trainData.floorNow,
+        patPage: trainData.value.floorNow,
         patKeyIndex: currPatKeyIndex.value,
         time: trainData.value.validTime,
-        speed: trainData.speed,
+        speed: trainData.value.speed,
         pageCodes: pageCodes.value
       }
       window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))
@@ -261,10 +259,10 @@
   window.onbeforeunload = () => {
     if (trainData.value.status == 1) {
       let obj = {
-        patPage: trainData.floorNow,
+        patPage: trainData.value.floorNow,
         patKeyIndex: currPatKeyIndex.value,
         time: trainData.value.validTime,
-        speed: trainData.speed,
+        speed: trainData.value.speed,
         pageCodes: pageCodes.value
       }
       window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))

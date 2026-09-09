@@ -1,7 +1,5 @@
 import {onMounted, ref, onUnmounted, onBeforeUnmount, nextTick} from "vue";
-import {
-  getElectronKeyZuXunDetails,resetElectronKeyZuXunStatistics,updateElectronKeyTrainStatus
-} from "../../../../../../../common/api/electronKeyZuXun.js";
+import {getDatagramDetail, getDatagramStatistics, updateTrainStatus} from '../../../../../../../common/api/datagramZuXun.js'
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {PubSub} from "../../../../../../../common/utils/PubSub.js";
 import { useRoute } from 'vue-router'
@@ -58,7 +56,7 @@ export default function () {
 
   /** 获取训练详情 */
   const getZuXunTrainDetails = () => {
-    getElectronKeyZuXunDetails({
+    getDatagramDetail({
       trainId: trainId.value
     }).then(res => {
       loading.value = false;
@@ -85,7 +83,7 @@ export default function () {
 
   /** websocket连接 */
   const connectWebsocket = () => {
-    const url =`/generalKeyPatTrain/${userInfo.id}/${trainId.value}`
+    const url = `/generalTelexPatTrain/${userInfo.id}/${trainId.value}`
     ws_connect(url, receiveWebSocketMessage)
   }
 
@@ -126,7 +124,7 @@ export default function () {
   /** 获取训练统计信息 */
   const trainStatistics = () => {
     let obj = {};
-    resetElectronKeyZuXunStatistics({trainId:trainId.value}).then(res => {
+    getDatagramStatistics({trainId: trainId.value}).then(res => {
       if (res.code === 200) {
         chartData.value.pie = [
           {name: "70分以下", value:res.data.schoolReport.belowStandard.peopleNumber},
@@ -176,7 +174,6 @@ export default function () {
       timeAreaShow(trainData.value.validTime * 1000);
     },1000);
   };
-
   /**
    * 时间区域显示
    */
@@ -196,22 +193,22 @@ export default function () {
 
   /** 开始训练 */
   const startTrain = () => {
-    updateElectronKeyTrainStatusInfo(1)
+    updateTrainStatusInfo(1)
   }
 
   /** 结束训练 */
   const endTrain = () => {
-    updateElectronKeyTrainStatusInfo(2)
+    updateTrainStatusInfo(2)
   }
 
   /**
    * 更新组训状态
    * @param status 1-开始；2-结束；
    */
-  const updateElectronKeyTrainStatusInfo = (status) => {
-    updateElectronKeyTrainStatus({
+  const updateTrainStatusInfo = status => {
+    updateTrainStatus({
       trainId: trainId.value,
-      status: status
+      status
     }).then(res => {
       if (res.code === 200) {
         if (status == 1) {

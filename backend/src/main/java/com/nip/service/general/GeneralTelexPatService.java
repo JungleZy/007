@@ -469,13 +469,18 @@ public class GeneralTelexPatService {
     try {
       GeneralTelexPatEntity entity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
           .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-      // 分数计算，计算该训练下所有人员的分数
       List<GeneralTelexPatUserInfoVO> userInfoList = new ArrayList<>();
-      GeneralTelexPatUserEntity userTrainEntity = countScore(entity, dto.getUserId());
+      GeneralTelexPatUserEntity userTrainEntity = Optional.ofNullable(
+          trainUserDao.findByUserIdAndTrainId(dto.getUserId(), dto.getTrainId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
+      if (Objects.equals(userTrainEntity.getIsFinish(), 1)) {
+        return List.of(PojoUtils.convertOne(userTrainEntity, GeneralTelexPatUserInfoVO.class));
+      }
+      GeneralTelexPatUserInfoVO userInfo = PojoUtils.convertOne(countScore(entity, dto.getUserId()), GeneralTelexPatUserInfoVO.class);
       userTrainEntity.setIsFinish(1);
       userTrainEntity.setFinishTime(LocalDateTime.now());
       trainUserDao.save(userTrainEntity);
-      userInfoList.add(PojoUtils.convertOne(userTrainEntity, GeneralTelexPatUserInfoVO.class));
+      userInfoList.add(userInfo);
       trainUserDao.findRoleAdminByUserId(dto.getTrainId()).forEach(admin -> {
         WebSocketService.sendInfo(admin.getUserId(),
             new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),

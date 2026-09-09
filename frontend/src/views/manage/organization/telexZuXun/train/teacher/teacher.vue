@@ -45,7 +45,7 @@
           <div class="trainName">{{trainData.title}}</div>
           <div class="layout-center">
             <div class="descItem">类型：
-              <strong>{{ trainData.messageType == 0 ? '数码报' : trainData.messageType == 1 ? '字码报' : '混合报' }}</strong>
+              <strong>{{ trainData.type == 0 ? '数码报' : trainData.type == 1 ? '字码报' : '混合报' }}</strong>
             </div>
             <div class="descItem">报文数量：<strong>{{trainData.totalNumber}}</strong>&nbsp;组</div>
           </div>

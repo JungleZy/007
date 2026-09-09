@@ -1,9 +1,8 @@
 import {ref, onMounted} from 'vue'
 import moment from 'moment'
-import {getAllStudent, addRoom,} from '../../../../../../common/api/broaddcastTeacheingApi'
-// import { findAll,addTrain} from '../../../../../../common/api/electronKeyZuXun'
-import {getElectronKeyZuXunList, saveElectronKeyZuXunTrain} from '../../../../../../common/api/electronKeyZuXun'
-import {getGradingRuleListByType,} from '../../../../../../common/api/GradingRuleApi'
+import {getAllStudent} from '../../../../../../common/api/broaddcastTeacheingApi'
+import {addTrain, findDatagramList} from '../../../../../../common/api/datagramZuXun.js'
+import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 
 import {message} from 'ant-design-vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
@@ -11,13 +10,7 @@ import useMorse from '../../../../../../common/mixin/useMorse.js'
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框
   const {baseCode, morseCode} = useMorse()
-  const trainData = ref({
-    type: 0,
-    count: 100,
-    mode: 0,
-    ruleId: ''
-  })
-  const checked = ref()
+  const trainData = ref({patType: 0})
   const columns = ref([
     {
       title: '训练名称',
@@ -28,17 +21,17 @@ export default function broaddcastTeacheing(selectCable) {
     },
     {
       title: '报底类型',
-      dataIndex: 'isAverage',
-      key: 'isAverage',
+      dataIndex: 'patType',
+      key: 'patType',
       align: 'center',
-      slots: {customRender: 'isAverage'}
+      slots: {customRender: 'patType'}
     },
     {
       title: '报文类型',
-      dataIndex: 'messageType',
-      key: 'messageType',
+      dataIndex: 'type',
+      key: 'type',
       align: 'center',
-      slots: {customRender: 'messageType'}
+      slots: {customRender: 'type'}
     },
     {
       title: '报文组数',
@@ -82,6 +75,7 @@ export default function broaddcastTeacheing(selectCable) {
     trainType: 0,
     title: '电传组训-' + moment().format('YYMMDDhhmmss'),
     messageType: 0,
+    patType: 0,
     isRandom: false,
     totalNumber: 100,
     isAverage: false,
@@ -113,37 +107,38 @@ export default function broaddcastTeacheing(selectCable) {
     addDrillModal.value = false
     // formData.value.isRandom = formData.value.isRandom?1:0
     // formData.value.isAverage = formData.value.isAverage?1:0
-    saveElectronKeyZuXunTrain({
-      trainType: formData.value.trainType,
+    addTrain({
       title: formData.value.title,
-      messageType: formData.value.messageType,
-      isRandom: formData.value.isRandom ? 1 : 0,
-      totalNumber:  formData.value.totalNumber,
-      isAverage: formData.value.isAverage ? 1 : 0,
-      ruleId: formData.value.ruleId,
-      userId: checkUserId.value,
       isCable: formData.value.isCable,
       cableId: formData.value.cableId,
-      startPage: formData.value.startPage
+      startPage: formData.value.startPage,
+      totalNumber: formData.value.totalNumber,
+      ruleId: formData.value.ruleId,
+      userId: checkUserId.value,
+      trainType: 0,
+      patType: formData.value.patType,
+      type: formData.value.messageType
     }).then(res => {
       loading.value = false
-      if (res.code == 200) {
+      if (res.code === 200) {
         message.success('添加成功')
         cancelTrainModal()
         findRoomInfo()
+      } else {
+        message.error(res.message || '添加失败')
       }
     })
   }
   const findRoomInfo = (page = 1) => {
-    getElectronKeyZuXunList({page, rows: 10}).then(res => {
+    findDatagramList({page, rows: 10}).then(res => {
       tableLoading.value = false
       if (res.code === 200) {
         const data = res.data.data
         data.forEach(item => {
           item.userInfoList.forEach(user => {
             if (user.role == 1) {
-              item['userName'] = user.userName
-              item['userImg'] = user.userImg
+              item.userName = user.userName
+              item.userImg = user.userImg
               return
             }
           })
@@ -152,6 +147,8 @@ export default function broaddcastTeacheing(selectCable) {
         totalPage.value = res.data.totalPage
         totalAll.value = res.data.totalNumber
         currPage.value = page
+      } else {
+        message.error(res.message || '训练列表加载失败')
       }
     })
   }
@@ -172,6 +169,7 @@ export default function broaddcastTeacheing(selectCable) {
       trainType: 0,
       title: '电传组训-' + moment().format('YYMMDDhhmmss'),
       messageType: 0,
+      patType: 0,
       isRandom: false,
       totalNumber: 100,
       isAverage: false,

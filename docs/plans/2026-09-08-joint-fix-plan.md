@@ -158,12 +158,13 @@ K --> L[长尾与交付收口]
 
 ### Phase 6：训练域与结算
 
-- [ ] telexZuXun 6 个文件改 `datagramZuXun.js`/`generalTelexPat`，WS 改 `/generalTelexPatTrain`，localStorage 使用 telex 专属键。
-- [ ] 后端增加 `generalKeyPat/reset`（仅在确认当前服务无此端点后），前端电子键 reset 调本域；测试清理本域 value/page 且不影响 ticker。
-- [ ] finish 立即提交守卫并与后端幂等短路对齐；评分/速率以既有 `ScoreMath`/后端结果为唯一权威，前端上传字段须按真实服务消费关系决定删除或标预估。
-- [ ] 修 handkey/electronKey 的 `setItem`/后端权威断点读取；修 `patDetail` 姓名字段；状态枚举按域固定并做协议表。
+- [x] `telexZuXun` 列表、学生、成绩和教员文件已改用 `datagramZuXun.js` / `generalTelexPat`；WS 路径改为 `/generalTelexPatTrain`；断点键保持 telex 专属 `datagramZuXun`。
+- [x] 新增后端 `generalKeyPat/reset`，按 token 只清理当前学员的结果/解析/多组数据，保留生成报文；前端电子键 reset 改调本域。`GeneralKeyPatResetTest` 验证本域隔离。
+- [x] 电传/电子键前端完成提交仅在后端 `code===200` 后跳转；后端 `finish` 对已完成参训记录幂等短路，避免重复计分。
+- [x] 电传成绩读取、分页和详情已切到 `GeneralTelexPat` 响应字段；前端最终分数继续以后端 detail/statistics 返回值为准。
+- [ ] handkey/electronKey 其它复制子树、WS 握手鉴权和断点权威化仍需后续逐域核对；本批不宣称全站训练状态已收口。
 
-**出口证据：** 域 API/WS Network、数据库域查询、reset 隔离测试、重复 finish 和断点续训行为。
+**出口证据（2026-09-09）：** `GeneralKeyPatResetTest` 1 项通过，后端 `./mvnw -B clean verify`：229 tests，0 failures，0 errors，0 skipped；电传/电子键目标脚本 `node --check` 通过，前端 `npm run build` 成功；`telexZuXun` 子树 grep 无 `electronKeyZuXun`、`handkeyZuXun`、`generalKeyPat`、`generalTicker` 残留。未完成真实训练房间 Network 与重复 finish 运行态验证。
 
 ### Phase 7：会话与 WebSocket
 
