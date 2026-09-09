@@ -357,19 +357,25 @@ public class WebSocketSimulationService {
       String message, Session session) {
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
+      sendErrorMessage(session, "房间不存在", id, id);
       return;
     }
-    Integer roomType = optional.get().getRoomType();
-    if (Objects.equals(DISTURB.getType(), roomType)
-        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.disturbRoom, roomId, id, session)) {
-      messageHandleDisturb(message, roomId, id);
-    } else if ((Objects.equals(REPORT.getType(), roomType)
-        || Objects.equals(RECEPT.getType(), roomType))
-        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.reportRoom, roomId, id, session)) {
-      messageHandleReport(message, roomId, id);
-    } else if (Objects.equals(ROUTER.getType(), roomType)
-        && SimulationRoomLifecycle.isCurrent(SimulationGlobal.routerRoom, roomId, id, session)) {
-      messageHandleRouter(message, roomId, id);
+    try {
+      Integer roomType = optional.get().getRoomType();
+      if (Objects.equals(DISTURB.getType(), roomType)
+          && SimulationRoomLifecycle.isCurrent(SimulationGlobal.disturbRoom, roomId, id, session)) {
+        messageHandleDisturb(message, roomId, id);
+      } else if ((Objects.equals(REPORT.getType(), roomType)
+          || Objects.equals(RECEPT.getType(), roomType))
+          && SimulationRoomLifecycle.isCurrent(SimulationGlobal.reportRoom, roomId, id, session)) {
+        messageHandleReport(message, roomId, id);
+      } else if (Objects.equals(ROUTER.getType(), roomType)
+          && SimulationRoomLifecycle.isCurrent(SimulationGlobal.routerRoom, roomId, id, session)) {
+        messageHandleRouter(message, roomId, id);
+      }
+    } catch (RuntimeException e) {
+      log.warn("仿真 WebSocket 消息处理失败，保留连接并返回协议错误: roomId={}, userId={}", roomId, id, e);
+      sendErrorMessage(session, "消息格式错误", id, id);
     }
   }
 

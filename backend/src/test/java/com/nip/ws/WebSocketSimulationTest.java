@@ -216,6 +216,44 @@ class WebSocketSimulationTest {
     }
   }
 
+  @Test
+  void malformedMessageReturnsProtocolErrorAndKeepsParticipantConnected() throws Exception {
+    String userId = Fixtures.user(userDao, "t-sim-malformed").getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("report-room-malformed");
+    room.setCreateUserId(userId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(1);
+    room.setPlayStatus(1);
+    room = roomDao.save(room);
+    Integer roomId = room.getId();
+    saveRoomUser(roomId, userId, 1, 1);
+
+    Probe probe = new Probe();
+    Session client = ContainerProvider.getWebSocketContainer().connectToServer(probe, uri(userId, roomId));
+    try {
+      assertTrue(awaitPresence(roomId, userId, client));
+      client.getBasicRemote().sendText("{");
+      String error = awaitMessageContaining(probe, "消息格式错误");
+      assertNotNull(error, "坏消息必须返回结构化协议错误");
+      assertTrue(error.contains("\"code\":-1"), "协议错误必须使用错误响应码: " + error);
+      assertTrue(client.isOpen(), "单条坏消息不得清理正常参与者连接");
+      assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
+          "坏消息不得触发房间状态变更");
+    } finally {
+      if (client.isOpen()) client.close();
+    }
+  }
+  private static String awaitMessageContaining(Probe probe, String text) throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+    while (System.nanoTime() < deadline) {
+      String message = probe.received.poll(100, TimeUnit.MILLISECONDS);
+      if (message != null && message.contains(text)) return message;
+    }
+    return null;
+  }
+
+
   private static URI uri(String userId, Integer roomId) {
     return URI.create("ws://localhost:18081/simulation/" + userId + "/" + roomId);
   }
