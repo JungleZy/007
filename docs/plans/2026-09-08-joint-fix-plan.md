@@ -66,16 +66,17 @@ K --> L[长尾与交付收口]
 
 #### 0.1 建立当前基线
 
-- [ ] 记录当前源码 commit、后端 `clean verify`、前端 `npm install --ignore-scripts --no-audit --no-fund && npm run build` 结果。
-- [ ] 重新核对 P0、用户管理端点、三类凭据字段、`ResponseCode`、活跃前端 API 调用；把证据写入本计划。
-- [ ] 读 `docs/reviews` 的“已修复/撤回”章节，排除 `GET data` 丢参、尾空格必 404、v-per 查无权限放行等旧结论。
+- [x] 基线 commit：`366e7e0c3213c738ea0531ee4e3584370662f529`；后端 `clean verify`：239 tests，0 failures，0 errors，0 skipped；前端本次 `npm ci --ignore-scripts --no-audit --no-fund && npm run build` 通过。
+- [x] 已重新核对 P0、用户管理端点、password/token/deviceId 字段、`ResponseCode` 和前端 API 调用；证据以当前源码、阶段证据和本计划后续增量记录为准。
+- [x] 已读取当前 reviews 的已修复/撤回章节，排除 GET `data` 丢参、尾空格必 404、v-per 查无权限放行等旧结论。
 
 #### 0.2 固化前端依赖
 
-- [ ] 从 `frontend/.gitignore` 删除 `package-lock.json`，确认 `frontend/package-lock.json` 被 Git 跟踪且与 `package.json` 同提交。
-- [ ] 本地用 `npm ci` 构建；若 lockfile 由不同 npm 版本生成，记录版本并统一 CI 版本。
+- [x] `frontend/.gitignore` 未忽略 `package-lock.json`，`frontend/package-lock.json` 已被 Git 跟踪并与 `package.json` 同提交。
+- [x] 已执行 `npm ci --ignore-scripts --no-audit --no-fund && npm run build`；构建成功。npm 输出包含既有 deprecated 依赖、资源路径、旧 CSS 语法和大分块警告，未产生构建错误。
 
-**出口证据：** 基线命令输出、lockfile 状态、差异排除清单。
+**出口证据（2026-09-09）：** 当前 commit、评审勘误核对、lockfile 跟踪和 `npm ci`/前端构建均已记录；后端全量最新结果见 Phase 1/9 增量证据。
+
 
 ### Phase P0：匿名注册止血（最高优先）
 
