@@ -25,7 +25,7 @@ public class PasswordHasher {
     private static final int KEY_LENGTH = 32;
     private static final int MIN_POLICY_ITERATIONS = 600_000;
     private static final int MAX_ITERATIONS = 2_000_000;
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private final SecureRandom random;
     private static final Base64.Encoder BASE64 = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder BASE64_DECODER = Base64.getUrlDecoder();
 
@@ -37,12 +37,13 @@ public class PasswordHasher {
             throw new IllegalArgumentException("Password iteration policy must be between 600000 and 2000000");
         }
         this.iterations = iterations;
+        this.random = new SecureRandom();
     }
 
     public String hash(String plaintext) {
         requirePassword(plaintext);
         byte[] salt = new byte[SALT_LENGTH];
-        RANDOM.nextBytes(salt);
+        random.nextBytes(salt);
         byte[] derived = derive(plaintext, salt, iterations);
         return PREFIX + "$" + VERSION + "$" + iterations + "$" + BASE64.encodeToString(salt) + "$"
                 + BASE64.encodeToString(derived);
