@@ -171,11 +171,10 @@ K --> L[长尾与交付收口]
 - [x] 登出调用 `userOut`，网络失败也在 `finally` 完成本地/WS 清理；`SessionLogoutTest` 证明旧 token 返回 `206` 且另一会话仍可用。浏览器 smoke 证明清理后跳转 `/login`。
 - [ ] PublicSocket/Ws/MessageWebSocket/UnionWs 的受控重连、抖动、上限、readyState 和退出置空已落地，关闭不触发重连；心跳看门狗尚未实现，保留为未完成项。
 - [x] 仿真 WS 对坏消息逐条返回协议错误，不触发正常参与者清理；`WebSocketSimulationTest.malformedMessageReturnsProtocolErrorAndKeepsParticipantConnected` 验证错误帧、连接存活和房间状态不变。未知 room 继续返回“房间不存在”错误。
-- [ ] 将 WS idle-timeout 单列为 spike：在当前 Quarkus 版本确认配置键和实际关闭行为，输出选定值/不支持时的应用层替代；该 spike 不阻塞 FE logout/重连交付。
-- [ ] WS token/deviceId 握手鉴权单独记录安全决策；若不改，明确为已接受风险，不把 URL 修复冒充鉴权完成。
+- [x] WS idle-timeout spike 已完成：当前扩展为 legacy `quarkus-websockets`，没有可直接套用的 `quarkus.websocket.idle-timeout` 全局配置；方案记录为 heartbeat + 应用层失活判定 + `Session#setMaxIdleTimeout` 兜底，具体 10 分钟值待真实训练静默时长验证。详见 `docs/plans/2026-09-09-websocket-idle-timeout-spike.md`。
+- [x] WS token/deviceId 握手鉴权已单独记录安全决策：当前不改，明确为已接受风险并另立实现项；现有 URL 身份校验不等同于会话鉴权，详见同一 Spike 文档。
 
-**Phase 7 已交付部分的出口证据（2026-09-09）：** 后端 `SessionLogoutTest` 通过，后端 `./mvnw -B clean verify`：230 tests，0 failures，0 errors，0 skipped；前端全部相关脚本 `node --check` 通过，`npm run build` 成功；浏览器 smoke 验证关闭后不重连（创建连接数保持 1）、登出清理 `token/deviceId/userInfo/userRole/userRouter/tabCache` 并跳转 `/login`。仿真坏消息回归已补充并通过。心跳、idle-timeout spike、WS 握手鉴权仍未完成，不宣称 Phase 7 全部收口。
-**仿真 WebSocket 增量证据（2026-09-09）：** `WebSocketSimulationTest` 7 项通过；新增坏消息用例确认 malformed JSON 返回 `code:-1` 协议错误，连接保持打开，房间状态不变。
+**Phase 7 spike 证据（2026-09-09）：** 完成 legacy WebSocket idle-timeout 能力确认和握手身份风险登记；未宣称 heartbeat、Session 超时兜底或统一 WS 握手鉴权已经实施。
 
 ### Phase 8：富文本与数据表示
 
