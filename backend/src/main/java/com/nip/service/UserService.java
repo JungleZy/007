@@ -175,6 +175,22 @@ public class UserService {
   }
 
   /**
+   * 创建新用户的公开注册入口。
+   *
+   * <p>注册请求不能根据客户端提供的 ID 进入管理更新路径；ID 由持久层生成。
+   *
+   * @param entity 注册信息
+   * @return 注册结果
+   */
+  @Transactional
+  public Response<Object> registerUser(UserEntity entity) {
+    if (entity == null || StringUtils.isNotBlank(entity.getId())) {
+      return ResponseResult.error(ResponseCode.PARAMS_ERROR);
+    }
+    return addUser(entity, true);
+  }
+
+  /**
    * 检查给定的ID是否是无效的字符串ID
    * 无效的定义是ID不为null但为空字符串
    *

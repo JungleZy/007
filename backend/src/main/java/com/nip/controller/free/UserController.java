@@ -49,7 +49,7 @@ public class UserController {
   @POST
   @Path("/signin")
   public Response<Object> signin(UserEntity entity) {
-    return userService.addUser(entity, true);
+    return userService.registerUser(entity);
   }
 
   @POST
