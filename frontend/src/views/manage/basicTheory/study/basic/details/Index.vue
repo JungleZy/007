@@ -34,7 +34,7 @@
           <div style="color: #7b90af">{{ getDayjs(data) }}</div>
         </div>
         <div class="w-full h-full overflow-auto layout-center" style="height: calc(100% - 80px)">
-          <iframe id="iframeId" name="iframeId" width="100%" height="100%" frameborder="0" />
+          <iframe id="iframeId" name="iframeId" width="100%" height="100%" frameborder="0" sandbox="allow-same-origin" />
         </div>
         <div class="shadow fade-in" v-if="testVisible">
           <div class="shadowInfo">

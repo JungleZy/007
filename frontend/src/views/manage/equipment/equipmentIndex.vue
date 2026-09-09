@@ -20,9 +20,7 @@
                         </div>
                     </div>
 
-                    <div class="uEditText overflow-auto" v-if="deviceList[seeDeviceIndex]">
-                        <div v-html="deviceList[seeDeviceIndex].descriptions[seeDeviceDescIndex].content"></div>
-                    </div>
+                    <div v-html="sanitizeHtml(deviceList[seeDeviceIndex].descriptions[seeDeviceDescIndex].content)"></div>
                 </div>
             </div>
             <div class="equipListBox">
@@ -267,6 +265,7 @@
     import {apiUrl} from '../../../common/http/endpoint.js'
     import {useRouter,useRoute} from "vue-router";
     import {message} from 'ant-design-vue'
+    import {sanitizeHtml} from '../../../common/utils/sanitizeHtml.js'
 
     const fs = ref(JSON.parse(localStorage.getItem('fs')));
     const userRole = ref(JSON.parse(localStorage.getItem('userRole')));

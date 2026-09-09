@@ -4,6 +4,7 @@ import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject, onBefo
 import { useRouter, useRoute } from 'vue-router'
 import { deepClone } from '../../../../../../../common/utils/Utils.js'
 import { getByIdAndToken } from '../../../../../../../common/api/TheoryKnowledgeApi.js'
+import { sanitizeHtml } from '../../../../../../../common/utils/sanitizeHtml.js'
 import { getByKnowledgeSwfIdAndEnable, saveUserKnowledgeSwfTestContent, getTestContentByUserIdAndKnowledgeSwfId, saveTheoryKnowledgeRecord } from '../../../../../../../common/api/TestApi.js'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
@@ -47,6 +48,7 @@ export default function userDetails(data) {
     knowledgeSwfsId.value = data.value.knowledgeSwfs[i].id
     loginAndLogout(knowledgeSwfsId) //学习时长
     score.value = data.value.knowledgeSwfs[i].score
+    const safeContent = sanitizeHtml(data.value.knowledgeSwfs[i].content)
     let iframe = window.frames['iframeId']
     iframe.document.write('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">')
     iframe.document.write('<html xmlns="http://www.w3.org/1999/xhtml">')
@@ -54,7 +56,7 @@ export default function userDetails(data) {
     iframe.document.write('<meta http-equiv="Content-Type" content="text/html; charset=gb2312" />')
     iframe.document.write('<style>')
     iframe.document.write('::-webkit-scrollbar { /*滚动条整体样式*/')
-    iframe.document.write('width: 7px; /*高宽分别对应横竖滚动条的尺寸*/')
+    iframe.document.write('width: 7px; /*高宽分别对应滚动条的尺寸*/')
     iframe.document.write('height: 8px;')
     iframe.document.write('}')
     iframe.document.write('::-webkit-scrollbar-track {')
@@ -68,7 +70,7 @@ export default function userDetails(data) {
     iframe.document.write('</style>')
     iframe.document.write('</head>')
     iframe.document.write('<body style="padding: 0 12px">')
-    iframe.document.write(data.value.knowledgeSwfs[i].content)
+    iframe.document.write(safeContent)
     iframe.document.write('</body>')
     iframe.document.write('</html>')
     iframe.document.close()

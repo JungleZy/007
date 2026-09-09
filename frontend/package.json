@@ -35,11 +35,14 @@
     "cropperjs": "^1.5.12",
     "crypto-js": "^4.1.1",
     "dat.gui": "^0.7.9",
+    "docx": "^8.2.2",
+    "dompurify": "^3.4.15",
     "echarts": "5.4.2",
     "exceljs": "^4.3.0",
     "file-saver": "^2.0.5",
     "formidable": "^3.5.0",
     "lodash-es": "^4.17.21",
+    "mammoth": "^1.6.0",
     "mockjs": "^1.1.0",
     "moment": "^2.29.1",
     "pinia": "^2.0.31",
@@ -56,11 +59,9 @@
     "vue-router": "^4.5.0",
     "vue-ueditor-wrap": "^3.0.8",
     "vue-unity-webgl": "^1.2.0",
-    "vuex": "^4.0.2",
-    "xlsx": "^0.18.4",
     "vue3-print-nb": "^0.1.4",
-    "mammoth": "^1.6.0",
-    "docx": "^8.2.2"
+    "vuex": "^4.0.2",
+    "xlsx": "^0.18.4"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.6.6",

@@ -40,8 +40,7 @@
         </div>
         <div class="w-full licenseIpt overflow-auto"
              contenteditable="true"
-             id="licenseCodeDiv"
-             v-html="licenseCode"></div>
+             id="licenseCodeDiv">{{licenseCode}}</div>
         <div class="layout-center w-full" style="margin-top: 28px">
           <a-button
               type="primary"

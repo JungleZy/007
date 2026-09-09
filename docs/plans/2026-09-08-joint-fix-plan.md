@@ -178,9 +178,11 @@ K --> L[长尾与交付收口]
 
 ### Phase 8：富文本与数据表示
 
-- [ ] 复用或引入一个成熟白名单净化器，建立唯一渲染入口；覆盖 `v-html` 和 iframe/document.write 两个 sink，阻断危险标签、事件属性和 javascript/data URL scheme。
-- [ ] 按字段清单处理时区、数值 wire 类型、snake/camel、字典取值、createTime；每项写完成或不修理由，不做无证据全站重命名。
-- [ ] CSP/iframe sandbox 的要求写入部署验收；净化测试断言恶意 payload 不执行且合法富文本保留。
+- [x] 引入 `dompurify` 并建立唯一 `sanitizeHtml` 白名单入口；设备描述 `v-html` 和理论课件 iframe `document.write` 均先净化，许可证代码改为纯文本渲染。危险标签、事件属性和 `javascript:`/`data:` URL 均被剥离，合法 HTTPS 链接保留。
+- [ ] 时区、数值 wire 类型、snake/camel、字典取值、createTime 仍按字段清单另行处理；本批不做无证据全站重命名。
+- [ ] 理论课件 iframe 已增加无脚本 `sandbox="allow-same-origin"`；部署侧 CSP 尚未落地，需在反代/应用部署验收中另行配置和验证。
+
+**Phase 8 富文本增量证据（2026-09-09）：** 浏览器 smoke 通过：`<script>`、事件属性、`javascript:` 链接、`data:` 图片均被清理，合法 HTTPS 链接保留；`npm run build` 成功（8224 modules transformed）。构建仍报告仓库既有资源路径、旧 CSS 语法和大分块警告，未引入新的构建错误。
 
 ### Phase 9：密码、会话协议和剩余单侧风险
 
