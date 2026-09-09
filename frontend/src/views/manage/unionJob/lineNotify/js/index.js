@@ -196,6 +196,7 @@ export default function lineNotify(selectCable) {
   //获取学员列表
   const getAllTeacherList = () => {
     getUserAll().then(data => {
+      if (data.code !== 200 || !Array.isArray(data.data)) return
       checkboxOptions.value = data.data.map((item, idx) => {
         const obj = {
           label: item.userName,

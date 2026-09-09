@@ -346,6 +346,7 @@ export default function useStructure() {
         showModal.value = false
       } else {
         message.error(res.message)
+        return
       }
       addUserRole(role).then(res => {
         if (res.code === 200) {
@@ -366,6 +367,7 @@ export default function useStructure() {
       content: () => createVNode('div', {style: 'color:red;'}, '重置后新密码将在下次登陆时生效！'),
       onOk() {
         resetPassword({userId}).then((e) => {
+          if (e.code !== 200) return
           Modal.success({
             title: () => `用户【${userName}】的密码重置成功`,
             content: () => h('div', {}, [

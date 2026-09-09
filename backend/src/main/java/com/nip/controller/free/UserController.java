@@ -3,7 +3,7 @@ package com.nip.controller.free;
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
-import com.nip.dto.UserInfoDto;
+import com.nip.dto.LoginSessionDto;
 import com.nip.dto.vo.HandKeyRecentTrainVO;
 import com.nip.dto.vo.UserTrainDurationStatVO;
 import com.nip.entity.UserEntity;
@@ -36,7 +36,7 @@ public class UserController {
 
   @POST
   @Path("/login")
-  public Response<UserInfoDto> login(Map<String, String> data) {
+  public Response<LoginSessionDto> login(Map<String, String> data) {
     String userAccount = data.get("userAccount");
     String password = data.get("password");
     String deviceId = data.get(DEVICE_ID);

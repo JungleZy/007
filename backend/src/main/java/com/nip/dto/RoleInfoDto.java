@@ -1,7 +1,6 @@
 package com.nip.dto;
 
 import com.nip.entity.RoleEntity;
-import com.nip.entity.UserEntity;
 import lombok.Data;
 
 import java.util.List;
@@ -18,5 +17,4 @@ import java.util.Map;
 public class RoleInfoDto {
   private RoleEntity role;
   private List<Map<String, Object>> menus;
-  private List<UserEntity> users;
 }

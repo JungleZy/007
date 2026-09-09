@@ -17,6 +17,14 @@ public class RoleDao extends BaseRepository<RoleEntity, String> {
         + "where u.id=:id", RoleEntity.class).setParameter(ID, userId).setMaxResults(1).getSingleResult();
   }
 
+  public boolean existsAdminRoleByUserId(String userId) {
+    return entityManager.createQuery(
+        "select count(r) from t_role r join t_user_role ur on ur.roleId = r.id "
+            + "where ur.userId = :userId and r.isAdmin = 0", Long.class)
+        .setParameter("userId", userId)
+        .getSingleResult() > 0;
+  }
+
   public List<RoleEntity> findAllByIsDefault(int isDefault) {
     return find("isDefault", isDefault).list();
   }

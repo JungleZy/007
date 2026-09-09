@@ -3,6 +3,8 @@ package com.nip.common.exception;
 import com.nip.dao.UserDao;
 import com.nip.dao.MilitaryTermDataDao;
 import com.nip.entity.MilitaryTermDataEntity;
+import com.nip.dao.RoleDao;
+import com.nip.dao.UserRoleDao;
 import com.nip.service.TelexPatTrainService;
 import com.nip.service.UserService;
 import com.nip.testsupport.Fixtures;
@@ -43,16 +45,31 @@ class ExceptionBoundaryTest {
   TelexPatTrainService telexPatTrainService;
   @Inject
   MilitaryTermDataDao militaryTermDataDao;
-
+  @Inject
+  RoleDao roleDao;
+  @Inject
+  UserRoleDao userRoleDao;
   @BeforeEach
   void seedUser() {
     // 其它 @QuarkusTest 类的同款约定；本类的鉴权信封现已带 application/json（Task 7.2）
     RestAssured.defaultParser = Parser.JSON;
-    if (userDao.findUserEntityByToken(TOKEN) == null) {
-      Fixtures.user(userDao, TOKEN, DEVICE);
+    com.nip.entity.UserEntity boundaryUser = userDao.findUserEntityByToken(TOKEN);
+    if (boundaryUser == null) {
+      boundaryUser = Fixtures.user(userDao, TOKEN, DEVICE);
     }
-  }
+    if (userRoleDao.findByUserId(boundaryUser.getId()) == null) {
+      com.nip.entity.RoleEntity adminRole = new com.nip.entity.RoleEntity();
+      adminRole.setTitle("boundary-admin");
+      adminRole.setIsAdmin(0);
+      adminRole.setIsDefault(1);
+      adminRole = roleDao.save(adminRole);
+      com.nip.entity.UserRoleEntity link = new com.nip.entity.UserRoleEntity();
+      link.setUserId(boundaryUser.getId());
+      link.setRoleId(adminRole.getId());
+      userRoleDao.save(link);
+    }
 
+  }
   @Test
   void missingTokenOnJwtEndpointReturns203Envelope() {
     // 拦截器自身校验保留：无 token → HTTP 200 + code 203

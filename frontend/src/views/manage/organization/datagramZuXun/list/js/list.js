@@ -179,6 +179,7 @@ export default function broaddcastTeacheing(selectCable) {
   onMounted(() => {
     const info = JSON.parse(localStorage.getItem('userInfo'))
     getAllStudent().then(res => {
+      if (res.code !== 200 || !Array.isArray(res.data)) return
       res.data.forEach((item, i) => {
         if (res.data[i].id == self.value[0]) {
           res.data.splice(i, 1)

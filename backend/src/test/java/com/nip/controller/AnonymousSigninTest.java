@@ -73,11 +73,35 @@ class AnonymousSigninTest {
         .post("/api/user/signin")
         .then()
         .statusCode(200)
-        .body("code", is(200));
+        .body("code", is(200))
+        .body("data.password", org.hamcrest.Matchers.nullValue())
+        .body("data.token", org.hamcrest.Matchers.nullValue())
+        .body("data.deviceId", org.hamcrest.Matchers.nullValue());
 
     UserEntity created = userDao.findUserEntityByUserAccount(account);
     assertNotNull(created);
     assertEquals(idCard, created.getIdCard());
+  }
+
+  @Test
+  void duplicateAccountDoesNotUpdateExistingUser() {
+    UserEntity victim = saveVictim();
+    String originalName = victim.getUserName();
+
+    given()
+        .contentType(ContentType.JSON)
+        .body(Map.of(
+            "userAccount", victim.getUserAccount(),
+            "userName", "attacker-name",
+            "idCard", uniqueIdCard(),
+            "password", "attacker-password"))
+        .when()
+        .post("/api/user/signin")
+        .then()
+        .statusCode(200)
+        .body("code", is(500));
+
+    assertEquals(originalName, userDao.findById(victim.getId()).getUserName());
   }
 
   private UserEntity saveVictim() {

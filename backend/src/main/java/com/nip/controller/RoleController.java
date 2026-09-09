@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.RoleInfoDto;
@@ -43,6 +44,7 @@ public class RoleController {
   @POST
   @Path("/addRole")
   @Operation(summary = "新增角色")
+  @RequireAdmin
   public Response<RoleEntity> addRole(SaveRoleDto entity) {
     return ResponseResult.success(roleService.addRole(entity));
   }

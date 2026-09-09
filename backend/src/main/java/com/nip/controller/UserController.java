@@ -3,10 +3,13 @@ package com.nip.controller;
 import com.nip.common.constants.MessageConstants;
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.ToolUtil;
+import com.nip.dto.UserProfile;
 import com.nip.dto.UserInfoDto;
+import com.nip.dto.UserSummary;
 import com.nip.dto.sql.FindUserByRoleIdDto;
 import com.nip.dto.sql.FindUserByStatusDescDto;
 import com.nip.entity.UserEntity;
@@ -44,7 +47,11 @@ public class UserController {
   @Path("/saveUser")
   @Operation(summary = "更新用户")
   public Response<Object> saveUser(UserEntity entity) {
-    return userService.addUser(entity, true);
+    Response<Object> response = userService.addUser(entity, true);
+    if (response.getCode() == ResponseCode.SUCCESS.getCode() && response.getData() instanceof UserEntity user) {
+      response.setData(UserProfile.from(user));
+    }
+    return response;
   }
 
   @POST
@@ -57,28 +64,28 @@ public class UserController {
   @POST
   @Path("/changePassword")
   @Operation(summary = "修改密码")
-  public Response<Boolean> changePassword(Map<String, String> data) {
-    String id = data.get(USER_ID);
+  public Response<Boolean> changePassword(@RestHeader(TOKEN) String token, Map<String, String> data) {
     String oldPassword = data.get("oldPassword");
     String newPassword = data.get("newPassword");
     String newPasswordV = data.get("newPasswordV");
-    if (StringUtils.isEmpty(id) || StringUtils.isEmpty(oldPassword) || StringUtils.isEmpty(newPassword)
+    if (StringUtils.isEmpty(oldPassword) || StringUtils.isEmpty(newPassword)
         || StringUtils.isEmpty(newPasswordV)) {
       return ResponseResult.error(ResponseCode.NULL_ERROR);
     }
-    return userService.changePassword(id, oldPassword, newPassword, newPasswordV);
+    return userService.changePassword(token, oldPassword, newPassword, newPasswordV);
   }
 
   @POST
   @Path("/importUser")
   @Operation(summary = "导入用户")
-  public Response<List<UserEntity>> importUser(List<UserEntity> entity) {
-    return ResponseResult.success(userService.importUser(entity));
+  public Response<List<UserProfile>> importUser(List<UserEntity> entity) {
+    return ResponseResult.success(userService.importUser(entity).stream().map(UserProfile::from).toList());
   }
 
   @POST
   @Path("/addUserRole")
   @Operation(summary = "新增用户角色")
+  @RequireAdmin
   public Response<String> addUserRole(Map<String, Object> data) {
     return userService.addUserRole(data.get(USER_ID).toString(), ToolUtil.objToList(data.get("roleIds")))
         ? ResponseResult.success(MessageConstants.DATA_SUCCESS)
@@ -88,7 +95,8 @@ public class UserController {
   @POST
   @Path("/getAllUser")
   @Operation(summary = "获取全部用户")
-  public Response<List<UserEntity>> getAllUser() {
+  @RequireAdmin
+  public Response<List<UserProfile>> getAllUser() {
     return ResponseResult.success(userService.getAllUser());
   }
 
@@ -103,10 +111,17 @@ public class UserController {
   @POST
   @Path("/getUsersByUserNameStartingWith")
   @Operation(summary = "根据 名字前几位 获取 所用满足的用户")
-  public Response<List<UserEntity>> getUsersByUserNameStartingWith(Map<String, String> map) {
+  public Response<List<UserProfile>> getUsersByUserNameStartingWith(Map<String, String> map) {
     return ResponseResult.success(userService.getUsersByUserNameStartingWith(map.get("userName")));
   }
 
+
+  @POST
+  @Path("/getUserDirectory")
+  @Operation(summary = "获取用户选择目录")
+  public Response<List<UserSummary>> getUserDirectory() {
+    return ResponseResult.success(userService.getUserDirectory());
+  }
   @POST
   @Path("/getUserInfoAllByStatusDesc")
   @Operation(summary = "根据 用户状态 排序")
@@ -117,7 +132,7 @@ public class UserController {
   @POST
   @Path("/getUserById")
   @Operation(summary = "根据 用户编号 获取 用户信息")
-  public Response<UserEntity> getUserById(Map<String, String> map) {
+  public Response<UserProfile> getUserById(Map<String, String> map) {
     return ResponseResult.success(userService.getUserById(map.get(USER_ID)));
   }
 
@@ -131,15 +146,15 @@ public class UserController {
   @POST
   @Path("/getUsersByIds")
   @Operation(summary = "根据 用户编号 获取用户信息（批量）")
-  public Response<List<UserEntity>> getUsersByIds(List<String> ids) {
+  public Response<List<UserProfile>> getUsersByIds(List<String> ids) {
     return ResponseResult.success(userService.getUsers(ids));
   }
 
   @POST
   @Path("/getUsersByToken")
   @Operation(summary = "根据 token 获取 用户信息")
-  public Response<UserEntity> getUsersByToken(@RestHeader(TOKEN) String token) {
-    return ResponseResult.success(userService.getUserByToken(token));
+  public Response<UserProfile> getUsersByToken(@RestHeader(TOKEN) String token) {
+    return ResponseResult.success(UserProfile.from(userService.getUserByToken(token)));
   }
 
   @POST
@@ -166,6 +181,7 @@ public class UserController {
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除用户")
+  @RequireAdmin
   public Response<Boolean> delete(@RestQuery(USER_ID) String userId) {
     return ResponseResult.success(userService.delete(userId));
   }
@@ -173,6 +189,7 @@ public class UserController {
   @GET
   @Path(value = "resetPassword")
   @Operation(summary = "重置用户密码")
+  @RequireAdmin
   public Response<String> resetPassword(@RestQuery(USER_ID) String userId) {
     return ResponseResult.success(userService.resetPassword(userId));
   }

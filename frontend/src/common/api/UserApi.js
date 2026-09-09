@@ -65,7 +65,7 @@ export const verifyPassword = (data) => {
 export const getUserAll = () => {
   return axios({
     method: "post",
-    url: "/api/user/getAllUser"
+    url: "/api/user/getUserDirectory"
   })
 }
 export const getAllStudent = () => {

@@ -14,7 +14,7 @@ import com.nip.dao.UserRoleDao;
 import com.nip.dto.TestPaperDto;
 import com.nip.dto.TestPaperQuestionDto;
 import com.nip.dto.TheoryKnowledgeExamDto;
-import com.nip.dto.UserInfoDto;
+import com.nip.dto.LoginSessionDto;
 import com.nip.entity.UserEntity;
 import com.nip.entity.UserRoleEntity;
 import com.nip.testsupport.Fixtures;
@@ -160,7 +160,7 @@ class TxnRollbackConsistencyTest {
     u.setStatus(0);
     UserEntity saved = userDao.save(u);
 
-    Response<UserInfoDto> res = userService.login(account, plainPassword, UUID.randomUUID().toString());
+    Response<LoginSessionDto> res = userService.login(account, plainPassword, UUID.randomUUID().toString());
 
     assertEquals(ResponseCode.SYSTEM_ERROR.getCode(), res.getCode(), "无角色用户登录必须返回错误信封");
     assertNull(userDao.findById(saved.getId()).getToken(), "登录失败不得提交 token 更新");
@@ -168,7 +168,7 @@ class TxnRollbackConsistencyTest {
 
   @Test
   void loginWithUnknownAccountKeepsBusinessEnvelope() {
-    Response<UserInfoDto> res = userService.login("txn-absent-" + UUID.randomUUID(), "x",
+    Response<LoginSessionDto> res = userService.login("txn-absent-" + UUID.randomUUID(), "x",
         UUID.randomUUID().toString());
 
     assertEquals(ResponseCode.SYSTEM_ERROR.getCode(), res.getCode());

@@ -3,7 +3,7 @@ import axios from '../http/axios.js'
 export const getAllStudent = () => {
   return axios({
     method: "post",
-    url: "/api/user/getAllUser"
+    url: "/api/user/getUserDirectory"
   })
 }
 export const addRoom = (data) => {

@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.MenusButtonDto;
@@ -41,6 +42,7 @@ public class MenusController {
   @POST
   @Path("/addMenu")
   @Operation(summary = "添加或修改 权限")
+  @RequireAdmin
   public Response<MenusButtonDto> addMenu(MenusButtonDto entity) {
     return ResponseResult.success(menusService.addMenus(entity));
   }

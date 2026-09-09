@@ -27,6 +27,9 @@ instance.interceptors.request.use((config) => {
 
 //响应拦截器
 instance.interceptors.response.use((response) => {
+  if (response.data.code === 207) {
+    message.error(response.data.message || '您没有权限执行此操作')
+  }
   if (response.data.code === 203 || response.data.code === 204) {
     if(location.href.indexOf('login')>-1){
       return

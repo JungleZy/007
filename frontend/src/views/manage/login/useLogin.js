@@ -97,9 +97,7 @@ export default function (formState) {
   }
 
   const createRouter = (data) => {
-    let { password, ...newUser } = data.user
     const interfaceStyle = window.interfaceStyle
-    data.user = newUser
     if(interfaceStyle=="HJ"){
       //过滤火报务路由
       data.menus = data.menus.filter(item=>item.path.indexOf("HJJ")<0)
@@ -119,8 +117,8 @@ export default function (formState) {
     }
 
     console.log(data.menus)
-    window.localStorage.setItem('token', data.user.token)
-    window.localStorage.setItem('deviceId', data.user.deviceId)
+    window.localStorage.setItem('token', data.token)
+    window.localStorage.setItem('deviceId', data.deviceId)
     window.localStorage.setItem('userInfo', JSON.stringify(data.user))
     window.localStorage.setItem('userRole', JSON.stringify(data.role)) // 注意当登录接口换成V2版本时请校对返回的参数，该处会从role->roles
     window.localStorage.setItem('userRouter', JSON.stringify(data.menus))

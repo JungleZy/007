@@ -14,7 +14,10 @@ import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
 import com.nip.dto.MenusDto;
 import com.nip.dto.UserInfoDto;
+import com.nip.dto.LoginSessionDto;
+import com.nip.dto.UserProfile;
 import com.nip.dto.general.UserSyncDto;
+import com.nip.dto.UserSummary;
 import com.nip.dto.sql.FindUserByRoleIdDto;
 import com.nip.dto.sql.FindUserByStatusDescDto;
 import com.nip.entity.RoleEntity;
@@ -61,8 +64,9 @@ public class UserService {
    * @return UserEntity对象，包含查询到的用户信息
    * @throws IllegalArgumentException 未查询到该用户时抛出（Phase 7.4：与 getUserAndRoleById 口径一致）
    */
-  public UserEntity getUserById(String id) {
+  public UserProfile getUserById(String id) {
     return userDao.findByIdOptional(id)
+        .map(UserProfile::from)
         .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
   }
 
@@ -86,8 +90,8 @@ public class UserService {
    * @param userName 用户名前缀，用于查询用户
    * @return 包含用户名以前缀开始的用户实体列表
    */
-  public List<UserEntity> getUsersByUserNameStartingWith(String userName) {
-    return userDao.findUserEntitiesByUserNameStartingWith(userName);
+  public List<UserProfile> getUsersByUserNameStartingWith(String userName) {
+    return userDao.findUserEntitiesByUserNameStartingWith(userName).stream().map(UserProfile::from).toList();
   }
 
   /**
@@ -102,7 +106,7 @@ public class UserService {
         .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
     RoleEntity role = roleDao.findRoleByUserId(userEntity.getId());
     UserInfoDto userInfoDto = new UserInfoDto();
-    userInfoDto.setUser(userEntity);
+    userInfoDto.setUser(UserProfile.from(userEntity));
     userInfoDto.setRole(role);
     return userInfoDto;
   }
@@ -113,8 +117,8 @@ public class UserService {
    * @param ids 用户ID列表，用于指定需要获取的用户实体
    * @return 返回一个UserEntity对象列表，包含所请求的用户信息
    */
-  public List<UserEntity> getUsers(List<String> ids) {
-    return userDao.findAllUser(ids);
+  public List<UserProfile> getUsers(List<String> ids) {
+    return userDao.findAllUser(ids).stream().map(UserProfile::from).toList();
   }
 
   /**
@@ -125,8 +129,8 @@ public class UserService {
    *
    * @return 返回一个UserEntity对象列表，包含所有用户实体
    */
-  public List<UserEntity> getAllUser() {
-    return userDao.findAllByOrderByStatusDesc();
+  public List<UserProfile> getAllUser() {
+    return userDao.findAllByOrderByStatusDesc().stream().map(UserProfile::from).toList();
   }
 
   /**
@@ -139,6 +143,10 @@ public class UserService {
    */
   public List<FindUserByStatusDescDto> getUserInfoAllByStatusDesc() {
     return userDao.findUserInfoAllByStatusDesc();
+  }
+
+  public List<UserSummary> getUserDirectory() {
+    return userDao.findAllByOrderByStatusDesc().stream().map(UserSummary::from).toList();
   }
 
   /**
@@ -184,10 +192,27 @@ public class UserService {
    */
   @Transactional
   public Response<Object> registerUser(UserEntity entity) {
-    if (entity == null || StringUtils.isNotBlank(entity.getId())) {
+    // null and the explicitly empty string mean "create"; every other supplied ID,
+    // including whitespace, is a client attempt to select an existing row.
+    if (entity == null || (entity.getId() != null && !entity.getId().isEmpty())) {
       return ResponseResult.error(ResponseCode.PARAMS_ERROR);
     }
-    return addUser(entity, true);
+
+    // Only registration-form fields may cross the public boundary.
+    UserEntity registration = new UserEntity();
+    registration.setUserAccount(entity.getUserAccount());
+    registration.setUserName(entity.getUserName());
+    registration.setIdCard(entity.getIdCard());
+    registration.setPassword(entity.getPassword());
+    registration.setUserSex(entity.getUserSex());
+    registration.setUserImg(entity.getUserImg());
+    registration.setEday(entity.getEday());
+
+    Response<Object> response = addUser(registration, true);
+    if (response.getCode() == ResponseCode.SUCCESS.getCode() && response.getData() instanceof UserEntity saved) {
+      response.setData(new UserSummary(saved.getId(), saved.getUserName(), saved.getUserAccount(), saved.getUserImg()));
+    }
+    return response;
   }
 
   /**
@@ -396,7 +421,7 @@ public class UserService {
    * @return 返回登录结果，包括用户信息DTO
    */
   @Transactional
-  public Response<UserInfoDto> login(String userAccount, String password, String deviceId) {
+  public Response<LoginSessionDto> login(String userAccount, String password, String deviceId) {
     try {
       UserEntity user;
       user = userDao.findUserEntityByUserAccount(userAccount);
@@ -423,15 +448,12 @@ public class UserService {
       if (!userDao.updateUser(user)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.DATA_EXCEPTION);
       }
-      UserInfoDto userInfoDto = new UserInfoDto();
       RoleEntity role = roleDao.findRoleByUserId(user.getId());
       List<MenusDto> menusDtoList = role.getIsAdmin() == 0
           ? menusService.getMenusDtos()
           : menusService.getMenusDtosById(role.getId());
-      userInfoDto.setUser(user);
-      userInfoDto.setRole(role);
-      userInfoDto.setMenus(menusDtoList);
-      return ResponseResult.success(MessageConstants.LOGIN_SUCCESS, userInfoDto);
+      LoginSessionDto loginSession = new LoginSessionDto(UserProfile.from(user), role, menusDtoList, token, deviceId);
+      return ResponseResult.success(MessageConstants.LOGIN_SUCCESS, loginSession);
     } catch (Exception e) {
       try {
         transactionManager.setRollbackOnly();
@@ -474,25 +496,19 @@ public class UserService {
    * @return 返回一个Response对象，包含操作结果的布尔值
    */
   @Transactional
-  public Response<Boolean> changePassword(String id, String oldPassword, String newPassword, String newPasswordV) {
+  public Response<Boolean> changePassword(String token, String oldPassword, String newPassword, String newPasswordV) {
+    UserEntity user = getUserByToken(token);
     try {
-      UserEntity user = Optional.ofNullable(userDao.findById(id))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户"));
-
       if (!MD5Util.encrypt(oldPassword).equals(user.getPassword())) {
         return ResponseResult.success(MessageConstants.PASSWORD_NOW_ERROR, false);
       }
-
       if (!newPassword.equals(newPasswordV)) {
         return ResponseResult.success(MessageConstants.PASSWORD_INCONFORMITY, false);
       }
-
       user.setPassword(MD5Util.encrypt(newPassword));
       userDao.save(user);
-
       return ResponseResult.success(MessageConstants.DATA_SUCCESS, true);
     } catch (IllegalArgumentException | IllegalStateException e) {
-      // Phase 7.4：校验类异常不得被下面的兜底降级成 DATA_EXCEPTION+false
       throw e;
     } catch (Exception e) {
       try {
@@ -575,20 +591,19 @@ public class UserService {
    * <p>
    * 注意：此方法包含异常处理，以处理可能发生的数据库查询异常
    */
-  public Response<List<UserEntity>> getAllUserByContent(String userName, String userAccount) {
+  public Response<List<UserProfile>> getAllUserByContent(String userName, String userAccount) {
     try {
+      List<UserEntity> users;
       if (StringUtils.isNotEmpty(userName) && StringUtils.isNotEmpty(userAccount)) {
-        List<UserEntity> list = userDao.findAllByUserNameLikeOrUserAccountLikeOrderByStatusDesc("%" + userName + "%", "%" + userAccount + "%");
-        return ResponseResult.success(list);
+        users = userDao.findAllByUserNameLikeOrUserAccountLikeOrderByStatusDesc("%" + userName + "%", "%" + userAccount + "%");
       } else if (StringUtils.isNotEmpty(userName) && StringUtils.isEmpty(userAccount)) {
-        List<UserEntity> list = userDao.findAllByUserNameLikeOrderByStatusDesc("%" + userName + "%");
-        return ResponseResult.success(list);
+        users = userDao.findAllByUserNameLikeOrderByStatusDesc("%" + userName + "%");
       } else if (StringUtils.isNotEmpty(userAccount) && StringUtils.isEmpty(userName)) {
-        List<UserEntity> list = userDao.findAllByUserAccountLikeOrderByStatusDesc("%" + userAccount + "%");
-        return ResponseResult.success(list);
+        users = userDao.findAllByUserAccountLikeOrderByStatusDesc("%" + userAccount + "%");
       } else {
-        return ResponseResult.success(userDao.findAllByOrderByStatusDesc());
+        users = userDao.findAllByOrderByStatusDesc();
       }
+      return ResponseResult.success(users.stream().map(UserProfile::from).toList());
     } catch (Exception e) {
       return ResponseResult.error(MessageConstants.DATA_EXCEPTION);
     }
