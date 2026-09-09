@@ -19,6 +19,7 @@ import {
 } from 'vue'
 import {DanChannel, DanmuItem, DanmakuItem} from './typings/Danmaku'
 import {useModelWrapper} from './utils'
+import {sanitizeHtml} from '../../common/utils/sanitizeHtml.js'
 
 /**
  * 自定义弹幕
@@ -229,10 +230,10 @@ export default defineComponent({
       if (danmaku.useSlot) {
         el = getSlotComponent(_danmu, _index).$el
       } else {
-        el.innerHTML = _danmu as string
+        el.innerHTML = sanitizeHtml(_danmu as string)
         el.setAttribute('style', props.extraStyle)
         el.style.fontSize = `${danmu.fontSize}px`
-        el.style.lineHeight = `${danmu.fontSize}px`
+        el.style.lineHeight = `${danmu.lineHeight}px`
       }
       el.classList.add('dm')
       dmContainer.value.appendChild(el)

@@ -178,7 +178,7 @@ K --> L[长尾与交付收口]
 
 ### Phase 8：富文本与数据表示
 
-- [x] 引入 `dompurify` 并建立唯一 `sanitizeHtml` 白名单入口；设备描述 `v-html` 和理论课件 iframe `document.write` 均先净化，许可证代码改为纯文本渲染。危险标签、事件属性和 `javascript:`/`data:` URL 均被剥离，合法 HTTPS 链接保留。
+- [x] 引入 `dompurify` 并建立唯一 `sanitizeHtml` 白名单入口；设备描述 `v-html`、弹幕动态 `innerHTML` 和理论课件 iframe `document.write` 均先净化，许可证代码改为纯文本渲染。危险标签、事件属性和 `javascript:`/`data:` URL 均被剥离，合法 HTTPS 链接保留。
 - [ ] 时区、数值 wire 类型、snake/camel、字典取值、createTime 仍按字段清单另行处理；本批不做无证据全站重命名。
 - [ ] 理论课件 iframe 已增加无脚本 `sandbox="allow-same-origin"`；部署侧 CSP 尚未落地，需在反代/应用部署验收中另行配置和验证。
 
@@ -187,7 +187,7 @@ K --> L[长尾与交付收口]
 ### Phase 9：密码、会话协议和剩余单侧风险
 
 - [x] 密码迁移设计已完成：选择 PBKDF2-HMAC-SHA-256 版本化格式，规划 legacy MD5 登录成功渐进升级、重置/改密统一新格式和最终退役门禁；尚未执行代码和生产迁移。详见 `docs/plans/2026-09-09-password-session-migration-plan.md`。
-- [x] 随机会话令牌设计已完成：规划 `SecureRandom` opaque token、`user_session` 会话表、过期/撤销/设备绑定和密码事件全量撤销；尚未执行代码和 schema migration，产品/部署门禁仍待确认。
+- [x] 随机会话令牌设计已完成并按确认决策收敛为单会话：规划 `SecureRandom` opaque token，复用 `t_user.token/device_id` 并新增 token 时间字段，过期/撤销/设备绑定和密码事件撤销当前会话；尚未执行代码和 schema migration，产品/部署门禁仍待确认。
 - [ ] 删除 query token/deviceId 兼容前，仍需完成所有客户端 header 迁移、日志观察和生产 Secret/最小权限账号改造。
 
 **Phase 9 设计出口证据（2026-09-09）：** 已完成密码存储、token 生命周期、迁移顺序、回滚边界和未决产品/部署门禁盘点；未宣称密码算法、随机 token、refresh/revoke 或 query fallback 删除已经落地。

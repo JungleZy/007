@@ -76,25 +76,26 @@ pbkdf2_sha256$1$<iterations>$<base64url-salt>$<base64url-derived-key>
 ### 3.1 目标协议
 
 - 使用 `SecureRandom` 生成至少 32 bytes 的随机 opaque token，以 Base64 URL-safe 无 padding 编码。
-- 数据库只保存 token 的单向摘要（例如 SHA-256）和会话元数据；响应只在登录成功时返回原 token。
+- 本阶段按已确认的单会话模型复用 `t_user.token`、`t_user.device_id`（现有字段）并新增 `token_issued_at`、`token_expires_at`、`token_revoked_at`；不新增 `user_session` 表。
 - token 必须绑定 `userId`、`deviceId`、issuedAt、expiresAt 和 revokedAt；服务端每次请求检查未撤销、未过期和设备匹配。
 - access token 初始有效期建议 8 小时；刷新/撤销策略在客户端迁移方案确认后实施，不通过延长固定 token 规避过期。
-- 登出按当前会话撤销；密码修改、密码重置和管理员禁用账号撤销该用户全部会话。
+- 新登录替换该用户旧 token，保持当前单设备/单会话行为；登出、密码修改、密码重置和管理员禁用账号清理或撤销当前 token。
 
 ### 3.2 存储切换
 
-建议新增 `user_session` 表，而不是继续把单一 token 放在 `t_user`：
+采用单会话字段，迁移最小化：
 
 ```text
-id, user_id, token_hash, device_id, issued_at, expires_at, revoked_at, last_seen_at
+t_user.token, t_user.device_id, t_user.token_issued_at,
+t_user.token_expires_at, t_user.token_revoked_at
 ```
 
 要求：
 
-- `token_hash` 唯一索引；`user_id`、`expires_at`、`revoked_at` 建查询索引；
-- 外键和删除策略按当前数据库迁移规范设计；
-- 生产 schema 使用 `validate`，必须提供前置 migration 并完成 current/base 双快照演练；
-- 新旧会话字段并存观察期内，新登录写新表，旧 token 只由兼容分支读取；最终删除 `t_user.token`/`deviceId` 前先完成调用面迁移和日志观察。
+- 新 token 为随机值，不再由账号、密码和设备拼接生成；登录响应仍返回原 token，数据库暂按现有字段保存以维持最小改动。
+- 生产 schema 使用 `validate`，必须提供新增时间字段的前置 migration 并完成 current/base 双快照演练。
+- 兼容期旧 deterministic token 只由明确的 legacy 分支读取；观察窗口结束后删除 legacy 分支和旧字段兼容逻辑。
+- 单会话模型不支持多设备并行；若产品未来需要多设备，另开 `user_session` 表设计，不在本次迁移中隐式扩展。
 
 ### 3.3 客户端与兼容切换
 
@@ -113,8 +114,8 @@ id, user_id, token_hash, device_id, issued_at, expires_at, revoked_at, last_seen
 
 ## 5. 实施前门禁
 
-- [ ] 产品确认 access token 过期时长、是否允许多设备并行会话、刷新策略和强制下线范围。
-- [ ] 部署确认新增 `user_session` 表的 migration、备份、回滚和观察窗口。
+- [ ] 产品确认 access token 过期时长、刷新策略和强制下线范围；已确认本次不支持多设备并行会话。
+- [ ] 部署确认 `t_user` 新增 token 时间字段的 migration、备份、回滚和观察窗口；本次不新增 `user_session` 表。
 - [ ] 目标设备完成 PBKDF2 成本基准，记录 p95 登录耗时。
 - [ ] 完成 header 调用面 grep、WebSocket ticket 方案和 Electron 安全存储设计。
 - [ ] 增加密码迁移、过期 token、撤销 token、设备不匹配、重放和并发登录回归测试。
