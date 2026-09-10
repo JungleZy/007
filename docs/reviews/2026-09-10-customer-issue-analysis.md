@@ -6,6 +6,7 @@
 - **分析方式**：6 路并行源码调查（调用链追踪 + file:line 取证），结论区分「确认事实」与「推断」
 - **关联文档**：`docs/reviews/2026-09-08-joint-frontend-backend-review.md`。原《手键与电子键拍发、评分联合 Review》（2026-09-10）已合并入本文，见附录 A，原文件不再单独保留
 - **修订记录**：2026-09-10 经 6 路并行独立核查（对照仓库现状 + git 历史 + 前端调用面逐条验证），修正：指纹漂移机制（1.1-2）、AudioWorklet 竞态文件归属与首因定性（2-3、10.1-4）、processor.js console 伪引证（10.2-2）、句号残留机制（7-2）、TOPIC_RESULT 房型归因（8.2-4）、NaN 触发链降级为推断（4-2）、发布语境（12）；删除不存在的引证，补充 token 可重放、preJob/postJob 入口区分等遗漏事实。同日产品决策：**单 token 互踢为设计行为不修复**，撤销 user_session 会话表改造（1.1-1、1.3、P3 批次）。
+- **本轮复审基线**：`3360221`。源码审查与算术反例校验，不代表已在客户设备复现；仓库缺陷、客户根因推断和产品扩展分别记录。实施规格与计划见 [`../specs/2026-09-10-customer-issue-fix-spec.md`](../specs/2026-09-10-customer-issue-fix-spec.md)、[`../plans/2026-09-10-customer-issue-fix-plan.md`](../plans/2026-09-10-customer-issue-fix-plan.md)。
 
 ## 0. 总体结论
 
@@ -14,13 +15,13 @@
 | 根因簇 | 覆盖问题 | 侧 |
 |---|---|---|
 | C1 会话模型：单 token 互踢（**设计如此，不修复**）+ 凭证存储脆弱 + 授权码门闸 | 1 | 后端设计 + 前端 |
-| C2 客户端信任：评分输入（码速/用时/总分）由客户端自报，后端零重算 | 2、3、4、5、8、10 | 契约（前后端共同） |
+| C2 评分权威不完整：部分码速/用时/总分信任客户端，已有服务端计算与客户端口径混用 | 3、4、5、8；6 为输入损坏 | 契约（前后端共同） |
 | C3 前端计时与音频节拍：`setInterval`/`setTimeout`/墙钟计时 + AudioWorklet 参数竞态 | 2、4、5、10 | 前端 |
 | C4 摩尔斯采样链路：事件合并、阈值硬编码、映射表缺失、设置不生效 | 6、7、11 | 前端为主 |
-| C5 WS 健壮性：裸 WebSocket 无心跳无重连 + 推送单点投递 + 状态双写 | 8、9 | 前后端共同 |
-| C6 版本发布滞后：题库导入修复未进任何 release | 12 | 发布流程 |
+| C5 WS 健壮性：裸 WebSocket 无心跳无重连 + 通知内容不一致/缺补偿 + 状态双写 | 8、9 | 前后端共同 |
+| C6 交付缺口：题库导入修复未进本地已知 release tag，前端制品链未闭合 | 12 | 发布流程 |
 
-**评分类问题（3/4/5/6/8）的共同本质**：系统把「客户端算好的数」当权威结果落库，服务端不重算、不校验、无兜底。客户端任何一种失败（断网、token 过期、NaN、计时漂移、事件丢失）都直接变成「评分错误/评不了分」。
+**评分类问题（3/4/5/6/8）的共同风险**：部分评分输入信任客户端、提交状态缺少失败处理，且各域公式缺少明确对账。不能概括为“后端零重算”：GeneralKey 已从拍发数据计算、simulation 主要是对比展示；原始事件丢失也不能靠服务端重算恢复。鉴权失败可能来自互踢或凭证丢失，不是当前不存在的 token TTL 到期；具体客户触发链仍需现场记录。
 
 ---
 
@@ -29,14 +30,14 @@
 ### 1.1 掉线机制（按可能性排序）
 
 1. **【确认】单账号单 token 互踢（设计如此，非缺陷，不修复）**。token 是 `AES(account-password-deviceId)` 确定性加密串，每次 login 覆盖写用户行：`UserService.java:452-454`（`user.setToken(token); user.setDeviceId(deviceId)`）。每个账号全库仅一条有效 (token, deviceId)。旧设备下一请求被 `JWTInterceptor.java:67` `existsUserByTokenAndDeviceId` 拒绝 → 206 → 前端 `http/index.js:33-47` 弹「登录唯一凭证异常」跳登录页。教室多终端共用账号场景必然频繁互踢——**产品决策：单点登录互踢即预期行为**（2026-09-10 确认），问题 1 的修复面只剩凭证存储脆弱性与授权码门闸（见 1.1-2、1.2）。
-2. **【部分确认】deviceId 指纹漂移（机制已修正）**。前端 deviceId 取自 FingerprintJS visitorId（`useLogin.js:64-71`），但**仅在登录时计算一次**，之后请求面使用 localStorage 缓存值（`http/index.js:15-18`），永不重算指纹 → 指纹漂移本身不会导致本机掉线，只在下次登录时覆盖 DB 行、踢掉同账号其他机器。存储清理导致的掉线实为 localStorage 丢失（203 缺 token），与指纹无关。（旁证【确认】：token 为 AES/ECB(账号-密码-deviceId) 确定性密文，同账号同密码同 deviceId 每次登录产出**相同 token**，旧 token 永久可重放——比互踢更值一提的安全事实。）
-3. **【确认】任一终端退出登录清空全账号会话**：`UserService.java:484-489` 把 token/deviceId 置 null，同账号其他在线机器立即被踢。
+2. **【部分确认】deviceId 指纹漂移（机制已修正）**。前端 deviceId 取自 FingerprintJS visitorId（`bw-frontend/frontend/src/views/manage/login/useLogin.js:64-71`），仅登录时计算，后续请求用 localStorage 缓存（`bw-frontend/frontend/src/common/http/index.js:15-18`），所以指纹漂移本身不会导致当前会话掉线。存储清理可导致 203/204；其是否发生在客户设备上尚无证据。旁证：相同账号、明文密码、deviceId 再登录会生成相同 token；旧 token 在对应值重新写回用户行后可再次生效，**不是在被覆盖或退出后仍然有效**（`backend/src/main/java/com/nip/service/UserService.java:452-454,484-492`）。
+3. **【确认，有前提】持有当前有效 token 的退出请求清空该账号会话**：`backend/src/main/java/com/nip/service/UserService.java:484-492` 查到当前 token 才清空 token/deviceId；已被新登录覆盖的旧 token 查不到用户，不会再踢掉新会话。
 4. **【已排除】token 过期**：token 无 TTL、无续期机制，不被人顶/不退出则永久有效。
 5. **【已排除】WS 断线导致登出**：ws 包不触碰 user.token；`WebSocketHeartbeat.java:10-16` 仅 ping/pong；前端 WS onclose 不触发登出。
 
 ### 1.2 「验证码」真实身份
 
-登录链路全程无验证码（后端无 captcha 代码）。客户所述「验证码」是 **Electron 端软件授权码（license）门闸**：
+仓内登录链路未见 captcha；**【推断，待客户截图/日志确认】**客户所述“验证码”可能是软件授权码（license）门闸。下列授权机制为源码事实，不能据此排除仓外网关或其它界面提示：
 
 - 授权按**累计运行时长**到期：`VerifyLicense.js:16` DEFAULT_DAYS=30，前端每 10s 累加运行时长（:123-146），超限弹「授权的可用运行时长已用尽」拦回授权页（:109-119）。
 - 授权码绑定设备码，硬件大幅变更后 `matchMachineCode` 不匹配（:232-238）。
@@ -44,9 +45,9 @@
 
 ### 1.3 修复方向
 
-- ~~会话表改造（user_session 一行一 (token, deviceId)、同设备重复登录不互踢）~~——**已撤销**：单 token 互踢为设计行为，不做会话表改造。保留：掉线提示区分「他处登录」与「凭证失效」（203/204/206 目前共用同一弹窗文案，客户无法区分，见 `http/index.js:33-47`）。
-- deviceId 弃用 FingerprintJS，Electron 端复用 `machineCode.js` 硬件因子，浏览器端用持久化随机 UUID（目的：身份稳定与去重放；指纹漂移本身不掉线，见 1.1-2）。
-- 授权到期前 7 天主界面提示剩余时长；向客户澄清「验证码=授权码」并走换发流程。
+- 单 token 互踢为设计行为，**不新增 user_session 表**。前端按 203/204/206 区分“缺少登录凭证 / 缺少设备标识 / 凭证不匹配”，206 只能提示“可能在其它终端登录，请重新登录”，不能断言互踢；后端业务码与文案保持不变。
+- 稳定 deviceId 仅解决身份稳定性，不解决 localStorage 丢失或 token 重放。Electron 复用 `machineCode.js` 的既有硬件采集接口、Web 使用持久化随机标识；凭证读取失败不得悄悄生成新身份或清空授权。随机 token/TTL/安全存储沿用 `docs/plans/2026-09-09-password-session-migration-plan.md` 的独立门禁，不在本轮另建方案。
+- 在剩余**累计可运行时长 ≤ 7×86400 秒**时预警，不写成自然日期“7 天后到期”；分别展示授权耗尽、设备不匹配与存储读取错误，不把所有门闸都引导为换发。
 
 ---
 
@@ -54,14 +55,14 @@
 
 **纯前端问题**（后端不参与播报计时）。
 
-1. **【确认】偏差系数方向自相矛盾**：`receiveTrain.js:39` 硬编码 `audioSpeedDeviation=1.18`；首次加载 `criterion = cri*1.18`（:253，偏慢约 15%），而「修改偏差」changeRate 里反向除以 1.18（:620-623，偏快约 15%），两处相差 1.18²≈1.39 倍。该系数还暴露给用户输入（`receiveTrain.vue:148-151`）——开发者明知公式不准用手搓系数兜底。
-2. **【确认】低速率写死 35**：`receiveTrain.js:240,622` `isLowRate ? 35 : rate`，勾选低速率后公式与设置码速完全脱钩。
+1. **【确认】偏差系数方向自相矛盾**：`receiveTrain.js:39` 硬编码 `audioSpeedDeviation=1.18`；首次加载 `criterion = cri*1.18`（:253，理论速率偏慢约 15%），changeRate 反向除以 1.18（:620-623，理论速率偏快 18%），两处相差 1.18²≈1.39 倍。系数也暴露给用户输入（`receiveTrain.vue:148-151`）；源码不能证明最初引入原因。
+2. **【确认常量；业务含义待定】低速分支点长按固定 35 计算**：`receiveTrain.js:240,622` 用 `isLowRate ? 35 : rate`。这证明点长分支不随设置 rate 改变，不能单凭此认定低速训练应取消固定符号速度；需确认其是否采用“固定符号速度+扩展间隔”的教学口径。
 3. **【确认】AudioWorklet 参数竞态**：`MorseVoiceHighPerformance.js:427-432` updateParam 仅在 oscillator 已存在时下发；init 回推不含 criterion/ratio（:297-300）→ worklet 就绪前下发的参数**静默丢失**，停在 processor.js 默认 criterion=83ms。码/分分支靠 `setTimeout(1000)` 绕过、WPM 分支无保护且从不下发 changeRatio——两处均在 **`receiveTrain.js:251-267`**（非 MorseVoiceHighPerformance.js，此前引证文件张冠李戴）→ 上场训练的自定义划比残留进下一场，**跨训练串味**。worklet 为全局单例（`NipPagePermission.vue:105-109`）。
 4. **【确认】码/分公式是经验平均值**：`cri=(400/rate×60000)/dots[type]`，dots 是「平均页点数」经验常量（`useMorse.js:202-207`，letter 4711/short 4755/long 6995/mix 5389），报文构成偏离平均即偏差；划比可调但标定按固定比例测得。
-5. **【确认】计时系统性偏慢**：`processor.js:158-160,178` 用墙钟 `Date.now()` 判断符号边界，每符号最多滞后一个渲染量子（128 采样≈2.7ms@48k）逐符号累积；高码速（点长 20ms 量级）相当于偏慢 5%~10%。`msToSamples`（:236-239）定义后从未调用（datumSamples 名为采样数实为毫秒，整条计时链是墙钟）。组间隔按 5 单位（非标准 7 单位）偏快，进一步口径混乱。
+5. **【确认墙钟实现；偏差幅度待测】**`processor.js:158-160,178` 用 `Date.now()` 判断符号边界，未按样本累积推进；128 采样约 2.7ms@48k。边界量化及调度抖动可能累积，但“偏慢 5%~10%”未经录音/采样测量，不作已确认数值。`msToSamples`（:236-239）未用于主链，datumSamples 实际按毫秒使用。组间隔为 5 单位；是否改为国际词间隔 7 单位需先确定本系统训练口径，不直接套用标准。
 6. **【确认】WPM 模式「修改偏差」直接报错**：`receiveTrain.js:625` 引用从未定义的 `speedRate` → ReferenceError，码速永远停在初始值。
 
-**修复方向**：统一一套 wpm/码分→点长换算函数（含比例、间隔口径），删除手搓系数；低速率用真实 rate；init 完成后回推全量参数或就绪前排队；processor 改采样数计时；修 `speedRate` 未定义；每场训练显式重置单例参数。
+**修复方向**：在既有 Morse 入口统一单位/类型/比例/间隔换算，修初次与改速的系数方向、未定义 speedRate、参数 ready 回推和采样数计时；每场重置全量参数。低速模式、码/分校准报文、5/7 间隔与经验补偿的去留先按 Spec G2 确认，不直接拿真实 rate 替换 35 改变教学含义。
 
 ---
 
@@ -81,20 +82,20 @@
 5. **【确认】速率加/扣系数颠倒**：全仓规范 r=加分系数、l=扣分系数（`ScoreMath.wpmScore` javadoc），但 `PostTelegramTrainService.java:816-818` 写成 l加r扣，规则 r≠l 时速率项金额算错。
 6. **【确认】客户端计时失真**：所有用时来自前端 `setInterval` 秒计数（`telexTrain.js:84-85`），后台/卡顿机器 tick 节流 → 用时少计、码速虚高。
 
-**修复方向**：码速/正确率/用时一律后端按服务端数据用 `ScoreMath` 重算，前端只回传原始内容；修 pageTime 增量 bug；:855 改用 entity.getScore()；:816-818 改回 r加l扣。
+**修复方向**：先修 pageTime 增量、规则满分基准及 r加l扣；再按训练域冻结计数单位、净用时/暂停/空页规则，统一服务端权威评分和成绩展示。**原始内容不足以重算用时**：需原始事件/页时序、服务端接收时间与规则版本的可核验契约；客户端采集时间仍不是可信硬件时间，不能承诺完全防作弊。已有 `ScoreMath` 是公共计算工具，不代表所有域必须强行使用同一计数单位。
 
 ---
 
 ## 4. 部分电脑个人岗位数据报训练评不了分
 
-1. **【确认】提交链零失败兜底**：`telexTrain.js:268-283` finishPage 不看 `res.code`、无 `.catch`；:255-266 endTrain 不看 code，**无论成败都跳成绩页**。后端返回 500 时 axios 拦截器（`http/index.js:50-54`）只弹 toast 仍 resolve；203/204/206 走 :33-48 弹强制重登 Modal 后同样 resolve → 成绩页读到未结算数据（score 还是创建时的规则满分）。任何网络抖动/代理/杀毒拦截即触发 → 「部分电脑」。
+1. **【确认失败分支缺失；客户触发条件待证】**`telexTrain.js:268-283` finishPage 不看 `res.code`、无 `.catch`；:255-266 endTrain 不看 code，业务失败也跳成绩页。后端业务 500 经拦截器提示后仍 resolve；203/204/206 同样返回失败信封（`bw-frontend/frontend/src/common/http/index.js:33-54`）；网络/HTTP 异常则 reject，缺少调用方恢复。可能读到未结算数据或停在中断状态，不能由源码断言客户由代理/杀毒软件触发。
 2. **【确认】后端 finish 未守边界**：
    - 【确认无守卫/触发链为推断】`PostTelexPatTrainService.java:741` `Integer.parseInt(totalSpeed)` 无 null/格式守卫，收到 null/非数字 → NumberFormatException → 500；但当前前端 tick 先 duration++ 再算 speed（`telexTrain.js:85` 先于 :101），「duration=0→speed=NaN→null」窗口不存在，真实触发更可能来自旧页面/其他入口上送 null；
    - :890 `rule.getOther().getNonStandart()`、:919/:924 `rule.getWpm().getR()/getL()` 无 null 守卫 → 规则 JSON 缺字段即 NPE（规则配置差异决定哪些训练必炸）。
 3. **【推断】旧运行时 API 缺失**：`telexTrain.js:98` 用 `String.prototype.replaceAll`（需 Chrome 85+），旧 Electron/Chromium 每秒 tick 抛 TypeError → 码速恒 0 → 巨额速率扣分。
 4. **【推断】计时节流差异**：setInterval 被节流程度随机型/负载不同 → 同训练不同机器结果不同。
 
-**修复方向**：前端 finishPage/endTrain 校验 `res.code==200` + `.catch`，失败停留并允许重试，上送前 `Number.isFinite` 兜底；后端 totalSpeed 容错解析、规则字段全部 Optional 兜底为 0；结算异常不留「进行中」死局。
+**修复方向**：finishPage/endTrain 明确判 `code===200`，网络异常与业务失败均保留未确认页、释放锁且允许重试；只有服务端确认结算成功才跳成绩页。非法数字拒绝并提示，不以 0 冒充有效成绩；规则必填项缺失返回可诊断错误并保持数据/状态可重试，仅业务明确允许缺省的可选项使用默认值。不要把所有 Optional 兜底 0，也不要在事务里吞异常提交“已结束”。
 
 ---
 
@@ -103,10 +104,10 @@
 **倒计时结束会触发结算链**（`telexTrain.js:84-91` tick → `coun===0` → endTest → finishPage → finish → 后端 countScore），但：
 
 1. **【确认】触发条件是精确相等 `coun===0`**（:88），无 `<=0` 兜底：训练中才开倒计时开关或把时长改小到低于已用时长（`Index.vue:22-27` 可随时改），coun 从正直接跳负 → **永不触发**；时长允许 `:min=0`，duration=0 时 coun 从 -1 起步同样永不触发。
-2. **【确认】触发后仍可能静默失败**：finishPage 无 `.catch`，网络层 reject 后 endTrain 永不执行；倒计时训练动辄几十分钟，token 失效（203）概率高——203 时拦截器弹强制重登 Modal 后**仍 resolve**（`http/index.js:33-54`），finish 链携带失败响应继续执行并跳成绩页（读到未结算数据）；仅网络错误（:95 reject）才走静默中断。服务端无任何倒计时兜底——客户端不发 finish 就永远不结算。
+2. **【确认】触发后仍可能失败**：finishPage 网络 reject 后 endTrain 不执行；203/204/206 的业务失败信封仍 resolve，可继续误走 finish/成绩页。当前 token 无 TTL，训练时间长不能推出“过期概率高”。服务端没有独立倒计时结束触发器，客户端未发 finish 时不能仅靠现有结算入口兜底。
 3. **【确认】长倒计时放大计时漂移**：倒计时与用时都用 setInterval 秒计数而非墙钟。
 
-**修复方向**：`coun===0` 改 `coun<=0` 加防重入；改时长时若已超时立即 endTest；时长 min 改 1 且训练中禁改；长期方案：服务端创建训练时记 startTime+countdownSeconds，finish 幂等兜底。
+**修复方向**：`coun<=0` 加防重入，以单调时钟差值而非 tick 数计算用时/剩余时间；开始时冻结合法时长，训练中禁改；对已加载的过期配置立即进入一次结束流程。失败保留页、释放锁并允许显式重试。服务端超时兜底须先明确真实开始/暂停与迟到页规则，再持久化 deadline 并由恢复扫描触发幂等结算；仅在“创建”时记录 startTime 或仅让 finish 幂等，都不能实现无人请求时自动结束。
 
 ---
 
@@ -118,10 +119,10 @@
 2. **【确认】点判定阈值硬编码 120ms**：`useControl.js:66-90` `diff<=120` 判点（原 `patStandard.dot*(1+initFloat/100)` 被注释掉）。开始符号自校准后 dot 基准可能 >120ms（新手点 130ms）→ 所有点被判为划 → 电码全错 → **评分无故报错码**。`diff<=10` 的抖动仍记为点并污染基准校准。
 3. **【确认】连码判定依赖前端 setTimeout**：`handKeyTrain.js:275-299` wordTimer=codeGap×1.5（默认 120ms），每次按键 clearTimeout 重排；快速拍发时多字码合并查表 → 查无 → '#' 或错码。codeGap 基准又被丢间隔事件污染，下限钳 60ms（`patStandard.js:41-43`）。
 4. **【确认】时间戳取自 JS 处理时刻**而非硬件事件时刻，串口缓冲/粘包延迟直接计入点划时长。
-5. **【确认】key_lock 静默丢事件**：按下态再收按下帧直接清空不回调，且 key_lock 不复位（`WebSerial.js:111-137`），事件流永久错位一帧。
+5. **【确认丢事件；永久错位结论撤回】**`bw-frontend/frontend/src/common/utils/WebSerial.js:111-137` 按下态再次收到按下帧会清空不回调，但随后合法抬起帧仍将 key_lock 复位。它丢失重复/异常转换，不能据此断言永久错位一帧；需用重复按下、缺抬起、分包/粘包序列验证恢复策略。
 6. **后端对照**：后端不重建电码，逐字比对 patKeys 与报底（`MessageComparisonService.java:132-137`），前端产生的任何错字/'#' 都计入 errorNumber；且手键上传的 speed 原样参与最终结算（附录 A H2/H3：码率信客户端、划线扣分错用 dot.max）。
 
-**修复方向**：改 FIFO 队列顺序消费（废弃 ref 当事件队列）；恢复校准基准点阈值、删 120 硬编码；≤10ms 抖动不入电码与校准；串口事件用逐事件打点；key_lock 冲突不静默丢弃；后端按 messageBody+点划时长重算码率。
+**修复方向**：改顺序消费的不可变事件（不以 ref 充当队列），同一事件携带码值、按下/抬起与间隔时间；恢复校准基准阈值，≤10ms 不入电码与校准；异常转换显式处理并恢复。现有串口路径只有 JS 接收时刻，改用单调时钟可避免墙钟跳变但**无法恢复缓冲前的硬件时间**；无硬件时间戳时保留测量精度限制，不伪造逐事件真实间隔。
 
 ---
 
@@ -132,7 +133,7 @@
 3. **【确认】改错特判脆弱**：仅当 code 完整等于 '001100' 或末两个拼接等于 'xx,001011' 才走改错分支；一旦连码粘连或被间隔拆开（'00'+'1100'）→ 特判失效 → '#'。
 4. **【确认】拼写错误**：`handKeyTrain.js:516` `cacheKey.value.legnth`（undefined==0 恒 false）→ 改错后下标递减失效，错位产生更多 '#'。
 
-**修复方向**：句号/改错符加入映射或特殊符优先整码匹配；翻页按实际组数（3）清除占位字符；修 legnth 拼写；改错识别不应以「未被连码污染」为前提。
+**修复方向**：特殊符先识别为控制事件，不把翻页/改错码作为普通得分字符加入映射；按本次识别实际生成的临时显示项移除，**不能统一改成删除 3 项**（干净路径只写入了 2 项，会误删有效正文）。修 legnth，并覆盖完整码、分片、跨组边界与未知码；不能无边界地拼接历史输入来“修复”粘连。
 
 ---
 
@@ -144,7 +145,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 
 1. **【确认】逐字索引对比无对齐**：`TrainResult.vue:31-32` 按数组索引逐字符比对，漏抄/多抄一组 → 其后全部错位标红；学员答案超长时 `undefined != v` 恒真全标红；学员可自行加页（`FillInResult.vue:34-36`）超出报底页数无标准可比。
 2. **【确认机制/竞态推断】报底懒生成竞态**：建房只预生成 min(bwCount,200) 组；第 3 页起 findPage 懒生成，isRandom=1 用无种子 ThreadLocalRandom，两个端并发首拉同一未生成页 → 各自生成不同随机内容都入库 → 报底与播放内容错位 → 大面积误判。
-3. **【确认】重复填报叠加污染**：`SimulationRouterRoomContentService.java:215-226` uploadResult 插入前不删旧行；读取用 firstResult 取到最旧答案；count 被重复行虚增 → 分页与对比全乱。
+3. **【确认】重复填报叠加污染**：`backend/src/main/java/com/nip/service/simulation/SimulationRouterRoomContentService.java:215-226` 每次插入整份答案不替换旧行；`backend/src/main/java/com/nip/dao/simulation/SimulationRouterRoomPageValueDao.java:10-11` 用无排序 firstResult，重复记录下可能读到旧值，**不保证一定是最旧值**；count 被重复行虚增。
 4. **【旁证】综合组网学员端自报分**：`trainingDetails/Index.vue:85-98` 用 `parseFloat==parseFloat` 浮点等值比较自算分，`GroupNetTrainService.java:127-132` 服务端零校验原样入库；且把路由参数 range 当 deviceId 传（:64）可能按错规则打分。
 
 ### 8.2 「反应慢/教员席延迟」
@@ -153,17 +154,17 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 
 1. 教员席仅 onMounted 拉一次详情（`useBroadTeacher.js:199-200`），WS 收不到推送就永远不更新。
 2. **裸 WebSocket 无心跳无重连**：simulation 各页 onclose 只置 null、重连行被注释（`useBroadTeacher.js:111-115`、`useBroadStudent.js:115-118`、`train.js:229-232`）；`Issue.js`/`ListenIn.vue` 更彻底——全篇**没有 onclose 处理器**（原引 :65/:301 实为 `new WebSocket` 行）。带心跳重连的 `SocketConnection` 除联合训练（UnionWs.js）外还有全局通知（Ws.js/PublicSocket.js）在用，但 simulation 各页无一引入。断链后教员席永久失聪。
-3. **结束后拒绝建连**：`useBroadTeacher.js:101-103` `status==2` 直接 return 不连 WS——学员的填报恰恰都在结束后才发 → 教员席在该阶段完全没有推送通道。
-4. **通知串行依赖 REST 且推送不可靠（房型归因已修正）**：学员先等 REST 上传成功才发 WS 'result'/'over'；REST 慢/失败则教员端无感知（disturb 房的 TOPIC_RESULT 不写 DB userStatus，填报状态完全依赖 REST 先成功）。服务端单点投递缺陷位于**报务教学房**：`WebSocketSimulationService.java:535-551` messageHandleReport 的 TOPIC_RESULT 只发给内存列表第一个 channel==0 成员且 break；**组网干扰房**同主题（:466-472）是向全体 userType==0 广播、无 break——两房型实现不同，修复需分别核实。sendMessage 失败仅记日志无补偿（:682-690）。
+3. **【确认，有入口前提】结束态页面初始化不建连**：`bw-frontend/frontend/src/components/BroadcastTeachTrain/js/useBroadTeacher.js:99-115,199-200` 在 login 时 status==2 直接 return。已连接页面不会仅因状态变成 2 自动断开；问题发生于结束后进入/刷新页面，以及既有连接掉线后不能重连。
+4. **【确认，通知内容不一致】**学员 REST 返回后发送 `{type:'result',existPage}`，不带 id（`bw-frontend/frontend/src/components/BroadcastTeachTrain/js/useBroadStudent.js:203-214`）。报务教学房 `backend/src/main/java/com/nip/ws/WebSocketSimulationService.java:535-550` 只向第一个 channel==0 成员发补齐 id 的 mesg，但 **:552-555 仍向其它连接广播原始 message**，所以不是“其余教员完全没收到消息”，而是收到缺 id 的通知；教员按 data.id 更新（`useBroadTeacher.js:124-129`），导致不可应用。干扰房 :466-472 向全体 userType==0 广播，须独立对账主题格式。通知仍依赖学员事后发 WS，sendMessage 失败仅记录日志。
 5. 学员端收到结束广播后 `location.reload()`（`train.js:296-300`）整页重载。
 6. **状态双写漂移**：房间/人员状态既写 DB 又存进程内存 `SimulationGlobal` 三个 static Map；getRoomDetail 在线状态读内存、其余读 DB；服务重启内存全空。
 
 ### 8.3 修复方向
 
-- simulation 各页统一切到带心跳/重连的 SocketConnection；去掉 status==2 拒绝建连；或教员席加轮询兜底。
-- 服务端 uploadResult 结算成功后**主动**向房间内全体教员推送完整快照，不再依赖学员端事后发 WS；TOPIC_RESULT 去掉 first+break。
-- uploadResult 幂等（按 roomId+userId+pageNumber upsert + 唯一索引）；报底建房全量预生成或懒生成加房间级锁。
-- 结果对比引入对齐算法（编辑距离/LCS）；数值评分一律服务端结算，禁止客户端自报分。
+- 复用 SocketConnection 的心跳/重连与生命周期，保留各房型编解码；结束态进入也连接。连接恢复、结果通知后拉取现有详情；教员页可见且仍等待结果时用有上限的轮询补偿丢通知，离页停止。后端入口已有 `WebSocketHeartbeat.respond`（`WebSocketSimulationService.java:358`），迁移时实际验证控制帧不进入业务 JSON 解析。
+- uploadResult **事务提交后**向房间内全体教员通知已保存状态；选择轻量通知触发 REST 权威快照读取，避免在事务内广播未提交数据。不再由客户端 WS 改写已提交状态；报务房补齐身份的通知必须一致发给各教员，去除双版本重复投递。
+- 幂等必须匹配当前“整份答案”接口：事务内替换该学员整份页集合，删除本次缺失的旧尾页，约束 `(room_id,user_id,page_number)`；只 upsert 会留下尾页。报底保留有界懒生成，锁定房间 DB 行、锁内重查并整页落库，约束 `(room_id,page_number,sort)`；仅进程锁无法覆盖多实例，不无上限全量预生成。
+- 结果对齐属于展示语义调整；不把 simulation 新增数值计分与综合组网已有自报分混为一项。先明确漏/多组如何展示，再做有限页内对齐；综合组网自报分另以本域规则服务端计算。
 
 ---
 
@@ -172,10 +173,10 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 **不是端点缺失**——明细端点存在且前端已接线：`GET /api/simulation/router/findPage`（`SimulationRouterRoomController.java:91-98`），三个教员席查看入口均已接线；历史 roomgId/roomId 契约缺陷已修复。真实原因是可用性限制 + 数据污染：
 
 1. **【确认】训练中禁止查看**：`useBroadTeacher.js:35` `status<2` 直接 return false；且只有 userStatus==1（已上传答案）的学员才有查看入口——**训练中教员看不到任何学员的实时进展**，体感即「无法查看详细情况」。
-2. **【确认】详情数据被污染**：重复填报不删旧值 → firstResult 取到最旧答案、existPageNumber 虚高 → 教员看到过期/错页数据；学员自行加页超出报底页数时用 '--' 补齐无法对比。
-3. **【推断】查看动作可能触发报底再生**：教员翻看未生成页时懒生成的随机报底与训练时播放的未必同一份，对比基准本身就错。
+2. **【确认】详情数据被污染**：重复填报使无排序 firstResult 可能读到旧答案、existPageNumber 虚高；超出报底的页面应明确标记“超出报底”，不能伪造 '--' 作为评分基准。
+3. **【推断，有前提】**仅缺失页才触发懒生成（`backend/src/main/java/com/nip/service/simulation/SimulationRouterRoomService.java:381-403`）；不能说每次查看都重新生成。并发生成与历史报底丢失是需要验证的异常场景。
 
-**修复方向**：开放训练中实时查看（学员逐页上报即推送给教员）；修问题 8 的幂等/懒生成缺陷后详情自然正确。
+**修复方向**：先恢复结束后可见的已提交详情与页集合一致性；“训练中实时查看”是新增能力，当前答案通常结束后提交，**只删 status 门闸没有实时数据**。必须先确认客户需要实时草稿还是结束成绩，再定义逐页草稿上报、授权、非最终状态与推送协议；未确认不擅自改变训练过程可见性，也不将该项记为已关闭。
 
 ---
 
@@ -193,10 +194,10 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 ### 10.2 反应慢
 
 1. **【确认】F2 组合键 800ms 判定窗**：`examTrain.js:363-370` 每次按键后 setTimeout(800ms) 等待组合键，字码赋值与播报整体滞后最多 800ms——最大单点。
-2. **【确认】音频热路径 console 输出**：`MorseVoiceHighPerformance.js:348-352,361-362` 每次播报 console.time/console.log 整个数组；`examTrain.js:369` 另有 `console.log(3333333333)` 调试残留——Electron 下大量 console 输出造成明显卡顿，按键越频繁越慢。（注：原引「processor.js:56 渲染线程 console.log」经复核不存在——该文件当前及入库历史均无此句，已删除该引证。）
+2. **【确认日志存在；卡顿贡献待测】**`MorseVoiceHighPerformance.js:348-352,361-362` 播报时 console.time/console.log 数组，`examTrain.js:369` 有调试输出；可清理热路径调试日志，但其是否导致客户明显卡顿需要性能记录。processor.js 当前无所述渲染线程 console.log，不保留错误引证。
 3. **【确认】多级异步链路**：串口/WS → pinia $subscribe → watch → addCode → PubSub 微任务 → convert 全量转码 → postMessage → worklet；另有 `setTimeout(3000/1000)` 延迟订阅（`ElectronMorse.js:102-122`），初始化期按键无声或按默认参数发声。
 
-**修复方向**：changeCriterion 按报文类型取 dots[type] 并尊重 wpmTOmm；恢复并修正跟随训练速度（取消注释+修公式）；参数下发等 worklet ready；F2 判窗缩短可配；删除热路径全部 console。
+**修复方向**：changeCriterion 按报文类型与模式换算，postJob/组训恢复训练速度跟随；参数等待 ready，删热路径调试输出。F2 先按 Spec G2 明确合法组合等待窗与目标机延迟阈值，再优化，不能只调小常量而破坏组合键。
 
 ---
 
@@ -204,29 +205,29 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 
 1. **【确认】保存-读取往返 off-by-one**（注意：本条两个文件均在 **preJob** 目录）：保存侧 `preJob/.../telegram.js:222-247` rateIntervalMaxMs=dot×4、bigIntervalMaxMs=dot×10；读取侧 `preJob/.../HandKeyTrain.vue:770-772` 反推比例时 interval/gap **多减了 1**（parseInt(÷−1)=3 和 9，而 line 不减）→ 任何输入触发 handlePatDeployData 即按错误比例重算（`useDetails.js:581-588`）→ 设置界面显示的比例本身就错，生效间隔与所设不符。
 2. **【确认】个人岗位（postJob）手键训练完全不读取设置**：postJob `HandKeyTrain.vue` 全篇无 rateDotMaxMs/getSetting 调用，判定阈值恒为硬编码 dot=80/line=240/codeGap=80/wordGap=240/groupGap=400（`useControl.js:7-13`）→ **用户配置的间隔在该入口永不生效**。
-3. **【确认】基础训练（HandKeyBasicTrain）链路断裂**：设置经 `/api/telegramTrain/saveSetting` 保存（后端 `TelegramTrainService.java:373-381` deleteAll+save 透传无校验），但训练页 getBasicSetting 只用于图表分级（`basicTrain.js:38-70,133-141`），点/划/间隔判定阈值硬编码从不应用设置。
-4. **【确认+推断】基础训练首键即崩**：`basicTrain.js:140-142` 无 type===0 行时 `[0].value` 对 undefined 取属性抛 TypeError；设置行被全量 prune 或新库无记录时可达（推断，需 UI 复核）；`changeBasicValue` 还会生成 `'<undefined'` 入库。
+3. **【原归因撤回】基础训练配置已经参与分级**：`bw-frontend/frontend/src/views/manage/preJob/telegram/train/js/basicTrain.js:38-70,124-154` 从 getBasicSetting 读取区间，并按当前“点/划练习”页签给时长分级；`HandKeyBasicTrain.vue:148-155` 将按下时长交给它，不是按 useControl 的点/划码值选择分级。它是独立的基础区间配置，不是训练 DTO 中的四段毫秒设置；不能把两者直接替换为同一阈值表。
+4. **【确认缺边界；客户触发待复现】**`basicTrain.js:140-142` 无 type===0 兜底区间时会对 undefined 取 value；异步配置未加载时也需禁用/排队输入。`preJob/telegram/handkey/js/telegram.js:417-440` 没有正区间时可生成 '<undefined'。修配置加载时序、空/坏区间和保存校验，而非重写已经存在的分级算法。
 
-**修复方向**：统一比例换算使保存/读取互逆，以库内四段毫秒值为权威；postJob 训练页接入与 preJob 相同的设置加载；基础训练判定阈值改读 getBasicSetting；basicTrain 加空兜底；后端 saveSetting 加合法性校验。
+**修复方向**：训练 DTO 的毫秒上下限与界面比例保存/读取互逆，postJob 接入其对应训练配置，明确与自校准的优先级；基础练习继续使用 getBasicSetting 的区间模型，加载失败或配置不完整时明确禁用开始并允许修复/重试。saveSetting 在 deleteAll 前校验全部区间，失败保留旧配置；不得将任意损坏配置默认为满分或 0。
 
 ---
 
 ## 12. 理论学习无法导入题库，理论测试系统不会操作
 
-**确定性根因：客户运行的是修复前发布版。**
+**【确认仓库发布缺口；客户版本根因待确认】**题库修复尚未进入本地已知 release tag，但不能由此认定客户必然使用旧版。
 
-题库导入修复（后端 `1c40aae`、前端 `9596c6c`，均 2026-09-08/09）**不含在任何 release tag 中**（`git tag --contains` 两者均为空，全仓仅 v1.0.0/v1.1.0 两 tag）。两个修复提交**已在 origin/main**；main 领先的 4 个未推送提交纯为 docs/chore——缺的是 release 而非推送。旧版三重缺陷：
+基线 `3360221` 核查：`git tag --contains 1c40aae`（后端）与 `git tag --contains 9596c6c`（前端）均为空，已知 tag 为 v1.0.0/v1.1.0；两个修复提交已在本地 `origin/main` 引用的历史中。未向远端刷新、未取得客户安装包 hash/版本与服务端版本，因此现场是否缺修复需要核对制品，不以 main 领先提交数作为发布依据。旧版缺陷如下：
 
 1. **【确认】发布版后端导入端点是空壳**：v1.0.0 `TheoryKnowledgeQuestionController.java:80-83` upLoadFile 空实现直接返回成功；v1.1.0 连 upLoadFile 空壳都已删除，saveBatch/exportTemplate 路由不存在。当前 main 的导入走 saveBatch——upLoadFile 端点是**删除**而非实现，属契约变更，发布说明需注明。
-2. **【确认死链 URL / 404 为推断】模板下载是死链**：旧前端模板指向 `/api/file/getFile/006/题库-模板.docx`，**本仓后端任何版本均无此路由**；但该 URL 指向仓外独立文件服务（index.html 的 fileUrl 与 httpUrl 分离），客户侧是否 404 取决于该服务部署，无法在本仓静态证实（同 `docs/reviews/archive/2026-09-08-joint-theory-file.md:119`）。「拿不到模板 → 不会操作」的因果链成立，部署侧验证后收口。
+2. **【确认仓外 URL 依赖；404 与因果关系为推断】**旧模板 URL 为 `/api/file/getFile/006/题库-模板.docx`，指向独立文件服务而非本仓后端；本仓无该路由不等于客户文件服务 404（见 `docs/reviews/archive/2026-09-08-joint-theory-file.md:119`）。需现场请求记录确认是否影响下载，不能直接将“不会操作”归因于此。
 3. **【确认】旧前端 docx 解析脆弱 + 假成功**：按硬编码版式解析，稍有不符即报错中断；逐行 fire-and-forget 上传后 `setTimeout(2000)` **无条件提示成功**，全失败也提示成功。
 
-**当前 main 状态**：导入链路已修复且前后端契约一致（saveBatch 整批事务 + 逐行校验整批回滚；模板由前端按后端列规格生成 xlsx；仅 code===200 才提示成功），有 6 例测试覆盖。残留易用性问题：模板表头是英文字段名（中文 title 被前端丢弃）、options 列要求手填 JSON、levelId 需手抄题库 ID。
+**当前 main 状态**：已有 saveBatch 整批事务、逐行校验回滚与 code===200 成功判定；`backend/src/test/java/com/nip/controller/TheoryKnowledgeUploadExportTest.java` 有 6 个测试方法，覆盖导入/导出/文件边界，不等于本轮运行通过。模板已有示例行（`bw-frontend/frontend/src/views/manage/basicTheory/test/questionBank/js/knowledgeTabel.js:349-365`），但表头用 field 丢弃中文 title，options 仍为 JSON；levelId 示例是说明文字且非空，会优先覆盖当前题库兜底（同目录 `questionImport.js:86-91`）。必须同步导出与解析，不能只改中文表头或宣称从未有示例。
 
 **修复方向**：
-- **发布（根因）**：从当前 main 出新 release，前后端两个修复提交必须同时进交付物；发布前先推送 main。
-- 模板 UX：用中文表头 + 示例行；levelId 由当前选中题库自动预填。
-- 发布后用真实 docx/xlsx 走「导出模板→填表→导入」闭环验证。
+- **发布闭环**：先取得客户版本/制品，再从同时含两个修复的确定提交构建前后端。当前 `.github/workflows/build-quarkus-native.yml:42-60,197-220` 的前端 job 只构建、不上传产物，release 仅依赖 build/test，不依赖 frontend；打 tag 不能保证双端交付。需补前端成功门禁、制品归档及 Electron 打包消费证明。
+- **桌面资产闭环**：`bw-frontend/frontend/vite.config.js:49-50` 输出 frontend/dist；`bw-frontend/electron/index.js:60-66` 打包态读取 public/dist；`bw-frontend/package.json:23-34` 排除 frontend。必须验证新 dist 进入实际安装包，而不是旧 public/dist。
+- 模板 UX：展示中文列说明并保持唯一 field 契约；修复 levelId 示例覆盖问题，自动绑定当前选中题库；保留已有示例并补选项/答案填法。按目标版本完成“选题库→导模板→填表→导入→查询”及 DOCX 导入；“理论测试不会操作”另验建卷/开考/交卷/查成绩实际流程，不以导入成功代替。
 
 ---
 
@@ -234,21 +235,28 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 
 | 批次 | 内容 | 覆盖问题 | 理由 |
 |---|---|---|---|
-| P0 发布 | 从当前 main 出新 release（两个修复提交已在 origin/main，缺的只是 tag/构建），前后端同步发布 | 12（直接解决），并缓解所有「客户跑的是旧版」类问题 | 不改代码即见效 |
-| P1 评分可信 | 评分收口服务端重算；finishPage/endTrain 失败兜底；倒计时 `coun<=0`；parseInt/NPE 边界守卫；手键 dash.max 错用 dot.max；电子键提交锁释放 | 3、4、5（附录 A H2/H3/M1/M3） | 数据完整性，纯后端+少量前端 |
-| P1 手键采样 | FIFO 事件队列（含电子键多码帧，附录 A H1）；恢复校准阈值；修 legnth；句号/改错符映射与清除 | 6、7 | 高频训练路径，改动集中在前端 |
+| P0 交付核查 | 核对客户版本；补前端成功门禁、双端制品与 Electron 资产闭环；验证后再发布 | 12 | 优先恢复交付；不是已证明的不改代码即见效 |
+| P1 评分可信 | 确定性公式修复；提交失败可重试/倒计时防重入；规则边界拒绝脏数据；单独冻结原始计时与评分契约后服务端重算 | 3、4、5（附录 A H2/H3/M1/M3/M4/M5） | 跨栈数据完整性，不是纯后端小改 |
+| P1 手键采样 | 有序事件（含电子键多码帧，附录 A H1/M2）；校准阈值；legnth；控制符优先识别与按实际占位清除 | 6、7 | 高频训练路径，改动集中在前端 |
 | P2 码速口径 | 统一换算函数；修速度跟随注释；worklet 参数就绪前排队；删热路径 console | 2、10 | 需音频回归验证 |
-| P2 组网 | WS 统一切 SocketConnection；服务端主动推送教员；uploadResult 幂等；报底全量预生成 | 8、9 | 涉及契约，需前后端同步 |
-| P2 点划间隔 | 比例换算互逆；postJob 接入设置加载；基础训练阈值接设置 | 11 | 前端为主 |
+| P2 组网 | 事务后统一结果通知 + REST 快照/重连补偿；整份答案幂等替换；报底锁内懒生成；实时草稿与对齐先确认语义 | 8、9 | 两种唯一键与迁移，跨栈同步 |
+| P2 点划间隔 | 训练毫秒/比例互逆、postJob 接入对应配置；基础区间加载与空配置守卫 | 11 | 两类设置不混用 |
 | P1 越权收口 | 手键 upload/finish/reset 与电子键 finish 一律从 token 推导用户（附录 A H4/H5） | 非客户报障，评审确认 HIGH | 触及红线 6，随 P1 同步修 |
-| P3 会话模型 | ~~user_session 会话表~~（互踢为设计行为，已撤销）；deviceId 稳定化；授权到期预警；203/204/206 掉线提示文案区分 | 1 | 契约变更大，单独排期 |
+| P3 凭证与授权提示 | 保留单 token 互踢；稳定 deviceId；授权剩余运行时长预警；前端按鉴权码解释；安全会话迁移引用既有计划 | 1 | 不改后端 203/204/206 码值文案，不以设备标识稳定化声称防重放 |
 
 ## 14. 验证要求（修复时执行）
 
 - 评分类：新增/更新「原始拍发 → 最终 score」端到端结算测试（现有 `ScoringConsistencyTest` 只覆盖 `ScoreMath.wpmScore`）；篡改 speed/重复 finish/上传失败重试用例。
-- 音频类：用采样时钟校验实际发声节拍（误差 <2%），覆盖 WPM 与码/分两种模式、四种报文类型。
+- 音频类：按冻结的点划/间隔口径计算期望采样数，数字输出段误差 ≤1 sample，完整校准报文时长误差 <2%；44.1/48kHz、WPM 与码/分、四种报文类型、冷启动/跨训练均覆盖。码/分经验常量不保证任意组成的报文都 <2%；真实设备端到端延迟单独实测。
 - 组网类：双端并发首拉未生成页、教员断链重连、学员结束后教员无刷新可见。
 - 发布前：`cd backend && ./mvnw -B clean verify` 全绿；跨栈契约改动核对前端调用面（红线 5）。
+
+## 15. 本轮文档复审记录
+
+- **初审结论：REQUEST CHANGES，已在本文修订**。阻塞点包括：客户版本/授权界面未经现场证明、deviceId 与防重放混淆、评分/用时可信边界不完整、规则全默认 0、句号固定删 3、报务通知漏看后续广播、整份答案 upsert 遗留尾页、基础训练“未使用区间”误判、release 缺前端制品门禁。
+- **修订后结论：可作为规划基线**。12 项及附录 H1–H5/M1–M5 均须在 spec/plan 有处置；产品口径与现场验收前置不能伪装成已确认事实或已完成修复。单 token 互踢仍不修。
+- **证据方式**：直接读取关键调用链；LSP 返回未配置，使用 API 定义/调用点搜索；本地 tag/提交祖先核查；算术反例得到 pageTime `[100,60,140]`（期望 `[100,60,40]`）；调用真实 `parseSpreadsheetRows` 得到模板说明字符串覆盖 selected-bank-id。没有修改业务代码，没有运行客户设备或后端全套测试。
+- **并行核查限制**：三路补充核查均因服务 503 未产出报告，未据其声称通过；上述结论由主评审直接取证。最终三文档交叉复审记录落在实施计划末节。
 
 ---
 
@@ -307,7 +315,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 
 **H4 手键 uploadResult/finish/reset 使用请求体 userId**【HIGH，越权】：`GeneralTickerPatController.java:75-96` + `GeneralTickerPatService.java:498-557,640-643`，`@JWT` 只验 token 有效，用户 ID 来自 body/query → 已登录用户可覆盖他人拍发结果、注入 speedLog、触发他人提前结算、删他人数据。**修复**：学员自有接口一律从 token 推导用户；教员查他人走独立授权路径。
 
-**H5 电子键 finish 仍信任 body userId**【HIGH】：上传接口已改为 token 推导（`GeneralKeyPatService.java:429-453`），但 finish 仍 `findByUserIdAndTrainId(dto.getUserId(), ...)`（`GeneralKeyPatController.java:99-104`、`GeneralKeyPatService.java:456-487`）。**修复**：finish 从 token 推导，删除/忽略 body userId。
+**H5 电子键 finish 仍信任 body userId**【HIGH】：上传接口已改为 token 推导（`GeneralKeyPatService.java:429-453`），但 finish 仍 `findByUserIdAndTrainId(dto.getUserId(), ...)`（`GeneralKeyPatController.java:99-104`、`GeneralKeyPatService.java:456-487`）。**修复**：finish 从 token 推导，同时验证训练归属/参与资格与可提交状态；前后端同提交删除 body userId，不保留忽略字段的假兼容。
 
 ### A.3 中等问题（M1–M5）
 
@@ -348,7 +356,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 7. 结束训练结算失败不得提交已结束状态（→ P1）；
 8. 补 General 端到端结算测试（→ 第 14 节）；
 9. 明确正确率/码率/少多码组公式契约（→ P1 评分可信批次）；
-10. 清理无活跃调用者的 `teacherBack.js` 等死代码（→ P3）。
+10. `teacherBack.js` 等无活跃调用者的历史代码不作为本轮客户报障验收项；仅在本轮切换确实使代码过时时核对引用并清除，既有长尾治理仍由原计划承接。
 
 在 1～5 完成并有端到端回归证据前，手键/电子键拍发与评分不能标记为已验收。
 
