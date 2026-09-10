@@ -322,62 +322,101 @@ export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, a
     emit('clickActive', obj, bool)
   }
 
+  const selectedImportBank = () => {
+    const bankId = String(activeAction.value?.key ?? '').trim()
+    if (knowledgeId.value == -1 || knowledgeId.value == 1 || !bankId) {
+      throw new Error('请先选择需要导入题目的二级知识节点')
+    }
+    return bankId
+  }
+
   const uploadChange = async ({ file, onSuccess, onError }) => {
     try {
       if (!file) throw new Error('未收到上传文件')
+      const bankId = selectedImportBank()
+      const bankTitle = activeAction.value.title
       const buffer = await file.arrayBuffer()
       const isSpreadsheet = /\.xlsx?$/i.test(file.name || '')
       const workbook = isSpreadsheet ? XLSX.read(buffer, {type: 'array'}) : null
       const rows = workbook ? XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {defval: ''}) : null
       const params = isSpreadsheet
-        ? parseSpreadsheetRows(rows, activeAction.value.key)
-        : parseWordQuestions((await mammoth.extractRawText({arrayBuffer: buffer, preserveWhiteSpace: true})).value, activeAction.value.key)
+        ? parseSpreadsheetRows(rows, bankId)
+        : parseWordQuestions((await mammoth.extractRawText({arrayBuffer: buffer, preserveWhiteSpace: true})).value, bankId)
       if (!params.length) throw new Error('未识别到有效题目')
       const response = await saveBatch(params)
       if (response.code !== 200) throw new Error(response.message || '题库批量导入失败')
-      await findAllQuestion(activeAction.value)
+      if (String(activeAction.value?.key) === bankId) findAllQuestion(activeAction.value)
       file.status = 'done'
       onSuccess?.(response)
-      message.success('题库导入成功！')
+      message.success(`题库导入成功：${bankTitle || bankId}`)
     } catch (error) {
-      file.status = 'error'
+      if (file) file.status = 'error'
       onError?.(error)
       message.error(error.message || '题库导入失败')
     }
   }
 
   const exportTemplate = async type => {
-    if (type == 1 && selectID == -1) {
-      message.error('请先选择要导出的题库！')
-      return
-    }
-    if (type == 0) {
-      const response = await exportQuestionTemplate()
-      if (response.code !== 200 || !Array.isArray(response.data)) {
-        message.error(response.message || '模板获取失败')
+    try {
+      if (type == 1 && selectID == -1) {
+        message.error('请先选择要导出的题库！')
         return
       }
-      const row = Object.fromEntries(response.data.map(column => [column.field, column.example ?? '']))
-      const sheet = XLSX.utils.json_to_sheet([row])
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, sheet, '题库模板')
-      XLSX.writeFile(workbook, '题库-模板.xlsx')
-      return
+      const bankTitle = activeAction.value?.title || '题库'
+      if (type == 0) {
+        const bankId = selectedImportBank()
+        const response = await exportQuestionTemplate()
+        if (response.code !== 200 || !Array.isArray(response.data)) {
+          throw new Error(response.message || '模板获取失败')
+        }
+        const fields = response.data.map(column => column.field)
+        const row = Object.fromEntries(fields.map(field => [field, field === 'levelId' ? bankId : '']))
+        const sheet = XLSX.utils.json_to_sheet([row], {header: fields})
+        sheet['!cols'] = fields.map(field => ({wch: field === 'type' ? 12 : ['topic', 'options', 'analysis'].includes(field) ? 50 : 36}))
+        const instructions = [
+          ['题库', bankTitle],
+          ['所属节点', bankId],
+          ['填写位置', '只在第一个“题库模板”工作表填写题目；本页说明与示例不会导入。'],
+          ['题库绑定', 'levelId已自动预填；后续行可留空，使用上传时选择的题库。显式填写其它题库会被拒绝。'],
+          ['选择题', 'options填JSON数组，如["A.选项一","B.选项二"]；单选answer填A或0，多选填AB或0,1。'],
+          ['其它题型', '判断题answer填对/错或1/2；填空和简答沿用文本或JSON数组格式，填空题干以$_$表示空位。'],
+          ['DOCX填空', '导出题库用“答案（JSON）：”保留答案数组；手工DOCX用“答案：甲；乙”分隔多个空，普通方括号文本不会当JSON解析。'],
+          ['提交规则', '整份文件解析成功后一次提交；错误提示中的行号对应数据表。网络结果不明时先查询题库，避免重复导入。'],
+          [],
+          ['字段', '中文名称', '必填', '填写说明', '示例（仅供参考）'],
+          ...response.data.map(column => [
+            column.field, column.title,
+            ['options', 'answer'].includes(column.field) ? '按题型' : column.required ? '是' : '否',
+            column.field === 'levelId' ? '预填当前题库；留空也使用当前选择，不需要手抄ID' : column.remark,
+            column.field === 'levelId' ? bankId : column.example ?? ''
+          ])
+        ]
+        const guide = XLSX.utils.aoa_to_sheet(instructions)
+        guide['!cols'] = [{wch: 18}, {wch: 100}, {wch: 12}, {wch: 65}, {wch: 60}]
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, sheet, '题库模板')
+        XLSX.utils.book_append_sheet(workbook, guide, '填写说明')
+        XLSX.writeFile(workbook, '题库-模板.xlsx')
+        message.info('请在“题库模板”页填写题目，中文说明和示例见“填写说明”页')
+        return
+      }
+      const response = await exportQuestionBank({levelId: selectID})
+      if (response.code !== 200 || !Array.isArray(response.data)) {
+        throw new Error(response.message || '题库导出失败')
+      }
+      const arr = []
+      for (let i = 1; i <= 5; i++) {
+        const group = response.data.filter(item => item.type == i)
+        if (group.length) arr.push(group)
+      }
+      if (arr.length) await handleExportWordDataInfo(arr, bankTitle)
+      else message.info('该题库暂无可导出的题目')
+    } catch (error) {
+      message.error(error.message || '题库导出失败')
     }
-    const response = await exportQuestionBank({levelId: selectID})
-    if (response.code !== 200 || !Array.isArray(response.data)) {
-      message.error(response.message || '题库导出失败')
-      return
-    }
-    const arr = []
-    for (let i = 1; i <= 5; i++) {
-      const group = response.data.filter(item => item.type == i)
-      if (group.length) arr.push(group)
-    }
-    if (arr.length) handleExportWordDataInfo(arr)
   }
 
-  const handleExportWordDataInfo = (arr) => {
+  const handleExportWordDataInfo = (arr, bankTitle) => {
     let docChild = [];
     let arrStr = ["一、单项选择题","二、不定项选择题","三、判断题","四、填空题","五、简答题"]
     let arrOpt = ["A","B","C","D"]
@@ -429,7 +468,7 @@ export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, a
         } else if (topic.type == 3) {
           answerStr += (topic.answer=='1'?'对':'错')
         } else if (topic.type == 4) {
-          answerStr += topic.answer.join('；')
+          answerStr = '    答案（JSON）：' + JSON.stringify(topic.answer)
         } else if (topic.type == 5) {
           answerStr += topic.answer
         }
@@ -444,11 +483,11 @@ export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, a
     const doc = new Document({
       sections: [{ children: docChild }]
     })
-    Packer.toBlob(doc).then(blob => {
+    return Packer.toBlob(doc).then(blob => {
       const tempLink = document.createElement('a')
       tempLink.style.display = 'none'
       tempLink.href = URL.createObjectURL(blob)
-      tempLink.download = activeAction.value.title + '.docx'
+      tempLink.download = bankTitle + '.docx'
       document.body.appendChild(tempLink)
       tempLink.click()
       document.body.removeChild(tempLink)

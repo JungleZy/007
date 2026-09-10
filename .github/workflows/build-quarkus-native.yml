@@ -56,6 +56,8 @@ jobs:
           cache-dependency-path: bw-frontend/frontend/package-lock.json
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test question import contracts
+        run: npm run test:question-import
       - name: Build frontend
         run: npm run build
       - name: Package deployable Web artifact
