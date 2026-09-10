@@ -2,7 +2,7 @@
 
 > **状态：可执行基线（2026-09-08）**。本文由当前代码、`docs/reviews/2026-09-08-full-project-review.md`（全项目权威入口）和 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`（跨栈证据）整理。行号仅作定位，执行前以符号和当前源码复核。
 >
-> 既有后端整改的完成状态见 `docs/specs/2026-09-07-fix-spec.md`、`docs/specs/2026-09-08-deviation-fix-spec.md` 和 `docs/plans/2026-09-07-fix-plan.md`。本文不把已确认修复项重新列为任务。
+> 既有后端整改的完成状态见 `docs/specs/archive/2026-09-07-fix-spec.md`、`docs/specs/archive/2026-09-08-deviation-fix-spec.md` 和 `docs/plans/archive/2026-09-07-fix-plan.md`。本文不把已确认修复项重新列为任务。
 
 ## 1. 目标与边界
 
@@ -84,7 +84,7 @@
 
 ### 3.1 已落地后端整改边界
 
-以下项目在 `docs/plans/2026-09-07-fix-plan.md` 的当前执行记录中已落地；本计划只做回归，不重复实现：事务异常回滚、MyISAM→InnoDB、`ScoreMath` 评分收口、分页 `[1,200]` 钳制、后端房间参数统一到 `ROOM_ID`、文档上传/`saveBatch`/`exportTemplate` 后端端点、WebSocket 单例状态收口、边界守卫和读路径懒建唯一约束。当前仍存在的 `roomgId` 是前端调用面回归，不是后端再次改名。
+以下项目在 `docs/plans/archive/2026-09-07-fix-plan.md` 的当前执行记录中已落地；本计划只做回归，不重复实现：事务异常回滚、MyISAM→InnoDB、`ScoreMath` 评分收口、分页 `[1,200]` 钳制、后端房间参数统一到 `ROOM_ID`、文档上传/`saveBatch`/`exportTemplate` 后端端点、WebSocket 单例状态收口、边界守卫和读路径懒建唯一约束。当前仍存在的 `roomgId` 是前端调用面回归，不是后端再次改名。
 
 ### 3.2 共享文件串行所有权
 

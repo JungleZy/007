@@ -2,7 +2,7 @@
 
 > 对应 Spec：[`../specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md)。权威依据：[`../reviews/2026-09-08-full-project-review.md`](../reviews/2026-09-08-full-project-review.md)；跨栈证据：[`../reviews/2026-09-08-joint-frontend-backend-review.md`](../reviews/2026-09-08-joint-frontend-backend-review.md)。
 >
-> 本文是**执行中计划**，仅 `[x]` 且有证据的条目表示完成。代码现状若与历史行号冲突，以执行时符号/LSP/运行结果为准；不要把既有 `2026-09-07-fix-plan.md` 已完成项重复实现。
+> 本文是**执行中计划**，仅 `[x]` 且有证据的条目表示完成。代码现状若与历史行号冲突，以执行时符号/LSP/运行结果为准；不要把既有 `archive/2026-09-07-fix-plan.md` 已完成项重复实现。
 
 ## 1. 交付策略
 
@@ -181,7 +181,7 @@ K --> L[长尾与交付收口]
 ### Phase 8：富文本与数据表示
 
 - [x] `dompurify` 白名单入口覆盖设备描述、弹幕动态 HTML、理论课件 iframe 内容；危险标签/属性/`javascript:`/`data:` URL 已通过浏览器 smoke 清理。
-- [x] 数据表示字段清单已完成；确定性时间字段错读已修正，混合 wire 格式按 DTO 边界保留，不做无证据全站重命名。详见 `docs/plans/2026-09-09-data-representation-decisions.md`。
+- [x] 数据表示字段清单已完成；确定性时间字段错读已修正，混合 wire 格式按 DTO 边界保留，不做无证据全站重命名。详见 `docs/plans/archive/2026-09-09-data-representation-decisions.md`。
 - [x] iframe 已使用无脚本 `sandbox="allow-same-origin"`；部署侧 CSP 需求已记录为外部部署前置，未伪造为仓内完成。
 
 **Phase 8 出口证据（2026-09-09）：** 浏览器危险 HTML smoke 和前端 `npm run build` 成功；CSP、设备授权页和真实页面联调仍需部署环境验收。

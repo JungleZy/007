@@ -1,6 +1,6 @@
 # 修复 Spec：闭合 2026-09-07 整改波次遗留的 4 项计划偏离（1 项判定为「计划文本滞后、代码更优」，1 项经业务拍板按方案 B 恢复功能）—— 已于 2026-09-08 全部闭合
 
-> 依据：[2026-09-07-fix-plan.md](../plans/2026-09-07-fix-plan.md) 的执行结果节 —— 立项时 41 项 Task 已落地 37 / **偏离 4** / 未落地 0，偏离项分别是 Task 3.2、Task 3.4、Task 5.2、Task 6.3。**四项已于 2026-09-08 全部闭合**，fix-plan 的 Phase 表与合计行重算为 **41/41 已落地、0 偏离、0 未落地**（现落点：Task 3.2 `:412-457`、Task 3.4 `:475-526`、Task 5.2 `:647-668`、Task 6.3 `:740-760`）。
+> 依据：[2026-09-07-fix-plan.md](../../plans/archive/2026-09-07-fix-plan.md) 的执行结果节 —— 立项时 41 项 Task 已落地 37 / **偏离 4** / 未落地 0，偏离项分别是 Task 3.2、Task 3.4、Task 5.2、Task 6.3。**四项已于 2026-09-08 全部闭合**，fix-plan 的 Phase 表与合计行重算为 **41/41 已落地、0 偏离、0 未落地**（现落点：Task 3.2 `:412-457`、Task 3.4 `:475-526`、Task 5.2 `:647-668`、Task 6.3 `:740-760`）。
 > 取证方式：4 个只读侦察分片分别核实一项，主代理复核关键事实（`git show` 取旧实现、活库查存量行、`/q/openapi` 取运行时 schema）。**立项基线**：HEAD `e319d41`（v1.1.0 已发布），`clean verify` 201 测试全绿；**收口后**：**216 测试全绿**（+15），见下方「验收状态（2026-09-08）」。
 
 **Goal:** 4 项偏离全部有终态结论 —— 该修的修、该改记录的改记录、该由业务拍板的显式提出，不留「待评估」。收口后 `clean verify` 仍全绿，**得分数值与对外 JSON 契约不变**。
@@ -16,7 +16,7 @@
 | 三条速率路径的规则类型 | Ticker `SpeedDeduct` 四字段全 `Integer`；Key/Telex `Wpm.base` 是 `Integer`、**`r`/`l` 是 `BigDecimal`**（`PostKeyPatTrainRuleDto.java:46/51`） | 收口 helper 的 `r`/`l` 必须是 `BigDecimal`，int 化会截断小数系数 → 改分 |
 | 三条路径的 `diff` 算法 | 都先把 speed 截成 int 再减（Key `:848` `speed.intValue() - base`） | helper 的 `base`/`speed` 用 int 即可，值不变 |
 | Key/Telex 的负号 | `String minus = "-"`（`GeneralKeyPatService.java:790`、`GeneralTelexPatService.java:745`），ASCII 连字符 | 有符号 `BigDecimal.toString()` 的负值与 `minus + 正值` 逐字相同；正值仍需调用方补 `+` 前缀 |
-| `ToolUtil` 三参 `calculateRate` | 已不存在（grep 0 命中）。旧实现见 `git show e319d41~5:src/main/java/com/nip/common/utils/ToolUtil.java` 的 `:96-98` | 计划原 `:471` 的 `Modify ToolUtil.java:96-98` 是失效引用 —— **已修正**（现 `docs/plans/2026-09-07-fix-plan.md:479` 改为「Delete `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total)` 承接」）|
+| `ToolUtil` 三参 `calculateRate` | 已不存在（grep 0 命中）。旧实现见 `git show e319d41~5:src/main/java/com/nip/common/utils/ToolUtil.java` 的 `:96-98` | 计划原 `:471` 的 `Modify ToolUtil.java:96-98` 是失效引用 —— **已修正**（现 `docs/plans/archive/2026-09-07-fix-plan.md:479` 改为「Delete `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total)` 承接」）|
 | 两张懒建表的存量 | `t_radiotelephone_train` 0 行 / 0 重复；`t_theory_knowledge_test_fallible` 0 行 / 0 重复 | 加唯一约束无需清理存量数据 |
 | 两个懒建 DAO | `RadiotelephoneDao.findByUserIdAndType:23-25` 与 `TheoryKnowledgeTestFallibleDao.findByUserId:10-12` 都用 `firstResult()` | 主动容忍重复行，证明现设计未指望唯一性 |
 | `%prod` schema 策略 | `generation: validate`，且硬约束「先执行迁移 01→02」 | 批 4 加唯一约束必须同步出迁移 SQL，否则生产启动被拦 |
@@ -30,7 +30,7 @@
 | 批 | 主题 | 本 spec 的验收口径（原文摘要）| 实测结果 | 证据 |
 |---|---|---|---|---|
 | 1 | Task 3.2 速率加减分收口到单一实现 | ①`clean verify` 全绿、测试数不减；②`src/main/java` 中速率加减分只剩 1 份实现，`getBase()` 在三个 General 服务里不再出现于速率分支；③**得分数值不变** —— 用临时对照脚本对同一组 `(base, r, l, speed)`（含小数系数、`speed` 等于/大于/小于 `base`、`diff` 为 0 的边界）比对改动前后三条路径输出，逐值相等，脚本不留仓 | **全部达成。** ①`Tests run: 216, Failures: 0`（测试数 +15，其中本批 `ScoringConsistencyTest` 3→8 例）；②速率公式（乘/减分支）在三个 General 服务里全部消失，只存在于 `ScoreMath.java:64-72`，`getBase()` 残留恰 3 处且只用于取值/比较（Key `:848`、Telex `:812`、Ticker `:994`）；③**126 组对照 `SCORE: ALL EQUAL` / `LABEL: ALL EQUAL`**（Ticker 54 组 + Key/Telex 72 组，旧实现逐字取自 `e319d41`；矩阵 `base ∈ {0,20,100}` × `speed ∈ {base-10,base-1,base,base+1,base+10,0}` × `(r,l) ∈ {(1,1),(2,3),(1.5,2.5),(0,0)}`，Ticker 的 `r`/`l` 是 `Integer` 故 `(1.5,2.5)` 组跳过），脚本已删。**对照脚本抓到一个真实回归**：第一版用 `speedScore.signum()` 决定标签，`(r,l)=(0,0)` 时整个丢掉 `speedScore` key（旧代码输出 `"+0"`/`"-0"`）→ **14/72 组 LABEL DIFF**，已改回按方向判断 | `ScoreMath.java:64-72` + javadoc `:51-63`；委托点 `GeneralTickerPatService.java:991-997`、`GeneralKeyPatService.java:849-851`、`GeneralTelexPatService.java:813-815`；标签方向仍用 `wpmBase` 的两处 `GeneralKeyPatService.java:848/854-858`、`GeneralTelexPatService.java:812/818-822`；测试 `ScoringConsistencyTest.java:13-23`（头注释已改写）、`:64/77/90/104/115`（新增 5 例）。RED 实证 A（int 截断 + 去 null 守卫）`Tests run: 8, Failures: 1, Errors: 1`；RED 实证 B（系数方向对调）同样变红；恢复后 `Tests run: 13, Failures: 0`（含既有 `ScoreMathTest` 5 例）|
-| 2 | Task 3.4 不回退代码，修正记录并补服务级锁 | ①新用例经「**回退→变红→恢复→回绿**」实证非空转；②`grep -n "ToolUtil" docs/plans/2026-09-07-fix-plan.md` 不再指向已删除的方法 | **全部达成。** ①`TickerGapRateNumeratorTest` 2 例走公开入口 `GeneralTickerPatService.statistic(...)`（未用反射）；**RED 实证**：把 `GeneralTickerPatService.java:768` 首参改回 `groupGapMin` → `Tests run: 2, Failures: 2`，断言原文含「组间隔粗 = groupMaxNumber/groupTotal = 5/10 = 50%；拿到 0 说明分子不是 groupGapMax」，恢复后回绿、零残留。两例合起来让两行的分子身份各自唯一确定，任一行首参回退或两行对调都必红；②fix-plan 的 `Files` 行已改为「**Delete** `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total)` 承接」，Task 3.4 状态改为「已落地（原判偏离不成立）」并附上等价性表；文件里余下的 `ToolUtil.java:96-98` 引用只在「事实（逐字，**修复前**状态）」代码块里，已显式标注为历史留档 | `docs/plans/2026-09-07-fix-plan.md:477`（状态）、`:479`（Files）、`:481`（历史留档标注）、`:496-522`（Step 3 + 等价性表 + 消费链纯读）；`src/test/java/com/nip/service/TickerGapRateNumeratorTest.java:89/105`；守卫 `PatTrainStatisticsUtil.java:71-74`；造数发现（`%test` 是 `drop-and-create`、String → `varchar(255)`、完整 20 字段 `statistic_info` JSON 撞 `MysqlDataTruncation`）已写进测试注释 |
+| 2 | Task 3.4 不回退代码，修正记录并补服务级锁 | ①新用例经「**回退→变红→恢复→回绿**」实证非空转；②`grep -n "ToolUtil" docs/plans/archive/2026-09-07-fix-plan.md` 不再指向已删除的方法 | **全部达成。** ①`TickerGapRateNumeratorTest` 2 例走公开入口 `GeneralTickerPatService.statistic(...)`（未用反射）；**RED 实证**：把 `GeneralTickerPatService.java:768` 首参改回 `groupGapMin` → `Tests run: 2, Failures: 2`，断言原文含「组间隔粗 = groupMaxNumber/groupTotal = 5/10 = 50%；拿到 0 说明分子不是 groupGapMax」，恢复后回绿、零残留。两例合起来让两行的分子身份各自唯一确定，任一行首参回退或两行对调都必红；②fix-plan 的 `Files` 行已改为「**Delete** `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total)` 承接」，Task 3.4 状态改为「已落地（原判偏离不成立）」并附上等价性表；文件里余下的 `ToolUtil.java:96-98` 引用只在「事实（逐字，**修复前**状态）」代码块里，已显式标注为历史留档 | `docs/plans/archive/2026-09-07-fix-plan.md:477`（状态）、`:479`（Files）、`:481`（历史留档标注）、`:496-522`（Step 3 + 等价性表 + 消费链纯读）；`src/test/java/com/nip/service/TickerGapRateNumeratorTest.java:89/105`；守卫 `PatTrainStatisticsUtil.java:71-74`；造数发现（`%test` 是 `drop-and-create`、String → `varchar(255)`、完整 20 字段 `statistic_info` JSON 撞 `MysqlDataTruncation`）已写进测试注释 |
 | 3 | Task 5.2 上传导出功能恢复（方案 B） | ①`saveBatch` 正常批入库后可被 `findAllQuestionByLevelId` 查到；空集与缺必填字段各断言明确错误；**一行失败整批回滚**；②`exportTemplate` 列规格非空且字段名与 `TheoryKnowledgeQuestionDto` 逐一对应；③`uploadFileToNip`：纯文本返回 `type=2` 且 `wordContent` 等于文件内容、`.docx` 二进制被拒且文案明确、空文件被拒；④`clean verify` 全绿且 `TheoryKnowledgeUploadExportTest` 里的 404 断言全部替换为新契约断言 | **全部达成。业务决策：2026-09-08 用户拍板「功能需要，但不用 poi」（方案 B）**，三端点按仓内现成分工恢复（Excel 由前端解析、后端收 JSON 行 / 只给列规格）。①②③④ 逐条有断言：`batchImportPersistsRowsAndExportReadsThemBack`、`batchImportRejectsEmptyPayloadAndRowsMissingRequiredFields`（断言「第 2 行缺少题目」）、`batchImportRollsBackEveryRowWhenOneRowIsInvalid`（断言库里零行）、`templateColumnsMatchTheBatchImportContract`、`plainTextUploadReturnsItsContentAndOfficeFormatsAreRejected`（txt → `type=2` + 原文；`.docx` 魔数被拒含「仅支持纯文本文档」；空文件被拒含「文档内容为空」）；原先断言三条 404 的 `emptyShellUploadAndExportEndpointsAreGone` 已删除。**能力边界达成**：Office/二进制格式一律抛明确业务错误，**不静默返回空 VO**；`.docx`/`.pptx` 解析与「PPT 转图片」（`imgUrls`、`type=1`）明确不做；**不做持久化**（原 `updateFileToNip` 本就无落库目标）| 端点 `TheoryKnowledgeQuestionController.java:86-92`（`saveBatch`）、`:94-99`（`exportTemplate`）、`TheoryKnowledgeController.java:176-182`（`uploadFileToNip`，`@RestForm("file") FileUpload`）；服务 `TheoryKnowledgeQuestionService.java:185-218`（空集 `:187-189`、逐行指出第几行 `:194-206`、token 解析一次 `:190`、`@Transactional` `:185`）、`:227-241`（6 列规格）、`TheoryKnowledgeClassifyService.java:107-134`（边界 javadoc `:97-106`、格式拒绝 `:116-119`、空内容拒绝 `:126-128`）；新 VO `src/main/java/com/nip/dto/vo/TheoryKnowledgeQuestionTemplateColumnVO.java`；测试 `TheoryKnowledgeUploadExportTest.java:60/81/95/110/120`（+ 既有 `:146`）；prod jar 实测（1.1.0，18002，默认 `%prod`）三端点 bogus token → 200 + `code 206`，旧误导路径 `theoryKnowledgeQuestion/upLoadFile` → **404** |
 | 4 | Task 6.3 把「待评估」评估完并修家族第二处 | ①并发回归测试：两线程同时对同一 `(userId, type)` 首调 `listPage`，断言表中只有 1 行、两个调用拿到同一行；家族第二处同理；②`clean verify` 全绿；③迁移演练双快照 PASSED（`table count`、`MyISAM=0`、实体表差分 0 字节三项断言全绿）；④`%prod` 默认 profile（`validate`）下 prod jar 能启动 | **全部达成。** ①`ReadPathLazyCreateConcurrencyTest` 4 例，确定性不靠抢跑概率 —— 两线程各自先用 `QuarkusTransaction.requiringNew()` 读一次固定 REPEATABLE READ 快照，都读完才在 `CyclicBarrier` 放行 → 双方必然都走懒建分支；`concurrentFinishAccumulatesOntoTheSameRow` 断言 1 行且 `totalCount=2` / `totalTime="60"`，直接锁住「计数割裂」这个真实危害。**RED 实证**：去掉两个实体的唯一约束 → 3 个用例 `expected: <1> but was: <2>`，已恢复、零残留；②`Tests run: 216, Failures: 0`；③双快照演练 **PASSED**，除口径三项外**另加两条唯一索引断言**（两侧各 2 条全 PASS）：表计数 105、MyISAM 0、`diff-current.txt`/`diff-base.txt` 均 0 字节，`timings.tsv` `current 182 2450 110` / `base 644 2431 165`；活库连跑迁移 03 三次，第三次 `mysql exit=0` 且索引列数仍为 3 → 幂等确证；④prod jar `quarkus-template 1.1.0 ... started in 2.506s`，**无** `SchemaManagementException` —— 实体新增的唯一约束被 `validate` 接受 | 唯一约束 `RadiotelephoneEntity.java:20-21`、`TheoryKnowledgeTestFallibleEntity.java:26-27`；支撑件 `IdempotentWrite.java:31-34`（`REQUIRES_NEW`）、`:42-52`（异常链）、`:12-21`（三条「为何不能原地重读」硬理由）；改造点 `RadiotelephoneService.java:41-52/54-61/63-87/89-102`、`ComprehensiveService.java:343/359-372/374-384`；空键校验 `RadiotelephoneService.java:71-77`、`ComprehensiveService.java:360-363`；测试 `ReadPathLazyCreateConcurrencyTest.java:58/81/100/122`；迁移 `backend/database/migrations/2026-09-08-01-unique-lazy-create.sql`；脚本 `scripts/rehearse-migrations.sh:62/64/162-164/186-188`；演练产物 `backend/database/rehearsal/2026-09-08/`；评审结论 `docs/reviews/2026-09-08-migration-rehearsal.md` |
 
@@ -45,7 +45,7 @@
 | 3 | 批 2 的新用例经「回退→变红→恢复→回绿」实证非空转 | **达成** | `GeneralTickerPatService.java:768` 首参回退 → `Tests run: 2, Failures: 2`；恢复后回绿，零残留 |
 | 4 | 批 4 的并发用例能复现双插（未加约束时变红）| **达成** | 去掉两个实体的唯一约束 → 3 个用例 `expected: <1> but was: <2>`；恢复后回绿，零残留 |
 | 5 | 批 4 后迁移演练双快照 PASSED，且 prod jar 在默认 `%prod` 下启动成功 | **达成** | 双快照 PASSED（含两侧各 2 条 `unique index exists` 断言）、表计数 105 / MyISAM 0 / 差分 0 字节；迁移 03 活库连跑三次幂等；prod jar `1.1.0 ... started in 2.506s`，无 `SchemaManagementException` |
-| 6 | 4 项偏离在 `docs/plans/2026-09-07-fix-plan.md` 里全部有终态结论，无一停留在「偏离计划」而无下文；批 3 若被业务确认为「不需要」，其理由须是产品结论而非技术借口 | **达成** | `grep -c '\*\*状态:\*\* 偏离计划' docs/plans/2026-09-07-fix-plan.md` → **0**（余下 3 处「偏离计划」字样均在「已落地（2026-09-08 闭合原『偏离计划』）」的状态行里，是闭合记录而非未决状态）；Phase 表与合计行重算为 **41/41 已落地、0 偏离、0 未落地**（`docs/plans/2026-09-07-fix-plan.md:25`（Phase 3）、`:27`（Phase 5）、`:28`（Phase 6）、`:30`（合计））。批 3 未被确认为「不需要」—— 业务拍板的是「**需要，但不用 poi**」，功能已恢复，故「技术借口」这一风险点自然消解 |
+| 6 | 4 项偏离在 `docs/plans/archive/2026-09-07-fix-plan.md` 里全部有终态结论，无一停留在「偏离计划」而无下文；批 3 若被业务确认为「不需要」，其理由须是产品结论而非技术借口 | **达成** | `grep -c '\*\*状态:\*\* 偏离计划' docs/plans/archive/2026-09-07-fix-plan.md` → **0**（余下 3 处「偏离计划」字样均在「已落地（2026-09-08 闭合原『偏离计划』）」的状态行里，是闭合记录而非未决状态）；Phase 表与合计行重算为 **41/41 已落地、0 偏离、0 未落地**（`docs/plans/archive/2026-09-07-fix-plan.md:25`（Phase 3）、`:27`（Phase 5）、`:28`（Phase 6）、`:30`（合计））。批 3 未被确认为「不需要」—— 业务拍板的是「**需要，但不用 poi**」，功能已恢复，故「技术借口」这一风险点自然消解 |
 
 **本次范围外、仍未达成（照实记录）：** ①「每 Task 一次提交」—— v1.1.0 已推送，历史无法追溯重写，永久未达成；②分片文档批量标注「已在 fix-plan 批 N 处理」—— 14 份文档的独立工作量。两项均在下方「明确不做的事」表中列明。另：`%test` 的 `drop-and-create` 把长文本 String 映射成 `varchar(255)`，与活库 longtext 不一致（批 2 造数时撞到）；`validate` 容忍字符串族差异故生产无碍，但测试侧无法承载完整长 JSON —— 属新发现的测试基建限制，未修。
 
@@ -115,18 +115,18 @@
 **13 处调用无一丢守卫或改语义**，唯一可达的行为变化就是 `:737` 的既定 bug 修复。消费去向已核实为纯读：`statisticsScoreAndDotLineGapRate` → `statistic():648-653` → `GeneralTickerPatController.statistic:100-103` 直接返回 VO，**不落库**。
 
 **Files:**
-- Modify `docs/plans/2026-09-07-fix-plan.md`（立项时的落点：`**状态:**` 行 `:469`、`Files` 行 `:471`、Step 3 `:486-487`；**已改完**，现落点 `:477`／`:479`／`:496-522`）
+- Modify `docs/plans/archive/2026-09-07-fix-plan.md`（立项时的落点：`**状态:**` 行 `:469`、`Files` 行 `:471`、Step 3 `:486-487`；**已改完**，现落点 `:477`／`:479`／`:496-522`）
 - Add 服务级回归用例（补计划 Step 1 要求的红点，类名与落点见下）
 
 **内容：**
 
 1. 记录修正：
-   - `:471` 的 `Modify ToolUtil.java:96-98` 是失效引用（该方法已不存在）→ 改为「Delete `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total):71-79` 承接」。**已改完**（现 `docs/plans/2026-09-07-fix-plan.md:479`）。
+   - `:471` 的 `Modify ToolUtil.java:96-98` 是失效引用（该方法已不存在）→ 改为「Delete `ToolUtil` 三参 `calculateRate`；口径由 `PatTrainStatisticsUtil.calculateRate(count,total):71-79` 承接」。**已改完**（现 `docs/plans/archive/2026-09-07-fix-plan.md:479`）。
    - `:469` 与 `:486-487` 撤销「本步『只改守卫，不删参数』的约束因此未被遵守」的判语，改为「Step 3 与 Task 7.6 合并完成」，并附上表的等价性论证。Task 3.4 的状态从「偏离计划」改为「已落地」。**已改完**（状态行 `:477`、Step 3 与等价性表 `:496-522`；文件里余下的 `ToolUtil.java:96-98` 引用只在 `:481-488` 的「事实（逐字，**修复前**状态）」代码块里，已显式标注为历史留档）。
 2. 补服务级回归测试：`groupGapMin=0, groupGapMax=5, groupTotal=10` 时断言 `GroupGapMax` 为 50%。
    现状是 util 级 `CalculateRateTest.java:16-35` 只锁两参契约（`total==0`、`count==0`、取整），**服务层的首参传递无锁** —— 若有人把该行首参改回 `groupGapMin`，CI 逮不到。这正是计划 Step 1 的红点，立项时工作树不存在。**已补齐**：`src/test/java/com/nip/service/TickerGapRateNumeratorTest.java:89/105` 两例走公开入口 `GeneralTickerPatService.statistic(...)`。
 
-**验收：** 新用例在把对应行首参改回 `groupGapMin` 时变红、改回来变绿（按「回退→变红→恢复→回绿」实证）；`grep -n "ToolUtil" docs/plans/2026-09-07-fix-plan.md` 不再指向已删除的方法。
+**验收：** 新用例在把对应行首参改回 `groupGapMin` 时变红、改回来变绿（按「回退→变红→恢复→回绿」实证）；`grep -n "ToolUtil" docs/plans/archive/2026-09-07-fix-plan.md` 不再指向已删除的方法。
 
 **风险：** 无。纯 `BigDecimal` 静态函数，不涉反射与序列化，`reflection-config.json` 无关，三平台 native 无影响。
 
@@ -258,7 +258,7 @@
 | 4（懒建幂等 + 迁移） | 可 | 无。文件域限两个实体 + 两个服务 + 迁移/快照 |
 | 3（上传导出） | 可 | ~~等业务确认~~ —— **业务已于 2026-09-08 拍板「功能需要，但不用 poi」，阻塞已解除**，按方案 B 恢复三端点，与其余三批并行执行，文件域限两个 controller + 两个 service + 一个新 VO + `TheoryKnowledgeUploadExportTest` |
 
-批 1 与批 2 都碰 `docs/plans/2026-09-07-fix-plan.md`（批 1 要更新 Task 3.2 状态、批 2 要更新 Task 3.4 状态），**由主代理串行收口该文件**，不让两批同时改。
+批 1 与批 2 都碰 `docs/plans/archive/2026-09-07-fix-plan.md`（批 1 要更新 Task 3.2 状态、批 2 要更新 Task 3.4 状态），**由主代理串行收口该文件**，不让两批同时改。
 
 批 4 的迁移演练要独占 docker，必须由主代理串行执行，不能与其他批的构建并发。
 
@@ -280,4 +280,4 @@
 3. 批 2 的新用例经「回退→变红→恢复→回绿」实证非空转。
 4. 批 4 的并发用例能复现双插（未加约束时变红）。
 5. 批 4 后迁移演练双快照 PASSED，且 prod jar 在默认 `%prod` 下启动成功。
-6. 4 项偏离在 `docs/plans/2026-09-07-fix-plan.md` 里全部有终态结论，无一停留在「偏离计划」而无下文；批 3 若被业务确认为「不需要」，其理由是产品结论而非技术借口。
+6. 4 项偏离在 `docs/plans/archive/2026-09-07-fix-plan.md` 里全部有终态结论，无一停留在「偏离计划」而无下文；批 3 若被业务确认为「不需要」，其理由是产品结论而非技术借口。

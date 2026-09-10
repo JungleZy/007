@@ -26,7 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前基线 **216 测试全绿**（`docs/specs/2026-09-08-deviation-fix-spec.md` 验收状态节）；新增测试只增不减。
+- 当前基线 **216 测试全绿**（`docs/specs/archive/2026-09-08-deviation-fix-spec.md` 验收状态节）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 
@@ -67,7 +67,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 提交约定
 
-- **完成一个任务就提交，不要攒批**：一个 Task / 一条缺陷 / 一处可独立回滚的改动 = 一个 commit。禁止把多个不相关改动堆成一个大提交（历史上「每条 P1 一次提交」的口径就是因为攒批而永久未达成，见 `docs/specs/2026-09-07-fix-spec.md` DoD 第 2 条）。
+- **完成一个任务就提交，不要攒批**：一个 Task / 一条缺陷 / 一处可独立回滚的改动 = 一个 commit。禁止把多个不相关改动堆成一个大提交（历史上「每条 P1 一次提交」的口径就是因为攒批而永久未达成，见 `docs/specs/archive/2026-09-07-fix-spec.md` DoD 第 2 条）。
 - 提交粒度判据：这个 commit 能不能被单独 revert 而不破坏其余功能？不能 → 拆小或合并到它真正依赖的那个 commit。
 - 例外（必须同一 commit）：跨栈契约改动的两侧、重命名/移动与其引用更新、修复与其回归测试 —— 拆开会产生编译不过或链接悬空的中间提交。
 - 每个 commit 交付前至少跑受影响的单测类；**推送前**跑一次 `./mvnw -B clean verify` 全绿。
