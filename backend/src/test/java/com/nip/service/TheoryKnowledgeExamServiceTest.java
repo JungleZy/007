@@ -1,5 +1,7 @@
 package com.nip.service;
 
+import com.google.gson.reflect.TypeToken;
+import com.nip.common.utils.JSONUtils;
 import com.nip.dao.TheoryKnowledgeExamDao;
 import com.nip.dao.TheoryKnowledgeExamTestPaperDao;
 import com.nip.dao.TheoryKnowledgeExamUserDao;
@@ -17,6 +19,9 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -72,6 +77,61 @@ class TheoryKnowledgeExamServiceTest {
     String examB = examIdByTitle("exam-snap-b");
     assertEquals(1, examTestPaperDao.count("examId", examA), "考试A的快照不得被同试卷的考试B抹掉");
     assertEquals(1, examTestPaperDao.count("examId", examB), "考试B应有自己的快照");
+  }
+
+  @Test
+  void completeQuestionListsAndSubmittedAnswersSurviveRoundTrip() {
+    String token = "exam-payload-" + UUID.randomUUID();
+    UserEntity user = Fixtures.user(userDao, token);
+    List<List<TestPaperQuestionDto>> groups = new ArrayList<>();
+    Map<String, Object> answers = new LinkedHashMap<>();
+    List<String> names = List.of("singleChoice", "multipleChoice", "judge", "completion", "shortAnswer");
+    for (int type = 1; type <= 5; type++) {
+      List<TestPaperQuestionDto> questions = new ArrayList<>();
+      List<Map<String, Object>> submitted = new ArrayList<>();
+      for (int number = 1; number <= 2; number++) {
+        TestPaperQuestionDto question = new TestPaperQuestionDto();
+        question.setId(UUID.randomUUID().toString());
+        question.setParentId(UUID.randomUUID().toString());
+        question.setTopic("通信理论第" + type + "类第" + number + "题，题干与完整选项必须保留");
+        question.setType(type);
+        question.setScore(10);
+        question.setSort(number);
+        question.setOptions("[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]");
+        question.setAnswer(type == 3 ? "1" : "0");
+        question.setAnalysis("完整解析应随试卷快照保存，不得因默认列长度截断");
+        questions.add(question);
+        Object answer = type == 1 ? "0" : type == 3 ? "1" : List.of("参考答案");
+        submitted.add(Map.of("id", question.getId(), "answer", answer));
+      }
+      groups.add(questions);
+      answers.put(names.get(type - 1), submitted);
+    }
+    TestPaperDto paper = paper(null);
+    paper.setSingleChoice(groups.get(0));
+    paper.setMultipleChoice(groups.get(1));
+    paper.setJudge(groups.get(2));
+    paper.setCompletion(groups.get(3));
+    paper.setShortAnswer(groups.get(4));
+    TheoryKnowledgeExamDto dto = exam("payload-" + token, paper, user.getId());
+    dto.setTeacher(user.getId());
+    assertEquals(200, service.saveTheoryKnowledgeExam(token, dto).getCode());
+    String examId = examIdByTitle(dto.getTitle());
+    var snapshot = examTestPaperDao.findAllByExamId(examId);
+    List<String> stored = List.of(snapshot.getSingleChoiceList(), snapshot.getMultipleChoiceList(),
+        snapshot.getJudgeList(), snapshot.getCompletionList(), snapshot.getShortAnswer());
+    for (int index = 0; index < stored.size(); index++) {
+      List<TestPaperQuestionDto> decoded = JSONUtils.fromJson(stored.get(index),
+          new TypeToken<List<TestPaperQuestionDto>>() {});
+      assertEquals(groups.get(index), decoded);
+    }
+    service.teacherStartExam(examId, 2);
+    service.studentChangeExamState(examId, user.getId(), 2, null);
+    String content = JSONUtils.toJson(answers);
+    service.studentChangeExamState(examId, user.getId(), 3, content);
+    TheoryKnowledgeExamUserEntity submitted = examUserDao.findAllByExamIdAndUserId(examId, user.getId());
+    assertEquals(3, submitted.getState());
+    assertEquals(content, submitted.getContent());
   }
 
   @Test

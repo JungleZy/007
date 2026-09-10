@@ -43,9 +43,14 @@ public class TheoryKnowledgeExamTestPaperEntity {
    * 及格分
    */
   private Integer passMark;
+  @Column(columnDefinition = "longtext")
   private String singleChoiceList;
+  @Column(columnDefinition = "longtext")
   private String multipleChoiceList;
+  @Column(columnDefinition = "longtext")
   private String judgeList;
+  @Column(columnDefinition = "longtext")
   private String completionList;
+  @Column(columnDefinition = "longtext")
   private String shortAnswer;
 }

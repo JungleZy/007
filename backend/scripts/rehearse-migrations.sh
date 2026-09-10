@@ -4,7 +4,7 @@
 #
 # 对 database/project006.sql（current）与 project006-base.sql（base）两个快照（路径以 backend/ 为根），
 # 各起一个全新、唯一命名的 mysql:8.0 容器+卷，导入快照，顺序执行迁移
-# 01（schema-sync）→ 02（engine-innodb），断言最终 schema，并对实体表生成
+# 01（schema-sync）→ 02（engine-innodb）→ 03（unique-lazy-create）→ 04（theory-json-capacity），断言最终 schema，并对实体表生成
 # 与实体权威 schema（EntitySchemaSnapshotRehearsal 导出的 entity-schema.tsv）
 # 的规范化差分。差分必须为空。
 #
@@ -61,8 +61,9 @@ fi
 MIG01="$PROJECT_ROOT/database/migrations/2026-08-26-01-schema-sync.sql"
 MIG02="$PROJECT_ROOT/database/migrations/2026-08-26-02-engine-innodb.sql"
 MIG03="$PROJECT_ROOT/database/migrations/2026-09-08-01-unique-lazy-create.sql"
+MIG04="$PROJECT_ROOT/database/migrations/2026-09-10-01-theory-json-capacity.sql"
 
-for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02" "$MIG03"; do
+for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02" "$MIG03" "$MIG04"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
@@ -161,8 +162,11 @@ rehearse() {
   # 迁移 03（计时 ms）——读路径懒建的唯一约束
   local s03 e03 ms03
   s03=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG03"; e03=$(date +%s%3N); ms03=$((e03 - s03))
-  echo "  TIMING migration-01=${ms01}ms migration-02=${ms02}ms migration-03=${ms03}ms"
-  printf '%s\t%s\t%s\t%s\n' "$label" "$ms01" "$ms02" "$ms03" >> "$OUTDIR/timings.tsv"
+  # 迁移 04：理论考试快照与作答JSON的容量对齐
+  local s04 e04 ms04
+  s04=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG04"; e04=$(date +%s%3N); ms04=$((e04 - s04))
+  echo "  TIMING migration-01=${ms01}ms migration-02=${ms02}ms migration-03=${ms03}ms migration-04=${ms04}ms"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$label" "$ms01" "$ms02" "$ms03" "$ms04" >> "$OUTDIR/timings.tsv"
 
   # ---- 断言 ----
   assert_eq "[$label] post-migration table count=105" "105" \
@@ -188,6 +192,8 @@ rehearse() {
     assert_eq "[$label] unique index exists: $uk_table.$uk_name ($uk_cols cols, non_unique=0)" "$uk_cols" \
       "$(mysql_scalar "$cname" "select count(*) from information_schema.statistics where table_schema=database() and table_name='$uk_table' and index_name='$uk_name' and non_unique=0")"
   done
+  assert_eq "[$label] theory exam JSON payload columns are longtext" "6" \
+    "$(mysql_scalar "$cname" "select count(*) from information_schema.columns where table_schema=database() and data_type='longtext' and ((table_name='t_theory_knowledge_exam_test_paper' and column_name in ('single_choice_list','multiple_choice_list','judge_list','completion_list','short_answer')) or (table_name='t_theory_knowledge_exam_user' and column_name='content'))")"
 
   # ---- schema 转储（仅实体表，6 列，带表头） ----
   local schema_tsv="$OUTDIR/${label}-schema.tsv"

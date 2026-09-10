@@ -163,6 +163,7 @@ public class TheoryKnowledgeExamUserEntity {
     /**
      * 题目与答案
      */
+    @Column(columnDefinition = "longtext")
     private String content;
     /**
      * 状态(1.学生未准备2.学生考核中3.学生提交考试4.老师已阅卷)
