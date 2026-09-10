@@ -1,0 +1,315 @@
+@import "../../../../../../../common/styles/KJ/colorAll";
+.KJ{
+  .leftBox,.rightBox {
+    background: @maskbgColor!important;
+  }
+  .editor{
+    height: calc(100% - 100px);
+    //background: #181a19;
+    border: 1px solid @KJbgColer;
+  }
+  .takenew{
+    display: flex; align-items: center; justify-content: space-between; border-top: 2px solid rgb(25, 39, 34);;
+    .title{
+      border-top: 2px solid #a9abaa;padding-top: 5px;color:#00910e;font-weight:600;padding-left: 2px ;margin-top: -2px;
+    }
+    .addClass{
+      padding-top: 5px; color: rgb(169, 171, 170); margin-top: -2px
+    }
+  }
+  .modalBtn {
+    background: rgba(0, 0, 0, 0) !important;
+    border: #4f545a 2px solid !important;
+    color: #35383a !important;
+    span {
+      color: #35383a !important;
+    }
+  }
+
+  .UploadLoading {
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    color: white;
+  }
+  .editBox {
+    .shadow {
+      position: fixed;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      .shadowInfo {
+        position: absolute;
+        margin: auto;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url("../../../../../../../assets/KJ/basicTheory/registerCenter.png");
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        width: 1000px;
+        height: 680px;
+        .title {
+          margin: 0 auto;
+          width: 100%;
+          height: 40px;
+          background-repeat: no-repeat;
+          position: relative;
+          .text {
+            width: 100%;
+            height: 100%;
+            color: #ffffff;
+            text-align: center;
+            line-height: 40px;
+            font-size: 24px;
+            font-family: "Microsoft Yahei";
+            font-weight: bold;
+          }
+        }
+        .bigbox {
+          margin-top: 20px;
+          display: flex;
+          height: calc(100% - 40px);
+          .left {
+            position: relative;
+            width: 200px;
+            height: calc(650px - 47px);
+            .border-right {
+              position: absolute;
+              height: 100%;
+              top: 0;
+              right: -5px;
+              width: 10px;
+            }
+            .topBox {
+              overflow-y: auto;
+              margin-top: 20px;
+              height: calc(100% - 70px);
+              .leftNocheck {
+                width: 130px;
+                height: 40px;
+                margin-left: 25px;
+                margin-bottom: 10px;
+                background: url("../../../../../../../assets/KJ/train/test-title.png")
+                no-repeat center;
+                background-size: 103%;
+                .leftBorder {
+                  height: 100%;
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  width: 2px;
+                  background: #e2d6b0;
+                }
+                .ant-switch::after {
+                  background: #fff;
+                }
+
+                .ant-switch-checked {
+                  background-color: #33b34b !important;
+                }
+                position: relative;
+                width: 170px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 10px;
+                font-size: 15px;
+                &:hover .delMenuBtn {
+                  display: flex;
+                  align-items: center;
+                  height: 20px;
+                  font-size: 16px;
+                }
+                .leftText {
+                }
+                .bg1 {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border-radius: 16px;
+                  padding: 0 4px;
+                  min-width: 16px;
+                  height: 16px;
+                  background: #37383b;
+                  color: #ffffff;
+                  font-size: 14px;
+                }
+                .bg2 {
+                  background: #895515;
+                }
+                .delMenuBtn {
+                  display: none;
+                }
+              }
+              .leftCheck {
+                background: url("../../../../../../../assets/KJ/train/checked-test-title.png")
+                no-repeat center;
+                background-size: 103%;
+                .delMenuBtn {
+                  display: flex;
+                  align-items: center;
+                  height: 20px;
+                  font-size: 16px;
+                }
+              }
+            }
+            .botBox {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 50px;
+            }
+          }
+        }
+        .bigbox::before {
+          position: absolute;
+          content: "";
+          width: 100%;
+          height: 66px;
+          bottom: 0;
+          background-size: 100% 100%;
+        }
+        .bottominfo {
+          height: 100px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          .close {
+            width: 31px;
+            height: 31px;
+            border: 2px solid #a9abaa;
+            border-radius: 50%;
+            background: url("../../../../../../../assets/KJ/ico/ico-clear.png")
+            no-repeat center;
+            cursor: pointer;
+          }
+          .close:hover {
+            background: url("../../../../../../../assets/KJ/ico/ico-clear-1.png")
+            no-repeat center;
+            animation: rotate 0.4s linear;
+            border-color: #34b34c;
+          }
+        }
+        .bottominfo::before {
+          content: "";
+          width: 1px;
+          height: 33px;
+          background: url("../../../../../../../assets/KJ/ico/ico-lone.png");
+          position: absolute;
+          top: 680px;
+          left: 50%;
+        }
+        .center {
+          .addClass {
+            width: 100px;
+            background: url("../../../../../../../assets/KJ/basicTheory/addQuesBtn.png")
+            no-repeat;
+            background-size: 100% 100%;
+            .addIco {
+              width: 13px;
+              height: 13px;
+              margin-right: 2px;
+              background: url("../../../../../../../assets/KJ/ico/ico-active-plus.png")
+              no-repeat;
+            }
+          }
+          width: calc(100% - 160px);
+          display: flex;
+          flex-direction: column;
+          .right {
+            background: #6e6a5e;
+            overflow-y: auto;
+            width: calc(94%);
+            margin: 20px;
+            margin-bottom: 0px;
+            height: calc(510px - 40px - 21px);
+            padding: 20px 40px 0 30px;
+            position: relative;
+          }
+        }
+        .bottom {
+          .botBtn {
+            width: 102px;
+            height: 42px;
+            /*color: #000000;*/
+            font-weight: bold;
+            font-size: 15px;
+            z-index: 9;
+            background-image: url("../../../../../../../assets/KJ/train/button.png");
+          }
+        }
+      }
+    }
+  }
+  .penInfo {
+    width: 77px;
+    height: 77px;
+    position: absolute;
+    right: 12px;
+    top: calc(50% - 38px);
+    z-index: 9999;
+    background: url("../../../../../../../assets/KJ/basicTheory/stcy.png");
+  }
+  .flgbg {
+    background: @KJbgColer !important;
+    color: #ffffff;
+  }
+
+  .left-flag {
+    color: #70a3b8;
+    .closeOutLined {
+      display: block;
+    }
+    .infoTag {
+      display: block;
+    }
+  }
+  .no-left-flag {
+    color: #fff;
+    .closeOutLined {
+      display: none;
+    }
+    .infoTag {
+      display: none;
+    }
+  }
+  .no-left-flag:hover {
+    color: #ffffff;
+    .noflgbg {
+      background: @KJbgColer !important;
+    }
+    .closeOutLined {
+      display: block;
+    }
+    .infoTag {
+      display: block;
+    }
+  }
+  .editBookPic .ant-upload.ant-upload-select-picture-card {
+    border: 1px solid #374954;
+    margin-right: 0px;
+    margin-bottom: 0px;
+  }
+  .tt-img .ant-upload.ant-upload-select-picture-card {
+    border: 1px solid #374954;
+  }
+  .nomore {
+    background: url("../../../../../../../assets/KJ/train/nomore.png") no-repeat center 100%;
+    height: 293px;
+    width: 290px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    font-size: 20px;
+    color: #00a0e9;
+  }
+}

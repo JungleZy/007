@@ -1,0 +1,777 @@
+.HJ{
+  .ZGbtns {
+    padding: 0px 0px;
+    height: 29px;
+    margin: 4px 4px 10px 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .left {
+      position: relative;
+      width: 8px;
+      height: 29px;
+
+      .left-top {
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        right: 5px;
+        border-left: 1px solid #71cbff;
+        transform: rotateZ(40deg);
+      }
+
+      .left-bottom {
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        right: 5px;
+        border-left: 1px solid #71cbff;
+        transform: rotate(-40deg);
+      }
+    }
+
+    .center {
+      border-top: 1px solid #71cbff;
+      border-bottom: 1px solid #71cbff;
+      width: 67px;
+      height: 29px;
+      font-weight: bold;
+    }
+
+    .right {
+      position: relative;
+      width: 8px;
+      height: 29px;
+
+      .right-top {
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        left: 5px;
+        border-left: 1px solid #71cbff;
+        transform: rotateZ(-40deg);
+      }
+
+      .right-bottom {
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        left: 5px;
+        border-left: 1px solid #71cbff;
+        transform: rotate(40deg);
+      }
+    }
+  }
+
+  .activeBtn1 div, .activeBtn1 .left div, .activeBtn1 .right div, .btn1:hover div, .btn1:hover .left div, .btn1:hover .right div {
+    border-color: #e8a829 !important;
+    color: #e8a829 !important;
+  }
+
+  .activeBtn2 div, .activeBtn2 .left div, .activeBtn2 .right div, .btn2:hover div, .btn2:hover .left div, .btn2:hover .right div {
+    border-color: #00b882 !important;
+    color: #00b882 !important;
+  }
+
+  .activeBtn3 div, .activeBtn3 .left div, .activeBtn3 .right div, .btn3:hover div, .btn3:hover .left div, .btn3:hover .right div {
+    border-color: #4258f9 !important;
+    color: #4258f9 !important;
+  }
+
+  .activeBtn4 div, .activeBtn4 .left div, .activeBtn4 .right div, .btn4:hover div, .btn4:hover .left div, .btn4:hover .right div {
+    border-color: #b266ff !important;
+    color: #b266ff !important;
+  }
+
+  .activeBtn5 div, .activeBtn5 .left div, .activeBtn5 .right div, .btn5:hover div, .btn5:hover .left div, .btn5:hover .right div {
+    border-color: #0078b8 !important;
+    color: #0078b8 !important;
+  }
+
+  .activeBtn6 div, .activeBtn6 .left div, .activeBtn6 .right div, .btn6:hover div, .btn6:hover .left div, .btn6:hover .right div {
+    border-color: #e8a829 !important;
+    color: #e8a829 !important;
+  }
+
+  .btns {
+    padding: 5px 10px;
+    width: 87px;
+    height: 29px;
+    margin: 10px 0 0;
+    cursor: pointer;
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+    color: #71cbff;
+    background: url("../../../../../../../assets/HJ/receive/btn-bg.png") no-repeat;
+  }
+
+  .activeBtn, .btns:hover {
+    background: url("../../../../../../../assets/HJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+
+  .bbType {
+    width: 87px;
+    height: 29px;
+    margin-left: 10px;
+    background: url("../../../../../../../assets/HJ/receive/btn-bg.png") no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #71cbff;
+    cursor: pointer;
+  }
+
+  .bbType.on,
+  .bbType:hover {
+    background: url("../../../../../../../assets/HJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+
+  .trainTime {
+    height: 54px;
+    width: 278px;
+    background: url("../../../../../../../assets/HJ/receive/trainTime.gif") no-repeat center;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 9;
+  }
+
+  .cool .trainTime {
+    background: url("../../../../../../../assets/HJ/receive/trainTime.png") no-repeat center;
+  }
+
+  .trainTime .timeNum {
+    width: 29px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 6px;
+  }
+
+  .trainTime .timeNum .num {
+    height: 40px;
+    font-size: 28px;
+    line-height: 40px;
+    overflow: hidden;
+    display: flex;
+    text-align: center;
+    color: #dbe5fa;
+  }
+
+  .statisticsBox {
+    /*display: flex;*/
+    /*align-items: flex-end;*/
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    padding-right: 10px;
+  }
+
+  .statistics {
+    background: url("../../../../../../../assets/HJ/telexTrain/statistics.png") no-repeat;
+    display: flex;
+    align-items: flex-end;
+    padding-left: 15px;
+    padding-bottom: 10px;
+    background-size: 100% 100%;
+    height: 38px;
+    margin-bottom: 10px;
+  }
+
+  .statistics img {
+    position: relative;
+    top: 3px;
+  }
+
+  .statistics span {
+    line-height: 12px;
+    padding-left: 10px;
+    color: #adcde8;
+  }
+
+  .practiseBtn {
+    padding: 2px 16px;
+    border: 1px solid rgb(4 90 198);
+    margin-top: 10px;
+    width: max-content;
+    height: max-content;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #dbe5fa;
+    box-shadow: inset 0 -10px 10px -10px rgba(12, 114, 226, .8);
+  }
+
+  .practiseBtn + .practiseBtn {
+    margin-left: 10px;
+  }
+
+  .practiseBtn:hover {
+    box-shadow: inset 0 10px 10px -10px rgba(12, 114, 226, .8);
+  }
+
+  @media (max-width: 1740px) {
+    .textBoxs {
+      height: calc(100% - 454px);
+    }
+
+    .tabsTypeBox {
+      margin-bottom: 22px !important;
+    }
+
+    .showTextBox {
+      transform: scale(.92);
+    }
+
+    .container {
+      height: 452px;
+      background-size: auto 100%, auto 100%;
+    }
+  }
+
+  @media (max-width: 1600px) {
+    .textBoxs {
+      height: calc(100% - 430px);
+    }
+
+    .tabsTypeBox {
+      margin-bottom: 14px !important;
+    }
+
+    .showTextBox {
+      transform: scale(.84);
+    }
+
+    .container {
+      height: 428px;
+      background-size: auto 100%, auto 100%;
+    }
+  }
+
+  @media (max-width: 1450px) {
+    .textBoxs {
+      height: calc(100% - 406px);
+    }
+
+    .tabsTypeBox {
+      margin-bottom: 6px !important;
+    }
+
+    .showTextBox {
+      transform: scale(.76);
+    }
+
+    .container {
+      height: 404px;
+      background-size: auto 100%, auto 100%;
+    }
+  }
+
+  @media (max-width: 1300px) {
+    .textBoxs {
+      height: calc(100% - 382px);
+    }
+
+    .tabsTypeBox {
+      width: 420px !important;
+      margin-bottom: 0 !important;
+    }
+
+    .showTextBox {
+      transform: scale(.68);
+    }
+
+    .container {
+      height: 380px;
+      background-size: auto 100%, auto 100%;
+    }
+  }
+
+  @media (max-width: 1120px) {
+    .textBoxs {
+      height: calc(100% - 358px);
+    }
+
+    .showTextBox {
+      transform: scale(.6);
+    }
+
+    .container {
+      height: 356px;
+      background-size: auto 100%, auto 100%;
+    }
+  }
+}
+.LJ{
+  .ZGbtns{
+    padding: 0px 0px;
+    height: 29px;
+    margin: 4px 4px 10px 4px;
+    cursor:pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .left{
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .left-top{
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        right: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotateZ(40deg);
+      }
+      .left-bottom{
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        right: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotate(-40deg);
+      }
+    }
+    .center{
+      border-top: 1px solid #00910d;
+      border-bottom: 1px solid #00910d;
+      width: 67px;
+      height: 29px;
+      font-weight: bold;
+    }
+    .right{
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .right-top{
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        left: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotateZ(-40deg);
+      }
+      .right-bottom{
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        left: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotate(40deg);
+      }
+    }
+  }
+  .activeBtn1 div,.activeBtn1 .left div,.activeBtn1 .right div,.btn1:hover div,.btn1:hover .left div,.btn1:hover .right div{
+    border-color: #e8a829!important;
+    color: #e8a829!important;
+  }
+  .activeBtn2 div,.activeBtn2 .left div,.activeBtn2 .right div,.btn2:hover div,.btn2:hover .left div,.btn2:hover .right div{
+    border-color: #00b882!important;
+    color: #00b882!important;
+  }
+  .activeBtn3 div,.activeBtn3 .left div,.activeBtn3 .right div,.btn3:hover div,.btn3:hover .left div,.btn3:hover .right div{
+    border-color: #4258f9!important;
+    color: #4258f9!important;
+  }
+  .activeBtn4 div,.activeBtn4 .left div,.activeBtn4 .right div,.btn4:hover div,.btn4:hover .left div,.btn4:hover .right div{
+    border-color: #b266ff!important;
+    color: #b266ff!important;
+  }
+  .activeBtn5 div,.activeBtn5 .left div,.activeBtn5 .right div,.btn5:hover div,.btn5:hover .left div,.btn5:hover .right div{
+    border-color: #0078b8!important;
+    color: #0078b8!important;
+  }
+  .activeBtn6 div,.activeBtn6 .left div,.activeBtn6 .right div,.btn6:hover div,.btn6:hover .left div,.btn6:hover .right div{
+    border-color: #e8a829!important;
+    color: #e8a829!important;
+  }
+  .btns{
+    padding: 5px 10px;
+    width: 87px;
+    height: 29px;
+    margin: 10px 0px 10px 0px;
+    cursor:pointer;
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+    color: white;
+    background: url("../../../../../../../assets/LJ/receive/btn-bg.png") no-repeat;
+  }
+  .activeBtn,.btns:hover{
+    background: url("../../../../../../../assets/LJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+  .bbType {
+    width: 87px;
+    height: 29px;
+    margin-left: 10px;
+    background: url("../../../../../../../assets/LJ/receive/btn-bg.png") no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #33b34b;
+    cursor: pointer;
+  }
+  .bbType.on,
+  .bbType:hover {
+    background: url("../../../../../../../assets/LJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+  .statisticsBox{
+    /*display: flex;*/
+    /*align-items: flex-end;*/
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    padding-right: 10px;
+  }
+  .statistics{
+    background:url("../../../../../../../assets/LJ/telexTrain/statistics.png") no-repeat ;
+    display: flex;
+    align-items: flex-end;
+    padding-left: 15px;
+    padding-bottom: 10px;
+    background-size: 100% 100%;
+    width: 180px;
+    height: 38px;
+    margin-bottom: 10px;
+  }
+  .statistics img {
+    position: relative;
+    top: 3px;
+  }
+  .statistics span{
+    line-height: 12px;
+    padding-left: 10px;
+    color: #adcde8;
+  }
+}
+.HJJ{
+  .ZGbtns {
+    padding: 0px 0px;
+    height: 29px;
+    margin: 4px 4px 10px 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .left {
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .left-top {
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        right: 5px;
+        border-left: 1px solid #70a3b8;
+        transform: rotateZ(40deg);
+      }
+      .left-bottom {
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        right: 5px;
+        border-left: 1px solid #70a3b8;
+        transform: rotate(-40deg);
+      }
+    }
+    .center {
+      border-top: 1px solid #70a3b8;
+      border-bottom: 1px solid #70a3b8;
+      width: 67px;
+      height: 29px;
+      font-weight: bold;
+    }
+    .right {
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .right-top {
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        left: 5px;
+        border-left: 1px solid #70a3b8;
+        transform: rotateZ(-40deg);
+      }
+      .right-bottom {
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        left: 5px;
+        border-left: 1px solid #70a3b8;
+        transform: rotate(40deg);
+      }
+    }
+  }
+  .activeBtn1 div,
+  .activeBtn1 .left div,
+  .activeBtn1 .right div,
+  .btn1:hover div,
+  .btn1:hover .left div,
+  .btn1:hover .right div {
+    border-color: #e8a829 !important;
+    color: #e8a829 !important;
+  }
+  .activeBtn2 div,
+  .activeBtn2 .left div,
+  .activeBtn2 .right div,
+  .btn2:hover div,
+  .btn2:hover .left div,
+  .btn2:hover .right div {
+    border-color: #00b882 !important;
+    color: #00b882 !important;
+  }
+  .activeBtn3 div,
+  .activeBtn3 .left div,
+  .activeBtn3 .right div,
+  .btn3:hover div,
+  .btn3:hover .left div,
+  .btn3:hover .right div {
+    border-color: #4258f9 !important;
+    color: #4258f9 !important;
+  }
+  .activeBtn4 div,
+  .activeBtn4 .left div,
+  .activeBtn4 .right div,
+  .btn4:hover div,
+  .btn4:hover .left div,
+  .btn4:hover .right div {
+    border-color: #b266ff !important;
+    color: #b266ff !important;
+  }
+  .activeBtn5 div,
+  .activeBtn5 .left div,
+  .activeBtn5 .right div,
+  .btn5:hover div,
+  .btn5:hover .left div,
+  .btn5:hover .right div {
+    border-color: #0078b8 !important;
+    color: #0078b8 !important;
+  }
+  .activeBtn6 div,
+  .activeBtn6 .left div,
+  .activeBtn6 .right div,
+  .btn6:hover div,
+  .btn6:hover .left div,
+  .btn6:hover .right div {
+    border-color: #e8a829 !important;
+    color: #e8a829 !important;
+  }
+  .btns {
+    padding: 5px 10px;
+    width: 87px;
+    height: 29px;
+    margin: 10px 0px 10px 0px;
+    cursor: pointer;
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+    color: #70a3b8;
+    background: url('../../../../../../../assets/HJJ/receive/btn-bg.png') no-repeat;
+  }
+  .activeBtn,
+  .btns:hover {
+    background: url('../../../../../../../assets/HJJ/receive/btn-bg-on.png') no-repeat;
+    color: #fc9e44;
+  }
+  .bbType {
+    width: 87px;
+    height: 29px;
+    margin-left: 10px;
+    background: url('../../../../../../../assets/HJJ/receive/btn-bg.png') no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #70a3b8;
+    cursor: pointer;
+  }
+  .bbType.on,
+  .bbType:hover {
+    background: url('../../../../../../../assets/HJJ/receive/btn-bg-on.png') no-repeat;
+    color: #fc9e44;
+  }
+  .statisticsBox {
+    /*display: flex;*/
+    /*align-items: flex-end;*/
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    padding-right: 10px;
+  }
+  .statistics {
+    background: url('../../../../../../../assets/HJJ/telexTrain/statistics.png') no-repeat;
+    display: flex;
+    align-items: flex-end;
+    padding-left: 15px;
+    padding-bottom: 10px;
+    background-size: 100% 100%;
+    width: 180px;
+    height: 38px;
+    margin-bottom: 10px;
+  }
+  .statistics img {
+    position: relative;
+    top: 3px;
+  }
+  .statistics span {
+    line-height: 12px;
+    padding-left: 10px;
+    color: #adcde8;
+  }
+}
+.KJ{
+  .ZGbtns{
+    padding: 0px 0px;
+    height: 29px;
+    margin: 4px 4px 10px 4px;
+    cursor:pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    .left{
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .left-top{
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        right: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotateZ(40deg);
+      }
+      .left-bottom{
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        right: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotate(-40deg);
+      }
+    }
+    .center{
+      border-top: 1px solid #00910d;
+      border-bottom: 1px solid #00910d;
+      width: 67px;
+      height: 29px;
+      font-weight: bold;
+    }
+    .right{
+      position: relative;
+      width: 8px;
+      height: 29px;
+      .right-top{
+        height: 19px;
+        position: absolute;
+        top: -2px;
+        left: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotateZ(-40deg);
+      }
+      .right-bottom{
+        height: 19px;
+        position: absolute;
+        bottom: -2px;
+        left: 5px;
+        border-left: 1px solid #00910d;
+        transform: rotate(40deg);
+      }
+    }
+  }
+  .activeBtn1 div,.activeBtn1 .left div,.activeBtn1 .right div,.btn1:hover div,.btn1:hover .left div,.btn1:hover .right div{
+    border-color: #e8a829!important;
+    color: #e8a829!important;
+  }
+  .activeBtn2 div,.activeBtn2 .left div,.activeBtn2 .right div,.btn2:hover div,.btn2:hover .left div,.btn2:hover .right div{
+    border-color: #00b882!important;
+    color: #00b882!important;
+  }
+  .activeBtn3 div,.activeBtn3 .left div,.activeBtn3 .right div,.btn3:hover div,.btn3:hover .left div,.btn3:hover .right div{
+    border-color: #4258f9!important;
+    color: #4258f9!important;
+  }
+  .activeBtn4 div,.activeBtn4 .left div,.activeBtn4 .right div,.btn4:hover div,.btn4:hover .left div,.btn4:hover .right div{
+    border-color: #b266ff!important;
+    color: #b266ff!important;
+  }
+  .activeBtn5 div,.activeBtn5 .left div,.activeBtn5 .right div,.btn5:hover div,.btn5:hover .left div,.btn5:hover .right div{
+    border-color: #0078b8!important;
+    color: #0078b8!important;
+  }
+  .activeBtn6 div,.activeBtn6 .left div,.activeBtn6 .right div,.btn6:hover div,.btn6:hover .left div,.btn6:hover .right div{
+    border-color: #e8a829!important;
+    color: #e8a829!important;
+  }
+  .btns{
+    padding: 5px 10px;
+    width: 87px;
+    height: 29px;
+    margin: 10px 0px 10px 0px;
+    cursor:pointer;
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+    color: white;
+    background: url("../../../../../../../assets/KJ/receive/btn-bg.png") no-repeat;
+  }
+  .activeBtn,.btns:hover{
+    background: url("../../../../../../../assets/KJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+  .bbType {
+    width: 87px;
+    height: 29px;
+    margin-left: 10px;
+    background: url("../../../../../../../assets/KJ/receive/btn-bg.png") no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #33b34b;
+    cursor: pointer;
+  }
+  .bbType.on,
+  .bbType:hover {
+    background: url("../../../../../../../assets/KJ/receive/btn-bg-on.png") no-repeat;
+    color: #fc9e44;
+  }
+  .statisticsBox{
+    /*display: flex;*/
+    /*align-items: flex-end;*/
+    position: absolute;
+    top: 10px;
+    left: 30px;
+    padding-right: 10px;
+  }
+  .statistics{
+    background:url("../../../../../../../assets/KJ/telexTrain/statistics.png") no-repeat ;
+    display: flex;
+    align-items: flex-end;
+    padding-left: 15px;
+    padding-bottom: 10px;
+    background-size: 100% 100%;
+    width: 180px;
+    height: 38px;
+    margin-bottom: 10px;
+  }
+  .statistics img {
+    position: relative;
+    top: 3px;
+  }
+  .statistics span{
+    line-height: 12px;
+    padding-left: 10px;
+    color: #adcde8;
+  }
+}

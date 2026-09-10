@@ -1,0 +1,3 @@
+{"_id":1,"text":{"http":{"port":8000,"allow_origin":"*"},"survival":{"time":300}}}
+{"_id":2,"text":{"dataUrl":{"url":"10.10.0.117","port":"18001"},"fileUrl":{"url":"127.0.0.1","port":"8000"}}}
+{"_id":3,"text":"COM3"}

@@ -52,7 +52,7 @@
 
 ## 路径约定
 
-1. 新文档中的代码引用使用仓库根相对路径，例如 `backend/src/main/java/com/nip/common/MainApplication.java:20`、`frontend/src/common/http/index.js:30`。
+1. 新文档中的代码引用使用仓库根相对路径，例如 `backend/src/main/java/com/nip/common/MainApplication.java:20`、`bw-frontend/frontend/src/common/http/index.js:30`。
 2. 历史归档文档保留其原始代码引用和行号，不为迁移归档而重写历史证据。
 3. 迁移脚本和演练证据使用 `backend/database/...`；不要重新放回 `docs/`。
 4. 具体代码现状与历史文档冲突时，以当前仓库源码和运行验证为准。

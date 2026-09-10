@@ -1,0 +1,1673 @@
+.HJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+
+
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+
+  .basicExercise .stateBox {
+    height: 39px;
+    background-color: #25456d;
+    padding: 7px 8px 8px 4px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .basicExercise .stateBox .state {
+    height: 24px;
+    width: 44px;
+    padding: 0 12px;
+    font-size: 12px;
+    position: relative;
+  }
+
+  .basicExercise .stateBox .state + .state:after {
+    content: '';
+    width: 1px;
+    height: 14px;
+    background-color: #475e90;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  .basicExercise .stateBox .state.ws {
+    background: url("../../../../../../assets/HJ/ico/ico-state-ws.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev {
+    background: url("../../../../../../assets/HJ/ico/ico-state-dev.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.ws.on {
+    background: url("../../../../../../assets/HJ/ico/ico-state-ws-on.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev.on {
+    background: url("../../../../../../assets/HJ/ico/ico-state-dev-on.png") no-repeat center;
+  }
+
+  .basicExercise .deployBtn {
+    width: 70px;
+    height: 24px;
+    background: url("../../../../../../assets/HJ/train/deploy-btn-bg.png") no-repeat center;
+    color: #e2f2ff;
+    font-size: 14px;
+    text-align: center;
+    line-height: 22px;
+    margin-left: 6px;
+    cursor: pointer;
+  }
+
+  .basicExercise .deployBtn:hover {
+    color: #e9deb2;
+    position: relative;
+  }
+
+  .basicExercise .deployBtn:hover:before {
+    content: '';
+    height: 24px;
+    width: 70px;
+    background: url("../../../../../../assets/HJ/home/itemHover.png") no-repeat bottom center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+
+
+  .deployGroup {
+    padding: 16px 0 12px;
+    position: relative;
+  }
+
+  .deployGroup .title {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .deployGroup .title .text {
+    flex-shrink: 0;
+    padding: 0 4px;
+    color: #7b90af;
+    width: 143px;
+    text-align: center;
+    background: url("../../../../../../assets/HJ/train/titleBg.png") no-repeat;
+    background-position:center 11px ;
+  }
+  .deployGroup .cont {
+    padding: 0 0 10px;
+  }
+  .deployGroup .codeCont {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 24px;
+  }
+  .deployGroup .depRow {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .deployGroup .depRow .lab {
+    width:36px;
+    flex-shrink: 0;
+    text-align: right;
+    color: #7b90af;
+    font-size: 12px;
+  }
+  .deployGroup .depRow .item {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: center;
+    color: #7b90af;
+    font-size: 12px;
+  }
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint {
+    0% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+    25% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    50% {
+      -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+      box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    }
+    75% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    100% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+  }
+  .flipContainer {
+    transform-style: preserve-3d;
+    transform-origin: 50% 50% 180px;
+    position: relative;
+    top: 0;
+  }
+
+  .flipContainer.un {
+    animation: rotate-flip 1s linear;
+  }
+
+  .flipContainer.on {
+    animation: rotate-flip-on 1s linear;
+  }
+
+  .flipContainer .flipRightBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, .7);
+    transform: rotateY(-90deg);
+    transform-origin: left;
+    position: absolute;
+    left: 280px;
+    top: 0;
+  }
+
+  .flipContainer .flipLeftBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, .7);
+    transform: rotateY(90deg);
+    transform-origin: right;
+    position: absolute;
+    left: -280px;
+    top: 0;
+  }
+
+  .flipContainer .totalBoxs {
+    display: block;
+    width: 280px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer .deployBoxs {
+    width: 280px;
+    height: 100%;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer.un .totalBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .flipContainer.un .deployBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .totalBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .deployBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .volumeBox {
+    width: 240px;
+    margin: 0 auto;
+  }
+
+  .volumeBox .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #e2f2ff;
+    font-size: 15px;
+  }
+
+  .volumeBox .volumeSlider {
+    height: 18px;
+    position: relative;
+    background: url("../../../../../../assets/HJ/train/volume-marks-bg.png") no-repeat center;
+  }
+
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+  .configureBox .typeBtn {
+    border: 1px solid #2a3a4b;
+    border-radius: 2px;
+    line-height: 18px;
+    padding: 0 10px;
+    color: #909db0;
+    margin-right: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .configureBox .typeBtn.active {
+    border-color: #777163;
+    color: #e9deb2;
+  }
+  .configureBox .auditionBtn {
+    background-color: #38556d;
+    line-height: 20px;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 0 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .configureBox .text {
+    font-size: 12px;
+  }
+  .configureBox .volumeSlider.voice {
+    width: 100%;
+    padding-bottom: 12px;
+    border-left: 1px solid #354971;
+    border-right: 1px solid #354971;
+    margin-top: 24px;
+  }
+
+  .tipsBoxs {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2,10,24,.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+  }
+  .tipsBoxs .tipsCont {
+    width: 86%;
+    max-width: 697px;
+    position: relative;
+  }
+  .tipsBoxs .tipsCont .bg {
+    width: 100%;
+  }
+  .tipsBoxs .cont {
+    position: absolute;
+    top: 0;
+  }
+  .tipsBoxs .cont .title {
+    width: 237px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 7% auto 3%;
+    background: url("../../../../../../assets/HJ/postTrain/tipsTitleBg.png") no-repeat center;
+  }
+  .tipsBoxs .cont .title .text {
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    background-image: linear-gradient(to bottom, #ffffff, #70a3b8);
+    -webkit-background-clip: text;
+    color: transparent;
+    line-height: 1;
+  }
+  .tipsBoxs .textBox {
+    font-size: 15px;
+    color: #dbe5fa;
+    line-height: 20px;
+    text-align: center;
+    margin-bottom: 8%;
+  }
+  .tipsBoxs .btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .updateTelegraphBox {
+
+  }
+
+}
+.HJJ{
+  .btn.oper.max {
+    background: url('../../../../../../assets/HJJ/postTrain/receiveBtn.png') no-repeat;
+    background-size: 100% 100%;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: revert;
+    width: 154px;
+    height: 50px;
+    align-self: flex-start;
+    padding-bottom: 5px;
+  }
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+
+
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+
+  .basicExercise .stateBox {
+    height: 39px;
+    background-color: #25456d;
+    padding: 7px 8px 8px 4px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .basicExercise .stateBox .state {
+    height: 24px;
+    width: 44px;
+    padding: 0 12px;
+    font-size: 12px;
+    position: relative;
+  }
+
+  .basicExercise .stateBox .state + .state:after {
+    content: '';
+    width: 1px;
+    height: 14px;
+    background-color: #475e90;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  .basicExercise .stateBox .state.ws {
+    background: url("../../../../../../assets/HJJ/ico/ico-state-ws.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev {
+    background: url("../../../../../../assets/HJJ/ico/ico-state-dev.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.ws.on {
+    background: url("../../../../../../assets/HJJ/ico/ico-state-ws-on.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev.on {
+    background: url("../../../../../../assets/HJJ/ico/ico-state-dev-on.png") no-repeat center;
+  }
+
+  .basicExercise .deployBtn {
+    width: 70px;
+    height: 24px;
+    background: url("../../../../../../assets/HJJ/train/deploy-btn-bg.png") no-repeat center;
+    color: #e2f2ff;
+    font-size: 14px;
+    text-align: center;
+    line-height: 22px;
+    margin-left: 6px;
+    cursor: pointer;
+  }
+
+  .basicExercise .deployBtn:hover {
+    color: #e9deb2;
+    position: relative;
+  }
+
+  .basicExercise .deployBtn:hover:before {
+    content: '';
+    height: 24px;
+    width: 70px;
+    background: url("../../../../../../assets/HJJ/home/itemHover.png") no-repeat bottom center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+
+
+  .deployGroup {
+    padding: 16px 0 12px;
+    position: relative;
+  }
+
+  .deployGroup .title {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .deployGroup .title .text {
+    flex-shrink: 0;
+    padding: 0 4px;
+    color: #7b90af;
+    width: 143px;
+    text-align: center;
+    background: url("../../../../../../assets/HJJ/train/titleBg.png") no-repeat;
+    background-position:center 11px ;
+  }
+  .deployGroup .cont {
+    padding: 0 0 10px;
+  }
+  .deployGroup .codeCont {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 24px;
+  }
+  .deployGroup .depRow {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .deployGroup .depRow .lab {
+    width:36px;
+    flex-shrink: 0;
+    text-align: right;
+    color: #7b90af;
+    font-size: 12px;
+  }
+  .deployGroup .depRow .item {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: center;
+    color: #7b90af;
+    font-size: 12px;
+  }
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint {
+    0% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+    25% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    50% {
+      -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+      box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    }
+    75% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    100% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+  }
+  .flipContainer {
+    transform-style: preserve-3d;
+    transform-origin: 50% 50% 180px;
+    position: relative;
+    top: 0;
+  }
+
+  .flipContainer.un {
+    animation: rotate-flip 1s linear;
+  }
+
+  .flipContainer.on {
+    animation: rotate-flip-on 1s linear;
+  }
+
+  .flipContainer .flipRightBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, .7);
+    transform: rotateY(-90deg);
+    transform-origin: left;
+    position: absolute;
+    left: 280px;
+    top: 0;
+  }
+
+  .flipContainer .flipLeftBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, .7);
+    transform: rotateY(90deg);
+    transform-origin: right;
+    position: absolute;
+    left: -280px;
+    top: 0;
+  }
+
+  .flipContainer .totalBoxs {
+    display: block;
+    width: 280px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer .deployBoxs {
+    width: 280px;
+    height: 100%;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer.un .totalBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .flipContainer.un .deployBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .totalBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .deployBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .volumeBox {
+    width: 240px;
+    margin: 0 auto;
+  }
+
+  .volumeBox .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #e2f2ff;
+    font-size: 15px;
+  }
+
+  .volumeBox .volumeSlider {
+    height: 18px;
+    position: relative;
+    background: url("../../../../../../assets/HJJ/train/volume-marks-bg.png") no-repeat center;
+  }
+
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+  .configureBox .typeBtn {
+    border: 1px solid #2a3a4b;
+    border-radius: 2px;
+    line-height: 18px;
+    padding: 0 10px;
+    color: #909db0;
+    margin-right: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .configureBox .typeBtn.active {
+    border-color: #777163;
+    color: #e9deb2;
+  }
+  .configureBox .auditionBtn {
+    background-color: #38556d;
+    line-height: 20px;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 0 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .configureBox .text {
+    font-size: 12px;
+  }
+  .configureBox .volumeSlider.voice {
+    width: 100%;
+    padding-bottom: 12px;
+    border-left: 1px solid #354971;
+    border-right: 1px solid #354971;
+    margin-top: 24px;
+  }
+
+  .tipsBoxs {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2,10,24,.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+  }
+  .tipsBoxs .tipsCont {
+    width: 86%;
+    max-width: 697px;
+    position: relative;
+  }
+  .tipsBoxs .tipsCont .bg {
+    width: 100%;
+  }
+  .tipsBoxs .cont {
+    position: absolute;
+    top: 0;
+  }
+  .tipsBoxs .cont .title {
+    width: 237px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 7% auto 3%;
+    background: url("../../../../../../assets/HJJ/postTrain/tipsTitleBg.png") no-repeat center;
+  }
+  .tipsBoxs .cont .title .text {
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    background-image: linear-gradient(to bottom, #ffffff, #70a3b8);
+    -webkit-background-clip: text;
+    color: transparent;
+    line-height: 1;
+  }
+  .tipsBoxs .textBox {
+    font-size: 15px;
+    color: #dbe5fa;
+    line-height: 20px;
+    text-align: center;
+    margin-bottom: 8%;
+  }
+  .tipsBoxs .btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .updateTelegraphBox {
+
+  }
+
+}
+.LJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    25% {
+      transform: rotate(90deg);
+    }
+
+    50% {
+      transform: rotate(180deg);
+    }
+
+    75% {
+      transform: rotate(270deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+
+
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+
+  .basicExercise .stateBox {
+    height: 39px;
+    background-color: #25456d;
+    padding: 7px 8px 8px 4px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .basicExercise .stateBox .state {
+    height: 24px;
+    width: 44px;
+    padding: 0 12px;
+    font-size: 12px;
+    position: relative;
+  }
+
+  .basicExercise .stateBox .state+.state:after {
+    content: '';
+    width: 1px;
+    height: 14px;
+    background-color: #475e90;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  .basicExercise .stateBox .state.ws {
+    background: url("../../../../../../assets/LJ/ico/ico-state-ws.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev {
+    background: url("../../../../../../assets/LJ/ico/ico-state-dev.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.ws.on {
+    background: url("../../../../../../assets/LJ/ico/ico-state-ws-on.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev.on {
+    background: url("../../../../../../assets/LJ/ico/ico-state-dev-on.png") no-repeat center;
+  }
+
+  .basicExercise .deployBtn {
+    width: 70px;
+    height: 24px;
+    background: url("../../../../../../assets/LJ/train/deploy-btn-bg.png") no-repeat center;
+    color: #ffffff;
+    font-size: 14px;
+    text-align: center;
+    line-height: 22px;
+    margin-left: 6px;
+    cursor: pointer;
+  }
+
+  .basicExercise .deployBtn:hover {
+    color: #e9deb2;
+    position: relative;
+  }
+
+  .basicExercise .deployBtn:hover:before {
+    content: '';
+    height: 24px;
+    width: 70px;
+    background: url("../../../../../../assets/LJ/home/itemHover.png") no-repeat bottom center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+
+
+  .deployGroup {
+    padding: 16px 0 12px;
+    position: relative;
+  }
+
+  .basicInit .title {
+    color: #939e99;
+    font-size: 13px;
+  }
+
+  .deployGroup .title {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .deployGroup .title .text {
+    flex-shrink: 0;
+    padding: 0 4px;
+    color: #a9abaa;
+    width: 143px;
+    text-align: center;
+    background: url("../../../../../../assets/LJ/train/titleBg.png") no-repeat;
+    background-position: center 11px;
+  }
+
+  .deployGroup .cont {
+    padding: 0 0 10px;
+  }
+
+  .deployGroup .codeCont {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 24px;
+  }
+
+  .deployGroup .depRow {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .deployGroup .depRow .lab {
+    width: 36px;
+    flex-shrink: 0;
+    text-align: right;
+    color: #a9abaa;
+    font-size: 12px;
+  }
+
+  .deployGroup .depRow .item {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: center;
+    color: #a9abaa;
+    font-size: 12px;
+  }
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint{
+    0% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+    25% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    50% {-webkit-box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);}
+    75% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    100% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+  }
+
+
+
+  .flipContainer {
+    transform-style: preserve-3d;
+    transform-origin: 50% 50% 180px;
+    position: relative;
+    top: 0;
+  }
+
+  .flipContainer.un {
+    animation: rotate-flip 1s linear;
+  }
+
+  .flipContainer.on {
+    animation: rotate-flip-on 1s linear;
+  }
+
+  .flipContainer .flipRightBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, 0);
+    transform: rotateY(-90deg);
+    transform-origin: left;
+    position: absolute;
+    left: 280px;
+    top: 0;
+  }
+
+  .flipContainer .flipLeftBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, 0);
+    transform: rotateY(90deg);
+    transform-origin: right;
+    position: absolute;
+    left: -280px;
+    top: 0;
+  }
+
+  .flipContainer .totalBoxs {
+    display: block;
+    width: 280px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer .deployBoxs {
+    width: 280px;
+    height: 100%;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer.un .totalBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .flipContainer.un .deployBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .totalBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .deployBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .volumeBox {
+    width: 240px;
+    margin: 0 auto;
+  }
+
+  .volumeBox .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #ffffff;
+    font-size: 15px;
+  }
+
+  .volumeBox .volumeSlider {
+    height: 18px;
+    position: relative;
+    background: url("../../../../../../assets/LJ/train/volume-marks-bg.png") no-repeat center;
+  }
+
+  @keyframes rotate-flip {
+    0% {
+      transform: rotateY(-180deg);
+    }
+
+    50% {
+      transform: rotateY(-90deg);
+    }
+
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes rotate-flip-on {
+    0% {
+      transform: rotateY(-180deg);
+    }
+
+    50% {
+      transform: rotateY(-90deg);
+    }
+
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes flip-hide {
+    0% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: .5;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes flip-show {
+    0% {
+      opacity: 0;
+    }
+
+    50% {
+      opacity: .5;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .configureBox .typeBtn {
+    border: 1px solid #313835;
+    border-radius: 2px;
+    line-height: 18px;
+    padding: 0 10px;
+    color: #fff;
+    margin-right: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .configureBox .typeBtn.active {
+    border-color: #777163;
+    color: #e9deb2;
+  }
+
+  .configureBox .auditionBtn {
+    background-color: #0f7151;
+    color: #ffffff;
+    line-height: 20px;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 0 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .configureBox .text {
+    font-size: 12px;
+  }
+
+  .configureBox .volumeSlider.voice {
+    width: 100%;
+    padding-bottom: 12px;
+    border-left: 1px solid #2f3731;
+    border-right: 1px solid #2f3731;
+    margin-top: 24px;
+  }
+
+  .tipsBoxs {
+    width: 100%;
+    height: 100%;
+    background-color: rgb(10 17 14 / 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+  }
+
+  .tipsBoxs .tipsCont {
+    width: 86%;
+    max-width: 697px;
+    position: relative;
+  }
+
+  .tipsBoxs .tipsCont .bg {
+    width: 100%;
+  }
+
+  .tipsBoxs .cont {
+    position: absolute;
+    top: 0;
+  }
+
+  .tipsBoxs .cont .title {
+    width: 237px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 7% auto 3%;
+    background: url("../../../../../../assets/LJ/postTrain/tipsTitleBg.png") no-repeat center;
+  }
+
+  .tipsBoxs .cont .title .text {
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    background-image: linear-gradient(to bottom, #ffffff, #70a3b8);
+    -webkit-background-clip: text;
+    color: transparent;
+    line-height: 1;
+  }
+
+  .tipsBoxs .textBox {
+    font-size: 18px;
+    color: #ffffff;
+    line-height: 20px;
+    text-align: center;
+    margin-bottom: 8%;
+  }
+
+  .tipsBoxs .btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .updateTelegraphBox {}
+}
+.KJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    25% {
+      transform: rotate(90deg);
+    }
+
+    50% {
+      transform: rotate(180deg);
+    }
+
+    75% {
+      transform: rotate(270deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+
+
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+
+  .basicExercise .stateBox {
+    height: 39px;
+    background-color: #25456d;
+    padding: 7px 8px 8px 4px;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .basicExercise .stateBox .state {
+    height: 24px;
+    width: 44px;
+    padding: 0 12px;
+    font-size: 12px;
+    position: relative;
+  }
+
+  .basicExercise .stateBox .state+.state:after {
+    content: '';
+    width: 1px;
+    height: 14px;
+    background-color: #475e90;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -7px;
+  }
+
+  .basicExercise .stateBox .state.ws {
+    background: url("../../../../../../assets/KJ/ico/ico-state-ws.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev {
+    background: url("../../../../../../assets/KJ/ico/ico-state-dev.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.ws.on {
+    background: url("../../../../../../assets/KJ/ico/ico-state-ws-on.png") no-repeat center;
+  }
+
+  .basicExercise .stateBox .state.dev.on {
+    background: url("../../../../../../assets/KJ/ico/ico-state-dev-on.png") no-repeat center;
+  }
+
+  .basicExercise .deployBtn {
+    width: 70px;
+    height: 24px;
+    background: url("../../../../../../assets/KJ/train/deploy-btn-bg.png") no-repeat center;
+    color: #ffffff;
+    font-size: 14px;
+    text-align: center;
+    line-height: 22px;
+    margin-left: 6px;
+    cursor: pointer;
+  }
+
+  .basicExercise .deployBtn:hover {
+    color: #e9deb2;
+    position: relative;
+  }
+
+  .basicExercise .deployBtn:hover:before {
+    content: '';
+    height: 24px;
+    width: 70px;
+    background: url("../../../../../../assets/KJ/home/itemHover.png") no-repeat bottom center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+
+
+  .deployGroup {
+    padding: 16px 0 12px;
+    position: relative;
+  }
+
+  .basicInit .title {
+    color: #939e99;
+    font-size: 13px;
+  }
+
+  .deployGroup .title {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .deployGroup .title .text {
+    flex-shrink: 0;
+    padding: 0 4px;
+    color: #a9abaa;
+    width: 143px;
+    text-align: center;
+    background: url("../../../../../../assets/KJ/train/titleBg.png") no-repeat;
+    background-position: center 11px;
+  }
+
+  .deployGroup .cont {
+    padding: 0 0 10px;
+  }
+
+  .deployGroup .codeCont {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 24px;
+  }
+
+  .deployGroup .depRow {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .deployGroup .depRow .lab {
+    width: 36px;
+    flex-shrink: 0;
+    text-align: right;
+    color: #a9abaa;
+    font-size: 12px;
+  }
+
+  .deployGroup .depRow .item {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: center;
+    color: #a9abaa;
+    font-size: 12px;
+  }
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint{
+    0% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+    25% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    50% {-webkit-box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);}
+    75% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    100% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+  }
+
+
+
+  .flipContainer {
+    transform-style: preserve-3d;
+    transform-origin: 50% 50% 180px;
+    position: relative;
+    top: 0;
+  }
+
+  .flipContainer.un {
+    animation: rotate-flip 1s linear;
+  }
+
+  .flipContainer.on {
+    animation: rotate-flip-on 1s linear;
+  }
+
+  .flipContainer .flipRightBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, 0);
+    transform: rotateY(-90deg);
+    transform-origin: left;
+    position: absolute;
+    left: 280px;
+    top: 0;
+  }
+
+  .flipContainer .flipLeftBoxs {
+    width: 280px;
+    height: 100%;
+    background: rgba(23, 31, 41, 0);
+    transform: rotateY(90deg);
+    transform-origin: right;
+    position: absolute;
+    left: -280px;
+    top: 0;
+  }
+
+  .flipContainer .totalBoxs {
+    display: block;
+    width: 280px;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer .deployBoxs {
+    width: 280px;
+    height: 100%;
+    opacity: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
+  .flipContainer.un .totalBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .flipContainer.un .deployBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .totalBoxs {
+    transform: translateZ(0) rotateY(-180deg);
+    animation: flip-hide 1s linear;
+    opacity: 0;
+  }
+
+  .flipContainer.on .deployBoxs {
+    transform: translateZ(280px) rotateY(0deg);
+    animation: flip-show 1s linear;
+    opacity: 1;
+  }
+
+  .volumeBox {
+    width: 240px;
+    margin: 0 auto;
+  }
+
+  .volumeBox .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #ffffff;
+    font-size: 15px;
+  }
+
+  .volumeBox .volumeSlider {
+    height: 18px;
+    position: relative;
+    background: url("../../../../../../assets/KJ/train/volume-marks-bg.png") no-repeat center;
+  }
+
+  @keyframes rotate-flip {
+    0% {
+      transform: rotateY(-180deg);
+    }
+
+    50% {
+      transform: rotateY(-90deg);
+    }
+
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes rotate-flip-on {
+    0% {
+      transform: rotateY(-180deg);
+    }
+
+    50% {
+      transform: rotateY(-90deg);
+    }
+
+    100% {
+      transform: rotateY(0deg);
+    }
+  }
+
+  @keyframes flip-hide {
+    0% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: .5;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes flip-show {
+    0% {
+      opacity: 0;
+    }
+
+    50% {
+      opacity: .5;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .configureBox .typeBtn {
+    border: 1px solid #313835;
+    border-radius: 2px;
+    line-height: 18px;
+    padding: 0 10px;
+    color: #fff;
+    margin-right: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .configureBox .typeBtn.active {
+    border-color: #777163;
+    color: #e9deb2;
+  }
+
+  .configureBox .auditionBtn {
+    background-color: #0f7151;
+    color: #ffffff;
+    line-height: 20px;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding: 0 10px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .configureBox .text {
+    font-size: 12px;
+  }
+
+  .configureBox .volumeSlider.voice {
+    width: 100%;
+    padding-bottom: 12px;
+    border-left: 1px solid #2f3731;
+    border-right: 1px solid #2f3731;
+    margin-top: 24px;
+  }
+
+  .tipsBoxs {
+    width: 100%;
+    height: 100%;
+    background-color: rgb(10 17 14 / 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+  }
+
+  .tipsBoxs .tipsCont {
+    width: 86%;
+    max-width: 697px;
+    position: relative;
+  }
+
+  .tipsBoxs .tipsCont .bg {
+    width: 100%;
+  }
+
+  .tipsBoxs .cont {
+    position: absolute;
+    top: 0;
+  }
+
+  .tipsBoxs .cont .title {
+    width: 237px;
+    height: 65px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 7% auto 3%;
+    background: url("../../../../../../assets/KJ/postTrain/tipsTitleBg.png") no-repeat center;
+  }
+
+  .tipsBoxs .cont .title .text {
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    background-image: linear-gradient(to bottom, #ffffff, #70a3b8);
+    -webkit-background-clip: text;
+    color: transparent;
+    line-height: 1;
+  }
+
+  .tipsBoxs .textBox {
+    font-size: 18px;
+    color: #ffffff;
+    line-height: 20px;
+    text-align: center;
+    margin-bottom: 8%;
+  }
+
+  .tipsBoxs .btns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .updateTelegraphBox {}
+}

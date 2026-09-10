@@ -1,0 +1,630 @@
+.HJJ{
+  .titleColor{
+    color:#e9deb2
+  }
+  .rightBg{ background: #212d39;padding: 0px 20px 16px 20px;position: relative;}
+  .inputself{width: 100px; height: 44px!important; line-height: 44px}
+  :deep {
+    .ant-input-number-input {
+      font-size: 20px;
+      color: #e9deb2 !important;
+    }
+  }
+  .border {
+    border-top: 1px solid #354971;
+    border-bottom: 1px solid #354971;
+    border-right: 1px solid #354971;
+    border-left: 0px;
+  }
+  .icon:hover {
+    color: #e2f2ff !important;
+  }
+  .iconAdd{
+    color: #7b90af!important;
+  }
+  .iconAdd:hover {
+    color: #6ebdff !important;
+  }
+  .border:first-child {
+    border-left: 1px solid #354971;
+  }
+  .paper {
+    background: rgba(23, 31, 41, 0.7);
+    padding: 12px;
+
+    .paperHead {
+      display: flex;
+      justify-content: space-between;
+      height: 100px;
+    }
+
+    .paperBody {
+      height: calc(100% - 150px);
+    }
+
+    .paperFooter {
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      padding-top: 12px;
+    }
+  }
+  .arrow {
+    height: 48px;
+    width: 178px;
+    margin-top: -53px;
+    background: url('../../../../../../assets/HJJ/test/newJt.png') no-repeat 100%;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 0 15px;
+
+    .wisdom .ant-input[disabled],
+    .wisdom .ant-select-disabled .ant-select-selector,
+    .wisdom .ant-input-number-disabled {
+      color: #fff !important;
+    }
+  }
+  .activeKnowledge {
+    color: #70b9ec;
+    font-weight: bolder;
+  }
+  .Cmenus_title:hover .actives {
+    color: #70b9ec;
+  }
+  .Cmenus_title:hover .numberA {
+    color: #bfcde0;
+    background: #4c6274;
+  }
+  .Cmenus_title_active {
+    .actives {
+      color: #70b9ec !important;
+      font-weight: bolder !important;
+    }
+
+    .numberA {
+      color: #bfcde0 !important;
+      background: #4c6274 !important;
+    }
+  }
+  .score {
+    color: #bfcde0;
+  }
+  .numberA {
+    display: inline-block;
+    width: 25px;
+    height: 18px;
+    background: #4c6274;
+    border-radius: 10px;
+    color: #bfcde0;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+    margin-top: 2px;
+    margin-left: 10px;
+  }
+  .theTitle {
+    font-size: 14px;
+    color: #bfcde0;
+  }
+  .theTitle2 {
+    font-size: 16px;
+    color: #e9deb2;
+    font-weight: 800;
+  }
+  .variableLine {
+    margin: 0 33px;
+    height: 31px;
+    border-right: 1px solid #182337;
+  }
+  .shadow {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    .shadowTwo {
+      height: 350px !important;
+
+      .bigboxTwo {
+        height: calc(350px - 40px) !important;
+      }
+    }
+    .shadowInfo {
+      position: absolute;
+      margin: auto;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 1000px;
+      height: 660px;
+      background: url('../../../../../../assets/HJJ/login/registerCenter-1.png') no-repeat center;
+      background-size: 100% 100%;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      .title {
+        margin: 0 auto;
+        width: 100%;
+        height: 40px;
+        background: #2e4559 url('../../../../../../assets/HJJ/login/popTitle.png') no-repeat left center;
+        position: relative;
+        border-bottom: 1px solid #324b60;
+        box-shadow: 0px 7px 17px -5px #1c2733;
+
+        .addClass {
+          position: absolute;
+          bottom: 0px;
+          right: -230px;
+        }
+
+        .text {
+          width: 100%;
+          height: 100%;
+          text-align: left;
+          padding-left: 30px;
+          line-height: 40px;
+          font-weight: bold;
+          color: #ffffff;
+          font-size: 18px;
+        }
+      }
+      .newClosePopup .closeIco {
+        transform: scale(0.8);
+      }
+      .bigbox {
+        /*background: linear-gradient(to bottom right ,#172842,#163a63);*/
+        margin-top: 26px;
+        display: flex;
+
+        .left {
+          position: relative;
+          width: 120px;
+          height: calc(650px - 47px);
+
+          .border-right {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            right: -5px;
+            width: 10px;
+          }
+
+          .topBox {
+            overflow-y: auto;
+            margin-top: 20px;
+            height: calc(100% - 70px);
+
+            .leftNocheck {
+              .leftBorder {
+                height: 100%;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 2px;
+                background: #6ebdff;
+              }
+
+              position: relative;
+              width: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0 10px 0 20px;
+              font-size: 15px;
+              height: 37px;
+
+              .leftText {
+                /*margin-left: 10px;*/
+              }
+
+              .bg1 {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 16px;
+                padding: 0 4px;
+                min-width: 16px;
+                height: 16px;
+                background: #354971;
+                font-size: 14px;
+              }
+
+              .bg2 {
+                background: #6ebdff;
+                color: #274666;
+              }
+            }
+
+            .leftCheck {
+              background-image: url('../../../../../../assets/HJJ/train/tabs-check.jpg');
+              background-size: 100%;
+            }
+          }
+
+          .botBox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50px;
+          }
+
+          /*border-right: ;*/
+        }
+      }
+      .bottominfo {
+        height: 100px!important;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        .close {
+          width: 31px;
+          height: 31px;
+          border: 2px solid #7b90af;
+          border-radius: 50%;
+          background: url('../../../../../../assets/HJJ/ico/ico-clear.png') no-repeat center;
+          cursor: pointer;
+        }
+        .close:hover {
+          background: url('../../../../../../assets/HJJ/ico/ico-clear-1.png') no-repeat center;
+          animation: rotate 0.4s linear;
+          border-color: #6ebdff;
+        }
+      }
+
+      .bottominfo::before {
+        content: '';
+        width: 1px;
+        height: 33px;
+        background: url('../../../../../../assets/HJJ/ico/ico-lone.png');
+        position: absolute;
+        top: 660px;
+        left: 50%;
+      }
+
+      .bottominfoTwo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        .close {
+          width: 31px;
+          height: 31px;
+          border: 2px solid #7b90af;
+          border-radius: 50%;
+          background: url('../../../../../../assets/HJJ/ico/ico-clear.png') no-repeat center;
+          cursor: pointer;
+        }
+
+        .close:hover {
+          background: url('../../../../../../assets/HJJ/ico/ico-clear-1.png') no-repeat center;
+          animation: rotate 0.4s linear;
+          border-color: #6ebdff;
+        }
+      }
+
+      .bottominfoTwo::before {
+        content: '';
+        width: 1px;
+        height: 33px;
+        background: url('../../../../../../assets/HJJ/ico/ico-lone.png');
+        position: absolute;
+        top: 350px;
+        left: 50%;
+      }
+
+      .center {
+        .addClass {
+          width: 100px;
+          /*position: absolute;*/
+          /*bottom: 0px;*/
+          /*right: -230px;*/
+        }
+
+        /*width: calc(100% - 120px);*/
+        /*padding-top: 11px;*/
+        display: flex;
+        flex-direction: column;
+
+        .right {
+          overflow-y: auto;
+          width: calc(100%);
+          /*margin-top: 20px;*/
+          height: calc(565px - 40px);
+          padding: 0 40px 0 30px;
+          position: relative;
+        }
+      }
+
+      .bottom {
+        .botBtn {
+          width: 110px;
+          height: 32px;
+          background-image: linear-gradient(#70a3b8, #4c7595);
+        }
+      }
+
+      .rights {
+        overflow-y: auto;
+        width: calc(100%);
+        /*margin-top: 20px;*/
+        height: calc(575px);
+        padding: 0 40px 0 30px;
+        position: relative;
+      }
+    }
+  }
+  .shadowFind {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+
+    .shadowTwo {
+      height: 350px !important;
+
+      .bigboxTwo {
+        height: calc(350px - 40px) !important;
+      }
+    }
+
+    .shadowInfo {
+      box-shadow: inset 0 -120px 200px -120px rgba(22, 59, 100, 0.8);
+      position: absolute;
+      margin: auto;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #1f2d3b;
+      width: 1300px;
+      height: 760px;
+      border-radius: 10px;
+      background-image: url('../../../../../../assets/HJJ/train/up.png'),
+      url('../../../../../../assets/HJJ/train/down.png');
+      background-position: top 0 left 0, bottom 0 left 0;
+      background-size: 1300px 20px;
+      background-repeat: no-repeat;
+
+      .title {
+        margin: 0 auto;
+        width: 338px;
+        height: 56px;
+        background-image: url('../../../../../../assets/HJJ/train/title-bg.png');
+        background-size: 338px 56px;
+        background-repeat: no-repeat;
+        position: relative;
+
+        .text {
+          width: 100%;
+          height: 100%;
+          background-image: -webkit-linear-gradient(bottom,
+          #daeeff,
+          #9cd2ff,
+          #70beff);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          text-align: center;
+          line-height: 56px;
+          font-size: 30px;
+          font-family: 'Microsoft Yahei';
+          font-weight: bold;
+        }
+      }
+
+      .bigbox {
+        /*background: linear-gradient(to bottom right ,#172842,#163a63);*/
+
+        margin-top: 20px;
+
+        display: flex;
+
+        .left {
+          position: relative;
+          width: 120px;
+          height: calc(750px - 47px);
+
+          .border-right {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            right: -5px;
+            width: 10px;
+          }
+
+          .topBox {
+            overflow-y: auto;
+            margin-top: 20px;
+            height: calc(100% - 70px);
+
+            .leftNocheck {
+              .leftBorder {
+                height: 100%;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 2px;
+                background: #6ebdff;
+              }
+
+              position: relative;
+              width: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              padding: 0 10px 0 20px;
+              font-size: 15px;
+              height: 37px;
+
+              .leftText {
+                /*margin-left: 10px;*/
+              }
+
+              .bg1 {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 16px;
+                padding: 0 4px;
+                min-width: 16px;
+                height: 16px;
+                background: #354971;
+                font-size: 14px;
+              }
+
+              .bg2 {
+                background: #6ebdff;
+                color: #274666;
+              }
+            }
+
+            .leftCheck {
+              background-image: url('../../../../../../assets/HJJ/train/tabs-check.jpg');
+              background-size: 100%;
+            }
+          }
+
+          .botBox {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50px;
+          }
+
+          /*border-right: ;*/
+        }
+      }
+
+      .bottominfo {
+        height: 100px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        .close {
+          width: 31px;
+          height: 31px;
+          border: 2px solid #7b90af;
+          border-radius: 50%;
+          background: url('../../../../../../assets/HJJ/ico/ico-clear.png') no-repeat center;
+          cursor: pointer;
+        }
+
+        .close:hover {
+          background: url('../../../../../../assets/HJJ/ico/ico-clear-1.png') no-repeat center;
+          animation: rotate 0.4s linear;
+          border-color: #6ebdff;
+        }
+      }
+
+      .bottominfo::before {
+        content: '';
+        width: 1px;
+        height: 33px;
+        background: url('../../../../../../assets/HJJ/ico/ico-lone.png');
+        position: absolute;
+        top: 760px;
+        left: 50%;
+      }
+
+      .bottominfoTwo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        .close {
+          width: 31px;
+          height: 31px;
+          border: 2px solid #7b90af;
+          border-radius: 50%;
+          background: url('../../../../../../assets/HJJ/ico/ico-clear.png') no-repeat center;
+          cursor: pointer;
+        }
+
+        .close:hover {
+          background: url('../../../../../../assets/HJJ/ico/ico-clear-1.png') no-repeat center;
+          animation: rotate 0.4s linear;
+          border-color: #6ebdff;
+        }
+      }
+
+      .bottominfoTwo::before {
+        content: '';
+        width: 1px;
+        height: 33px;
+        background: url('../../../../../../assets/HJJ/ico/ico-lone.png');
+        position: absolute;
+        top: 350px;
+        left: 50%;
+      }
+
+      .center {
+        .addClass {
+          width: 100px;
+          /*position: absolute;*/
+          /*bottom: 0px;*/
+          /*right: -230px;*/
+        }
+
+        /*width: calc(100% - 120px);*/
+        /*padding-top: 11px;*/
+        display: flex;
+        flex-direction: column;
+
+        .right {
+          overflow-y: auto;
+          width: calc(100%);
+          /*margin-top: 20px;*/
+          height: calc(565px - 40px);
+          padding: 0 40px 0 30px;
+          position: relative;
+        }
+      }
+
+      .bottom {
+        .botBtn {
+          width: 110px;
+          height: 32px;
+          background-image: url('../../../../../../assets/HJJ/train/button.png');
+        }
+      }
+
+      .rights {
+        overflow-y: auto;
+        width: calc(100%);
+        /*margin-top: 20px;*/
+        height: calc(575px);
+        padding: 0 40px 0 30px;
+        position: relative;
+      }
+    }
+  }
+  .topicList {
+    font-size: 15px;
+    color: #8c9db9;
+    line-height: 33px;
+    transition: all 0.5s;
+    border-radius: 3px;
+    padding-left: 12px;
+  }
+  .topicList:hover {
+    background: #3c586f;
+    color: #ffffff !important;
+  }
+  .paperList {
+    padding: 20px;
+    border-bottom: 1px solid #213758;
+    transition: all 0.5s;
+  }
+  .paperList:last-child {
+    border-bottom: 0px solid #213758;
+  }
+  .paperList:hover {
+    background: #2b3845;
+  }
+}

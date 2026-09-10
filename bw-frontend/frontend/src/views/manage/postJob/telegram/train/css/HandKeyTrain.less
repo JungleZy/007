@@ -1,0 +1,1157 @@
+.HJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+  .trainCenter {
+    margin-left: 10px;
+  }
+   .tipSymbol {
+    border: 1px solid rgba(255, 255, 213, .4);
+    padding: 6px 8px 10px;
+    background: url("../../../../../../assets/HJ/train/hint-bg.png") no-repeat center bottom;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+   .tipSymbol .symItem {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    color: #ffffd5;
+  }
+
+   .tipSymbol .symItem .space {
+    height: 2px;
+    width: 12px;
+  }
+
+   .tipSymbol .symItem .val {
+    height: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background-color: #ffffd5;
+  }
+
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint {
+    0% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+    25% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    50% {
+      -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+      box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    }
+    75% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    100% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+  }
+
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+
+  .machineBox .main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 9;
+  }
+  .machineBox .title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #70c9ff;
+    text-align: center;
+    letter-spacing: 8px;
+    padding: 3% 0 5% 8px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .machineBox .title:after {
+    content: '';
+    width: 100%;
+    height: 20%;
+    background: url("../../../../../../assets/HJ/postTrain/machineIco.png") no-repeat center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .machineBox .vals {
+    width: 100%;
+    max-width: 846px;
+    height: calc(100% * 80 / 846);
+    background: url("../../../../../../assets/HJ/postTrain/valsBg.png") no-repeat center;
+    background-size: 100% 100%;
+    margin: 3% auto 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .machineBox .val {
+    flex-shrink: 0;
+    height: 12%;
+    min-height: 8px;
+    background-color: #fcfdff;
+  }
+  .machineBox .msg {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .machineBox .error {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 2%;
+  }
+  .machineBox .error .text {
+    color: #fea64e;
+    padding: 3px 10px 5px;
+    border-radius: 2px;
+  }
+  .machineBox .box {
+    max-width: 765px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .machineBox .box .lab {
+    width: 10%;
+    font-size: 16px;
+    color: #70c9ff;
+    position: absolute;
+    top: 0;
+    left: 45%;
+  }
+  .machineBox .box .text {
+    width: 80%;
+    position: absolute;
+    left: 10%;
+    top: 14%;
+  }
+  .machineBox .box .text .item {
+    line-height: 22px;
+    color: #fff;
+    padding-left: 30px;
+    margin-top: 2%;
+    position: relative;
+  }
+  .machineBox .box .text .item:before {
+    content: '';
+    width: 15px;
+    height: 18px;
+    background: url("../../../../../../assets/HJ/postTrain/labIco.png") no-repeat;
+    position: absolute;
+    left: 0;
+    top: 3px;
+  }
+  .machineBox .box .reset {
+    width: 16%;
+    cursor: pointer;
+    position: absolute;
+    left: 42%;
+    bottom: 5%;
+  }
+  .machineBox .box .reset .img {
+    width: 100%;
+  }
+  .machineBox .box .reset:hover .img {
+    transform: scale(.96);
+  }
+
+
+}
+.HJJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+  .trainCenter {
+    margin-left: 10px;
+  }
+   .tipSymbol {
+    border: 1px solid rgba(255, 255, 213, .4);
+    padding: 6px 8px 10px;
+    background: url("../../../../../../assets/HJJ/train/hint-bg.png") no-repeat center bottom;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+   .tipSymbol .symItem {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    color: #ffffd5;
+  }
+   .tipSymbol .symItem .space {
+    height: 2px;
+    width: 12px;
+  }
+   .tipSymbol .symItem .val {
+    height: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background-color: #ffffd5;
+  }
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint {
+    0% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+    25% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    50% {
+      -webkit-box-shadow: inset 0 0 16px rgba(110, 189, 255, .8);
+      box-shadow: inset 0 0 20px rgba(110, 189, 255, .8);
+    }
+    75% {
+      -webkit-box-shadow: inset 0 0 8px rgba(110, 189, 255, .4);
+      box-shadow: inset 0 0 10px rgba(110, 189, 255, .4);
+    }
+    100% {
+      -webkit-box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+      box-shadow: inset 0 0 4px rgba(110, 189, 255, .2);
+    }
+  }
+  .flipContainer {
+    transform-style: preserve-3d;
+    transform-origin: 50% 50% 180px;
+    position: relative;
+    top: 0;
+  }
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+  ._top .bg {
+    width: 100%;
+  }
+  ._top .cont {
+    position: absolute;
+    top: 16%;
+    left: 3.5%;
+    right: 3.5%;
+    bottom: 10%;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../assets/HJJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 8px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 20%;
+    min-height: 8px;
+    background-color: #5178a8;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color: #5178a8;
+    text-align: center;
+    max-width: 240px;
+  }
+  .trainCenter ._main {
+    width: 100%;
+    height: 100%;
+    padding: 0 .96% .9%;
+    position: relative;
+  }
+  ._bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._bottom .bg {
+    width: 100%;
+  }
+  ._bottom .pag {
+    width: 540px;
+    height: 38%;
+    min-height: 24px;
+    background: url("../../../../../../assets/HJJ/postTrain/pag.png") no-repeat center;
+    background-size:  auto 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #bfcde0;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: -270px;
+  }
+  ._bottom .pag .line {
+    margin: 0 4%;
+    height: 12px;
+    width: 1px;
+    background-color: rgba(0,0,0,0);
+  }
+  ._bottom .pag .num {
+    color: #e9deb2;
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .machineBox .main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 9;
+  }
+  .machineBox .title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #70c9ff;
+    text-align: center;
+    letter-spacing: 8px;
+    padding: 3% 0 5% 8px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .machineBox .title:after {
+    content: '';
+    width: 100%;
+    height: 20%;
+    background: url("../../../../../../assets/HJJ/postTrain/machineIco.png") no-repeat center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .machineBox .vals {
+    width: 100%;
+    max-width: 846px;
+    height: calc(100% * 80 / 846);
+    background: url("../../../../../../assets/HJJ/postTrain/valsBg.png") no-repeat center;
+    background-size: 100% 100%;
+    margin: 3% auto 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .machineBox .val {
+    flex-shrink: 0;
+    height: 12%;
+    min-height: 8px;
+    background-color: #fcfdff;
+  }
+  .machineBox .msg {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .machineBox .error {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 2%;
+  }
+  .machineBox .error .text {
+    color: #fea64e;
+    padding: 3px 10px 5px;
+    border-radius: 2px;
+  }
+  .machineBox .box {
+    max-width: 765px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .machineBox .box .lab {
+    width: 10%;
+    font-size: 16px;
+    color: #70c9ff;
+    position: absolute;
+    top: 0;
+    left: 45%;
+  }
+  .machineBox .box .text {
+    width: 80%;
+    position: absolute;
+    left: 10%;
+    top: 14%;
+  }
+  .machineBox .box .text .item {
+    line-height: 22px;
+    color: #fff;
+    padding-left: 30px;
+    margin-top: 2%;
+    position: relative;
+  }
+  .machineBox .box .text .item:before {
+    content: '';
+    width: 15px;
+    height: 18px;
+    background: url("../../../../../../assets/HJJ/postTrain/labIco.png") no-repeat;
+    position: absolute;
+    left: 0;
+    top: 3px;
+  }
+  .machineBox .box .reset {
+    width: 16%;
+    cursor: pointer;
+    position: absolute;
+    left: 42%;
+    bottom: 5%;
+  }
+  .machineBox .box .reset .img {
+    width: 100%;
+  }
+  .machineBox .box .reset:hover .img {
+    transform: scale(.96);
+  }
+
+
+}
+.LJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+   .tipSymbol {
+    border: 1px solid rgba(255, 255, 213, .4);
+    padding: 6px 8px 10px;
+    background: url("../../../../../../assets/LJ/train/hint-bg.png") no-repeat center bottom;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+   .tipSymbol .symItem {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    color: #ffffd5;
+  }
+
+   .tipSymbol .symItem .space {
+    height: 2px;
+    width: 12px;
+  }
+
+   .tipSymbol .symItem .val {
+    height: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background-color: #ffffd5;
+  }
+
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint{
+    0% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+    25% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    50% {-webkit-box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);}
+    75% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    100% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+  }
+
+
+
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+
+
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  ._top .bg {
+    width: 100%;
+  }
+
+  ._top .cont {
+    position: absolute;
+    top: 16%;
+    left: 3.5%;
+    right: 3.5%;
+    bottom: 10%;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../assets/LJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 8px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 20%;
+    min-height: 8px;
+    background-color:  #e9deb2;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color:  #e9deb2;
+    text-align: center;
+    max-width: 240px;
+  }
+  .trainCenter ._main {
+    width: 100%;
+    height: 100%;
+    padding: 0 .96% .9%;
+    position: relative;
+  }
+  ._bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._bottom .bg {
+    width: 100%;
+  }
+  ._bottom .pag {
+    width: 540px;
+    height: 38%;
+    min-height: 24px;
+    background: url("../../../../../../assets/LJ/postTrain/pag.png") no-repeat center;
+    background-size:  auto 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #fff;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: -270px;
+  }
+  ._bottom .pag .line {
+    margin: 0 4%;
+    height: 12px;
+    width: 1px;
+    background-color: rgba(0,0,0,0);
+  }
+  ._bottom .pag .num {
+    color: #e9deb2;
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .machineBox .main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 9;
+  }
+  .machineBox .title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #98d0bc;
+    text-align: center;
+    letter-spacing: 8px;
+    padding: 3% 0 5% 8px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .machineBox .title:after {
+    content: '';
+    width: 100%;
+    height: 20%;
+    background: url("../../../../../../assets/LJ/postTrain/machineIco.png") no-repeat center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .machineBox .vals {
+    width: 100%;
+    max-width: 846px;
+    height: calc(100% * 80 / 846);
+    background: url("../../../../../../assets/LJ/postTrain/valsBg.png") no-repeat center;
+    background-size: 100% 100%;
+    margin: 3% auto 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .machineBox .val {
+    flex-shrink: 0;
+    height: 12%;
+    min-height: 8px;
+    background-color: #fcfdff;
+  }
+  .machineBox .msg {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .machineBox .error {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 2%;
+  }
+  .machineBox .error .text {
+    color: #fea64e;
+    padding: 3px 10px 5px;
+    border-radius: 2px;
+  }
+  .machineBox .box {
+    max-width: 765px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .machineBox .box .lab {
+    width: 10%;
+    font-size: 16px;
+    color: #98d0bc;
+    position: absolute;
+    top: 0;
+    left: 45%;
+  }
+  .machineBox .box .text {
+    width: 80%;
+    position: absolute;
+    left: 10%;
+    top: 14%;
+  }
+  .machineBox .box .text .item {
+    line-height: 22px;
+    color: #fff;
+    padding-left: 30px;
+    margin-top: 2%;
+    position: relative;
+  }
+  .machineBox .box .text .item:before {
+    content: '';
+    width: 15px;
+    height: 18px;
+    background: url("../../../../../../assets/LJ/postTrain/labIco.png") no-repeat;
+    position: absolute;
+    left: 0;
+    top: 3px;
+  }
+  .machineBox .box .reset {
+    width: 16%;
+    cursor: pointer;
+    position: absolute;
+    left: 42%;
+    bottom: 5%;
+  }
+  .machineBox .box .reset .img {
+    width: 100%;
+  }
+  .machineBox .box .reset:hover .img {
+    transform: scale(.96);
+  }
+
+
+}
+.KJ{
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(90deg);
+    }
+    50% {
+      transform: rotate(180deg);
+    }
+    75% {
+      transform: rotate(270deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .trainBoxs {
+    display: flex;
+  }
+  .trainCenter {
+    margin-left: 10px;
+  }
+
+  .tipSymbol {
+    border: 1px solid rgba(255, 255, 213, .4);
+    padding: 6px 8px 10px;
+    background: url("../../../../../../assets/KJ/train/hint-bg.png") no-repeat center bottom;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .tipSymbol .symItem {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    color: #ffffd5;
+  }
+
+  .tipSymbol .symItem .space {
+    height: 2px;
+    width: 12px;
+  }
+
+  .tipSymbol .symItem .val {
+    height: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background-color: #ffffd5;
+  }
+
+
+  .trainCenter {
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes glint{
+    0% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+    25% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    50% {-webkit-box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);box-shadow: inset 0 0 16px rgba(233, 222, 178, .8);}
+    75% {-webkit-box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);box-shadow: inset 0 0 8px rgba(233, 222, 178, .8);}
+    100% {-webkit-box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);box-shadow: inset 0 0 4px rgba(233, 222, 178, .8);}
+  }
+
+
+
+  @keyframes rotate-flip {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes rotate-flip-on {
+    0% {transform: rotateY(-180deg);}
+    50% {transform: rotateY(-90deg);}
+    100% {transform: rotateY(0deg);}
+  }
+
+  @keyframes flip-hide {
+    0% {opacity: 1;}
+    50% {opacity: .5;}
+    100% {opacity: 0;}
+  }
+
+  @keyframes flip-show {
+    0% {opacity: 0;}
+    50% {opacity: .5;}
+    100% {opacity: 1;}
+  }
+
+
+  ._top {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  ._top .bg {
+    width: 100%;
+  }
+
+  ._top .cont {
+    position: absolute;
+    top: 16%;
+    left: 3.5%;
+    right: 3.5%;
+    bottom: 10%;
+  }
+  ._top .scale {
+    height: 8px;
+    background: url("../../../../../../assets/KJ/postTrain/scale.png");
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  ._top .vals {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    position: absolute;
+    top: 8px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._top .vals::-webkit-scrollbar-thumb {
+    visibility: hidden;
+  }
+  ._top .val {
+    min-width: 2px;
+    height: 20%;
+    min-height: 8px;
+    background-color:  #e9deb2;
+    border-radius: 1px;
+    flex-shrink: 0;
+    max-width: 80px;
+  }
+  ._top .gap {
+    min-height: 5px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    color:  #e9deb2;
+    text-align: center;
+    max-width: 240px;
+  }
+  .trainCenter ._main {
+    width: 100%;
+    height: 100%;
+    padding: 0 .96% .9%;
+    position: relative;
+  }
+  ._bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  ._bottom .bg {
+    width: 100%;
+  }
+  ._bottom .pag {
+    width: 540px;
+    height: 38%;
+    min-height: 24px;
+    background: url("../../../../../../assets/KJ/postTrain/pag.png") no-repeat center;
+    background-size:  auto 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #fff;
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    margin-left: -270px;
+  }
+  ._bottom .pag .line {
+    margin: 0 4%;
+    height: 12px;
+    width: 1px;
+    background-color: rgba(0,0,0,0);
+  }
+  ._bottom .pag .num {
+    color: #e9deb2;
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .machineBox .main {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 9;
+  }
+  .machineBox .title {
+    font-size: 36px;
+    font-weight: bold;
+    color: #98d0bc;
+    text-align: center;
+    letter-spacing: 8px;
+    padding: 3% 0 5% 8px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .machineBox .title:after {
+    content: '';
+    width: 100%;
+    height: 20%;
+    background: url("../../../../../../assets/KJ/postTrain/machineIco.png") no-repeat center;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+  .machineBox .vals {
+    width: 100%;
+    max-width: 846px;
+    height: calc(100% * 80 / 846);
+    background: url("../../../../../../assets/KJ/postTrain/valsBg.png") no-repeat center;
+    background-size: 100% 100%;
+    margin: 3% auto 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .machineBox .val {
+    flex-shrink: 0;
+    height: 12%;
+    min-height: 8px;
+    background-color: #fcfdff;
+  }
+  .machineBox .msg {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  .machineBox .error {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 2%;
+  }
+  .machineBox .error .text {
+    color: #fea64e;
+    padding: 3px 10px 5px;
+    border-radius: 2px;
+  }
+  .machineBox .box {
+    max-width: 765px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .machineBox .box .lab {
+    width: 10%;
+    font-size: 16px;
+    color: #98d0bc;
+    position: absolute;
+    top: 0;
+    left: 45%;
+  }
+  .machineBox .box .text {
+    width: 80%;
+    position: absolute;
+    left: 10%;
+    top: 14%;
+  }
+  .machineBox .box .text .item {
+    line-height: 22px;
+    color: #fff;
+    padding-left: 30px;
+    margin-top: 2%;
+    position: relative;
+  }
+  .machineBox .box .text .item:before {
+    content: '';
+    width: 15px;
+    height: 18px;
+    background: url("../../../../../../assets/KJ/postTrain/labIco.png") no-repeat;
+    position: absolute;
+    left: 0;
+    top: 3px;
+  }
+  .machineBox .box .reset {
+    width: 16%;
+    cursor: pointer;
+    position: absolute;
+    left: 42%;
+    bottom: 5%;
+  }
+  .machineBox .box .reset .img {
+    width: 100%;
+  }
+  .machineBox .box .reset:hover .img {
+    transform: scale(.96);
+  }
+
+
+}

@@ -1,0 +1,1449 @@
+@import "../../../../../../common/styles/KJ/colorAll";
+.HJ{
+  .scoreBody {
+    background-color: #122345;
+  }
+  .scoreBody:before, .scoreBody:after {
+    content: '';
+    width: 288px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .scoreBody:before {
+    background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/zuo.png") no-repeat left;
+    background-size: auto 100%;
+    left: 0;
+  }
+  .scoreBody:after {
+    background: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/you.png") no-repeat right;
+    background-size: auto 100%;
+    right: 0;
+  }
+  .main {
+    padding: 12px 1.5%;
+    position: relative;
+    z-index: 9;
+    display: flex;
+  }
+  .dataBox {
+    width: 420px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    padding: 0 5px;
+    flex-direction: column;
+  }
+  .telegraphBox {
+    width: calc(100% - 420px);
+    height: 100%;
+    padding: 0 5px;
+  }
+
+  .dataBox .top {
+    width: 100%;
+    height: 150px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: -12px auto 0;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 60px;
+    line-height: 1;
+    background-image: linear-gradient(to bottom, #b3c6e8, #5d6572);
+    -webkit-background-clip: text;
+    color: transparent;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: auto;
+    padding: 5% 0 5%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup+.resGroup {
+    margin-left: 10%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalBox {
+    width: 100%;
+    height: calc(100% - 150px - 87px);
+    padding: 10px;
+  }
+  .trainTotalBox {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #293d68;
+    padding: 6px 0;
+  }
+  .trainTotalBox .title {
+    height: 44px;
+    background: url("../../../../../../assets/HJ/postTrain/scoreDataTitBg.png") no-repeat center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bolder;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainTotalBox .list {
+    height: calc(100% - 44px);
+    padding: 10px;
+  }
+  .dataTotalItem {
+    height: 50px;
+    background: url("../../../../../../assets/HJ/postTrain/dataTotalItemBg.png") no-repeat;
+    background-size: 100% 100%;
+    display: flex;
+    align-items: center;
+    /*justify-content: space-between;*/
+    padding: 0 24px;
+    font-size: 15px;
+    color: #fff;
+  }
+  .dataTotalItem+.dataTotalItem {
+    margin-top: 20px;
+  }
+  .dataTotalItem .l {
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalItem .val {
+    font-weight: bolder;
+    color: #71cbff;
+    font-size: 20px;
+    margin: 0 10px;
+    position: relative;
+    top: -2px;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    padding-right: 35px;
+  }
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #70c9ff;
+    font-size: 14px;
+    background: url("../../../../../../assets/HJ/postTrain/totalBg.png") no-repeat center;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+  }
+
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 160px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #70c9ff;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 26px) / 10);
+    padding-top: 22px;
+    font-size: 13px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 26px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #415684;
+    background-color: #0a1936;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 26px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    border-right: 1px solid #384c77;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n+11) {
+    border-top: 1px solid #384c77;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3f6089;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #70c9ff;
+    border: none;
+  }
+  .patTelegraph .telegraph .key .title {
+    font-size: 13px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    background-color: #463e2f;
+    color: #fff;
+    font-weight: normal;
+  }
+  .patTelegraph .telegraph .key .val {
+    font-size: 15px;
+    height: calc(100% - 22px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .patTelegraph .telegraph .key .error {
+    color: #d11d1d;
+    font-weight: bold;
+  }
+  .patTelegraph .telegraph .key .omission {
+    color: #a5b6d0;
+    font-weight: bold;
+  }
+
+  .thumbBox {
+    width: 100%;
+    padding: 18px 0 10px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .thumbBox .item {
+    width: 192px;
+    height: 106px;
+    background: url("../../../../../../assets/HJ/postTrain/thumeBg.png") no-repeat;
+    padding: 21px 8px 11px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .thumbBox .item.on {
+    background: url("../../../../../../assets/HJ/postTrain/thumeBg-on.png") no-repeat;
+  }
+  .thumbBox .item + .item {
+    margin-left: 18px;
+  }
+  .thumbBox .index {
+    font-size: 12px;
+    color: #fff;
+    width: 30px;
+    text-align: center;
+    line-height: 1.2;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .thumbBox .img {
+    width: 100%;
+    height: 100%;
+  }
+
+  @media (max-width: 1400px) {
+    .dataBox {
+      width: 360px;
+    }
+    .telegraphBox {
+      width: calc(100% - 360px);
+      height: 100%;
+      padding: 0 5px;
+    }
+    .dataBox .top .score {
+      font-size: 56px;
+    }
+    .dataBox .top {
+      height: 130px;
+    }
+    .dataTotalItem {
+      height: 46px;
+    }
+  }
+  @media (max-width: 1280px) {
+    .dataBox {
+      width: 320px;
+    }
+    .dataBox .top {
+      height: 110px;
+    }
+    .dataBox .top .score {
+      font-size: 50px;
+    }
+    .patTelegraph .telegraph .key .val {
+      font-size: 14px;
+    }
+    .telegraphBox {
+      width: calc(100% - 320px);
+      height: 100%;
+      padding: 0 5px;
+    }
+  }
+  @media (max-width: 1160px) {
+    .dataBox {
+      width: 260px;
+    }
+    .dataBox .top {
+      height: 90px;
+    }
+    .dataBox .top .score {
+      font-size: 40px;
+    }
+    .dataBox .resGroup .num {
+      font-size: 17px;
+    }
+    .dataBox .resGroup .num strong {
+      font-size: 13px !important;
+    }
+    .telegraphBox {
+      width: calc(100% - 260px);
+      height: 100%;
+      padding: 0 5px;
+    }
+    .trainTotalBox .title {
+      font-size: 16px;
+    }
+    .dataTotalItem {
+      font-size: 13px;
+      height: 40px;
+    }
+    .dataTotalItem .val {
+      font-size: 17px;
+    }
+  }
+}
+.HJJ{
+  .scoreBody {
+    background-color: #122345;
+  }
+  .scoreBody:before,
+  .scoreBody:after {
+    content: '';
+    width: 288px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .scoreBody:before {
+    background: url('../../../../../../assets/HJJ/basicTheory/studyManage/analyze/zuo.png') no-repeat left;
+    background-size: auto 100%;
+    left: 0;
+  }
+  .scoreBody:after {
+    background: url('../../../../../../assets/HJJ/basicTheory/studyManage/analyze/you.png') no-repeat right;
+    background-size: auto 100%;
+    right: 0;
+  }
+  .main {
+    position: relative;
+    z-index: 9;
+    display: flex;
+  }
+  .dataBox {
+    width: 420px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    padding: 0 5px;
+    flex-direction: column;
+    background: url('../../../../../../assets/HJJ/postTrain/gardBg.png') no-repeat;
+    background-size: 100% 100%;
+  }
+  .telegraphBox {
+    width: calc(100% - 420px);
+    height: 100%;
+    padding: 0 5px;
+  }
+
+  .dataBox .top {
+    width: 100%;
+    height: 135px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+    margin-top: 65px;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 32px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: auto;
+    padding: 5% 0 5%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup + .resGroup {
+    margin-left: 10%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .desc {
+    font-size: 12px;
+    color: #84929f;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+  }
+  .trainTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 6px 0;
+    border: 1px solid #4c7595;
+    background: rgba(76, 117, 149, 0.2);
+    position: relative;
+  }
+  .trainTotalBox:before {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/HJJ/postTrain/leftTop.png'), url('../../../../../../assets/HJJ/postTrain/leftBottom.png');
+    background-repeat: no-repeat;
+    background-position: left top, left bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    left: -2px;
+    top: -2px;
+  }
+  .trainTotalBox:after {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/HJJ/postTrain/rightTop.png'), url('../../../../../../assets/HJJ/postTrain/rightBottom.png');
+    background-repeat: no-repeat;
+    background-position: right top, right bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    right: -2px;
+    top: -2px;
+  }
+
+  .trainTotalBox .title {
+    height: 44px;
+    background: url('../../../../../../assets/HJJ/postTrain/scoreDataTitBg.png') no-repeat center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bolder;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainTotalBox .list {
+    padding: 10px;
+  }
+  .dataTotalItem {
+    height: 50px;
+    background: url('../../../../../../assets/HJJ/postTrain/dataTotalItemBg.png') no-repeat;
+    background-size: 100% 100%;
+    display: flex;
+    align-items: center;
+    /*justify-content: space-between;*/
+    padding: 0 24px;
+    font-size: 15px;
+    color: #bfcde0;
+  }
+  .dataTotalItem + .dataTotalItem {
+    margin-top: 20px;
+  }
+  .dataTotalItem .l {
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalItem .val {
+    font-weight: bolder;
+    color: #e9deb2;
+    font-size: 20px;
+    margin: 0 10px 0 50px;
+    position: relative;
+    top: -2px;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    padding-right: 35px;
+  }
+
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #bfcde0;
+    font-size: 14px;
+    background: url('../../../../../../assets/HJJ/postTrain/totalBg.png') no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 180px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #8eafca;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 26px) / 10);
+    padding-top: 22px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 26px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #171e27;
+    background-color: #213141;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 26px;
+    display: flex;
+    flex-shrink: 0;
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    border-right: 1px solid #171e27;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n + 11) {
+    border-top: 1px solid #171e27;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #161e29;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #4c7595;
+    border: none;
+  }
+  .patTelegraph .telegraph .key .title {
+    font-size: 13px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #463e2f;
+    color: #fff;
+    font-weight: normal;
+  }
+  .patTelegraph .telegraph .key .val {
+    font-size: 15px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .patTelegraph .telegraph .key .error {
+    color: #d11d1d;
+    font-weight: bold;
+  }
+  .patTelegraph .telegraph .key .omission {
+    color: #4c7595;
+    font-weight: bold;
+  }
+
+  .thumbBox {
+    width: 100%;
+    padding: 18px 0 10px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .thumbBox .item {
+    width: 191px;
+    height: 102px;
+    background: url('../../../../../../assets/HJJ/postTrain/thumeBg.png') no-repeat;
+    padding: 21px 8px 8px 6px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .thumbBox .item.on {
+    background: url('../../../../../../assets/HJJ/postTrain/thumeBg-on.png') no-repeat;
+  }
+  .thumbBox .item + .item {
+    margin-left: 18px;
+  }
+  .thumbBox .index {
+    font-size: 12px;
+    color: #fff;
+    width: 30px;
+    text-align: center;
+    line-height: 1.2;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .thumbBox .img {
+    width: 100%;
+    height: 100%;
+  }
+}
+.LJ{
+  .scoreBody {
+    background-color: #122345;
+  }
+  .scoreBody:before,
+  .scoreBody:after {
+    content: '';
+    width: 288px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .scoreBody:before {
+    background: url('../../../../../../assets/LJ/basicTheory/studyManage/analyze/zuo.png') no-repeat left;
+    background-size: auto 100%;
+    left: 0;
+  }
+  .scoreBody:after {
+    background: url('../../../../../../assets/LJ/basicTheory/studyManage/analyze/you.png') no-repeat right;
+    background-size: auto 100%;
+    right: 0;
+  }
+  .main {
+    position: relative;
+    z-index: 9;
+    display: flex;
+  }
+  .dataBox {
+    width: 420px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    padding: 0 5px;
+    flex-direction: column;
+    background: url('../../../../../../assets/LJ/postTrain/gardBg.png') no-repeat;
+    background-size: 100% 100%;
+  }
+  .telegraphBox {
+    width: calc(100% - 420px);
+    height: 100%;
+    padding: 0 5px;
+  }
+
+  .dataBox .top {
+    width: 100%;
+    height: 135px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+    margin-top: 65px;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 32px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: auto;
+    padding: 5% 0 5%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup + .resGroup {
+    margin-left: 10%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .desc {
+    font-size: 12px;
+    color: #a9abaa;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+  }
+  .trainTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 6px 0;
+    border: 1px solid #2d4039;
+    background: rgb(24 35 31);
+    position: relative;
+  }
+  .trainTotalBox:before {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/LJ/postTrain/leftTop.png'), url('../../../../../../assets/LJ/postTrain/leftBottom.png');
+    background-repeat: no-repeat;
+    background-position: left top, left bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    left: -2px;
+    top: -2px;
+  }
+  .trainTotalBox:after {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/LJ/postTrain/rightTop.png'), url('../../../../../../assets/LJ/postTrain/rightBottom.png');
+    background-repeat: no-repeat;
+    background-position: right top, right bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    right: -2px;
+    top: -2px;
+  }
+
+  .trainTotalBox .title {
+    height: 44px;
+    background: url('../../../../../../assets/LJ/postTrain/scoreDataTitBg.png') no-repeat center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bolder;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainTotalBox .list {
+    padding: 10px;
+  }
+  .dataTotalItem {
+    height: 50px;
+    background: url('../../../../../../assets/LJ/postTrain/dataTotalItemBg.png') no-repeat;
+    background-size: 100% 100%;
+    display: flex;
+    align-items: center;
+    /*justify-content: space-between;*/
+    padding: 0 24px;
+    font-size: 15px;
+    color: #fff;
+  }
+  .dataTotalItem + .dataTotalItem {
+    margin-top: 20px;
+  }
+  .dataTotalItem .l {
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalItem .val {
+    font-weight: bolder;
+    color: #e9deb2;
+    font-size: 20px;
+    margin: 0 10px 0 50px;
+    position: relative;
+    top: -2px;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    padding-right: 35px;
+  }
+
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #fff;
+    font-size: 14px;
+    background: url('../../../../../../assets/LJ/postTrain/totalBg.png') no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 180px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #a9abaa;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 26px) / 10);
+    padding-top: 22px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 26px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    /*border: 1px solid #111c18;*/
+    background-color: rgba(21, 39, 39, 0.5);
+    border-top: 2px solid #343e37;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 26px;
+    display: flex;
+    flex-shrink: 0;
+
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    border-right: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n + 11) {
+    border-top: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #a9abaa;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: #38403d;
+    border: none;
+  }
+  .patTelegraph .telegraph .key .title {
+    font-size: 13px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #463e2f;
+    color: #fff;
+    font-weight: normal;
+  }
+  .patTelegraph .telegraph .key .val {
+    font-size: 15px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .patTelegraph .telegraph .key .error {
+    color: #d11d1d;
+    font-weight: bold;
+  }
+  .patTelegraph .telegraph .key .omission {
+    color: #a9abaa;
+    font-weight: bold;
+  }
+
+  .thumbBox {
+    width: 100%;
+    padding: 18px 0 10px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .thumbBox .item {
+    width: 191px;
+    height: 102px;
+    background: url('../../../../../../assets/LJ/postTrain/thumeBg.png') no-repeat;
+    padding: 21px 8px 8px 6px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .thumbBox .item.on {
+    background: url('../../../../../../assets/LJ/postTrain/thumeBg-on.png') no-repeat;
+  }
+  .thumbBox .item + .item {
+    margin-left: 18px;
+  }
+  .thumbBox .index {
+    font-size: 12px;
+    color: #fff;
+    width: 30px;
+    text-align: center;
+    line-height: 1.2;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .thumbBox .img {
+    width: 100%;
+    height: 100%;
+  }
+}
+.GD{
+  .trainTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 6px 0;
+    border: 1px solid #2d4039;
+    background: #0e3040!important;
+    position: relative;
+  }
+}
+.KJ{
+  .scoreBody {
+    background-color: #122345;
+  }
+  .scoreBody:before,
+  .scoreBody:after {
+    content: '';
+    width: 288px;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .scoreBody:before {
+    background: url('../../../../../../assets/KJ/basicTheory/studyManage/analyze/zuo.png') no-repeat left;
+    background-size: auto 100%;
+    left: 0;
+  }
+  .scoreBody:after {
+    background: url('../../../../../../assets/KJ/basicTheory/studyManage/analyze/you.png') no-repeat right;
+    background-size: auto 100%;
+    right: 0;
+  }
+  .main {
+    position: relative;
+    z-index: 9;
+    display: flex;
+  }
+  .dataBox {
+    width: 420px;
+    flex-shrink: 0;
+    height: 100%;
+    display: flex;
+    padding: 0 5px;
+    flex-direction: column;
+    background: @maskbgColor;
+    background-size: 100% 100%;
+  }
+  .telegraphBox {
+    width: calc(100% - 420px);
+    height: 100%;
+    padding: 0 5px;
+  }
+
+  .dataBox .top {
+    width: 100%;
+    height: 135px;
+    text-align: center;
+    padding: 0 20px;
+    flex-shrink: 0;
+    position: relative;
+    margin-top: 65px;
+  }
+  .dataBox .top img {
+    width: 400px;
+    margin: 32px auto;
+  }
+  .dataBox .top .score {
+    width: 100%;
+    font-weight: bolder;
+    font-size: 72px;
+    line-height: 1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #ffae00;
+    text-align: center;
+    text-shadow: 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2, 0px 0px 2px #e9deb2;
+  }
+  .dataBox .top .score.superb {
+    background-image: linear-gradient(to bottom, #e0bd19, #d36b1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .top .score.suffice {
+    background-image: linear-gradient(to bottom, #cdc370, #d38c1e);
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  .dataBox .bottom {
+    width: 100%;
+    height: auto;
+    padding: 5% 0 5%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .dataBox .resGroup {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    position: relative;
+  }
+  .dataBox .resGroup + .resGroup {
+    margin-left: 10%;
+  }
+  .dataBox .resGroup .cont {
+    padding-left: 12px;
+    font-size: 13px;
+  }
+  .dataBox .resGroup .desc {
+    font-size: 12px;
+    color: #a9abaa;
+  }
+  .dataBox .resGroup .ico {
+    width: 32px;
+  }
+  .dataBox .resGroup .num {
+    font-size: 20px;
+    font-weight: bolder;
+    line-height: 26px;
+    color: #e9deb2;
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+  }
+  .trainTotalBox {
+    width: 100%;
+    height: 100%;
+    padding: 6px 0;
+    border: 1px solid @TableBtnColer;
+    background: @tox-menubar;
+    position: relative;
+  }
+  .trainTotalBox:before {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/KJ/postTrain/leftTop.png'), url('../../../../../../assets/KJ/postTrain/leftBottom.png');
+    background-repeat: no-repeat;
+    background-position: left top, left bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    left: -2px;
+    top: -2px;
+  }
+  .trainTotalBox:after {
+    position: absolute;
+    content: '';
+    background-image: url('../../../../../../assets/KJ/postTrain/rightTop.png'), url('../../../../../../assets/KJ/postTrain/rightBottom.png');
+    background-repeat: no-repeat;
+    background-position: right top, right bottom;
+    height: calc(100% + 4px);
+    width: 12px;
+    right: -2px;
+    top: -2px;
+  }
+
+  .trainTotalBox .title {
+    height: 44px;
+    background: url('../../../../../../assets/KJ/postTrain/scoreDataTitBg.png') no-repeat center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bolder;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .trainTotalBox .list {
+    padding: 10px;
+  }
+  .dataTotalItem {
+    height: 50px;
+    background: url('../../../../../../assets/KJ/postTrain/dataTotalItemBg.png') no-repeat;
+    background-size: 100% 100%;
+    display: flex;
+    align-items: center;
+    /*justify-content: space-between;*/
+    padding: 0 24px;
+    font-size: 15px;
+    color: #fff;
+  }
+  .dataTotalItem + .dataTotalItem {
+    margin-top: 20px;
+  }
+  .dataTotalItem .l {
+    display: flex;
+    align-items: center;
+  }
+  .dataTotalItem .val {
+    font-weight: bolder;
+    color: #e9deb2;
+    font-size: 20px;
+    margin: 0 10px 0 50px;
+    position: relative;
+    top: -2px;
+  }
+  .telegraphBox .totalBox {
+    display: flex;
+    height: 46px;
+    align-items: flex-start;
+    padding-right: 35px;
+  }
+
+  .telegraphBox .totalBox .total {
+    width: 154px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    color: #fff;
+    font-size: 14px;
+    background: url('../../../../../../assets/KJ/postTrain/totalBg.png') no-repeat center;
+    background-size: 100% 100%;
+  }
+  .telegraphBox .totalBox .total + .total {
+    margin-left: 3%;
+  }
+  .telegraphBox .totalBox .total .num {
+    font-weight: bold;
+    color: #e9deb2;
+  }
+
+  .patTelegraph {
+    width: 100%;
+    height: calc(100% - 180px);
+    display: flex;
+    position: relative;
+  }
+  .patTelegraph .serial {
+    width: 30px;
+    margin-left: 5px;
+    display: flex;
+    flex-direction: column;
+    color: #a9abaa;
+    align-content: stretch;
+  }
+  .patTelegraph .serial .ser {
+    height: calc((100% - 26px) / 10);
+    padding-top: 22px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .serial .ser.head {
+    height: 26px;
+    flex-grow: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .patTelegraph .telegraph {
+    width: 100%;
+    height: 100%;
+    /*border: 1px solid #111c18;*/
+    background-color: @maskbgColor;
+    border-top: 2px solid @KJbgColer;
+    display: flex;
+    flex-direction: column;
+  }
+  .patTelegraph .telegraph .rowHead {
+    width: 100%;
+    height: 26px;
+    display: flex;
+    flex-shrink: 0;
+
+  }
+  .patTelegraph .telegraph .keyBox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+  }
+  .patTelegraph .telegraph .key {
+    color: #fff;
+    width: 10%;
+    height: 10%;
+    text-align: center;
+    border-right: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(10n) {
+    border-right: none;
+  }
+  .patTelegraph .telegraph .key:nth-of-type(n + 11) {
+    border-top: 1px solid #111c18;
+  }
+  .patTelegraph .telegraph .rowHead .key {
+    color: #ffffff;
+    height: 100%;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: @TableBtnColer;
+    border: none;
+  }
+  .patTelegraph .telegraph .key .title {
+    font-size: 13px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #463e2f;
+    color: #fff;
+    font-weight: normal;
+  }
+  .patTelegraph .telegraph .key .val {
+    font-size: 15px;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+  }
+  .patTelegraph .telegraph .key .error {
+    color: #d11d1d;
+    font-weight: bold;
+  }
+  .patTelegraph .telegraph .key .omission {
+    color: #a9abaa;
+    font-weight: bold;
+  }
+
+  .thumbBox {
+    width: 100%;
+    padding: 18px 0 10px;
+    display: flex;
+    overflow-x: auto;
+  }
+  .thumbBox .item {
+    width: 191px;
+    height: 102px;
+    background: url('../../../../../../assets/KJ/postTrain/thumeBg.png') no-repeat;
+    padding: 21px 8px 8px 6px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .thumbBox .item.on {
+    background: url('../../../../../../assets/KJ/postTrain/thumeBg-on.png') no-repeat;
+  }
+  .thumbBox .item + .item {
+    margin-left: 18px;
+  }
+  .thumbBox .index {
+    font-size: 12px;
+    color: #fff;
+    width: 30px;
+    text-align: center;
+    line-height: 1.2;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+  .thumbBox .img {
+    width: 100%;
+    height: 100%;
+  }
+}

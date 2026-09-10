@@ -1,0 +1,754 @@
+@import "../../../../../../common/styles/KJ/colorAll";
+.HJ{
+  .boxl{
+    border-left: 1px solid #25375b;
+    padding-left: 10px;
+  }
+  .mark{
+    background:rgba(68, 118, 172,.1);font-size:12px;font-weight: 900;color: #4d7daf;
+    position: relative;
+    margin-left: -10px;
+    padding-left: 10px;
+  }
+  .mark::before{
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    background: #25456e;
+    left: -2px;
+  }
+
+  .spin{
+    position: absolute;
+    left: 40%;
+    top: 50%;
+  }
+
+  .deployBtn {
+    width: 144px;
+    height: 51px;
+    font-size: 16px;
+    font-weight: bolder;
+    line-height: 52px;
+    padding-left: 50px;
+    cursor: pointer;
+    background: url("../../../../../../assets/HJ/preTrain/deploy-bg-1.png") no-repeat center;
+    position: absolute;
+    left: 30px;
+    top: 10px;
+    z-index: 9;
+  }
+
+  .deployBtn:hover {
+    color: #82e0ff;
+  }
+  .tip {
+    cursor: pointer;
+    color: #fda24a;
+    position: absolute;
+    right: 30px;
+    top: 0;
+    font-size: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 30px;
+    height: 177px;
+    width: 269px;
+    background-image: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/tip.png");
+  }
+
+  .icon {
+    cursor: pointer;
+    color: #fda24a;
+    position: absolute;
+    right: 0px;
+    top: 0;
+    font-size: 24px;
+  }
+
+  .tips {
+    font-size: 24px;
+  }
+
+  .basicBody {
+    background-color: rgba(24, 45, 86, 0.45);
+  }
+
+  .text1 {
+    position: absolute;
+    left: 31%;
+    width: 60%;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .text2 {
+    position: absolute;
+    right: 31%;
+    width: 60%;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pre {
+    width: 45%;
+    max-width: 288px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #a6c9f2;
+    line-height: 40px;
+    position: relative;
+    background-image: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/pre.png");
+    background-size: 100% 100%;
+  }
+
+  .pre:hover {
+    color: #ffffff;
+    background-image: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/pre-hover.png");
+    background-size: 100% 100%;
+  }
+
+  .next {
+    width: 45%;
+    max-width: 288px;
+    height: 40px;
+    color: #a6c9f2;
+    line-height: 40px;
+    font-size: 16px;
+    position: relative;
+    cursor: pointer;
+    background-image: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/next.png");
+    background-size: 100% 100%;
+  }
+
+  .next:hover {
+    color: #ffffff;
+    background-image: url("../../../../../../assets/HJ/basicTheory/studyManage/analyze/next-hover.png");
+    background-size: 100% 100%;
+  }
+
+  .basicBody:before {
+    content: '';
+    width: 288px;
+    background: url('../../../../../../assets/HJ/basicTheory/studyManage/analyze/zuo.png') no-repeat left;
+    background-size: auto 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  .basicBody:after {
+    content: '';
+    width: 288px;
+    background: url('../../../../../../assets/HJ/basicTheory/studyManage/analyze/you.png') no-repeat right;
+    background-size: auto 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  .keyCodeBody {
+    height: 100%;
+    padding: 20px 36px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+
+  .keyCodeBody .active {
+    background: #25456e;
+    color: #FFFFFF;
+  }
+
+  .item {
+    cursor: pointer;
+    width: 100%;
+  }
+  .item .text{
+    margin-left: -10px;
+    padding-left: 10px;
+    height: 40px;
+    line-height: 40px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item:hover .text {
+    background: #25456e;
+    color: #FFFFFF;
+  }
+  @media (max-width: 1260px) {
+    .lev_1 {
+      width: 180px !important;
+    }
+    .lev_2 {
+      width: 200px !important;
+    }
+    .lev_3 {
+      width: calc(100% - 380px) !important;
+    }
+  }
+  @media (max-width: 1100px) {
+    .lev_1 {
+      width: 160px !important;
+    }
+    .lev_2 {
+      width: 160px !important;
+    }
+    .lev_3 {
+      width: calc(100% - 320px) !important;
+    }
+  }
+}
+.HJJ{
+  .boxl{
+    border-left: 1px solid #243443;
+    padding-left: 10px;
+  }
+  .mark{
+    background:#243443;font-size:12px;font-weight: 900;color: #4c7595;
+    position: relative;
+    margin-left: -10px;
+    padding-left: 10px;
+  }
+  .mark::before{
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    background: #4c7595;
+    left: -2px;
+  }
+
+  .spin{
+    position: absolute;
+    left: 40%;
+    top: 50%;
+  }
+
+  .deployBtn {
+    width: 143px;
+    height: 54px;
+    font-size: 20px;
+    line-height: 54px;
+    text-align: center;
+    cursor: pointer;
+    background: url("../../../../../../assets/HJJ/preTrain/deploy-bg-1.png") no-repeat center;
+    position: absolute;
+    left: 30px;
+    top: 10px;
+    z-index: 9;
+    color: #bfcde0;
+    text-shadow: 1px 1px 1px #000000;
+    font-weight: bold;
+  }
+
+  .deployBtn:hover {
+    /*color: #82e0ff;*/
+  }
+  .tip {
+    cursor: pointer;
+    color: #70a3b8;
+    position: absolute;
+    right: 27px;
+    top: 0;
+    font-size: 16px;
+    display: flex;
+    font-weight: bold;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 30px;
+    height: 182px;
+    width: 232px;
+    background: url("../../../../../../assets/HJJ/train/cardBg.png") no-repeat;
+  }
+
+  .icon {
+    cursor: pointer;
+    color: #fda24a;
+    position: absolute;
+    right: 0px;
+    top: 0;
+    font-size: 24px;
+  }
+
+  .tips {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .tips:first-child{
+    border-bottom: 1px solid #273d4b;
+    padding-bottom: 5px;
+  }
+  .tips span{
+    color: #e9deb2;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .basicBody {
+    background-color: rgba(23, 31, 41, 0.7) !important;
+  }
+
+  .text1 {
+    position: absolute;
+    left: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .text2 {
+    position: absolute;
+    right: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pre {
+    width: 288px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #a6c9f2;
+    line-height: 40px;
+    position: relative;
+    background-image: url("../../../../../../assets/HJJ/basicTheory/studyManage/analyze/pre.png");
+    background-repeat: no-repeat;
+  }
+
+  .pre:hover {
+    color: #ffffff;
+    /*background-image: url("../../../../../../assets/HJJ/basicTheory/studyManage/analyze/pre-hover.png");*/
+  }
+
+  .next {
+    width: 288px;
+    height: 40px;
+    color: #a6c9f2;
+    line-height: 40px;
+    font-size: 16px;
+    position: relative;
+    cursor: pointer;
+    background-image: url("../../../../../../assets/HJJ/basicTheory/studyManage/analyze/next.png");
+    background-repeat: no-repeat;
+  }
+
+  .next:hover {
+    color: #ffffff;
+    /*background-image: url("../../../../../../assets/HJJ/basicTheory/studyManage/analyze/next-hover.png");*/
+  }
+
+  .keyCodeBody {
+    height: 100%;
+    padding: 20px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+
+  .keyCodeBody .active {
+    background: #4c7595;
+    color: #FFFFFF;
+  }
+
+  .item {
+    cursor: pointer;
+    width: 100%;
+  }
+  .item .text{
+    margin-left: -10px;
+    padding-left: 10px;
+    height: 40px;
+    line-height: 40px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item:hover .text {
+    background: #4c7595;
+    color: #bfcde0;
+  }
+}
+.LJ{
+  .boxl{
+    border-left: 1px solid #193120;
+    padding-left: 10px;
+  }
+  .mark{
+    background:#1D2722;font-size:12px;font-weight: 900;color: #fff;
+    position: relative;
+    margin-left: -10px;
+    padding-left: 10px;
+  }
+  .mark::before{
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    background: #234238;
+    left: -2px;
+  }
+
+  .spin{
+    position: absolute;
+    left: 40%;
+    top: 50%;
+  }
+
+  .deployBtn {
+    width: 143px;
+    height: 54px;
+    font-size: 20px;
+    line-height: 54px;
+    text-align: center;
+    cursor: pointer;
+    background: url("../../../../../../assets/LJ/preTrain/deploy-bg-1.png") no-repeat center;
+    position: absolute;
+    left: 30px;
+    top: 10px;
+    z-index: 9;
+    color: #fff;
+    text-shadow: 1px 1px 1px #000000;
+    font-weight: bold;
+  }
+
+  .deployBtn:hover {
+    /*color: #82e0ff;*/
+  }
+  .tip {
+    cursor: pointer;
+    color: #cccdcf;
+    position: absolute;
+    right: 27px;
+    top: 0;
+    font-size: 16px;
+    display: flex;
+    font-weight: bold;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 17px;
+    padding-right: 2px;
+    height: 182px;
+    width: 232px;
+    background: url("../../../../../../assets/LJ/train/cardBg.png") no-repeat;
+  }
+
+  .icon {
+    cursor: pointer;
+    color: #fda24a;
+    position: absolute;
+    right: 0px;
+    top: 0;
+    font-size: 24px;
+  }
+
+  .tips {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    padding-left: 10px;
+  }
+  .tips:first-child{
+    border-bottom: 1px solid #2f3e39;
+    padding-bottom: 10px;
+  }
+  .tips span{
+    color: #e9deb2;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .basicBody {
+    background-color: rgba(38,41,36,0.3) !important;
+  }
+
+  .text1 {
+    position: absolute;
+    left: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .text2 {
+    position: absolute;
+    right: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pre {
+    width: 288px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #fff;
+    line-height: 40px;
+    position: relative;
+    background-image: url("../../../../../../assets/LJ/basicTheory/studyManage/analyze/pre.png");
+    background-repeat: no-repeat;
+  }
+
+  .pre:hover {
+    color: #ffffff;
+    font-weight: bolder;
+    background-image: url("../../../../../../assets/LJ/basicTheory/studyManage/analyze/pre-hover.png");
+  }
+
+  .next {
+    width: 288px;
+    height: 40px;
+    color: #fff;
+    line-height: 40px;
+    font-size: 16px;
+    position: relative;
+    cursor: pointer;
+    background-image: url("../../../../../../assets/LJ/basicTheory/studyManage/analyze/next.png");
+    background-repeat: no-repeat;
+  }
+
+  .next:hover {
+    color: #ffffff;
+    font-weight: bolder;
+    background-image: url("../../../../../../assets/LJ/basicTheory/studyManage/analyze/next-hover.png");
+  }
+
+  .keyCodeBody {
+    height: 100%;
+    padding: 20px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+
+  .keyCodeBody .active {
+    background: #1F654E;
+    color: #FFFFFF;
+  }
+
+  .item {
+    cursor: pointer;
+    width: 100%;
+  }
+  .item .text{
+    margin-left: -10px;
+    padding-left: 10px;
+    height: 40px;
+    line-height: 40px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item:hover .text {
+    background: #1F654E;
+    color: #fff;
+  }
+}
+.KJ{
+  .boxl{
+    border-left: 1px solid #193120;
+    padding-left: 10px;
+  }
+  .mark{
+    background:@tox-menubar;font-size:12px;font-weight: 900;color: #fff;
+    position: relative;
+    margin-left: -10px;
+    padding-left: 10px;
+  }
+  .mark::before{
+    content: "";
+    position: absolute;
+    width: 4px;
+    height: 100%;
+    background: @KJbgColer;
+    left: -2px;
+  }
+
+  .spin{
+    position: absolute;
+    left: 40%;
+    top: 50%;
+  }
+
+  .deployBtn {
+    width: 143px;
+    height: 54px;
+    font-size: 20px;
+    line-height: 54px;
+    text-align: center;
+    cursor: pointer;
+    background: url("../../../../../../assets/KJ/preTrain/deploy-bg-1.png") no-repeat center;
+    position: absolute;
+    left: 30px;
+    top: 10px;
+    z-index: 9;
+    color: #fff;
+    text-shadow: 1px 1px 1px #000000;
+    font-weight: bold;
+  }
+
+  .deployBtn:hover {
+    /*color: #82e0ff;*/
+  }
+  .tip {
+    cursor: pointer;
+    color: #cccdcf;
+    position: absolute;
+    right: 27px;
+    top: 0;
+    font-size: 16px;
+    display: flex;
+    font-weight: bold;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 17px;
+    padding-right: 2px;
+    height: 182px;
+    width: 232px;
+    background: url("../../../../../../assets/KJ/train/cardBg.png") no-repeat;
+  }
+
+  .icon {
+    cursor: pointer;
+    color: #fda24a;
+    position: absolute;
+    right: 0px;
+    top: 0;
+    font-size: 24px;
+  }
+
+  .tips {
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    padding-left: 10px;
+  }
+  .tips:first-child{
+    border-bottom: 1px solid #2f3e39;
+    padding-bottom: 10px;
+  }
+  .tips span{
+    color: #e9deb2;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .basicBody {
+    background-color: rgba(38,41,36,0.3) !important;
+  }
+
+  .text1 {
+    position: absolute;
+    left: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .text2 {
+    position: absolute;
+    right: 90px;
+    width: 170px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pre {
+    width: 288px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #fff;
+    line-height: 40px;
+    position: relative;
+    background-image: url("../../../../../../assets/KJ/basicTheory/studyManage/analyze/pre.png");
+    background-repeat: no-repeat;
+  }
+
+  .pre:hover {
+    color: #ffffff;
+    font-weight: bolder;
+    background-image: url("../../../../../../assets/KJ/basicTheory/studyManage/analyze/pre-hover.png");
+  }
+
+  .next {
+    width: 288px;
+    height: 40px;
+    color: #fff;
+    line-height: 40px;
+    font-size: 16px;
+    position: relative;
+    cursor: pointer;
+    background-image: url("../../../../../../assets/KJ/basicTheory/studyManage/analyze/next.png");
+    background-repeat: no-repeat;
+  }
+
+  .next:hover {
+    color: #ffffff;
+    font-weight: bolder;
+    background-image: url("../../../../../../assets/KJ/basicTheory/studyManage/analyze/next-hover.png");
+  }
+
+  .keyCodeBody {
+    height: 100%;
+    padding: 20px 10px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    z-index: 9;
+  }
+
+  .keyCodeBody .active {
+    background: @TableBtnColer;
+    color: #FFFFFF;
+  }
+
+  .item {
+    cursor: pointer;
+    width: 100%;
+  }
+  .item .text{
+    margin-left: -10px;
+    padding-left: 10px;
+    height: 40px;
+    line-height: 40px;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item:hover .text {
+    background: @TableBtnColer;
+    color: #fff;
+  }
+}

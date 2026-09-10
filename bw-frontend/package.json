@@ -1,0 +1,83 @@
+{
+  "name": "nip-traffic-system",
+  "version": "3.1.0",
+  "productName": "多功能报务综合训练系统",
+  "description": "多功能报务综合训练系统",
+  "main": "main.js",
+  "scripts": {
+    "dev": "cd ./frontend && npm run dev && cd ../ && electron .",
+    "dev-f": "cd ./frontend && npm run dev",
+    "dev-e": "electron .",
+    "build-f": " cd ./frontend && npm run build",
+    "build-e-w": "electron-builder",
+    "build-e-l": "electron-builder"
+  },
+  "keywords": [
+    "Electron"
+  ],
+  "build": {
+    "directories": {
+      "output": "out"
+    },
+    "asar": true,
+    "files": [
+      "**/*",
+      "!frontend/",
+      "!bin/",
+      "!logs/",
+      "!data/",
+      "!out/",
+      "!Local.zip",
+      "!node_modules.zip"
+    ],
+    "extraFiles": [
+      "./bin"
+    ],
+    "win": {
+      "icon": "build/icons/icon.ico",
+      "artifactName": "${productName}-${os}-${version}-${arch}.${ext}",
+      "target": [
+        {
+          "target": "nsis"
+        }
+      ]
+    },
+    "linux": {
+      "icon": "build/icons/icon.icns",
+      "artifactName": "${productName}-${os}-${version}-${arch}.${ext}",
+      "target": [
+        "deb"
+      ],
+      "category": "Utility",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
+    },
+    "deb": {
+      "afterInstall": "build/linux/after-install.sh"
+    }
+  },
+  "author": {
+    "email": "guosheng@jszx.com",
+    "name": "Wisdom, Inc"
+  },
+  "homepage": "http://localhost:18000",
+  "license": "Apache",
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^22.14.13"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "compression": "^1.7.4",
+    "dayjs": "^1.11.10",
+    "express": "^4.18.2",
+    "formidable": "^3.5.1",
+    "lodash": "^4.17.21",
+    "nedb-promises": "^6.2.3",
+    "shortid": "^2.2.16",
+    "globby": "^10.0.0",
+    "is-type-of": "^1.2.1",
+    "debug": "^4.3.3"
+  }
+}
