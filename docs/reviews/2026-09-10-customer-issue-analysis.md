@@ -5,7 +5,7 @@
 - **分析范围**：`backend/`（Quarkus 服务）、`bw-frontend/frontend/`（Vue 前端，Electron 桌面壳）
 - **分析方式**：6 路并行源码调查（调用链追踪 + file:line 取证），结论区分「确认事实」与「推断」
 - **关联文档**：`docs/reviews/2026-09-08-joint-frontend-backend-review.md`。原《手键与电子键拍发、评分联合 Review》（2026-09-10）已合并入本文，见附录 A，原文件不再单独保留
-- **修订记录**：2026-09-10 经 6 路并行独立核查（对照仓库现状 + git 历史 + 前端调用面逐条验证），修正：指纹漂移机制（1.1-2）、AudioWorklet 竞态文件归属与首因定性（2-3、10.1-4）、processor.js console 伪引证（10.2-2）、句号残留机制（7-2）、TOPIC_RESULT 房型归因（8.2-4）、NaN 触发链降级为推断（4-2）、发布语境（12）；删除不存在的引证，补充 token 可重放、preJob/postJob 入口区分等遗漏事实。
+- **修订记录**：2026-09-10 经 6 路并行独立核查（对照仓库现状 + git 历史 + 前端调用面逐条验证），修正：指纹漂移机制（1.1-2）、AudioWorklet 竞态文件归属与首因定性（2-3、10.1-4）、processor.js console 伪引证（10.2-2）、句号残留机制（7-2）、TOPIC_RESULT 房型归因（8.2-4）、NaN 触发链降级为推断（4-2）、发布语境（12）；删除不存在的引证，补充 token 可重放、preJob/postJob 入口区分等遗漏事实。同日产品决策：**单 token 互踢为设计行为不修复**，撤销 user_session 会话表改造（1.1-1、1.3、P3 批次）。
 
 ## 0. 总体结论
 
@@ -13,7 +13,7 @@
 
 | 根因簇 | 覆盖问题 | 侧 |
 |---|---|---|
-| C1 会话模型：单 token 互踢 + 凭证存储脆弱 + 授权码门闸 | 1 | 后端设计 + 前端 |
+| C1 会话模型：单 token 互踢（**设计如此，不修复**）+ 凭证存储脆弱 + 授权码门闸 | 1 | 后端设计 + 前端 |
 | C2 客户端信任：评分输入（码速/用时/总分）由客户端自报，后端零重算 | 2、3、4、5、8、10 | 契约（前后端共同） |
 | C3 前端计时与音频节拍：`setInterval`/`setTimeout`/墙钟计时 + AudioWorklet 参数竞态 | 2、4、5、10 | 前端 |
 | C4 摩尔斯采样链路：事件合并、阈值硬编码、映射表缺失、设置不生效 | 6、7、11 | 前端为主 |
@@ -28,7 +28,7 @@
 
 ### 1.1 掉线机制（按可能性排序）
 
-1. **【确认】单账号单 token 互踢**。token 是 `AES(account-password-deviceId)` 确定性加密串，每次 login 覆盖写用户行：`UserService.java:452-454`（`user.setToken(token); user.setDeviceId(deviceId)`）。每个账号全库仅一条有效 (token, deviceId)。旧设备下一请求被 `JWTInterceptor.java:67` `existsUserByTokenAndDeviceId` 拒绝 → 206 → 前端 `http/index.js:33-47` 弹「登录唯一凭证异常」跳登录页。教室多终端共用账号场景必然频繁互踢。
+1. **【确认】单账号单 token 互踢（设计如此，非缺陷，不修复）**。token 是 `AES(account-password-deviceId)` 确定性加密串，每次 login 覆盖写用户行：`UserService.java:452-454`（`user.setToken(token); user.setDeviceId(deviceId)`）。每个账号全库仅一条有效 (token, deviceId)。旧设备下一请求被 `JWTInterceptor.java:67` `existsUserByTokenAndDeviceId` 拒绝 → 206 → 前端 `http/index.js:33-47` 弹「登录唯一凭证异常」跳登录页。教室多终端共用账号场景必然频繁互踢——**产品决策：单点登录互踢即预期行为**（2026-09-10 确认），问题 1 的修复面只剩凭证存储脆弱性与授权码门闸（见 1.1-2、1.2）。
 2. **【部分确认】deviceId 指纹漂移（机制已修正）**。前端 deviceId 取自 FingerprintJS visitorId（`useLogin.js:64-71`），但**仅在登录时计算一次**，之后请求面使用 localStorage 缓存值（`http/index.js:15-18`），永不重算指纹 → 指纹漂移本身不会导致本机掉线，只在下次登录时覆盖 DB 行、踢掉同账号其他机器。存储清理导致的掉线实为 localStorage 丢失（203 缺 token），与指纹无关。（旁证【确认】：token 为 AES/ECB(账号-密码-deviceId) 确定性密文，同账号同密码同 deviceId 每次登录产出**相同 token**，旧 token 永久可重放——比互踢更值一提的安全事实。）
 3. **【确认】任一终端退出登录清空全账号会话**：`UserService.java:484-489` 把 token/deviceId 置 null，同账号其他在线机器立即被踢。
 4. **【已排除】token 过期**：token 无 TTL、无续期机制，不被人顶/不退出则永久有效。
@@ -44,7 +44,7 @@
 
 ### 1.3 修复方向
 
-- 会话表改造：`user_session` 一行一 (token, deviceId)，拦截器查会话表；同设备重复登录不互踢；掉线提示区分「他处登录」与「凭证失效」。
+- ~~会话表改造（user_session 一行一 (token, deviceId)、同设备重复登录不互踢）~~——**已撤销**：单 token 互踢为设计行为，不做会话表改造。保留：掉线提示区分「他处登录」与「凭证失效」（203/204/206 目前共用同一弹窗文案，客户无法区分，见 `http/index.js:33-47`）。
 - deviceId 弃用 FingerprintJS，Electron 端复用 `machineCode.js` 硬件因子，浏览器端用持久化随机 UUID（目的：身份稳定与去重放；指纹漂移本身不掉线，见 1.1-2）。
 - 授权到期前 7 天主界面提示剩余时长；向客户澄清「验证码=授权码」并走换发流程。
 
@@ -241,7 +241,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 | P2 组网 | WS 统一切 SocketConnection；服务端主动推送教员；uploadResult 幂等；报底全量预生成 | 8、9 | 涉及契约，需前后端同步 |
 | P2 点划间隔 | 比例换算互逆；postJob 接入设置加载；基础训练阈值接设置 | 11 | 前端为主 |
 | P1 越权收口 | 手键 upload/finish/reset 与电子键 finish 一律从 token 推导用户（附录 A H4/H5） | 非客户报障，评审确认 HIGH | 触及红线 6，随 P1 同步修 |
-| P3 会话模型 | user_session 会话表；deviceId 稳定化；授权到期预警 | 1 | 契约变更大，单独排期 |
+| P3 会话模型 | ~~user_session 会话表~~（互踢为设计行为，已撤销）；deviceId 稳定化；授权到期预警；203/204/206 掉线提示文案区分 | 1 | 契约变更大，单独排期 |
 
 ## 14. 验证要求（修复时执行）
 
