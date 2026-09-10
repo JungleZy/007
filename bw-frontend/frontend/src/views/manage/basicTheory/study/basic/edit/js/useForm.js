@@ -45,12 +45,8 @@ export default function (content, backFlag) {
   } else {
     getById({ id: route.query.id, type: route.query.studyType }).then(res => {
       //可以移植操作
-      const n = fileUrl.indexOf('http://')
-      const str = fileUrl.substring(n + 7, fileUrl.indexOf('/', n + 8))
       res.data.knowledgeSwfs.forEach(item => {
-        if (item.content.indexOf('*9_9*') > -1) {
-          item.content = item.content.replaceAll('*9_9*', str)
-        }
+        item.content = item.content.replaceAll('http://*9_9*/api/file/getFile', fileUrl)
       })
 
       res.data.knowledge.status = res.data.knowledge.status !== 0
@@ -168,11 +164,7 @@ export default function (content, backFlag) {
           delete v.id
         })
         //可移植
-        const n = content.value.indexOf('http://')
-        if (n > 1) {
-          const str = content.value.substring(n + 7, content.value.indexOf('/', n + 8))
-          item.content = item.content.replaceAll(str, '*9_9*')
-        }
+        item.content = item.content.replaceAll(fileUrl, 'http://*9_9*/api/file/getFile')
         item.test.forEach(test => {
           test.knowledgeTestContents.forEach(op => {
             op.answer = JSON.stringify(op.answer)

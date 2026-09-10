@@ -3,7 +3,7 @@
   "name": "project-006",
   "scripts": {
     "dev": "vite --host",
-    "build": "cross-env NODE_OPTIONS=--max_old_space_size=9600 vite build",
+    "build": "cross-env NODE_OPTIONS=--max_old_space_size=9600 vite build && node ../scripts/artifact-manifest.cjs frontend",
     "serve": "vite preview",
     "tauri": "tauri",
     "t:dev": "tauri dev --no-watch",

@@ -10,12 +10,12 @@ const withProtocol = (raw, websocket) => {
   return `${protocolFor(websocket)}//${value.replace(/^\/+|\/+$/g, '')}`
 }
 
-const join = (raw, path, websocket) => {
+export const endpointUrl = (raw, path = '', websocket = false) => {
   const base = withProtocol(raw, websocket)
   const suffix = String(path || '').replace(/^\/+/, '')
   return suffix ? `${base}/${suffix}` : base
 }
 
-export const apiUrl = path => join(window.httpUrl, path, false)
+export const apiUrl = path => endpointUrl(window.httpUrl, path, false)
 
-export const wsUrl = path => join(window.wsUrl || window.httpUrl, path, true)
+export const wsUrl = path => endpointUrl(window.wsUrl || window.httpUrl, path, true)

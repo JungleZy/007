@@ -1,7 +1,7 @@
 # 客户报障整改规格（Spec）
 
 - 日期：2026-09-10
-- 状态：**规划基线；尚未实施**。确定性缺陷可按计划推进；§3 的产品/现场门禁未满足前，不得实施相应语义变更或宣布客户问题关闭。
+- 状态：**T00仓内基线、T01仓内交付链已实施；客户发布未验收**。§3产品/现场门禁未满足前，不得实施相应语义变更或宣布客户问题关闭；已运行范围见实施计划T00.1/T01.1。
 - 源码取证基线：`3360221`；行号仅定位，实施前重新核对当前符号和调用面。
 - 分析依据：[`../reviews/2026-09-10-customer-issue-analysis.md`](../reviews/2026-09-10-customer-issue-analysis.md)。实施计划：[`../plans/2026-09-10-customer-issue-fix-plan.md`](../plans/2026-09-10-customer-issue-fix-plan.md)。
 - 当前全项目入口仍为 [`../reviews/2026-09-08-full-project-review.md`](../reviews/2026-09-08-full-project-review.md)；本 Spec 是客户报障增量，不重做既有整改。
@@ -210,7 +210,18 @@
 
 平台前置依据：[Web Serial requestPort的安全上下文/用户手势要求](https://developer.mozilla.org/en-US/docs/Web/API/Serial/requestPort)、[AudioWorklet安全上下文要求](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet)。浏览器具体版本/外部代理证据由G4登记，不能由Vite build.target推导全部API支持。
 
-当前路径证据：`bw-frontend/frontend/index.html:58-95`、`bw-frontend/frontend/src/config/router/index.js:82-85`、`bw-frontend/frontend/src/components/common/NipPagePermission.vue:88-118`、`bw-frontend/frontend/src/common/utils/licenseStore.js:127-159,188-224`。HTTPS初始化仍含HTTP上传/OCR/编辑器地址，T01按本次活跃调用面修复或明确外部配置前置；题库saveBatch本身不能误判为依赖该文件上传URL。
+取证基线的index.html内联地址现已由T01切到 `bw-frontend/frontend/public/runtime-config.js` → `bw-frontend/frontend/src/config/runtime.js` → `bw-frontend/frontend/src/entry.js`。Web的HTTP/HTTPS文件、上传、编辑器和OCR地址按协议/完整基础路径生成；桌面数据/文件地址仍取既有IPC配置。原桌面OCR的ws://localhost:13300与fetch调用冲突未冒充已修，真实侧车协议仍属G4外部前置。题库saveBatch与文件服务上传仍分开。
+
+### 7.4 T01已落地的操作契约
+
+- **Web配置来源**：构建前编辑public/runtime-config.js，部署时可只覆盖dist/runtime-config.js；不要在配置里放凭据。HTML入口和此配置文件应不缓存或强制重验证，hash静态资源可长缓存。部署覆盖需单独记录配置hash，不重写原build-manifest.json冒充构建原件。
+- **地址解释**：httpUrl/wsUrl/fileUrl/ueditorUrl/ocrUrl接受裸主机或完整URL。裸主机的HTTP默认端口分别18001/18001/8000/8003/8080；HTTPS默认/data、/push、/file、/ueditor、/ocr前缀。完整URL保留指定协议、端口和路径；HTTPS页面配置HTTP/WS会显式停止启动。fileUrl填写文件服务基础地址，不重复带/api/file/getFile；读取/上传/图标由该基础地址统一派生。
+- **MQTT两个用途分开**：mqttUrl仍是外部equipment://程序需要的裸主机；新增mqttWsUrl仅供两处浏览器Paho连接，填写完整WS/WSS URI。Web默认HTTP为ws://主机:8083/mqtt，HTTPS为当前origin对应wss://…/mqtt；部署必须提供真实broker/代理。Electron默认不猜broker，未配置时点击连接明确提示；可在打包前配置此可选URI，不修改外部设备程序传参语义。
+- **启动顺序**：entry等待configureRuntime成功后才动态导入main；Electron复用既有getConfig invoke通道，不在启动时sendSync。配置读取/协议失败显示启动错误，业务模块不挂载；NetSetting保存端口与运行时同为整数1–65535。
+- **清单与打包**：frontend npm run build成功后产生dist/build-manifest.json，含schemaVersion/component/version/sourceCommit/sourceDirty及完整排序的path/size/sha256清单。桌面beforePack总是先重建再核对、复制并复验，失败中止且不保留旧public/dist。桌面本地允许dirty开发产物但如实标记；CI发布必须clean且同SHA。
+- **发布集合**：CI归档Web ZIP+前端sidecar及三个目标native二进制+各自sidecar，共8件；release依赖frontend/build/test，并在显式下载四个预期artifact目录后验证完整性、版本/架构、同SHA和非dirty。显式空SHA必须拒绝，不能降级本地校验。清单不是签名，也不替代CI信任边界。
+- **桌面与正式发布边界**：现有build-e-w/build-e-l均自动执行beforePack；正式打包需安装依赖并准备目标模式所需的配套native与配置。Linux --dir真实包启动已作仓内验证，Windows/DEB安装、客户后端/授权/硬件和云CI未据此宣称通过；发布仍受G4/T15约束。
+
 
 ## 8. 验收矩阵
 

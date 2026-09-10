@@ -1,9 +1,10 @@
 import axios from 'axios'
 import {message, Modal} from 'ant-design-vue';
+import {apiUrl} from './endpoint.js'
 //创建axios的一个实例
 console.log(window.httpUrl)
 const instance = axios.create({
-  baseURL: window.httpUrl.indexOf("http")>-1?`${window.httpUrl}`:`http://${window.httpUrl}`,
+  baseURL: apiUrl(),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8;'

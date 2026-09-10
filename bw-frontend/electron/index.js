@@ -1,4 +1,5 @@
-const {BrowserWindow, app} = require("electron");
+const {BrowserWindow, app, dialog} = require("electron");
+const path = require("node:path");
 const context = require("./core/node_core_ctx");
 const {serialApiHandle} = require("./serial");
 const {loadConfig} = require("./core");
@@ -58,10 +59,13 @@ class Index {
 			}
 		})
 		if (app.isPackaged) {
-			context.mainWindow.loadFile("./public/dist/index.html").then()
-				.catch((err) => {
-					console.log(`Please check the ./public/dist/index.html !`);
-				});
+			const indexPath = path.join(app.getAppPath(), 'public', 'dist', 'index.html');
+			context.mainWindow.loadFile(indexPath).catch((err) => {
+				console.error(`Failed to load packaged frontend: ${indexPath}`, err);
+				dialog.showErrorBox('应用启动失败', `无法加载应用资源：\n${indexPath}\n\n${err.message}`);
+				app.once('will-quit', () => app.exit(1));
+				app.quit();
+			});
 		} else {
 			context.mainWindow.loadURL('http://localhost:18000')
 			context.mainWindow.webContents.openDevTools();

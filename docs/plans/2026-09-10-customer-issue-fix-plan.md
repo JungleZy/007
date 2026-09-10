@@ -1,7 +1,7 @@
 # 客户报障整改实施计划（Plan）
 
 - 日期：2026-09-10
-- 状态：**T00仓内环境/测试基线已完成，业务整改未开始**。仅T00.1的勾选项表示本次已验证；G1/G2/G3业务决定、G4客户现场条件及其余工作包仍待完成。
+- 状态：**T00仓内基线与T01仓内交付链已完成；正式发布未完成**。T01的客户部署、Windows/安装器、配套native和T15模板往返仍受门禁约束；其余训练/评分任务未开始。
 - 依据：[`../reviews/2026-09-10-customer-issue-analysis.md`](../reviews/2026-09-10-customer-issue-analysis.md)；规格：[`../specs/2026-09-10-customer-issue-fix-spec.md`](../specs/2026-09-10-customer-issue-fix-spec.md)。
 - 源码取证基线：`3360221`；执行时记录实际提交。既有联合计划中已完成的事项只回归，不重新算本计划成果。
 
@@ -105,13 +105,62 @@ npm ls electron electron-builder --depth=0
 
 **文件**：`.github/workflows/build-quarkus-native.yml`、`bw-frontend/package.json`、`bw-frontend/frontend/index.html`、`bw-frontend/frontend/vite.config.js`、`bw-frontend/electron/index.js` 及本次活跃地址消费点；只修交付/配置边界，不顺带升级依赖或重做全站部署架构。
 
-- [ ] release 增 frontend 成功依赖，归档 dist 与 BE 制品；生成同源码 SHA 的版本/hash 清单，防仅后端成功就发布。
+- [x] release增frontend成功依赖，Web及三架构BE制品均带版本/SHA/hash清单；独立Git fixture已执行真实zip归档、8件完整集合验证及缺失/篡改/dirty/错误或空SHA拒绝。未触发云CI发布。
 - [ ] Web分支按Spec §7.3发布本次dist到实际静态站点，冻结serverConfig配置来源；分别验证HTTP直连与HTTPS的/data、/push、/file代理映射、WS Upgrade、跨域预检。修本次活跃HTTP上传/文件地址在HTTPS下的混合内容，不把题库saveBatch误绑到文件服务。
-- [ ] Web保持hash路由，验证深链刷新、动态chunk、根/实际部署前缀下的localforage与processor资源、MIME和缓存更新；子目录部署必须据实际路径验收，不默认新增子路径支持。不存在Electron桥的浏览器不能在启动时调用IPC。
-- [ ] 桌面打包前从本次 frontend/dist 更新 public/dist，拒绝旧资源残留；保持当前打包布局，检查安装包实际加载文件 hash。涉及脚本时使用仓内现有 npm script 入口。
+- [x] 仓内Web配置已收口runtime-config.js，entry等待配置后导入业务；本地HTTP/HTTPS静态站点完成API/文件上传/WS代理与错误配置验证。此证据不替代上一项客户真实部署。
+- [x] 核心入口资源已改为相对base可解析路径；实际生产dist在/app/下启动、hash路由入口、动态业务chunk、localforage和processor资源可加载，Web无IPC可到授权页；缺配置/HTTPS配HTTP可见失败。未承诺全部业务页面任意子路径均验收。
+- [x] beforePack自动重建、清理、双次校验并复制frontend/dist至public/dist；Linux真实--dir包从/tmp启动成功，ASAR内核心资源与清单hash一致；构建失败注入不留下旧public/dist。
 - [ ] 选定提交同时包含 `1c40aae`/`9596c6c`；G4、测试、模板往返，以及Web真实站点和Electron真实安装包各自smoke通过后再由负责人发布。旧打开Web页/旧壳不得在切换后继续写不兼容协议；当前文档会话不发布。
 
 **验证**：V12分别留W-HTTPS/W-HTTP/E-PACK证据；frontend构建失败不得产正式release。Web核验站点资源hash和实际反代Network；Electron核验安装包资源hash及IPC配置，不能彼此替代，也不能用Vite开发页冒充部署态。
+
+#### T01.1 仓内实现与验收记录（2026-09-10）
+
+**边界**：基于 `9cabeef7bb39ea1f81610bcaf7dbcaa29f1a90a8` 上的T01工作区验证；本地制品如实标记sourceDirty=true，**不是可发布的clean候选包**。仓内源码/脚本已落地，未打tag、push、发布或改生产数据库。CI/helper、Web入口、桌面hook共用新清单契约，作为同一可回滚T01提交，避免拆出缺helper或缺runtime-config的中间状态。
+
+**落地文件**：
+- `.github/workflows/build-quarkus-native.yml`：release显式依赖frontend/build/test，只下载四个预期artifact；校验完成后才交8件获准资产给release action。保留原native矩阵/测试/glibc与runner smoke。
+- `bw-frontend/scripts/artifact-manifest.cjs`：生成/验证前端与native清单、Web ZIP归档和发布集合；`bw-frontend/frontend/package.json`在Vite成功后生成清单。
+- `bw-frontend/frontend/public/runtime-config.js`、`bw-frontend/frontend/src/config/runtime.js`、`bw-frontend/frontend/src/entry.js`与index.html：独立部署配置、顺序启动、协议正确的服务基础地址与静态资源；Axios继续复用endpoint helper。
+- 课件useForm完整文件前缀读入/保存互逆；两处Paho连接使用mqttWsUrl完整URI，外部equipment://仍用mqttUrl裸主机；NetSetting端口边界与运行时一致。
+- `bw-frontend/scripts/prepare-desktop.cjs`、桌面package.json与electron/index.js：强制新前端、manifest双校验、运行文件白名单、app.getAppPath绝对加载、加载失败明确退出。
+
+| 验证 | 实际执行与结果 | 不能由此推导 |
+|---|---|---|
+| Web构建 | 实际npm run build成功；后续真实桌面beforePack再次执行完整Vite构建并生成清单 | 不是所有页面/外部服务联调 |
+| Web HTTP | 实际dist经127.0.0.1:18800/app/#/login加载到授权页，无Electron桥、无未捕获页面错误；API GET到独立18801、文件POST到18802、WebSocket回显成功，token/deviceId在API探针中保留 | 探针后端仅回显路由/头，不是假冒已测Quarkus业务；localhost不替代远程HTTP能力限制验收 |
+| Web HTTPS | 实际dist经18443/app/加载；/data、/file反代分别转发/api/t01-probe与/api/file/upload，/push完成真实WS升级/转发；默认地址全部HTTPS/WSS，mqttUrl保留裸主机 | 本地自签证书仅在隔离浏览器调试会话放行证书错误，未关闭CORS/webSecurity/混合内容策略；不等于客户可信证书验收 |
+| 启动失败 | HTTPS页面配置HTTP、缺runtime-config文件都显示具体启动错误且app未挂载；真实Electron包移走自身bin/config.json后显示invoke拒绝，renderer响应正常，不再sendSync挂起 | 未改所有历史IPC调用和配置存储机制；不宣称全部错误已治理 |
+| 默认端口边界 | 直接执行真实configureRuntime模块：显式example.invalid:80及[::1]:80不被改为18001/8000；显式完整URL保持其请求路径 | 不以URL格式正确代替服务可达 |
+| 资源与课件 | HTTP/HTTPS实际请求processor返回200、text/javascript，SHA256=`69370998a8779bdc25983e0dbca499b99b907a0d3a64667751c72827890e6fc1`；可移植媒体前缀替换往返保持第三方URL | 本轮不修改processor节拍；课件完整编辑/保存业务仍需授权场景验收 |
+| Electron真实包 | `npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist`成功；旧t01-obsolete.txt消失，源/目标manifest一致；从/tmp启动真实nip-traffic-system，file URL在app.asar/public/dist，IPC地址生效，到达授权页 | --dir不是DEB安装或Windows安装器验证；未改壳既有安全开关，使用现有--no-sandbox启动参数 |
+| ASAR完整性 | 在真实Electron渲染器经fs读取ASAR内index.html、processor.js、runtime-config.js，三者hash均匹配包内manifest | hash清单不等于签名，也不是clean发布资格 |
+| 打包失败 | 在隔离fixture调用真实beforePack，npm build故意退出7：hook抛错且删除旧public/dist，不继续打包 | 这是故障注入，不是假称真实Vite自然失败 |
+| 发布CLI | 使用实际zip/unzip与真实helper，在独立clean Git fixture生成Web档案及三架构清单，完整集合输出8件；空/错SHA、dirty、Web篡改/未列文件、缺Windows制品、native篡改均拒绝 | native字节是fixture，仅验证清单/门禁；未编译三架构或跑云CI |
+
+**工具与复审**：本机zip缺失，通过apt-get download并在临时目录解包官方Ubuntu zip工具后执行真实package-web CLI，未改系统安装。三个只读复审已完成；落实空SHA降级、异步IPC启动、HTTPS课件消费、MQTT URI与端口边界建议。另做隔离ZIP符号链接写目录实验，unzip返回2且未发生临时目录外写入；不扩大为全面归档安全审计结论。
+
+**复现命令**（在对应工程目录）：
+
+```bash
+# bw-frontend/frontend：生成Web构建与manifest
+npm run build
+# 仓库根：开发工作区校验（保留dirty标记）
+node bw-frontend/scripts/artifact-manifest.cjs verify bw-frontend/frontend/dist
+# bw-frontend：真实目录包，使用T00已安装并校验的Electron发行版
+npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
+```
+
+**发布操作说明**：Web配置及前缀规则见Spec §7.4；clean checkout构建后执行package-web才能得到可发布档案。Web站点入口/配置需重验证缓存，配置覆盖另记hash；桌面重新打包自动重建前端。不要手改sourceDirty=false或SHA规避门禁，也不要把本地dirty包上传正式release。
+
+**仍未完成/未关闭**：
+- G4真实Web部署/可信TLS、客户授权后的业务、混合房间、真实串口/声音、Windows/DEB安装、GitHub Actions云执行，以及T15题库闭环。
+- 本地目录包没有配套bin/server/server，启动日志出现既有ENOENT；前端IPC配置指向外置后端，仍能验证资源启动。单机交付必须准备对应native制品及配置，不能把该包标为单机验收通过。
+- 桌面原有OCR地址ws://localhost:13300与fetch调用的协议冲突保留为外部服务契约风险；未捏造HTTP服务或实现假OCR。MQTT真实broker及/mqtt代理需部署确认，未配置时明确提示。
+- 既有/deep/、资源路径、大chunk等构建警告未顺带治理；未改后端业务、评分、会话/鉴权码，也未重跑不受影响的Java套件冒充新证据，后端对照仍为T00的240项。
+
+**结论**：T01仓内实现和可执行验证完成；发布复选框保持未勾选。临时故障配置已恢复，测试服务/浏览器和临时脚本在交付前清理，生成的dist/目录包留作本地检查产物。
+
 
 ### T02 确定性评分公式修复（R03/H3，P1）
 
@@ -326,7 +375,7 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 
 执行后追加：`任务/需求 | 模式W-HTTPS/W-HTTP/E-PACK | commit | origin/浏览器或壳版本 | 实际输入结果 | 能力/许可/processor hash | 测试/日志/截图路径 | 验收状态 | 未满足门禁及责任角色`。服务端共享证据明确标BE，不能自动填满所有前端模式。
 
-**当前已有T00.1仓内环境/测试基线证据；业务整改实施证据仍为空。** 分析文档§15及本节后续两轮文档复审记录是历史取证，不代替T00.1的完整运行结果，也不代表V01–V13已验收。
+**当前已有T00.1基线和T01.1仓内交付实现证据；正式发布及其余业务整改仍待完成。** 后续两轮文档复审是历史取证，不能据此把V01–V13或客户验收全部标为通过。
 
 ### 5.2 本次三文档交叉复审
 

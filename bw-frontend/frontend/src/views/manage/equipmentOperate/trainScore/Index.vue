@@ -204,7 +204,7 @@ const numValue = ref(0)
 let titleHeaders = ref([]) //需要高亮的表格
 let f = ref('0000020001/源设备ID/0001/0008') //发送主题
 let s = ref('目的设备ID/0000020001/0001/0008') //收取主题
-const mqttUrl = window.mqttUrl
+const mqttUrl = window.mqttWsUrl
 onMounted(() => {
   // 43.89 400W   43.138 125W   43.89 134A    185  / 113  173
   // getDetails({ id:Math.random() }).then(res => {
@@ -294,6 +294,10 @@ onMounted(() => {
   // })
 })
 const establishMQTT = () => {
+  if (!mqttUrl) {
+    message.error('未配置MQTT WebSocket服务地址')
+    return
+  }
   if (loading.value) {
     message.error('通信呼叫中，请不要重复点击')
     return
@@ -306,7 +310,7 @@ const establishMQTT = () => {
       mqttClint = null
     }
   }
-  mqttClint = new Paho.MQTT.Client(mqttUrl, 8083, '')
+  mqttClint = new Paho.MQTT.Client(mqttUrl, '')
   mqttClint.connect({ userName: '', password: '' })
   mqttClint.onMessageArrived = w => {
     const messages = JSON.parse(w.payloadString)

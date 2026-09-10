@@ -9,8 +9,8 @@
     "dev-f": "cd ./frontend && npm run dev",
     "dev-e": "electron .",
     "build-f": " cd ./frontend && npm run build",
-    "build-e-w": "electron-builder",
-    "build-e-l": "electron-builder"
+    "build-e-w": "electron-builder --win",
+    "build-e-l": "electron-builder --linux"
   },
   "keywords": [
     "Electron"
@@ -20,15 +20,15 @@
       "output": "out"
     },
     "asar": true,
+    "beforePack": "scripts/prepare-desktop.cjs",
     "files": [
-      "**/*",
-      "!frontend/",
-      "!bin/",
-      "!logs/",
-      "!data/",
-      "!out/",
-      "!Local.zip",
-      "!node_modules.zip"
+      "main.js",
+      "electron/**/*",
+      "public/dist/**/*",
+      "public/images/**/*",
+      "public/html/**/*",
+      "package.json",
+      "LICENSE"
     ],
     "extraFiles": [
       "./bin"

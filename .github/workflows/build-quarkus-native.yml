@@ -58,6 +58,15 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build frontend
         run: npm run build
+      - name: Package deployable Web artifact
+        run: node ../scripts/artifact-manifest.cjs package-web output/artifacts
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-web
+          path: bw-frontend/frontend/output/artifacts/*
+          if-no-files-found: error
+
   build:
     name: Build (${{ matrix.os }} / ${{ matrix.arch }})
     strategy:
@@ -85,6 +94,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Node.js for artifact manifests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Set up GraalVM (Java 21 with Native Image)
         uses: graalvm/setup-graalvm@v1
@@ -151,7 +165,7 @@ jobs:
           chmod +x "$BIN" || true
           "$BIN" -Dquarkus.hibernate-orm.database.generation=none \
                  -Dquarkus.datasource.jdbc.min-size=0 \
-                 -Dquarkus.http.port=18001 > native-smoke.log 2>&1 &
+                 -Dquarkus.http.port=18001 > target/native-smoke.log 2>&1 &
           PID=$!
           status=1
           for _ in $(seq 1 60); do
@@ -168,56 +182,72 @@ jobs:
           kill "$PID" 2>/dev/null || true
           wait "$PID" 2>/dev/null || true
           echo '----- native runner log -----'
-          cat native-smoke.log || true
+          cat target/native-smoke.log || true
           if [ "$status" -ne 0 ]; then
             echo 'Smoke test failed: /q/openapi did not return 200'
             exit 1
           fi
           echo 'Smoke test OK: native runner served /q/openapi'
 
-      - name: Rename binary with architecture suffix
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          renamed=0
-          for f in target/*-runner; do
-            mv "$f" "${f}-${{ matrix.asset_suffix }}"
-            renamed=1
-          done
-          for f in target/*-runner.exe; do
-            mv "$f" "${f%.exe}-${{ matrix.asset_suffix }}.exe"
-            renamed=1
-          done
-          if [ "$renamed" -eq 0 ]; then
-            echo "No runner binary found to rename"
-            exit 1
-          fi
+      - name: Resolve native artifact version
+        run: mvn -B help:evaluate -Dexpression=project.version -q -DforceStdout -Doutput=target/build-version.txt
+
+      - name: Package native binary and manifest
+        run: node ../bw-frontend/scripts/artifact-manifest.cjs native ${{ matrix.asset_suffix }}
 
       - name: Upload Native Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: quarkus-native-${{ matrix.os }}-${{ runner.arch }}
-          path: backend/target/*-runner*
+          name: backend-native-${{ matrix.asset_suffix }}
+          path: backend/target/artifact-${{ matrix.asset_suffix }}/*
           if-no-files-found: error
 
   release:
     name: Publish Release
-    needs: [build, test]
+    needs: [frontend, build, test]
     permissions:
       contents: write
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Download all build artifacts
+      - name: Checkout verification tools
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Download Web artifact
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          name: frontend-web
+          path: ${{ runner.temp }}/release-input/frontend
+      - name: Download Linux amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-native-linux-amd64
+          path: ${{ runner.temp }}/release-input/linux-amd64
+      - name: Download Linux arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-native-linux-arm64
+          path: ${{ runner.temp }}/release-input/linux-arm64
+      - name: Download Windows amd64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-native-windows-amd64
+          path: ${{ runner.temp }}/release-input/windows-amd64
+      - name: Verify complete clean-source release set
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+          RELEASE_INPUT: ${{ runner.temp }}/release-input
+          RELEASE_OUTPUT: ${{ runner.temp }}/release-assets
+        run: node bw-frontend/scripts/artifact-manifest.cjs release "$RELEASE_INPUT" "$RELEASE_OUTPUT" "$EXPECTED_COMMIT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**
+          files: ${{ runner.temp }}/release-assets/*
+          fail_on_unmatched_files: true
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false

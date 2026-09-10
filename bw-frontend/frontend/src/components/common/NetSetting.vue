@@ -224,9 +224,9 @@
       const dip = dus.value.slice(0, 4).join('.')
       if (
           !ipRegex.test(dip) ||
-          !Number(dus.value[4]) ||
-          Number(dus.value[4]) < 0 ||
-          Number(dus.value[4]) > 65536
+          !Number.isInteger(Number(dus.value[4])) ||
+          Number(dus.value[4]) < 1 ||
+          Number(dus.value[4]) > 65535
       ) {
         message.error('数据服务地址格式不正确')
         confirmLoading.value = false
@@ -237,9 +237,9 @@
       const fip = fus.value.slice(0, 4).join('.')
       if (
           !ipRegex.test(fip) ||
-          !Number(fus.value[4]) ||
-          Number(fus.value[4]) < 0 ||
-          Number(fus.value[4]) > 65536
+          !Number.isInteger(Number(fus.value[4])) ||
+          Number(fus.value[4]) < 1 ||
+          Number(fus.value[4]) > 65535
       ) {
         message.error('资源服务地址格式不正确')
         confirmLoading.value = false

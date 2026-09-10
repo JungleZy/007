@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <link rel="icon" href="/favicon.ico"/>
+  <link rel="icon" href="../build/icons/icon.ico"/>
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
@@ -12,118 +12,9 @@
   <meta content="telephone=no,email=no" name="format-detection"/>
   <script
     type="text/javascript"
-    src="/js/localforage/localforage.min.js"
+    src="%BASE_URL%js/localforage/localforage.min.js"
   ></script>
-  <script>
-    //火版，插件试手键连接方式
-    window.serverConfig = {
-      httpUrl: '127.0.0.1',
-      fileUrl: '127.0.0.1',
-      ueditorUrl: '192.168.43.160:8003',
-      mqttUrl: '192.168.43.50',
-      ocrUrl: '192.168.43.160:8080',
-      // wsUrl:'10.10.0.212'
-      wsUrl:'127.0.0.1'
-    }
-  </script>
-  <script type="module">
-
-    localforage.config({
-      name: 'WisdomJ233'
-    })
-    let cool = localStorage.getItem('cool')
-    const protocol = document.location.protocol
-    window.interfaceStyle = 'HJJ'
-    window.audioSpeedDeviation = 1.18
-    const ws = protocol === 'http:' ? 'ws:' : 'wss:'
-    if (cool === null || cool == 'false') {
-      localStorage.setItem('cool', false)
-      window.cool = false // true: 动态； false：静态
-    } else {
-      // window.cool = true;
-      window.cool = false
-    }
-    const jss = [
-      {t: 0, d: '/cdn/luckysheet/plugins/css/pluginsCss.css'},
-      {t: 0, d: '/cdn/luckysheet/plugins/plugins.css'},
-      {t: 0, d: '/cdn/luckysheet/css/luckysheet.css'},
-      {t: 0, d: '/cdn/luckysheet/assets/iconfont/iconfont.css'},
-      {t: 1, d: '/cdn/luckysheet/plugins/js/plugin.js'},
-      {t: 1, d: '/cdn/luckysheet/luckysheet.umd.js'},
-      {t: 1, d: '/cdn/luckyexcel/luckyexcel.umd.js'},
-      {t: 1, d: '/cdn/dayjs/dayjs.min.js'},
-      {t: 1, d: '/cdn/animejs/anime.min.js'}
-    ]
-
-    const Renderer = (window.require && window.require('electron')) || window.electron || {}
-    const ipc = Renderer.ipcRenderer || undefined
-    const isEE = !!ipc
-
-    if (isEE) {
-      // window.localStorage.setItem('isTauri', 0)
-      // window.ipc = ipc
-
-      const settingData = await ipc.sendSync('controller.system.getConfig')
-      window.httpUrl = `${settingData.dataUrl.url}:${settingData.dataUrl.port}`
-      window.audioUrl = `http://${settingData.fileUrl.url}:${settingData.fileUrl.port}`
-      window.iconUrl = `http://${settingData.fileUrl.url}:${settingData.fileUrl.port}/api/file/getFile/icon/font/iconfont.js`
-      window.fileUrl = `http://${settingData.fileUrl.url}:${settingData.fileUrl.port}/api/file/getFile`
-      window.uploadFileUrl = `http://${settingData.fileUrl.url}:${settingData.fileUrl.port}/api/file/upload`
-      window.ocrUrl = `ws://localhost:13300`
-      window.wsUrl = `ws://${settingData.dataUrl.url}:${settingData.dataUrl.port}`
-      // window.ipc = ipc
-    } else {
-      if(protocol!=="http:"){
-        window.iconUrl =
-            `${protocol}//${window.serverConfig.fileUrl}/file/api/file/getFile/icon/font/iconfont.js`
-        window.fileUrl = `${protocol}//${window.serverConfig.fileUrl}/file/api/file/getFile`
-        window.wsUrl = `${ws}//${window.serverConfig.wsUrl}/push`
-        window.httpUrl = `${protocol}//${window.serverConfig.httpUrl}/data`
-      }else {
-        window.iconUrl =
-            `${protocol}//${window.serverConfig.fileUrl}:8000/api/file/getFile/icon/font/iconfont.js`
-        window.fileUrl = `${protocol}//${window.serverConfig.fileUrl}:8000/api/file/getFile`
-        window.wsUrl = `${ws}//${window.serverConfig.wsUrl}:18001`
-        window.httpUrl = `${window.serverConfig.httpUrl}:18001`
-      }
-
-      // window.httpUrl = '192.168.43.177:18001'
-      window.mqttUrl = window.serverConfig.mqttUrl
-      window.uploadFileUrl = `http://${window.serverConfig.fileUrl}:8000/api/file/upload`
-      window.ueditorUrl = `http://${window.serverConfig.ueditorUrl}/ueditor`
-      window.ocrUrl = `http://${window.serverConfig.ocrUrl}/ocr`
-    }
-
-    // initJS(jss)
-
-    async function getSettingData() {
-      const settingData = await tauri.invoke('front_ready')
-      window.mqttUrl = `${settingData.mqtt_url}`
-      window.httpUrl = `${settingData.data_url}:18001`
-      window.iconUrl = `http://${settingData.file_url}:8000/api/file/getFile/icon/font/iconfont.js`
-      window.fileUrl = `http://${settingData.file_url}:8000/api/file/getFile`
-      window.uploadFileUrl = `http://${settingData.file_url}:8000/api/file/upload`
-      window.ueditorUrl = `http://${settingData.file_url}:8003/ueditor`
-      window.ocrUrl = `http://${settingData.file_url}:8080/ocr`
-      initJS(jss)
-    }
-
-    function initJS(jss) {
-      for (let i = 0; i < jss.length; i++) {
-        if (jss[i].t === 1) {
-          let script = document.createElement('script')
-          script.type = 'text/javascript'
-          script.src = `${window.fileUrl}${jss[i].d}`
-          document.getElementsByTagName('head')[0].appendChild(script)
-        } else {
-          let link = document.createElement('link')
-          link.rel = 'stylesheet'
-          link.href = `${window.fileUrl}${jss[i].d}`
-          document.getElementsByTagName('head')[0].appendChild(link)
-        }
-      }
-    }
-  </script>
+  <script src="%BASE_URL%runtime-config.js"></script>
   <title>多功能报务综合训练系统</title>
   <style>
     #luckysheet-input-box {
@@ -206,51 +97,28 @@
 <link
   rel="stylesheet"
   type="text/css"
-  href="/js/luckysheet/plugins/css/pluginsCss.css"
+  href="%BASE_URL%js/luckysheet/plugins/css/pluginsCss.css"
 />
 <link
   rel="stylesheet"
   type="text/css"
-  href="/js/luckysheet/plugins/plugins.css"
+  href="%BASE_URL%js/luckysheet/plugins/plugins.css"
 />
 <link
   rel="stylesheet"
   type="text/css"
-  href="/js/luckysheet/css/luckysheet.css"
+  href="%BASE_URL%js/luckysheet/css/luckysheet.css"
 />
 <link
   rel="stylesheet"
   type="text/css"
-  href="/js/luckysheet/assets/iconfont/iconfont.css"
+  href="%BASE_URL%js/luckysheet/assets/iconfont/iconfont.css"
 />
 <link id="theme-style" rel="stylesheet" >
 
-<script type="module">
-  let userAgent = navigator.userAgent
-  let em = document.getElementById('errorMask')
-  if (userAgent.indexOf('Chrome') <= -1) {
-    em.style.display = 'block'
-  } else {
-    em.style.display = 'none'
-  }
-  if(window.interfaceStyle==='HJ'){
-    document.body.classList.add("HJ")
-  }else if (window.interfaceStyle==='HJJ'){
-    document.body.classList.add("HJJ")
-  }else if(window.interfaceStyle==='LJ') {
-    document.body.classList.add("LJ")
-  }else if(window.interfaceStyle==='KJ') {
-    document.body.classList.add("KJ")
-  } else {
-    document.body.classList.add("LJ")
-    document.body.classList.add("GD")
-  }
-
-
-</script>
-<script type="module" src="/src/main.js"></script>
-<script type="text/javascript" src="/js/dayjs/dayjs.min.js"></script>
-<script type="text/javascript" src="/js/animejs/anime.min.js"></script>
-<script type="text/javascript" src="/js/tinymce/tinymce.min.js"></script>
+<script type="module" src="/src/entry.js"></script>
+<script type="text/javascript" src="%BASE_URL%js/dayjs/dayjs.min.js"></script>
+<script type="text/javascript" src="%BASE_URL%js/animejs/anime.min.js"></script>
+<script type="text/javascript" src="%BASE_URL%js/tinymce/tinymce.min.js"></script>
 </body>
 </html>
