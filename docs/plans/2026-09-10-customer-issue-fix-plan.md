@@ -1,7 +1,7 @@
 # 客户报障整改实施计划（Plan）
 
 - 日期：2026-09-10
-- 状态：**计划已编制，业务整改未开始**。下文 `[ ]` 均为待执行任务，不代表本次文档会话已修改/验证功能。
+- 状态：**T00仓内环境/测试基线已完成，业务整改未开始**。仅T00.1的勾选项表示本次已验证；G1/G2/G3业务决定、G4客户现场条件及其余工作包仍待完成。
 - 依据：[`../reviews/2026-09-10-customer-issue-analysis.md`](../reviews/2026-09-10-customer-issue-analysis.md)；规格：[`../specs/2026-09-10-customer-issue-fix-spec.md`](../specs/2026-09-10-customer-issue-fix-spec.md)。
 - 源码取证基线：`3360221`；执行时记录实际提交。既有联合计划中已完成的事项只回归，不重新算本计划成果。
 
@@ -48,12 +48,58 @@
 
 ### T00 取证与业务口径冻结（R01–R12）
 
+- [x] 仓内环境、测试隔离、后端全量验证、Vue可复现安装/构建及Electron运行时核验完成；结果和边界见T00.1。此项不等于整个T00或两模式功能验收已完成。
 - [ ] G4分别记录Web协议/origin/浏览器版本/静态根与反代、Electron壳/OS/本机或局域网配置及FE/BE/hash；记录串口实际传输与许可、授权存储、设备/采样率和schema。核实客户已报告的故障环境，不要求重复证明故障现象。
 - [ ] 按 Spec G1 列每个活跃训练域/模式的单位、时间轴、规则满分/加扣、空/少/多页样例及原始 DTO 字段表；冻结 reset 后旧请求隔离方案、规则快照和存量进行中训练切换窗口。
 - [ ] 按 G2 取得低速/划比/5与7间隔/校准样文、配置优先级、F2 与目标机延迟阈值；按 G3 取得实时草稿与漏多组对齐决定。回填 Spec §3，不另起竞争规格。
 - [ ] 建 V01–V13 证据登记，缺现场条件标 G4，不填“通过”。已确认互踢不修，不重新征求多设备方案。
 
 **出口**：确定性 bug 与产品变更清单分离；G1/G2/G3 的业务字段有责任人确认，G4 有真实环境记录或明确缺项。缺项只阻塞相关任务，不阻塞 T02 等确定性修复。
+
+#### T00.1 仓内环境与测试基线（2026-09-10完成）
+
+**验证对象**：`e5cbfec483b860895569324ef9debf655dc22c6e`。开始时存在用户已有的 `docs/README.md` 修改及三份Rust/WASM方向未跟踪文档，未纳入本次变更；未修改业务代码、测试、依赖版本、lockfile或全局npm配置。安装生成的node_modules及构建target/dist仅为本地验证产物。
+
+| 检查 | 实际结果 | 证据/范围 |
+|---|---|---|
+| Java/Maven | Adoptium JDK21.0.12.1、Maven3.9.9 | 在backend显式设置JAVA_HOME后执行 `./mvnw -version`；JDK实际目录为 `/home/zhang/.local/opt/jdk-21.0.12.1+1` |
+| Docker | 29.1.3，linux/x86_64，overlayfs；daemon可访问 | 未发现QUARKUS/TESTCONTAINERS/DOCKER/Maven相关环境覆盖变量；测试使用独立DevServices，不使用既有mysql-project006 |
+| 测试数据库 | mysql:8.0，project006_test，动态端口32769 | 本轮启动日志显示 `jdbc:mysql://localhost:32769/project006_test`；测试HTTP端口18081，drop-and-create；结束后未发现仍运行的mysql:8.0测试容器 |
+| 后端验证 | **BUILD SUCCESS，退出0；67个测试类、240 tests，0 failures / 0 errors / 0 skipped** | `JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify`；Surefire XML汇总与Maven总计一致，耗时2分31秒；产出 `backend/target/quarkus-app/quarkus-run.jar` |
+| Node/npm | Node24.15.0、npm11.14.1 | 与CI的Node24主版本一致 |
+| Vue依赖 | 可复现安装成功；已安装Vue3.5.42、Vite4.5.14 | 在bw-frontend/frontend执行 `npm ci --ignore-scripts --no-audit --no-fund`，npm日志exit0；依赖查询成功 |
+| Vue生产构建 | **退出0；8225 modules transformed，built in 1m11s** | `npm run build`；产出 `bw-frontend/frontend/dist/index.html`，不等于真实Web反代或Electron安装包验收 |
+| 实际worklet资源 | public与dist的processor.js SHA256一致 | `69370998a8779bdc25983e0dbca499b99b907a0d3a64667751c72827890e6fc1`；确认当前构建复制的是public源，未修其中逻辑 |
+| Electron依赖/运行时 | 镜像安装退出0，414 packages；Electron30.5.1、electron-builder22.14.13 | 两个本地可执行文件 `--version` 均成功；npm ls确认版本。仅可执行性，不含实际应用窗口/串口/安装包 |
+
+**命令及原始结果位置**：
+- 后端受管日志 `t00-backend-baseline`；完整JUnit明细在 `backend/target/surefire-reports/TEST-*.xml`。默认pom的skipITs=true，因此Failsafe阶段出现“Tests are skipped”；上述240项是实际执行的JVM/Surefire测试，非native集成测试，不隐藏默认范围，也未额外传-DskipTests。
+- Vue受管日志 `t00-frontend-baseline`；首次npm ci成功日志为 `/home/zhang/.npm/_logs/2026-09-10T10_05_42_701Z-debug-0.log`。dist/index.html SHA256为 `3e4bf928dd1930711fc691c8943644d0fc8b90baaa294c224742cec7fb55f465`。
+- Electron最终安装受管日志 `t00-electron-deps-mirror`。镜像下载档案SHA256为 `ec4707783d39e86005f42899e30ae59e50dd5d9c7f28531ed494eb43f2361403`，与包内checksums.json及[官方v30.5.1校验清单](https://github.com/electron/electron/releases/download/v30.5.1/SHASUMS256.txt)一致；没有跳过下载、关闭校验或改用远端checksum覆盖。
+- target/dist和npm日志会随清理覆盖；此处固定了源码提交、命令、汇总结果及关键hash，不以未来同路径内容冒充本次证据。
+
+**中断与环境处置**：
+1. 首轮异步进程中断，Maven fork收到SHUTDOWN；仅176项无失败的部分报告，不作为最终基线。已成功的Vue npm ci复用，其余未完成步骤重新执行，受管日志/退出码完整保留。
+2. Electron默认GitHub二进制下载失败：`connect ETIMEDOUT 20.205.243.166:443`。失败安装清理了electron目录，随后一次 `npm rebuild electron` 虽退出0但无实际包，未计为成功。
+3. 按[Electron官方镜像安装说明](https://www.electronjs.org/docs/latest/tutorial/installation)，仅对本次命令设置镜像后完整重装；保留原版本及内置校验。在bw-frontend执行：
+
+```bash
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
+ELECTRON_CUSTOM_DIR='{{ version }}' \
+npm ci --foreground-scripts --no-audit --no-fund
+./node_modules/.bin/electron --version
+./node_modules/.bin/electron-builder --version
+npm ls electron electron-builder --depth=0
+```
+
+**非阻塞警告与未验收范围**：
+- Vue构建保留既有 `/deep/`/`>>>` 弃用、部分图片路径无法构建期解析、bluebird eval及大chunk警告；它们不导致本轮构建失败，不据此宣称运行页面无问题，也未顺手整改。
+- Electron安装有旧依赖弃用警告；默认GitHub下载在本环境超时，后续清装需可达网络或上述命令级镜像。这是环境前置，不改锁定版本规避。
+- 未运行native构建、迁移演练、Web真实HTTP/HTTPS反代、Electron实际应用窗口/Windows或Linux安装包、真实音频/串口、混合房间验收；没有发布或操作生产数据库。G4不能标为完成。
+- G1评分/计时、G2节拍/配置、G3实时草稿/对齐决定未取得；对应任务继续受门禁约束。本结果只证明可进入确定性缺陷编码，不代表客户12项问题已解决。
+
+**结论**：T00的“仓内环境/测试基线”通过（Electron安装有明确的网络前置）；240项测试及Vue构建构成后续变更对照，单token互踢与203/204/206契约未改。
+
 
 ### T01 Web发布与Electron打包闭环（R12，P0）
 
@@ -221,7 +267,7 @@
 
 ## 4. 命令、迁移与回滚
 
-### 4.1 执行时验证命令（本轮文档会话未执行）
+### 4.1 执行时验证命令（本次基线实跑范围见T00.1）
 
 所有 Maven 命令在 `backend/`，显式 Java21；需要 Docker。按当前实际类名运行受影响测试，新增有价值的回归纳入对应工作包。
 
@@ -280,7 +326,7 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 
 执行后追加：`任务/需求 | 模式W-HTTPS/W-HTTP/E-PACK | commit | origin/浏览器或壳版本 | 实际输入结果 | 能力/许可/processor hash | 测试/日志/截图路径 | 验收状态 | 未满足门禁及责任角色`。服务端共享证据明确标BE，不能自动填满所有前端模式。
 
-**目前实施证据为空；这是事实，不是已完成标记。** 当前可用的是分析文档 §15 的源码证据、算术反例和实际解析函数 smoke，仅用于证明文档修订依据。
+**当前已有T00.1仓内环境/测试基线证据；业务整改实施证据仍为空。** 分析文档§15及本节后续两轮文档复审记录是历史取证，不代替T00.1的完整运行结果，也不代表V01–V13已验收。
 
 ### 5.2 本次三文档交叉复审
 
