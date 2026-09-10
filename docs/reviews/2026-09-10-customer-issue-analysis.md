@@ -4,7 +4,7 @@
 - **问题来源**：客户使用反馈（12 条）
 - **分析范围**：`backend/`（Quarkus 服务）、`bw-frontend/frontend/`（Vue 前端，Electron 桌面壳）
 - **分析方式**：6 路并行源码调查（调用链追踪 + file:line 取证），结论区分「确认事实」与「推断」
-- **关联文档**：`docs/reviews/2026-09-10-handkey-electronic-key-joint-review.md`（手键/电子键既有评审）、`docs/reviews/2026-09-08-joint-frontend-backend-review.md`
+- **关联文档**：`docs/reviews/2026-09-08-joint-frontend-backend-review.md`。原《手键与电子键拍发、评分联合 Review》（2026-09-10）已合并入本文，见附录 A，原文件不再单独保留
 
 ## 0. 总体结论
 
@@ -118,7 +118,7 @@
 3. **【确认】连码判定依赖前端 setTimeout**：`handKeyTrain.js:275-299` wordTimer=codeGap×1.5（默认 120ms），每次按键 clearTimeout 重排；快速拍发时多字码合并查表 → 查无 → '#' 或错码。codeGap 基准又被丢间隔事件污染，下限钳 60ms（`patStandard.js:41-43`）。
 4. **【确认】时间戳取自 JS 处理时刻**而非硬件事件时刻，串口缓冲/粘包延迟直接计入点划时长。
 5. **【确认】key_lock 静默丢事件**：按下态再收按下帧直接清空不回调。
-6. **后端对照**：后端不重建电码，逐字比对 patKeys 与报底（`MessageComparisonService.java:132-137`），前端产生的任何错字/'#' 都计入 errorNumber；且手键上传的 speed 原样参与最终结算（既有评审 H2/H3：码率信客户端、划线扣分错用 dot.max）。
+6. **后端对照**：后端不重建电码，逐字比对 patKeys 与报底（`MessageComparisonService.java:132-137`），前端产生的任何错字/'#' 都计入 errorNumber；且手键上传的 speed 原样参与最终结算（附录 A H2/H3：码率信客户端、划线扣分错用 dot.max）。
 
 **修复方向**：改 FIFO 队列顺序消费（废弃 ref 当事件队列）；恢复校准基准点阈值、删 120 硬编码；≤10ms 抖动不入电码与校准；串口事件用逐事件打点；key_lock 冲突不静默丢弃；后端按 messageBody+点划时长重算码率。
 
@@ -234,11 +234,12 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 | 批次 | 内容 | 覆盖问题 | 理由 |
 |---|---|---|---|
 | P0 发布 | 推送 main + 前后端同步出新 release | 12（直接解决），并缓解所有「客户跑的是旧版」类问题 | 不改代码即见效 |
-| P1 评分可信 | 评分收口服务端重算；finishPage/endTrain 失败兜底；倒计时 `coun<=0`；parseInt/NPE 边界守卫 | 3、4、5 | 数据完整性，纯后端+少量前端 |
-| P1 手键采样 | FIFO 事件队列；恢复校准阈值；修 legnth；句号/改错符映射与清除 | 6、7 | 高频训练路径，改动集中在前端 |
+| P1 评分可信 | 评分收口服务端重算；finishPage/endTrain 失败兜底；倒计时 `coun<=0`；parseInt/NPE 边界守卫；手键 dash.max 错用 dot.max；电子键提交锁释放 | 3、4、5（附录 A H2/H3/M1/M3） | 数据完整性，纯后端+少量前端 |
+| P1 手键采样 | FIFO 事件队列（含电子键多码帧，附录 A H1）；恢复校准阈值；修 legnth；句号/改错符映射与清除 | 6、7 | 高频训练路径，改动集中在前端 |
 | P2 码速口径 | 统一换算函数；修速度跟随注释；worklet 参数就绪前排队；删热路径 console | 2、10 | 需音频回归验证 |
 | P2 组网 | WS 统一切 SocketConnection；服务端主动推送教员；uploadResult 幂等；报底全量预生成 | 8、9 | 涉及契约，需前后端同步 |
 | P2 点划间隔 | 比例换算互逆；postJob 接入设置加载；基础训练阈值接设置 | 11 | 前端为主 |
+| P1 越权收口 | 手键 upload/finish/reset 与电子键 finish 一律从 token 推导用户（附录 A H4/H5） | 非客户报障，评审确认 HIGH | 触及红线 6，随 P1 同步修 |
 | P3 会话模型 | user_session 会话表；deviceId 稳定化；授权到期预警 | 1 | 契约变更大，单独排期 |
 
 ## 14. 验证要求（修复时执行）
@@ -247,3 +248,113 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 - 音频类：用采样时钟校验实际发声节拍（误差 <2%），覆盖 WPM 与码/分两种模式、四种报文类型。
 - 组网类：双端并发首拉未生成页、教员断链重连、学员结束后教员无刷新可见。
 - 发布前：`cd backend && ./mvnw -B clean verify` 全绿；跨栈契约改动核对前端调用面（红线 5）。
+
+---
+
+## 附录 A：手键/电子键联合评审归档
+
+> 原 `docs/reviews/2026-09-10-handkey-electronic-key-joint-review.md` 全文要点合并于此（评审日期 2026-09-10，范围：手键 `generalTickerPat`、电子键 `generalKeyPat` 组训学生端/教员端及后端 REST/WS/落库/结算）。评审总体结论为 **REQUEST CHANGES / CRITICAL**：端点域名虽已对齐，但拍发与评分没有形成统一可验证的契约。以下编号沿用原评审（H=严重，M=中等）。
+
+### A.1 活跃调用链
+
+**手键**：
+
+```text
+硬件/报训数据
+  → useControl.js:handleHandKeysData
+  → student.vue:watch(handKeyValue)
+  → handKeyTrain.js:handleReceiveKeyCode
+  → WebSocket /generalTickerPat/{uid}/{trainId}/0
+  → POST /api/generalTickerPatTrain/uploadResult
+  → GeneralTickerPatService.saveContentValue
+  → POST /api/generalTickerPatTrain/finish
+  → GeneralTickerPatService.finish
+  → MessageComparisonService
+  → applyDeductions / saveTrainUserResult
+  → detail/statistics 回读成绩
+```
+
+逐页上传字段：`userId / trainId / floorNumber / messageBody / standard / finishInfo / validTime / speed / errorNumber / accuracy`（DTO：`dto/vo/simulation/tickerPat/GeneralTickerPatTrainContentValueVO.java:17-60`）。
+
+**电子键**：
+
+```text
+串口数据 data.d
+  → useControl.js:handleElectronicKeysData
+  → patKey ref
+  → student.vue:watch(patKey)
+  → handKeyTrain.js:handleReceiveKeyCode
+  → WebSocket /generalKeyPatTrain/{uid}/{trainId}
+  → POST /api/generalKeyPat/uploadResult
+  → GeneralKeyPatService.saveContentValue
+  → POST /api/generalKeyPat/finish
+  → GeneralKeyPatService.finish
+  → KeyPatUtils.handle
+  → GeneralKeyPatService.countScore
+  → patDetail/detail 回读成绩
+```
+
+电子键逐页上传由 token 推导用户，仅传 `trainId / pageNumber / pageValue`；但 `finish` 仍接受 body `userId`（见 H5）。
+
+### A.2 严重问题（H1–H5）
+
+**H1 电子键多码串口帧丢拍发码**【HIGH，对应问题 6 同一机制】：`electronKeyZuXun/train/student/js/useControl.js:13-22` 循环 `data.d.forEach(e => patKey.value = e.toString())`，学生页靠单个 `patKey` watcher（`student.vue:313-319`）消费；一次串口帧含多码时 Vue 合并更新只处理最后一个 → a、b 丢失 → 少码/错码/正确率与分数错误，后端无法恢复前端已丢事件。**修复**：逐项调用 `handleReceiveKeyCode` 或 FIFO 队列，禁止用单个 ref 当事件队列。
+
+**H2 手键最终码率信任客户端上传值**【HIGH，对应问题 3】：前端算并上传 `speed`（`handkeyZuXun/.../handKeyTrain.js:127-131,765-775`），后端 `GeneralTickerPatService.java:523-557` 存入 speedLog，结算 :959-974 再取平均参与 `calculateWpmScore` → 客户端间接控制最终成绩的码率项；重复提交重复追加 speed；reset 只删拍发页不清结算字段与 speedLog。**修复**：后端按 messageBody + 点划时长/间隔重算码率，前端 speed 仅用于实时显示。
+
+**H3 手键划线扣分错用点的最大扣分值**【HIGH，确定性评分错误，对应问题 3】：`GeneralTickerPatService.java:885-893` `calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDot().getMax())`——超上限时返回第三参数，dot.max=1/dash.max=5/lineScore=7 时扣 1 而非 5。**修复**：第三参数改 `rule.getDash().getMax()`，补 dot.max≠dash.max 的 General 手键结算测试。
+
+**H4 手键 uploadResult/finish/reset 使用请求体 userId**【HIGH，越权】：`GeneralTickerPatController.java:75-96` + `GeneralTickerPatService.java:498-557,640-643`，`@JWT` 只验 token 有效，用户 ID 来自 body/query → 已登录用户可覆盖他人拍发结果、注入 speedLog、触发他人提前结算、删他人数据。**修复**：学员自有接口一律从 token 推导用户；教员查他人走独立授权路径。
+
+**H5 电子键 finish 仍信任 body userId**【HIGH】：上传接口已改为 token 推导（`GeneralKeyPatService.java:429-453`），但 finish 仍 `findByUserIdAndTrainId(dto.getUserId(), ...)`（`GeneralKeyPatController.java:99-104`、`GeneralKeyPatService.java:456-487`）。**修复**：finish 从 token 推导，删除/忽略 body userId。
+
+### A.3 中等问题（M1–M5）
+
+**M1 电子键逐页上传失败后提交锁永久卡死**【MEDIUM】：`electronKeyZuXun/.../handKeyTrain.js:434-459` `count` 计数锁，请求 reject 无 `.catch/.finally` → `count` 恒 1，后续翻页提交与 `handlerSubmit('end')` 静默返回 → 数据无法完成提交（对应问题 4 同类）。**修复**：Promise 锁 + finally 释放，失败保留当前页允许重试。
+
+**M2 手键输入值与时间数组经多个共享 ref 拼装**【MEDIUM】：`handkeyZuXun/.../useControl.js:31-93`、`student.vue:356-360`，`diffTime/gapTime/handKeyValue` 分别更新、watcher 异步读取，存在值与时间数组错配风险。**修复**：改用不可变事件对象/事件队列 `{code, diffTime, gapTime, timestamp}`。
+
+**M3 手键结束训练时在线人员查询失败吞掉结算**【HIGH 级影响】：`GeneralTickerPatService.java:600-632` 查询异常只记日志后用空列表继续 → 训练主记录置为已结束但不结算任何学员 → 「已结束但无成绩」且无法再次自动结算（对应问题 4/5 同类死局，亦触碰红线 1 事务吞异常）。**修复**：查询失败时阻止状态转换或进入可重试结算态。
+
+**M4 手键 finish DTO 丢弃 validTime/finishInfo**【LOW/MEDIUM 契约漂移】：前端发送两字段（`handKeyTrain.js:676-681`），后端 `GeneralTickerPatTrainFinishVO.java:14-20` 无对应字段被静默丢弃。**修复**：二选一——删除前端无效字段，或纳入正式完成契约并明确幂等语义。
+
+**M5 电子键懒生成页未初始化 value**【LOW】：`GeneralKeyPatService.java:276-306` 懒生成页缺 `value="[]"`（固定生成路径 :211-218 有）→ 不同路径数据结构不一致，影响详情回放。
+
+### A.4 评分口径对账（三套公式并存，对应问题 3）
+
+`ScoreMath` 实际仅被三条路径用于速率加减分（`common/utils/ScoreMath.java:64-72`）：
+
+| 路径 | 比对 | 正确率 | 码率 | 结算 |
+|---|---|---|---|---|
+| 手键 General | MessageComparisonService | correct / patTotalNum | 前端上传 speed 的后端平均 | GeneralTickerPatService.countScore |
+| 电子键 General | KeyPatUtils.handle | (patGroup - error - bunchGroup - lack - more) / patGroup | pat / 4 / patTime × 60 | GeneralKeyPatService.countScore |
+| 历史 PostTelegraph 电子键 | — | ScoreMath.accuracy | ScoreMath.rate | — |
+
+三套正确率/码率公式无明确契约、无端到端测试证明差异是有意的——与问题 3 的「6 种码速公式」同根。
+
+### A.5 测试缺口（并入第 14 节执行）
+
+现有 `ScoringConsistencyTest` 只验证 `ScoreMath.wpmScore`；`PostTelegramTrainScoreTest` 覆盖的是旧路径，保护不了活跃 General 路径。缺：GeneralTicker/GeneralKey 完整结算、原始拍发→最终 score、手键/电子键同边界对账、speed 篡改、重复 finish、上传失败重试、多码串口帧、token owner 与 body userId 不一致、dash.max≠dot.max、结束时在线查询失败。前端无自动化覆盖上述任一行为。
+
+### A.6 原评审修复优先级（并入第 13 节批次）
+
+1. 电子键多码改队列/逐项消费（→ P1 手键采样批次）；
+2. 修 dash.max 错用 dot.max（→ P1 评分可信批次）；
+3. 手键 upload/finish/reset 从 token 推导用户（→ P1，安全项）；
+4. 电子键 finish 从 token 推导用户（→ P1，安全项）；
+5. 手键后端重算码率（→ P1 评分可信批次）；
+6. 电子键提交失败释放锁并重试（→ P1）；
+7. 结束训练结算失败不得提交已结束状态（→ P1）；
+8. 补 General 端到端结算测试（→ 第 14 节）；
+9. 明确正确率/码率/少多码组公式契约（→ P1 评分可信批次）；
+10. 清理无活跃调用者的 `teacherBack.js` 等死代码（→ P3）。
+
+在 1～5 完成并有端到端回归证据前，手键/电子键拍发与评分不能标记为已验收。
+
+### A.7 已确认正常的部分（避免重复排查）
+
+- 手键 API 均指向 `generalTickerPatTrain`；电子键 API 均指向 `generalKeyPat`；
+- 活跃 `teacher.js` 三个训练域无跨域调用；电子键 reset 已用 `generalKeyPat/reset`；
+- 手键/电子键 WS 路径分别对应同名后端 endpoint；
+- 成绩页 score/deductInfo/accuracy 主要从后端详情读取；前端不直接提交最终 score 字段；
+- `teacherBack.js` 等死代码有错误 import/串域引用，但无活跃调用者。
