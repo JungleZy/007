@@ -2,11 +2,12 @@
 
 - **分析日期**：2026-09-10
 - **问题来源**：客户使用反馈（12 条）
-- **分析范围**：`backend/`（Quarkus 服务）、`bw-frontend/frontend/`（Vue 前端，Electron 桌面壳）
+- **分析范围**：`backend/`（Quarkus 服务）、`bw-frontend/frontend/`（同一 Vue 前端的 **Web 部署与 Electron 壳两种运行方式**）、`bw-frontend/electron/`（桌面集成）。
 - **分析方式**：6 路并行源码调查（调用链追踪 + file:line 取证），结论区分「确认事实」与「推断」
 - **关联文档**：`docs/reviews/2026-09-08-joint-frontend-backend-review.md`。原《手键与电子键拍发、评分联合 Review》（2026-09-10）已合并入本文，见附录 A，原文件不再单独保留
 - **修订记录**：2026-09-10 经 6 路并行独立核查（对照仓库现状 + git 历史 + 前端调用面逐条验证），修正：指纹漂移机制（1.1-2）、AudioWorklet 竞态文件归属与首因定性（2-3、10.1-4）、processor.js console 伪引证（10.2-2）、句号残留机制（7-2）、TOPIC_RESULT 房型归因（8.2-4）、NaN 触发链降级为推断（4-2）、发布语境（12）；删除不存在的引证，补充 token 可重放、preJob/postJob 入口区分等遗漏事实。同日产品决策：**单 token 互踢为设计行为不修复**，撤销 user_session 会话表改造（1.1-1、1.3、P3 批次）。
 - **本轮复审基线**：`3360221`。源码审查与算术反例校验，不代表已在客户设备复现；仓库缺陷、客户根因推断和产品扩展分别记录。实施规格与计划见 [`../specs/2026-09-10-customer-issue-fix-spec.md`](../specs/2026-09-10-customer-issue-fix-spec.md)、[`../plans/2026-09-10-customer-issue-fix-plan.md`](../plans/2026-09-10-customer-issue-fix-plan.md)。
+- **双模式补审**：基于文档提交 `6efc963` 补齐 Web 专项；两种模式均是正式交付对象。先前音频 processor 取证混淆 src 副本与 public 实际资源，现按 §0.1、§2、§10.2 更正，不能继续引用“渲染线程日志不存在”的旧结论。
 
 ## 0. 总体结论
 
@@ -22,6 +23,23 @@
 | C6 交付缺口：题库导入修复未进本地已知 release tag，前端制品链未闭合 | 12 | 发布流程 |
 
 **评分类问题（3/4/5/6/8）的共同风险**：部分评分输入信任客户端、提交状态缺少失败处理，且各域公式缺少明确对账。不能概括为“后端零重算”：GeneralKey 已从拍发数据计算、simulation 主要是对比展示；原始事件丢失也不能靠服务端重算恢复。鉴权失败可能来自互踢或凭证丢失，不是当前不存在的 token TTL 到期；具体客户触发链仍需现场记录。
+
+### 0.1 Web / Electron 运行边界（补审）
+
+两种模式共用业务组件/API，但启动、地址、存储、音频许可和硬件入口不同；“前端已验证”必须写明模式，不能只测壳。
+
+| 维度 | Web 部署 | Electron 壳 | 当前证据 |
+|---|---|---|---|
+| 启动/地址 | 静态 dist；HTTP 分支直连18001，HTTPS 分支 `/data`、`/push`、`/file` 代理 | 打包读取 public/dist；IPC system.getConfig 注入地址，存在本机/局域网配置 | `bw-frontend/frontend/index.html:58-95`；`bw-frontend/electron/index.js:60-66` |
+| 授权/设备码 | 同样经过 VerifyLicense；无硬件指纹时用随机设备码，授权仅浏览器IndexedDB副本 | 可采硬件设备码，授权另有机器级/用户级文件副本 | `bw-frontend/frontend/src/App.vue:1-16`；`bw-frontend/frontend/src/common/utils/machineCode.js:81-90`；`bw-frontend/frontend/src/common/utils/licenseStore.js:127-159,188-224` |
+| 音频初始化 | 相关训练页等待用户点击遮罩启动 | mounted 时尝试初始化，仍异步等待worklet | `bw-frontend/frontend/src/components/common/NipPagePermission.vue:88-118` |
+| 采集/后台 | Web Serial需浏览器能力、许可及安全上下文；页面可见性影响上游转发 | 有IPC选串口入口，但实际数据通道也须追踪，不由“有壳”推断协议 | `bw-frontend/frontend/src/common/utils/WebSerial.js:18-38`；`bw-frontend/frontend/src/common/ws/MessageWebSocket.js:89-108`；`bw-frontend/frontend/src/components/common/NipSerial.vue:49-95` |
+
+补审确认的交付风险：
+- `index.html:76-94` 的HTTPS Web分支仍生成HTTP uploadFileUrl/ueditorUrl/ocrUrl；实际执行该初始化代码得到 API=`https://…/data`、WS=`wss://…/push`，上传仍=`http://…:8000/api/file/upload`。这是地址风险证据，实际哪些客户功能被混合内容拦截须核对调用与浏览器Network，不能泛化为所有题库上传都走文件服务。
+- `bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js:274` 实际 addModule('processor.js')，对应 `bw-frontend/frontend/public/processor.js`；它与 src/common/utils/processor.js 的SHA256不同。T10必须修实际资源并验证Web静态dist/Electron安装包加载同一修复，不能只改src副本。
+- `MessageWebSocket.js:98-100` 只在页面visible时转发已收到的串口数据，隐藏页可能在进评分队列前丢事件；FIFO修复不能覆盖这个上游丢弃。必须明确后台训练语义并验证两模式的最小化/切页路径。
+- Web的token/设备标识/授权受浏览器profile与origin隔离；换域名/端口/HTTP→HTTPS或清站点数据不等于硬件变化。Electron文件副本恢复能力不能写成Web也具备。详见Spec §7.3的模式矩阵及Plan的T01/T05/T10/T16/T17。
 
 ---
 
@@ -41,7 +59,7 @@
 
 - 授权按**累计运行时长**到期：`VerifyLicense.js:16` DEFAULT_DAYS=30，前端每 10s 累加运行时长（:123-146），超限弹「授权的可用运行时长已用尽」拦回授权页（:109-119）。
 - 授权码绑定设备码，硬件大幅变更后 `matchMachineCode` 不匹配（:232-238）。
-- `App.vue:35` 以 VerifyLicense 包裹整个应用，非 authorized 时主界面不可达。
+- `bw-frontend/frontend/src/App.vue:1-16` 无条件包裹 VerifyLicense，**Web与Electron均有授权门闸**；只有硬件码及文件副本依赖Electron。
 
 ### 1.3 修复方向
 
@@ -59,7 +77,7 @@
 2. **【确认常量；业务含义待定】低速分支点长按固定 35 计算**：`receiveTrain.js:240,622` 用 `isLowRate ? 35 : rate`。这证明点长分支不随设置 rate 改变，不能单凭此认定低速训练应取消固定符号速度；需确认其是否采用“固定符号速度+扩展间隔”的教学口径。
 3. **【确认】AudioWorklet 参数竞态**：`MorseVoiceHighPerformance.js:427-432` updateParam 仅在 oscillator 已存在时下发；init 回推不含 criterion/ratio（:297-300）→ worklet 就绪前下发的参数**静默丢失**，停在 processor.js 默认 criterion=83ms。码/分分支靠 `setTimeout(1000)` 绕过、WPM 分支无保护且从不下发 changeRatio——两处均在 **`receiveTrain.js:251-267`**（非 MorseVoiceHighPerformance.js，此前引证文件张冠李戴）→ 上场训练的自定义划比残留进下一场，**跨训练串味**。worklet 为全局单例（`NipPagePermission.vue:105-109`）。
 4. **【确认】码/分公式是经验平均值**：`cri=(400/rate×60000)/dots[type]`，dots 是「平均页点数」经验常量（`useMorse.js:202-207`，letter 4711/short 4755/long 6995/mix 5389），报文构成偏离平均即偏差；划比可调但标定按固定比例测得。
-5. **【确认墙钟实现；偏差幅度待测】**`processor.js:158-160,178` 用 `Date.now()` 判断符号边界，未按样本累积推进；128 采样约 2.7ms@48k。边界量化及调度抖动可能累积，但“偏慢 5%~10%”未经录音/采样测量，不作已确认数值。`msToSamples`（:236-239）未用于主链，datumSamples 实际按毫秒使用。组间隔为 5 单位；是否改为国际词间隔 7 单位需先确定本系统训练口径，不直接套用标准。
+5. **【确认墙钟实现；偏差幅度待测】**实际资源 `bw-frontend/frontend/public/processor.js:170-199` 用 Date.now 判断边界，`:249-263` 定义 msToSamples 却不用于 datumSamples，仍按毫秒推进。128采样约2.7ms@48k，量化/调度抖动幅度须实测，不能把“偏慢5%~10%”当已确认。组间隔5单位是否改7仍需教学口径确认。旧src副本行号不再作为实际worklet的证据。
 6. **【确认】WPM 模式「修改偏差」直接报错**：`receiveTrain.js:625` 引用从未定义的 `speedRate` → ReferenceError，码速永远停在初始值。
 
 **修复方向**：在既有 Morse 入口统一单位/类型/比例/间隔换算，修初次与改速的系数方向、未定义 speedRate、参数 ready 回推和采样数计时；每场重置全量参数。低速模式、码/分校准报文、5/7 间隔与经验补偿的去留先按 Spec G2 确认，不直接拿真实 rate 替换 35 改变教学含义。
@@ -189,12 +207,12 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 1. **【确认】报文类型取错标定常量**：`ElectronMorse.js:90-93` 固定用 `dots['short']=4755`，而长码报播报用 `numType='long'`（dots=6995）→ 点长放大 1.47 倍 → **长码报实际比设置慢约 32%**。
 2. **【确认】不看 wpmTOmm 开关**，WPM 模式也按码/分公式算，与收报链路口径不一致。
 3. **【确认】播报速度不跟随训练设置**：`examTrain.js:49` playSpeed 硬编码默认 80；本该跟随训练速度的 `changeCriterion(trainData.value.speed)` **被注释掉**（:147-148，组训 student.vue:316-317 同样被注释）。
-4. **【确认】初始化竞态（叠加因素，非首因）**：`examTrain.js:132` onMounted 立即 changePlaySpeed（硬编码 playSpeed=80），若早于 AudioWorklet 就绪则参数静默丢失，worklet 停在默认值或上一页面残值。但常规使用流（App 启动即由 NipPagePermission init worklet）下竞态不触发，只在刷新/直进训练页时叠加——**「设置不起作用」的直接原因是第 3 条的 playSpeed=80 硬编码 + :147-148 跟随被注释**，本条为加重项。另：preJob `examTrain.js:96` 的 changeCriterion 未被注释、无 playSpeed 硬编码，问题仅限 postJob 与组训链路。
+4. **【确认】初始化竞态与模式有关**：postJob examTrain mounted 即changePlaySpeed，早于worklet就绪会丢参数。`NipPagePermission.vue:88-118` 在Electron mounted尝试初始化，而Web等待用户手势，因此**不能断言常规入口不触发或只在刷新时触发**。硬编码80与未跟随仍是独立直接原因；preJob已有跟随但仍需验证ready顺序。
 
 ### 10.2 反应慢
 
 1. **【确认】F2 组合键 800ms 判定窗**：`examTrain.js:363-370` 每次按键后 setTimeout(800ms) 等待组合键，字码赋值与播报整体滞后最多 800ms——最大单点。
-2. **【确认日志存在；卡顿贡献待测】**`MorseVoiceHighPerformance.js:348-352,361-362` 播报时 console.time/console.log 数组，`examTrain.js:369` 有调试输出；可清理热路径调试日志，但其是否导致客户明显卡顿需要性能记录。processor.js 当前无所述渲染线程 console.log，不保留错误引证。
+2. **【确认日志存在；卡顿贡献待测】**主线程 `MorseVoiceHighPerformance.js:348-352,361-362` 与 examTrain.js 有调试输出；**实际worklet `bw-frontend/frontend/public/processor.js:50-56` 的addCode分支确有console.log(this.morseCode)**。之前仅查src副本得到“不存在”是错误取证。public资源不能以Vite drop_console配置代替安装/部署产物核验；删除热路径日志后仍需实测卡顿改善。
 3. **【确认】多级异步链路**：串口/WS → pinia $subscribe → watch → addCode → PubSub 微任务 → convert 全量转码 → postMessage → worklet；另有 `setTimeout(3000/1000)` 延迟订阅（`ElectronMorse.js:102-122`），初始化期按键无声或按默认参数发声。
 
 **修复方向**：changeCriterion 按报文类型与模式换算，postJob/组训恢复训练速度跟随；参数等待 ready，删热路径调试输出。F2 先按 Spec G2 明确合法组合等待窗与目标机延迟阈值，再优化，不能只调小常量而破坏组合键。
@@ -227,6 +245,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 **修复方向**：
 - **发布闭环**：先取得客户版本/制品，再从同时含两个修复的确定提交构建前后端。当前 `.github/workflows/build-quarkus-native.yml:42-60,197-220` 的前端 job 只构建、不上传产物，release 仅依赖 build/test，不依赖 frontend；打 tag 不能保证双端交付。需补前端成功门禁、制品归档及 Electron 打包消费证明。
 - **桌面资产闭环**：`bw-frontend/frontend/vite.config.js:49-50` 输出 frontend/dist；`bw-frontend/electron/index.js:60-66` 打包态读取 public/dist；`bw-frontend/package.json:23-34` 排除 frontend。必须验证新 dist 进入实际安装包，而不是旧 public/dist。
+- **Web资产闭环**：同一构建的frontend/dist部署到静态站点，核对入口/动态chunk/processor.js、实际HTTP或HTTPS地址及反代映射、文件服务、缓存更新；无需Electron安装包，但必须有Web发布/回滚清单与真实浏览器验收。
 - 模板 UX：展示中文列说明并保持唯一 field 契约；修复 levelId 示例覆盖问题，自动绑定当前选中题库；保留已有示例并补选项/答案填法。按目标版本完成“选题库→导模板→填表→导入→查询”及 DOCX 导入；“理论测试不会操作”另验建卷/开考/交卷/查成绩实际流程，不以导入成功代替。
 
 ---
@@ -250,6 +269,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 - 音频类：按冻结的点划/间隔口径计算期望采样数，数字输出段误差 ≤1 sample，完整校准报文时长误差 <2%；44.1/48kHz、WPM 与码/分、四种报文类型、冷启动/跨训练均覆盖。码/分经验常量不保证任意组成的报文都 <2%；真实设备端到端延迟单独实测。
 - 组网类：双端并发首拉未生成页、教员断链重连、学员结束后教员无刷新可见。
 - 发布前：`cd backend && ./mvnw -B clean verify` 全绿；跨栈契约改动核对前端调用面（红线 5）。
+- 双模式：每组适用用例分别登记Web与Electron；Web再区分HTTPS功能验收与普通远程HTTP的能力限制验收。Web受浏览器许可约束、Electron受实际壳版本与硬件接线约束，不能相互替代证据。
 
 ## 15. 本轮文档复审记录
 

@@ -38,7 +38,7 @@
 | `backend/src/main/java/com/nip/service/PostTelexPatTrainService.java` | T02 → T03 → T08 → T09 |
 | `bw-frontend/frontend/src/views/manage/organization/handkeyZuXun/train/student/` | 输入集成者：T05 → T06/T07 → T03/T04 的提交接线 → T08 |
 | `bw-frontend/frontend/src/views/manage/organization/electronKeyZuXun/train/student/` | 输入集成者：T05 → T03/T04 → T08/T10 |
-| `bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js`、`bw-frontend/frontend/src/common/utils/processor.js`、`bw-frontend/frontend/src/common/utils/ElectronMorse.js` | 音频集成者独占 T10；与输入集成者冻结事件接口后接力 |
+| `bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js`、`bw-frontend/frontend/public/processor.js`、`bw-frontend/frontend/src/common/utils/ElectronMorse.js` | 音频集成者独占T10；public为实际worklet源，核对src副本引用后收口；两模式产物分别验证 |
 | `backend/src/main/java/com/nip/service/simulation/`、`backend/src/main/java/com/nip/ws/WebSocketSimulationService.java` | 网络集成者：T11 → T12 → T13 |
 | `bw-frontend/frontend/src/components/BroadcastTeachTrain/` | 网络集成者：T12 → T13；不得同时改订阅和草稿处理 |
 | `backend/database/migrations/`、`backend/scripts/rehearse-migrations.sh` | 迁移集成者为 T08/T09/T11 串行编号与演练，不让不同工作包覆盖同一迁移 |
@@ -48,22 +48,24 @@
 
 ### T00 取证与业务口径冻结（R01–R12）
 
-- [ ] 记录执行提交、工作树、客户截图/日志、FE/Electron/BE 版本/hash、目标设备与部署 schema；核实授权界面和题库制品，不要求客户重复证明其已报告的故障现象。
+- [ ] G4分别记录Web协议/origin/浏览器版本/静态根与反代、Electron壳/OS/本机或局域网配置及FE/BE/hash；记录串口实际传输与许可、授权存储、设备/采样率和schema。核实客户已报告的故障环境，不要求重复证明故障现象。
 - [ ] 按 Spec G1 列每个活跃训练域/模式的单位、时间轴、规则满分/加扣、空/少/多页样例及原始 DTO 字段表；冻结 reset 后旧请求隔离方案、规则快照和存量进行中训练切换窗口。
 - [ ] 按 G2 取得低速/划比/5与7间隔/校准样文、配置优先级、F2 与目标机延迟阈值；按 G3 取得实时草稿与漏多组对齐决定。回填 Spec §3，不另起竞争规格。
 - [ ] 建 V01–V13 证据登记，缺现场条件标 G4，不填“通过”。已确认互踢不修，不重新征求多设备方案。
 
 **出口**：确定性 bug 与产品变更清单分离；G1/G2/G3 的业务字段有责任人确认，G4 有真实环境记录或明确缺项。缺项只阻塞相关任务，不阻塞 T02 等确定性修复。
 
-### T01 双端制品与桌面打包闭环（R12，P0）
+### T01 Web发布与Electron打包闭环（R12，P0）
 
-**文件**：`.github/workflows/build-quarkus-native.yml`、`bw-frontend/package.json`、`bw-frontend/frontend/vite.config.js`、`bw-frontend/electron/index.js`；本任务只修构建消费链，不顺带升级依赖。
+**文件**：`.github/workflows/build-quarkus-native.yml`、`bw-frontend/package.json`、`bw-frontend/frontend/index.html`、`bw-frontend/frontend/vite.config.js`、`bw-frontend/electron/index.js` 及本次活跃地址消费点；只修交付/配置边界，不顺带升级依赖或重做全站部署架构。
 
 - [ ] release 增 frontend 成功依赖，归档 dist 与 BE 制品；生成同源码 SHA 的版本/hash 清单，防仅后端成功就发布。
+- [ ] Web分支按Spec §7.3发布本次dist到实际静态站点，冻结serverConfig配置来源；分别验证HTTP直连与HTTPS的/data、/push、/file代理映射、WS Upgrade、跨域预检。修本次活跃HTTP上传/文件地址在HTTPS下的混合内容，不把题库saveBatch误绑到文件服务。
+- [ ] Web保持hash路由，验证深链刷新、动态chunk、根/实际部署前缀下的localforage与processor资源、MIME和缓存更新；子目录部署必须据实际路径验收，不默认新增子路径支持。不存在Electron桥的浏览器不能在启动时调用IPC。
 - [ ] 桌面打包前从本次 frontend/dist 更新 public/dist，拒绝旧资源残留；保持当前打包布局，检查安装包实际加载文件 hash。涉及脚本时使用仓内现有 npm script 入口。
-- [ ] 选定提交必须同时包含 `1c40aae`/`9596c6c`；G4、测试、模板往返及真实安装 smoke 通过后才由发布负责人推送/tag/发布。当前文档交付不执行这些外部动作。
+- [ ] 选定提交同时包含 `1c40aae`/`9596c6c`；G4、测试、模板往返，以及Web真实站点和Electron真实安装包各自smoke通过后再由负责人发布。旧打开Web页/旧壳不得在切换后继续写不兼容协议；当前文档会话不发布。
 
-**验证**：V12 的制品部分；故意让 frontend 构建失败时 release 不产出正式版本；目标安装包使用新 dist，不以 Vite 开发页代替。
+**验证**：V12分别留W-HTTPS/W-HTTP/E-PACK证据；frontend构建失败不得产正式release。Web核验站点资源hash和实际反代Network；Electron核验安装包资源hash及IPC配置，不能彼此替代，也不能用Vite开发页冒充部署态。
 
 ### T02 确定性评分公式修复（R03/H3，P1）
 
@@ -103,6 +105,7 @@
 - [ ] 原始码按顺序逐项消费，同一对象传递码值和时序；替换 ref 覆盖和值/时间多个共享 ref 拼装，连拍相同码也不丢。
 - [ ] 点阈值使用当前有效校准，剔除≤10ms抖动；重复按下/缺抬起/分包粘包明确恢复，正常抬起必须解锁。
 - [ ] 硬件无时间戳时只标记 JS 接收单调时间，记录精度边界；离页清订阅/队列，跨训练不残留。
+- [ ] 同时核对 `bw-frontend/frontend/src/common/ws/MessageWebSocket.js:89-108` 的WebSerial入口与visible过滤，按G1后台继续/暂停协议处理，不静默丢原始帧；Web拒绝选端口/无能力与Electron真实IPC选端口/数据通道分别验收，不由isEE猜测实际数据传输。
 
 **验证**：V06；真实串口帧与同 tick 注入分开记录。无硬件仅能证明事件消费，不关闭客户采样精度问题。
 
@@ -146,11 +149,11 @@
 
 **文件**：Spec §5.4 列出的音频工具，postJob/preJob 收报及电子键 examTrain/组训训练设置消费点。
 
-- [ ] 就绪前缓存最新全量参数，ready 回推并每场重置；去掉 setTimeout 等初始化，保留错误可见性，不静默退回旧参数。
+- [ ] 就绪前缓存最新全量参数并每场重置；Web用户手势初始化/恢复、Electron mounted初始化分别测试。受限/未ready状态禁用有声训练并给可恢复提示，不假装播放，不能用壳安全开关替代浏览器许可。
 - [ ] 统一换算入口、修 speedRate、按 type/模式设置 criterion/ratio；postJob/组训恢复速度跟随，preJob 验证不回归。低速与5/7间隔遵循 G2。
-- [ ] processor 改样本累计及余数，暂停/清空使用同一游标；删除热路径调试输出，按 G2 优化 F2，不任意缩窗。
+- [ ] 修改实际运行资源 `bw-frontend/frontend/public/processor.js` 为样本累计/余数，清热路径日志；核对src/common/utils/processor.js引用后收口单一来源，不只改未加载副本。Web实际URL返回JS且hash正确，Electron安装包加载同一修复；F2遵循G2。
 
-**验证**：V02/V10；数字音频采样测量 + 真实目标机回环/录音及按键延迟。参数竞态修复、采样时钟、各入口跟随为可独立回滚子提交；共享换算契约的生产/消费同提交。
+**验证**：V02/V10在W-HTTPS与E-PACK分别测采样/真实声音及按键延迟；W-HTTP明确音频能力限制，不能伪报ready。覆盖浏览器用户手势/后台节流与壳最小化恢复；每份结果记录实际processor URL/hash。参数ready、采样时钟、入口跟随可分子提交，共享契约同提交。
 
 ### T11 simulation 报底与答案幂等（R08/R09，P2）
 
@@ -169,7 +172,7 @@
 - [ ] REST 提交后发身份完整的轻量结果通知给房间全体教员，删除客户端后置 WS 写状态依赖。报务房同时删除补 id/原消息两路分歧，防重复。
 - [ ] 首进、通知、重连均拉 REST 快照；5秒一个有界在途请求作等待结果时兜底，按可见性/结束结果齐全停止；不用内存在线名单冒充最终成绩。
 
-**验证**：V08/V09；两教员均2秒内更新，丢通知10秒内补偿；服务重启、结束后刷新、连续进出无重复连接。以上网络时限只对 Spec 所列可达同局域网矩阵生效。
+**验证**：V08/V09；Web教员+Electron学员、Electron教员+Web学员两种混合房间及各模式独立场景均覆盖。两教员2秒内更新、丢通知10秒内补偿；服务重启、结束后刷新/重连正常。网络时限仅对Spec所列可达同局域网矩阵生效，不为不同壳另造协议。
 
 ### T13 详情可见性与对齐（R08/R09，P2，需 G3）
 
@@ -196,14 +199,14 @@
 - [ ] 明确 options/answer 的可填写格式与示例；导出→填写→解析→整批保存→回读均正确，失败不假成功、不部分入库。
 - [ ] 在实际可用版本记录教员建卷/开考、学员作答/交卷、查询成绩的操作步骤和常见错误提示，交支持人员按步骤演示。用户指南更新随这一步实施，不在当前仅三文档交付中额外生成指南。
 
-**验证**：V12；实际解析函数、后端导入回滚与真实授权后的界面闭环三类证据分开。当前已有模板示例与导入代码不重复实现。
+**验证**：V12；实际解析函数、BE导入回滚与Web/Electron真实授权后界面闭环分开。Web验证文件选择/下载和跨域行为，Electron验证壳内读写下载结果；当前已有示例和导入代码不重复实现。
 
 ### T16 设备身份与授权解释（R01，P3）
 
 **文件**：`bw-frontend/frontend/src/views/manage/login/useLogin.js`、`bw-frontend/frontend/src/common/http/index.js`、`bw-frontend/frontend/src/common/utils/machineCode.js`、`bw-frontend/frontend/src/common/utils/VerifyLicense.js` 及实际提示组件。
 
 - [ ] 按203/204/206解释前端提示，不改后端码文；206只说可能他处登录，不声称准确检测到互踢。
-- [ ] 安装身份稳定化只在登录流程使用，不换正在使用的 deviceId；读取失败不清授权/自动生成新身份。复用既有 Electron 硬件接口，Web 持久化独立标识。
+- [ ] 身份稳定化只在登录使用，不换有效会话ID；Electron复用硬件接口，Web按profile+origin持久化，不承诺跨清数据/换域/换浏览器稳定。Web仅IndexedDB授权与Electron多副本恢复分别测试，读取错误不误当真实空记录清除。
 - [ ] 剩余累计可运行时长604800秒阈值预警；存储错误、设备不匹配与耗尽分别引导，保留现有授权自恢复机制。
 
 **验证**：V01；安全 token/TTL/存储迁移仍引用既有计划的门禁，不以本任务宣布防重放完成。
@@ -211,7 +214,7 @@
 ### T17 综合验收与发布关闭（全部 R 项）
 
 - [ ] 工作包稳定合入后统一运行 §4 全量门禁，记录实际测试数，不复用历史216/238等数字。
-- [ ] 逐条 V01–V13 登记结果；G4 缺真实硬件/授权/部署时如实阻塞对应 R 项，不能拿 smoke 替代现场关闭。
+- [ ] V01–V13按Spec §7.3登记W-HTTPS/W-HTTP/E-PACK；同BE测试可共享，浏览器/壳UI、网络、授权、音频/串口必须分别留证。G4缺真实硬件/授权/反代/安装环境时阻塞对应模式，不能只拿另一模式或smoke关闭。
 - [ ] 12条及H1–H5/M1–M5逐项登记：修复提交、验证证据、客户结果、剩余限制；G3不需要草稿须有明确决定，不悄悄跳过。
 - [ ] 本轮切换过时字段/路径/临时脚本清理；随功能更新操作说明、发布变更与迁移前置；不得顺便删除无关 teacherBack 历史代码。
 - [ ] 发布负责人按已验收双端清单交付，记录安装/回滚检查结果；文档、代码、客户版本一致才将本计划改为完成。
@@ -235,6 +238,8 @@ export JAVA_HOME="$HOME/.local/opt/jdk21"
 npm ci --ignore-scripts --no-audit --no-fund
 npm run build
 ```
+
+**Web发布验证独立于下面Electron命令**：将此构建的dist交付静态服务器，按G4确定的域名、根路径及反代部署；不臆造仓外nginx配置或部署命令。浏览器访问实际站点执行W-HTTPS/W-HTTP矩阵，确认/data/api请求、/push WS握手及文件服务实际路由、入口/动态资源/processor.js的状态与MIME、无活跃混合内容，并验证旧缓存更新和hash路由深链刷新。普通远程HTTP不能用localhost的安全上下文例外替代完整串口/AudioWorklet要求。
 
 桌面在 `bw-frontend/` 的对应目标 OS 执行：
 
@@ -264,7 +269,7 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 
 ### 4.3 切换与回滚
 
-- 上线前暂停创建/修改相关训练，按 G1 处理旧进行中训练；备份实际 DB，盘点重复/空键，执行前置 migration，再部署同清单 FE/BE。旧客户端不能继续写新协议。
+- 上线前暂停相关训练写入，按G1处理进行中训练；备份/迁移后同时发布兼容Web dist、Electron安装包与BE。Web强制更新旧打开页面/缓存的处置、旧壳升级或拒绝旧协议均纳入窗口；仅替换服务器静态文件不能保证所有标签页已更新。
 - 唯一约束/清理前确认保留记录清单，冲突不自动选赢家。回滚代码不等于恢复被去重数据；涉及数据处理须同时有备份恢复演练和停写窗口。
 - 回滚时恢复上一对兼容 FE/BE 及匹配 schema/数据；不得只退后端而让新 DTO 客户端继续写。已产生新协议数据时先停写导出恢复点，按演练方案处理，不盲目 drop 列/索引。
 - 每个独立修复提交可回滚，但共享契约与其迁移/调用者必须整体回退；发布说明列明不兼容边界。
@@ -273,15 +278,23 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 
 ### 5.1 实施记录格式
 
-执行每一任务后追加：`任务/需求编号 | commit | 环境 | 输入与实际结果 | 测试/日志/截图路径 | 验收状态 | 未满足门禁及责任角色`。制品记录 SHA/hash，避免只写版本号。
+执行后追加：`任务/需求 | 模式W-HTTPS/W-HTTP/E-PACK | commit | origin/浏览器或壳版本 | 实际输入结果 | 能力/许可/processor hash | 测试/日志/截图路径 | 验收状态 | 未满足门禁及责任角色`。服务端共享证据明确标BE，不能自动填满所有前端模式。
 
 **目前实施证据为空；这是事实，不是已完成标记。** 当前可用的是分析文档 §15 的源码证据、算术反例和实际解析函数 smoke，仅用于证明文档修订依据。
 
 ### 5.2 本次三文档交叉复审
 
 - 核对范围：分析的事实/推断、Spec 的全量追溯/边界、Plan 的覆盖/依赖/验证/回滚；文档通过不代表业务验收通过。
-- **结论：PASS（规划基线）**。已完成三份文档逐节交叉复审；未发现剩余的规划阻塞项。这里不批准未冻结的业务语义：G1评分/计时、G2节拍/配置、G3实时草稿/对齐、G4现场交付仍是对应实施/验收门禁。
+- **首轮结论：PASS（规划基线）**。后续用户指出双模式覆盖不足，增量补审见§5.3；不能用首轮通过替代新增Web专项。G1评分/计时、G2节拍/配置、G3实时草稿/对齐、G4现场交付仍是对应实施/验收门禁。
 - **复审修正**：分析中低速35与F2缩窗的无条件建议改为G2先决；C5从“单点投递”改为“通知内容不一致”；Spec/Plan补唯一键各列NOT NULL，避免只加UNIQUE仍允许多个空键；确认整份答案删除旧尾页、事务后通知、两类配置隔离及前端制品门禁一致。
-- **结构验证**：脚本核对22个追溯项（12报障+10附录）、18个任务、13组验收、4项门禁；8个相对文档链接与45个去重源码路径均存在，任务/验收引用无悬空，代码围栏成对，实施复选框全部待执行。
+- **首轮结构验证**：脚本核对22个追溯项、18个任务、13组验收、4项门禁；当时8个相对链接与45个源码路径均存在，任务/验收引用无悬空、代码围栏成对、实施复选框待执行。双模式补充后的结构验证见§5.3。
 - **行为取证**：运行真实 parseSpreadsheetRows，模板的非空levelId说明文字覆盖选中题库（correctlyUsesSelectedBank=false）；算术反例确认三页错误用时100/60/140。它们证明修订依据，不代表问题已修复。
 - **验证限制**：三路补充核查服务503失败，未取得独立子代理审查报告；最终复审由主评审直接完成。只改三份文档，未运行Java全量测试、前端构建、真实音频/串口/客户安装验收，也未发布或迁移数据库。
+
+### 5.3 Web / Electron增量复审
+
+- **范围修正**：Web与Electron均为正式模式；新增Spec §7.3，落实到T00/T01/T05/T10/T15/T16/T17和原有V矩阵，不复制业务实现、不新增竞争会话方案。
+- **关键事实更正**：App两模式都有授权；Web仅IndexedDB，Electron有文件副本；Web音频需用户手势；HTTPS初始化仍生成HTTP上传地址；实际worklet是public/processor.js且包含console.log，先前“不存在”结论查错副本；上游visible过滤也可能丢采集帧。
+- **已运行取证**：在隔离对象中执行真实index.html初始化脚本，分别输入Web HTTP、Web HTTPS、Electron file三种环境；得到直连18001、/data+/push反代、IPC地址三种结果，HTTPS场景uploadFileUrl仍为HTTP。另用SHA256比较public与src两份processor确认不同。这不是浏览器Network/真实安装验证。
+- **结论：PASS（双模式规划基线）**。交叉复审覆盖模式边界、任务所有权、两种交付/回滚、原始输入/实际worklet和混合房间。结构检查通过：22个追溯项、18个任务、13组验收、8个相对文档链接、50个去重源码路径；W-HTTPS/W-HTTP/E-PACK及两种混合教员/学员组合均有要求，引用无悬空、代码围栏成对、实施复选框仍全部待执行。
+- **验证边界**：本次只补三份文档，未改业务代码或生成临时仓库文件；初始化脚本取证不等于浏览器Network、真实串口/音频或安装验收。两模式与混合房间的功能验收仍待实施，不声称已联调通过。

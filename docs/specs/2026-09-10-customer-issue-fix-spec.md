@@ -33,7 +33,7 @@
 | R09 | 结束后能查看每人已提交明细；实时草稿需求经 G3 决策后兑现或明确为不需要 | T00、T11、T12、T13 | V09 |
 | R10 | 电子键跟随训练类型/速度，冷启动参数可靠，输入到音频延迟有实测边界 | T00、T10 | V10 |
 | R11 | 训练毫秒与比例往返互逆；基础练习区间加载/校验完整，不混用两类配置 | T07 | V11 |
-| R12 | 客户版本证据、双端制品/桌面资产、题库模板导入、理论测试操作闭环 | T00、T01、T15、T17 | V12 |
+| R12 | 客户版本证据、Web静态发布/Electron安装包及配套BE、题库模板导入、理论测试操作闭环 | T00、T01、T15、T17 | V12 |
 | H1 | 电子键多码帧逐项消费，包括重复相同码 | T05 | V06 |
 | H2 | 手键码率不由 speedLog 平均值控制；重复页/reset 不污染结果 | T08 | V03、V04 |
 | H3 | General 手键划线扣分上限使用 dash.max | T02 | V03 |
@@ -54,7 +54,7 @@
 | G1 评分与计时 | 每个活跃训练域/模式的计数单位（字符/四字符组/WPM）、净用时是否含暂停/等待/最后间隔、空页/未完成/少多组、取整、满分与加扣上限、deadline 起点及迟到页处理；至少一份手工可对账样例；同时冻结 DTO 字段与存量策略 | 教研/产品确认业务；前后端负责人冻结接口 | T08、T09、T14；不阻塞 T02 的确定性错误修复 |
 | G2 节拍与训练设置 | 低速模式是否固定符号速度+扩展间隔、5/7 间隔口径、码/分校准报文、划比变化语义、固定配置/自校准优先级、F2 组合键合法等待窗、目标机器与端到端延迟阈值 | 教研/硬件/前端 | T10 的语义调整、T07 的跨入口设置映射；不阻塞就绪竞态或比例往返修复 |
 | G3 详情与对齐 | 客户需要“结束明细”还是“训练中草稿”；是否允许教员实时读取答案；漏/多组展示样例和对齐粒度，不将展示直接定义为数值扣分 | 客户代表/产品/训练负责人 | T13；不阻塞 T11/T12 的数据和通知修复 |
-| G4 客户与交付环境 | 客户截图/日志、FE/Electron/BE 版本与制品 hash、设备授权状态、目标 OS/串口/采样率、实际部署 schema/文件服务；测试与发布窗口 | 部署/支持人员 | 客户归因与 V01/V02/V06/V10/V12 现场关闭；不阻塞仓内确定性修复 |
+| G4 客户与交付环境 | 分别记录Web origin/协议/浏览器版本/反代与Electron壳/OS/本机或局域网配置；FE/BE及安装包hash、授权存储、串口能力/许可/采样率、实际schema/文件服务、测试发布窗口 | 部署/支持人员 | 两种模式现场归因与验收，尤其V01/V02/V06/V08/V10/V12；不阻塞仓内确定性修复 |
 
 安全项 H4/H5 来自本轮分析附录，是独立可回滚任务；既有计划接受的“全域 WS 握手风险”不冒充本任务已关闭，也不隐式扩大授权重构到所有端点。
 
@@ -117,6 +117,7 @@
 - 事件由生产者逐项同步调用消费者或有界 FIFO 顺序消费，码值、按下/抬起、间隔属于同一个不可变快照；不再把单个 ref 的最后值当事件流，也不以字符串/数字交替强迫 watcher 触发。
 - 重复相同电子键码不可丢；串口分包/粘包、重复按下/缺抬起必须显式恢复。不将不存在的硬件时间戳伪造为逐事件真实发生时刻。
 - 点阈值以有效校准/明确固定配置为准；≤10ms 抖动不参与编码和校准。离页销毁订阅/定时器，下一训练不得消费上一场残留。
+- 上游 `bw-frontend/frontend/src/common/ws/MessageWebSocket.js:89-108` 也在范围：不能因visible判断丢弃已收到的原始帧。G1若规定后台继续训练，采集不得跟UI绘制暂停一起丢弃；若需暂停必须显式进入训练暂停协议。两模式均覆盖隐藏/最小化后恢复，不能只测试页面前台FIFO。
 
 ### 5.2 控制符
 
@@ -136,11 +137,11 @@
 
 - 在既有 Morse 工具入口收口换算，不新增一套互不兼容的播放器。输入明确单位、rate、报文类型、划比和间隔；输出点长/各段样本数。删除初次乘 1.18、改速除 1.18 的双口径及未定义 speedRate。
 - 常规 WPM 的现有 1200/rate 点长规则、码/分经验 dots/type 与低速模式分开描述；G2 选定校准报文和间隔后才可删除经验补偿。不可对任意报文组成承诺相同误差。
-- 就绪前保存**最新完整参数状态**，ready 后一次回推 criterion/ratio/frequency/volume 等；不需要无界排队每次参数变更。每次训练显式设置全量参数，避免单例残留。
+- 就绪前保存**最新完整参数状态**，ready 后一次回推 criterion/ratio/frequency/volume 等；不需要无界排队每次参数变更。每次训练显式设置全量参数，避免单例残留。Web须等待用户手势初始化/恢复音频，Electron虽mounted尝试初始化仍须验证实际ready；未ready不允许开始有声训练并假装在播放。
 - processor 按样本计时，跨渲染块保留余数；暂停/恢复/清空对应同一采样游标。每段取整误差 ≤1 sample，整篇校准报文误差 <2%；不是把 Date.now 换个变量名。
 - postJob/组训电子键取消固定 playSpeed=80，跟随本场配置且按 type 选择标定；preJob 已有速度跟随，作为回归入口，不宣称同一缺陷。
 - 去掉热路径调试输出和固定 1s/3s 延迟订阅，以实际 ready/订阅生命周期驱动；F2 窗口按 G2 的组合键协议优化，不先随意调成一个更小的常量。端到端延迟须目标机实测，不以数字采样正确代替硬件响应验收。
-- 定位：`bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js:297-304,427-432`、`bw-frontend/frontend/src/common/utils/processor.js`、`bw-frontend/frontend/src/common/utils/ElectronMorse.js`、`bw-frontend/frontend/src/views/manage/postJob/receive/train/js/receiveTrain.js:238-267,617-626`。
+- 定位：`bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js:274,297-304,427-432`、**实际静态资源 `bw-frontend/frontend/public/processor.js`**、`bw-frontend/frontend/src/common/utils/ElectronMorse.js`、`bw-frontend/frontend/src/views/manage/postJob/receive/train/js/receiveTrain.js:238-267,617-626`。src/common/utils/processor.js是不同副本，不能只改它；T10确认引用后收口单一运行源，Web dist与Electron安装包均校验实际加载的processor hash。
 
 ## 6. 组网数据、通知与详情
 
@@ -174,7 +175,7 @@
 ### 7.1 R01
 
 - 前端按 203/204/206 解释缺凭证/缺设备标识/凭证不匹配；206 只提示可能他处登录，不断言原因。后端码文不改，仍只弹一次登录提示。
-- deviceId 稳定化复用 `bw-frontend/frontend/src/common/utils/machineCode.js` 的硬件采集接口；Web 安装身份首次生成后持久保存。已有有效会话不在请求途中换 ID；读取失败显式报错不清记录、不重生标识。
+- deviceId稳定化：Electron复用 `bw-frontend/frontend/src/common/utils/machineCode.js` 的硬件接口；Web为**浏览器profile+origin范围**的持久化标识，不是物理机器ID。有效会话不在请求途中换ID；读取失败显式报错不清记录、不重生标识。清站点数据、换profile或HTTP→HTTPS后的新origin可能需要重新登录/授权，不能承诺硬件式跨环境稳定。
 - token 与授权存储分开：稳定 ID 不修复 token 丢失或重放。现有授权 storage_error 流程保留可恢复错误，不把它当未授权清库。
 - 剩余累计运行时长 ≤604800 秒时预警，显示可运行小时而非自然日；授权耗尽仍走现有门闸。续发、设备不匹配和存储失败分别说明，禁止用“验证码”泛称所有登录失败。
 
@@ -182,14 +183,38 @@
 
 - 先核对客户实际 FE/Electron/BE 制品，不用本地 tag 缺提交推断客户版本。已知 `1c40aae`、`9596c6c` 必须同时被交付提交包含。
 - release 必须依赖 frontend/test/build 成功，归档 FE dist 和 BE 制品；记录各自版本、同一源码 SHA、目标架构与校验和。tag/推送只是后续发布动作，本计划不授权当前直接发布。
-- 桌面打包消费链固定为 frontend/dist → public/dist → 安装包，拒绝旧 public/dist 残留；实际安装后检查加载的资源 hash。不得以 npm build 成功或仅后端 release 附件作为双端交付证明。
+- 两种交付分开：Web为本次frontend/dist→静态站点/代理，Electron为本次frontend/dist→public/dist→安装包；两者都与配套BE的SHA/hash清单对齐。核验实际站点资源及安装包资源，拒绝旧缓存/旧public/dist残留；不能以构建成功或仅后端release附件作为任一模式交付证明。
 - 模板保留稳定机器字段；中文说明和示例可放独立说明 sheet，第一数据 sheet 仍是现有 field 头，以避免只改中文头破坏 parseSpreadsheetRows。已有示例保留并清楚标识，默认 levelId 用当前选定题库，不用说明字符串冒充 ID；不能把说明行误导入。
 - DOCX/XLSX 仍按当前前端能力解析后一次调用 saveBatch；后端 exportTemplate 仍为 JSON 列规格，不改为假字节流。仅 code===200 提示成功；坏行整批回滚并定位原因。
 - “不会操作”交付具体操作步骤及真实界面走查：选择题库→导模板→填题/选项/答案→导入→确认题目；教员选题建卷→学员进入测试→作答交卷→查询成绩。操作员按实际入口完成，不把文件上传成功代替理论测试闭环。
 
+### 7.3 双运行模式硬边界（两者均须交付）
+
+“双端”表示FE/BE，**不等于已经覆盖Web/Electron两种前端运行模式**。共用Vue业务、HTTP/WS契约和评分算法，不复制两套业务实现；差异局限于现有运行环境/配置/硬件接口层。G4按以下矩阵记录，不把Web降为未承诺的可选入口。
+
+| 维度 | Web部署要求 | Electron壳要求 | 任务/验收 |
+|---|---|---|---|
+| 资源与路由 | 发布frontend/dist；保持现有hash路由，验证登录/训练深链刷新、动态chunk、localforage脚本、processor.js及MIME；子路径部署须另验证所有绝对资源路径，不因base='./'就宣称支持 | 打包态file加载public/dist，不拿dev localhost页面代替安装包；验证同一批JS/worker/字体与外部文件访问 | T01/T10，V02/V10/V12 |
+| 地址与代理 | 按实际HTTP/HTTPS配置注入window.serverConfig；HTTPS下API/WS/上传/文件均无活跃混合内容。验证/data→后端/api调用、/push→WS、/file→文件服务的前缀映射与Upgrade；跨域时校验Origin、token/deviceId预检与下载行为，不改成通配开放来掩盖失败 | 通过现有IPC system.getConfig取配置，验证本机/局域网地址；不能给file:拼file://API、也不能把/data等Web代理前缀强塞进桌面直连 | T01/T12，V04/V08/V12 |
+| Web环境隔离 | 没有window.require/electron/IPC仍可启动、登录和进行支持的训练；不可调用机器文件接口 | 验证IPC真实可用及失败分支；不能用关闭浏览器安全校验的方法证明Web可用 | T01/T16，V01/V12 |
+| 授权与存储 | App同样有VerifyLicense；授权只有IndexedDB，ID/token各自按浏览器存储范围生效；正常重载保留，清数据与存储错误分开解释；多标签页并发也受已有提交幂等约束 | 授权有IndexedDB+机器/用户文件副本，按既有优先级恢复；IPC/权限失败与真实未授权分开；登录token仍不因此成为安全文件存储 | T16，V01/V04 |
+| 音频许可 | 支持AudioWorklet的安全上下文；用户点击开始/恢复后再播放，处理suspended/许可未满足，不以仅建AudioContext为ready | 验证壳内实际AudioContext及worklet就绪；初始化不需Web遮罩不代表可忽略异步参数或最小化恢复 | T10，V02/V05/V10 |
+| 串口与输入 | 支持Web Serial的目标浏览器、安全上下文和用户选端口许可；拒绝/无设备/占用/拔插可理解，不自动反复弹选择框；不支持时只限制该能力而不伪称已连接 | 核对实际选串口IPC与数据接收路径，现有WebSerial/本地桥接不能只因isEE就认定已连通；不擅自给本地硬件协议加业务心跳 | T05，V06/V07/V11 |
+| 更新与回滚 | 入口/运行配置缓存可更新，hash资源版本一致；旧打开标签页在切换窗口刷新/停止写旧协议，站点与BE成对回滚 | 安装包与BE兼容矩阵、旧壳阻断/升级和回滚；不只替换BE | T01/T17，V12 |
+
+**运行矩阵**：
+- **W-HTTPS**：远程可信HTTPS站点、目标支持浏览器、无Electron桥；执行全部适用V01–V13。Web Serial与AudioWorklet有能力/许可前置，不能用Electron的安全开关绕过。
+- **W-HTTP**：现有普通远程HTTP部署分支必须验证页面/API/WS及能力限制提示；普通远程HTTP通常不是安全上下文，不承诺完整串口/AudioWorklet训练。需要完整能力的Web部署使用可信HTTPS；localhost开发的安全上下文例外不能替远程HTTP验收，也不能默默缩减客户所需能力。
+- **E-PACK**：真实安装包；按G4实际支持的Windows/Linux与本机/局域网组合执行全部适用V01–V13，不以npm run dev-e连接Vite的结果代替。
+- **混合使用**：同一后端/房间分别测试Web教员+Electron学员、Electron教员+Web学员；报底、提交、通知、成绩及断链恢复同一契约。另测同账号跨模式登录仍按单token互踢，不能为壳/Web各开一套会话规避既定行为。
+
+平台前置依据：[Web Serial requestPort的安全上下文/用户手势要求](https://developer.mozilla.org/en-US/docs/Web/API/Serial/requestPort)、[AudioWorklet安全上下文要求](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet)。浏览器具体版本/外部代理证据由G4登记，不能由Vite build.target推导全部API支持。
+
+当前路径证据：`bw-frontend/frontend/index.html:58-95`、`bw-frontend/frontend/src/config/router/index.js:82-85`、`bw-frontend/frontend/src/components/common/NipPagePermission.vue:88-118`、`bw-frontend/frontend/src/common/utils/licenseStore.js:127-159,188-224`。HTTPS初始化仍含HTTP上传/OCR/编辑器地址，T01按本次活跃调用面修复或明确外部配置前置；题库saveBatch本身不能误判为依赖该文件上传URL。
+
 ## 8. 验收矩阵
 
-以下均为**待执行**；文档评审和算术 smoke 不等于这些用例通过。每项记录提交、输入、预期/实际、环境、命令或截图/日志位置，不能只写“已测”。
+以下均为**待执行**；文档评审和算术smoke不等于这些用例通过。每项增加§7.3模式标签（W-HTTPS/W-HTTP/E-PACK）、origin或壳版本、能力与许可状态；同一BE行为测试可共享，但UI/网络/存储/音频/串口两模式分别留证。只有因平台确实不支持而明确限制的能力可标“不适用”，不能以一端成功代替另一端。每项记录提交、输入、预期/实际、环境及日志/截图位置。
 
 | 验收 | 必须可观察的场景 |
 |---|---|
@@ -200,11 +225,11 @@
 | V05 | 0/负时长拒绝、剩余直接跨零、后台节流、暂停/恢复；过期一次触发；浏览器离线及服务重启后 deadline 扫描，按 G1 处置迟到/未传页 |
 | V06 | 同 tick 多码、连续相同码、按下/抬起/间隔快照一致、分包/粘包、重复按下恢复；10ms 抖动、130ms 合法校准点；离页/重进无残留 |
 | V07 | 干净三组句号、完整/分片控制码、首组/前组改错、连续翻页；正文保留、控制符不残留 #；未知码仍显式标识 |
-| V08 | 两客户端/两实例并发首取同一未生成页 hash 一致；重复填报与三页改两页不留尾页；两教员通知一致；断链/丢通知恢复；综合组网服务端评分 |
+| V08 | 两客户端/两实例并发首取同一未生成页hash一致；重复填报/三页改两页不留尾页；两教员通知一致、丢通知恢复；综合组网服务端评分；Web教员+Electron学员与反向组合都验证同房间提交/通知/详情 |
 | V09 | 结束后新进入/刷新/重连都能看每个已提交学员；错误页/超页清晰；G3 若要求草稿则验证训练中更新、授权及不提前结算 |
 | V10 | postJob/组训跟随速度且 preJob 不回归；F2 合法组合/普通输入；串口接收→入队→音频输出时间记录，达到 G2 确认阈值 |
 | V11 | 配置保存/重进/再保存数值不漂移；postJob 对应配置生效；基础分级已存在且继续有效；空/坏/慢加载不崩溃，非法保存旧数据不变 |
-| V12 | 同 SHA 双端安装包与资源 hash；有效 DOCX/XLSX 闭环、无效行全回滚、默认题库绑定正确；真实建卷/交卷/查成绩；目标机版本和授权证据 |
+| V12 | 同SHA的Web站点dist资源与Electron安装包资源分别核验，并与配套BE对齐；有效DOCX/XLSX闭环、无效行全回滚、默认题库绑定；两模式真实建卷/交卷/查成绩；W-HTTPS无活跃混合内容、hash路由刷新/缓存更新正常，W-HTTP能力限制明确，E-PACK实际IPC/配置可用 |
 | V13 | A token/B 身份、非参训者、非管理教员均不能改他人记录；正常学生与授权教员结束全员正常；新 DTO/API 无旧身份参数 |
 
 ## 9. 验证与完成定义
