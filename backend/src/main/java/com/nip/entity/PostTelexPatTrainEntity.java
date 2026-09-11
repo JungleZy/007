@@ -137,6 +137,7 @@ public class PostTelexPatTrainEntity {
   /**
    * 内容
    */
+  @Column(columnDefinition = "text")
   private String content;
 
   /**
@@ -158,11 +159,13 @@ public class PostTelexPatTrainEntity {
   /**
    * 具体评分规则
    */
+  @Column(columnDefinition = "longtext")
   private String ruleContent;
 
   /**
    * 扣分规则
    */
+  @Column(columnDefinition = "longtext")
   private String deductInfo;
 
   /**

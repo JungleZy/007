@@ -115,6 +115,7 @@ public class GeneralTickerPatTrainEntity {
   /**
    * 评分规则信息
    */
+  @Column(columnDefinition = "longtext")
   private String ruleContent;
 
   /**

@@ -26,6 +26,7 @@ public class GradingRuleEntity {
   private Integer score; // 总分
   private Integer status = 0; // 状态，0，启用，1，关闭
   private Integer isDefault = 1; // 是否使默认，0，使，1，否
+  @Column(columnDefinition = "longtext")
   private String content; // 规则json
 
 }

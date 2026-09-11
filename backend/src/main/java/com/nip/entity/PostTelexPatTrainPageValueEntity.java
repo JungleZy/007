@@ -30,6 +30,7 @@ public class PostTelexPatTrainPageValueEntity {
   /**
    * 拍发内容
    */
+  @Column(columnDefinition = "longtext")
   private String patValue;
 
 }

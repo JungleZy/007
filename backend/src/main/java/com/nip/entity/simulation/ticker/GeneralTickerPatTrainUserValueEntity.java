@@ -41,21 +41,25 @@ public class GeneralTickerPatTrainUserValueEntity implements Serializable {
   /**
    * 客户按下松开的时间
    */
+  @Column(columnDefinition = "longtext")
   private String messageBody;
 
   /**
    * 基准值
    */
+  @Column(columnDefinition = "longtext")
   private String standard;
 
   /**
    * 完成信息
    */
+  @Column(columnDefinition = "longtext")
   private String finishInfo;
 
   /**
    * 解析后的报文格式内容
    */
+  @Column(columnDefinition = "longtext")
   private String resolver;
 
 }

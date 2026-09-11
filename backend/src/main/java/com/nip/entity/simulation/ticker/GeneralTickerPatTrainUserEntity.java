@@ -61,11 +61,13 @@ public class GeneralTickerPatTrainUserEntity implements Serializable {
   /**
    * 扣分详情
    */
+  @Column(columnDefinition = "longtext")
   private String deductInfo;
 
   /**
    * 统计信息 点、划、间隔
    */
+  @Column(columnDefinition = "longtext")
   private String statisticInfo;
 
   /**
