@@ -42,27 +42,30 @@ class PostTelegramTrainScoreTest {
   }
 
   @Test
-  void speedAboveBaseAddsScoreWithLCoefficient() {
+  void speedAboveBaseAddsScoreWithRCoefficient() {
     Map<String, Integer> deductMap = new HashMap<>();
-    saveResultWithSpeed("100", deductMap); // base=70，高于 30，l=1 → +30
+    PostTelegramTrainEntity result = saveResultWithSpeed("100", deductMap);
 
-    assertEquals(30, deductMap.get("wpmScore"), "高于基准必须按 l 加分");
+    assertEquals(60, deductMap.get("wpmScore"));
+    assertEquals("160", result.getScore());
   }
 
   @Test
-  void speedBelowBaseDeductsWithRCoefficient() {
+  void speedBelowBaseDeductsWithLCoefficient() {
     Map<String, Integer> deductMap = new HashMap<>();
-    saveResultWithSpeed("60", deductMap); // base=70，低于 10，r=2 → -20
+    PostTelegramTrainEntity result = saveResultWithSpeed("60", deductMap);
 
-    assertEquals(-20, deductMap.get("wpmScore"), "低于基准必须按 r 扣分");
+    assertEquals(-10, deductMap.get("wpmScore"));
+    assertEquals("90", result.getScore());
   }
 
-  private static void saveResultWithSpeed(String speed, Map<String, Integer> deductMap) {
+  private static PostTelegramTrainEntity saveResultWithSpeed(String speed, Map<String, Integer> deductMap) {
     PostTelegramTrainRule rule = parseContent(RULE_JSON);
     PostTelegramTrainEntity entity = new PostTelegramTrainEntity();
     PostTelegramTrainFinishDto dto = new PostTelegramTrainFinishDto();
     dto.setSpeed(speed);
     PostTelegramTrainService.saveTrainResult(entity, new PostTelegramTrainScoreVO(), 100,
         new PostTelegramTrainStatisticsVO(), deductMap, rule, dto);
+    return entity;
   }
 }

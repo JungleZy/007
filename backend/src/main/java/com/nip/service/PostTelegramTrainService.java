@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelegramTrainContentValueDao;
 import com.nip.dao.PostTelegramTrainDao;
@@ -810,12 +811,12 @@ public class PostTelegramTrainService {
 
     entity.setSpeed(dto.getSpeed());
 
-    // 速率加减分：高于基准加分（l=高于加分）、低于基准扣分（r=低于扣分），与 SpeedDeduct 字段语义及其余训练一致（P1-02）
+    // 与公共评分契约一致：高于基准按r加分，低于基准按l扣分。
     SpeedDeduct baseWpm = rule.getWpm();
     int speed = new BigDecimal(entity.getSpeed()).intValue();
-    int wpmScore = speed > baseWpm.getBase()
-        ? (speed - baseWpm.getBase()) * baseWpm.getL()
-        : -((baseWpm.getBase() - speed) * baseWpm.getR());
+    int wpmScore = ScoreMath.wpmScore(baseWpm.getBase(),
+        baseWpm.getR() == null ? null : BigDecimal.valueOf(baseWpm.getR()),
+        baseWpm.getL() == null ? null : BigDecimal.valueOf(baseWpm.getL()), speed).intValue();
     deductMap.put("wpmScore", wpmScore);
     score += wpmScore;
 

@@ -17,12 +17,12 @@ public  class SpeedDeduct {
   Integer base;
 
   /**
-   * 低于扣分
+   * 高于基准的加分系数
    */
   Integer r;
 
   /**
-   * 高于加分
+   * 低于基准的扣分系数
    */
   Integer l;
 
