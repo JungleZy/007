@@ -887,7 +887,7 @@ public class GeneralTickerPatService {
     deductMap.put("dotMinScore", dotScore);
     deductMap.put("dotMinNumber", scoreVO.getDotScore());
 
-    int lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDot().getMax());
+    int lineScore = calculateScore(rule.getDash().getMax(), scoreVO.getLineScore(), rule.getDash().getMax());
     score -= lineScore;
     deductMap.put("lineScore", lineScore);
     deductMap.put("lineNumber", scoreVO.getLineScore());
@@ -983,8 +983,7 @@ public class GeneralTickerPatService {
 
   /**
    * 速率加减分：委托全仓唯一实现 {@link ScoreMath#wpmScore(int, BigDecimal, BigDecimal, int)}，
-   * 高于基准按 R 加分、低于基准按 L 扣分（SpeedDeduct 的字段注释与实际用法相反，以调用代码为准）。
-   * SpeedDeduct 四字段全 Integer，转 BigDecimal 再 intValue() 与旧的纯 int 运算逐值相等。
+   * 高于基准按 R 加分、低于基准按 L 扣分。
    *
    * @param baseWpm 速率规则
    * @param speed   本次训练的平均拍发速度
