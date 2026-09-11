@@ -852,7 +852,7 @@ public class PostTelexPatTrainService {
       // 创建扣分信息Map
       String minus = "-";
       Map<String, Object> deductMap = new HashMap<>();
-      BigDecimal score = new BigDecimal(100);
+      BigDecimal score = new BigDecimal(entity.getScore());
 
       BigDecimal errorCodeScore = new BigDecimal(ks.getErrorCodeNumber()).multiply(rule.getOther().getErrorCode());
       deductMap.put("errorCodeNumber", ks.getErrorCodeNumber());

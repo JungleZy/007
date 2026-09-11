@@ -1,18 +1,33 @@
 package com.nip.service;
 
+import com.google.gson.reflect.TypeToken;
+import com.nip.common.utils.JSONUtils;
+import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
 import com.nip.dao.PostTelexPatTrainPageDao;
+import com.nip.dao.UserDao;
+import com.nip.dto.PostTelexPatTrainDto;
+import com.nip.dto.vo.PostTelexPatTrainPageValueVO;
 import com.nip.dto.vo.PostTelexPatTrainVO;
 import com.nip.dto.vo.param.PostTelexPatTrainFinishParam;
+import com.nip.dto.vo.param.PostTelexPatTrainParam;
+import com.nip.entity.GradingRuleEntity;
 import com.nip.entity.PostTelexPatTrainEntity;
 import com.nip.entity.PostTelexPatTrainPageEntity;
+import com.nip.testsupport.Fixtures;
 
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import static com.nip.common.constants.PostTelexPatTrainStatusEnum.FINISH;
 import static com.nip.common.constants.PostTelexPatTrainStatusEnum.UNDERWAY;
@@ -31,6 +46,76 @@ class PostTelexPatTrainServiceTest {
   @Inject PostTelexPatTrainService service;
   @Inject PostTelexPatTrainDao trainDao;
   @Inject PostTelexPatTrainPageDao pageDao;
+  @Inject GradingRuleDao gradingRuleDao;
+  @Inject UserDao userDao;
+
+  @ParameterizedTest
+  @CsvSource({"80,73", "100,93"})
+  void finishDeductsFromCapturedRuleScoreOnlyOnce(int fullScore, int expectedScore) {
+    String token = "telex-score-" + UUID.randomUUID();
+    Fixtures.user(userDao, token);
+    GradingRuleEntity rule = new GradingRuleEntity();
+    rule.setType(2);
+    rule.setTitle("telex-score-" + fullScore);
+    rule.setScore(fullScore);
+    rule.setContent("{\"wpm\":{\"base\":10,\"r\":1,\"l\":2},\"other\":{\"errorCode\":7,"
+        + "\"muchLessGroups\":3,\"correctMistakes\":2,\"lessPage\":4,\"lessReturnLine\":5,"
+        + "\"muchLessLine\":6,\"muchLessCode\":3,\"errorPage\":4,\"nonStandart\":2}}");
+    rule = gradingRuleDao.save(rule);
+
+    PostTelexPatTrainDto dto = new PostTelexPatTrainDto();
+    dto.setName("telex-score-" + fullScore);
+    dto.setRuleId(rule.getId());
+    dto.setTrainType(0);
+    dto.setType(0);
+    dto.setPatType(0);
+    dto.setGroupNumber(10);
+    String trainId = service.save(dto, token).getId();
+    PostTelexPatTrainParam trainParam = new PostTelexPatTrainParam();
+    trainParam.setId(trainId);
+    service.begin(trainParam);
+
+    // 读取真实生成的数字报底，仅替换首组；四位字母不可能匹配其它数字组。
+    List<String> groups = new ArrayList<>(pageDao.findByTrainIdOrderBySort(trainId).stream()
+        .map(PostTelexPatTrainPageEntity::getKey).toList());
+    groups.set(0, "AAAA");
+    PostTelexPatTrainPageValueVO page = new PostTelexPatTrainPageValueVO();
+    page.setTrainId(trainId);
+    page.setPageNumber(1);
+    page.setPatValue(String.join(" ", groups));
+    page.setSpeed("10");
+    page.setValidTime(60);
+    service.finishPage(page);
+
+    // 后续编辑规则不应改变本次训练创建时捕获的满分。
+    rule.setScore(fullScore + 20);
+    gradingRuleDao.save(rule);
+    PostTelexPatTrainFinishParam finishParam = new PostTelexPatTrainFinishParam();
+    finishParam.setId(trainId);
+    finishParam.setTotalSpeed("10");
+    PostTelexPatTrainVO result = service.finish(finishParam);
+
+    assertEquals(0, BigDecimal.valueOf(expectedScore).compareTo(new BigDecimal(result.getScore())));
+    assertEquals(1, result.getErrorNumber());
+    assertEquals(FINISH.getStatus(), result.getStatus());
+    Map<String, String> deductions = JSONUtils.fromJson(result.getDeductInfo(),
+        new TypeToken<Map<String, String>>() {});
+    assertEquals("1", deductions.get("errorCodeNumber"));
+    assertEquals("-7", deductions.get("errorCodeScore"));
+    BigDecimal adjustment = deductions.entrySet().stream()
+        .filter(entry -> entry.getKey().endsWith("Score"))
+        .map(entry -> new BigDecimal(entry.getValue()))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+    assertEquals(0, BigDecimal.valueOf(fullScore).add(adjustment)
+        .compareTo(new BigDecimal(result.getScore())), "最终分必须与返回的扣分明细一致");
+
+    PostTelexPatTrainVO repeated = service.finish(finishParam);
+    PostTelexPatTrainVO persisted = service.detail(trainParam);
+    assertEquals(result.getScore(), repeated.getScore(), "重复完成不得从已扣分结果再次扣分");
+    assertEquals(result.getDeductInfo(), repeated.getDeductInfo());
+    assertEquals(result.getScore(), persisted.getScore());
+    assertEquals(result.getDeductInfo(), persisted.getDeductInfo());
+  }
 
   @Test
   void finishOnFinishedTrainReturnsWithoutRecount() {
