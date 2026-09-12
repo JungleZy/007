@@ -59,6 +59,7 @@ import com.nip.entity.simulation.ticker.GeneralTickerPatTrainUserValueEntity;
 import com.nip.service.CableFloorService;
 import com.nip.service.MessageComparisonService;
 import com.nip.service.UserService;
+import com.nip.service.TrainWriteAccess;
 import com.nip.ws.WebSocketGeneralTickerPatService;
 import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
@@ -107,6 +108,9 @@ public class GeneralTickerPatService {
   RoomDeletionTransaction roomDeletionTransaction;
   @Inject
   GeneralPatResultNotifier resultNotifier;
+
+  /** 写授权的唯一口径。构造器已被现存用例以固定实参列表调用，这里用字段注入避免改签名。 */
+  @Inject TrainWriteAccess trainWriteAccess;
 
   @Inject
   public GeneralTickerPatService(UserService userService, GeneralTickerPatTrainDao trainDao,
@@ -270,7 +274,16 @@ public class GeneralTickerPatService {
     return PojoUtils.convertOne(save, GeneralTickerPatTrainVO.class);
   }
 
-  public boolean delete(Integer trainId) {
+  /**
+   * 解散抄报组训。口径 = 创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员，见 {@link TrainWriteAccess}。
+   * 属主字段是 {@code createUser}（各域字段名不同，这里显式传入）。
+   */
+  public boolean delete(Integer trainId, String token) {
+    String actorId = userService.getUserByToken(token).getId();
+    GeneralTickerPatTrainEntity train = Optional.ofNullable(trainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    trainWriteAccess.requireWritableTrain(actorId, train.getCreateUser(), () -> organizer(trainId, actorId),
+        "抄报组训 " + trainId);
     Lock lock = RoomLifecycleLocks.generalTickerRoom(trainId);
     GeneralTickerPatTrainRoomUserModel removed;
     boolean deleted;
@@ -628,7 +641,10 @@ public class GeneralTickerPatService {
   }
 
   /**
-   * 开放给sockett的接口
+   * 开放给sockett的接口。
+   *
+   * <p>写口径统一为「创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员」（{@link TrainWriteAccess}）：
+   * 组训人常常不是建训人，收窄到「仅创建者」会让他开不了自己带的训练；拒绝码由旧的 202 改为 207。
    *
    * @param dto 参数
    */
@@ -636,11 +652,8 @@ public class GeneralTickerPatService {
   public void updateStatus(GeneralTickerPatTrainUpdateDto dto, String token) {
     String userId = userService.getUserByToken(token).getId();
     GeneralTickerPatTrainEntity tickerPatTrain = lockedTrain(dto.getTrainId());
-    GeneralTickerPatTrainUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId());
-    if (!Objects.equals(tickerPatTrain.getCreateUser(), userId)
-        && (member == null || !Objects.equals(member.getRole(), 1))) {
-      throw new IllegalArgumentException("无权管理该训练");
-    }
+    trainWriteAccess.requireWritableTrain(userId, tickerPatTrain.getCreateUser(),
+        () -> organizer(dto.getTrainId(), userId), "抄报组训 " + dto.getTrainId());
     requireProtocol(tickerPatTrain);
     if (!Objects.equals(dto.getStatus(), 1) && !Objects.equals(dto.getStatus(), 2)) {
       throw new IllegalArgumentException("训练状态不合法");
@@ -671,8 +684,12 @@ public class GeneralTickerPatService {
 
   @Transactional
   public List<Integer> closingTrainIds() {
-    return trainDao.find("protocolVersion = 1 and status = 3 and endTime <= ?1", LocalDateTime.now().minusSeconds(60))
-        .list().stream().map(GeneralTickerPatTrainEntity::getId).toList();
+    // 只投影主键：该查询每 5 秒由收尾定时器执行一次，取整行会把 ruleContent 等 longtext 一并载入持久化上下文后立刻丢弃。
+    return trainDao.getEntityManager().createQuery(
+            "select id from general_ticker_pat where protocolVersion = 1 and status = 3 and endTime <= :deadline",
+            Integer.class)
+        .setParameter("deadline", LocalDateTime.now().minusSeconds(60))
+        .getResultList();
   }
 
   @Transactional
@@ -754,6 +771,12 @@ public class GeneralTickerPatService {
       throw new IllegalArgumentException("未查询到该用户的学员参训记录");
     }
     return member;
+  }
+
+  /** 「调用者是该训练内的 {@code role=1} 组训人」。 */
+  private boolean organizer(Integer trainId, String actorId) {
+    GeneralTickerPatTrainUserEntity member = trainUserDao.findByUserIdAndTrainId(actorId, trainId);
+    return member != null && Objects.equals(member.getRole(), 1);
   }
 
   private GeneralTickerPatTrainUserEntity readableMember(GeneralTickerPatTrainEntity train, String requestedUser, String token) {
