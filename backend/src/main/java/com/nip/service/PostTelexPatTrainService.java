@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
 import com.nip.common.utils.CaptureTimeline;
@@ -644,12 +645,15 @@ public class PostTelexPatTrainService {
     }
   }
 
+  /**
+   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207（ForbiddenException），两者不再折叠。
+   */
   private PostTelexPatTrainEntity requireOwnedTrain(String trainId, String token) {
     UserEntity user = userService.getUserByToken(token);
     PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
     if (user == null || !Objects.equals(user.getId(), entity.getCreateUser())) {
-      throw new IllegalArgumentException("无权访问该训练");
+      throw new ForbiddenException("非创建者访问个人电传训练 " + trainId);
     }
     return entity;
   }
@@ -1634,7 +1638,8 @@ public class PostTelexPatTrainService {
       ret.put("irregularityNumber", irregularityCount);
 
       return ret;
-    } catch (IllegalArgumentException | IllegalStateException e) {
+    } catch (ForbiddenException | IllegalArgumentException | IllegalStateException e) {
+      // 同上：授权拒绝不得被兜底降级为 500。
       throw e;
     } catch (Exception e) {
       log.error("解析报文出错", e);

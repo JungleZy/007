@@ -2,6 +2,7 @@ package com.nip.service;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
@@ -945,11 +946,18 @@ public class PostTelegramTrainService {
     return postTelegramTrainDao.deleteById(trainId);
   }
 
+  /**
+   * 训练属主判定。不存在与无权是两种拒绝：前者 202（参数/目标问题），后者 207（身份成立但无权限），
+   * 不再像旧实现那样都折叠成「训练不存在或无权访问」的 202。
+   */
   private PostTelegramTrainEntity owned(String id, String token, boolean lock) {
     UserEntity user = userService.getUserByToken(token);
     PostTelegramTrainEntity entity = lock ? postTelegramTrainDao.findById(id, LockModeType.PESSIMISTIC_WRITE) : postTelegramTrainDao.findById(id);
-    if (entity == null || user == null || !Objects.equals(entity.getCreateUser(), user.getId())) {
-      throw new IllegalArgumentException("训练不存在或无权访问");
+    if (entity == null) {
+      throw new IllegalArgumentException("未查询到训练");
+    }
+    if (user == null || !Objects.equals(entity.getCreateUser(), user.getId())) {
+      throw new ForbiddenException("非创建者访问个人手键训练 " + id);
     }
     return entity;
   }

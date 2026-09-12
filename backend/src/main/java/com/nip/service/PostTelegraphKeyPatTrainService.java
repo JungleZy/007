@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.constants.PostTelegraphKeyPatTrainEnum;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
@@ -264,7 +265,9 @@ public class PostTelegraphKeyPatTrainService {
           v.setPageNumber(pageDao.findMaxPageNumber(id));
         }
       });
-    } catch (IllegalArgumentException | IllegalStateException e) {
+    } catch (ForbiddenException | IllegalArgumentException | IllegalStateException e) {
+      // 授权拒绝与业务校验异常必须原样上抛，否则会被下面的兜底包成 RuntimeException -> 500，
+      // 越权调用方会看到系统错误而不是 207/202 信封。
       throw e;
     } catch (Exception e) {
       log.error("查询训练详情失败，训练ID: {}", id, e);
@@ -656,6 +659,9 @@ public class PostTelegraphKeyPatTrainService {
     return user;
   }
 
+  /**
+   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207（ForbiddenException），两者不再折叠。
+   */
   private PostTelegraphKeyPatTrainEntity owned(String id, String token, boolean lock) {
     UserEntity user = requireUser(token);
     if (id == null || id.isBlank()) {
@@ -663,8 +669,11 @@ public class PostTelegraphKeyPatTrainService {
     }
     PostTelegraphKeyPatTrainEntity entity = lock
         ? patTrainDao.findById(id, LockModeType.PESSIMISTIC_WRITE) : patTrainDao.findById(id);
-    if (entity == null || !Objects.equals(entity.getCreateUserId(), user.getId())) {
+    if (entity == null) {
       throw new IllegalArgumentException(TRAINING_NOT_FOUND);
+    }
+    if (!Objects.equals(entity.getCreateUserId(), user.getId())) {
+      throw new ForbiddenException("非创建者访问个人电子键训练 " + id);
     }
     return entity;
   }
