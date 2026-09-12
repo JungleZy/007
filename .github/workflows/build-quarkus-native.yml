@@ -62,8 +62,8 @@ jobs:
         run: node --test 'scripts/test/*.test.mjs'
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Test question import contracts
-        run: npm run test:question-import
+      - name: Test frontend contracts
+        run: npm run test
       - name: Build frontend
         run: npm run build
       - name: Package deployable Web artifact
