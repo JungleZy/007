@@ -3,6 +3,7 @@ package com.nip.service;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.security.SessionToken;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
 import com.nip.dto.*;
@@ -112,10 +113,11 @@ class PostTelegramTrainServiceTest {
     PostTelegramTrainVO next = service.begin(train.getId(), 1, token);
     assertEquals(1, next.getAttempt());
     assertTrue(contentValueDao.findAllByTrainIdOrderByFloorNumber(train.getId()).isEmpty());
-    assertThrows(IllegalArgumentException.class, () -> service.saveContentValue(old, token));
-    assertThrows(IllegalArgumentException.class, () -> service.finish(staleFinish, token));
-    assertThrows(IllegalArgumentException.class, () -> service.stop(train.getId(), 0, token));
-    assertThrows(IllegalArgumentException.class, () -> service.begin(train.getId(), 0, token));
+    // 轮次栅栏与已完成状态都是业务终态（208）：旧轮次的页/结算/停止/开始重试永远不会成功。
+    assertThrows(TerminalStateException.class, () -> service.saveContentValue(old, token));
+    assertThrows(TerminalStateException.class, () -> service.finish(staleFinish, token));
+    assertThrows(TerminalStateException.class, () -> service.stop(train.getId(), 0, token));
+    assertThrows(TerminalStateException.class, () -> service.begin(train.getId(), 0, token));
     assertEquals(1, trainDao.findById(train.getId()).getStatus());
     assertEquals("137", trainDao.findById(train.getId()).getScore());
   }

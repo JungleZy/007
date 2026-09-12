@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.nip.common.security.SessionToken;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
 import com.nip.dto.CaptureInterval;
@@ -143,7 +144,8 @@ class PostTelegraphKeyPatTrainServiceTest {
     PostTelegraphKeyPatTrainPageDto delayed = page(train, 2, 1000, 2000, "1");
     PostTelegraphKeyPatTrainVO reset = service.reset(action(train), token);
     assertEquals(1, reset.getAttempt());
-    assertThrows(IllegalArgumentException.class, () -> service.finishPage(delayed, token));
+    assertThrows(TerminalStateException.class, () -> service.finishPage(delayed, token),
+        "重置后旧轮次的页提交是业务终态（208）");
     assertEquals(List.of(), rawDao.findPages(train.getId()));
     assertEquals(List.of(), valueDao.findByTrainIdOrderByPageNumberAscSortAsc(train.getId()));
     assertEquals(NOT_STARTED.getStatus(), trainDao.findById(train.getId()).getStatus());
