@@ -5,8 +5,8 @@
 - `docs/reviews/2026-09-08-full-project-review.md`：**当前唯一的全项目评审入口**，覆盖前后端、数据库、部署和验证结果。
 - `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：当前联合评审的详细契约证据，供修改跨栈接口前查阅。
 - `docs/reviews/archive/`：历史评审、分片、审计、整改核销和迁移演练记录，仅作为取证档案，不代表当前代码状态。
-- `docs/specs/`：整改规格。
-- `docs/plans/`：整改计划和执行记录。
+- `docs/specs/`：整改规格；`docs/specs/archive/`：已闭环的历史规格（2026-08-26、2026-09-07、2026-09-08 偏离闭合）。
+- `docs/plans/`：整改计划和执行记录；`docs/plans/archive/`：已闭环的历史计划（2026-08-26、2026-08-28、2026-09-07 波次与 2026-09-09 已完成的决策/spike）。
 - `docs/guides/`：专题说明。
 
 库快照、迁移脚本和迁移演练产物不属于文字文档，继续保留在 `backend/database/`。
@@ -18,6 +18,8 @@
 | 了解当前全项目状态 | [`reviews/2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) |
 | 修改跨栈契约 | [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) + 全项目评审 |
 | 承接整改任务 | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) + [`plans/2026-09-08-joint-fix-plan.md`](plans/2026-09-08-joint-fix-plan.md) |
+| 全量 Rust 后端重写计划 | [`plans/2026-09-10-rust-full-rewrite-plan.md`](plans/2026-09-10-rust-full-rewrite-plan.md) |
+| Rust 后端重构可行性评估 | [`specs/2026-09-10-rust-backend-feasibility.md`](specs/2026-09-10-rust-backend-feasibility.md) |
 | 查询历史分片证据 | [`reviews/archive/`](reviews/archive/) |
 | 查询数据库迁移证据 | `backend/database/rehearsal/` + `reviews/archive/*migration-rehearsal.md` |
 
@@ -48,6 +50,7 @@
 - 2026-09-07 后端分片、审计和整改核销；
 - 2026-09-08 前端单侧评审和联合评审分片；
 - 2026-08-28、2026-09-07、2026-09-08 迁移演练文字记录；
+- `specs/archive/` 与 `plans/archive/`：已闭环验收的历史整改规格与计划，仅作追溯；
 - 历史整改验收记录。
 
 ## 路径约定

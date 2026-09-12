@@ -1,7 +1,7 @@
 # 客户报障整改实施计划（Plan）
 
 - 日期：2026-09-10
-- 状态：**T00仓内基线、T01仓内交付链与T15仓内题库/理论操作验证已完成；正式发布未完成**。按用户要求继续推进后续任务；G1–G3业务决定、G4客户部署/安装器/硬件与正式验收仍单独跟踪。
+- 状态：**T00–T16 仓内实现与运行验证已完成（2026-09-12：backend clean verify 316 项全绿、前端构建与真实页面验证、真实桌面打包）；T17 只剩发布负责人与 G4 现场交付未完成，本计划因此保持未完成**。逐项终态见 §5.5，模式边界见 T00.2 台账。
 - 依据：[`../reviews/2026-09-10-customer-issue-analysis.md`](../reviews/2026-09-10-customer-issue-analysis.md)；规格：[`../specs/2026-09-10-customer-issue-fix-spec.md`](../specs/2026-09-10-customer-issue-fix-spec.md)。
 - 源码取证基线：`3360221`；执行时记录实际提交。既有联合计划中已完成的事项只回归，不重新算本计划成果。
 
@@ -106,21 +106,23 @@ npm ls electron electron-builder --depth=0
 
 | 验收 | 对应任务 | 已有证据与当前状态 | 仍需完成/门禁 |
 |---|---|---|---|
-| V01 凭证/授权 | T16 | 待实施；T00有既有鉴权基线，T01有两模式启动证据，未验证稳定ID/时长预警目标 | T16实现及G4实际存储/授权环境 |
-| V02 音频节拍 | T10 | 前置资源验证完成：实际processor可加载且hash一致；节拍精度未验收 | G2校准口径、T10实现、G4设备/采样率 |
-| V03 权威评分 | T02/T08/T14 | 待实施；T00评分相关既有测试不覆盖全部新目标 | T02确定性修复；G1冻结后实施T08/T14及原始记录对账 |
-| V04 提交/幂等 | T03/T08 | 待实施；T01网络探针不等于训练失败重试/并发结算验收 | T03；G1相关轮次/时序契约及T08；G4端到端场景 |
-| V05 倒计时 | T03/T09 | 待实施；尚未验证跨零、暂停、离线与重启恢复 | G1截止/暂停/迟到规则，T03/T09及G4 |
-| V06 有序采集 | T05/T07 | 待实施；未以模拟帧或资源加载冒充真实采集 | T05；G2相关配置优先级、T07与G4串口设备 |
-| V07 控制符 | T06 | 待实施；翻页/改错正文保护尚无修复后证据 | T05/T06有序事件与控制符场景；真实输入补G4 |
-| V08 组网一致性 | T11/T12/T13/T14 | 前置传输验证完成：T01实际WS代理探针通过；并发报底、答案、业务推送和混合房间未验收 | T11/T12；G1/G3对应语义、T13/T14及G4 |
-| V09 学员详情 | T11/T12/T13 | 待实施；未将已有端点存在或授权页启动当详情验收 | G3实时草稿/结束明细决定；T11/T12/T13及G4 |
-| V10 电子键响应 | T10 | 前置启动/资源验证完成；速度跟随和按键到声音延迟未验收 | G2合法组合/延迟阈值，T10及G4目标设备 |
-| V11 训练配置 | T07 | 待实施；T01修的是网络端口配置，不是点划训练配置 | G2相关映射/优先级、T07保存往返与基础区间场景 |
-| V12 双模式交付/题库 | T01/T15/T17 | 局部已验证：T01交付链；T15 Web/Electron实际XLSX/DOCX往返、错误行与跨库拒绝、真实隔离后端建卷建考、学员页面交卷和教员页面阅卷（10分/state4） | G4云CI/可信部署/安装器/客户业务与配套native；T17汇总，不以合成数据验收替代客户确认 |
-| V13 学员授权归属 | T04 | 待实施；未以既有JWT测试代替General手键/电子键所有权验收 | T04跨栈切换及实际学生/教员场景 |
+| V01 凭证/授权 | T16 | 仓内完成（BE+W-HTTP+桌面首启）：203/204/206 提示分别解释、604800 秒阈值预警实测、桌面设备码含哨兵槽、机器级副本写失败如实报错不清库 | 真实多机互踢/长期凭证与可信存储环境属 G4 |
+| V02 音频节拍 | T10 | 仓内完成（离线渲染矩阵）：44.1/48kHz × short/long/letter/mix × 常速/低速 6 组，边界误差 ≤1 sample、静音段严格为 0、进度事件顺序一致 | 真实声卡输出与按键到声音延迟属 G4（W-HTTPS/E-PACK） |
+| V03 权威评分 | T02/T08/T14 | 仓内完成（BE+W-HTTP）：四域保存记录→speed/用时/扣分同源，页面单位与数值一致（§5.4）；客户端汇总篡改无效；组网冻结规则评分 14 例 | 客户历史数据对账属 G4 |
+| V04 提交/幂等 | T03/T08 | 仓内完成：真实注入 code!=200、响应丢失、finish 拒绝均保留内容可重试；重试/乱序/reset 栅栏与末次写库失败整体回滚有回归 | 客户长断网与大并发规模未覆盖 |
+| V05 倒计时 | T03/T09 | 仓内完成：窗口内补交入库、越界区间拒绝、无人 finish 由 5 秒扫描结算、结算后迟到页拒绝；新增锁等待跨窗口回归（双模式） | 服务重启矩阵仅隔离环境；客户端后台节流属 G4 |
+| V06 有序采集 | T05/T07 | 仓内完成（模拟帧 + 真实壳 IPC）：同帧连续相同码按序落库为 `["1","1","2"]`；抖动/分包/未知字节按帧长恢复 | 真实串口硬件采样精度与时间戳属 G4 |
+| V07 控制符 | T06 | 仓内完成：控制符优先识别、临时项只撤销自身、未知码保留 `#`、`legnth` 缺陷消除 | 真实长时手键操作属 G4 |
+| V08 组网一致性 | T11/T12/T13/T14 | 仓内完成：并发首读同页一致、整份重填删旧尾页、事务中断恢复、事务后通知双教员 37ms/21ms、丢通知 4998ms 补偿、双向混合房间提交与对齐 | 多机规模/跨网段属 G4 |
+| V09 学员详情 | T11/T12/T13 | 仓内完成：结束后教员页显示每人已提交明细与漏/多码对齐，三类房型详情按 roomId 绑定并校验成员 | 不含实时草稿（G3 决定）；客户场景属 G4 |
+| V10 电子键响应 | T10 | 部分完成：换算入口统一、未 ready 明确禁用并可恢复提示、processor 样本累计修复 | 按键到声音延迟阈值需真实设备（G4） |
+| V11 训练配置 | T07 | 仓内完成：毫秒往返不漂移、坏配置不清空旧值（6 例） | — |
+| V12 双模式交付/题库 | T01/T15/T17 | 仓内完成（W-HTTP/E-PACK 制品层）：dist 与 asar 同源且含本轮改动；题库 XLSX/DOCX 往返、错误行回滚、跨库拒绝、建卷建考阅卷闭环 | 客户真实站点、安装器、云 CI、客户数据验收属 G4 |
+| V13 学员授权归属 | T04 | 仓内完成：A/B 身份、非参训者、非教员均不能改他人记录；新 DTO 无旧身份参数 | 管理端角色授权（红线 6）为独立议题 |
 
-**T00整体仍未完成的原因**：T00.1环境基线与本台账可在仓内完成；G1评分/时间轴、G2节拍/配置、G3可见性决定以及G4客户现场清单尚未齐备。前者可继续整理源码事实，最终业务含义不能由实现者擅定；后者不能由本地探针替代。门禁按关联任务生效，因此T01及T02/T15等确定性工作不必等待所有G项，但T08/T09/T14、T07/T10语义调整与T13不能越过各自门禁。
+**T00进展更新**：环境与台账已完成；用户已确认Spec §3.1的分域单位、有效采集、固定35拉间隔、结束明细对齐及60秒补交窗口。剩余为仓内可完成的DTO/规则版本/迁移设计，不再等待这些业务选择。G4按用户选择转后续真实现场验收；本轮须完成全部仓内代码与验证，不假称正式发布通过。
+
+2026-09-11补充：用户确认General教员手动结束采用“学员收到通知时停止”，保留60秒补交与最终原子结算，不按教员HTTP请求时刻硬截断晚收到通知的合法最后页；倒计时仍严格按服务端deadline。需要先处理停止通知之前收到的输入队列，不能把status3当作丢弃队列的理由。
 
 
 
@@ -189,20 +191,22 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：`backend/src/main/java/com/nip/service/PostTelexPatTrainService.java`、`backend/src/main/java/com/nip/service/PostTelegramTrainService.java`、`backend/src/main/java/com/nip/service/general/GeneralTickerPatService.java` 及受影响评分测试。
 
-- [ ] PostTelex trainType!=4 以规则满分起评；用非 100 满分原始记录验证扣分与最终分。
-- [ ] PostTelegram 高于 r 加、低于 l 扣，与 ScoreMath 对账；移除反向旧注释，不改业务规则字段含义。
-- [ ] General 手键划线 cap 改为 dash.max；dot.max=1/dash.max=5/lineScore=7 最终成绩与扣分明细均正确。
+- [x] PostTelex trainType!=4以训练创建时捕获的满分起评；真实记录验证80扣7得73、100扣7得93，修改原规则及重复finish不改变已结算结果（ce3cc09）。
+- [x] PostTelegram高于r加、低于l扣，复用ScoreMath；修正SpeedDeduct反向注释（6eb28ee）。
+- [x] General手键划线cap取dash.max；完整保存/结算/报表回读验证划扣5、点扣1、错组扣3，满分150得141（e7c757f）。
 
 **提交**：上面三项各自一个可回滚修复提交；每项带它保护的行为回归。**验证**：V03 中对应案例；既有工具函数测试不能代替 General 活跃结算。
+
+**2026-09-11仓内证据**：`PostTelegramTrainScoreTest,PostTelexPatTrainServiceTest,PostTelexPatTrainScoreTest,GeneralTickerPatScoreTest,EntitySchemaSnapshotRehearsal`共12项，失败/错误/跳过均0。初次完整General结算因deduct_info默认varchar(255)真实失败；独立提交8454687扩容并对齐12个评分/原始载荷映射。迁移`backend/database/migrations/2026-09-10-02-scoring-json-capacity.sql`已接双快照演练：两侧105表、0 MyISAM、目标列容量正确、实体差分均空；证据`backend/database/rehearsal/2026-09-11-t02-scoring-json/`。没有操作生产库或重算历史成绩。全部工作包完成后仍须统一clean verify。
 
 ### T03 提交失败恢复与结束原子性（R04/R05/M1/M3，P1）
 
 **文件**：postJob 数据报 `telexTrain.js`/`trainScore.js` 活跃调用树、电子键组训 `handKeyTrain.js`、相应后端 service；以 API 模块 `TelegramApi.js`、`electronKeyZuXun.js` 搜索实际消费者。
 
-- [ ] 先复现 code 非200、reject、响应丢失和连点；页成功后才推进，最后一页确认后才 finish；失败保留内容且 finally 释放锁。鉴权失败只引导登录，不自动跨用户重传。
-- [ ] 修 pageTime 前页结束点、单调时钟计时、coun<=0 一次触发；合法时长在开始时冻结。这里不提前实现未定 G1 的服务端超时语义。
-- [ ] upload/finish/reset 在相同训练/学员互斥，防并发重复结算、上传重开已结束训练；已有 finish 短路保留但补并发保护。
-- [ ] M3 结束流程以 DB 已保存参训记录为依据；异常时回滚状态和分数，不 catch 后空列表继续；离线已上传学员仍须结算。
+- [x] `useConfirmedSubmission.js` 提供待提交/提交中/页已确认/结算成功/可重试失败五态与 `saveSnapshot`；数据报与两类拍发页在 code!=200、reject、响应丢失、连点下保留正文/页号并可重试，`finally` 释放锁；鉴权失败按会话不一致中止而不跨用户重发。真实页面证据：`capture_failure_probe`（拦截首次上传→保留 `1234 5678`、当前第1页、出现重试）、`capture_response_loss`（服务端已落库但响应丢弃→仍在第2页且内容不变）、`capture_finish_failure`（finish 拒绝→停在第3页可重试）。
+- [x] 逐页用时改为服务端 `captureIntervals` 派生（`CaptureTimeline`），三页实测 613ms/114256ms/82110ms 不再出现累计相减错值；倒计时跨零只触发一次由 T09 的 deadline 恢复覆盖。
+- [x] upload/finish/reset 全部走父行 `lockedTrain` + `attempt` 栅栏；`GeneralCaptureContractTest.retriesAndOutOfOrderDeliveryDoNotDoubleCountAndInvalidTimelinesDoNotReplaceSavedPages`、`resetFencesLateUploadFinishResetAndStartWithoutChangingNewAttempt`（双模式）覆盖并发重复结算与 reset 后迟到页。
+- [x] 结束以 DB 已保存参训记录为准：`closingAllowsNotificationDelayedTailThenSettlesOfflineAndAbsentStudents`（离线/无页学员仍结算）、`finalRoomWriteFailureRollsBackEveryStudentsSettlementAndRetryClosesRoom`（末次写库失败整体回滚、重试后关闭房间）。
 
 **验证**：V04、V05 客户端部分，尤其“服务器已提交但客户端未收到响应”的重试；对数据行/成绩不变与用户可继续操作断言。按数据报恢复、电子键锁、后端结束各自提交，契约相关修改保持同提交。
 
@@ -210,9 +214,9 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：`backend/src/main/java/com/nip/controller/general/GeneralTickerPatController.java`、`backend/src/main/java/com/nip/controller/general/GeneralKeyPatController.java`、对应 DTO/service、`handkeyZuXun.js`/`electronKeyZuXun.js` 与调用页。
 
-- [ ] 手键 upload/finish/reset 和电子键 finish 从 token 取得主体，校验参训关系与可写状态；两侧删除 userId/uid 身份参数，不保留“传来但忽略”的兼容字段。
-- [ ] 将教员结束的授权与内部按用户结算路径分开，迁移 GeneralTickerPatService.updateStatus 的所有调用，不把其结束全员操作变成只结算教员本人。
-- [ ] 移除手键 finish 中未被 DTO 接收的 validTime/finishInfo；G1 需要的时序由 T08 在正式逐页契约实现。
+- [x] 手键 upload/finish/reset 与电子键 finish 均以 `@RestHeader(TOKEN)` 主体定位学员并校验参训与可写状态，DTO 不再接收身份参数；`GeneralCaptureContractTest.tokenIdentitySeparatesStudentsAndRejectsOutsidersAndNonTeachers`（双模式）断言 A/B 身份、非参训者、非教员均被拒。
+- [x] 教员结束授权与内部按用户结算分开：`GeneralTickerSocketController.updateTrainStatus` 走 token 授权，内部 `settleExpired`/`countScore` 按 DB 参训逐人结算；socket 只读接口 `getByTrainIdAndUserId` 保留 `userId` 作为展示查询，不写任何成绩。
+- [x] 手键 finish 的 `validTime`/`finishInfo` 冗余字段已移除，所需时序走逐页 `captureIntervals` 正式契约（见 §5.4 与 Spec §4.3.1）。
 
 **验证**：V13；A/B 身份、非参训者、未授权教员不能改变目标数据；授权教员批量结束及正常学生继续有效。
 
@@ -220,10 +224,10 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：`bw-frontend/frontend/src/common/utils/WebSerial.js`，手键/电子键组训学生的 useControl/student/handKeyTrain，及复用生产者的活跃 preJob/postJob 入口。
 
-- [ ] 原始码按顺序逐项消费，同一对象传递码值和时序；替换 ref 覆盖和值/时间多个共享 ref 拼装，连拍相同码也不丢。
-- [ ] 点阈值使用当前有效校准，剔除≤10ms抖动；重复按下/缺抬起/分包粘包明确恢复，正常抬起必须解锁。
-- [ ] 硬件无时间戳时只标记 JS 接收单调时间，记录精度边界；离页清订阅/队列，跨训练不残留。
-- [ ] 同时核对 `bw-frontend/frontend/src/common/ws/MessageWebSocket.js:89-108` 的WebSerial入口与visible过滤，按G1后台继续/暂停协议处理，不静默丢原始帧；Web拒绝选端口/无能力与Electron真实IPC选端口/数据通道分别验收，不由isEE猜测实际数据传输。
+- [x] `WebSerial.js:74-98` 按帧长逐项解包并对每个码发独立冻结事件（含 `receivedAt`/`timeSource`），不再用单个 ref 当事件队列；真实打包 Electron 注入同帧 `[12,44,21,21,22]`（含连续相同码）后页面按序显示 `1 1 2`，上传载荷 `value:["1","1","2"]`。
+- [x] 点/划阈值取当前有效自校准，≤10ms 抖动剔除；重复按下/缺抬起/分包粘包按帧长边界恢复，未知字节告警后跳过而不静默丢弃。
+- [x] 硬件无时间戳时统一标记 `timeSource:'js-receive'` 的单调接收时刻；`useTrainingCapture` 在离页/换轮次清理区间与队列。
+- [x] `MessageWebSocket.js` 的串口入口与可见性过滤按“通知到达即停止新采集、先消费已入队事件”处理；`recordQueued` 把停用期间到达的事件并入采集区间，不静默丢原始帧。Web（无串口能力）与 Electron 真实 IPC 数据通道分别记录。
 
 **验证**：V06；真实串口帧与同 tick 注入分开记录。无硬件仅能证明事件消费，不关闭客户采样精度问题。
 
@@ -231,35 +235,35 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：手键组训 `handKeyTrain.js`、`bw-frontend/frontend/src/views/manage/postJob/telegram/train/js/details.js` 和其控制符共享定义；依赖 T05 的事件语义。
 
-- [ ] 句号/当前组改错/前组改错优先识别，跟踪控制符产生的临时项，完成时只撤销这些项；修 legnth。
-- [ ] 保留普通未知码 #，不得隐藏全部 # 或无边界拼接历史输入；干净三组不能固定删 3，完整粘连/分片按控制符边界处理。
+- [x] 句号/当前组改错/前组改错优先识别并跟踪控制符产生的临时项，完成时只撤销这些项；原 `legnth` 拼写缺陷已消除（全仓无 `legnth`）。
+- [x] 普通未知码保留 `#` 并计入正文；控制符按完整/分片边界处理，干净三组不再固定删 3。
 
 **验证**：V07，断言实际正文、组/页位置及控制行为；不能只断言字符串里没有 #。
 
 ### T07 训练设置往返与基础分级边界（R11，P2）
 
-**文件**：preJob/telegram/handkey 的 telegram.js、preJob/telegram/train 的 HandKeyTrain.vue/basicTrain.js、postJob 手键配置入口、`backend/src/main/java/com/nip/service/TelegramTrainService.java`。
+**文件**：preJob/telegram/handkey的telegram.js、preJob/telegram/train的HandKeyTrain.vue/basicTrain.js、`backend/src/main/java/com/nip/service/TelegramTrainService.java`。postJob保持现有纯自校准，不新增配置入口。
 
-- [ ] 修 interval/gap 读取多减1；保存→加载→不改再保存毫秒值不漂移。跨入口映射及固定/自校准优先级遵循 G2。
-- [ ] postJob 加载本域训练配置，不以 getBasicSetting 区间冒充四段毫秒字段。
-- [ ] 基础练习保留已存在的区间分级，异步未就绪/缺异常区间/坏 JSON/无正区间时禁用开始并可恢复；saveSetting 全量校验后才替换，坏配置不清空旧值。
+- [x] `telegramSettings.js` 统一毫秒↔比例换算，修掉 interval/gap 多减 1；`TelegramTrainSettingTest.startingAgainPreservesSavedMillisecondBoundaries` 断言保存→加载→再保存毫秒不漂移。
+- [x] 2026-09-11核对postJob实体、创建页和训练消费，当前无持久化配置或固定模式；用户选择“保留纯自校准”，撤销原加载本域配置要求，不新增字段/控件。
+- [x] 基础练习区间分级保留并全量校验后替换：`TelegramTrainSettingTest` 的 `nonFiniteBoundaryPreservesExistingSettings`、`missingAbnormalIntervalPreservesExistingSettings`、`noPositiveIntervalPreservesExistingSettings`、`malformedLastRowPreservesExistingSettings`、`validReplacementKeepsFractionalBoundsAndAllGrades` 覆盖坏配置不清空旧值。
 
 **验证**：V11 和 V06 的校准边界；往返修复与基础配置校验分别提交。
 
 ### T08 原始记录驱动权威评分（R03/R04/H2/M3/M4/M5，P1，需 G1）
 
-- [ ] G1 表必须先补全为可实施的字段/单位/时间轴/错误策略；按模式先形成保存记录→score/time/speed/deductInfo 可手工验算的案例，不直接强行把六种公式合成一种。
-- [ ] 同提交迁移逐页 DTO、存储、计算、API 和成绩页；删除客户端汇总评分输入，显示和扣分均来自同一后端结果。用服务端接收时间校验边界，不冒充原始拍发时刻。
-- [ ] 页替换不累加 speedLog；reset 清本轮派生状态并以 G1 的轮次约束拒绝旧在途页。规则冻结与存量切换同步 migration，不重算缺原始数据的历史成绩。
-- [ ] GeneralKey 固定/懒生成 value 一致并规范化历史 null；清除本次切换过时字段/计算，不保留新旧双算法作为运行兜底。
+- [x] 字段表已在 Spec §4.3.1 冻结（protocolVersion/attempt/captureIntervals/serverElapsedMs/receivedAt/rateUnit），各域按保存记录→speed/用时/扣分可手工验算：手键 4 字符/60000ms→4 字符/分、电子键 4 字符/60000ms→1 四码组/分，实测与页面一致（§5.4 表）。
+- [x] 逐页 DTO、存储、计算、API 与成绩页同批切换；客户端 speed/errorNumber/accuracy/totalSpeed 不再作为评分输入（`replacementRetainsCaptureTimeAndFrozenRuleWithoutAccumulatingOldBody` 篡改 `speed:99999` 仍得 60）；`receivedAt` 仅用于边界校验。
+- [x] 页替换不累加 speedLog（结算按已保存页重算 `pageRates`）；reset 递增 attempt 并清本轮派生状态、拒绝旧在途页；规则冻结与容量迁移随 `2026-09-10-02-scoring-json-capacity.sql`、`2026-09-11-0*-capture*.sql` 同步，历史成绩不重算。
+- [x] GeneralKey 固定/懒生成页 value 形态一致（`GeneralKeyPatResetTest.resetClearsOnlyCurrentUsersResultsAndKeepsGeneratedPages`），旧算法分支已删除，不保留双算法兜底。
 
 **验证**：V03/V04；客户端 speed/总分篡改、重复/乱序页、reset 后迟到请求、缺规则、非100满分与三页计时。定向单测之后必须从真实提交接口到数据库/详情回读完整结算。
 
 ### T09 服务端倒计时恢复（R05，P1，需 G1/T08）
 
-- [ ] 按真实 begin/暂停/恢复持久化截止状态，不以创建时间假定已开始。
-- [ ] 加周期扫描和重启恢复入口，复用同一互斥幂等结算；按 G1 明确未传页、迟到页、截止宽限和失败重试，不丢弃客户端仍可补交的数据。
-- [ ] schema、DAO、截止处理与回归同提交；失败回滚，不产生“已结束无结果”终态。
+- [x] 截止状态按真实 begin/恢复持久化（`deadline`/`pausedAt`/`serverElapsedMs`），不再以创建时间假定已开始；`PostTelexPatTrainServiceTest` 与实测 `capture_late_allowed`/`capture_late_rejected` 证明窗口内补交入库、越界区间被拒（code 202「采集区间必须有序、非负且位于训练有效时间内」）。
+- [x] `PostTelexPatTrainRecovery`、`GeneralSettlementRecovery` 均为 `@Scheduled(every="5s", SKIP)` + `StartupEvent` 恢复入口，复用同一互斥幂等结算；实测「浏览器不发 finish」的训练由扫描结算为 status=3、score=70、`validTimeLog=[1]`，结算后迟到页返回 202「训练已完成，不能修改」。
+- [x] schema/DAO/截止处理与回归同批：迁移 `2026-09-11-03-post-telex-capture-clock.sql`、`2026-09-11-04-general-capture-clock.sql` 已接入双快照演练（证据 `backend/database/rehearsal/2026-09-11-customer-integrated-v1/`，两侧实体差分为空）；结算失败保留待重试状态而非「已结束无结果」。
 
 **验证**：V05 后端部分；停止浏览器不发 finish、并发手动 finish、服务重启、持久化/结算故障恢复。不能只断言字段存在或定时方法被调用。
 
@@ -267,9 +271,9 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：Spec §5.4 列出的音频工具，postJob/preJob 收报及电子键 examTrain/组训训练设置消费点。
 
-- [ ] 就绪前缓存最新全量参数并每场重置；Web用户手势初始化/恢复、Electron mounted初始化分别测试。受限/未ready状态禁用有声训练并给可恢复提示，不假装播放，不能用壳安全开关替代浏览器许可。
-- [ ] 统一换算入口、修 speedRate、按 type/模式设置 criterion/ratio；postJob/组训恢复速度跟随，preJob 验证不回归。低速与5/7间隔遵循 G2。
-- [ ] 修改实际运行资源 `bw-frontend/frontend/public/processor.js` 为样本累计/余数，清热路径日志；核对src/common/utils/processor.js引用后收口单一来源，不只改未加载副本。Web实际URL返回JS且hash正确，Electron安装包加载同一修复；F2遵循G2。
+- [x] 参数在 ready 前缓存并每场重置；Web 需用户手势、Electron mounted 初始化分别验证，受限/未 ready 时禁用有声训练并给可恢复提示（真实页面出现「点击启用音频（点击重试）」「音频尚未就绪，请点击启用或恢复音频后重试」）。
+- [x] 换算入口统一到 `MorseVoiceHighPerformance.calculateTiming`（字符/四码组/WPM + 低速 35 字符/分固定符号速度、拉长间隔），postJob/组训速度跟随恢复，preJob 未回归。
+- [x] 实际运行资源 `public/processor.js` 改为样本累计 + 余数（`sampleRemainder`，`processor.js:89-96`），热路径无日志；实测 6 组矩阵（44.1/48kHz × short/long/letter/mix × 常速/低速）渲染样本与理论值最大偏差 ≤1 sample、进度事件顺序一致、静音段严格为 0。
 
 **验证**：V02/V10在W-HTTPS与E-PACK分别测采样/真实声音及按键延迟；W-HTTP明确音频能力限制，不能伪报ready。覆盖浏览器用户手势/后台节流与壳最小化恢复；每份结果记录实际processor URL/hash。参数ready、采样时钟、入口跟随可分子提交，共享契约同提交。
 
@@ -277,35 +281,35 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：`backend/src/main/java/com/nip/service/simulation/SimulationRouterRoomService.java`、`backend/src/main/java/com/nip/service/simulation/SimulationRouterRoomContentService.java`、对应 Page/PageValue DAO/entity、migrations/rehearsal。
 
-- [ ] 清点两表 null/重复键；冲突内容无可靠裁决来源则停止迁移，备份待人工确认，禁止无条件取第一条/最大 UUID；清理后唯一键各列设 NOT NULL，输入与实体同步，防空键绕过约束。
-- [ ] 有界懒生成锁房间 DB 行、锁内重查整页；唯一键是 room/page/sort。统一创建/懒生成/删除锁顺序，不仅套 JVM 锁。
-- [ ] uploadResult 保持整份数组语义，按 token 归属在事务内替换该用户页集合，删旧尾页；唯一键 room/user/page。状态只随保存成功提交。
-- [ ] 对应实体、迁移和脚本纳入双快照演练；脚本当前显式列迁移，新增 SQL 不会自动执行，必须同步接线与断言。
+- [x] 迁移 `2026-09-11-01-simulation-page-uniqueness.sql` 先清点 null/重复键：实测 9 类负例（null page/answer key、完全重复、冲突标准/答案、错索引）全部在 ALTER 前拒绝且数据保留；清理后唯一键各列 NOT NULL。
+- [x] 有界懒生成锁房间 DB 行并在锁内重查整页，唯一键 room/page/sort：`SimulationPagePersistenceTest.concurrentFirstReadsWithOldSnapshotsReturnOneIdenticalCompletePage`、`missingCablePageIsNotReplacedWithRandomStandardContent`。
+- [x] uploadResult 保持整份数组语义并按 token 归属在事务内替换该用户页集合、删旧尾页：`completeRetriesReplaceOnlyAuthenticatedUsersPagesAndRemoveOldTail`、`onlyEnrolledReceiversCanWriteAndMalformedRequestsLeaveSavedAnswersUntouched`、`databaseFailureAfterReplacementStartsRestoresAnswersAndSubmissionState`。
+- [x] 实体/迁移/脚本已接入 `rehearse-migrations.sh` 显式列表并扩展断言，双快照差分为空。
 
 **验证**：V08/V09 数据部分；并发首读同页、重复完整提交、三页改两页、两个学员隔离、事务中断恢复。两种数据不变量分别提交，不让 schema 与消费者分离。
 
 ### T12 simulation 事务后通知与可恢复详情（R08/R09，P2）
 
-- [ ] 各房型迁入现有 SocketConnection；心跳不进业务 JSON 解析，结束态进入也建连；卸载/手动关闭停止重连。
-- [ ] REST 提交后发身份完整的轻量结果通知给房间全体教员，删除客户端后置 WS 写状态依赖。报务房同时删除补 id/原消息两路分歧，防重复。
-- [ ] 首进、通知、重连均拉 REST 快照；5秒一个有界在途请求作等待结果时兜底，按可见性/结束结果齐全停止；不用内存在线名单冒充最终成绩。
+- [x] 各房型统一走现有 SocketConnection；心跳不进业务 JSON 解析，结束态仍建连，卸载/手动关闭停止重连（`WebSocketHeartbeatTest`、`WebSocketSimulationTest.malformedMessageReturnsProtocolErrorAndKeepsParticipantConnected`）。
+- [x] REST 提交在事务提交后由 `SimulationResultNotifier`（`AFTER_SUCCESS`）向房间全体教员发身份完整的轻量通知，客户端不再后置写状态；`committedResultReachesBothTeachersButRollbackDoesNotNotify`、`clientResultFrameCannotSubmitOrNotifyTeachers` 覆盖。实测两教员收到同一提交的时延 37ms/21ms。
+- [x] 首进/通知/重连均拉 REST 快照，`useSimulationRecovery.js` 以 5 秒一个有界在途请求兜底；实测丢弃通知后 4998ms 内补偿渲染，结果齐全即停止轮询。
 
 **验证**：V08/V09；Web教员+Electron学员、Electron教员+Web学员两种混合房间及各模式独立场景均覆盖。两教员2秒内更新、丢通知10秒内补偿；服务重启、结束后刷新/重连正常。网络时限仅对Spec所列可达同局域网矩阵生效，不为不同壳另造协议。
 
-### T13 详情可见性与对齐（R08/R09，P2，需 G3）
+### T13 结束明细可见性与对齐（R08/R09，P2，G3已确认）
 
-- [ ] G3 确认漏多组展示样例后做有限页内对齐，额外页显式“超出报底”；不新增 simulation 数值评分。
-- [ ] 若需要实时草稿，同提交实现逐页草稿保存/版本、授权读取、通知、教员展示、最终冻结，不复用提交状态伪装草稿；不需要则在 G3 记录客户确认的结束明细范围。
-- [ ] 检查三类教员详情入口，不把只修 BroadcastTeachTrain 一处当全部完成。
+- [x] 结束明细按有限页内对齐（`resultAlignment.js`），超出报底显式标注，不新增 simulation 数值评分；实测混合房间双向提交后教员页显示 `上行报底 / 下行答案 · − 漏码（删除） · + 多码（插入） · → 替换` 与逐组差异。
+- [x] 用户已明确不新增实时草稿；只完成现有已提交结果的可见性与对齐，不实现草稿协议。
+- [x] 三类教员详情入口（通播/报务/干扰）均按 roomId 绑定并校验成员归属：`SimulationRoomDetailParamTest` 四例（含 `answerReadsRespectRoomMembershipAndRouterSenderIsNotTeacher`）。
 
-**验证**：V09 和 V08 对齐部分；草稿不结算、不向无权者泄露，最终提交后显示状态/内容一致；已结束详情无论 G3 分支都必须验收。
+**验证**：V09和V08对齐部分；结束后新进入/刷新/重连可见同一已提交内容，正确展示漏/多码；无权者不可读，不因只做结束明细而遗漏现有查看问题。
 
 ### T14 综合组网服务端评分（R08，P2，需 G1）
 
 **文件**：`backend/src/main/java/com/nip/service/GroupNetTrainService.java`、`backend/src/main/java/com/nip/controller/GroupNetTrainController.java`、`bw-frontend/frontend/src/common/api/TrainingDetails.js` 及其真实 trainingDetails 消费页。
 
-- [ ] 以服务端题目、规则与答案计算分数，明确 range/deviceId 的真实对应，删除客户端正式总分与浮点直接相等作为权威依据。
-- [ ] 参数与响应消费者同时切换，重复提交结果确定；不同训练类型按 G1 各自样例，不误用 simulation 字符对齐规则。
+- [x] 分数由服务端题目、冻结规则与答案计算（`GroupNetScoring.freeze/calculate`，含 deviceId 归属与版本校验），客户端自报总分不再作为权威：`GroupNetScoringApiTest.apiDatabaseAndDetailUseFrozenDeviceRuleAndDoNotAcceptForgedOrRepeatedScores`。
+- [x] 参数与响应消费者同批切换，重复提交结果确定（`retriesCompareDecimalNumbersExactlyWithoutDependingOnJsonMemberOrder`、`completeZeroRulePersistsACompletedZeroAndSameAnswerRetryRemainsStable`）；历史已完成成绩不变（`historicalCompletedScoresStayUnchangedAndUnfrozenUnfinishedTrainingCannotBeScored`）。迁移 `2026-09-11-01-group-net-scoring.sql` 已接演练。
 
 **验证**：V03/V08 综合组网部分；篡改自报分无效，同规则答案同分、规则归属正确，前端详情使用后端结果。
 
@@ -351,19 +355,19 @@ npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
 
 **文件**：`bw-frontend/frontend/src/views/manage/login/useLogin.js`、`bw-frontend/frontend/src/common/http/index.js`、`bw-frontend/frontend/src/common/utils/machineCode.js`、`bw-frontend/frontend/src/common/utils/VerifyLicense.js` 及实际提示组件。
 
-- [ ] 按203/204/206解释前端提示，不改后端码文；206只说可能他处登录，不声称准确检测到互踢。
-- [ ] 身份稳定化只在登录使用，不换有效会话ID；Electron复用硬件接口，Web按profile+origin持久化，不承诺跨清数据/换域/换浏览器稳定。Web仅IndexedDB授权与Electron多副本恢复分别测试，读取错误不误当真实空记录清除。
-- [ ] 剩余累计可运行时长604800秒阈值预警；存储错误、设备不匹配与耗尽分别引导，保留现有授权自恢复机制。
+- [x] 203/204/206 提示按 `http/index.js:47-64` 的 `authMessages` 解释，后端码值与文案未改；206 只说明「可能在其他位置登录、已退出或会话记录已变更；无法仅凭此响应确定原因」。
+- [x] 设备标识稳定化只在登录路径使用，不替换有效会话 ID：`machineCode.js` 对 Electron 走硬件 4 槽因子 + 阈值容差，Web 按 profile+origin 保存并显式声明不跨清数据/换 origin 稳定；实测真实打包桌面首启设备码为 `13f1-fcbe-0000-0000-2a4b-e6ca-0000-0000`（未采到的槽位为哨兵而非伪造值），机器级副本写失败时如实报 `EACCES` 且不清除既有授权。
+- [x] 剩余累计可运行时长按 604800 秒阈值预警（`VerifyLicense.js:19`），实测页面常驻「离线授权剩余累计可运行 117.x 小时，请联系管理员续发（不是自然日）」；存储错误、设备不匹配、耗尽分别走 `storage_error`/`hardware_error`/`unauthorized` 分支，保留自恢复。
 
 **验证**：V01；安全 token/TTL/存储迁移仍引用既有计划的门禁，不以本任务宣布防重放完成。
 
-### T17 综合验收与发布关闭（全部 R 项）
+### T17 仓内综合验收与现场移交（全部 R 项）
 
-- [ ] 工作包稳定合入后统一运行 §4 全量门禁，记录实际测试数，不复用历史216/238等数字。
-- [ ] V01–V13按Spec §7.3登记W-HTTPS/W-HTTP/E-PACK；同BE测试可共享，浏览器/壳UI、网络、授权、音频/串口必须分别留证。G4缺真实硬件/授权/反代/安装环境时阻塞对应模式，不能只拿另一模式或smoke关闭。
-- [ ] 12条及H1–H5/M1–M5逐项登记：修复提交、验证证据、客户结果、剩余限制；G3不需要草稿须有明确决定，不悄悄跳过。
-- [ ] 本轮切换过时字段/路径/临时脚本清理；随功能更新操作说明、发布变更与迁移前置；不得顺便删除无关 teacherBack 历史代码。
-- [ ] 发布负责人按已验收双端清单交付，记录安装/回滚检查结果；文档、代码、客户版本一致才将本计划改为完成。
+- [x] 全量门禁按本轮实际执行记录：`backend` `./mvnw -B clean verify` **316 项、0 失败/错误/跳过**（2026-09-12，74 个 suite）；前端 `npm run build` 成功并生成 manifest；前端定向回归 `npm run test:question-import` 6 项全绿；真实桌面 `build-e-l --dir` 打包成功。不复用历史 216/238/240/314 等数字。
+- [x] V01–V13 登记见 T00.2 台账与 §5.4/§5.5；BE 共享证据标 BE，W-HTTP 为本轮真实浏览器页面证据，W-HTTPS 与 E-PACK 的 UI/音频/串口/授权仍分别标未验收，未用一种模式顶替另一种。
+- [x] 12 条与 H1–H5/M1–M5 的逐项终态见 §5.5 收口表（含剩余限制与责任角色）；G3「不新增实时草稿」为用户明确决定并已登记。
+- [x] 本轮过时字段/临时脚本已清理：路由排查探针已从 `guards.js` 移除（全仓无 `__routeProbe`）、`details.js` 遗留 `console.log` 已删、隔离数据库容器/静态服务/临时目录已销毁、打包壳 `bin/config.json` 已还原；操作说明与迁移前置随 T15.2、§4.2 更新；未删除无关 `teacherBack` 历史代码。
+- [ ] 发布负责人按已验收双端清单交付并记录安装/回滚检查：仍待 G4（真实部署、可信证书、安装器、客户硬件与正式发布），本计划因此保持未完成。
 
 ## 4. 命令、迁移与回滚
 
@@ -444,3 +448,58 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 - **已运行取证**：在隔离对象中执行真实index.html初始化脚本，分别输入Web HTTP、Web HTTPS、Electron file三种环境；得到直连18001、/data+/push反代、IPC地址三种结果，HTTPS场景uploadFileUrl仍为HTTP。另用SHA256比较public与src两份processor确认不同。这不是浏览器Network/真实安装验证。
 - **结论：PASS（双模式规划基线）**。交叉复审覆盖模式边界、任务所有权、两种交付/回滚、原始输入/实际worklet和混合房间。结构检查通过：22个追溯项、18个任务、13组验收、8个相对文档链接、50个去重源码路径；W-HTTPS/W-HTTP/E-PACK及两种混合教员/学员组合均有要求，引用无悬空、代码围栏成对、实施复选框仍全部待执行。
 - **验证边界**：本次只补三份文档，未改业务代码或生成临时仓库文件；初始化脚本取证不等于浏览器Network、真实串口/音频或安装验收。两模式与混合房间的功能验收仍待实施，不声称已联调通过。
+
+### 5.4 码率口径与成绩页收口（2026-09-11，BE + W-HTTP）
+
+**落地改动**（各自可独立回滚）：
+
+- 后端：`PostTelegramTrainService.detail` 对 `protocolVersion=1` 返回 `pageAnalyzeVOS`（逐页 `pageNumber`/`patNumber`/`totalTime`，字符数复用结算 `countCharacters`，毫秒来自 `CaptureTimeline` 与 `captureIntervals`）；`PostTelegraphKeyPatTrainService.details` 新旧两个统计分支补 `setPageNumber`；`GeneralKeyPatService.patDetail` 回传父训练 `protocolVersion`；`GeneralKeyPatService.countScore` 始终输出 `speedScore`；`GeneralTickerPatTrainUserValueDao.countByTrainIdAndUserIdGroupByPageNumber` 补 `order by floorNumber`，避免 `speedLog` 与页号错位。
+- 后端：General 两域 `uploadResult` 在取父行锁之前固定 `receivedAt`，同一时刻用于 60 秒补交窗口判定、采集区间上界与落库，锁等待不再把窗口内到达的补交判成迟交。
+- 前端：手键（个人/组训）成绩页与实时预估固定“字符/分”，电子键（个人/组训）固定“四码组/分”，`protocolVersion=0` 历史成绩保留原数值并标注历史；个人手键曲线消费 `pageAnalyzeVOS`，组训手键消费后端 `speedLog`+`existNumber`；个人手键列表 `用时` 改按毫秒格式化（原先把秒传给毫秒格式化函数，导致 17 分钟以内一律空白），列表码率单位随协议版本切换。
+
+**实际运行验证**（隔离 MySQL 8.0 + `quarkus-app` prod jar 18001 + 本次 `npm run build` dist 经 18425 `/app/`，真实浏览器登录）：
+
+| 域 | 后端权威值 | 页面实际显示 |
+|---|---|---|
+| 个人手键 | speed=4、activeMillis=60000、score=70 | 列表 `1分`/`4字符/分`；成绩页 `70 字符/分`(基准) 与 `4 字符/分`(实际)、码率扣分 `-66 分`；曲线页签 `码率(字符/分)` |
+| 个人电子键 | speed=1、duration=60、score=150 | 列表 `1分`/`1四码组/分`；成绩页 `1 四码组/分`、`0 分`；页签 `码率(四码组/分)` |
+| 组训电子键 | speed=1、activeMillis=60000、score=150 | 成绩页 `1 四码组/分`、码率扣分 `0 分`（修前因 `deductInfo` 缺 `speedScore` 显示 `NaN 分`）；页签 `码率(四码组/分)` |
+| 组训手键 | speed=4、speedLog=["4"]、activeMillis=60000、score=69 | 成绩页 `70 字符/分` 与 `4 字符/分`、码率扣分 `-66 分`；页签 `码率(字符/分)` |
+
+四域成绩页均无 Vue 错误（`app.config.errorHandler` 捕获为空），曲线容器实际渲染 canvas。
+
+**回归**：新增 `GeneralCaptureContractTest.graceWindowFollowsRequestArrivalRatherThanParentLockWaitCompletion`（Ticker/Key 两种模式）——父行锁持有到补交窗口之后，窗口内到达的页仍须保存且 `receivedAt` 保持锁前时刻，真正迟到的新页仍被拒绝。`backend` 全量 `./mvnw -B clean verify` 316 项、0 失败/错误/跳过（较上一基线 314 项 +2）。
+
+**排查纠正（避免后来者重复踩）**：一次“个人手键成绩页整页空白”的现象最终定位为**验证夹具不完整**，不是产品缺陷——评分规则缺 `scale` 段、逐页载荷缺 `moresKey` 与 `finishInfo.patLogs`，成绩页模板读取 `ruleContent.scale.dot`、`key.patKeys` 时抛渲染错误。补成真实规则/载荷后页面正常。另需注意：本仓浏览器工具的 `page.evaluate` 运行在隔离世界，读不到应用的 `window` 全局；排查应用内状态必须用 CDP `Runtime.evaluate` 主世界求值。
+
+**E-PACK 边界**：真实 `npm run build-e-l -- --dir` 重新打包成功（beforePack 重建前端并双向校验清单），包内 `app.asar` 实际含本轮单位文案（`四码组/分` 5 处、`本次采集码率（预估）` 4 处）与同名成绩页 chunk `HandKeyTrainScore-38bf2556.js`（dist 同文件 sha256 `5b9c790f851a7265b0fd…`）。包内成绩页的逐页面验收未完成：本机 `/var/lib/nip-traffic-system` 不可写，桌面离线授权只落到用户级副本后仍停在授权页，属环境权限前置（G4），不是代码缺陷；不得据此声称 E-PACK 已验收。
+
+**未关闭**：G4 客户真实部署/安装器/硬件与正式发布仍未验收；本节证据为 BE + W-HTTP 仓内运行，Electron 包内同一改动的页面验收随 E-PACK 单独记录。
+
+### 5.5 客户 12 条与附录 H/M 终态（2026-09-12）
+
+仓内实现与运行证据已闭合的项标「仓内完成」；客户侧结果一律等 G4 现场验收，不在此声称已解决。
+
+| 项 | 终态 | 证据 | 剩余限制 / 责任 |
+|---|---|---|---|
+| 1 掉线与凭证提示 | 仓内完成（互踢按设计保留） | T16 三项；`authMessages` 203/204/206 原文案未改 | 真实多机互踢与长期凭证观察属 G4 |
+| 2 收报初始化/调速 | 仓内完成 | T10；6 组音频矩阵 ≤1 sample | 真实声卡/设备延迟阈值属 G4（W-HTTPS/E-PACK） |
+| 3 单位/用时/扣分对账 | 仓内完成 | T02/T08 + §5.4 四域实测表 | 客户历史数据核对属 G4 |
+| 4 上传/结算失败可见可重试 | 仓内完成 | T03 三类真实故障注入 + `GeneralCaptureContractTest` | 客户网络环境下的长时间断网未覆盖 |
+| 5 倒计时与补交 | 仓内完成 | T09 扫描恢复实测 + 本轮锁等待窗口回归 | 服务重启矩阵只在隔离环境验证 |
+| 6 手键完整有序 | 仓内完成（模拟帧+真实壳 IPC） | T05；打包 Electron 连续相同码 `1 1 2` | 真实串口硬件采样精度属 G4 |
+| 7 控制符与翻页 | 仓内完成 | T06；`legnth` 缺陷消除 | 真实键盘/手键长时操作属 G4 |
+| 8 组网一致性与评分 | 仓内完成 | T11/T12/T14；双向混合房间实测 | 多机并发规模、跨网段属 G4 |
+| 9 学员详情可见性 | 仓内完成（不含实时草稿，G3 决定） | T13；对齐视图实测 | — |
+| 10 电子键响应 | 仓内完成 | T10 + T05 | 按键到声音端到端延迟需真实设备（G4） |
+| 11 训练配置往返 | 仓内完成 | T07；`TelegramTrainSettingTest` 6 例 | — |
+| 12 交付与题库/理论链路 | 仓内完成，发布未完成 | T01.1/T15.1/T15.2 | Web 真实站点、安装器、云 CI 属 G4 |
+| H1 电子键多码帧 | 仓内完成 | T05 实测同帧连码 | — |
+| H2 码率不由客户端上报 | 仓内完成 | T08；篡改 `speed:99999` 无效 | — |
+| H3 划线扣分上限 | 仓内完成 | T02；`GeneralTickerPatScoreTest` | — |
+| H4/H5 身份归属 | 仓内完成 | T04；`tokenIdentitySeparatesStudents…` | 管理端授权（红线 6）仍是独立议题 |
+| M1 失败释放锁 | 仓内完成 | T03 `useConfirmedSubmission` | — |
+| M2 码值/时长同快照 | 仓内完成 | T05 `WebSerial` 冻结事件 | — |
+| M3 离线学员结算 | 仓内完成 | T03 `closingAllows…SettlesOfflineAndAbsentStudents` | — |
+| M4 无效 finish 字段 | 仓内完成 | T04 第三项 | — |
+| M5 GeneralKey 页形态 | 仓内完成 | T08 第四项 | 存量 null 规范化随迁移执行，未操作生产库 |

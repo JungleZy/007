@@ -223,11 +223,11 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 ## 11. 个人岗位手键单字拍发点划间隔设置不正确，无法基础训练
 
 1. **【确认】保存-读取往返 off-by-one**（注意：本条两个文件均在 **preJob** 目录）：保存侧 `preJob/.../telegram.js:222-247` rateIntervalMaxMs=dot×4、bigIntervalMaxMs=dot×10；读取侧 `preJob/.../HandKeyTrain.vue:770-772` 反推比例时 interval/gap **多减了 1**（parseInt(÷−1)=3 和 9，而 line 不减）→ 任何输入触发 handlePatDeployData 即按错误比例重算（`useDetails.js:581-588`）→ 设置界面显示的比例本身就错，生效间隔与所设不符。
-2. **【确认】个人岗位（postJob）手键训练完全不读取设置**：postJob `HandKeyTrain.vue` 全篇无 rateDotMaxMs/getSetting 调用，判定阈值恒为硬编码 dot=80/line=240/codeGap=80/wordGap=240/groupGap=400（`useControl.js:7-13`）→ **用户配置的间隔在该入口永不生效**。
+2. **【2026-09-11归因修正；用户已决定保留纯自校准】** postJob手键无持久化点划/间隔字段或固定模式；`PostTelegramTrainEntity`与创建页没有该设置，`train/js/useControl.js`提供80/240/80/240/400初值，`details.js`会按开始符号自校准，因此“阈值恒为硬编码、用户配置永不生效”不成立。用户明确不新增持久化初值/配置入口，维持现有自校准；preJob往返及基础区间问题仍须修复。
 3. **【原归因撤回】基础训练配置已经参与分级**：`bw-frontend/frontend/src/views/manage/preJob/telegram/train/js/basicTrain.js:38-70,124-154` 从 getBasicSetting 读取区间，并按当前“点/划练习”页签给时长分级；`HandKeyBasicTrain.vue:148-155` 将按下时长交给它，不是按 useControl 的点/划码值选择分级。它是独立的基础区间配置，不是训练 DTO 中的四段毫秒设置；不能把两者直接替换为同一阈值表。
 4. **【确认缺边界；客户触发待复现】**`basicTrain.js:140-142` 无 type===0 兜底区间时会对 undefined 取 value；异步配置未加载时也需禁用/排队输入。`preJob/telegram/handkey/js/telegram.js:417-440` 没有正区间时可生成 '<undefined'。修配置加载时序、空/坏区间和保存校验，而非重写已经存在的分级算法。
 
-**修复方向**：训练 DTO 的毫秒上下限与界面比例保存/读取互逆，postJob 接入其对应训练配置，明确与自校准的优先级；基础练习继续使用 getBasicSetting 的区间模型，加载失败或配置不完整时明确禁用开始并允许修复/重试。saveSetting 在 deleteAll 前校验全部区间，失败保留旧配置；不得将任意损坏配置默认为满分或 0。
+**修复方向**：preJob训练DTO的毫秒上下限与界面比例保存/读取互逆；postJob按用户补充决定保留纯自校准，不新增配置能力。基础练习继续使用getBasicSetting区间模型，加载失败或配置不完整时明确禁用开始并允许修复/重试。saveSetting在deleteAll前校验全部区间，失败保留旧配置；不得将任意损坏配置默认为满分或0。
 
 ---
 
@@ -260,7 +260,7 @@ simulation 链路**没有服务端数值评分**——「评分」是前端把�
 | P1 手键采样 | 有序事件（含电子键多码帧，附录 A H1/M2）；校准阈值；legnth；控制符优先识别与按实际占位清除 | 6、7 | 高频训练路径，改动集中在前端 |
 | P2 码速口径 | 统一换算函数；修速度跟随注释；worklet 参数就绪前排队；删热路径 console | 2、10 | 需音频回归验证 |
 | P2 组网 | 事务后统一结果通知 + REST 快照/重连补偿；整份答案幂等替换；报底锁内懒生成；实时草稿与对齐先确认语义 | 8、9 | 两种唯一键与迁移，跨栈同步 |
-| P2 点划间隔 | 训练毫秒/比例互逆、postJob 接入对应配置；基础区间加载与空配置守卫 | 11 | 两类设置不混用 |
+| P2 点划间隔 | preJob训练毫秒/比例互逆；基础区间加载与空配置守卫；postJob按2026-09-11用户决定保留纯自校准 | 11 | 两类设置不混用，不新增postJob配置能力 |
 | P1 越权收口 | 手键 upload/finish/reset 与电子键 finish 一律从 token 推导用户（附录 A H4/H5） | 非客户报障，评审确认 HIGH | 触及红线 6，随 P1 同步修 |
 | P3 凭证与授权提示 | 保留单 token 互踢；稳定 deviceId；授权剩余运行时长预警；前端按鉴权码解释；安全会话迁移引用既有计划 | 1 | 不改后端 203/204/206 码值文案，不以设备标识稳定化声称防重放 |
 
