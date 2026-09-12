@@ -14,7 +14,6 @@ import jakarta.interceptor.InvocationContext;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import org.apache.commons.lang3.StringUtils;
 
 import static com.nip.common.constants.BaseConstants.TOKEN;
 
@@ -33,10 +32,10 @@ public class RequireAdminInterceptor {
 
   @AroundInvoke
   Object execute(InvocationContext context) throws Exception {
+    // 与 JWTInterceptor 同口径：HTTP 凭据只认请求头，不回退 query（query 会进访问日志与浏览器历史）。
+    // @RequireAdmin 恒与类级 @JWT 同在（ControllerJwtGuardArchitectureTest 保证），且 JWTInterceptor
+    // 优先级更前，请求头缺失时已在那里以 203/204 拒绝，走到这里 token 必然非空。
     String token = request.getHeader(TOKEN);
-    if (StringUtils.isEmpty(token)) {
-      token = request.getParam(TOKEN);
-    }
     UserEntity user = userService.getUserByToken(token);
     if (!roleDao.existsAdminRoleByUserId(user.getId())) {
       throw new WebApplicationException(

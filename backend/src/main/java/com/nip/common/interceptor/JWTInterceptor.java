@@ -49,17 +49,17 @@ public class JWTInterceptor {
         response.setStatusCode(200);
         return null;
       }
+      // HTTP 凭据只认请求头。原实现在请求头缺失时回退 request.getParam(...)，有两个问题：
+      // 1) query 串会进访问日志、Referer 与浏览器历史，等于把长期有效的 token 写到多处明文；
+      // 2) deviceId 已被业务端点当普通查询参数使用（deviceScoringRule/findAllByDeviceId），
+      //    回退读 query 会让业务参数顶替会话凭据。
+      // 注意：WebSocket 侧的凭据仍然走 query —— 浏览器的 WebSocket API 无法给握手设置请求头，
+      // 两种传输的约束不同，此处的「只认请求头」不适用于 WS 端点。
       String token = request.getHeader(TOKEN);
       String deviceId = request.getHeader(DEVICE_ID);
 
       if (StringUtils.isEmpty(token)) {
-        token = request.getParam(TOKEN);
-      }
-      if (StringUtils.isEmpty(token)) {
         throw rejected(ResponseCode.CODE_203);
-      }
-      if (StringUtils.isEmpty(deviceId)) {
-        deviceId = request.getParam(DEVICE_ID);
       }
       if (StringUtils.isEmpty(deviceId)) {
         throw rejected(ResponseCode.CODE_204);
@@ -72,7 +72,10 @@ public class JWTInterceptor {
       throw rejected;
     } catch (Exception exception) {
       log.error("jwt fail from {}.{}", context.getTarget().getClass().getSimpleName(), context.getMethod().getName(), exception);
-      return ResponseResult.error(ResponseCode.SYSTEM_ERROR, exception.getMessage(), exception.getMessage());
+      // 这条分支在鉴权完成前可达（匿名请求即可触发），异常文案可能带表名/列名/JDBC 片段，
+      // 因此只回固定文案、细节仅留日志 —— 与 common/exception/GlobalExceptionMapper
+      // 和 ValidationExceptionMapper.safeMessage 是同一条收口口径。
+      return ResponseResult.error(ResponseCode.SYSTEM_ERROR);
     }
     return context.proceed();
   }
