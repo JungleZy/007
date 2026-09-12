@@ -1,20 +1,21 @@
-const Renderer = (window.require && window.require('electron')) || window.electron || {}
+// 桌面端由 electron/preload.js 经 contextBridge 注入 window.electron；Web 端没有该对象。
+// 窗口已开启 contextIsolation 并关闭 nodeIntegration，渲染进程不存在 window.require，故不再做该回退。
+const Renderer = window.electron || {}
 
 /**
  * ipc
  * 官方api说明：https://www.electronjs.org/zh/docs/latest/api/ipc-renderer
  *
- * 属性/方法
- * ipc.invoke(channel, param) - 发送异步消息（invoke/handle 模型）
- * ipc.sendSync(channel, param) - 发送同步消息（send/on 模型）
- * ipc.on(channel, listener) - 监听 channel, 当新消息到达，调用 listener
- * ipc.once(channel, listener) - 添加一次性 listener 函数
- * ipc.removeListener(channel, listener) - 为特定的 channel 从监听队列中删除特定的 listener 监听者
- * ipc.removeAllListeners(channel) - 移除所有的监听器，当指定 channel 时只移除与其相关的所有监听器
- * ipc.send(channel, ...args) - 通过channel向主进程发送异步消息
- * ipc.postMessage(channel, message, [transfer]) - 发送消息到主进程
- * ipc.sendTo(webContentsId, channel, ...args) - 通过 channel 发送消息到带有 webContentsId 的窗口
- * ipc.sendToHost(channel, ...args) - 消息会被发送到 host 页面上的 <webview> 元素
+ * 可用方法仅限 preload 白名单（electron/preload.js），其余 ipcRenderer 方法一律不可用：
+ * ipc.invoke(channel, param) - 发送异步消息（invoke/handle 模型），返回 Promise
+ * ipc.send(channel, ...args) - 通过 channel 向主进程发送异步消息
+ * ipc.sendSync(channel, param) - 发送同步消息（send/on 模型），返回主进程回填的 event.returnValue
+ * ipc.on(channel, listener) - 监听 channel；listener 签名为 (event, ...args)，其中 event 恒为 null 占位
+ * ipc.once(channel, listener) - 同上，仅触发一次
+ * ipc.off(channel) - 移除该 channel 上由本渲染进程注册的全部监听
+ *
+ * 注意：不提供 removeListener —— 渲染侧持有的 listener 与 preload 内注册的 wrapper 不是同一引用，
+ * 永远匹配不上；需要解绑请用 ipc.off(channel)。
  */
 
 /**

@@ -52,9 +52,17 @@ class Index {
 			resizable: false, //可否缩放
 			autoHideMenuBar: true, // 隐藏菜单栏
 			webPreferences: {
-				nodeIntegration: true, // 根据Electron版本和安全最佳实践，你可能需要调整或禁用nodeIntegration
-				contextIsolation: false, // 与nodeIntegration搭配使用时，通常也需要调整contextIsolation
-				webSecurity: false, // 若需要加载本地文件到远程页面，可能需要禁用webSecurity
+				// 渲染进程不需要 Node：所有主进程能力经 preload 的 window.electron.ipcRenderer 白名单走。
+				nodeIntegration: false,
+				contextIsolation: true,
+				preload: path.join(__dirname, 'preload.js'), // 开发态为源码目录，打包态为 app.asar/electron，两者都由 Electron 直接解析
+				// webSecurity 必须保持 false：打包页走 loadFile（file://），而摩尔斯发音的唯一实现
+				// frontend/src/common/utils/voice/MorseVoiceHighPerformance.js:223 用
+				// audioWorklet.addModule(new URL('processor.js', document.baseURI))，AudioWorklet 模块脚本
+				// 恒以 CORS 模式拉取，file:// 是不透明源、拿不到 ACAO；失败会落到该文件 :247-251 的 catch，
+				// 直接把状态置成 failure 且没有任何降级路径 —— 打开 webSecurity 等于整套发音不可用。
+				// 要拿这条安全收益必须先把打包页改成 app:// privileged scheme（另立项，见 Spec §1.2）。
+				webSecurity: false,
 				enableBlinkFeatures: 'Serial',
 			}
 		})
