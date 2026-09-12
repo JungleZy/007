@@ -59,17 +59,16 @@ public class GroupNetTrainController {
   @GET
   @Path("/details")
   @Operation(summary = "详情")
-  public Response<GroupNetTrainDetailsVO> details(@RestQuery(value = ID) Integer id) {
-    return ResponseResult.success(trainService.detail(id));
+  public Response<GroupNetTrainDetailsVO> details(@RestQuery(value = ID) Integer id, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.detail(id, token));
   }
 
 
   @POST
   @Path("submitAnswer")
   @Operation(summary = "提交答案")
-  public Response<?> submitAnswer(GroupNetTrainSubmitAnswerDto answerDto) {
-    trainService.submitAnswer(answerDto);
-    return ResponseResult.success();
+  public Response<GroupNetTrainDetailsVO> submitAnswer(GroupNetTrainSubmitAnswerDto answerDto, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.submitAnswer(answerDto, token));
   }
 
 

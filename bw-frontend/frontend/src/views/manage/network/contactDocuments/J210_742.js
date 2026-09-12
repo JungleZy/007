@@ -1,33 +1,32 @@
-export const analyzeChannel=(value1,value2)=> {
-    value1.forEach((item,index)=>{
-        item.forEach((v,ind)=>{
-            value2.forEach(param=>{
-                if (v.xdValues===param.indexs){
-                    v.params=param.receptionChananel
-                }
-                if (v.xdValuef===param.indexs){
-                    v.params=param.sendChananel
-                }
-            })
-        })
-    })
-    return value1
+export const analyzeChannel = (table, channels = []) => {
+    const byIndex = new Map((channels ?? []).map(channel => [Number(channel.indexs), channel]))
+    for (const row of table) {
+        for (const cell of row) {
+            if (cell.isParameter !== '信道') continue
+            const receive = cell.xdValues !== undefined
+            const channel = byIndex.get(Number(receive ? cell.xdValues : cell.xdValuef))
+            cell.params = channel?.[receive ? 'receptionChananel' : 'sendChananel'] ?? null
+        }
+    }
+    return table
 }
 
-export const netIP=(value1,value2)=>{
-    value1.forEach((item,index)=>{
-        let serialNumber=0
-        item.forEach((v,ind)=>{
-            if (v.isParameter==='网路地址'){
-                v.params=value2[0].networkdress
-            }
-            if (v.isParameter==='序号'){
-                serialNumber=v.value
-            }
-            if (v.isParameter==='单台地址'){
-                v.params=value2[serialNumber].dressname
-            }
-        })
-    })
-    return value1
+export const netIP = (table, serialNumbers = []) => {
+    for (const row of table) {
+        const serial = row.find(cell => cell.isParameter === '序号')
+        for (const cell of row) {
+            if (cell.isParameter === '网路地址') cell.params = serialNumbers?.[0]?.networkdress ?? null
+            if (cell.isParameter === '单台地址') cell.params = serialNumbers?.[Number(serial?.value)]?.dressname ?? null
+        }
+    }
+    return table
+}
+
+export const applyScoringDetails = (table, details) => {
+    for (const detail of details) {
+        const cell = table[detail.xy[0]]?.[detail.xy[1]]
+        if (!cell) throw new Error('服务端评分明细与题目坐标不一致')
+        cell.params = detail.actual === '' ? null : detail.actual
+        cell.correct = detail.correct
+    }
 }

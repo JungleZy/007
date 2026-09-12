@@ -4,8 +4,12 @@ package com.nip.dto;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.math.BigDecimal;
 
 /**
  * @Author: wushilin
@@ -22,6 +26,18 @@ public class GroupNetTrainSubmitAnswerDto {
   @Schema(title = "答案")
   private String answer;
 
-  @Schema(title = "得分")
-  private BigDecimal score;
+  @JsonIgnore
+  @Getter(AccessLevel.NONE)
+  @Setter(AccessLevel.NONE)
+  private boolean unsupportedFields;
+
+  @JsonAnySetter
+  public void unsupportedField(String name, Object value) {
+    unsupportedFields = true;
+  }
+
+  public void validateFields() {
+    if (unsupportedFields) throw new IllegalArgumentException("提交只接受训练id和原始答案，不接受客户端成绩等字段");
+  }
+
 }

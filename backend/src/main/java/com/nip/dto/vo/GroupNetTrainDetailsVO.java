@@ -55,8 +55,8 @@ public class GroupNetTrainDetailsVO {
 
 
   /**
-   * 冗余字段
+   * 服务端逐题评分明细JSON；旧记录可能为空
    */
-  @Schema(title = "冗余字段")
+  @Schema(title = "服务端逐题评分明细")
   private String content;
 }

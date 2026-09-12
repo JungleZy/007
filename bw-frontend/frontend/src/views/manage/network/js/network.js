@@ -21,6 +21,9 @@ export default function network(selectTablePage) {
     const route = useRoute()
     const basicTrainDeployModal = ref(false);
     const deviceScoringRule=ref({})
+    const ruleLoading=ref(false)
+    const ruleReady=ref(false)
+    let ruleRequest=0
     const isActive = ref(0)
     const isActiveTwo = ref(0)
 
@@ -49,10 +52,19 @@ export default function network(selectTablePage) {
     const getDeviceTypeEquipmentInfo = (e) => {
         currentEquipmentType.value=e;
         getDeviceTypeEquipment({id: e}).then(res => {
-            if (res.code === 200) {
+            if (res.code === 200 && currentEquipmentType.value === e) {
                 equipmentList.value=res.data;
-                selectEquipment(equipmentList.value[0],0)
-                deviceTypeRule(equipmentList.value[0],0)
+                if (equipmentList.value.length) {
+                    selectEquipment(equipmentList.value[0],0)
+                    deviceTypeRule(equipmentList.value[0],0)
+                } else {
+                    selectEqu.value={}
+                    selectRule.value={}
+                    ruleRequest++
+                    ruleReady.value=false
+                    tableDocData.value=[]
+                    TJPRule.value=[]
+                }
 
             }
         })
@@ -64,6 +76,7 @@ export default function network(selectTablePage) {
         if (e.deviceNumber=="J210-742"){
             tableDocData.value=J210_742
         }
+        else tableDocData.value=[]
     }
     //
     const cliceTd=(y,x)=>{
@@ -80,7 +93,10 @@ export default function network(selectTablePage) {
 
     //
     const createDrillInfo = ()=>{
-        addDrillModal.value = false;
+        if (!selectEqu.value.id || !tableDocData.value.length) {
+            message.error('请选择支持综合组网训练的设备')
+            return
+        }
         let list=[]
         tableDocData.value.forEach((item,index)=>{
             item.forEach((items,indexs)=>{
@@ -93,15 +109,16 @@ export default function network(selectTablePage) {
             deviceType:currentEquipmentType.value,
             deviceId:selectEqu.value.id,
             topic: JSON.stringify(list),
-            scoringRuleContent: "",
-            answer:'',
         }
+        const deviceNumber=selectEqu.value.deviceNumber
+        const trainingPath=route.matched[4].path + '/equipmentUnitysHJBW'
         groupNetTrainSaveTrain(saveTrain).then(res=>{
+            if (res.code !== 200) return
+            addDrillModal.value=false
             selectTablePage(1)
-          console.log(route.matched[4].path + '/equipmentUnitysHJBW')
             router.push({
-                path: route.matched[4].path + '/equipmentUnitysHJBW',
-                query: {deviceType: selectEqu.value.deviceNumber,Id: res.data.id,range:selectRule.value.id,}
+                path: trainingPath,
+                query: {deviceType: deviceNumber, Id: res.data.id}
             })
         })
     }
@@ -116,34 +133,62 @@ export default function network(selectTablePage) {
         }
     }
     //
-    const addRule=()=>{
-        let saveTrain={
-            id:deviceScoringRule.value.id,
-            deviceId:selectRule.value.id,
-            ruleContent: JSON.stringify(TJPRule.value),
+    const addRule=async()=>{
+        if (ruleLoading.value || !ruleReady.value || !selectRule.value.id) {
+            message.error('请重新打开配置并等待当前设备评分规则加载完成')
+            return
         }
-        deviceScoringRuleSave(saveTrain).then(res=>{
+        const revision=ruleRequest
+        const deviceId=selectRule.value.id
+        const saveTrain={id:deviceScoringRule.value.id,deviceId,ruleContent:JSON.stringify(TJPRule.value)}
+        ruleLoading.value=true
+        try {
+            const saved=await deviceScoringRuleSave(saveTrain)
+            if (saved.code !== 200) return
+            if (revision === ruleRequest) ruleReady.value=false
+            const loaded=await deviceScoringRuleFindAllByDeviceId({deviceId})
+            if (loaded.code !== 200 || revision !== ruleRequest) return
+            if (!loaded.data || loaded.data.deviceId !== deviceId) {
+                message.error('评分规则已保存，但未读取到对应设备规则，请重新打开配置')
+                return
+            }
+            deviceScoringRule.value=loaded.data
+            TJPRule.value=JSON.parse(loaded.data.ruleContent)
+            ruleReady.value=true
             basicTrainDeployModal.value=false
-            message.success(('提交成功'))
-        })
+            message.success('提交成功')
+        } finally {
+            if (revision === ruleRequest) ruleLoading.value=false
+        }
     }
     //
     const basicDeploy=()=>{
         basicTrainDeployModal.value=true
+        if (selectRule.value.id) deviceTypeRule(selectRule.value,isActiveTwo.value)
     }
     //
     const deviceTypeRule=(e,i)=>{
+        const revision=++ruleRequest
         isActiveTwo.value = i
         selectRule.value=e
+        ruleLoading.value=true
+        ruleReady.value=false
+        deviceScoringRule.value={}
+        TJPRule.value=[]
         deviceScoringRuleFindAllByDeviceId({deviceId:selectRule.value.id}).then(res=>{
-            deviceScoringRule.value=res.data;
-            if (deviceScoringRule.value.length!==0){
+            if (res.code !== 200 || revision !== ruleRequest) return
+            deviceScoringRule.value=res.data || {};
+            if (res.data){
                 TJPRule.value=JSON.parse(deviceScoringRule.value.ruleContent)
             }else {
                 if (e.deviceNumber=="J210-742"){
-                    TJPRule.value=J210_742Rule
+                    TJPRule.value=J210_742Rule.map(rule => ({...rule}))
                 }
+                else TJPRule.value=[]
             }
+            ruleReady.value=true
+        }).finally(()=>{
+            if (revision === ruleRequest) ruleLoading.value=false
         })
     }
     //去重

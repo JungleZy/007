@@ -1,6 +1,7 @@
 package com.nip.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,6 +39,7 @@ public class DeviceScoringRuleEntity {
   /**
    * 评分规则
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String ruleContent;
 
   /**

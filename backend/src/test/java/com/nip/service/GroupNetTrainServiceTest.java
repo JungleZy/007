@@ -5,6 +5,7 @@ import com.nip.common.utils.Page;
 import com.nip.dao.DeviceDao;
 import com.nip.dao.DeviceTypeDao;
 import com.nip.dao.GroupNetTrainDao;
+import com.nip.dao.DeviceScoringRuleDao;
 import com.nip.dao.UserDao;
 import com.nip.dto.vo.GroupNetTrainListPageVO;
 import com.nip.entity.DeviceEntity;
@@ -33,6 +34,7 @@ class GroupNetTrainServiceTest {
   @Inject DeviceTypeDao deviceTypeDao;
   @Inject UserDao userDao;
   @Inject UserService userService;
+  @Inject DeviceScoringRuleDao ruleDao;
 
   private DeviceTypeEntity deviceType(String typeName) {
     DeviceTypeEntity t = new DeviceTypeEntity();
@@ -70,7 +72,7 @@ class GroupNetTrainServiceTest {
     CountingDeviceDao countingDeviceDao = new CountingDeviceDao();
     CountingDeviceTypeDao countingDeviceTypeDao = new CountingDeviceTypeDao();
     GroupNetTrainService svc =
-        new GroupNetTrainService(trainDao, userService, countingDeviceDao, countingDeviceTypeDao);
+        new GroupNetTrainService(trainDao, userService, countingDeviceDao, countingDeviceTypeDao, ruleDao);
 
     Page page = new Page();
     page.setPage(1);

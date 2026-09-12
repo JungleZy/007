@@ -29,7 +29,7 @@ export default function table(){
     // "信道组、信道频率分配表":[[15,0],[16,15],[17,15],[18,15],[19,12],[20,21],[21,20]]
   }
   let serialNumber=[];
-  let a=Math.floor(0+Math.random()*(14-0))
+  let a=Math.floor(Math.random()*13)
   for (let i=0;i<8;i++){
     serialNumber.push(a++)
   }

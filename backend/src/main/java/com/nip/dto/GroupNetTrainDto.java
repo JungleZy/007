@@ -36,15 +36,4 @@ public class GroupNetTrainDto {
   @Schema(title = "题目")
   private String topic;
 
-  /**
-   * 评分规则内容
-   */
-  @Schema(title = "评分规则内容")
-  private String scoringRuleContent;
-
-  /**
-   * 答案
-   */
-  @Schema(title = "答案")
-  private String answer;
 }

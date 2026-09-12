@@ -1,0 +1,1712 @@
+[
+  {
+    "xy": [
+      4,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 19
+    }
+  },
+  {
+    "xy": [
+      4,
+      2
+    ],
+    "value": {
+      "isParameter": "网路地址",
+      "value": 319
+    }
+  },
+  {
+    "xy": [
+      4,
+      3
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": "299"
+    }
+  },
+  {
+    "xy": [
+      4,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "00.00000",
+      "xdValues": 1
+    }
+  },
+  {
+    "xy": [
+      4,
+      9
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "29.00000",
+      "xdValuef": 1
+    }
+  },
+  {
+    "xy": [
+      4,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 11
+    }
+  },
+  {
+    "xy": [
+      4,
+      12
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 11
+    }
+  },
+  {
+    "xy": [
+      4,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 21
+    }
+  },
+  {
+    "xy": [
+      4,
+      15
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 21
+    }
+  },
+  {
+    "xy": [
+      4,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 31
+    }
+  },
+  {
+    "xy": [
+      4,
+      18
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 31
+    }
+  },
+  {
+    "xy": [
+      4,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 41
+    }
+  },
+  {
+    "xy": [
+      4,
+      21
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 41
+    }
+  },
+  {
+    "xy": [
+      4,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 51
+    }
+  },
+  {
+    "xy": [
+      4,
+      24
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 51
+    }
+  },
+  {
+    "xy": [
+      4,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 61
+    }
+  },
+  {
+    "xy": [
+      4,
+      27
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 61
+    }
+  },
+  {
+    "xy": [
+      5,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 0
+    }
+  },
+  {
+    "xy": [
+      5,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 0
+    }
+  },
+  {
+    "xy": [
+      5,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 2
+    }
+  },
+  {
+    "xy": [
+      5,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 2
+    }
+  },
+  {
+    "xy": [
+      5,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 12
+    }
+  },
+  {
+    "xy": [
+      5,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 12
+    }
+  },
+  {
+    "xy": [
+      5,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 22
+    }
+  },
+  {
+    "xy": [
+      5,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 22
+    }
+  },
+  {
+    "xy": [
+      5,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 32
+    }
+  },
+  {
+    "xy": [
+      5,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 32
+    }
+  },
+  {
+    "xy": [
+      5,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 42
+    }
+  },
+  {
+    "xy": [
+      5,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 42
+    }
+  },
+  {
+    "xy": [
+      5,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 52
+    }
+  },
+  {
+    "xy": [
+      5,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 52
+    }
+  },
+  {
+    "xy": [
+      5,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 62
+    }
+  },
+  {
+    "xy": [
+      5,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 62
+    }
+  },
+  {
+    "xy": [
+      6,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 1
+    }
+  },
+  {
+    "xy": [
+      6,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 1
+    }
+  },
+  {
+    "xy": [
+      6,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 3
+    }
+  },
+  {
+    "xy": [
+      6,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 3
+    }
+  },
+  {
+    "xy": [
+      6,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 13
+    }
+  },
+  {
+    "xy": [
+      6,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 13
+    }
+  },
+  {
+    "xy": [
+      6,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 23
+    }
+  },
+  {
+    "xy": [
+      6,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 23
+    }
+  },
+  {
+    "xy": [
+      6,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 33
+    }
+  },
+  {
+    "xy": [
+      6,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 33
+    }
+  },
+  {
+    "xy": [
+      6,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 43
+    }
+  },
+  {
+    "xy": [
+      6,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 43
+    }
+  },
+  {
+    "xy": [
+      6,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 53
+    }
+  },
+  {
+    "xy": [
+      6,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 53
+    }
+  },
+  {
+    "xy": [
+      6,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 63
+    }
+  },
+  {
+    "xy": [
+      6,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 63
+    }
+  },
+  {
+    "xy": [
+      7,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 2
+    }
+  },
+  {
+    "xy": [
+      7,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 2
+    }
+  },
+  {
+    "xy": [
+      7,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 4
+    }
+  },
+  {
+    "xy": [
+      7,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 4
+    }
+  },
+  {
+    "xy": [
+      7,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 14
+    }
+  },
+  {
+    "xy": [
+      7,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 14
+    }
+  },
+  {
+    "xy": [
+      7,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 24
+    }
+  },
+  {
+    "xy": [
+      7,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 24
+    }
+  },
+  {
+    "xy": [
+      7,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 34
+    }
+  },
+  {
+    "xy": [
+      7,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 34
+    }
+  },
+  {
+    "xy": [
+      7,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 44
+    }
+  },
+  {
+    "xy": [
+      7,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 44
+    }
+  },
+  {
+    "xy": [
+      7,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 54
+    }
+  },
+  {
+    "xy": [
+      7,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 54
+    }
+  },
+  {
+    "xy": [
+      7,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 64
+    }
+  },
+  {
+    "xy": [
+      7,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 64
+    }
+  },
+  {
+    "xy": [
+      8,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 3
+    }
+  },
+  {
+    "xy": [
+      8,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 3
+    }
+  },
+  {
+    "xy": [
+      8,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 5
+    }
+  },
+  {
+    "xy": [
+      8,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 5
+    }
+  },
+  {
+    "xy": [
+      8,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 15
+    }
+  },
+  {
+    "xy": [
+      8,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 15
+    }
+  },
+  {
+    "xy": [
+      8,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 25
+    }
+  },
+  {
+    "xy": [
+      8,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 25
+    }
+  },
+  {
+    "xy": [
+      8,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 35
+    }
+  },
+  {
+    "xy": [
+      8,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 35
+    }
+  },
+  {
+    "xy": [
+      8,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 45
+    }
+  },
+  {
+    "xy": [
+      8,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 45
+    }
+  },
+  {
+    "xy": [
+      8,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 55
+    }
+  },
+  {
+    "xy": [
+      8,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 55
+    }
+  },
+  {
+    "xy": [
+      8,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 65
+    }
+  },
+  {
+    "xy": [
+      8,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 65
+    }
+  },
+  {
+    "xy": [
+      9,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 4
+    }
+  },
+  {
+    "xy": [
+      9,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 4
+    }
+  },
+  {
+    "xy": [
+      9,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 6
+    }
+  },
+  {
+    "xy": [
+      9,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 6
+    }
+  },
+  {
+    "xy": [
+      9,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 16
+    }
+  },
+  {
+    "xy": [
+      9,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 16
+    }
+  },
+  {
+    "xy": [
+      9,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 26
+    }
+  },
+  {
+    "xy": [
+      9,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 26
+    }
+  },
+  {
+    "xy": [
+      9,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 36
+    }
+  },
+  {
+    "xy": [
+      9,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 36
+    }
+  },
+  {
+    "xy": [
+      9,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 46
+    }
+  },
+  {
+    "xy": [
+      9,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 46
+    }
+  },
+  {
+    "xy": [
+      9,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 56
+    }
+  },
+  {
+    "xy": [
+      9,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 56
+    }
+  },
+  {
+    "xy": [
+      9,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 66
+    }
+  },
+  {
+    "xy": [
+      9,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 66
+    }
+  },
+  {
+    "xy": [
+      10,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 5
+    }
+  },
+  {
+    "xy": [
+      10,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 5
+    }
+  },
+  {
+    "xy": [
+      10,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 7
+    }
+  },
+  {
+    "xy": [
+      10,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 7
+    }
+  },
+  {
+    "xy": [
+      10,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 17
+    }
+  },
+  {
+    "xy": [
+      10,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 17
+    }
+  },
+  {
+    "xy": [
+      10,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 27
+    }
+  },
+  {
+    "xy": [
+      10,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 27
+    }
+  },
+  {
+    "xy": [
+      10,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 37
+    }
+  },
+  {
+    "xy": [
+      10,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 37
+    }
+  },
+  {
+    "xy": [
+      10,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 47
+    }
+  },
+  {
+    "xy": [
+      10,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 47
+    }
+  },
+  {
+    "xy": [
+      10,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 57
+    }
+  },
+  {
+    "xy": [
+      10,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 57
+    }
+  },
+  {
+    "xy": [
+      10,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 67
+    }
+  },
+  {
+    "xy": [
+      10,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 67
+    }
+  },
+  {
+    "xy": [
+      11,
+      1
+    ],
+    "value": {
+      "isParameter": "序号",
+      "value": 6
+    }
+  },
+  {
+    "xy": [
+      11,
+      2
+    ],
+    "value": {
+      "isParameter": "单台地址",
+      "value": 6
+    }
+  },
+  {
+    "xy": [
+      11,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 8
+    }
+  },
+  {
+    "xy": [
+      11,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 8
+    }
+  },
+  {
+    "xy": [
+      11,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 18
+    }
+  },
+  {
+    "xy": [
+      11,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 18
+    }
+  },
+  {
+    "xy": [
+      11,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 28
+    }
+  },
+  {
+    "xy": [
+      11,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 28
+    }
+  },
+  {
+    "xy": [
+      11,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 38
+    }
+  },
+  {
+    "xy": [
+      11,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 38
+    }
+  },
+  {
+    "xy": [
+      11,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 48
+    }
+  },
+  {
+    "xy": [
+      11,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 48
+    }
+  },
+  {
+    "xy": [
+      11,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 58
+    }
+  },
+  {
+    "xy": [
+      11,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 58
+    }
+  },
+  {
+    "xy": [
+      11,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 68
+    }
+  },
+  {
+    "xy": [
+      11,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 68
+    }
+  },
+  {
+    "xy": [
+      12,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 9
+    }
+  },
+  {
+    "xy": [
+      12,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 9
+    }
+  },
+  {
+    "xy": [
+      12,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 19
+    }
+  },
+  {
+    "xy": [
+      12,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 19
+    }
+  },
+  {
+    "xy": [
+      12,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 29
+    }
+  },
+  {
+    "xy": [
+      12,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 29
+    }
+  },
+  {
+    "xy": [
+      12,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 39
+    }
+  },
+  {
+    "xy": [
+      12,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 39
+    }
+  },
+  {
+    "xy": [
+      12,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 49
+    }
+  },
+  {
+    "xy": [
+      12,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 49
+    }
+  },
+  {
+    "xy": [
+      12,
+      22
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 59
+    }
+  },
+  {
+    "xy": [
+      12,
+      23
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 59
+    }
+  },
+  {
+    "xy": [
+      12,
+      25
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 69
+    }
+  },
+  {
+    "xy": [
+      12,
+      26
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 69
+    }
+  },
+  {
+    "xy": [
+      13,
+      1
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 10
+    }
+  },
+  {
+    "xy": [
+      13,
+      2
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 10
+    }
+  },
+  {
+    "xy": [
+      13,
+      4
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 20
+    }
+  },
+  {
+    "xy": [
+      13,
+      5
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 20
+    }
+  },
+  {
+    "xy": [
+      13,
+      7
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 30
+    }
+  },
+  {
+    "xy": [
+      13,
+      8
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 30
+    }
+  },
+  {
+    "xy": [
+      13,
+      10
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 40
+    }
+  },
+  {
+    "xy": [
+      13,
+      11
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 40
+    }
+  },
+  {
+    "xy": [
+      13,
+      13
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 50
+    }
+  },
+  {
+    "xy": [
+      13,
+      14
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 50
+    }
+  },
+  {
+    "xy": [
+      13,
+      16
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 60
+    }
+  },
+  {
+    "xy": [
+      13,
+      17
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 60
+    }
+  },
+  {
+    "xy": [
+      13,
+      19
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValues": 70
+    }
+  },
+  {
+    "xy": [
+      13,
+      20
+    ],
+    "value": {
+      "isParameter": "信道",
+      "value": "01.00000",
+      "xdValuef": 70
+    }
+  }
+]

@@ -5,6 +5,13 @@ import com.nip.common.PageInfo;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.DeviceDao;
+import com.nip.dao.DeviceScoringRuleDao;
+import com.nip.common.constants.ResponseCode;
+import com.nip.common.response.ResponseResult;
+import com.nip.entity.DeviceScoringRuleEntity;
+import jakarta.persistence.LockModeType;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 import com.nip.dao.DeviceTypeDao;
 import com.nip.dao.GroupNetTrainDao;
 import com.nip.dto.GroupNetTrainDto;
@@ -41,13 +48,15 @@ public class GroupNetTrainService {
   private final UserService userService;
   private final DeviceDao deviceDao;
   private final DeviceTypeDao deviceTypeDao;
+  private final DeviceScoringRuleDao ruleDao;
 
   @Inject
-  public GroupNetTrainService(GroupNetTrainDao trainDao, UserService userService, DeviceDao deviceDao, DeviceTypeDao deviceTypeDao) {
+  public GroupNetTrainService(GroupNetTrainDao trainDao, UserService userService, DeviceDao deviceDao, DeviceTypeDao deviceTypeDao, DeviceScoringRuleDao ruleDao) {
     this.trainDao = trainDao;
     this.userService = userService;
     this.deviceDao = deviceDao;
     this.deviceTypeDao = deviceTypeDao;
+    this.ruleDao = ruleDao;
   }
 
   /**
@@ -59,7 +68,20 @@ public class GroupNetTrainService {
   @Transactional(rollbackOn = Exception.class)
   public GroupNetTrainDetailsVO save(GroupNetTrainDto trainDto, String token) {
     UserEntity userEntity = userService.getUserByToken(token);
-    GroupNetTrainEntity groupNetTrainEntity = PojoUtils.convertOne(trainDto, GroupNetTrainEntity.class);
+    if (trainDto == null || trainDto.getDeviceId() == null) throw new IllegalArgumentException("设备不能为空");
+    DeviceEntity device = Optional.ofNullable(deviceDao.findById(trainDto.getDeviceId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到设备"));
+    if (!Objects.equals(device.getDeviceTypeId(), trainDto.getDeviceType())) {
+      throw new IllegalArgumentException("设备与设备分类不匹配");
+    }
+    if (!"J210-742".equals(device.getDeviceNumber())) throw new IllegalArgumentException("该设备尚无综合组网题目与评分映射");
+    List<DeviceScoringRuleEntity> rules = ruleDao.list("deviceId = ?1", device.getId());
+    if (rules.size() != 1) throw new IllegalArgumentException("该设备必须配置唯一的有效评分规则");
+    GroupNetTrainEntity groupNetTrainEntity = new GroupNetTrainEntity();
+    groupNetTrainEntity.setDeviceId(device.getId());
+    groupNetTrainEntity.setDeviceType(device.getDeviceTypeId());
+    groupNetTrainEntity.setTopic(trainDto.getTopic());
+    groupNetTrainEntity.setScoringRuleContent(GroupNetScoring.freeze(device.getId(), rules.getFirst().getRuleContent(), trainDto.getTopic()));
     groupNetTrainEntity.setCreateUser(userEntity.getId());
     trainDao.saveAndFlush(groupNetTrainEntity);
     return PojoUtils.convertOne(groupNetTrainEntity, GroupNetTrainDetailsVO.class);
@@ -112,9 +134,10 @@ public class GroupNetTrainService {
    * @param id id
    * @return 详情
    */
-  public GroupNetTrainDetailsVO detail(Integer id) {
+  public GroupNetTrainDetailsVO detail(Integer id, String token) {
     GroupNetTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(id))
         .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    requireOwner(trainEntity, token);
     return PojoUtils.convertOne(trainEntity, GroupNetTrainDetailsVO.class);
   }
 
@@ -124,10 +147,34 @@ public class GroupNetTrainService {
    * @param submitAnswerDto 答案
    */
   @Transactional(rollbackOn = Exception.class)
-  public void submitAnswer(GroupNetTrainSubmitAnswerDto submitAnswerDto) {
-    GroupNetTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(submitAnswerDto.getId()))
+  public GroupNetTrainDetailsVO submitAnswer(GroupNetTrainSubmitAnswerDto submitAnswerDto, String token) {
+    if (submitAnswerDto == null || submitAnswerDto.getId() == null) throw new IllegalArgumentException("训练id不能为空");
+    submitAnswerDto.validateFields();
+    GroupNetTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(submitAnswerDto.getId(), LockModeType.PESSIMISTIC_WRITE))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireOwner(trainEntity, token);
+    if (trainEntity.getScore() != null) {
+      if (!GroupNetScoring.sameAnswer(trainEntity.getAnswer(), submitAnswerDto.getAnswer())) {
+        throw new IllegalArgumentException("训练已提交，不能修改答案或成绩");
+      }
+      return PojoUtils.convertOne(trainEntity, GroupNetTrainDetailsVO.class);
+    }
+    if (trainEntity.getScoringRuleContent() == null || trainEntity.getScoringRuleContent().isBlank()) {
+      throw new IllegalArgumentException("旧训练没有冻结评分规则，请重新创建训练；历史成绩不会重算");
+    }
+    GroupNetScoring.Result result = GroupNetScoring.calculate(trainEntity.getDeviceId(), trainEntity.getTopic(),
+        trainEntity.getScoringRuleContent(), submitAnswerDto.getAnswer());
     trainEntity.setAnswer(submitAnswerDto.getAnswer());
-    trainEntity.setScore(submitAnswerDto.getScore());
+    trainEntity.setScore(result.score());
+    trainEntity.setContent(result.details());
+    trainDao.flush();
+    return PojoUtils.convertOne(trainEntity, GroupNetTrainDetailsVO.class);
+  }
+
+  private void requireOwner(GroupNetTrainEntity train, String token) {
+    if (!Objects.equals(train.getCreateUser(), userService.getUserByToken(token).getId())) {
+      throw new WebApplicationException(jakarta.ws.rs.core.Response.ok(ResponseResult.error(ResponseCode.CODE_207))
+          .type(MediaType.APPLICATION_JSON).build());
+    }
   }
 }

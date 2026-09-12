@@ -1,6 +1,6 @@
 <template>
     <div class="w-full h-full overflow-auto">
-        <div class="w-full layout-center" style="height: 40px">得分：{{score}}</div>
+        <div class="w-full layout-center" style="height: 40px">得分：{{score ?? '未取得成绩'}}</div>
         <div class="w-full overflow-auto" style="height: calc(100% - 40px)">
             <table style="display: flow-root">
                 <tr v-for="(item, index) of tableDocData" :key="index">
@@ -12,8 +12,8 @@
                             :rowspan="v.rowspan"
                             style="min-width: 60px"
                             :title="v.isParameter? '实际值：'+v.value:''"
-                            :style="{color:v.isParameter?v.params==v.value?'':v.params?'red':'':'', height: v.height + 'px', width: v.width + 'px' }">
-                        <span >{{(v.isParameter && v.params)?v.params:v.value}}</span>
+                            :style="{color:v.correct === false ? 'red' : '', height: v.height + 'px', width: v.width + 'px' }">
+                        <span>{{v.isParameter && v.isParameter !== '序号' ? (v.params ?? '未作答') : v.value}}</span>
                     </td>
                 </tr>
             </table>
@@ -29,7 +29,7 @@
 <script setup>
     import {groupNetTrain} from "../../../../common/api/TrainingDetails";
     import table from '../contactDocuments/table'
-    import {analyzeChannel,netIP} from "../contactDocuments/J210_742";
+    import {analyzeChannel,netIP,applyScoringDetails} from "../contactDocuments/J210_742";
     import {ref,onMounted} from 'vue'
     import {useRoute, useRouter} from "vue-router";
     const unityPath=ref('')
@@ -38,20 +38,22 @@
     const {J210_742}=table();
     const tableDocData=ref([]);
     const answer=ref('');
-    const score=ref(0);
+    const score=ref(null);
     onMounted(() => {
         groupNetTrainDetails(route.query.Id,)
     })
     //获取考核信息
     const groupNetTrainDetails=(e,)=>{
-        tableDocData.value=J210_742
         groupNetTrain({id:e}).then(res=>{
+            if (res.code !== 200) return
+            tableDocData.value=J210_742
             let train=res.data;
             score.value=train.score;
             for (let i of JSON.parse(train.topic)){
                 repeatAnswer(i,)
             }
-            paramsChild(JSON.parse(train.answer))
+            if (train.answer) paramsChild(JSON.parse(train.answer))
+            if (train.content && train.scoringRuleContent?.startsWith('{')) applyScoringDetails(tableDocData.value, JSON.parse(train.content))
         })
     }
     //处理模板和考核信息

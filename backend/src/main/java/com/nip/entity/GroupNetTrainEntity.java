@@ -1,6 +1,7 @@
 package com.nip.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -35,16 +36,19 @@ public class GroupNetTrainEntity {
   /**
    * 题目
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String topic;
 
   /**
    * 答案
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String answer;
 
   /**
    * 评分规则
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String scoringRuleContent;
 
 
@@ -55,8 +59,9 @@ public class GroupNetTrainEntity {
 
 
   /**
-   * 冗余字段
+   * 服务端逐题评分明细；历史记录保持原值，不自动重算
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String content;
 
   /**
