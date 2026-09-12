@@ -91,7 +91,7 @@
                                   :style="{width: (fs>0?60:64)+'px'}"></a-input-number>
                 </div>
                 <div class="item fs_dispose_1" :style="{width: (fs>0?60:64)+'px'}">
-                  <a-input-number v-model:value="patStandard.dot.max" :min="patStandard.dot.min+1"
+                  <a-input-number v-model:value="patStandard.dot.max" :min="patStandard.dot.min+1" :precision="0"
                                   @change="handlePatDeployData" :style="{width: (fs>0?60:64)+'px'}"></a-input-number>
                 </div>
                 <div class="item fs_dispose_1" :style="{width: (fs>0?60:64)+'px'}">
@@ -680,7 +680,7 @@
     handKeyWidth.value = (boxWidth % 120) / parseInt(boxWidth / 120) + 112
   }
 
-  const { handKeyDown, patStandard, handKeyValue, diffTime, gapTime, wsOnline, devOnline, audioVolume, init } = useControl(trainData)
+  const { handKeyDown, patStandard, onKey, wsOnline, devOnline, audioVolume, init } = useControl(trainData)
   //查询最后一页报底的时候执行
   const findLastPage = ()=>{
     trainData.value.baoDiList.forEach(d => {
@@ -734,7 +734,7 @@
     trendLogData,
     handleKeyTrendData,
     getFloorContentInfo
-  } = useDetails(handKeyValue, diffTime, trainData, patStandard, loading, title, handleBaoWenKeyInfo, handKeyWidth, wsOnline, devOnline, wpmTOmm,findLastPage)
+  } = useDetails(trainData, patStandard, loading, title, handleBaoWenKeyInfo, handKeyWidth, wsOnline, devOnline, wpmTOmm,findLastPage)
 
   const { initWordCodeInfo } = wordCode(trainData, currBaoWen, currBaoWenIndex, handKeyBoardBoxRef)
 
@@ -767,9 +767,9 @@
           patStandard.value.interval.max = res.data.train.rateIntervalMaxMs
           patStandard.value.gap.min = res.data.train.bigIntervalMinMs
           patStandard.value.gap.max = res.data.train.bigIntervalMaxMs
-          proportion.value.line = parseInt(res.data.train.rateLineMaxMs / res.data.train.rateDotMaxMs)
-          proportion.value.interval = parseInt(res.data.train.rateIntervalMaxMs / res.data.train.rateDotMaxMs - 1)
-          proportion.value.gap = parseInt(res.data.train.bigIntervalMaxMs / res.data.train.rateDotMaxMs - 1)
+          proportion.value.line = res.data.train.rateLineMaxMs / res.data.train.rateDotMaxMs
+          proportion.value.interval = res.data.train.rateIntervalMaxMs / res.data.train.rateDotMaxMs
+          proportion.value.gap = res.data.train.bigIntervalMaxMs / res.data.train.rateDotMaxMs
           for (let key in trainData.value.time) {
             if (res.data.train[key] && res.data.train[key] !== '') {
               trainData.value.time[key] = parseInt(res.data.train[key])
@@ -830,7 +830,7 @@
             getTrainSendRecordLog()
           }
           getFloorContentInfo(editBaoDiIndex.value)
-          init().then()
+          init()
         } else {
           message.error(res.message)
         }
@@ -842,14 +842,12 @@
     }
   })
 
-  watch(handKeyValue, () => {
-    if (handKeyValue.value !== null) {
-      if (trainData.value.status === 0) {
-        initMorseCodeInfo(handKeyValue.value, diffTime.value, gapTime.value)
-        beginExerciseInfo()
-      } else if (trainData.value.status === 1) {
-        initMorseCodeInfo(handKeyValue.value, diffTime.value, gapTime.value)
-      }
+  onKey(({code, diffTime, gapTime}) => {
+    if (trainData.value.status === 0) {
+      initMorseCodeInfo(code, diffTime, gapTime)
+      beginExerciseInfo()
+    } else if (trainData.value.status === 1) {
+      initMorseCodeInfo(code, diffTime, gapTime)
     }
   })
   let isFirst = true

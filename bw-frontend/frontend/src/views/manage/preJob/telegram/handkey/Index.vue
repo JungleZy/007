@@ -124,17 +124,17 @@
                   <a-input-number v-if="deploy.type==0&&trainData.way == -1" v-model:value="basicLabTitle.dot[0]" disabled style="width: 120px;"></a-input-number>
                   <a-input-number v-else-if="deploy.type==1&&trainData.way == -1" v-model:value="basicLabTitle.line[0]" disabled style="width: 120px;"></a-input-number>
                   <a-input-number v-else-if="deploy.type<2" v-model:value="deploy.min" disabled style="width: 120px;"></a-input-number>
-                  <a-input-number v-else v-model:value="deploy.min" :min="formData.train.rateDotMaxMs" :max="2000" :formatter="(value) => (value>2000?2000:value)" style="width: 120px;"></a-input-number>
+                  <a-input-number v-else v-model:value="deploy.min" disabled style="width: 120px;"></a-input-number>
                 </div>
                 <div class="item">
-                  <a-input-number v-if="trainData.way >= 0" v-model:value="deploy.max" :min="2" :max="deploy.type==0||deploy.type==2?200:2000"
-                                  :formatter="(value) => (value>2000?2000:value)" @change="handlePatDeployData" style="width: 120px;"></a-input-number>
+                  <a-input-number v-if="trainData.way >= 0" v-model:value="deploy.max" :min="2" :max="deploy.type==0?200:2000" :precision="0"
+                                  :formatter="(value) => (value>2000?2000:value)" @change="handlePatDeployData(deploy)" style="width: 120px;"></a-input-number>
                   <a-input-number v-else-if="deploy.type==0&&trainData.way == -1" v-model:value="basicLabTitle.dot[1]" disabled style="width: 120px;"></a-input-number>
                   <a-input-number v-else-if="deploy.type==1&&trainData.way == -1" v-model:value="basicLabTitle.line[1]" disabled style="width: 120px;"></a-input-number>
                 </div>
                 <div class="item" style="margin: 0;" v-if="trainData.way >= 0">
                   <a-input-number v-if="deploy.type==0" v-model:value="deploy.scale" disabled style="width: 60px;"></a-input-number>
-                  <a-input-number v-else v-model:value="deploy.scale" @change="handlePatDeployData" :min="3" :max="10" :formatter="(value) => (value>10?10:value)" style="width: 60px;"></a-input-number>
+                  <a-input-number v-else v-model:value="deploy.scale" @change="handlePatDeployData()" :min="3" :max="10" :formatter="(value) => (value>10?10:value)" style="width: 60px;"></a-input-number>
                 </div>
               </div>
             </template>

@@ -12,7 +12,7 @@ import { log } from '@antv/g2plot/lib/utils/invariant.js'
 import { last } from 'ramda'
 import {getFloorContentByFloor} from "../../../../../../common/api/TelegramApi";
 
-export default function (handKeyValue, diffTime, trainData, patStandard, loading, title, handleBaoWenKeyInfo, handKeyWidth, wsOnline, devOnline, wpmTOmm,findLastPage) {
+export default function (trainData, patStandard, loading, title, handleBaoWenKeyInfo, handKeyWidth, wsOnline, devOnline, wpmTOmm,findLastPage) {
   let lineChart = null
   const nowTime = ref({ h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0 })
   const trainTimer = ref(null)
@@ -372,7 +372,6 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
       }
     }
     // handKeyLogs.value = handKeyLogs.value.splice(handKeyLogs.value.length-30,handKeyLogs.value.length)
-    handKeyValue.value = null
   }
 
   /**
@@ -392,6 +391,17 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
       }
     })
   }
+
+  const trainingSettings = () => ({
+    rateDotMinMs: patStandard.value.dot.min,
+    rateDotMaxMs: patStandard.value.dot.max,
+    rateLineMinMs: patStandard.value.line.min,
+    rateLineMaxMs: patStandard.value.line.max,
+    rateIntervalMinMs: patStandard.value.interval.min,
+    rateIntervalMaxMs: patStandard.value.interval.max,
+    bigIntervalMinMs: patStandard.value.gap.min,
+    bigIntervalMaxMs: patStandard.value.gap.max
+  })
 
   /**
    * 处理接口提交的练习数据
@@ -430,6 +440,7 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
     if (type === 'end') {
       return {
         train: {
+          ...trainingSettings(),
           id: trainData.value.trainId,
           errorNumber: errorNum,
           accuracy: accuracy,
@@ -443,6 +454,7 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
     } else {
       return {
         train: {
+          ...trainingSettings(),
           id: trainData.value.trainId,
           errorNumber: trainData.value.errorNumber,
           accuracy: trainData.value.accuracy,
@@ -471,6 +483,7 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
     }
     startTelegramTrain({
       train: {
+        ...trainingSettings(),
         id: trainData.value.trainId
       }
     }).then(res => {
@@ -580,11 +593,11 @@ export default function (handKeyValue, diffTime, trainData, patStandard, loading
    */
   const handlePatDeployData = () => {
     patStandard.value.line.min = patStandard.value.dot.max + 1
-    patStandard.value.line.max = patStandard.value.dot.max * proportion.value.line
-    patStandard.value.interval.min = patStandard.value.dot.max + 1
-    patStandard.value.interval.max = patStandard.value.dot.max * proportion.value.interval
-    patStandard.value.gap.min = patStandard.value.dot.max * proportion.value.interval + 1
-    patStandard.value.gap.max = patStandard.value.dot.max * proportion.value.gap
+    patStandard.value.line.max = Math.round(patStandard.value.dot.max * proportion.value.line)
+    patStandard.value.interval.min = patStandard.value.dot.max
+    patStandard.value.interval.max = Math.round(patStandard.value.dot.max * proportion.value.interval)
+    patStandard.value.gap.min = patStandard.value.interval.max
+    patStandard.value.gap.max = Math.round(patStandard.value.dot.max * proportion.value.gap)
   }
 
   /**

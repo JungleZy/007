@@ -3,8 +3,9 @@ import {useRouter, useRoute} from "vue-router"
 import {getBasicSetting,saveHandKeyBasicTrain} from "../../../../../../common/api/TelegramApi.js";
 import {sum} from "../../../../../../common/utils/Utils.js";
 import * as echarts from "echarts";
+import { parseTelegramBasicSettings } from '../../../../../../common/utils/telegramSettings.js'
 
-export default function () {
+export default function (trainData) {
   const barrageBoxRef = ref(null);
   const showBarrageBox = ref(true);
   const nowTime = ref({h1:0,h2:0,m1:0,m2:0,s1:0,s2:0});
@@ -26,54 +27,66 @@ export default function () {
   const totalData = ref([]);
   const sustainTime = ref(0);
   const router = useRouter();
+  const settingsReady = ref(false)
+  const settingsLoading = ref(false)
+  const settingsError = ref('')
+  let disposed = false
+  const loadSettings = async () => {
+    if (settingsLoading.value) return
+    settingsLoading.value = true
+    settingsReady.value = false
+    settingsError.value = ''
+    trainData.value.status = 2
+    try {
+      const res = await getBasicSetting()
+      if (disposed) return
+      if (res.code !== 200) throw new Error(res.message || '基础配置加载失败')
+      const rows = parseTelegramBasicSettings(res.data)
+      const nextAnnotations = { dot: [], line: [] }
+      const nextRange = { dot: [], line: [] }
+      for (const item of rows) {
+        const key = item.key === '0' ? 'dot' : 'line'
+        if (item.value.type === 0) {
+          nextRange[key] = [Number(item.value.min.slice(1)), Number(item.value.max.slice(1))]
+          nextAnnotations[key].push(
+            [{ yAxis: nextRange[key][1], itemStyle: { color: '#262239' } }, { valueDim: 'y' }],
+            [{ valueDim: 'y' }, { yAxis: nextRange[key][0], itemStyle: { color: '#262239' } }]
+          )
+        } else {
+          nextAnnotations[key].push([{ yAxis: item.value.max }, { yAxis: item.value.min, itemStyle: { color: item.value.type === 2 ? '#263139' : '#172939' } }])
+        }
+      }
+      standard.value = { dot: rows.filter(item => item.key === '0'), line: rows.filter(item => item.key === '1') }
+      annotations.value = nextAnnotations
+      range.value = nextRange
+      totalData.value = standard.value.dot.map(item => ({ name: item.value.name, type: item.value.type, num: 0 }))
+      handleKeyLogChart(trainLogData.value.chartData[currTrainTab.value])
+      settingsReady.value = true
+      trainData.value.status = 1
+    } catch (error) {
+      settingsError.value = `${error.message || '基础配置加载失败'}；请返回基础配置修正后重试`
+    } finally {
+      settingsLoading.value = false
+    }
+  }
 
   onMounted(() => {
     let time = 0;
     trainTimer.value = setInterval(() => {
+      if (!settingsReady.value) return
       time += 1000;
       sustainTime.value +=1000;
       timeAreaShow(time);
     },1000);
-    annotations.value = {dot: [],line: []};
-    getBasicSetting().then((res) => {
-      if (res.code === 200) {
-        res.data.map(item => {
-          item.value = JSON.parse(item.value);
-          if (item.value.type === 0) {
-            range.value[item.key==='0'?'dot':'line'] = [item.value.min.slice(1), item.value.max.slice(1)];
-            annotations.value[item.key==='0'?'dot':'line'].push([
-              {yAxis: item.value.max.slice(1),itemStyle: {color: '#262239'}},
-              {valueDim: 'y'},
-            ]);
-            annotations.value[item.key==='0'?'dot':'line'].push([
-              {valueDim: 'y'},
-              {yAxis: item.value.min.slice(1),itemStyle: {color: '#262239'}}
-            ])
-          } else {
-            annotations.value[item.key==='0'?'dot':'line'].push([
-              {yAxis: item.value.max},
-              {yAxis: item.value.min,itemStyle: {color: item.value.type===2?'#263139':'#172939'}}
-            ])
-          }
-        });
-        standard.value.dot = res.data.filter(item => item.key === '0');
-        standard.value.line = res.data.filter(item => item.key === '1');
-        standard.value.line.map(item => {
-          totalData.value.push({
-            name: item.value.name,
-            type: item.value.type,
-            num: 0
-          })
-        });
-        handleKeyLogChart(trainLogData.value.chartData[currTrainTab.value])
-      }
-    });
+    loadSettings()
     if (barrageBoxRef.value) {
       showBarrageBox.value = (barrageBoxRef.value.clientHeight>=100);
     }
   });
 
   onBeforeUnmount(() => {
+    disposed = true
+    if (!settingsReady.value || sustainTime.value === 0) return
     saveHandKeyBasicTrain({
       totalKnockNumber: trainLogData.value.chartData.dot.length + trainLogData.value.chartData.line.length,
       sustainTime: sustainTime.value.toString()
@@ -122,6 +135,7 @@ export default function () {
   let arr = []
   let isFirst = false //判断监听只渲染一次
   const changeChartData = (val) => {
+    if (!settingsReady.value || !Number.isFinite(val) || val <= 0) return
     isFirst = true
     arr = []
     xData = []
@@ -308,6 +322,7 @@ export default function () {
    * @param way
    */
   const changeTrainWay = (way) => {
+    if (!settingsReady.value) return false
     if (way === currTrainTab.value) return false;
     currTrainTab.value = way;
     if (trainLogData.value.barrage[currTrainTab.value].length > 0) {
@@ -327,6 +342,7 @@ export default function () {
 
   return {
     nowTime, barrageBoxRef, range, showBarrageBox, currTrainTab, trainLogData,totalData,standard,dotLineLog,
+    settingsReady, settingsLoading, settingsError, loadSettings,
     changeChartData, changeTrainWay, goBack
   }
 }

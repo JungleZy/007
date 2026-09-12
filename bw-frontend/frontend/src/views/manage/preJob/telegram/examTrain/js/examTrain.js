@@ -7,8 +7,11 @@ import { codeInKey, codeOnKey } from './keyCode.js'
 import { findExamPatTrainById, beginExamTrainInfo, stopExamTrainInfo, goTopExamTrainInfo, endExamTrainInfo } from '../../../../../../common/api/examApi.js'
 import { PubSub } from '../../../../../../common/utils/PubSub.js'
 import useMorse from '../../../../../../common/mixin/useMorse'
+import {audioOperation} from '../../../../../../common/utils/MorseVoice'
+import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 
 export default function telexTrain() {
+  const submission = useConfirmedSubmission()
   const activeMessage = ref({ text: '' })
   const nowTime = ref({ h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0 })
   const activeIndex = ref(0)
@@ -20,7 +23,7 @@ export default function telexTrain() {
   const {baseCode} = useMorse();
   const correct = ref(0)
   const trainData = ref({})
-  const { wsOnline, devOnline, patKey, changeCriterion } = useControl()
+  const { wsOnline, devOnline, onKey, changeCriterion, voiceCode } = useControl()
   const queryType = ref(0);
   const isModify = ref(false);
   const isPatF1 = ref(true);
@@ -83,24 +86,32 @@ export default function telexTrain() {
 
   onBeforeUnmount(() => {
     clearInterval(autoTime.value)
+    clearTimeout(timer)
   })
 
-  watch(patKey, () => {
-    if (patKey.value) {
+  const consumeKey = event => {
+    if (submission.defer(() => consumeKey(event))) return
+    const {code} = event
+    if (code) {
+      if (!audioOperation({type: 'ready'})) {
+        audioOperation({type: 'message', data: {data: []}})
+      }
       if (isfocus.value) {
         // 专注模式
-        patFocusExamKeyCode()
+        patFocusExamKeyCode(code)
       } else {
-        patExamKeyCode()
+        patExamKeyCode(code)
       }
-      changeCriterion(trainData.value.speed)
+      changeCriterion(trainData.value.speed / 4, trainData.value.messageType == 1 ? 'letter' : trainData.value.messageType == 2 ? 'mix' : 'short')
     }
-  })
+  }
+  onKey(consumeKey)
 
   /**
    * 练习计时统计
    */
   const trainTime = () => {
+    clearInterval(autoTime.value)
     autoTime.value = setInterval(() => {
       trainData.value.duration++
       timeAreaShow(trainData.value.duration * 1000)
@@ -133,24 +144,14 @@ export default function telexTrain() {
   /**
    * 开始练习
    */
-  const beginExamTrain = () => {
-    if (!wsOnline.value) {
-      message.error('报训软件未连接!')
-      return false
-    }
-    if (!devOnline.value) {
-      message.error('电子键设备未连接！')
-      return false
-    }
-    beginExamTrainInfo({ id: route.query.id }).then(res => {
-      if (res.code === 200) {
-        trainData.value.status = 1
-        trainTime()
-        nextTick(() => {
-          document.getElementsByTagName('input')[activeIndex.value].focus()
-          // console.log('已开始练习！')
-        })
-      }
+  const beginExamTrain = async () => {
+    if (!wsOnline.value || !devOnline.value) { message.error('报训设备未连接'); return false }
+    if (!await audioOperation({type: 'init'})) return false
+    return submission.run(async request => {
+      await request(config => beginExamTrainInfo({id: route.query.id}, config))
+      trainData.value.status = 1
+      trainTime()
+      nextTick(() => document.getElementsByTagName('input')[activeIndex.value]?.focus())
     })
   }
 
@@ -159,40 +160,32 @@ export default function telexTrain() {
    */
   const stopExamTrain = () => {
     clearInterval(autoTime.value)
-    stopExamTrainInfo({
-      id: route.query.id,
-      duration: Number(trainData.value.duration) * 1000,
-      errorNumber: trainData.value.errorNumber,
-      accuracy: trainData.value.accuracy,
-      speed: trainData.value.speed,
-      content: JSON.stringify(messageData.value)
-    }).then(res => {
-      if (res.code === 200) {
-        trainData.value.status = 2
-        PubSub.publish('callback_closeExamTrainPage', true)
-        // console.log('已暂停练习！')
-      }
+    flushPendingCode()
+    const payload = {id: route.query.id, duration: Number(trainData.value.duration) * 1000,
+      errorNumber: trainData.value.errorNumber, accuracy: trainData.value.accuracy,
+      speed: trainData.value.speed, content: JSON.stringify(messageData.value)}
+    return submission.run(async request => {
+      await request(config => stopExamTrainInfo(payload, config))
+      trainData.value.status = 2
+      PubSub.publish('callback_closeExamTrainPage', true)
     })
   }
 
   /**
    * 继续练习
    */
-  const goToExamTrain = () => {
-    goTopExamTrainInfo({ id: route.query.id }).then(res => {
-      if (res.code === 200) {
-        trainData.value.status = 1
-        trainTime()
-        // console.log('已继续练习！')
-      }
-    })
-  }
+  const goToExamTrain = () => submission.run(async request => {
+    await request(config => goTopExamTrainInfo({id: route.query.id}, config))
+    trainData.value.status = 1
+    trainTime()
+  })
 
   /**
    * 结束练习
    */
   const endExamTrain = () => {
     clearInterval(autoTime.value)
+    flushPendingCode()
     trainData.value.errorNumber = 0
     trainData.value.accuracy = 0
     correct.value = 0
@@ -210,7 +203,7 @@ export default function telexTrain() {
       trainData.value.accuracy = 0
     }
     // isfocus.value = false;
-    endExamTrainInfo({
+    const payload = {
       id: route.query.id,
       duration: Number(trainData.value.duration) * 1000,
       errorNumber: trainData.value.errorNumber,
@@ -218,63 +211,69 @@ export default function telexTrain() {
       speed: trainData.value.speed,
       totalNumber: trainData.value.totalNumber,
       content: JSON.stringify(messageData.value)
-    }).then(res => {
-      if (res.code === 200) {
-        // trainData.value.status = 3;
-        PubSub.publish('callback_closeExamTrainPage', true)
-        // console.log('已结束练习！')
-      }
+    }
+    return submission.run(async request => {
+      await request(config => endExamTrainInfo(payload, config))
+      trainData.value.status = 3
+      PubSub.publish('callback_closeExamTrainPage', true)
     })
   }
 
   /**
    * 拍发电子键键入情况
    */
-  const patExamKeyCode = () => {
-    if (Number(patKey.value) < 20 || Number(patKey.value) > 41) {
+  const patExamKeyCode = (code) => {
+    if (Number(code) < 20 || Number(code) > 41) {
       messageData.value[activeIndex.value].value += '#'
       // console.log('键入无效！')
     } else {
-      messageData.value[activeIndex.value].value += codeInKey[patKey.value].text
+      messageData.value[activeIndex.value].value += codeInKey[code].text
+      voiceCode({numType: 'short', code: codeInKey[code].text})
     }
     activeMessage.value.isFocus = true
     let inputAll = document.getElementsByTagName('input')
-    if (patKey.value === '41' && activeIndex.value < messageData.value.length - 1) {
+    if (code === '41' && activeIndex.value < messageData.value.length - 1) {
       activeMessage.value.isFocus = true
       inputAll[activeIndex.value + 1].focus()
       activeIndex.value++
       activeMessage.value = messageData.value[activeIndex.value]
     }
-    patKey.value = null
   }
 
   /**
    * 拍发电子键专注模式键入情况
    */
   let cacheCode = [],timer = null;
-  const patFocusExamKeyCode = () => {
-    if (Number(patKey.value) == 12) {
+  const flushPendingCode = () => {
+    clearTimeout(timer)
+    timer = null
+    if (!cacheCode.length) return
+    const decoded = codeOnKey[cacheCode.join('')] ?? '#'
+    messageData.value[activeIndex.value].value += decoded
+    patNumber.value++
+    codeNumber++
+    if (decoded !== '#') voiceCode({numType: 'long', code: decoded})
+    cacheCode = []
+  }
+  const patFocusExamKeyCode = (code) => {
+    if ([12, 13, 14, 41, 42, 43, 44, 45].includes(Number(code))) flushPendingCode()
+    if (code === '41' && isPatF3.value) { endExamTrain(); return }
+    if (Number(code) == 12) {
       isPatF1.value = true;
       isPatF2.value = false;
       return false;
     }
-    if (Number(patKey.value) == 13) {
+    if (Number(code) == 13) {
       isPatF1.value = false;
       isPatF2.value = true;
       return false;
     }
-    if (Number(patKey.value) == 14) {
+    if (Number(code) == 14) {
       isPatF3.value = true;
       return false;
     }
-    if (Number(patKey.value) == 44&&isPatF1.value) {
-      trainData.value.status = 1;
-      patNumber.value ++
-      trainTime();
-      nextTick(()=>{
-        document.getElementsByTagName('input')[activeIndex.value].focus();
-      })
-      activeIndex.value = 0;
+    if (Number(code) == 44&&isPatF1.value) {
+      beginExamTrain()
       return false;
     }
     if (trainData.value.status == 0) {
@@ -285,13 +284,11 @@ export default function telexTrain() {
       message.error('您已结束拍发！')
       return false;
     }
-    if (Number(patKey.value) == 45&&isPatF1.value) {
-      return false
-      trainData.value.status = 3;
+    if (Number(code) == 45&&isPatF1.value) {
       endExamTrain();
       return false;
     }
-    if (Number(patKey.value) == 43&&isPatF1.value) {
+    if (Number(code) == 43&&isPatF1.value) {
       if (isModify.value || activeIndex.value == 0) {
         return false;
       } else {
@@ -307,22 +304,24 @@ export default function telexTrain() {
       timer = null
     }
 
-    if (Number(patKey.value) < 20) {
+    if (Number(code) < 20) {
       messageData.value[activeIndex.value].value += '#';
       // console.log('键入无效！')
-    } else if (Number(patKey.value) <= 45 && Number(patKey.value) != 41) {
+    } else if (Number(code) <= 45 && Number(code) != 41) {
       if (isPatF1.value || isPatF3.value) {
         patNumber.value ++
         codeNumber++
-        messageData.value[activeIndex.value].value += codeInKey[patKey.value].text;
+        messageData.value[activeIndex.value].value += codeInKey[code].text;
+        voiceCode({numType: 'short', code: codeInKey[code].text})
         cacheCode = []
       } else {
-        if (Number(patKey.value) < 30) {
+        if (Number(code) < 30) {
           if (cacheCode.length > 0) {
             patNumber.value ++
-            cacheCode.push(...codeInKey[patKey.value]._code)
+            cacheCode.push(...codeInKey[code]._code)
             codeNumber++
             messageData.value[activeIndex.value].value += codeOnKey[cacheCode.join('')]??'#'
+            if (codeOnKey[cacheCode.join('')]) voiceCode({numType: 'long', code: codeOnKey[cacheCode.join('')]})
             cacheCode = []
           } else {
             codeNumber++
@@ -333,12 +332,14 @@ export default function telexTrain() {
             patNumber.value ++
             codeNumber++
             messageData.value[activeIndex.value].value += codeOnKey[cacheCode.join('')]??'#'
+            if (codeOnKey[cacheCode.join('')]) voiceCode({numType: 'long', code: codeOnKey[cacheCode.join('')]})
           }
           cacheCode = []
-          cacheCode.push(...codeInKey[patKey.value]._code)
+          cacheCode.push(...codeInKey[code]._code)
           timer = setTimeout(() => {
             patNumber.value ++
             messageData.value[activeIndex.value].value +=codeOnKey[cacheCode.join('')]??'#'
+            if (codeOnKey[cacheCode.join('')]) voiceCode({numType: 'long', code: codeOnKey[cacheCode.join('')]})
             cacheCode = []
             clearTimeout(timer)
             timer = null
@@ -348,10 +349,10 @@ export default function telexTrain() {
     }
     activeMessage.value.isFocus = true
     let scrol = document.getElementsByClassName('scorebox')
-    if (activeIndex.value % 10 === 9 && patKey.value === '41' && activeIndex.value > 20) {
+    if (activeIndex.value % 10 === 9 && code === '41' && activeIndex.value > 20) {
       scrol[0].scrollTop += 98
     }
-    if (patKey.value === '41' && activeIndex.value < messageData.value.length - 1) {
+    if (code === '41' && activeIndex.value < messageData.value.length - 1) {
       if (isPatF3.value) {
         endExamTrain();
         // router.go(-1)
@@ -369,7 +370,6 @@ export default function telexTrain() {
         scrol[0].scrollTop += 98*3
       })
     }
-    patKey.value = null;
     isPatF3.value = false;
   }
 

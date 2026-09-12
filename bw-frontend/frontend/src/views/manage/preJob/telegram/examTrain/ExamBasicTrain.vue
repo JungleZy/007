@@ -146,6 +146,7 @@
   import { numberKey, letterKey, specialKey, electronKey, fingerKey } from './js/keyCode.js'
   import { getExamBasicTrain, clearExamBasicTrain, saveExamBasicTrain } from '../../../../../common/api/examApi.js'
   import { partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
+  import {audioOperation} from '../../../../../common/utils/MorseVoice'
   import keyboardBgHJJ from '../../../../../assets/HJJ/exam/keyborad-min.png'
   import keyboardBgHJ from '../../../../../assets/HJ/exam/keyborad-min.png'
   import keyboardBgLJ from '../../../../../assets/LJ/exam/keyborad-min.png'
@@ -181,7 +182,7 @@
   const nowTime = ref({ h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0 })
   const route = useRoute()
   const router = useRouter()
-  const { wsOnline, devOnline, patKey,changeCriterion } = useControl()
+  const { wsOnline, devOnline, onKey, changeCriterion, voiceCode } = useControl()
   const timer = ref(null)
   const dataTime = ref(0)
   const fileUrl = ref(window.fileUrl + '/006/code/big/gradient/')
@@ -211,29 +212,31 @@
     getExamBasicTrainInfo()
   })
 
-  watch(patKey, () => {
-    if (patKey.value) {
-      nextTick(() => {
-        patTotal.value.totalCount++
-        if (patKey.value === letter.value[letterIndex.value].coding) {
-          letterIndex.value++
-          patTotal.value.currSuccess++
-          patKey.value = null
-          if (letterIndex.value > letter.value.length-1) {
-            letterIndex.value = 0
-            assembliesCode()
-          }
-        } else {
-          patTotal.value.currError++
-          patTotal.value.totalError++
-        }
-        let speed =  ((patTotal.value.currSuccess + patTotal.value.currError) / (dataTime.value / 60)).toFixed(2)
-        changeCriterion(speed)//改变码率
-      })
+  onKey(({code}) => {
+    const expected = letter.value[letterIndex.value]
+    if (!expected) return
+    if (!audioOperation({type: 'ready'})) audioOperation({type: 'message', data: {data: [], numType: 'short'}})
+    const decoded = numberKey.find(item => item.coding === code)?.key
+    if (decoded && !(queryType.value === 1 && tabIndex.value === 1)) voiceCode({numType: 'short', code: decoded})
+    patTotal.value.totalCount++
+    if (code === String(expected.coding)) {
+      letterIndex.value++
+      patTotal.value.currSuccess++
+      if (letterIndex.value >= letter.value.length) {
+        if (queryType.value === 1 && tabIndex.value === 1) voiceCode({numType: 'long', code: letterText.value})
+        letterIndex.value = 0
+        assembliesCode()
+      }
+    } else {
+      patTotal.value.currError++
+      patTotal.value.totalError++
     }
+    const speed = (patTotal.value.currSuccess + patTotal.value.currError) / 4 / (dataTime.value / 60)
+    if (Number.isFinite(speed) && speed > 0) changeCriterion(speed)
   })
 
   onBeforeUnmount(() => {
+    clearInterval(timer.value)
     if (!back.value) {
       saveExamBasicTrainInfo()
     }
@@ -273,7 +276,7 @@
       totalNum: patTotal.value.totalCount,
       totalError: patTotal.value.totalError
     }).then(res => {
-      if (type === 'back') {
+      if (res.code === 200 && type === 'back') {
         router.go(-1)
       }
     })
@@ -287,12 +290,13 @@
       clearInterval(timer.value)
       timer.value = null
     }
-    let time = 0
+    const startedAt = performance.now()
+    const baseTime = patTotal.value.totalTime
     timer.value = setInterval(() => {
-      patTotal.value.totalTime += 1000
-      time++
-      dataTime.value = time
-      computationTime(time)
+      const elapsed = Math.floor(performance.now() - startedAt)
+      patTotal.value.totalTime = baseTime + elapsed
+      dataTime.value = elapsed / 1000
+      computationTime(Math.floor(dataTime.value))
     }, 1000)
   }
 

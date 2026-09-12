@@ -1,6 +1,11 @@
 <template>
   <div class="w-full h-full content-mask-bg overflow-hidden">
     <div class="trainCenter overflow-auto relative">
+      <a-alert v-if="!settingsReady" :type="settingsError ? 'error' : 'info'" :message="settingsError || '正在加载基础配置，暂不可开始练习'" show-icon>
+        <template #description>
+          <a-button :loading="settingsLoading" @click="loadSettings">重新加载</a-button>
+        </template>
+      </a-alert>
       <div class="statisticsBox statisticalBox">
         <div class="lineBox">
           <div class="box">  <img :src="countLab" alt="">
@@ -131,13 +136,13 @@ import {wsCode} from "../../../../../common/ws/Ws";
 import CutDown from "../../../../../components/cutDown/CutDown.vue";
 const fs = ref(JSON.parse(localStorage.getItem('fs')));
 const trainData = ref({
-  status: 1
+  status: 2
 });
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 });
 const {
-  handKeyDown, patStandard, handKeyValue, diffTime, gapTime, wsOnline,devOnline,audioVolume,init
+  handKeyDown, patStandard, onKey, wsOnline,devOnline,audioVolume,init
 } = useControl(trainData);
 
 onMounted(()=>{
@@ -146,13 +151,12 @@ onMounted(()=>{
 
 const {
   nowTime, barrageBoxRef, range, showBarrageBox, currTrainTab, trainLogData, totalData, standard,dotLineLog,
+  settingsReady, settingsLoading, settingsError, loadSettings,
   changeChartData, changeTrainWay, goBack
-} = basicTrain();
+} = basicTrain(trainData);
 
-watch(handKeyValue, () => {
-  if (handKeyValue.value !== null && handKeyValue.value > -1) {
-    changeChartData(diffTime.value[1]-diffTime.value[0]);
-  }
+onKey(({code, diffTime}) => {
+  if (code >= 0) changeChartData(diffTime[1] - diffTime[0]);
 });
 onUnmounted(() => {
   PubSub.unsubscribe('message')

@@ -5,6 +5,7 @@ import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 
 import { timeFormatInfo } from '../../../../../../common/utils/Utils.js'
 import { saveTelegramTrain, saveBasicSetting, getBasicSetting, findHandKeyTrainTotal, findPrevHandKeyTrainInfo } from '../../../../../../common/api/TelegramApi.js'
 import { log } from '@antv/g2plot/lib/utils/invariant.js'
+import { parseTelegramBasicSettings, settingMilliseconds } from '../../../../../../common/utils/telegramSettings.js'
 
 export default function telegramList() {
   const router = useRouter()
@@ -219,29 +220,33 @@ export default function telegramList() {
   /**
    * 处理拍发配置数据
    */
-  const handlePatDeployData = () => {
+  const handlePatDeployData = changed => {
+    if (changed && changed.type > 0 && formData.value.train.rateDotMaxMs > 0) {
+      changed.scale = Number(changed.max) / formData.value.train.rateDotMaxMs
+    }
     for (let deploy of trainData.value.interval) {
       if (deploy.type === 0) {
-        formData.value.train.rateDotMinMs = parseInt(deploy.max / 2)
-        formData.value.train.rateDotMaxMs = deploy.max
+        deploy.min = Math.floor(Number(deploy.max) / 2)
+        formData.value.train.rateDotMinMs = deploy.min
+        formData.value.train.rateDotMaxMs = Number(deploy.max)
       }
       if (deploy.type === 1) {
-        deploy.min = parseInt(formData.value.train.rateDotMaxMs + 1)
-        deploy.max = formData.value.train.rateDotMaxMs * deploy.scale
-        formData.value.train.rateLineMinMs = parseInt(formData.value.train.rateDotMaxMs + 1)
-        formData.value.train.rateLineMaxMs = formData.value.train.rateDotMaxMs * deploy.scale
+        deploy.min = formData.value.train.rateDotMaxMs + 1
+        deploy.max = Math.round(formData.value.train.rateDotMaxMs * deploy.scale)
+        formData.value.train.rateLineMinMs = deploy.min
+        formData.value.train.rateLineMaxMs = deploy.max
       }
       if (deploy.type === 2) {
-        deploy.min = parseInt(formData.value.train.rateDotMaxMs)
-        deploy.max = formData.value.train.rateDotMaxMs * deploy.scale
-        formData.value.train.rateIntervalMinMs = parseInt(formData.value.train.rateDotMaxMs)
-        formData.value.train.rateIntervalMaxMs = formData.value.train.rateDotMaxMs * deploy.scale
+        deploy.min = formData.value.train.rateDotMaxMs
+        deploy.max = Math.round(formData.value.train.rateDotMaxMs * deploy.scale)
+        formData.value.train.rateIntervalMinMs = deploy.min
+        formData.value.train.rateIntervalMaxMs = deploy.max
       }
       if (deploy.type === 3) {
-        deploy.min = parseInt(formData.value.train.rateIntervalMaxMs)
-        deploy.max = formData.value.train.rateDotMaxMs * deploy.scale
-        formData.value.train.bigIntervalMinMs = parseInt(formData.value.train.rateIntervalMaxMs)
-        formData.value.train.bigIntervalMaxMs = formData.value.train.rateDotMaxMs * deploy.scale
+        deploy.min = formData.value.train.rateIntervalMaxMs
+        deploy.max = Math.round(formData.value.train.rateDotMaxMs * deploy.scale)
+        formData.value.train.bigIntervalMinMs = deploy.min
+        formData.value.train.bigIntervalMaxMs = deploy.max
       }
     }
   }
@@ -362,45 +367,30 @@ export default function telegramList() {
   /**
    * 获取基础练习配置
    */
-  const getBasicSettingInfo = () => {
-    getBasicSetting().then(res => {
-      if (res.code === 200) {
-        res.data.map(item => {
-          item.value = JSON.parse(item.value)
-          if (basicDeployData.value.some(bdd => bdd.type === item.value.type)) {
-            for (let bdd of basicDeployData.value) {
-              if (bdd.type === item.value.type) {
-                if (item.key === '0') {
-                  bdd.dot.min = item.value.min
-                  bdd.dot.max = item.value.max
-                }
-                if (item.key === '1') {
-                  bdd.line.min = item.value.min
-                  bdd.line.max = item.value.max
-                }
-                break
-              }
-            }
-          } else {
-            basicDeployData.value.push({
-              name: item.value.name,
-              dot: {
-                min: item.key === '0' ? item.value.min : '',
-                max: item.key === '0' ? item.value.max : ''
-              },
-              line: {
-                min: item.key === '1' ? item.value.min : '',
-                max: item.key === '1' ? item.value.max : ''
-              },
-              text: item.value.msg,
-              type: item.value.type,
-              prune: true
-            })
-          }
-        })
-        changeBasicValue()
-      }
-    })
+  const getBasicSettingInfo = async () => {
+    if (loading.value) return
+    loading.value = true
+    try {
+      const res = await getBasicSetting()
+      if (res.code !== 200) throw new Error(res.message || '基础配置加载失败')
+      const rows = parseTelegramBasicSettings(res.data)
+      basicDeployData.value = rows.filter(item => item.key === '0').map(item => {
+        const line = rows.find(row => row.key === '1' && row.value.type === item.value.type).value
+        return {
+          name: item.value.name,
+          dot: { min: item.value.min, max: item.value.max },
+          line: { min: line.min, max: line.max },
+          text: item.value.msg,
+          type: item.value.type,
+          prune: item.value.type > 3
+        }
+      })
+      changeBasicValue()
+    } catch (error) {
+      message.error(`${error.message || '基础配置加载失败'}；可重新打开重试或修正后保存`)
+    } finally {
+      loading.value = false
+    }
   }
 
   /**
@@ -415,28 +405,23 @@ export default function telegramList() {
    * 基础练习配置值的改变
    */
   const changeBasicValue = () => {
-    let dot = [],
-      line = []
-    for (let bdd of basicDeployData.value) {
-      if (bdd.type > 0) {
-        dot.push(parseInt(bdd.dot.min))
-        dot.push(parseInt(bdd.dot.max))
-        line.push(parseInt(bdd.line.min))
-        line.push(parseInt(bdd.line.max))
+    const positive = basicDeployData.value.filter(item => item.type > 0)
+    const abnormal = basicDeployData.value.find(item => item.type === 0)
+    if (!positive.length || !abnormal) return false
+    try {
+      const bounds = {}
+      for (const key of ['dot', 'line']) {
+        const values = positive.flatMap(item => [settingMilliseconds(item[key].min), settingMilliseconds(item[key].max)])
+        bounds[key] = [Math.min(...values), Math.max(...values)]
       }
-    }
-    dot.sort((a, b) => a - b)
-    line.sort((a, b) => a - b)
-    basicLabTitle.value.dot = [dot[0], +dot[dot.length - 1]]
-    basicLabTitle.value.line = [line[0], line[line.length - 1]]
-    for (let bdd of basicDeployData.value) {
-      if (bdd.type === 0) {
-        bdd.dot.min = '<' + dot[0]
-        bdd.dot.max = '>' + dot[dot.length - 1]
-        bdd.line.min = '<' + line[0]
-        bdd.line.max = '>' + line[line.length - 1]
-        break
+      for (const key of ['dot', 'line']) {
+        basicLabTitle.value[key] = bounds[key]
+        abnormal[key].min = '<' + bounds[key][0]
+        abnormal[key].max = '>' + bounds[key][1]
       }
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -472,17 +457,17 @@ export default function telegramList() {
     let res = [],
       flag = false
     for (let item of basicDeployData.value) {
-      if (item.name === '' || item.msg === '' || !item.dot.min || !item.dot.max || !item.line.min || !item.line.max || item.dot.min === '' || item.dot.max === '' || item.line.min === '' || item.line.max === '') {
+      if (!item.name?.trim() || !item.text?.trim()) {
         flag = true
       }
       res.push({
         type: 0,
-        key: 0,
+        key: '0',
         value: JSON.stringify({ min: item.dot.min, max: item.dot.max, type: item.type, name: item.name, msg: item.text })
       })
       res.push({
         type: 0,
-        key: 1,
+        key: '1',
         value: JSON.stringify({ min: item.line.min, max: item.line.max, type: item.type, name: item.name, msg: item.text })
       })
     }
@@ -496,21 +481,22 @@ export default function telegramList() {
   /**
    * 保存基础练习配置
    */
-  const saveDeploy = () => {
-    let data = handleBasicData()
-    if (!data) {
-      message.warning('配置输入框不能为空！')
-      return false
-    }
-    saveBasicSetting(data).then(res => {
+  const saveDeploy = async () => {
+    if (loading.value) return
+    try {
+      if (!changeBasicValue()) throw new Error('点和划均须填写有效正区间及异常区间')
+      const data = handleBasicData()
+      parseTelegramBasicSettings(data)
+      loading.value = true
+      const res = await saveBasicSetting(data)
+      if (res.code !== 200) throw new Error(res.message || '基础配置保存失败')
+      message.success('基础练习配置保存成功！')
+      basicTrainDeployModal.value = false
+    } catch (error) {
+      message.error(error.message || '基础配置保存失败，请重试')
+    } finally {
       loading.value = false
-      if (res.code === 200) {
-        message.success('基础练习配置保存成功！')
-        basicTrainDeployModal.value = false
-      } else {
-        message.error(res.message)
-      }
-    })
+    }
   }
 
   return {
