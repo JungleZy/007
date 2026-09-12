@@ -85,15 +85,16 @@ public class UserService {
   }
 
   /**
-   * 根据用户名前缀获取用户列表
+   * 根据用户名前缀获取用户目录条目
    * <p>
-   * 此方法用于查询用户名以特定前缀开始的用户实体列表通过调用UserDao中的相应方法来实现
+   * 此端点对所有已登录用户开放（选人、@提及等场景），因此只返回 {@link UserSummary}，
+   * 不含 idCard/phone/email 等敏感字段。
    *
    * @param userName 用户名前缀，用于查询用户
-   * @return 匹配用户的脱敏资料列表
+   * @return 匹配用户的目录条目列表
    */
-  public List<UserProfile> getUsersByUserNameStartingWith(String userName) {
-    return userDao.findUserEntitiesByUserNameStartingWith(userName).stream().map(UserProfile::from).toList();
+  public List<UserSummary> getUsersByUserNameStartingWith(String userName) {
+    return userDao.findUserEntitiesByUserNameStartingWith(userName).stream().map(UserSummary::from).toList();
   }
 
   /**
@@ -114,13 +115,20 @@ public class UserService {
   }
 
   /**
-   * 根据用户ID列表获取用户实体列表
+   * 根据用户ID列表批量获取用户目录条目
+   * <p>
+   * 空列表显式返回空集（旧实现落到全表扫描）；非空列表走参数化的 {@code id in ?1}
+   * （旧实现把 id 拼成 {@code REGEXP} 模式，元字符会改变匹配集）。
+   * 该端点对所有已登录用户开放，故只返回 {@link UserSummary}。
    *
    * @param ids 用户ID列表，用于指定需要获取的用户
-   * @return 所请求用户的脱敏资料列表
+   * @return 所请求用户的目录条目列表
    */
-  public List<UserProfile> getUsers(List<String> ids) {
-    return userDao.findAllUser(ids).stream().map(UserProfile::from).toList();
+  public List<UserSummary> getUsers(List<String> ids) {
+    if (ids == null || ids.isEmpty()) {
+      return List.of();
+    }
+    return userDao.queryByIdIn(new LinkedHashSet<>(ids)).stream().map(UserSummary::from).toList();
   }
 
   /**
@@ -572,37 +580,6 @@ public class UserService {
    */
   public List<FindUserByRoleIdDto> findAllStu() {
     return userDao.findAllByRoleId("2");
-  }
-
-  /**
-   * 根据用户名和用户账号查询用户列表
-   *
-   * @param userName    用户名，用于模糊查询
-   * @param userAccount 用户账号，用于模糊查询
-   * @return 包含用户脱敏资料列表的响应信封
-   * <p>
-   * 此方法根据提供的用户名和用户账号参数，通过用户数据访问对象（userDao）查询匹配的用户列表
-   * 如果两个参数都提供，则使用两个参数进行模糊查询；如果只提供其中一个参数，则只使用该参数查询；
-   * 如果两个参数都没有提供，则返回按照状态降序排列的所有用户列表
-   * <p>
-   * 注意：此方法包含异常处理，以处理可能发生的数据库查询异常
-   */
-  public Response<List<UserProfile>> getAllUserByContent(String userName, String userAccount) {
-    try {
-      List<UserEntity> users;
-      if (StringUtils.isNotEmpty(userName) && StringUtils.isNotEmpty(userAccount)) {
-        users = userDao.findAllByUserNameLikeOrUserAccountLikeOrderByStatusDesc("%" + userName + "%", "%" + userAccount + "%");
-      } else if (StringUtils.isNotEmpty(userName) && StringUtils.isEmpty(userAccount)) {
-        users = userDao.findAllByUserNameLikeOrderByStatusDesc("%" + userName + "%");
-      } else if (StringUtils.isNotEmpty(userAccount) && StringUtils.isEmpty(userName)) {
-        users = userDao.findAllByUserAccountLikeOrderByStatusDesc("%" + userAccount + "%");
-      } else {
-        users = userDao.findAllByOrderByStatusDesc();
-      }
-      return ResponseResult.success(users.stream().map(UserProfile::from).toList());
-    } catch (Exception e) {
-      return ResponseResult.error(MessageConstants.DATA_EXCEPTION);
-    }
   }
 
   /**

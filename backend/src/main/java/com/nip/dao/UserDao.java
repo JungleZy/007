@@ -21,19 +21,6 @@ public class UserDao extends BaseRepository<UserEntity, String> {
     return entityManager.createNamedQuery("find_user_by_status", FindUserByStatusDescDto.class).getResultList();
   }
 
-  public List<UserEntity> findAllUser(List<String> ids) {
-    if (ids.isEmpty()) {
-      return findAll().list();
-    } else {
-      StringBuilder t = new StringBuilder();
-      ids.forEach(s -> {
-        t.append(s).append("|");
-      });
-      t.deleteCharAt(t.length() - 1);
-      return find("id REGEXP :ids", Parameters.with("ids", t.toString())).list();
-    }
-  }
-
   public List<UserEntity> findUserEntitiesByUserNameStartingWith(String userName) {
     return find("userName like :userName", Parameters.with("userName", userName)).list();
   }
@@ -88,18 +75,6 @@ public class UserDao extends BaseRepository<UserEntity, String> {
   public boolean updateUser(UserEntity user) {
     update("token = ?1,deviceId = ?2 where id = ?3", user.getToken(), user.getDeviceId(), user.getId());
     return true;
-  }
-
-  public List<UserEntity> findAllByUserNameLikeOrUserAccountLikeOrderByStatusDesc(String userName, String userAccount) {
-    return find("userName like ?1 or userAccount like ?2", Sort.by("status").descending(), userName, userAccount).list();
-  }
-
-  public List<UserEntity> findAllByUserNameLikeOrderByStatusDesc(String userName) {
-    return find("userName like ?1", Sort.by("status").descending(), userName).list();
-  }
-
-  public List<UserEntity> findAllByUserAccountLikeOrderByStatusDesc(String userName) {
-    return find("userAccount like ?1", Sort.by("status").descending(), userName).list();
   }
 
   public List<UserEntity> queryByIdIn(Set<String> ids) {

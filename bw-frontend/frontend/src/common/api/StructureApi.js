@@ -7,14 +7,6 @@ export const getAllUser = data => {
     data
   })
 }
-
-export const getUserById = data => {
-  return axios({
-    method: 'post',
-    url: '/api/user/getUserById',
-    data
-  })
-}
 export const getUserAndRoleById = data => {
   return axios({
     method: 'post',

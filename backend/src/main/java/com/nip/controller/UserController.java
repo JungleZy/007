@@ -103,20 +103,11 @@ public class UserController {
   }
 
   @POST
-  @Path("/getAllUserByContent")
-  @Operation(summary = "获取全部用户")
-  public Response getAllUserByContent(@RestQuery("userName") String userName,
-      @RestQuery("userAccount") String userAccount) {
-    return userService.getAllUserByContent(userName, userAccount);
-  }
-
-  @POST
   @Path("/getUsersByUserNameStartingWith")
   @Operation(summary = "根据 名字前几位 获取 所用满足的用户")
-  public Response<List<UserProfile>> getUsersByUserNameStartingWith(Map<String, String> map) {
+  public Response<List<UserSummary>> getUsersByUserNameStartingWith(Map<String, String> map) {
     return ResponseResult.success(userService.getUsersByUserNameStartingWith(map.get("userName")));
   }
-
 
   @POST
   @Path("/getUserDirectory")
@@ -124,16 +115,23 @@ public class UserController {
   public Response<List<UserSummary>> getUserDirectory() {
     return ResponseResult.success(userService.getUserDirectory());
   }
+
+  // 该端点按状态倒序返回全量用户（含 idCard/phone/角色名），是 getAllUser 的管理台变体，
+  // 故与 getAllUser 同样限定为管理员。
   @POST
   @Path("/getUserInfoAllByStatusDesc")
   @Operation(summary = "根据 用户状态 排序")
+  @RequireAdmin
   public Response<List<FindUserByStatusDescDto>> getUserInfoAllByStatusDesc() {
     return ResponseResult.success(userService.getUserInfoAllByStatusDesc());
   }
 
+  // getUserById / getUserAndRoleById 返回含 idCard/phone/email 的完整档案，
+  // 唯一消费方是系统管理页（systemManage/structure），故与 getAllUser 同级收敛为管理员可达。
   @POST
   @Path("/getUserById")
   @Operation(summary = "根据 用户编号 获取 用户信息")
+  @RequireAdmin
   public Response<UserProfile> getUserById(Map<String, String> map) {
     return ResponseResult.success(userService.getUserById(map.get(USER_ID)));
   }
@@ -141,14 +139,15 @@ public class UserController {
   @POST
   @Path("/getUserAndRoleById")
   @Operation(summary = "根据 用户编号 获取 用户信息与角色信息")
+  @RequireAdmin
   public Response<UserInfoDto> getUserAndRoleById(Map<String, String> map) {
     return ResponseResult.success(userService.getUserAndRoleById(map.get(USER_ID)));
   }
 
   @POST
   @Path("/getUsersByIds")
-  @Operation(summary = "根据 用户编号 获取用户信息（批量）")
-  public Response<List<UserProfile>> getUsersByIds(List<String> ids) {
+  @Operation(summary = "根据 用户编号 批量获取 用户目录条目")
+  public Response<List<UserSummary>> getUsersByIds(List<String> ids) {
     return ResponseResult.success(userService.getUsers(ids));
   }
 

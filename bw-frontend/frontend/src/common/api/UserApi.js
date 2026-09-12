@@ -36,20 +36,6 @@ export const getUserInfo = () => {
     url: "/api/user/getUsersByToken"
   })
 }
-export const getUserById = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/user/getUserById",
-    data
-  })
-}
-export const getUserAndRoleById = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/user/getUserAndRoleById",
-    data
-  })
-}
 export const verifyPassword = (data) => {
   return axios({
     method: "post",
@@ -73,12 +59,6 @@ export const getAllTeacher = () => {
   return axios({
     method: "post",
     url: "/api/user/findAllTeacher"
-  })
-}
-export const getUserInfoAllByStatusDesc = () => {
-  return axios({
-    method: "post",
-    url: "/api/user/getUserInfoAllByStatusDesc"
   })
 }
 export const changePassword = (data) => {
