@@ -78,5 +78,8 @@ export async function configureRuntime() {
   document.body.classList.add(window.interfaceStyle)
   const errorMask = document.getElementById('errorMask')
   if (errorMask) errorMask.style.display = navigator.userAgent.includes('Chrome') ? 'none' : 'block'
+  // 浏览器升级包跟随运行时文件服务地址，避免写死开发机地址
+  const chromeDownload = document.getElementById('chromeDownload')
+  if (chromeDownload) chromeDownload.href = endpointUrl(window.fileUrl, 'tools/chrome.exe')
 }
 

@@ -246,8 +246,6 @@ import { deleteThroyKnowledgeById } from '../../../../../../common/api/TestApi.j
 const route = useRoute()
 const router = useRouter()
 const { tData, selectedKnowledgeSwfs, selectedKnowledgeSwfsIndex, addSwf, handleSelectedKnowledgeSwfs, handleOptions, deleteCurseware } = useForm(content, backFlag)
-
-// content.value = '<img src="http://10.10.0.99:8003/ueditor/image/20220215/(无水印)欧参-短波通信_00.png"/>'
 const right = ref(null)
 const { uploadFileUrl, fileList, loading, handleChange, beforeUpload } = useUpload(res => {
   if (res.indexOf('/main/') > -1) {

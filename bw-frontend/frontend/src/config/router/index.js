@@ -25,48 +25,6 @@ const routes = [
     ]
   },
   {
-    key: '3',
-    path: '/demo',
-    component: () => import('../../views/demo/Index.vue'),
-    children: [
-      {
-        key: '31',
-        path: 'im',
-        name: 'IMDemo',
-        component: () => import('../../views/demo/chil/IMDemo.vue'),
-      },
-      {
-        key: '32',
-        path: 'div',
-        name: 'DivDemo',
-        component: () => import('../../views/demo/chil/DivDemo.vue'),
-      },
-      {
-        key: '33',
-        path: 'orc',
-        name: 'OrcDemo',
-        component: () => import('../../views/demo/chil/DivDemo.vue'),
-      },
-      {
-        key: '34',
-        path: 'vico',
-        name: 'VicoDemo',
-        component: () => import('../../views/demo/vico/Index.vue'),
-      },
-      {
-        key: '35',
-        path: 'photo',
-        name: 'PhotoDemo',
-        component: () => import('../../views/demo/photo/Index.vue'),
-      },
-      {
-        key: '36',
-        path: 'hanzi',
-        name: 'HanziDemo',
-        component: () => import('../../views/demo/hanzi/Index.vue'),
-      }
-    ]
-  }, {
     key: '4',
     path: '/:W+',
     component: () => import('../../components/ExcessPage.vue'),
