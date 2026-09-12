@@ -90,9 +90,13 @@ public class TheoryKnowledgeExamUserController {
     return theoryKnowledgeExamUserService.teacherUploadScore(String.valueOf(map.get(EXAM_ID)), map.get("list"));
   }
 
+  /**
+   * 读取某考生答卷：{@code userId} 仍是入参（教员阅卷传的是他人 id），授权判定在 service 侧。
+   */
   @POST
   @Path("/findExamUser")
-  public Response<TheoryKnowledgeExamUserEntity> findExamUser(@RequestBody Map<String, String> map) {
-    return theoryKnowledgeExamUserService.findExamUser(map.get(USER_ID), map.get(EXAM_ID));
+  public Response<TheoryKnowledgeExamUserEntity> findExamUser(@RestHeader(TOKEN) String token,
+      @RequestBody Map<String, String> map) {
+    return theoryKnowledgeExamUserService.findExamUser(token, map.get(USER_ID), map.get(EXAM_ID));
   }
 }

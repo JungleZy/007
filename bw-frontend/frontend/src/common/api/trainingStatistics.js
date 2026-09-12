@@ -7,17 +7,16 @@ export const getUserTrainDurationStat = (data) => {
   })
 }
 
-export const getRecentHandKeyTrains = (data) => {
+// 最近十次统计：统计对象由后端按 token 推导，无请求体
+export const getRecentHandKeyTrains = () => {
   return axios({
     method: "POST",
-    url: '/api/user/getRecentHandKeyTrains',
-    data
+    url: '/api/user/getRecentHandKeyTrains'
   })
 }
-export const getRecentElectronicKeyTrains = (data) => {
+export const getRecentElectronicKeyTrains = () => {
   return axios({
     method: "POST",
-    url: '/api/user/getRecentElectronicKeyTrains',
-    data
+    url: '/api/user/getRecentElectronicKeyTrains'
   })
 }

@@ -94,7 +94,6 @@ export default function startTest(countDown) {
       const data = {
         examId: examID.value,
         type: '1',
-        userId: userInfo.value.id,
         content: JSON.stringify(con)
       }
       studentChangeExamState(data)
@@ -183,7 +182,6 @@ export default function startTest(countDown) {
         const data = {
           examId: route.query.id,
           type: '2',
-          userId: userInfo.value.id,
           content: ''
         }
         for (let v of res.data.user) {
@@ -211,7 +209,6 @@ export default function startTest(countDown) {
       const data = {
         examId: route.query.id,
         type: '3',
-        userId: userInfo.value.id,
         content: JSON.stringify(con)
       }
       studentChangeExamState(data).then(res => {
@@ -314,7 +311,6 @@ export default function startTest(countDown) {
     const con = organizeAnwser()
     const data = {
       examId: route.query.id,
-      userId: userInfo.value.id,
       content: JSON.stringify(con)
     }
     studentSaveExamRealtimeContont(data)

@@ -2,8 +2,13 @@ package com.nip.service;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.DateTimeUtil;
@@ -12,7 +17,9 @@ import com.nip.common.utils.ListUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.*;
 import com.nip.dto.TestPaperDto;
+import com.nip.dto.TestPaperQuestionDto;
 import com.nip.dto.TheoryKnowledgeExamDto;
+import com.nip.dto.TheoryKnowledgeExamSelfFinishDto;
 import com.nip.dto.TheoryKnowledgeQuestionCheckDto;
 import com.nip.dto.sql.FindAllExamByIdDto;
 import com.nip.dto.sql.FindAllExamDto;
@@ -158,8 +165,15 @@ public class TheoryKnowledgeExamService {
     return ResponseResult.success(entity);
   }
 
+  /**
+   * 学员自己改考核状态 / 交卷。
+   *
+   * <p>身份只从 token 推导：历史实现按请求体的 {@code userId} 定位考生行，任何登录用户都能
+   * 把别人的 {@code state} 置 3（提前锁死他人考试）或覆盖他人 {@code content}。
+   */
   @Transactional
-  public Response<Map<String, Object>> studentChangeExamState(String examId, String userId, int type, String content) {
+  public Response<Map<String, Object>> studentChangeExamState(String token, String examId, int type, String content) {
+    String userId = userService.getUserByToken(token).getId();
     TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findById(examId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
     TheoryKnowledgeExamUserEntity allByExamIdAndUserId = Optional.ofNullable(
@@ -193,8 +207,12 @@ public class TheoryKnowledgeExamService {
     return ResponseResult.success(data);
   }
 
+  /**
+   * 学员提交实时答案：同样只认 token 推导出的考生，请求体不再接受 {@code userId}。
+   */
   @Transactional
-  public Response<TheoryKnowledgeExamUserEntity> saveUserRealTimeParam(String examId, String userId, String content) {
+  public Response<TheoryKnowledgeExamUserEntity> saveUserRealTimeParam(String token, String examId, String content) {
+    String userId = userService.getUserByToken(token).getId();
     TheoryKnowledgeExamUserEntity allByExamIdAndUserId = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId,
         userId);
     if (ObjectUtil.isEmpty(allByExamIdAndUserId)) {
@@ -270,25 +288,42 @@ public class TheoryKnowledgeExamService {
   }
 
   /**
-   * 完成自测
+   * 完成自测：归属校验 + 服务端按试卷快照重算总分。
    *
-   * @param vo
+   * <p>历史实现按 {@code examId} 取「任意一行」考生记录、并把请求体的 {@code score} 直接落库，
+   * 等价于「谁都能给任何一场自测打任意分」。现在：考生行只按 (examId, token 所属用户) 定位，
+   * 分数只由 {@link #recomputeSelfTestingScore} 依据快照重算，请求体不再有 score 字段。
+   *
+   * @param token 调用者令牌
+   * @param dto   只含 examId 与作答内容
    */
   @Transactional(rollbackOn = Exception.class)
-  public TheoryKnowledgeExamEntity finishSelfTesting(TheoryKnowledgeExamUserSelfVO vo) {
-    TheoryKnowledgeExamUserEntity examUserEntity = theoryKnowledgeExamUserDao.findByExamId(vo.getExamId());
+  public TheoryKnowledgeExamEntity finishSelfTesting(String token, TheoryKnowledgeExamSelfFinishDto dto) {
+    String actorId = userService.getUserByToken(token).getId();
+    TheoryKnowledgeExamUserEntity examUserEntity = theoryKnowledgeExamUserDao.findByExamId(dto.getExamId());
     if (ObjectUtil.isEmpty(examUserEntity)) {
       throw new IllegalArgumentException("未查询到训练");
     }
-    examUserEntity.setContent(vo.getContent());
+    if (!Objects.equals(actorId, examUserEntity.getUserId())) {
+      throw new ForbiddenException("无权结算他人的自测");
+    }
+    TheoryKnowledgeExamTestPaperEntity paper = theoryKnowledgeExamTestPaperDao.findAllByExamId(dto.getExamId());
+    if (ObjectUtil.isEmpty(paper)) {
+      throw new IllegalArgumentException("未查询到试卷快照，无法结算自测");
+    }
+
+    // 作答内容解析成功时用重写过 teacherScore 的副本落库，保证入库的逐题得分与总分自洽
+    JsonObject answers = parseAnswerContent(dto.getContent());
+    int score = recomputeSelfTestingScore(paper, answers);
+    examUserEntity.setContent(answers == null ? dto.getContent() : JSONUtils.toJson(answers));
     examUserEntity.setEndTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
     examUserEntity.setState(4);
-    examUserEntity.setScore(vo.getScore());
+    examUserEntity.setScore(score);
     // 保存 exam_user表
     theoryKnowledgeExamUserDao.save(examUserEntity);
 
     // 保存exam表
-    TheoryKnowledgeExamEntity examEntity = theoryKnowledgeExamDao.findById(vo.getExamId());
+    TheoryKnowledgeExamEntity examEntity = theoryKnowledgeExamDao.findById(dto.getExamId());
     if (ObjectUtil.isEmpty(examEntity)) {
       throw new IllegalArgumentException("未查询到考试");
     }
@@ -296,7 +331,124 @@ public class TheoryKnowledgeExamService {
     theoryKnowledgeExamDao.save(examEntity);
 
     return examEntity;
+  }
 
+  /**
+   * 把作答内容解析成 JSON 对象；空内容返回 null（记 0 分），非法 JSON 直接拒绝而不是静默记 0。
+   */
+  private JsonObject parseAnswerContent(String content) {
+    if (StringUtils.isBlank(content)) {
+      return null;
+    }
+    JsonElement parsed;
+    try {
+      parsed = JsonParser.parseString(content);
+    } catch (JsonParseException malformed) {
+      throw new IllegalArgumentException("作答内容不是合法 JSON");
+    }
+    return parsed.isJsonObject() ? parsed.getAsJsonObject() : null;
+  }
+
+  /**
+   * 按试卷快照逐题重算自测总分，口径与原前端判分一致：
+   * <ul>
+   *   <li>单选/多选/判断/填空：作答与快照标准答案归一化后全等才得该题满分；</li>
+   *   <li>简答：与标准答案逐字（trim 后）相同才得满分，否则 0 分 —— 自测没有教员阅卷环节，
+   *       客户端自报的 {@code teacherScore} 一律被服务端重算值覆盖，不构成加分通道。</li>
+   * </ul>
+   */
+  private int recomputeSelfTestingScore(TheoryKnowledgeExamTestPaperEntity paper, JsonObject answers) {
+    if (answers == null) {
+      return 0;
+    }
+    return scoreSection(paper.getSingleChoiceList(), answers, "singleChoice")
+        + scoreSection(paper.getMultipleChoiceList(), answers, "multipleChoice")
+        + scoreSection(paper.getJudgeList(), answers, "judge")
+        + scoreSection(paper.getCompletionList(), answers, "completion")
+        + scoreSection(paper.getShortAnswer(), answers, "shortAnswer");
+  }
+
+  /**
+   * 结算一个题型分区：按题目 id 把作答对到快照题目上，未作答的题不给分。
+   *
+   * @param snapshotJson 快照中该题型的序列化列表
+   * @param answers      整份作答内容（会就地把 {@code teacherScore} 重写为服务端判定值）
+   * @param section      作答内容里的题型键
+   */
+  private int scoreSection(String snapshotJson, JsonObject answers, String section) {
+    List<TestPaperQuestionDto> questions = ListUtils.nullToEmpty(
+        JSONUtils.fromJson(snapshotJson, new TypeToken<List<TestPaperQuestionDto>>() {
+        }));
+    if (questions.isEmpty()) {
+      return 0;
+    }
+    Map<String, JsonObject> answered = new HashMap<>();
+    JsonElement submitted = answers.get(section);
+    if (submitted != null && submitted.isJsonArray()) {
+      for (JsonElement item : submitted.getAsJsonArray()) {
+        if (!item.isJsonObject()) {
+          continue;
+        }
+        JsonObject entry = item.getAsJsonObject();
+        JsonElement id = entry.get("id");
+        if (id != null && id.isJsonPrimitive()) {
+          // 同一题重复提交时以第一条为准，避免用重复条目刷分
+          answered.putIfAbsent(id.getAsString(), entry);
+        }
+      }
+    }
+    int sum = 0;
+    for (TestPaperQuestionDto question : questions) {
+      JsonObject entry = answered.get(question.getId());
+      if (entry == null) {
+        continue;
+      }
+      boolean correct = Objects.equals(normalizeAnswer(entry.get("answer")),
+          normalizeStoredAnswer(question.getAnswer()));
+      int awarded = correct ? Optional.ofNullable(question.getScore()).orElse(0) : 0;
+      entry.addProperty("teacherScore", awarded);
+      sum += awarded;
+    }
+    return sum;
+  }
+
+  /**
+   * 归一化一份作答：数组按 {@code ,} 拼接（与前端 {@code Array.prototype.toString} 同形），
+   * 标量取字符串值，空值取空串；再 trim 后比较。
+   */
+  private static String normalizeAnswer(JsonElement answer) {
+    if (answer == null || answer.isJsonNull()) {
+      return "";
+    }
+    if (answer.isJsonArray()) {
+      StringBuilder joined = new StringBuilder();
+      boolean first = true;
+      for (JsonElement item : answer.getAsJsonArray()) {
+        if (!first) {
+          // 空元素也要占位分隔符，否则 ["","b"] 会被折成 "b" 而与前端 toString 口径分叉
+          joined.append(',');
+        }
+        first = false;
+        joined.append(item.isJsonNull() ? "" : item.isJsonPrimitive() ? item.getAsString() : item.toString());
+      }
+      return joined.toString().trim();
+    }
+    return (answer.isJsonPrimitive() ? answer.getAsString() : answer.toString()).trim();
+  }
+
+  /**
+   * 归一化快照里的标准答案：选择/判断/填空题的 answer 列存的是 JSON 文本（前端要 {@code JSON.parse}），
+   * 简答题存的是纯文本，两者用同一入口处理 —— 能解析成 JSON 就按 JSON 归一，否则按原文。
+   */
+  private static String normalizeStoredAnswer(String stored) {
+    if (stored == null) {
+      return "";
+    }
+    try {
+      return normalizeAnswer(JsonParser.parseString(stored));
+    } catch (JsonParseException plainText) {
+      return stored.trim();
+    }
   }
 
   /**

@@ -126,9 +126,9 @@ class TheoryKnowledgeExamServiceTest {
       assertEquals(groups.get(index), decoded);
     }
     service.teacherStartExam(examId, 2);
-    service.studentChangeExamState(examId, user.getId(), 2, null);
+    service.studentChangeExamState(token, examId, 2, null);
     String content = JSONUtils.toJson(answers);
-    service.studentChangeExamState(examId, user.getId(), 3, content);
+    service.studentChangeExamState(token, examId, 3, content);
     TheoryKnowledgeExamUserEntity submitted = examUserDao.findAllByExamIdAndUserId(examId, user.getId());
     assertEquals(3, submitted.getState());
     assertEquals(content, submitted.getContent());

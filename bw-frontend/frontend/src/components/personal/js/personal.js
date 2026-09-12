@@ -77,8 +77,8 @@ export default function Personal(props) {
   }
 // 获取训练统计数据
   const getTrainData = () => {
-    // {userID,startTime:'',endTime:''}
-    const submitdata = {userId:userInfo.value.id}
+    // 统计对象由后端按 token 推导，请求体只剩可选的时间区间
+    const submitdata = {}
     if(time.value!==null){
       submitdata.startTime = dayjs(time.value[0]).format('YYYY-MM-DD HH:mm:ss')
       submitdata.endTime = dayjs(time.value[1]).format('YYYY-MM-DD HH:mm:ss')
@@ -215,14 +215,13 @@ export default function Personal(props) {
   //近十次训练统计类型 切换
   const handleChangeTrainType =async (value) => {
     isHaveTrainData.value = false
-    const submitdata = {userId:userInfo.value.id}
     let res
     switch (trainType10.value) {
       case 'handKeyDuration':
-        res = await getRecentHandKeyTrains(submitdata)
+        res = await getRecentHandKeyTrains()
         break;
       case 'electronicKeyDuration':
-        res = await getRecentElectronicKeyTrains(submitdata)
+        res = await getRecentElectronicKeyTrains()
         break;
     }
     if(res.data.length === 0){

@@ -4,6 +4,7 @@ import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.TheoryKnowledgeExamDto;
+import com.nip.dto.TheoryKnowledgeExamSelfFinishDto;
 import com.nip.dto.sql.FindAllExamDto;
 import com.nip.dto.vo.TheoryKnowLedgeExamAnalyseVO;
 import com.nip.dto.vo.TheoryKnowledgeExamUserSelfVO;
@@ -65,8 +66,9 @@ public class TheoryKnowledgeExamController {
   @POST
   @Path("/finishSelfTesting")
   @Operation(summary = "完成自测考试")
-  public Response<TheoryKnowledgeExamEntity> finishSelfTesting(TheoryKnowledgeExamUserSelfVO vo) {
-    return ResponseResult.success(theoryKnowledgeExamService.finishSelfTesting(vo));
+  public Response<TheoryKnowledgeExamEntity> finishSelfTesting(@RestHeader(TOKEN) String token,
+      TheoryKnowledgeExamSelfFinishDto dto) {
+    return ResponseResult.success(theoryKnowledgeExamService.finishSelfTesting(token, dto));
   }
 
   @POST
@@ -94,28 +96,28 @@ public class TheoryKnowledgeExamController {
   }
 
   /**
-   * 学员修改考核状态（离开穿1，进入考核传2，结束传3）
+   * 学员修改考核状态（离开穿1，进入考核传2，结束传3）。
    *
-   * @param map
-   * @return
+   * <p>考生身份只从 token 推导，请求体不再接受 {@code userId}。
    */
   @POST
   @Path("/studentChangeExamState")
-  public Response<Map<String, Object>> studentChangeExamState(Map<String, String> map) {
-    return theoryKnowledgeExamService.studentChangeExamState(map.get(EXAM_ID), map.get(USER_ID),
+  public Response<Map<String, Object>> studentChangeExamState(@RestHeader(TOKEN) String token,
+      Map<String, String> map) {
+    return theoryKnowledgeExamService.studentChangeExamState(token, map.get(EXAM_ID),
         Integer.parseInt(map.get(TYPE)), map.get("content"));
   }
 
   /**
-   * 學員提交实时答案
+   * 學員提交实时答案。
    *
-   * @param map
-   * @return
+   * <p>考生身份只从 token 推导，请求体不再接受 {@code userId}。
    */
   @POST
   @Path("/studentSaveExamRealtimeContont")
-  public Response<TheoryKnowledgeExamUserEntity> saveUserRealTimeParam(Map<String, String> map) {
-    return theoryKnowledgeExamService.saveUserRealTimeParam(map.get(EXAM_ID), map.get(USER_ID), map.get("content"));
+  public Response<TheoryKnowledgeExamUserEntity> saveUserRealTimeParam(@RestHeader(TOKEN) String token,
+      Map<String, String> map) {
+    return theoryKnowledgeExamService.saveUserRealTimeParam(token, map.get(EXAM_ID), map.get("content"));
   }
 
   /**

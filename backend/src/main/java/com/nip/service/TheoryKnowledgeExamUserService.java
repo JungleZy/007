@@ -2,11 +2,15 @@ package com.nip.service;
 
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.JSONUtils;
+import com.nip.dao.RoleDao;
+import com.nip.dao.TheoryKnowledgeExamDao;
 import com.nip.dao.TheoryKnowledgeExamUserDao;
 import com.nip.dto.AllExamDto;
+import com.nip.entity.TheoryKnowledgeExamEntity;
 import com.nip.entity.TheoryKnowledgeExamUserEntity;
 import com.nip.entity.UserEntity;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -28,11 +32,16 @@ import java.util.Optional;
 @ApplicationScoped
 public class TheoryKnowledgeExamUserService {
   private final TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao;
+  private final TheoryKnowledgeExamDao theoryKnowledgeExamDao;
+  private final RoleDao roleDao;
   private final UserService userService;
 
   @Inject
-  public TheoryKnowledgeExamUserService(TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao, UserService userService) {
+  public TheoryKnowledgeExamUserService(TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao,
+      TheoryKnowledgeExamDao theoryKnowledgeExamDao, RoleDao roleDao, UserService userService) {
     this.theoryKnowledgeExamUserDao = theoryKnowledgeExamUserDao;
+    this.theoryKnowledgeExamDao = theoryKnowledgeExamDao;
+    this.roleDao = roleDao;
     this.userService = userService;
   }
 
@@ -93,8 +102,27 @@ public class TheoryKnowledgeExamUserService {
   }
 
 
+  /**
+   * 读取某考生在某场考试中的答卷。
+   *
+   * <p>{@code userId} 必须保留为入参：教员阅卷与实时监看传的正是<b>他人</b>的考生 id，
+   * 改成 token 推导会让教员只能读到自己（且教员在该场考试里没有 exam_user 行）。
+   * 因此这里不换参数，只补授权：本人、该场考试的监考人/创建人、系统管理员放行，其余 207。
+   */
   @Transactional
-  public Response<TheoryKnowledgeExamUserEntity> findExamUser(String userId, String examId) {
+  public Response<TheoryKnowledgeExamUserEntity> findExamUser(String token, String userId, String examId) {
+    String actorId = userService.getUserByToken(token).getId();
+    TheoryKnowledgeExamEntity exam = theoryKnowledgeExamDao.findById(examId);
+    if (Objects.isNull(exam)) {
+      throw new IllegalArgumentException("未查询到考试");
+    }
+    boolean allowed = Objects.equals(actorId, userId)
+        || Objects.equals(actorId, exam.getTeacher())
+        || Objects.equals(actorId, exam.getCreateUserId())
+        || roleDao.existsAdminRoleByUserId(actorId);
+    if (!allowed) {
+      throw new ForbiddenException("无权查看他人的答卷");
+    }
     return ResponseResult.success(theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, userId));
   }
 }

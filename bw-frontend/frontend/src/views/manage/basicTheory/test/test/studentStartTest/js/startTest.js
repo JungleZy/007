@@ -119,63 +119,10 @@ export default function startTest(countDown) {
   }
   const commitTest = () => {
     handeCommit.value = true
-    //学生交卷
+    //学生交卷：只送 examId + content，总分与逐题 teacherScore 一律由服务端按试卷快照重算
     const con = organizeAnwser()
-    let content = con
-    content.score = 0
-    for (let i in content.completion) {
-      questionsOld.value['completion'].forEach(item => {
-        if (item.id == content.completion[i].id) {
-          if (content.completion[i].answer.toString() == item.answer.toString()) {
-            content.score = Number(item.score) + content.score
-          }
-        }
-      })
-    }
-    for (let i in content.judge) {
-      questionsOld.value['judge'].forEach(item => {
-        if (item.id == content.judge[i].id) {
-          if (content.judge[i].answer == item.answer) {
-            content.score = Number(item.score) + content.score
-          }
-        }
-      })
-    }
-    for (let i in content.multipleChoice) {
-      questionsOld.value['multipleChoice'].forEach(item => {
-        if (item.id == content.multipleChoice[i].id) {
-          if (content.multipleChoice[i].answer.toString() == item.answer.toString()) {
-            content.score = Number(item.score) + content.score
-          }
-        }
-      })
-    }
-    for (let i in content.singleChoice) {
-      questionsOld.value['singleChoice'].forEach(item => {
-        if (item.id == content.singleChoice[i].id) {
-          if (content.singleChoice[i].answer == item.answer.toString()) {
-            content.score = Number(item.score) + content.score
-          }
-        }
-      })
-    }
-    for (let i in content.shortAnswer) {
-      questionsOld.value['shortAnswer'].forEach(item => {
-        if (item.id == content.shortAnswer[i].id) {
-          if (content.shortAnswer[i].answer.trim() == item.answer.trim()) {
-            content.shortAnswer[i].teacherScore = Number(item.score)
-            content.score = Number(item.score) + content.score
-          } else {
-            content.shortAnswer[i].teacherScore = content.shortAnswer[i].teacherScore ? content.shortAnswer[i].teacherScore : 0
-            content.score = content.shortAnswer[i].teacherScore + content.score
-          }
-        }
-      })
-    }
-    con.score = content.score
     const data = {
       examId: route.query.id,
-      score: con.score,
       content: JSON.stringify(con)
     }
     finishSelfTesting(data).then(res => {
@@ -272,7 +219,6 @@ export default function startTest(countDown) {
     const con = organizeAnwser()
     const data = {
       examId: route.query.id,
-      userId: userInfo.value.id,
       content: JSON.stringify(con)
     }
     // studentSaveExamRealtimeContont(data)

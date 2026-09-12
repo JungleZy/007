@@ -4,11 +4,8 @@ import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.LoginSessionDto;
-import com.nip.dto.vo.HandKeyRecentTrainVO;
-import com.nip.dto.vo.UserTrainDurationStatVO;
 import com.nip.entity.UserEntity;
 import com.nip.service.UserService;
-import com.nip.service.UserTrainStatisticsService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
@@ -17,12 +14,16 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.nip.common.constants.BaseConstants.DEVICE_ID;
-import static com.nip.common.constants.BaseConstants.USER_ID;
 
+/**
+ * 匿名可达的用户端点：只有登录与注册。
+ *
+ * <p>个人训练统计的三个端点已移出本包到 {@link com.nip.controller.UserTrainStatisticsController}
+ * （带 {@code @JWT} + token 推导身份），路径不变。
+ */
 @Path("/user")
 @ApplicationScoped
 @Tag(name = "用户管理接口-无拦截")
@@ -30,9 +31,6 @@ public class UserController {
 
   @Inject
   UserService userService;
-
-  @Inject
-  UserTrainStatisticsService userTrainStatisticsService;
 
   @POST
   @Path("/login")
@@ -50,30 +48,5 @@ public class UserController {
   @Path("/signin")
   public Response<Object> signin(UserEntity entity) {
     return userService.registerUser(entity);
-  }
-
-  @POST
-  @Path("/getUserTrainDurationStat")
-  @Operation(summary = "统计当前用户训练时长")
-  public Response<UserTrainDurationStatVO> getUserTrainDurationStat(Map<String, String> map) {
-    return ResponseResult.success(
-        userTrainStatisticsService.getUserTrainDurationStat(
-            map.get(USER_ID),
-            map.getOrDefault("startTime", null),
-            map.getOrDefault("endTime", null)));
-  }
-
-  @POST
-  @Path("/getRecentHandKeyTrains")
-  @Operation(summary = "最近十次手键拍发数据（训练时间、得分、速率）")
-  public Response<List<HandKeyRecentTrainVO>> getRecentHandKeyTrains(Map<String, String> map) {
-    return ResponseResult.success(userTrainStatisticsService.getRecentHandKeyTrains(map.get(USER_ID)));
-  }
-
-  @POST
-  @Path("/getRecentElectronicKeyTrains")
-  @Operation(summary = "最近十次电子键拍发数据（训练开始时间、训练时间、得分、速率）")
-  public Response<List<HandKeyRecentTrainVO>> getRecentElectronicKeyTrains(Map<String, String> map) {
-    return ResponseResult.success(userTrainStatisticsService.getRecentElectronicKeyTrains(map.get(USER_ID)));
   }
 }
