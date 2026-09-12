@@ -45,6 +45,10 @@ class TrainOwnershipAuthorizationTest {
     PostTelegramTrainEntity train = new PostTelegramTrainEntity();
     train.setCreateUser(owner.getId());
     train.setName("ownership-telegram");
+    // 采集协议版本与轮次是 NOT NULL 列（迁移 2026-09-11-04-personal-handkey-capture.sql:80-81），
+    // 实体已声明 @Column(nullable = false)；播种漏设会在 flush 时就被 Hibernate 拦住。
+    train.setProtocolVersion(1);
+    train.setAttempt(0);
     telegramTrainDao.save(train);
 
     given()
