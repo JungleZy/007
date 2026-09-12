@@ -14,6 +14,7 @@ import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
 
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -197,6 +198,24 @@ class TheoryKnowledgeExamServiceTest {
     String examId = examIdByTitle("exam-analyse");
 
     assertDoesNotThrow(() -> service.examineAnalyse(examId));
+  }
+
+  @Test
+  void analyseWithoutPaperSnapshotIsRejectedInsteadOfNPE() {
+    String token = "t-exam-analyse-nopaper-" + UUID.randomUUID();
+    UserEntity user = Fixtures.user(userDao, token);
+    String title = "exam-analyse-nopaper-" + UUID.randomUUID();
+    service.saveTheoryKnowledgeExam(token, exam(title, paper(null), user.getId()));
+    String examId = examIdByTitle(title);
+
+    // 只删快照、留下考试行：库里唯一能出现「考试在、快照不在」的形态（脏数据/外部删表）
+    QuarkusTransaction.requiringNew().run(() -> examTestPaperDao.delete("examId", examId));
+    assertEquals(0, examTestPaperDao.count("examId", examId), "前置条件：快照行必须已被删掉");
+
+    IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+        () -> service.examineAnalyse(examId),
+        "快照缺失必须报可读的业务错误（映射 202），不得裸解引用抛 NPE");
+    assertEquals("未查询到试卷快照，无法进行考核分析", failure.getMessage());
   }
 
   @Test

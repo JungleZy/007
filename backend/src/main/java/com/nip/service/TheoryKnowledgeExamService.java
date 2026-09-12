@@ -469,6 +469,13 @@ public class TheoryKnowledgeExamService {
     List<TheoryKnowledgeExamUserEntity> examUserEntityList = theoryKnowledgeExamUserDao.findAllByExamId(examId);
     // 考题
     TheoryKnowledgeExamTestPaperEntity testPaperEntity = theoryKnowledgeExamTestPaperDao.findAllByExamId(examId);
+    // 查无即为错：建考试与建快照在同一事务里落库（saveTheoryKnowledgeExam /
+    // saveTheoryKnowledgeExamSelfTesting），删考试也连带删快照（deleteTheoryKnowledgeExam），
+    // 所以「考试行在、快照行不在」只可能是脏数据。findAllByExamId 走 firstResult()，查无返 null，
+    // 下面对 total/passMark 与五个题型列表全是裸解引用 —— 不拦就是 NPE/500。
+    if (ObjectUtil.isEmpty(testPaperEntity)) {
+      throw new IllegalArgumentException("未查询到试卷快照，无法进行考核分析");
+    }
 
     // 拿到本场考试的就及格比吧 计算良的区间 公式：(总分-及格分)/2+及格分
     Integer total = BigDecimal.valueOf((long) testPaperEntity.getTotal() - (long) testPaperEntity.getPassMark())
