@@ -34,7 +34,7 @@ class WebSocketGeneralSessionLifecycleTest {
     GeneralPatTrainRoomUserDto room = generalRoom(current);
     WebSocketGeneralKeyPatService.ROOM.put(101, room);
 
-    new WebSocketGeneralKeyPatService().onClose(101, oldSession);
+    new WebSocketGeneralKeyPatService().onClose("101", oldSession);
 
     GeneralPatTrainRoomUserDto actual = WebSocketGeneralKeyPatService.ROOM.get(101);
     assertNotNull(actual, "stale close must not remove the room containing the replacement");
@@ -47,8 +47,8 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralKeyPatService.ROOM.put(102, generalRoom(generalUser("user", currentSession)));
     WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
 
-    endpoint.onError(102, currentSession, new RuntimeException("expected"));
-    assertDoesNotThrow(() -> endpoint.onClose(102, currentSession));
+    endpoint.onError("102", currentSession, new RuntimeException("expected"));
+    assertDoesNotThrow(() -> endpoint.onClose("102", currentSession));
 
     assertFalse(WebSocketGeneralKeyPatService.ROOM.containsKey(102));
   }
@@ -90,7 +90,7 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralTickerPatService.PAT_ROOM.put(101, room);
 
     new WebSocketGeneralTickerPatService()
-        .onError(101, oldSession, new RuntimeException("expected"));
+        .onError("101", oldSession, new RuntimeException("expected"));
 
     GeneralTickerPatTrainRoomUserModel actual = WebSocketGeneralTickerPatService.PAT_ROOM.get(101);
     assertNotNull(actual, "stale error must not remove the room containing the replacement");
@@ -105,8 +105,8 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralTickerPatService.PAT_ROOM.put(102, room);
     WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
 
-    endpoint.onError(102, currentSession, new RuntimeException("expected"));
-    assertDoesNotThrow(() -> endpoint.onError(102, currentSession,
+    endpoint.onError("102", currentSession, new RuntimeException("expected"));
+    assertDoesNotThrow(() -> endpoint.onError("102", currentSession,
         new RuntimeException("duplicate callback")));
 
     assertFalse(WebSocketGeneralTickerPatService.PAT_ROOM.containsKey(102));
@@ -123,7 +123,7 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralKeyPatService.ROOM.put(201, room);
 
     new WebSocketGeneralKeyPatService()
-        .onMessage(201, "{\"topic\":\"ready\"}", oldSession);
+        .onMessage("201", "{\"topic\":\"ready\"}", oldSession);
 
     assertEquals(1, current.getStatus());
     assertTrue(teacher.outbound().isEmpty());
@@ -158,7 +158,7 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralTickerPatService.PAT_ROOM.put(201, room);
 
     new WebSocketGeneralTickerPatService()
-        .onMessage(201, "{\"topic\":\"ready\"}", oldSession);
+        .onMessage("201", "{\"topic\":\"ready\"}", oldSession);
 
     assertEquals(1, current.getStatus());
     assertTrue(teacher.outbound().isEmpty());

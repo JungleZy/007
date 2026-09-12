@@ -90,7 +90,7 @@ class WebSocketDeleteOpenAtomicityTest {
     SessionProbe probe = session("simulation");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen(probe.session(), 301),
+        () -> endpoint.onOpen(probe.session(), "301"),
         barrier,
         RoomLifecycleLocks.simulationRoom(301),
         () -> SimulationGlobal.routerRoom.remove(301),
@@ -107,7 +107,7 @@ class WebSocketDeleteOpenAtomicityTest {
     SessionProbe probe = session("key");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen(302, probe.session()),
+        () -> endpoint.onOpen("302", probe.session()),
         barrier,
         RoomLifecycleLocks.generalKeyRoom(302),
         () -> WebSocketGeneralKeyPatService.ROOM.remove(302),
@@ -141,7 +141,7 @@ class WebSocketDeleteOpenAtomicityTest {
     SessionProbe probe = session("ticker");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen(304, 0, probe.session()),
+        () -> endpoint.onOpen("304", "0", probe.session()),
         barrier,
         RoomLifecycleLocks.generalTickerRoom(304),
         () -> WebSocketGeneralTickerPatService.PAT_ROOM.remove(304),

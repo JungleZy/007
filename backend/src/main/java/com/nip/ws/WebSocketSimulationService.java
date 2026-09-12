@@ -67,10 +67,16 @@ public class WebSocketSimulationService {
    *
    * <p>路径 {@code id} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）。
    *
+   * <p>{@code roomId} 声明成 {@code String} 而不是 {@code Integer} 是**握手门禁的前提**：
+   * 容器在调用本方法前做 {@code @PathParam} 类型转换，转换失败时 {@code @OnOpen} 与
+   * {@code @OnError} 都不会被调用 —— 连接于是既没鉴权也没人关，被无限保持。
+   * 所以先无条件收字符串、先鉴权，再自己解析。
+   *
    * @param session 会话
+   * @param rawRoomId 房间 id（未解析，可能不是数字）
    */
   @OnOpen
-  public void onOpen(Session session, @PathParam(ROOM_ID) Integer roomId) throws IOException {
+  public void onOpen(Session session, @PathParam(ROOM_ID) String rawRoomId) throws IOException {
     UserEntity authenticated = handshake.authenticate(session);
     if (authenticated == null) {
       sendErrorMessage(session, "登录凭据无效，拒绝建立连接", "", "");
@@ -79,6 +85,12 @@ public class WebSocketSimulationService {
     }
     String id = authenticated.getId();
     WebSocketHandshake.bind(session, id);
+    Integer roomId = roomId(rawRoomId);
+    if (roomId == null) {
+      sendErrorMessage(session, "房间id无效", id, id);
+      session.close();
+      return;
+    }
     OpenTransition transition;
     Lock lock = RoomLifecycleLocks.simulationRoom(roomId);
     lock.lock();
@@ -246,10 +258,14 @@ public class WebSocketSimulationService {
    * 关闭
    */
   @OnClose
-  public void onClose(@PathParam(ROOM_ID) Integer roomId, Session session) {
+  public void onClose(@PathParam(ROOM_ID) String rawRoomId, Session session) {
     String id = WebSocketHandshake.authenticatedId(session);
     if (id == null) {
       //握手被拒的连接从未进入任何房间列表，容器已在关闭它
+      return;
+    }
+    Integer roomId = roomId(rawRoomId);
+    if (roomId == null) {
       return;
     }
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
@@ -271,9 +287,25 @@ public class WebSocketSimulationService {
   }
 
   @OnError
-  public void onError(@PathParam(ROOM_ID) Integer roomId, Session session, Throwable t) {
+  public void onError(@PathParam(ROOM_ID) String rawRoomId, Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
-    onClose(roomId, session);
+    onClose(rawRoomId, session);
+  }
+
+  /**
+   * 解析路径里的房间 id。
+   *
+   * <p>不做 {@code @PathParam Integer} 的容器转换 —— 转换失败会让整个 {@code @OnOpen}/
+   * {@code @OnError} 不被调用，连接既不鉴权也不关闭（见 {@link #onOpen} 注释）。
+   *
+   * @return 解析结果；非数字时返回 {@code null}
+   */
+  private static Integer roomId(String raw) {
+    try {
+      return Integer.valueOf(raw);
+    } catch (NumberFormatException malformed) {
+      return null;
+    }
   }
 
   @Transactional
@@ -369,10 +401,14 @@ public class WebSocketSimulationService {
    * @param message 消息（JSON）
    */
   @OnMessage
-  public void onMessage(@PathParam(ROOM_ID) Integer roomId, String message, Session session) {
+  public void onMessage(@PathParam(ROOM_ID) String rawRoomId, String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
     String id = WebSocketHandshake.authenticatedId(session);
     if (id == null) {
+      return;
+    }
+    Integer roomId = roomId(rawRoomId);
+    if (roomId == null) {
       return;
     }
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);

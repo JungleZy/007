@@ -37,9 +37,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * WebSocket 握手鉴权（SEC-06）的对外可观测契约。
  *
- * <p>守四件事：
+ * <p>守五件事：
  * <ol>
  *   <li>不带 {@code token}/{@code deviceId} 的连接被服务端关闭；</li>
+ *   <li>**路径参数非法时也必须关闭** —— 见 {@link #malformedPathParamStillClosesUnauthenticatedConnection}；</li>
  *   <li>路径参数只作路由——A 的凭据连 B 的路径时按 A 注册，B 的在线状态与定向推送不受影响；</li>
  *   <li>路由房建房人在 {@code t_simulation_router_room_user} **没有成员行**，仍须能连入并向全房广播
  *       （合成成员保持 {@code userType=null}/{@code channel=-1}，组训人员的识别口径不变）；</li>
@@ -87,6 +88,36 @@ class WebSocketHandshakeAuthorizationTest {
     } finally {
       if (anonymous.isOpen()) {
         anonymous.close();
+      }
+    }
+  }
+
+  /**
+   * 路径参数非法时，未鉴权连接仍必须被关闭。
+   *
+   * <p>回归的是一个真实缺口：这些端点原来把 {@code trainId}/{@code roomId} 声明成
+   * {@code @PathParam Integer}，容器在进入 {@code @OnOpen} 前做类型转换，转换失败时
+   * {@code @OnOpen} 与 {@code @OnError} **都不会被调用** —— 连接既没鉴权也没人关，
+   * 被无限保持（实测 {@code /generalKeyPatTrain/1/not-a-number} 不带凭据也长期 OPEN）。
+   * 修复是先无条件收字符串、先鉴权，再自己解析 id。
+   *
+   * <p>因此这里刻意用**非数字**路径段：若谁把参数类型改回 {@code Integer}，本用例立刻失败。
+   */
+  @Test
+  void malformedPathParamStillClosesUnauthenticatedConnection() throws Exception {
+    WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+    List<String> paths = List.of(
+        "/generalKeyPatTrain/1/not-a-number",
+        "/generalTickerPat/1/not-a-number/1",
+        "/generalTelexPatTrain/1/not-a-number",
+        "/simulation/1/not-a-number");
+
+    for (String path : paths) {
+      Session anonymous = container.connectToServer(new Probe(), URI.create(HOST + path));
+      try {
+        assertTrue(awaitClosed(anonymous), "路径参数非法也不得留下未鉴权连接：" + path);
+      } finally {
+        closeQuiet(anonymous);
       }
     }
   }

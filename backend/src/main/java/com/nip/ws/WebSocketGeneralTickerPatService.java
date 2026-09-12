@@ -51,10 +51,16 @@ public class WebSocketGeneralTickerPatService {
    *
    * <p>路径 {@code uid} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）；
    * {@code role} 仍与库里的角色比对（本域是唯一带 role 的端点）。
+   *
+   * <p>{@code trainId}/{@code role} 声明成 {@code String} 而不是 {@code Integer} 是**握手门禁的前提**：
+   * 容器在调用本方法前做 {@code @PathParam} 类型转换，转换失败时 {@code @OnOpen} 与
+   * {@code @OnError} 都不会被调用 —— 连接于是既没鉴权也没人关，被无限保持
+   * （实测：{@code /generalTickerPat/1/not-a-number/1} 不带凭据也 OPEN-HELD）。
+   * 所以先无条件收字符串、先鉴权，再自己解析。
    */
   @OnOpen
-  public void onOpen(@PathParam(TRAIN_ID) Integer trainId,
-      @PathParam("role") Integer role, Session session) {
+  public void onOpen(@PathParam(TRAIN_ID) String rawTrainId,
+      @PathParam("role") String rawRole, Session session) {
     UserEntity authenticated = handshake.authenticate(session);
     if (authenticated == null) {
       sendErrMessage(session, "登录凭据无效，拒绝建立连接", "", "");
@@ -63,6 +69,13 @@ public class WebSocketGeneralTickerPatService {
     }
     String uid = authenticated.getId();
     WebSocketHandshake.bind(session, uid);
+    Integer trainId = number(rawTrainId);
+    Integer role = number(rawRole);
+    if (trainId == null || role == null) {
+      sendErrMessage(session, "训练id或角色无效", "", "");
+      close(session);
+      return;
+    }
     OpenTransition transition;
     Lock lock = RoomLifecycleLocks.generalTickerRoom(trainId);
     lock.lock();
@@ -156,10 +169,14 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnMessage
-  public void onMessage(@PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
+  public void onMessage(@PathParam(TRAIN_ID) String rawTrainId, String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
     String uid = WebSocketHandshake.authenticatedId(session);
     if (uid == null) {
+      return;
+    }
+    Integer trainId = number(rawTrainId);
+    if (trainId == null) {
       return;
     }
     GeneralTickerPatTrainRoomUserModel roomUser = PAT_ROOM.get(trainId);
@@ -218,10 +235,15 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnClose
-  public void onClose(@PathParam(TRAIN_ID) Integer trainId, Session session) {
+  public void onClose(@PathParam(TRAIN_ID) String rawTrainId, Session session) {
     String uid = WebSocketHandshake.authenticatedId(session);
     if (uid == null) {
       //握手被拒的连接从未注册进房间，容器已在关闭它，无状态可清
+      return;
+    }
+    Integer trainId = number(rawTrainId);
+    if (trainId == null) {
+      close(session);
       return;
     }
     Map<String, Object> msg = new HashMap<>();
@@ -250,10 +272,26 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnError
-  public void onError(@PathParam(TRAIN_ID) Integer trainId, Session session, Throwable t) {
+  public void onError(@PathParam(TRAIN_ID) String rawTrainId, Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
-    onClose(trainId, session);
+    onClose(rawTrainId, session);
     close(session);
+  }
+
+  /**
+   * 解析路径里的数字段（{@code trainId}/{@code role}）。
+   *
+   * <p>不做 {@code @PathParam Integer} 的容器转换 —— 转换失败会让整个 {@code @OnOpen}/
+   * {@code @OnError} 不被调用，连接既不鉴权也不关闭（见 {@link #onOpen} 注释）。
+   *
+   * @return 解析结果；非数字时返回 {@code null}，由调用方按自己的阶段决定关闭还是忽略
+   */
+  private static Integer number(String raw) {
+    try {
+      return Integer.valueOf(raw);
+    } catch (NumberFormatException malformed) {
+      return null;
+    }
   }
 
   private static boolean sameConnection(GeneralTickerPatTrainUserModel user, String uid,

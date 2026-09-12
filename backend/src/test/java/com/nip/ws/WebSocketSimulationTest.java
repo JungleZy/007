@@ -140,7 +140,7 @@ class WebSocketSimulationTest {
     Session currentServer = awaitServerSession(roomId, studentId, oldServer);
 
     try {
-      service.onError(roomId, oldServer, new RuntimeException("stale callback"));
+      service.onError(String.valueOf(roomId), oldServer, new RuntimeException("stale callback"));
 
       assertSame(currentServer, awaitServerSession(roomId, studentId, oldServer));
       assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
