@@ -87,6 +87,11 @@ quarkus:
         generation: drop-and-create
     http:
       test-port: 18081
+    scheduler:
+      # 测试期关掉 @Scheduled 自动触发：GeneralSettlementRecovery 与
+      # PostTelexPatTrainRecovery 都挂在 every=5s 上，会全库扫描并结算越出当前用例的训练行，
+      # 让评分断言随执行时机漂移。恢复路径本身由各用例显式调用 settleExpired(...) 驱动。
+      enabled: false
 "%prod":
   quarkus:
     datasource:
@@ -104,5 +109,5 @@ quarkus:
         # 顺序硬约束：必须先执行 backend/database/migrations/2026-08-26-01-schema-sync.sql
         # 与 02-engine-innodb.sql，再部署本配置，否则启动即失败。
         # 已于 2026-08-28 在 current+base 双快照库演练通过（迁移 01→02 → %prod
-        # generation:validate 启动零校验错误；证据 <仓库根>/docs/reviews/2026-08-28-migration-rehearsal.md）。
+        # generation:validate 启动零校验错误；证据 <仓库根>/docs/reviews/archive/2026-08-28-migration-rehearsal.md）。
         generation: validate
