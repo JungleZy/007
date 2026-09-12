@@ -97,15 +97,5 @@ PREPARE post_telex_capture_ddl FROM @post_telex_capture_ddl;
 EXECUTE post_telex_capture_ddl;
 DEALLOCATE PREPARE post_telex_capture_ddl;
 
--- 电传拍发页面统一到现用数据报目录，仅迁移这三个旧组件路径，保留其他菜单属性。
-UPDATE `t_menus`
-SET `component` = '/manage/postJob/datagram/telex/Index'
-WHERE `component` = '/manage/postJob/telegram/telex/Index';
-
-UPDATE `t_menus`
-SET `component` = '/manage/postJob/datagram/telex/TrainScore'
-WHERE `component` = '/manage/postJob/telegram/telex/TrainScore';
-
-UPDATE `t_menus`
-SET `component` = '/manage/postJob/datagram/telexTrain/Index'
-WHERE `component` = '/manage/postJob/telegram/telexTrain/Index';
+-- 原在此处的 t_menus 菜单 component 路径 UPDATE 属数据迁移且强耦合前端组件路径，
+-- 已拆出到 2026-09-12-03-menu-telex-component-path.sql，须与对应前端版本一并执行。
