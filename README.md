@@ -90,8 +90,8 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 
 | 项 | 状态 |
 |---|---|
-| 后端测试基线 | **392 测试 / 93 suite 全绿**（`./mvnw -B clean verify`，需 Docker；2026-09-12）|
-| 前端测试基线 | `npm run test` **19/19**、`npm run build` 成功 |
+| 后端测试基线 | **401 测试 / 94 suite 全绿**（`./mvnw -B clean verify`，需 Docker；2026-09-12）|
+| 前端测试基线 | `npm run test` **24/24**、`npm run build` 成功 |
 | 后端单侧整改（2026-09-07 轮，34 条 P1）| 已完成，4 项偏离已于 2026-09-08 闭合（`docs/plans/archive/2026-09-07-fix-plan.md`）|
 | 跨栈整改（2026-09-08 联合评审）| 已闭环（`docs/plans/2026-09-08-joint-fix-plan.md`）|
 | 客户报障 12 条整改（2026-09-10）| 六个训练域已落地；仅 T17 现场交付未完成（`docs/plans/2026-09-10-customer-issue-fix-plan.md`）|

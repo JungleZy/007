@@ -4,7 +4,7 @@
 - **评审对象**：`backend/`（Quarkus 3.20.4 / Java 21，770 个主源文件、61 个 controller、80 个 service）+ `bw-frontend/`（Electron 壳）+ `bw-frontend/frontend/`（Vue，262 个 `.vue`、293 个 `.js`、28 个 api 模块）
 - **代码基线**：`main` = `9f70c22`；本轮客户报障整改共 16 个提交（`4819227..9f70c22`），已推送 origin
 - **验证基线**：`cd backend && ./mvnw -B clean verify` → **316 测试 / 74 suite，0 失败 0 错误 0 跳过**（2026-09-12，2 分 36 秒）；前端 `npm run build` 成功
-- **整改后基线**：B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）+ 计划回写核验补做 5 个提交（`23cafc9..f9f97bd`）；后端 **392 测试 / 93 suite 全绿**、前端 `npm run test` 19/19 + `build` 成功、迁移演练双快照全绿。详见 §6.2（执行记录）与 §6.3（逐条核验与补做）
+- **整改后基线**：B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）+ 计划回写核验补做 5 个（`23cafc9..f9f97bd`）+ P2/P3 收尾 8 个（`654187a..1fff2c8`）；后端 **401 测试 / 94 suite 全绿**、前端 `npm run test` 24/24 + `build` 成功、迁移演练双快照全绿。详见 §6.2（执行记录）、§6.3（逐条核验与补做）与 §6.4（P2/P3 收尾）
 - **评审方式**：8 路并行只读评审队（评分采集 / 数据与迁移 / 安全授权 / 并发与 WS / 跨栈契约 / 前端 / 交付形态 / 测试与文档），逐条要求根相对 `path:line` 取证；全部 P0/P1 由主评审独立复核，复核结论与纠正记录见 §9
 - **本文定位**：**替代 `docs/reviews/2026-09-08-full-project-review.md` 成为当前唯一全项目评审入口**。2026-09-08 评审降为历史证据（其 216 测试基线等数字已过期）
 - **关联文档**：客户报障分析 `docs/reviews/2026-09-10-customer-issue-analysis.md`；本轮规格 `docs/specs/2026-09-10-customer-issue-fix-spec.md`；本轮计划 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付仍未完成）
@@ -141,6 +141,8 @@ GET /api/generalKeyPat/getTrainInfoBatch
 
 ## 3. P2（24 条）
 
+> **状态**：全部处置完毕 —— 其中 22 条由 B2/B4/B5/B6/B7 顺带闭合，`DATA-03` 剩余与 `TESTDOC-02` 剩余由 P2/P3 收尾批次关闭（见 §6.4）。
+
 > 以下为评审队取证结论，主评审对标注 ✔ 的条目做了独立复核；其余条目证据完整但未二次核实。
 
 ### 3.1 后端
@@ -190,6 +192,8 @@ GET /api/generalKeyPat/getTrainInfoBatch
 ---
 
 ## 4. P3（9 条）
+
+> **状态**：全部处置完毕 —— 其中 8 条由 B3/B5/B6/B7 与 §6.3 补做闭合，`DATA-05` 由 P2/P3 收尾批次关闭（见 §6.4）。
 
 | ID | 问题 | 证据 |
 |---|---|---|
@@ -394,6 +398,45 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 - 11 条路径实测：6 个带身份端点在「无凭据」与「非法路径」两种情况下一律 `CLOSED(1000)`；`/status` 仍匿名 `OPEN`。
 - **真实房间 happy path**：新建手键组训（id=75，`%prod` 产物）→ 教员 `role=1` 与学员 `role=0` 各带凭据连入均 `OPEN` → 学员上线时教员收到 `{"topic":"online","id":"2"}` → 学员发 `ready` 教员收到 `{"topic":"ready"}` → 删除该训练清理。
 - **真实打包桌面**：`--dir` 产物冷启动 → 真实登录 UI（`admin`）→ dashboard → shipped `SocketConnection` 注入凭据的 `ws://localhost:18001/websocket/1?token=…&deviceId=…` `opened=true` 且收到推送帧；`localStorage.token` 为 43 字符不透明串、库里是 64 位摘要（T3-1 的两侧同时验证）。
+
+### 6.4 P2/P3 收尾（2026-09-12，8 个提交 `654187a..1fff2c8`）
+
+规格与计划：[`../specs/2026-09-12-p2p3-closure-spec.md`](../specs/2026-09-12-p2p3-closure-spec.md)、[`../plans/2026-09-12-p2p3-closure-plan.md`](../plans/2026-09-12-p2p3-closure-plan.md)（经 3 路并行评审修订，1 BLOCKER + 4 MAJOR）。
+
+**先做的事：剔除已闭合项。** §3/§4 的 33 条**不是 33 件待办** —— §6 批次表把 `DATA-01…07、CONC-01、SEC-11、FE-01/03` 归 B7、`SCORE-03/CONTRACT-01/FE-02` 归 B4、`SEC-10` 归 B2、`CONTRACT-02/03` 归 B7/W4、`DELIVERY-04…07` 归 B5、`TESTDOC-01…12` 归 B6，这些编号本身就是 P2/P3。逐条核实当前源码 + 独立评审抽查 10 条后：**29 条已闭合，4 条仍开着**。
+
+| 条目 | 处置 | 提交 |
+|---|---|---|
+| **DATA-03 剩余** | `dao/` 55 处 `firstResult()` 不做无证据批量改写。两类静态扫描得 10 个疑似点，逐点读码判为 **4 真命中 / 3 已判空误报 / 3 上游不可达**，只修真命中 | 下三行 |
+| ├ 词库缺失 | `PostEnteringExerciseService` 两处立即链式解引用 → 202 + 点名 type 的文案（照同方法既有 `orElseThrow` 写法）。判「查无即为错」的理由：静默跳过会落下 `content` 为 null 的训练，而 `finish` 只回写前端值 → 错误永不暴露（红线 1 同类） | `654187a` |
+| ├ 试卷快照缺失 | `TheoryKnowledgeExamService:471` → 202，照同文件 `finishSelfTesting` 对同一查询的既有判法对齐 | `afee8e6` |
+| └ 电报缺页 | `TelegramTrainService` → 202，**并整体删除宽 catch**：它此前把 NPE 吞成 `error()`（code 500 / 「服务器错误」），缺页、DAO 挂了、序列化炸了调用方看到的字节完全一样。删后未知异常落 `GlobalExceptionMapper`（HTTP 500 + SYSTEM_ERROR），该边界已由 `ExceptionBoundaryTest` 钉成既有契约 | `620bd53` |
+| **DATA-05** | `PostTelegramTrainContentFloorValueEntity.attempt` 加 `@Column(nullable = false)`；**范围扩到同类分歧** `PostTelegramTrainEntity.protocolVersion`/`attempt`。注释写明两点：① `%test` 从实体建表，不声明就与 `%prod` 的 `NOT NULL` 分歧 → 漏设的写路径「测试过、生产炸」；② 迁移里的 `DEFAULT 0` 因无 `@DynamicInsert` 恒不生效，不会兜住漏设 | `75fedf4` |
+| **TESTDOC-02 剩余** | 共享探针加 `bound(id,userId)` 单元级工厂 + 出站帧按通道分账；`WebSocketGeneralSessionLifecycleTest` 删掉私有 `Session` 代理（全文 `Proxy.newProxyInstance` = 0）；**补三域「拒接先发错误帧再关闭」断言** —— 这条契约此前在 key/telex 无人断言，因为私有探针把 `getBasicRemote` 落成 null、生产 `catch(Exception)` 又把 NPE 吞掉 | `933d715` |
+| **TESTDOC-05 剩余** | `ElectronMorse` 抽出纯工厂 `createMorseController({operation})`，薄壳保留 `onUnmounted` 退订（唯一消费者 `useTraffic.js` 依赖它、零改动）；新增 5 例覆盖类型决议链与 `playing` 状态机。`useConfirmedSubmission` 那一半已由 T7-8 顺带闭合 | `e505274` |
+
+**执行中新发现并修掉的 2 个生产缺陷**（都不是计划条目，是做的过程中撞出来的）：
+
+| 发现 | 说明 | 提交 |
+|---|---|---|
+| ticker 拒接帧走异步写 | `WebSocketGeneralTickerPatService.sendErrMessage` 用 `getAsyncRemote()`，而 key/telex 用 `getBasicRemote()` 且注释明确写着「保持同步写确保错误帧先于关闭发出」。ticker 三个拒接调用点都紧跟 `close(session)` —— 异步写只是入队，close 可能抢在刷出前，客户端看到**没有任何理由的断连**。改为同步写并统一三域断言 basic 通道 | `7145d0a` |
+| 播种器漏设非空列 | T-B 的声明对齐让 `TrainOwnershipAuthorizationTest` 变红（`not-null property references a null or transient value`）。这正是它要暴露的东西：改前该播种路径在 `%test` 能落库跑绿、同形态写入在 `%prod` 会失败。按口径修写路径而非改回可空 | `8ee831b` |
+
+**突变检验（全部实跑，不是推演）**：注释 key/telex/ticker 三个端点的拒接发送行 → 各让 `WebSocketGeneralSessionLifecycleTest` 13 例中 1 例变红；回退词库守卫为裸解引用 → 3 例中 1 例红；注释试卷快照守卫 → 8 例中 1 例红（收到 NPE）；电报缺页守卫换回 `orElse(null)` → 5 例中 1 例红。前端 6 条突变由执行方实跑，各让对应用例变红。
+
+**执行后基线**
+
+- 后端 `./mvnw -B clean verify` → **401 测试 / 94 suite，0 失败 0 错误 0 跳过**（§6.3 收口时 392 / 93）。
+- 前端 `npm run test` **24/24**（改前 19 = `test/*.test.mjs` 13 + `questionImport.test.mjs` 6）、`npm run build` 成功。
+- 迁移演练双快照全绿；`entity-schema.tsv` 重生成后三列由 `YES` 变 `NO`，与生产库 `int NOT NULL` 一致（`1fff2c8`）。
+
+**留在文档里的偏离与后续项**（见 spec §7，不当作已修）
+
+- **ticker/key 结算不校验值行 `attempt`**，正确性依赖「reset 物理删除旧轮次行」的隐式不变量。若将来给这两域加「保留原始行」（如 telex T4-1 所做），结算会静默把旧轮次算进去。收口方式是结算逐行 `requireAttempt`（与 telegram/post-telex/telex 同口径），属结算语义变更，需与产品需求一起设计。
+- 三张值行表 `attempt` 仍为 `int NULL`（与两张 `NOT NULL` 不一致）：需存量回填 + 三表迁移。
+- 55 个 `firstResult()` 中判为「查无正常」的多数保持现状。
+- 另 4 处自造 `Session` 代理（`WebSocketSimulationTest`、`WebSocketUnionLifecycleTest`、`SimulationRoomLifecycleTest`、`WebSocketDeleteOpenAtomicityTest`）不合并：身份注入与断言对象各不相同，`bound(...)` 不是即插替换。
+- 试卷快照的 `total`/`passMark` 列本身可空，行存在但列为 NULL 时拆箱仍可 NPE —— 属「可空列」而非「行级 null」，单点加守卫会造出不一致口径，登记为独立项。
 
 ---
 

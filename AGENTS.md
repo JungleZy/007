@@ -26,7 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前基线 **392 测试 / 93 suite 全绿**（`docs/reviews/2026-09-12-full-project-review.md` §6.2/§6.3）；新增测试只增不减。
+- 当前基线 **401 测试 / 94 suite 全绿**（`docs/reviews/2026-09-12-full-project-review.md` §6.2–§6.4）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 

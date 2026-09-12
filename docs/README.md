@@ -21,6 +21,7 @@
 | **发布这一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
 | 承接当前整改任务 | [`specs/2026-09-12-review-fix-spec.md`](specs/2026-09-12-review-fix-spec.md) + [`plans/2026-09-12-review-fix-plan.md`](plans/2026-09-12-review-fix-plan.md)（B1–B5/B7 已执行，见评审 §6.2） |
+| P2/P3 收尾（已执行） | [`specs/2026-09-12-p2p3-closure-spec.md`](specs/2026-09-12-p2p3-closure-spec.md) + [`plans/2026-09-12-p2p3-closure-plan.md`](plans/2026-09-12-p2p3-closure-plan.md)（见评审 §6.4） |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
 | 修改跨栈契约 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) §5.5 + [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) |
 | 会话与口令协议迁移 | [`plans/2026-09-09-password-session-migration-plan.md`](plans/2026-09-09-password-session-migration-plan.md) |
@@ -44,7 +45,7 @@
 - 测试与文档一致性（`%test` 调度器竞态、AGENTS.md 过期断言）；
 - §5 的已核实正确点清单（避免重复排查）、§6 整改批次、**§6.1/§6.2 两份执行记录（B6 与 B1–B5/B7，含提交号与运行证据）**、§7 待运行验证事项。
 
-整改后基线：后端 392 测试 / 93 suite 全绿、前端 19/19 + build 成功、迁移演练双快照全绿。
+整改后基线：后端 401 测试 / 94 suite 全绿、前端 24/24 + build 成功、迁移演练双快照全绿。
 
 上一轮 [`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) 仅作历史对照，其测试基线与 MyISAM 等数字已过期。
 
