@@ -367,10 +367,18 @@ public class WebSocketGeneralTickerPatService {
     }
   }
 
+  /**
+   * onOpen 拒接路径在 close 前调用：保持**同步写**确保错误帧先于关闭发出。
+   *
+   * <p>本方法原先用 {@code getAsyncRemote()}，与兄弟域（{@code WebSocketGeneralKeyPatService}、
+   * {@code WebSocketGeneralTelexPatService}）不一致。三个拒接调用点（{@code :66}/{@code :75}/{@code :88}）
+   * 都紧跟 {@code close(session)}，而异步写只是入队：close 可能抢在帧刷出之前执行，客户端于是看到
+   * 一次没有任何理由的断连。成功广播路径（{@link #sendMessage}）继续用异步，那里要的是非阻塞扇出。
+   */
   public static void sendErrMessage(Session session, String message, String sendName, String receiveName) {
     try {
       if (session.isOpen()) {
-        session.getAsyncRemote().sendText(JSONUtils.toJson(SocketResponseModel.err(message, sendName, receiveName)));
+        session.getBasicRemote().sendText(JSONUtils.toJson(SocketResponseModel.err(message, sendName, receiveName)));
       }
     } catch (Exception e) {
       log.error("WebSocketGeneralTickerPatService.sendErrMessage: 发送消息失败");
