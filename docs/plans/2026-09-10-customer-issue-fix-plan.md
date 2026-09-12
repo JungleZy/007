@@ -50,8 +50,10 @@
 
 - [x] 仓内环境、测试隔离、后端全量验证、Vue可复现安装/构建及Electron运行时核验完成；结果和边界见T00.1。此项不等于整个T00或两模式功能验收已完成。
 - [ ] G4分别记录Web协议/origin/浏览器版本/静态根与反代、Electron壳/OS/本机或局域网配置及FE/BE/hash；记录串口实际传输与许可、授权存储、设备/采样率和schema。核实客户已报告的故障环境，不要求重复证明故障现象。
-- [ ] 按 Spec G1 列每个活跃训练域/模式的单位、时间轴、规则满分/加扣、空/少/多页样例及原始 DTO 字段表；冻结 reset 后旧请求隔离方案、规则快照和存量进行中训练切换窗口。
-- [ ] 按 G2 取得低速/划比/5与7间隔/校准样文、配置优先级、F2 与目标机延迟阈值；按 G3 取得实时草稿与漏多组对齐决定。回填 Spec §3，不另起竞争规格。
+- [x] G1 的单位、时间轴、规则满分/加扣、轮次隔离与规则快照已冻结（Spec §3.1、§4.3.1），各活跃训练域的单位/时间轴/满分与空·少·多页样例见 §5.6；reset 后旧请求以 attempt 栅栏隔离（`resetFencesLateUploadFinishResetAndStartWithoutChangingNewAttempt`）。
+- [ ] G1 剩余：存量「进行中」训练的切换窗口需随 G4 发布窗口确定（缺原始时间轴的旧未完成训练拒绝按新算法结算，须先完成或明确终止）。
+- [x] G2 的低速 35 字符/分（拉长间隔）、保留既有划比与组/页间隔及 F2 组合含义、校准样文与配置优先级，G3 的「不新增实时草稿 + 结束明细对齐」决定均已回填 Spec §3.1，未另起竞争规格。
+- [ ] G2 剩余：F2 与目标机的按键到声音延迟阈值需真实设备实测（G4）。
 - [x] 已建立V01–V13验收登记台账（T00.2），逐项标记未实施、前置/局部已验证及G1–G4门禁；建立台账不等于验收通过。单token互踢不修的决定保持不变。
 
 **出口**：确定性 bug 与产品变更清单分离；G1/G2/G3 的业务字段有责任人确认，G4 有真实环境记录或明确缺项。缺项只阻塞相关任务，不阻塞 T02 等确定性修复。
@@ -503,3 +505,18 @@ REHEARSAL_OUT_NAME=customer-issue-fix ./scripts/rehearse-migrations.sh
 | M3 离线学员结算 | 仓内完成 | T03 `closingAllows…SettlesOfflineAndAbsentStudents` | — |
 | M4 无效 finish 字段 | 仓内完成 | T04 第三项 | — |
 | M5 GeneralKey 页形态 | 仓内完成 | T08 第四项 | 存量 null 规范化随迁移执行，未操作生产库 |
+
+### 5.6 各活跃训练域的 G1 样例表（2026-09-12）
+
+单位与时间轴口径见 Spec §3.1、§4.3.1；下表给出每域的规则满分、实测样例与空/少/多页行为的证据来源。金额型数值均为实际运行或测试断言值，不是估算。
+
+| 训练域 | 单位 | 采集时间轴锚点 | 规则满分/加扣 | 正常页样例 | 空页 / 少页 | 多页或替换 |
+|---|---|---|---|---|---|---|
+| 个人手键 `postTelegramTrain` | 字符/分 | `t_post_telegram_train.start_time` + `captureIntervals` | 规则 `score`（实测 137） | 4 字符 / 60000ms → speed 4、score 70（码率 -66、错码 -1） | 正文非空但无有效区间→拒绝「拍发正文缺少有效采集区间」；缺页按少组扣分 | 同页替换保留已确认区间前缀并冻结规则：`replacementRetainsCaptureTimeAndFrozenRuleWithoutAccumulatingOldBody`（篡改 `speed:99999` 无效，仍 60） |
+| 个人电子键 `PostTelegraphKeyPatTrain` | 四码组/分 | `begin_time` + `captureIntervals` | 规则 `score`（实测 150） | 4 字符 / 60000ms → speed 1、duration 60、score 150 | 250 组仅交首尾空页 → `lackGroupNumber=100`、score -12（`sparseDeliveryChargesActualMissingFullPageRatherThanSubmittedPartialLastPage`） | 完全相同重试保持 receipt 与原始记录（`exactRetryPreservesReceiptAndRawDataEvenAfterSettlement`）；跨页区间重叠拒绝 |
+| 组训手键 `generalTickerPatTrain` | 字符/分 | `general_ticker_pat_train_user.capture_started_at` | 规则 `ruleScore` | 4 字符 / 60000ms → speed 4、`speedLog ["4"]`、score 69 | 离线且无页学员仍结算（`activeMillis=0`）：`closingAllowsNotificationDelayedTailThenSettlesOfflineAndAbsentStudents` | 通知延迟尾页在 60 秒窗口内接收；窗口后新页拒绝、已结算不改 |
+| 组训电子键 `generalKeyPat` | 四码组/分 | `general_key_pat_user.capture_started_at` | 规则 `score`（实测 150） | 4 字符 / 60000ms → speed 1、`speedScore 0`、score 150 | 同上（无页学员单独结算） | reset 递增 attempt 并清本轮派生记录，旧在途页被栅栏拒绝 |
+| 数据报/电传 `postTelexPatTrain` | 字符/分 | `begin` 锚点 + 逐页 `captureIntervals` | 训练冻结满分（非写死 100） | 三页实测 613 / 114256 / 82110ms，`validTimeLog [0,114,82]`、`speedLog ["783","2","3"]`、score 23 | 未交页按少页/少组扣分；越界区间拒绝（code 202） | 无人 finish 由 5 秒扫描结算；结算后迟到页返回「训练已完成，不能修改」 |
+| 综合组网 `groupNetTrain` | 按格权重计分（无码率项） | 无采集时间轴，按提交答案 | 冻结规则各格权重合计 | 逐格权重按设备冻结规则计分 | 未答格不借用其它格权重（`unansweredAndWrongChannelsDoNotBorrowOtherCellValuesOrExpectedZeros`） | 全零权重规则仍结算并区分正确/未答；同答案重试结果稳定 |
+
+原始 DTO 字段表（protocolVersion/attempt/captureIntervals/serverElapsedMs/receivedAt/rateUnit 的语义、校验与存储）见 Spec §4.3.1，不在此重复。
