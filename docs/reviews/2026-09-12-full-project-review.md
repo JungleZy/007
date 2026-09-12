@@ -273,8 +273,24 @@ GET /api/generalKeyPat/getTrainInfoBatch
 | **B3 凭据协议** | token 改 `SecureRandom` 不透明串（与口令解耦）+ DB 存哈希 + `issuedAt/expiresAt` + 移除 query-string 回退；WS 握手校验 token/deviceId 并以校验结果覆盖路径 `uid`；`%prod` 口令改环境变量注入并降权 | SEC-04/05/06/12 | 依赖 B2；需前端 `http/index.js` 同版本发布，接 `docs/plans/2026-09-09-password-session-migration-plan.md` |
 | **B4 组训数据报域** | 纳入采集契约重算码率/用时 + 冻结满分 + 行锁 + 事务后通知 + token 主体；前端 `datagramZuXun` 同步 `telexZuXun` 修复。**或**整域下线 | SCORE-01/02/03、CONTRACT-01、FE-02 | 需先确认该域是否启用（§7） |
 | **B5 桌面交付** | `bin/nip.db` 发布态归一为 localhost；`contextIsolation:true` + preload 白名单、恢复 `webSecurity`、去 `--ignore-certificate-errors`；桌面包纳入 CI 并出 manifest；release 断言 tag == `pom.version`；串口选择器三处修复 | DELIVERY-01/03/04/05/06/07 | B5 的证书项是 G4「可信证书」门禁前提 |
-| **B6 测试与文档** | `%test` 加 `quarkus.scheduler.enabled: false`；补 `GeneralPatResultNotifier` 四条契约用例；删 `allThreeCallersAgreeOnRateSign` 与 `SmokeTest.schemaBoots` 并改为消费者可见断言；快照测试改 classpath；AGENTS.md 红线 2/4/5 与三处测试基线数字更正；`docs/README.md` 补 5 份文档与修 6 处悬空链接 | TESTDOC-01…12 | TESTDOC-01 应尽早做：当前评分门禁非确定性 |
+| **B6 测试与文档** ✅**已执行（2026-09-12）** | 见下方执行记录 | TESTDOC-01…12 | 已完成 |
 | **B7 长尾** | 电传倒计时补索引；`GeneralSettlementRecovery` 扫描兜底；裸 `firstResult()` 分批收敛（优先鉴权与结算写路径）；迁移序号唯一化 + 回滚 runbook；死代码与热路径日志清理 | DATA-01…07、CONC-01、SEC-11、FE-01/03 | 无 |
+
+### 6.1 B6 执行记录（2026-09-12，7 个提交 `f31861a..dfb43c3`）
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| TESTDOC-01 | `%test` 加 `quarkus.scheduler.enabled: false`，评分门禁不再受 5s 恢复调度器干扰（已核实无用例依赖定时器自动触发） | `f31861a` |
+| TESTDOC-03、12 | 删除 `ScoringConsistencyTest.allThreeCallersAgreeOnRateSign` 与 `SmokeTest.schemaBoots`（均不能独立失败；算法契约已由同类其余用例覆盖）。**推翻本文原建议**：`calculateWpmScore`/`applyDeductions` 不收回 private —— `PostTelegramTrainScoreTest` 是其合法驱动方 | `c77600a` |
+| TESTDOC-04 | 新增 `GeneralPatResultNotifierTest` 三条契约（提交才送达且事务体内为空、单接收方失败不连坐、离线收件人跳过）。突变检验：`AFTER_SUCCESS`→`IN_PROGRESS` 时该用例失败，证明可失败 | `7873645` |
+| TESTDOC-02 | WS 九张进程级 static 表的清零与反射通道收敛到 `testsupport/WebSocketStateReset`，四个测试类去重，断言语义未变 | `5eda012` |
+| TESTDOC-11、12 | 快照测试期望值改 classpath 只读、删除 `SCORING_UPDATE` 源码树回写；`EntitySchemaSnapshotRehearsal` 去伪断言并明确为手动导出入口（不纳入 CI） | `b1f5713` |
+| TESTDOC-06…10 | AGENTS.md 红线 2/4/5、测试基线与「可并行」约定更正；评审入口改指本文；`backend/README.md` 规模数字重取；3+1 处悬空引用修正 | `94f48b4` |
+| TESTDOC-05 | 新增 3 个纯函数模块的 9 条 `node:test` 用例（训练设置毫秒往返、摩尔斯时序换算、成绩对齐），删除孤儿 `babel-jest`；`ElectronMorse`/`useConfirmedSubmission` 因需重构生产代码才可测而**跳过并记录** | `dfb43c3` |
+
+**执行后基线**：后端 `./mvnw -B clean verify` → **317 测试 / 75 suite，0 失败 0 错误 0 跳过**；前端 `npm run test` 15/15、`npm run build` 成功。中间提交非坏态已验证（`7873645`、`5eda012` 独立 `test-compile` 通过）。
+
+**B6 未做的两项**（需重构生产代码，另立项）：`ElectronMorse` 的纯状态机与 `useConfirmedSubmission` 的「单在途 + generation 取消」状态机需从 Vue 生命周期/`Modal`/`localStorage` 中剥离才能单测；四个 WS 测试类各自的私有 `SessionProbe` 未合并（共享版 `getBasicRemote()` 返回非 null，会把当前被 `catch` 吞掉的 NPE 变成真实记账，可能翻转既有断言）。
 
 ---
 
