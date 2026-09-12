@@ -89,10 +89,17 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | `%test` | DevServices `mysql:8.0` | `drop-and-create` | 测试端口 18081 |
 | `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast；库凭据取自 `DB_USER` / `DB_PASSWORD` |
 
-> **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按日期顺序执行 `database/migrations/`
+> **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按**文件名字典序**执行 `database/migrations/`
 > 下的全部 14 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
 > `2026-09-12-03-menu-telex-component-path`），否则启动校验失败。
+> 逐脚本还原步骤、同日重号顺序与停写/备份要求见
+> [`../docs/guides/2026-09-12-release-runbook.md`](../docs/guides/2026-09-12-release-runbook.md)。
 > 2026-09-12 实测：对落后若干版本的库按序补齐 14 个脚本后，`%prod` 的 `validate` 通过。
+>
+> 其中前 3 个脚本**非幂等**（重复执行报错），第 4 个起幂等（先查 `information_schema` 再 DDL）。
+> `2026-09-12-03-menu-telex-component-path` 是**数据迁移**（改 `t_menus.component`），
+> **与前端路由强耦合**：必须与前端同版本发布，且不进 `scripts/rehearse-migrations.sh` 的
+> `MIGRATIONS`（该演练比对 schema 与实体的等价性，菜单 `UPDATE` 无 schema 差分）。
 
 > **生产凭据硬约束**：`%prod` 的 `username`/`password` 写作 `${DB_USER}`/`${DB_PASSWORD}`，**不带默认值**，
 > 发布时必须注入这两个环境变量（如 `DB_USER=app DB_PASSWORD=**** java -jar quarkus-run.jar`）。

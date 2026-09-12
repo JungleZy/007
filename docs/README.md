@@ -9,7 +9,7 @@
 - `docs/reviews/archive/`：历史评审、分片、审计、整改核销和迁移演练记录，仅作为取证档案，不代表当前代码状态。
 - `docs/specs/`：整改规格；`docs/specs/archive/`：已闭环的历史规格（2026-08-26、2026-09-07、2026-09-08 偏离闭合）。
 - `docs/plans/`：整改计划和执行记录；`docs/plans/archive/`：已闭环的历史计划（2026-08-26、2026-08-28、2026-09-07 波次与 2026-09-09 已完成的决策/spike）。
-- `docs/guides/`：专题说明。
+- `docs/guides/`：专题说明与发布执行清单（含 [`2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md)：迁移顺序与逐脚本还原、会话失效通告、凭据注入前提、桌面包发布形态）。
 
 库快照、迁移脚本和迁移演练产物不属于文字文档，继续保留在 `backend/database/`。
 
@@ -18,6 +18,7 @@
 | 目的 | 入口 |
 |---|---|
 | 了解当前全项目状态 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) |
+| **发布这一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
 | 承接当前整改任务 | [`specs/2026-09-12-review-fix-spec.md`](specs/2026-09-12-review-fix-spec.md) + [`plans/2026-09-12-review-fix-plan.md`](plans/2026-09-12-review-fix-plan.md)（B1–B5/B7 已执行，见评审 §6.2） |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
