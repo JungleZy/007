@@ -58,13 +58,21 @@ if [[ ! -f "$ENTITY_SCHEMA" ]]; then
     echo "Copied entity schema from $EXPORTED"
   fi
 fi
-MIG01="$PROJECT_ROOT/database/migrations/2026-08-26-01-schema-sync.sql"
-MIG02="$PROJECT_ROOT/database/migrations/2026-08-26-02-engine-innodb.sql"
-MIG03="$PROJECT_ROOT/database/migrations/2026-09-08-01-unique-lazy-create.sql"
-MIG04="$PROJECT_ROOT/database/migrations/2026-09-10-01-theory-json-capacity.sql"
-MIG05="$PROJECT_ROOT/database/migrations/2026-09-10-02-scoring-json-capacity.sql"
+MIGRATIONS=(
+  "$PROJECT_ROOT/database/migrations/2026-08-26-01-schema-sync.sql"
+  "$PROJECT_ROOT/database/migrations/2026-08-26-02-engine-innodb.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-08-01-unique-lazy-create.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-10-01-theory-json-capacity.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-10-02-scoring-json-capacity.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-01-group-net-scoring.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-01-simulation-page-uniqueness.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-03-personal-electronic-capture.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-03-post-telex-capture-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-04-general-capture-clock.sql"
+)
 
-for f in "$ENTITY_SCHEMA" "$MIG01" "$MIG02" "$MIG03" "$MIG04" "$MIG05"; do
+for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
@@ -154,26 +162,24 @@ rehearse() {
     assert_eq "[base] pre-migration general_key_pat_page.id data_type=int" "int" "$pre_id"
   fi
 
-  # 迁移 01（计时 ms）
-  local s01 e01 ms01
-  s01=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG01"; e01=$(date +%s%3N); ms01=$((e01 - s01))
-  # 迁移 02（计时 ms）
-  local s02 e02 ms02
-  s02=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG02"; e02=$(date +%s%3N); ms02=$((e02 - s02))
-  # 迁移 03（计时 ms）——读路径懒建的唯一约束
-  local s03 e03 ms03
-  s03=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG03"; e03=$(date +%s%3N); ms03=$((e03 - s03))
-  # 迁移 04：理论考试快照与作答JSON的容量对齐
-  local s04 e04 ms04
-  s04=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG04"; e04=$(date +%s%3N); ms04=$((e04 - s04))
-  # 迁移 05：评分规则、拍发记录与结算JSON容量
-  local s05 e05 ms05
-  s05=$(date +%s%3N); mysql_exec "$cname" project006 < "$MIG05"; e05=$(date +%s%3N); ms05=$((e05 - s05))
-  echo "  TIMING migration-01=${ms01}ms migration-02=${ms02}ms migration-03=${ms03}ms migration-04=${ms04}ms migration-05=${ms05}ms"
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$label" "$ms01" "$ms02" "$ms03" "$ms04" "$ms05" >> "$OUTDIR/timings.tsv"
+  local index migration started elapsed
+  local migration_timings=()
+  for index in "${!MIGRATIONS[@]}"; do
+    migration="${MIGRATIONS[$index]}"
+    started=$(date +%s%3N)
+    mysql_exec "$cname" project006 < "$migration"
+    elapsed=$(( $(date +%s%3N) - started ))
+    migration_timings+=("$elapsed")
+    echo "  TIMING ${migration##*/}=${elapsed}ms"
+    if (( index >= 3 )); then
+      mysql_exec "$cname" project006 < "$migration"
+      echo "  PASS  [$label] repeat migration ${migration##*/}"
+    fi
+  done
+  { printf '%s' "$label"; printf '\t%s' "${migration_timings[@]}"; printf '\n'; } >> "$OUTDIR/timings.tsv"
 
   # ---- 断言 ----
-  assert_eq "[$label] post-migration table count=105" "105" \
+  assert_eq "[$label] post-migration table count=106" "106" \
     "$(mysql_scalar "$cname" "select count(*) from information_schema.tables where table_schema=database() and table_type='BASE TABLE'")"
   assert_eq "[$label] MyISAM table count=0" "0" \
     "$(mysql_scalar "$cname" "select count(*) from information_schema.tables where table_schema=database() and engine='MyISAM'")"
@@ -210,6 +216,36 @@ rehearse() {
     "t_post_telex_pat_train:rule_content:longtext" \
     "t_post_telex_pat_train:deduct_info:longtext" \
     "t_post_telex_pat_train_page_value:pat_value:longtext"; do
+    local payload_table="${payload%%:*}"; local payload_rest="${payload#*:}"
+    local payload_column="${payload_rest%%:*}"; local payload_type="${payload_rest##*:}"
+    assert_eq "[$label] $payload_table.$payload_column type=$payload_type" "$payload_type" \
+      "$(mysql_scalar "$cname" "select data_type from information_schema.columns where table_schema=database() and table_name='$payload_table' and column_name='$payload_column'")"
+  done
+  assert_eq "[$label] simulation identity keys are NOT NULL" "6" \
+    "$(mysql_scalar "$cname" "select count(*) from information_schema.columns where table_schema=database() and is_nullable='NO' and ((table_name='simulation_router_room_page' and column_name in ('room_id','page_number','sort')) or (table_name='simulation_router_room_page_value' and column_name in ('room_id','user_id','page_number')))")"
+  for identity in "simulation_router_room_page:uk_simulation_page_room_page_sort:room_id,page_number,sort" \
+    "simulation_router_room_page_value:uk_simulation_value_room_user_page:room_id,user_id,page_number" \
+    "t_post_telegraph_key_pat_train_raw_page:uk_personal_key_raw_page:train_id,page_number"; do
+    local identity_table="${identity%%:*}"; local identity_rest="${identity#*:}"
+    local identity_index="${identity_rest%%:*}"; local identity_columns="${identity_rest#*:}"
+    assert_eq "[$label] exact unique key $identity_index" "$identity_columns" \
+      "$(mysql_scalar "$cname" "select group_concat(column_name order by seq_in_index) from information_schema.statistics where table_schema=database() and table_name='$identity_table' and index_name='$identity_index' and non_unique=0 and sub_part is null")"
+  done
+  for legacy_table in general_ticker_pat general_key_pat t_post_telegram_train t_post_telegraph_key_pat_train t_post_telex_pat_train; do
+    assert_eq "[$label] historical $legacy_table is not relabeled as new capture" "0" \
+      "$(mysql_scalar "$cname" "select count(*) from $legacy_table where protocol_version<>0 or protocol_version is null")"
+  done
+  assert_eq "[$label] General electronic standard empty values normalized" "0" \
+    "$(mysql_scalar "$cname" "select count(*) from general_key_pat_page where value is null")"
+  for payload in "simulation_router_room_page_value:value:longtext" \
+    "group_net_train:topic:longtext" "group_net_train:answer:longtext" \
+    "group_net_train:scoring_rule_content:longtext" "group_net_train:content:longtext" \
+    "device_scoring_rule:rule_content:longtext" \
+    "general_key_pat_user:capture_pages:longtext" \
+    "general_ticker_pat_train_user_value:capture_intervals:longtext" \
+    "t_post_telegram_train_floor_content_value:capture_intervals:longtext" \
+    "t_post_telex_pat_train_page_value:capture_intervals:longtext" \
+    "t_post_telegraph_key_pat_train_raw_page:capture_intervals:longtext"; do
     local payload_table="${payload%%:*}"; local payload_rest="${payload#*:}"
     local payload_column="${payload_rest%%:*}"; local payload_type="${payload_rest##*:}"
     assert_eq "[$label] $payload_table.$payload_column type=$payload_type" "$payload_type" \

@@ -1,11 +1,11 @@
--- 2026-09-10-02 评分规则、拍发页与结算JSON容量
+-- T14 综合组网题目、答案及冻结规则容量；历史结果不重算
 -- 在前序迁移后执行；停写并备份，DDL隐式提交。
 -- 仅扩容，不截断或重算数据；保留列级字符集、排序规则、默认值、可空性及注释。
 -- 已达目标容量则不改写，允许重复执行。
 SET NAMES utf8mb4;
-DROP PROCEDURE IF EXISTS mig_20260910_scoring_capacity;
+DROP PROCEDURE IF EXISTS mig_20260911_group_capacity;
 DELIMITER $$
-CREATE PROCEDURE mig_20260910_scoring_capacity(IN target_table varchar(64), IN target_column varchar(64), IN target_type varchar(64))
+CREATE PROCEDURE mig_20260911_group_capacity(IN target_table varchar(64), IN target_column varchar(64), IN target_type varchar(64))
 BEGIN
   DECLARE original_type varchar(1024) CHARACTER SET utf8mb4;
   DECLARE original_charset varchar(64);
@@ -43,16 +43,9 @@ BEGIN
   END IF;
 END$$
 DELIMITER ;
-CALL mig_20260910_scoring_capacity('t_grading_rule','content','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat','rule_content','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user','deduct_info','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user','statistic_info','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user_value','finish_info','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user_value','message_body','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user_value','resolver','longtext');
-CALL mig_20260910_scoring_capacity('general_ticker_pat_train_user_value','standard','longtext');
-CALL mig_20260910_scoring_capacity('t_post_telex_pat_train','content','text');
-CALL mig_20260910_scoring_capacity('t_post_telex_pat_train','rule_content','longtext');
-CALL mig_20260910_scoring_capacity('t_post_telex_pat_train','deduct_info','longtext');
-CALL mig_20260910_scoring_capacity('t_post_telex_pat_train_page_value','pat_value','longtext');
-DROP PROCEDURE mig_20260910_scoring_capacity;
+CALL mig_20260911_group_capacity('group_net_train','topic','longtext');
+CALL mig_20260911_group_capacity('group_net_train','answer','longtext');
+CALL mig_20260911_group_capacity('group_net_train','scoring_rule_content','longtext');
+CALL mig_20260911_group_capacity('group_net_train','content','longtext');
+CALL mig_20260911_group_capacity('device_scoring_rule','rule_content','longtext');
+DROP PROCEDURE mig_20260911_group_capacity;
