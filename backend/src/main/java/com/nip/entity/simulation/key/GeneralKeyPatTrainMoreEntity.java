@@ -47,13 +47,13 @@ public class GeneralKeyPatTrainMoreEntity implements Serializable {
   /**
    * 多组
    */
-  @Column(name = "more_group")
+  @Column(name = "more_group", columnDefinition = "longtext")
   private String moreGroup;
 
   /**
    * 多行
    */
-  @Column(name = "more_line")
+  @Column(name = "more_line", columnDefinition = "longtext")
   private String moreLine;
 
 }

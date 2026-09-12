@@ -11,6 +11,10 @@ import java.time.LocalDateTime;
 public class GeneralKeyPatUserSyncDto {
 
     private Integer id;
+    private Integer attempt = 0;
+    private LocalDateTime captureStartedAt;
+    private Long activeMillis;
+    private String capturePages = "{}";
 
     /**
      * 正确率

@@ -27,6 +27,12 @@ import com.nip.dto.KeyPatPageTransferDto;
 import com.nip.dto.KeyPatStatisticalDto;
 import com.nip.dto.KeyPatValueTransferDto;
 import com.nip.dto.PostKeyPatTrainRuleDto;
+import com.nip.dto.CaptureInterval;
+import com.nip.dto.general.CapturedPage;
+import com.nip.dto.score.TrainingRateUnit;
+import com.nip.common.utils.CaptureTimeline;
+import com.nip.common.utils.ScoreMath;
+import com.nip.common.utils.ScoringRuleValidation;
 import com.nip.dto.general.AvgResult;
 import com.nip.dto.general.GeneralKeyPatAddParamDto;
 import com.nip.dto.general.GeneralKeyPatFinishDto;
@@ -69,6 +75,7 @@ import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +83,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -101,6 +109,7 @@ public class GeneralKeyPatService {
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
 
+  @Inject GeneralPatResultNotifier resultNotifier;
   @Inject
   public GeneralKeyPatService(GeneralKeyPatDao trainDao,
       GeneralKeyPatPageDao trainPageDao,
@@ -151,6 +160,11 @@ public class GeneralKeyPatService {
     // 获取ruleContent
     GradingRuleEntity ruleOp = Optional.ofNullable(gradingRuleDao.findById(trainEntity.getRuleId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
+    ScoringRuleValidation.electronic(ruleOp.getContent());
+    if (ruleOp.getScore() == null || ruleOp.getScore() <= 0) {
+      throw new IllegalArgumentException("评分规则满分不合法");
+    }
+    trainEntity.setProtocolVersion(1);
     trainEntity.setRuleContent(JSONUtils.toJson(ruleOp));
     GeneralKeyPatEntity save = trainDao.save(trainEntity);
 
@@ -297,6 +311,7 @@ public class GeneralKeyPatService {
       pageEntity.setTrainId(trainId);
       pageEntity.setTime("[]");
       pageEntity.setKey(JSONUtils.toJson(keys));
+      pageEntity.setValue("[]");
       pageEntity.setPageNumber(pageNumber);
       pageEntity.setSort(i % 100);
       ret.add(pageEntity);
@@ -382,6 +397,13 @@ public class GeneralKeyPatService {
           item.setUserStatus(0);
         }
         // 统计信息
+        GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(item.getUserId(), param.getTrainId());
+        if (Objects.equals(keyPatEntity.getProtocolVersion(), 1)) {
+          List<Integer> pages = capturedPages(member).keySet().stream().sorted().toList();
+          item.setExistNumber(pages);
+          item.setExistPageNumber(pages.size());
+          item.setActiveMillis(member.getActiveMillis());
+        }
         item.setPageAnalyzeVOS(generatePageAnalyze(param.getTrainId(), item.getUserId()));
       }
       return patTrainVO;
@@ -403,8 +425,23 @@ public class GeneralKeyPatService {
     Map<Integer, List<GeneralKeyPatUserValueEntity>> collect = pageValueEntities.stream()
         .collect(Collectors.groupingBy(GeneralKeyPatUserValueEntity::getPageNumber));
     List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
+    GeneralKeyPatEntity train = trainDao.findById(trainId);
+    if (Objects.equals(train.getProtocolVersion(), 1)) {
+      GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, trainId);
+      Map<Integer, CapturedPage> pages = capturedPages(member);
+      for (Integer pageNumber : pages.keySet().stream().sorted().toList()) {
+        PostTelegraphKeyPatTrainPageAnalyzeVO analysis = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+        analysis.setPageNumber(pageNumber);
+        analysis.setPatNumber(Math.toIntExact(collect.getOrDefault(pageNumber, List.of()).stream()
+            .mapToLong(value -> countCharacters(value.getValue())).sum()));
+        analysis.setTotalTime(CaptureTimeline.durationMillis(pages.get(pageNumber).intervals(), Long.MAX_VALUE));
+        analyzeVOS.add(analysis);
+      }
+      return analyzeVOS;
+    }
     collect.forEach((key, value) -> {
       PostTelegraphKeyPatTrainPageAnalyzeVO analyzeVO = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+      analyzeVO.setPageNumber(key);
       int totalTime = 0;
       int patNumber = 0;
       for (GeneralKeyPatUserValueEntity valueEntity : value) {
@@ -428,69 +465,106 @@ public class GeneralKeyPatService {
 
   @Transactional
   public void saveContentValue(GeneralKeyPatPageSubmitDto dto, String token) {
-    // 先删除旧的拍发记录
+    LocalDateTime receivedAt = LocalDateTime.now();
     String userId = userService.getUserByToken(token).getId();
-    userValueDao.deleteByTrainIdAndPageNumberAndUserId(dto.getTrainId(), dto.getPageNumber(), userId);
-    // 把新的拍发记录保存
-    List<GeneralKeyPatPageDetailDto> pageValue = dto.getPageValue();
-    List<GeneralKeyPatUserValueEntity> valueEntities = PojoUtils.convert(pageValue, GeneralKeyPatUserValueEntity.class,
-        (s, d) -> {
-          d.setId(null);// 防止误新增
-          d.setUserId(userId);
-          d.setTrainId(dto.getTrainId());
-          d.setPageNumber(dto.getPageNumber());
-          d.setTime(s.getTime());
+    GeneralKeyPatEntity train = lockedTrain(dto.getTrainId());
+    GeneralKeyPatUserEntity member = student(train.getId(), userId);
+    requireProtocol(train);
+    requireAttempt(dto.getAttempt(), member);
+    if (dto.getPageNumber() == null || dto.getPageNumber() < 1
+        || dto.getPageNumber() > (train.getTotalNumber() - 1) / 100 + 1 || dto.getPageValue() == null) {
+      throw new IllegalArgumentException("页码和拍发记录不合法");
+    }
+    Map<Integer, CapturedPage> pages = capturedPages(member);
+    CapturedPage previous = pages.get(dto.getPageNumber());
+    if (previous != null) {
+      if (Objects.equals(previous.intervals(), dto.getCaptureIntervals())) {
+        if (samePage(dto.getPageValue(), userValueDao.findByTrainIdAndPageNumberAndUserIdOrderBySort(
+            train.getId(), dto.getPageNumber(), userId))) {
+          return;
+        }
+        throw new IllegalStateException("该页采集区间已确认，但拍发内容不一致");
+      }
+      CaptureTimeline.requireExtension(previous.intervals(), dto.getCaptureIntervals());
+    }
+    if (Objects.equals(member.getIsFinish(), 1)) {
+      throw new IllegalStateException("已结算的训练不能上传");
+    }
+    long activeMillis = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), captureBound(train, member, receivedAt));
+    long characters = 0;
+    double rawMillis = 0;
+    Integer previousSort = null;
+    for (GeneralKeyPatPageDetailDto group : dto.getPageValue()) {
+      if (group == null || group.getSort() == null || group.getSort() < 0
+          || (previousSort != null && group.getSort() <= previousSort)) {
+        throw new IllegalArgumentException("拍发组必须按页内位置有序且不能重复");
+      }
+      previousSort = group.getSort();
+      characters += countCharacters(group.getValue());
+      List<Double> times = JSONUtils.fromJson(group.getTime(), new TypeToken<>() {});
+      if (times == null) throw new IllegalArgumentException("缺少原始拍发时长");
+      for (Double milliseconds : times) {
+        if (milliseconds == null || !Double.isFinite(milliseconds) || milliseconds < 0) {
+          throw new IllegalArgumentException("原始拍发时长必须为有限非负数");
+        }
+        rawMillis += milliseconds;
+      }
+    }
+    if ((characters > 0 && activeMillis == 0) || rawMillis > activeMillis + dto.getCaptureIntervals().size()) {
+      throw new IllegalArgumentException("原始拍发时长与采集区间不一致");
+    }
+    pages.put(dto.getPageNumber(), new CapturedPage(dto.getAttempt(), dto.getCaptureIntervals(),
+        receivedAt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()));
+    CaptureTimeline.requireNoOverlap(pages.values().stream().map(CapturedPage::intervals).toList());
+    List<GeneralKeyPatUserValueEntity> values = PojoUtils.convert(dto.getPageValue(), GeneralKeyPatUserValueEntity.class,
+        (source, target) -> {
+          target.setId(null);
+          target.setUserId(userId);
+          target.setTrainId(train.getId());
+          target.setPageNumber(dto.getPageNumber());
         });
-    // 更新完成时间
-    GeneralKeyPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId());
-    patUserEntity.setFinishTime(LocalDateTime.now());
-    // 拍发时间
-    long time = patUserEntity.getFinishTime().toEpochSecond(ZoneOffset.of("+8"))
-        - patUserEntity.getCreateTime().toEpochSecond(ZoneOffset.of("+8"));
-    patUserEntity.setDuration(time + "");
-    trainUserDao.save(patUserEntity);
-    userValueDao.save(valueEntities);
+    userValueDao.deleteByTrainIdAndPageNumberAndUserId(train.getId(), dto.getPageNumber(), userId);
+    userValueDao.saveAndFlush(values);
+    member.setCapturePages(JSONUtils.toJson(pages));
   }
 
   @Transactional
-  public List<GeneralKeyPatUserInfoVO> finish(GeneralKeyPatFinishDto dto) {
-    try {
-      GeneralKeyPatEntity entity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-      /*
-       * //校验状态是否是进行中
-       * if (!Objects.equals(entity.getStatus(),
-       * PostTelegramTrainEnum.UNDERWAY.getStatus())) {
-       * throw new RuntimeException(entity.getTitle() + "训练的状态不是进行中");
-       * }
-       */
-
-      List<GeneralKeyPatUserInfoVO> userInfoList = new ArrayList<>();
-      GeneralKeyPatUserEntity userTrainEntity = Optional.ofNullable(
-              trainUserDao.findByUserIdAndTrainId(dto.getUserId(), dto.getTrainId()))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
-      if (Objects.equals(userTrainEntity.getIsFinish(), 1)) {
-        return List.of(PojoUtils.convertOne(userTrainEntity, GeneralKeyPatUserInfoVO.class));
+  public List<GeneralKeyPatUserInfoVO> finish(GeneralKeyPatFinishDto dto, String token) {
+    String userId = userService.getUserByToken(token).getId();
+    GeneralKeyPatEntity entity = lockedTrain(dto.getTrainId());
+    GeneralKeyPatUserEntity user = student(entity.getId(), userId);
+    requireAttempt(dto.getAttempt(), user);
+    if (!Objects.equals(user.getIsFinish(), 1)) {
+      requireProtocol(entity);
+      if (Objects.equals(entity.getStatus(), 3)) {
+        if (LocalDateTime.now().isBefore(entity.getEndTime().plusSeconds(60))) {
+          captureBound(entity, user, LocalDateTime.now());
+        } else {
+          settleClosing(entity);
+        }
+      } else {
+        requireUnderway(entity);
       }
-      userTrainEntity.setIsFinish(1);
-      trainUserDao.save(userTrainEntity);
-      GeneralKeyPatUserEntity generalKeyPatUserEntity = countScore(entity, dto.getUserId());
-      userInfoList.add(PojoUtils.convertOne(generalKeyPatUserEntity, GeneralKeyPatUserInfoVO.class));
-      trainUserDao.findRoleAdminByUserId(dto.getTrainId()).forEach(admin -> {
-        WebSocketService.sendInfo(admin.getUserId(),
-            new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),
-                Map.of(
-                    "type", "key",
-                    "userId", userTrainEntity.getUserId(),
-                    "trainId", entity.getId())));
-      });
-      return userInfoList;
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("完成训练失败，训练ID: {}", dto.getTrainId(), e);
-      throw new RuntimeException(e);
     }
+    GeneralKeyPatUserInfoVO result = finishUser(entity, user);
+    if (Objects.equals(entity.getStatus(), 3)
+        && trainUserDao.count("trainId = ?1 and role = 0 and (isFinish is null or isFinish <> 1)", entity.getId()) == 0) {
+      entity.setStatus(2);
+    }
+    return List.of(result);
+  }
+
+  private GeneralKeyPatUserInfoVO finishUser(GeneralKeyPatEntity entity, GeneralKeyPatUserEntity user) {
+    if (Objects.equals(user.getIsFinish(), 1)) {
+      return PojoUtils.convertOne(user, GeneralKeyPatUserInfoVO.class);
+    }
+    GeneralKeyPatUserEntity result = countScore(entity, user.getUserId());
+    result.setIsFinish(1).setFinishTime(LocalDateTime.now());
+    trainUserDao.flush();
+    resultNotifier.publish("key", entity.getId(), user.getUserId(),
+        trainUserDao.findRoleAdminByUserId(entity.getId()).stream()
+            .map(GeneralKeyPatUserEntity::getUserId).toList());
+    return PojoUtils.convertOne(result, GeneralKeyPatUserInfoVO.class);
   }
 
   /**
@@ -499,20 +573,67 @@ public class GeneralKeyPatService {
    * @param
    */
   @Transactional
-  public void updateStatus(Integer trainId, Integer status) {
-    GeneralKeyPatEntity keyPatTrain = Optional.ofNullable(trainDao.findById(trainId))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    keyPatTrain.setStatus(status);
-    if (Objects.equals(status, PostTelegramTrainEnum.UNDERWAY.getStatus())) {
-      // 教员点击开始训练，设置开始时间
-      keyPatTrain.setStartTime(LocalDateTime.now());
-    } else if (Objects.equals(status, PostTelegramTrainEnum.FINISH.getStatus())) {
-      keyPatTrain.setEndTime(LocalDateTime.now());
-      long time = keyPatTrain.getEndTime().toEpochSecond(ZoneOffset.of("+8"))
-          - keyPatTrain.getStartTime().toEpochSecond(ZoneOffset.of("+8"));
-      keyPatTrain.setValidTime(time);
+  public void updateStatus(Integer trainId, Integer status, String token) {
+    String userId = userService.getUserByToken(token).getId();
+    GeneralKeyPatEntity keyPatTrain = lockedTrain(trainId);
+    GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, trainId);
+    if (!Objects.equals(keyPatTrain.getCreateUser(), userId)
+        && (member == null || !Objects.equals(member.getRole(), 1))) {
+      throw new IllegalArgumentException("无权管理该训练");
     }
-    trainDao.saveAndFlush(keyPatTrain);
+    requireProtocol(keyPatTrain);
+    if (!Objects.equals(status, 1) && !Objects.equals(status, 2)) {
+      throw new IllegalArgumentException("训练状态不合法");
+    }
+    if (Objects.equals(keyPatTrain.getStatus(), status)
+        || (Objects.equals(keyPatTrain.getStatus(), 3) && Objects.equals(status, 2))) {
+      return;
+    }
+    if (Objects.equals(status, 1)) {
+      if (!Objects.equals(keyPatTrain.getStatus(), 0)) {
+        throw new IllegalStateException("训练不能重新开始");
+      }
+      GradingRuleEntity snapshot = JSONUtils.fromJson(keyPatTrain.getRuleContent(), GradingRuleEntity.class);
+      if (snapshot == null || snapshot.getScore() == null || snapshot.getScore() <= 0) {
+        throw new IllegalStateException("训练缺少有效的冻结规则满分");
+      }
+      ScoringRuleValidation.electronic(snapshot.getContent());
+      LocalDateTime now = LocalDateTime.now();
+      keyPatTrain.setStatus(1).setStartTime(now);
+      for (GeneralKeyPatUserEntity participant : trainUserDao.findByTrainIdAndRole(trainId, 0)) {
+        participant.setCaptureStartedAt(now);
+      }
+    } else {
+      requireUnderway(keyPatTrain);
+      keyPatTrain.setStatus(3).setEndTime(LocalDateTime.now());
+      keyPatTrain.setValidTime(Duration.between(keyPatTrain.getStartTime(), keyPatTrain.getEndTime()).toSeconds());
+      if (trainUserDao.count("trainId = ?1 and role = 0 and (isFinish is null or isFinish <> 1)", trainId) == 0) {
+        keyPatTrain.setStatus(2);
+      }
+    }
+  }
+
+  @Transactional
+  public List<Integer> closingTrainIds() {
+    return trainDao.find("protocolVersion = 1 and status = 3 and endTime <= ?1", LocalDateTime.now().minusSeconds(60))
+        .list().stream().map(GeneralKeyPatEntity::getId).toList();
+  }
+
+  @Transactional
+  public void settleExpired(Integer trainId) {
+    GeneralKeyPatEntity train = lockedTrain(trainId);
+    if (Objects.equals(train.getProtocolVersion(), 1) && Objects.equals(train.getStatus(), 3)
+        && !LocalDateTime.now().isBefore(train.getEndTime().plusSeconds(60))) {
+      settleClosing(train);
+    }
+  }
+
+  private void settleClosing(GeneralKeyPatEntity train) {
+    for (GeneralKeyPatUserEntity participant : trainUserDao.findByTrainIdAndRole(train.getId(), 0)) {
+      finishUser(train, participant);
+    }
+    train.setStatus(2);
+    trainDao.flush();
   }
 
   public GeneralPatTrainUserDto getTrainUserInfo(String uid, Integer trainId) {
@@ -529,11 +650,21 @@ public class GeneralKeyPatService {
     return dto;
   }
 
-  public PostTelegraphKeyPatTrainPageVO getPage(Integer trainId, Integer pageNumber, String userId) {
+  @Transactional
+  public PostTelegraphKeyPatTrainPageVO getPage(Integer trainId, Integer pageNumber, String userId, String token) {
     try {
       PostTelegraphKeyPatTrainPageVO ret = new PostTelegraphKeyPatTrainPageVO();
-      GeneralKeyPatEntity entity = Optional.ofNullable(trainDao.findById(trainId))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+      GeneralKeyPatEntity entity = lockedTrain(trainId);
+      GeneralKeyPatUserEntity member = readableMember(entity, userId, token);
+      userId = member.getUserId();
+      Map<Integer, CapturedPage> captured = capturedPages(member);
+      CapturedPage savedCapture = captured.get(pageNumber);
+      ret.setProtocolVersion(entity.getProtocolVersion());
+      ret.setAttempt(member.getAttempt());
+      ret.setServerElapsedMs(elapsedMillis(member.getCaptureStartedAt()));
+      ret.setSubmitted(savedCapture != null || (!Objects.equals(entity.getProtocolVersion(), 1)
+          && userValueDao.count("trainId = ?1 and userId = ?2 and pageNumber = ?3", trainId, userId, pageNumber) > 0));
+      ret.setSavedCaptureIntervals(savedCapture == null ? List.of() : savedCapture.intervals());
       List<GeneralKeyPatPageEntity> messageVO = null;
       int generateNumber = 100;
       // 页码是否正确
@@ -568,11 +699,14 @@ public class GeneralKeyPatService {
       if (!pageDaoAll.isEmpty()) {
         messageVO = pageDaoAll;
       } else {
+        if (Objects.equals(entity.getIsCable(), 1)) {
+          throw new IllegalStateException("固定报底页不存在");
+        }
         messageVO = generateAndSavePatKey(generateNumber, pageNumber, entity.getId(), entity.getMessageType(),
             entity.getIsAverage(), entity.getIsRandom());
       }
       // 用户未拍发本页内容，则获取生成的内容
-      if (userPage.isEmpty()) {
+      if (!ret.isSubmitted()) {
         ret.setMessageVO(PojoUtils.convert(messageVO, PostTelegraphKeyPatTrainPageMessageVO.class));
       } else {
         ret.setMessageVO(PojoUtils.convert(userPage, PostTelegraphKeyPatTrainPageMessageVO.class));
@@ -687,16 +821,16 @@ public class GeneralKeyPatService {
     GeneralKeyPatUserEntity kehPatUserEntity = trainUserDao.findByUserIdAndTrainId(userId, entity.getId());
     // 存放扣分规则 key扣分名称，value扣分值
     Map<String, Object> deductInfo = new HashMap<>();
-    // 查询扣分规则
-    GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(entity.getRuleId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
-    String ruleContent = ruleEntity.getContent();
-    PostKeyPatTrainRuleDto rule = JSONUtils.fromJson(ruleContent, PostKeyPatTrainRuleDto.class);
+    requireProtocol(entity);
+    GradingRuleEntity ruleEntity = Optional.ofNullable(JSONUtils.fromJson(entity.getRuleContent(), GradingRuleEntity.class))
+        .orElseThrow(() -> new IllegalStateException("训练缺少冻结的评分规则"));
+    PostKeyPatTrainRuleDto rule = ScoringRuleValidation.electronic(ruleEntity.getContent());
     // 积分规则
     KeyPatStatisticalDto keyPatStatistics = new KeyPatStatisticalDto();
     // 得到已存在的页
-    List<Integer> pageNumbers = userValueDao.findPageNumberByTrainIdAndUserId(entity.getId(), userId);
-    // 创建每页的处理结果，该结果会在每页处理完毕后替换旧的page_value数据
+    Map<Integer, CapturedPage> capturePages = capturedPages(kehPatUserEntity);
+    List<Integer> pageNumbers = capturePages.keySet().stream().sorted().toList();
+    // 解析结果单独保存；原始拍发页保持不变，供复算与回读。
     List<KeyPatValueTransferDto> pageValueResult = new ArrayList<>();
     // P1-1：pageValueResult/keyPatStatistics 为共享可变状态，parallelStream 并发累加有竞态——改串行流
     pageNumbers.stream().forEach(pageNumber -> {
@@ -714,9 +848,6 @@ public class GeneralKeyPatService {
         GeneralKeyPatUserValueResolverEntity.class);
     resolverDao.deleteByTrainIdAndUserId(entity.getId(), userId);
     resolverDao.saveAndFlush(resolverEntities);
-    List<GeneralKeyPatUserValueEntity> userValueEntities = PojoUtils.convert(pageValueResult, GeneralKeyPatUserValueEntity.class);
-    userValueDao.deleteByTrainIdAndUserId(entity.getId(), userId);
-    userValueDao.saveAndFlush(userValueEntities);
 
     // 计算少页
     Integer tp = entity.getTotalNumber();
@@ -763,27 +894,21 @@ public class GeneralKeyPatService {
       }
     }
 
-    // 计算速率 拍发个数/训练时长*60
-    BigDecimal speed = new BigDecimal("0");
-    if (keyPatStatistics.getPat() != 0) {
-      speed = new BigDecimal(keyPatStatistics.getPat()).divide(new BigDecimal(4), 10, RoundingMode.HALF_UP)
-          .divide(new BigDecimal(keyPatStatistics.getPatTime()).divide(new BigDecimal(1000), 10, RoundingMode.HALF_UP), 10,
-              RoundingMode.HALF_UP)
-          .multiply(new BigDecimal(60)).setScale(0, RoundingMode.HALF_UP);
-    }
+    long activeMillis = capturePages.values().stream()
+        .mapToLong(page -> CaptureTimeline.durationMillis(page.intervals(), Long.MAX_VALUE)).sum();
+    long characters = userValueDao.find("trainId = ?1 and userId = ?2", entity.getId(), userId).list().stream()
+        .mapToLong(value -> countCharacters(value.getValue())).sum();
+    BigDecimal speed = TrainingRateUnit.FOUR_CHARACTER_GROUPS_PER_MINUTE.rate(characters, activeMillis);
+    kehPatUserEntity.setActiveMillis(activeMillis);
+    kehPatUserEntity.setDuration(Long.toString(activeMillis / 1000));
 
     kehPatUserEntity.setSpeed(String.valueOf(speed));
 
     // 错误个数
     kehPatUserEntity.setErrorNumber(keyPatStatistics.getError());
 
-    BigDecimal accuracy = new BigDecimal("0");
     int errorTotal = keyPatStatistics.getPatGroup() - keyPatStatistics.getError() - keyPatStatistics.getBunchGroup() - keyPatStatistics.getLack() - keyPatStatistics.getMore();
-    if (errorTotal != 0) {
-      // 计算正确率 （拍发总个数 - 错误个数- 多字- 少字)） /拍发总个数
-      accuracy = new BigDecimal(errorTotal).divide(
-          new BigDecimal(keyPatStatistics.getPatGroup()), 2, RoundingMode.HALF_UP).multiply(new BigDecimal(100));
-    }
+    BigDecimal accuracy = ScoreMath.accuracy(errorTotal, keyPatStatistics.getPatGroup());
 
     kehPatUserEntity.setAccuracy(accuracy.toString());
 
@@ -849,13 +974,9 @@ public class GeneralKeyPatService {
     BigDecimal speedScore = ScoreMath.wpmScore(wpmBase, rule.getWpm().getR(),
         rule.getWpm().getL(), speed.intValue());
     score = score.add(speedScore);
-    // 下面只负责 deductInfo 的历史文本口径（等于基准不出 key、正值补 "+"、负值出绝对值），
-    // 不参与算分；用方向而非 speedScore 的符号判断，是为了在系数为 0 时仍输出既有的 "+0"/"-0"。
-    if (speed.intValue() > wpmBase) {
-      deductInfo.put("speedScore", "+" + speedScore);
-    } else if (speed.intValue() < wpmBase) {
-      deductInfo.put("speedScore", minus + speedScore.negate());
-    }
+    // 码率项与个人电子键同一口径：始终输出 speedScore，正值补 "+"，等于基准输出 "0"；
+    // 缺 key 会让成绩页把码率扣分渲染成 NaN，违反“显示与扣分同源”。
+    deductInfo.put("speedScore", speedScore.signum() > 0 ? "+" + speedScore : speedScore.toString());
 
     kehPatUserEntity.setScore(score);
     // 保存扣分详情
@@ -895,41 +1016,24 @@ public class GeneralKeyPatService {
     List<GeneralKeyPatUserValueEntity> toPageValue = userValueDao.findTwoPage(param.getTrainId(), param.getUserId());
     List<GeneralKeyPatUserValueResolverEntity> resolverList = resolverDao.findTwoPage(param.getTrainId(),
         param.getUserId());
-    // 统计每页拍发时长和个数
-    List<GeneralKeyPatUserValueEntity> pageValueEntities = userValueDao
-        .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(param.getTrainId(), param.getUserId());
-    Map<Integer, List<GeneralKeyPatUserValueEntity>> collect = pageValueEntities.stream()
-        .collect(Collectors.groupingBy(GeneralKeyPatUserValueEntity::getPageNumber));
-    List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
-    collect.forEach((key, value) -> {
-      PostTelegraphKeyPatTrainPageAnalyzeVO analyzeVO = new PostTelegraphKeyPatTrainPageAnalyzeVO();
-      int totalTime = 0;
-      int patNumber = 0;
-      for (GeneralKeyPatUserValueEntity valueEntity : value) {
-        String time = valueEntity.getTime();
-        String patValue = valueEntity.getValue() == null ? "[]" : valueEntity.getValue();
-        List<String> timeArray = JSONUtils.fromJson(time, new TypeToken<>() {
-        });
-        if (timeArray != null) {
-          totalTime += timeArray.stream().map(Integer::valueOf).reduce(Integer::sum).orElse(0);
-        }
-        List<String> patValueArray = JSONUtils.fromJson(patValue, new TypeToken<>() {
-        });
-        patNumber += patValueArray.size();
-      }
-      analyzeVO.setPatNumber(patNumber);
-      analyzeVO.setTotalTime(totalTime);
-      analyzeVOS.add(analyzeVO);
-    });
+    List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = generatePageAnalyze(param.getTrainId(), param.getUserId());
 
     return PojoUtils.convertOne(patUserEntity, GeneralKeyPatUserInfoVO.class, (t, v) -> {
+      v.setProtocolVersion(keyPatEntity.getProtocolVersion());
+      if (Objects.equals(keyPatEntity.getProtocolVersion(), 1)) {
+        List<Integer> pages = capturedPages(patUserEntity).keySet().stream().sorted().toList();
+        v.setExistNumber(pages);
+        v.setExistPageNumber(pages.size());
+      }
       v.setExistPage(pageNumber);
       if (Objects.equals(patUserEntity.getIsFinish(), 1)) {
         v.setContent(PojoUtils.convert(toPageValue, PostTelegraphKeyPatTrainPageMessageVO.class));
       } else {
         v.setContent(PojoUtils.convert(twoPage, PostTelegraphKeyPatTrainPageMessageVO.class));
       }
-      v.setDuration(keyPatEntity.getValidTime());
+      v.setDuration(Objects.equals(keyPatEntity.getProtocolVersion(), 1)
+          ? (patUserEntity.getActiveMillis() == null ? 0 : patUserEntity.getActiveMillis() / 1000)
+          : keyPatEntity.getValidTime());
       v.setPageAnalyzeVOS(analyzeVOS);
       v.setRuleContent(keyPatEntity.getRuleContent());
       v.setTotalNumber(keyPatEntity.getTotalNumber());
@@ -1035,23 +1139,30 @@ public class GeneralKeyPatService {
 
   }
 
-  public void startTrain(Integer trainId, String token) {
+  @Transactional
+  public void startTrain(Integer trainId, Integer attempt, String token) {
     String userId = userService.getUserByToken(token).getId();
-    GeneralKeyPatUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(userId, trainId);
-    if (null != patUserEntity) {
-      patUserEntity.setIsFinish(2);
-      trainUserDao.save(patUserEntity);
+    GeneralKeyPatEntity train = lockedTrain(trainId);
+    GeneralKeyPatUserEntity user = student(trainId, userId);
+    captureBound(train, user, LocalDateTime.now());
+    requireProtocol(train);
+    requireAttempt(attempt, user);
+    if (Objects.equals(user.getIsFinish(), 1)) {
+      throw new IllegalStateException("已结算的训练需要先重置");
     }
+    user.setIsFinish(2);
   }
 
   @Transactional
-  public void reset(Integer trainId, String token) {
-    if (trainId == null || trainDao.findById(trainId) == null) {
-      throw new IllegalArgumentException("未查询到训练");
-    }
+  public void reset(Integer trainId, Integer attempt, String token) {
     String userId = userService.getUserByToken(token).getId();
-    GeneralKeyPatUserEntity participant = Optional.ofNullable(trainUserDao.findByUserIdAndTrainId(userId, trainId))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
+    GeneralKeyPatEntity train = lockedTrain(trainId);
+    GeneralKeyPatUserEntity participant = student(trainId, userId);
+    requireUnderway(train);
+    requireProtocol(train);
+    requireAttempt(attempt, participant);
+    participant.setAttempt(Math.incrementExact(participant.getAttempt())).setCaptureStartedAt(LocalDateTime.now())
+        .setActiveMillis(null).setCapturePages("{}");
     userValueDao.deleteByTrainIdAndUserId(trainId, userId);
     resolverDao.deleteByTrainIdAndUserId(trainId, userId);
     moreEntityDao.delete("trainId = ?1 and userId = ?2", trainId, userId);
@@ -1067,4 +1178,100 @@ public class GeneralKeyPatService {
     participant.setStatisticInfo(null);
     trainUserDao.save(participant);
   }
+
+  private GeneralKeyPatEntity lockedTrain(Integer trainId) {
+    if (trainId == null) {
+      throw new IllegalArgumentException("训练ID不能为空");
+    }
+    return Optional.ofNullable(trainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+  }
+
+  private GeneralKeyPatUserEntity student(Integer trainId, String userId) {
+    GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, trainId);
+    if (member == null || !Objects.equals(member.getRole(), 0)) {
+      throw new IllegalArgumentException("未查询到该用户的学员参训记录");
+    }
+    return member;
+  }
+
+  private void requireUnderway(GeneralKeyPatEntity entity) {
+    if (!Objects.equals(entity.getStatus(), 1)) {
+      throw new IllegalStateException("训练不在进行中");
+    }
+  }
+
+  private void requireAttempt(Integer attempt, GeneralKeyPatUserEntity member) {
+    if (attempt == null || !Objects.equals(attempt, member.getAttempt())) {
+      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+    }
+  }
+
+  private GeneralKeyPatUserEntity readableMember(GeneralKeyPatEntity train, String requestedUser, String token) {
+    String actor = userService.getUserByToken(token).getId();
+    String target = requestedUser == null ? actor : requestedUser;
+    GeneralKeyPatUserEntity actorMember = trainUserDao.findByUserIdAndTrainId(actor, train.getId());
+    if (!Objects.equals(actor, target) && !Objects.equals(train.getCreateUser(), actor)
+        && (actorMember == null || !Objects.equals(actorMember.getRole(), 1))) {
+      throw new IllegalArgumentException("无权读取该学员的拍发记录");
+    }
+    return Optional.ofNullable(trainUserDao.findByUserIdAndTrainId(target, train.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
+  }
+
+  private long elapsedMillis(LocalDateTime startedAt) {
+    return startedAt == null ? 0 : Math.max(0, Duration.between(startedAt, LocalDateTime.now()).toMillis());
+  }
+
+  private void requireProtocol(GeneralKeyPatEntity train) {
+    if (!Objects.equals(train.getProtocolVersion(), 1)) {
+      throw new IllegalStateException("旧训练缺少原始采集协议，请重新创建训练；历史成绩保持不变");
+    }
+  }
+
+  private long captureBound(GeneralKeyPatEntity train, GeneralKeyPatUserEntity member, LocalDateTime receivedAt) {
+    if (member.getCaptureStartedAt() == null) {
+      throw new IllegalStateException("采集尚未开始");
+    }
+    long elapsed = Math.max(0, Duration.between(member.getCaptureStartedAt(), receivedAt).toMillis());
+    if (Objects.equals(train.getStatus(), 1)) return elapsed;
+    if (Objects.equals(train.getStatus(), 3) && train.getEndTime() != null
+        && receivedAt.isBefore(train.getEndTime().plusSeconds(60))) {
+      return elapsed;
+    }
+    throw new IllegalStateException("训练已停止接收拍发记录");
+  }
+
+  private Map<Integer, CapturedPage> capturedPages(GeneralKeyPatUserEntity member) {
+    Map<Integer, CapturedPage> pages = JSONUtils.fromJson(member.getCapturePages(), new TypeToken<>() {});
+    if (pages == null) throw new IllegalStateException("缺少原始采集页索引");
+    return pages;
+  }
+
+  private long countCharacters(String rawValue) {
+    List<String> characters = JSONUtils.fromJson(rawValue, new TypeToken<>() {});
+    if (characters == null) throw new IllegalArgumentException("拍发字符列表不能为空");
+    long count = 0;
+    for (String character : characters) {
+      if (character == null || character.codePointCount(0, character.length()) != 1) {
+        throw new IllegalArgumentException("每个拍发事件必须是一个正文字符");
+      }
+      if (!character.isBlank() && !character.equals("?")) count++;
+    }
+    return count;
+  }
+
+  private boolean samePage(List<GeneralKeyPatPageDetailDto> requested, List<GeneralKeyPatUserValueEntity> saved) {
+    if (requested.size() != saved.size()) return false;
+    for (int index = 0; index < requested.size(); index++) {
+      GeneralKeyPatPageDetailDto request = requested.get(index);
+      GeneralKeyPatUserValueEntity value = saved.get(index);
+      if (request == null || !Objects.equals(request.getSort(), value.getSort())
+          || !Objects.equals(request.getKey(), value.getKey())
+          || !Objects.equals(request.getValue(), value.getValue())
+          || !Objects.equals(request.getTime(), value.getTime())) return false;
+    }
+    return true;
+  }
+
 }

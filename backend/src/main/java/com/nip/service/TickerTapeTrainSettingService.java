@@ -51,22 +51,10 @@ public class TickerTapeTrainSettingService {
     tickerTapeTrainSettingDao.deleteAll();
     // 将添加参数列表转换为实体列表
     List<TickerTapeTrainSettingEntity> entityList = PojoUtils.convert(addParams.getParamList(), TickerTapeTrainSettingEntity.class);
-    // 为每个实体设置点标准时间
-    entityList.forEach(item -> item.setDot(addParams.getDotStandardTime()));
     // 保存新的设置实体列表
     tickerTapeTrainSettingDao.save(entityList);
     // 返回添加或更新的参数
     return addParams;
   }
 
-  /**
-   * 获取点标准费率
-   *
-   * @return 返回第一个设置实体的点标准时间
-   */
-  public Integer getDotStandardRate() {
-    // 获取第一个设置实体并返回其点标准时间
-    return tickerTapeTrainSettingDao.findAll().list().stream().findFirst()
-        .orElseGet(TickerTapeTrainSettingEntity::new).getDot();
-  }
 }

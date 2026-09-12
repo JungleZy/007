@@ -2,6 +2,10 @@ package com.nip.service;
 
 
 import cn.hutool.core.text.CharSequenceUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -49,13 +53,14 @@ public class TelegramTrainService {
   private final UserService userService;
   private final TelegramTrainStatisticalDao statisticalDao;
   private final TransactionManager transactionManager;
+  private final ObjectMapper objectMapper;
 
   @Inject
   public TelegramTrainService(TelegramTrainDao telegramTrainDao, TelegramTrainFloorDao telegramTrainFloorDao,
                               TelegramTrainFloorContentDao telegramTrainFloorContentDao,
                               TelegramTrainSettingDao telegramTrainSettingDao, TelegramTrainLogDao telegramTrainLogDao,
                               UserService userService, TelegramTrainStatisticalDao statisticalDao,
-                              TransactionManager transactionManager) {
+                              TransactionManager transactionManager, ObjectMapper objectMapper) {
     this.telegramTrainDao = telegramTrainDao;
     this.telegramTrainFloorDao = telegramTrainFloorDao;
     this.telegramTrainFloorContentDao = telegramTrainFloorContentDao;
@@ -64,6 +69,7 @@ public class TelegramTrainService {
     this.userService = userService;
     this.statisticalDao = statisticalDao;
     this.transactionManager = transactionManager;
+    this.objectMapper = objectMapper;
   }
 
   private final String[] dotArray = new String[]{"E", "I", "S", "H", "5"};
@@ -182,8 +188,18 @@ public class TelegramTrainService {
     if (trainDto == null || trainDto.getTrain() == null || trainDto.getTrain().getId() == null) {
       throw new IllegalArgumentException("训练信息不能为空");
     }
+    validateTrainingSettings(trainDto.getTrain());
     TelegramTrainEntity trainEntity = Optional.ofNullable(telegramTrainDao.findById(trainDto.getTrain().getId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询该训练！"));
+    TelegramTrainEntity settings = trainDto.getTrain();
+    trainEntity.setRateDotMinMs(settings.getRateDotMinMs());
+    trainEntity.setRateDotMaxMs(settings.getRateDotMaxMs());
+    trainEntity.setRateLineMinMs(settings.getRateLineMinMs());
+    trainEntity.setRateLineMaxMs(settings.getRateLineMaxMs());
+    trainEntity.setRateIntervalMinMs(settings.getRateIntervalMinMs());
+    trainEntity.setRateIntervalMaxMs(settings.getRateIntervalMaxMs());
+    trainEntity.setBigIntervalMinMs(settings.getBigIntervalMinMs());
+    trainEntity.setBigIntervalMaxMs(settings.getBigIntervalMaxMs());
     boolean flag = false;
     switch (type) {
       case 0 -> {
@@ -280,6 +296,7 @@ public class TelegramTrainService {
         throw new IllegalArgumentException("训练楼层不能为空");
       }
       TelegramTrainEntity trainEntity = trainDto.getTrain();
+      validateTrainingSettings(trainEntity);
       trainEntity.setCreateUserId(userEntity.getId());
 
       //查询同类型同用户最后一次训练的状态，如状态是未开始0，则删除，如状态是暂停中2将状态设为已完成，且统计。
@@ -376,8 +393,104 @@ public class TelegramTrainService {
 
   @Transactional
   public Response<List<TelegramTrainSettingEntity>> saveSetting(List<TelegramTrainSettingEntity> list) {
+    validateSettings(list);
+    List<TelegramTrainSettingEntity> replacement = list.stream()
+        .map(item -> new TelegramTrainSettingEntity(null, item.getType(), item.getKey(), item.getValue()))
+        .toList();
     telegramTrainSettingDao.deleteAll();
-    return ResponseResult.success(telegramTrainSettingDao.save(list));
+    return ResponseResult.success(telegramTrainSettingDao.save(replacement));
+  }
+
+  private static void validateTrainingSettings(TelegramTrainEntity train) {
+    if (train == null) throw new IllegalArgumentException("训练配置不能为空");
+    validateTrainingRange(train.getRateDotMinMs(), train.getRateDotMaxMs());
+    validateTrainingRange(train.getRateLineMinMs(), train.getRateLineMaxMs());
+    validateTrainingRange(train.getRateIntervalMinMs(), train.getRateIntervalMaxMs());
+    validateTrainingRange(train.getBigIntervalMinMs(), train.getBigIntervalMaxMs());
+  }
+
+  private static void validateTrainingRange(Integer min, Integer max) {
+    if (min == null || max == null || min < 0 || max <= min) {
+      throw new IllegalArgumentException("训练配置须为非负毫秒值，且上界大于下界");
+    }
+  }
+
+  private void validateSettings(List<TelegramTrainSettingEntity> list) {
+    if (list == null || list.isEmpty()) {
+      throw new IllegalArgumentException("基础练习配置不能为空");
+    }
+    Map<String, Map<Integer, JsonNode>> groups = new HashMap<>();
+    groups.put("0", new HashMap<>());
+    groups.put("1", new HashMap<>());
+    for (TelegramTrainSettingEntity item : list) {
+      if (item == null || !Integer.valueOf(0).equals(item.getType()) || !groups.containsKey(item.getKey())) {
+        throw new IllegalArgumentException("基础练习配置类型无效");
+      }
+      JsonNode value;
+      try {
+        value = objectMapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .readTree(item.getValue());
+      } catch (JsonProcessingException | IllegalArgumentException e) {
+        throw new IllegalArgumentException("基础练习配置JSON无效", e);
+      }
+      if (value == null || !value.isObject() || !value.path("type").isIntegralNumber()
+          || !value.path("type").canConvertToInt() || value.path("type").intValue() < 0
+          || !value.path("name").isTextual() || value.path("name").asText().isBlank()
+          || !value.path("msg").isTextual() || value.path("msg").asText().isBlank()) {
+        throw new IllegalArgumentException("基础练习分级名称、文案或类型无效");
+      }
+      int type = value.get("type").intValue();
+      if (groups.get(item.getKey()).putIfAbsent(type, value) != null) {
+        throw new IllegalArgumentException("基础练习存在重复分级");
+      }
+      BigDecimal min = settingBoundary(value.get("min"), type == 0 ? "<" : "");
+      BigDecimal max = settingBoundary(value.get("max"), type == 0 ? ">" : "");
+      if (max.compareTo(min) <= 0) {
+        throw new IllegalArgumentException("基础练习区间上界必须大于下界");
+      }
+    }
+    for (Map<Integer, JsonNode> group : groups.values()) {
+      if (!group.containsKey(0) || group.size() < 2) {
+        throw new IllegalArgumentException("点和划均须包含异常区间及正区间");
+      }
+      BigDecimal min = null;
+      BigDecimal max = null;
+      for (Map.Entry<Integer, JsonNode> entry : group.entrySet()) {
+        if (entry.getKey() == 0) continue;
+        BigDecimal lower = settingBoundary(entry.getValue().get("min"), "");
+        BigDecimal upper = settingBoundary(entry.getValue().get("max"), "");
+        min = min == null ? lower : min.min(lower);
+        max = max == null ? upper : max.max(upper);
+      }
+      if (settingBoundary(group.get(0).get("min"), "<").compareTo(min) != 0
+          || settingBoundary(group.get(0).get("max"), ">").compareTo(max) != 0) {
+        throw new IllegalArgumentException("异常区间必须覆盖正区间的外边界");
+      }
+    }
+    if (!groups.get("0").keySet().equals(groups.get("1").keySet())) {
+      throw new IllegalArgumentException("点和划的分级必须完整对应");
+    }
+  }
+
+  private static BigDecimal settingBoundary(JsonNode value, String prefix) {
+    if (value == null || (!value.isTextual() && !value.isNumber())) {
+      throw new IllegalArgumentException("配置毫秒值必须为有限的非负数");
+    }
+    String text = value.asText().trim();
+    if (!prefix.isEmpty()) {
+      if (!value.isTextual() || !text.startsWith(prefix)) {
+        throw new IllegalArgumentException("基础练习缺少合法异常区间");
+      }
+      text = text.substring(1).trim();
+    }
+    if (!text.matches("(?:\\d+(?:\\.\\d*)?|\\.\\d+)")) {
+      throw new IllegalArgumentException("配置毫秒值必须为有限的非负数");
+    }
+    BigDecimal number = new BigDecimal(text);
+    if (!Double.isFinite(number.doubleValue())) {
+      throw new IllegalArgumentException("配置毫秒值必须为有限的非负数");
+    }
+    return number;
   }
 
   /**

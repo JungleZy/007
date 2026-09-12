@@ -35,39 +35,20 @@ export const updateHandKeyTrainStatus = (data) => {
     data
   })
 }
-export const getHandKeyZuXunPageNumber = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalTickerPatTrain/findPage",
-    data
-  })
-}
-export const saveHandKeyZuXunData = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalTickerPatTrain/uploadResult",
-    data
-  })
-}
-export const finishHandKeyZuXunTrain = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalTickerPatTrain/finish",
-    data
-  })
-}
-export const resetHandKeyZuXunTrain = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalTickerPatTrain/reset",
-    data
-  })
-}
-export const startTrainUser = (data) => {
-  return axios({
-    method: "get",
-    url: `/api/generalTickerPatTrain/startTrain?trainId=${data}`,
-  })
+export const getHandKeyZuXunPageNumber = (data, config) => { return axios({method: "post",
+url: "/api/generalTickerPatTrain/findPage",
+data, config}) }
+export const saveHandKeyZuXunData = (data, config) => { return axios({method: "post",
+url: "/api/generalTickerPatTrain/uploadResult",
+data, config}) }
+export const finishHandKeyZuXunTrain = (data, config) => { return axios({method: "post",
+url: "/api/generalTickerPatTrain/finish",
+data, config}) }
+export const resetHandKeyZuXunTrain = (data, config) => { return axios({method: "post",
+url: "/api/generalTickerPatTrain/reset",
+data, config}) }
+export const startTrainUser = ({trainId, attempt}, config) => {
+  return axios({method: 'get', url: '/api/generalTickerPatTrain/startTrain', data: {trainId, attempt}, config})
 }
 export const deleteTrain = (data) => {
   return axios({

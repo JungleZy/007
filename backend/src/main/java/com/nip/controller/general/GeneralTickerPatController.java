@@ -28,6 +28,7 @@ import org.jboss.resteasy.reactive.RestQuery;
 
 import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
+import static com.nip.common.constants.BaseConstants.ATTEMPT;
 
 @JWT
 @Path(value = "/generalTickerPatTrain")
@@ -75,23 +76,26 @@ public class GeneralTickerPatController {
   @POST
   @Path("finish")
   @Operation(summary = "完成训练")
-  public Response<GeneralTickerPatTrainVO> finish(@RequestBody GeneralTickerPatTrainFinishVO vo) {
-    return ResponseResult.success(patTrainService.finish(vo));
+  public Response<GeneralTickerPatTrainVO> finish(@RequestBody GeneralTickerPatTrainFinishVO vo,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.finish(vo, token));
   }
 
   @POST
   @Path("uploadResult")
   @Operation(summary = "上传提交结果")
-  public Response<Void> uploadResult(@RequestBody GeneralTickerPatTrainContentValueVO vo) {
-    patTrainService.saveContentValue(vo);
+  public Response<Void> uploadResult(@RequestBody GeneralTickerPatTrainContentValueVO vo,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.saveContentValue(vo, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("reset")
   @Operation(summary = "重置训练")
-  public Response<String> resetTrain(@RequestBody GeneralTickerPatTrainResetParam param) {
-    patTrainService.reset(param);
+  public Response<String> resetTrain(@RequestBody GeneralTickerPatTrainResetParam param,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.reset(param, token);
     return ResponseResult.success("ok");
   }
 
@@ -105,8 +109,9 @@ public class GeneralTickerPatController {
   @GET
   @Path("/startTrain")
   @Operation(summary = "用户开始训练")
-  public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
-    patTrainService.startTrain(trainId, token);
+  public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestQuery(ATTEMPT) Integer attempt,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.startTrain(trainId, attempt, token);
     return ResponseResult.success();
   }
 

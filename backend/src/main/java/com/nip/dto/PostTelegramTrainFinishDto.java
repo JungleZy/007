@@ -1,10 +1,10 @@
 package com.nip.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
-import java.math.BigDecimal;
-import java.util.List;
 
 /**
  * @Author: wushilin
@@ -18,12 +18,7 @@ public class PostTelegramTrainFinishDto {
 
   // @ApiModelProperty(value = "id",position = 1)
   private String id;
-
-  // @ApiModelProperty(value = "完成内容",position = 2)
-  private List<PostTelegramTrainFinishInfoDto> finishInfo;
-
-  private Integer validTime;
-
-  private String speed;
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
 
 }

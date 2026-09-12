@@ -6,6 +6,9 @@ import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
+import com.nip.common.utils.CaptureTimeline;
+import com.nip.common.utils.ScoringRuleValidation;
+import com.nip.dto.score.TrainingRateUnit;
 import com.nip.dao.*;
 import com.nip.dto.*;
 import com.nip.dto.vo.*;
@@ -13,13 +16,13 @@ import com.nip.entity.*;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,6 +40,7 @@ import static com.nip.common.utils.KeyPatUtils.handle;
 @ApplicationScoped
 @Slf4j
 public class PostTelegraphKeyPatTrainService {
+  private static final Set<String> CONTROL_TOKENS = Set.of("开始", "句号", "结束", "?");
 
   private final UserService userService;
   private final PostTelegraphKeyPatTrainDao patTrainDao;
@@ -45,6 +49,7 @@ public class PostTelegraphKeyPatTrainService {
   private final PostTelegraphKeyPatTrainPageValueDao valueDao;
   private final PostTelegraphKeyPatTrainMoreEntityDao moreEntityDao;
   private final CableFloorService cableFloorService;
+  private final PostTelegraphKeyPatTrainRawPageDao rawPageDao;
 
   @Inject
   public PostTelegraphKeyPatTrainService(UserService userService,
@@ -53,7 +58,8 @@ public class PostTelegraphKeyPatTrainService {
       PostTelegraphKeyPatTrainPageDao pageDao,
       PostTelegraphKeyPatTrainPageValueDao valueDao,
       PostTelegraphKeyPatTrainMoreEntityDao moreEntityDao,
-      CableFloorService cableFloorService) {
+      CableFloorService cableFloorService,
+      PostTelegraphKeyPatTrainRawPageDao rawPageDao) {
     this.userService = userService;
     this.patTrainDao = patTrainDao;
     this.gradingRuleDao = gradingRuleDao;
@@ -61,6 +67,7 @@ public class PostTelegraphKeyPatTrainService {
     this.valueDao = valueDao;
     this.moreEntityDao = moreEntityDao;
     this.cableFloorService = cableFloorService;
+    this.rawPageDao = rawPageDao;
   }
 
   @Transactional
@@ -72,7 +79,7 @@ public class PostTelegraphKeyPatTrainService {
     if (dto.getTotalNumber() == null) {
       throw new IllegalArgumentException("训练总组数不能为空");
     }
-    UserEntity userEntity = userService.getUserByToken(token);
+    UserEntity userEntity = requireUser(token);
     PostTelegraphKeyPatTrainEntity entity = PojoUtils.convertOne(dto, PostTelegraphKeyPatTrainEntity.class);
     entity.setAccuracy(0)
         .setCreateUserId(userEntity.getId())
@@ -83,6 +90,9 @@ public class PostTelegraphKeyPatTrainService {
     // 根据id查询评分规则
     GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(entity.getRuleId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到该规则"));
+    ScoringRuleValidation.electronic(ruleEntity.getContent());
+    if (ruleEntity.getScore() == null || ruleEntity.getScore() < 0) throw new IllegalArgumentException("评分规则满分必须为非负整数");
+    entity.setProtocolVersion(1).setAttempt(0).setFullScore(new BigDecimal(ruleEntity.getScore()));
     entity.setScore(new BigDecimal(ruleEntity.getScore()));
     entity.setRuleContent(ruleEntity.getContent());
     PostTelegraphKeyPatTrainEntity save = patTrainDao.saveAndFlush(entity);
@@ -111,7 +121,7 @@ public class PostTelegraphKeyPatTrainService {
           pageEntity.setPageNumber(i + 1);
           pageEntity.setSort(j);
           pageEntity.setKey(JSONUtils.toJson(cableFloor.get(i).get(j)));
-          pageEntity.setValue("");
+          pageEntity.setValue("[]");
           pageEntity.setTime("[]");
           pageEntity.setTrainId(save.getId());
           pageEntities.add(pageEntity);
@@ -120,11 +130,11 @@ public class PostTelegraphKeyPatTrainService {
       pageDao.save(pageEntities);
     }
 
-    return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);
+    return toVO(save);
   }
 
   public List<PostTelegraphKeyPatTrainVO> listPage(String token) {
-    UserEntity userEntity = userService.getUserByToken(token);
+    UserEntity userEntity = requireUser(token);
     List<PostTelegraphKeyPatTrainEntity> entityList = patTrainDao.find("createUserId = ?1",
         Sort.by("createTime").descending(),
         userEntity.getId()).list();
@@ -133,52 +143,69 @@ public class PostTelegraphKeyPatTrainService {
   }
 
   @Transactional
-  public void begin(PostTelegraphKeyPatTrainDto dto) {
-    PostTelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
-    entity.setStatus(UNDERWAY.getStatus());
-    entity.setBeginTime(LocalDateTime.now());
-    patTrainDao.save(entity);
-  }
-
-  @Transactional
-  public PostTelegraphKeyPatTrainVO finish(PostTelegraphKeyPatTrainDto dto) {
-    try {
-      PostTelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(dto.getId()))
-          .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
-      // P1-10：finish 幂等守卫——已完成的训练直接返回，不再重复结算（与 Telex/TickerTape 口径一致）
-      if (PostTelegraphKeyPatTrainEnum.FINISH.getStatus().equals(entity.getStatus())) {
-        return PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class);
-      }
-      // 分数
-      PostTelegraphKeyPatTrainEntity save = countScore(entity, dto);
-      return PojoUtils.convertOne(save, PostTelegraphKeyPatTrainVO.class);
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("完成训练失败，训练ID: {}", dto.getId(), e);
-      throw new RuntimeException(e);
+  public PostTelegraphKeyPatTrainVO begin(PostTelegraphKeyPatTrainActionDto dto, String token) {
+    PostTelegraphKeyPatTrainEntity entity = owned(dto.getId(), token, true);
+    requireAttempt(entity, dto.getProtocolVersion(), dto.getAttempt());
+    ScoringRuleValidation.electronic(entity.getRuleContent());
+    if (entity.getFullScore() == null || entity.getFullScore().signum() < 0) throw new IllegalArgumentException("训练满分快照无效，请新建训练");
+    if (Objects.equals(entity.getStatus(), NOT_STARTED.getStatus())) {
+      entity.setStatus(UNDERWAY.getStatus());
+      entity.setBeginTime(LocalDateTime.now());
+      patTrainDao.save(entity);
+    } else if (!Objects.equals(entity.getStatus(), UNDERWAY.getStatus())) {
+      throw new IllegalStateException("训练已结束，请重置或新建训练");
     }
+    return toVO(entity);
   }
 
   @Transactional
-  public PostTelegraphKeyPatTrainVO details(String id) {
+  public PostTelegraphKeyPatTrainVO finish(PostTelegraphKeyPatTrainActionDto dto, String token) {
+    PostTelegraphKeyPatTrainEntity entity = owned(dto.getId(), token, true);
+    if (Objects.equals(entity.getProtocolVersion(), 0)
+        && Objects.equals(entity.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())) {
+      return toVO(entity);
+    }
+    requireAttempt(entity, dto.getProtocolVersion(), dto.getAttempt());
+    if (Objects.equals(entity.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())) {
+      return toVO(entity);
+    }
+    requireUnderway(entity);
+    return toVO(countScore(entity));
+  }
+
+  @Transactional
+  public PostTelegraphKeyPatTrainVO reset(PostTelegraphKeyPatTrainActionDto dto, String token) {
+    PostTelegraphKeyPatTrainEntity entity = owned(dto.getId(), token, true);
+    requireAttempt(entity, dto.getProtocolVersion(), dto.getAttempt());
+    entity.setAttempt(Math.incrementExact(entity.getAttempt()));
+    rawPageDao.delete("trainId", entity.getId());
+    valueDao.deleteByTrainId(entity.getId());
+    moreEntityDao.delete("trainId", entity.getId());
+    entity.setStatus(NOT_STARTED.getStatus()).setBeginTime(null).setEndTime(null)
+        .setDuration("0").setSpeed("0").setAccuracy(0).setErrorNumber(0)
+        .setScore(entity.getFullScore()).setDeductInfo(null).setContent(null);
+    patTrainDao.save(entity);
+    return toVO(entity);
+  }
+
+  @Transactional
+  public PostTelegraphKeyPatTrainVO details(String id, String token) {
     try {
-      PostTelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(id))
-          .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+      PostTelegraphKeyPatTrainEntity entity = owned(id, token, false);
+      requireReadable(entity);
       List<Integer> pageNumber = pageDao.countPageNumber(id);
       // 查询前2页数据content
       List<PostTelegraphKeyPatTrainPageEntity> twoPage = pageDao.findTwoPage(id);
       List<PostTelegraphKeyPatTrainPageValueEntity> twoPageValue = valueDao.findTwoPage(id);
       // 统计每页拍发时长和个数
-      List<PostTelegraphKeyPatTrainPageValueEntity> pageValueEntities = valueDao
-          .findByTrainIdOrderByPageNumberAscSortAsc(
-              id);
+      List<PostTelegraphKeyPatTrainPageValueEntity> pageValueEntities = Objects.equals(entity.getProtocolVersion(), 0)
+          ? valueDao.findByTrainIdOrderByPageNumberAscSortAsc(id) : List.of();
       Map<Integer, List<PostTelegraphKeyPatTrainPageValueEntity>> collect = pageValueEntities.stream().collect(
           Collectors.groupingBy(PostTelegraphKeyPatTrainPageValueEntity::getPageNumber));
       List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
       collect.forEach((key, value) -> {
         PostTelegraphKeyPatTrainPageAnalyzeVO analyzeVO = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+        analyzeVO.setPageNumber(key);
         int totalTime = 0;
         int patNumber = 0;
         for (PostTelegraphKeyPatTrainPageValueEntity valueEntity : value) {
@@ -191,22 +218,24 @@ public class PostTelegraphKeyPatTrainService {
           }
           List<String> patValueArray = JSONUtils.fromJson(patValue, new TypeToken<>() {
           });
-          if (patValueArray != null) {
-            patNumber += patValueArray.size();
-          }
+          patNumber += patValueArray.size();
         }
         analyzeVO.setPatNumber(patNumber);
         analyzeVO.setTotalTime(totalTime);
         analyzeVOS.add(analyzeVO);
       });
 
-      return PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class, (t, v) -> {
-        if (!Objects.equals(t.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())
-            && t.getRuleId() != null) {
-          String ruleContent = Optional.ofNullable(gradingRuleDao.findById(t.getRuleId()))
-              .map(GradingRuleEntity::getContent).orElse("");
-          v.setRuleContent(ruleContent);
+      if (Objects.equals(entity.getProtocolVersion(), 1)) {
+        for (PostTelegraphKeyPatTrainRawPageEntity raw : rawPageDao.findPages(id)) {
+          PostTelegraphKeyPatTrainPageAnalyzeVO analysis = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+          analysis.setPageNumber(raw.getPageNumber());
+          analysis.setPatNumber(Math.toIntExact(bodyCharacters(rawValues(raw))));
+          analysis.setTotalTime(captureDuration(entity, raw));
+          analyzeVOS.add(analysis);
         }
+      }
+      return PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class, (t, v) -> {
+        setMetadata(t, v);
         v.setExistPage(pageNumber);
         if (Objects.equals(v.getStatus(), 2)) {
           // 在大于2页报文时，用户拍发的页数少于生成页数，需用生成的报文补足2数据
@@ -243,10 +272,12 @@ public class PostTelegraphKeyPatTrainService {
     }
   }
 
-  public PostTelegraphKeyPatTrainPageVO getPage(String trainId, Integer pageNumber) {
+  @Transactional
+  public PostTelegraphKeyPatTrainPageVO getPage(String trainId, Integer pageNumber, String token) {
     PostTelegraphKeyPatTrainPageVO ret = new PostTelegraphKeyPatTrainPageVO();
-    PostTelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(trainId))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练id"));
+    PostTelegraphKeyPatTrainEntity entity = owned(trainId, token, true);
+    requireReadable(entity);
+    requirePageNumber(entity, pageNumber);
     List<PostTelegraphKeyPatTrainPageEntity> messageVO;
     // 页码是否正确
     // Phase 7.4：pageNumber/isCable/totalNumber 均为可空 Integer，裸拆箱会 NPE
@@ -284,6 +315,9 @@ public class PostTelegraphKeyPatTrainService {
     if (!pageDaoAll.isEmpty()) {
       messageVO = pageDaoAll;
     } else {
+      if (Objects.equals(entity.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())) {
+        throw new IllegalStateException("已完成训练缺少该页报底");
+      }
       messageVO = generatePatKey(generateNumber, pageNumber, entity.getId(), entity.getMessageType());
     }
     // 用户未拍发本页内容，则获取生成的内容
@@ -292,6 +326,11 @@ public class PostTelegraphKeyPatTrainService {
     } else {
       ret.setMessageVO(PojoUtils.convert(userPage, PostTelegraphKeyPatTrainPageMessageVO.class));
     }
+    PostTelegraphKeyPatTrainRawPageEntity raw = rawPageDao.findPage(trainId, pageNumber);
+    if (raw != null && !Objects.equals(entity.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())) {
+      ret.setMessageVO(rawValues(raw));
+    }
+    setPageMetadata(entity, raw, ret);
 
     // 获取解析后的内容
     List<String> resolver = pageDaoAll.stream().map(PostTelegraphKeyPatTrainPageEntity::getValue)
@@ -319,7 +358,9 @@ public class PostTelegraphKeyPatTrainService {
   }
 
   @Transactional
-  public Boolean delete(String trainId) {
+  public Boolean delete(String trainId, String token) {
+    owned(trainId, token, true);
+    rawPageDao.delete("trainId", trainId);
     moreEntityDao.delete("trainId", trainId);
     pageDao.delete("trainId", trainId);
     valueDao.delete("trainId", trainId);
@@ -327,61 +368,92 @@ public class PostTelegraphKeyPatTrainService {
   }
 
   @Transactional
-  public void finishPage(List<PostTelegraphKeyPatTrainPageMessageVO> vo, String trainId, Integer pageNumber) {
-    try {
-      valueDao.deleteByTrainIdAndPageNumber(trainId, pageNumber);
-      List<PostTelegraphKeyPatTrainPageValueEntity> list = new ArrayList<>();
-      for (PostTelegraphKeyPatTrainPageMessageVO postTelegraphKeyPatTrainPageMessageVO : vo) {
-        PostTelegraphKeyPatTrainPageValueEntity postTelegraphKeyPatTrainPageValueEntity = PojoUtils
-            .convertOne(postTelegraphKeyPatTrainPageMessageVO, PostTelegraphKeyPatTrainPageValueEntity.class);
-        postTelegraphKeyPatTrainPageValueEntity.setId(null);
-        list.add(postTelegraphKeyPatTrainPageValueEntity);
+  public PostTelegraphKeyPatTrainPageVO finishPage(PostTelegraphKeyPatTrainPageDto dto, String token) {
+    LocalDateTime receivedAt = LocalDateTime.now();
+    PostTelegraphKeyPatTrainEntity entity = owned(dto.getId(), token, true);
+    requireAttempt(entity, dto.getProtocolVersion(), dto.getAttempt());
+    requirePageNumber(entity, dto.getPageNumber());
+    List<PostTelegraphKeyPatTrainPageMessageVO> values = canonicalValues(dto);
+    String rawValue = JSONUtils.toJson(values);
+    String intervals = JSONUtils.toJson(dto.getCaptureIntervals());
+    PostTelegraphKeyPatTrainRawPageEntity existing = rawPageDao.findPage(dto.getId(), dto.getPageNumber());
+    if (existing != null) {
+      if (!Objects.equals(existing.getAttempt(), dto.getAttempt())) {
+        throw new IllegalArgumentException("已保存页轮次不匹配，请重新读取训练");
       }
-      valueDao.persist(list);
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("保存训练页面内容失败", e);
-      throw new RuntimeException(e);
+      if (existing.getCaptureIntervals().equals(intervals)) {
+        if (existing.getValue().equals(rawValue)) {
+          return getPage(dto.getId(), dto.getPageNumber(), token);
+        }
+        throw new IllegalStateException("同一采集时间轴内容冲突，请重新读取已保存页");
+      }
+      CaptureTimeline.requireExtension(intervals(existing), dto.getCaptureIntervals());
     }
+    requireUnderway(entity);
+    long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), elapsedAt(entity, receivedAt));
+    if (duration == 0 && values.stream().anyMatch(value -> !stringArray(value.getValue()).isEmpty())) {
+      throw new IllegalArgumentException("非空原始事件必须提供有效采集时长");
+    }
+    List<PostTelegraphKeyPatTrainRawPageEntity> pages = rawPageDao.findPages(dto.getId());
+    List<List<CaptureInterval>> timeline = pages.stream()
+        .filter(page -> !Objects.equals(page.getPageNumber(), dto.getPageNumber())).map(this::intervals)
+        .collect(Collectors.toCollection(ArrayList::new));
+    timeline.add(dto.getCaptureIntervals());
+    CaptureTimeline.requireNoOverlap(timeline);
+    // Ensure lazy source pages exist under the same parent lock before accepting raw data.
+    getPage(dto.getId(), dto.getPageNumber(), token);
+    PostTelegraphKeyPatTrainRawPageEntity raw = existing == null
+        ? new PostTelegraphKeyPatTrainRawPageEntity() : existing;
+    raw.setTrainId(entity.getId());
+    raw.setPageNumber(dto.getPageNumber());
+    raw.setAttempt(entity.getAttempt());
+    raw.setValue(rawValue);
+    raw.setCaptureIntervals(intervals);
+    raw.setReceivedAt(receivedAt);
+    if (existing == null) {
+      rawPageDao.persist(raw);
+    }
+    return getPage(dto.getId(), dto.getPageNumber(), token);
   }
+
 
   /**
    * 统计分数
    *
    * @param: entity
    */
-  private PostTelegraphKeyPatTrainEntity countScore(PostTelegraphKeyPatTrainEntity entity,
-      PostTelegraphKeyPatTrainDto dto) {
+  private PostTelegraphKeyPatTrainEntity countScore(PostTelegraphKeyPatTrainEntity entity) {
+    PostKeyPatTrainRuleDto rule = ScoringRuleValidation.electronic(entity.getRuleContent());
+    List<PostTelegraphKeyPatTrainRawPageEntity> rawPages = rawPageDao.findPages(entity.getId());
+    CaptureTimeline.requireNoOverlap(rawPages.stream().map(this::intervals).toList());
+    long duration = 0;
+    long characters = 0;
+    for (PostTelegraphKeyPatTrainRawPageEntity raw : rawPages) {
+      if (!Objects.equals(raw.getAttempt(), entity.getAttempt())) {
+        throw new IllegalStateException("原始记录轮次不匹配");
+      }
+      duration = Math.addExact(duration, captureDuration(entity, raw));
+      characters = Math.addExact(characters, bodyCharacters(rawValues(raw)));
+    }
+    entity.setDuration(BigDecimal.valueOf(duration, 3).stripTrailingZeros().toPlainString());
     entity.setStatus(PostTelegraphKeyPatTrainEnum.FINISH.getStatus());
     entity.setEndTime(LocalDateTime.now());
-    entity.setContent(dto.getContent());
-
-    // 计算训练时长
-    long time = entity.getEndTime().toEpochSecond(ZoneOffset.of("+8")) - entity.getBeginTime()
-        .toEpochSecond(ZoneOffset.of("+8"));
-    entity.setDuration(String.valueOf(time));
-
-    // 查询扣分规则
-    String ruleContent = Optional.ofNullable(gradingRuleDao.findById(entity.getRuleId()))
-        .map(GradingRuleEntity::getContent).orElse("");
-    PostKeyPatTrainRuleDto rule = JSONUtils.fromJson(ruleContent, PostKeyPatTrainRuleDto.class);
-    entity.setRuleContent(ruleContent);
 
     // 积分规则
     KeyPatStatisticalDto ks = new KeyPatStatisticalDto();
     // 得到已存在的页
-    List<Integer> pageNumbers = valueDao.findAllByTrainIdToPageNumber(entity.getId());
-    // 创建每页的处理结果，该结果会在每页处理完毕后替换旧的page_value数据
+    List<Integer> pageNumbers = rawPages.stream().map(PostTelegraphKeyPatTrainRawPageEntity::getPageNumber).toList();
+    // Build derived alignment independently; immutable raw pages remain untouched.
     List<KeyPatValueTransferDto> pageValueResult = new ArrayList<>();
     // P1-1：pageValueResult/ks 为共享可变状态，parallelStream 并发累加有竞态——改串行流
-    pageNumbers.stream().forEach(pageNumber -> {
+    rawPages.forEach(raw -> {
+      Integer pageNumber = raw.getPageNumber();
       // 根据page获取目标数据
       List<KeyPatPageTransferDto> userPages = PojoUtils.convert(
           pageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber), KeyPatPageTransferDto.class);
       // 根据page获取拍发数据
       List<KeyPatValueTransferDto> userPageValues = PojoUtils.convert(
-          valueDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber), KeyPatValueTransferDto.class);
+          rawValues(raw), KeyPatValueTransferDto.class);
       List<KeyPatValueTransferDto> pageResult = new ArrayList<>();
       handle(null, pageResult, userPages, userPageValues, ks);
       pageValueResult.addAll(pageResult);
@@ -409,17 +481,19 @@ public class PostTelegraphKeyPatTrainService {
     int totalPages = fullPages + (lastPageGroups > 0 ? 1 : 0);
     int missingPages = totalPages - pageNumbers.size();
     if (missingPages > 0) {
-      int missingGroups = missingPages * 100;
-      // 调整最后一页的缺失组数
-      if (lastPageGroups > 0 && missingPages == 1) {
-        missingGroups = lastPageGroups;
+      int missingGroups = 0;
+      Set<Integer> submittedPages = new HashSet<>(pageNumbers);
+      for (int pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
+        if (!submittedPages.contains(pageNumber)) {
+          missingGroups += pageNumber == totalPages && lastPageGroups > 0 ? lastPageGroups : 100;
+        }
       }
       ks.setLackGroup(ks.getLackGroup() + missingGroups);
       ks.setLackLine(ks.getLackLine() + missingPages * 10);
     }
 
-    // 计算速率 拍发个数/训练时长折算次/分钟（patTime 单位毫秒；守分母，ScoreMath 统一口径）
-    BigDecimal speed = ScoreMath.rate(ks.getPat(), ks.getPatTime());
+    // Divide by four in the denominator, before the sole final rate rounding.
+    BigDecimal speed = TrainingRateUnit.FOUR_CHARACTER_GROUPS_PER_MINUTE.rate(characters, duration);
 
     entity.setSpeed(String.valueOf(speed));
 
@@ -432,7 +506,7 @@ public class PostTelegraphKeyPatTrainService {
 
     // 得到要扣的分
     String minus = "-";
-    BigDecimal score = entity.getScore();
+    BigDecimal score = Objects.requireNonNull(entity.getFullScore(), "训练缺少冻结满分");
     BigDecimal errorScore = rule.getOther().getErrorCode().multiply(new BigDecimal(ks.getError()));
     deductInfo.put("errorNumber", ks.getError());
     deductInfo.put("errorScore", minus + errorScore);
@@ -487,20 +561,11 @@ public class PostTelegraphKeyPatTrainService {
         .subtract(bunchGroupScore)
         .subtract(lackGapScore);
 
-    // 判断速率是加分还是扣分
     deductInfo.put("speedNumber", speed.toString());
-    BigDecimal base = new BigDecimal(rule.getWpm().getBase());
-    if (speed.compareTo(base) > 0) {
-      BigDecimal diff = speed.subtract(base);
-      BigDecimal speedScore = rule.getWpm().getR().multiply(diff);
-      score = score.add(speedScore);
-      deductInfo.put("speedScore", "+" + speedScore);
-    } else if (speed.compareTo(base) <= 0) {
-      BigDecimal diff = base.subtract(speed);
-      BigDecimal speedScore = rule.getWpm().getL().multiply(diff);
-      score = score.subtract(speedScore);
-      deductInfo.put("speedScore", minus + speedScore);
-    }
+    BigDecimal speedScore = ScoreMath.wpmScore(rule.getWpm().getBase(),
+        rule.getWpm().getR(), rule.getWpm().getL(), speed.intValueExact());
+    score = score.add(speedScore);
+    deductInfo.put("speedScore", speedScore.signum() > 0 ? "+" + speedScore : speedScore.toString());
 
     entity.setScore(score);
     // 保存扣分详情
@@ -511,7 +576,7 @@ public class PostTelegraphKeyPatTrainService {
 
   /**
    * P2-2.3：校验重建后的拍发记录集合，校验通过后调用方才可以 delete + 批量 save。
-   * 约束：结果非空、页号全部有值、页号集合与原有页号一致且连续。
+   * 约束：结果非空、页号全部有值、页号集合与原有页号一致；缺页允许在结算时扣分。
    * 任一条不满足即抛 IllegalStateException，让旧拍发记录原封不动地留在库里。
    *
    * @param trainId           训练 id，写进错误信息便于定位
@@ -537,12 +602,6 @@ public class PostTelegraphKeyPatTrainService {
       throw new IllegalStateException("拍发记录重建结果页号与原记录不一致，拒绝删除已有拍发记录，训练ID: " + trainId
           + "，原页号: " + new TreeSet<>(sourcePageNumbers) + "，重建页号: " + rebuiltPages);
     }
-    int min = Collections.min(rebuiltPages);
-    int max = Collections.max(rebuiltPages);
-    if (max - min + 1 != rebuiltPages.size()) {
-      throw new IllegalStateException("拍发记录页号不连续，拒绝删除已有拍发记录，训练ID: " + trainId
-          + "，页号: " + rebuiltPages);
-    }
   }
 
   /**
@@ -553,7 +612,7 @@ public class PostTelegraphKeyPatTrainService {
    * @param trainId        训练id
    * @param messageType    训练报文 0数码 1字码 2混合码
    */
-  public List<PostTelegraphKeyPatTrainPageEntity> generatePatKey(Integer generateNumber, Integer pageNumber,
+  private List<PostTelegraphKeyPatTrainPageEntity> generatePatKey(Integer generateNumber, Integer pageNumber,
       String trainId, Integer messageType) {
     List<PostTelegraphKeyPatTrainPageEntity> pageEntities = new ArrayList<>();
     int totalPage = generateNumber / 100;
@@ -580,12 +639,176 @@ public class PostTelegraphKeyPatTrainService {
         pageEntity.setPageNumber(i + pageNumber);
         pageEntity.setSort(j);
         pageEntity.setKey(JSONUtils.toJson(key));
-        pageEntity.setValue("");
+        pageEntity.setValue("[]");
         pageEntity.setTime("[]");
         pageEntity.setTrainId(trainId);
         pageEntities.add(pageEntity);
       }
     }
     return pageDao.save(pageEntities);
+  }
+
+  private UserEntity requireUser(String token) {
+    UserEntity user = userService.getUserByToken(token);
+    if (user == null) {
+      throw new IllegalArgumentException("登录已失效，请重新登录");
+    }
+    return user;
+  }
+
+  private PostTelegraphKeyPatTrainEntity owned(String id, String token, boolean lock) {
+    UserEntity user = requireUser(token);
+    if (id == null || id.isBlank()) {
+      throw new IllegalArgumentException(TRAINING_NOT_FOUND);
+    }
+    PostTelegraphKeyPatTrainEntity entity = lock
+        ? patTrainDao.findById(id, LockModeType.PESSIMISTIC_WRITE) : patTrainDao.findById(id);
+    if (entity == null || !Objects.equals(entity.getCreateUserId(), user.getId())) {
+      throw new IllegalArgumentException(TRAINING_NOT_FOUND);
+    }
+    return entity;
+  }
+
+  private static void requireReadable(PostTelegraphKeyPatTrainEntity entity) {
+    if (!Objects.equals(entity.getProtocolVersion(), 1)
+        && !Objects.equals(entity.getStatus(), PostTelegraphKeyPatTrainEnum.FINISH.getStatus())) {
+      throw new IllegalStateException("旧训练缺少采集时间轴，请终止旧训练并新建训练");
+    }
+  }
+
+  private static void requireAttempt(PostTelegraphKeyPatTrainEntity entity, Integer protocolVersion, Integer attempt) {
+    if (!Objects.equals(entity.getProtocolVersion(), 1)) {
+      throw new IllegalStateException("旧训练缺少采集时间轴，请终止旧训练并新建训练");
+    }
+    if (!Objects.equals(protocolVersion, 1) || !Objects.equals(attempt, entity.getAttempt())) {
+      throw new IllegalArgumentException("训练协议或轮次已失效，请重新读取训练");
+    }
+  }
+
+  private static void requireUnderway(PostTelegraphKeyPatTrainEntity entity) {
+    if (!Objects.equals(entity.getStatus(), UNDERWAY.getStatus()) || entity.getBeginTime() == null) {
+      throw new IllegalStateException("训练尚未开始或已经结束");
+    }
+  }
+
+  private void requirePageNumber(PostTelegraphKeyPatTrainEntity entity, Integer pageNumber) {
+    int groups = Objects.equals(entity.getIsCable(), 1)
+        ? Math.toIntExact(pageDao.count("trainId", entity.getId()))
+        : Objects.requireNonNull(entity.getTotalNumber(), "训练总组数缺失");
+    int pageCount = groups / 100 + (groups % 100 == 0 ? 0 : 1);
+    if (pageNumber == null || pageNumber < 1 || pageNumber > pageCount) {
+      throw new IllegalArgumentException("页码超出训练范围");
+    }
+  }
+
+
+  private static long elapsedAt(PostTelegraphKeyPatTrainEntity entity, LocalDateTime at) {
+    return entity.getBeginTime() == null ? -1 : Duration.between(entity.getBeginTime(), at).toMillis();
+  }
+
+  private List<CaptureInterval> intervals(PostTelegraphKeyPatTrainRawPageEntity raw) {
+    return JSONUtils.fromJson(raw.getCaptureIntervals(), new TypeToken<List<CaptureInterval>>() {});
+  }
+
+  private List<PostTelegraphKeyPatTrainPageMessageVO> rawValues(PostTelegraphKeyPatTrainRawPageEntity raw) {
+    return JSONUtils.fromJson(raw.getValue(), new TypeToken<List<PostTelegraphKeyPatTrainPageMessageVO>>() {});
+  }
+
+  private long captureDuration(PostTelegraphKeyPatTrainEntity entity, PostTelegraphKeyPatTrainRawPageEntity raw) {
+    return CaptureTimeline.durationMillis(intervals(raw), elapsedAt(entity, raw.getReceivedAt()));
+  }
+
+  private static List<String> stringArray(String value) {
+    if (value == null || !value.stripLeading().startsWith("[")) {
+      throw new IllegalArgumentException("原始字段必须是JSON数组");
+    }
+    List<String> values = JSONUtils.fromJson(value, new TypeToken<List<String>>() {});
+    if (values == null || values.stream().anyMatch(Objects::isNull)) {
+      throw new IllegalArgumentException("原始数组不能包含空值");
+    }
+    return values;
+  }
+
+  private static List<PostTelegraphKeyPatTrainPageMessageVO> canonicalValues(PostTelegraphKeyPatTrainPageDto dto) {
+    if (dto.getValue() == null) {
+      throw new IllegalArgumentException("原始页内容不能为空");
+    }
+    List<PostTelegraphKeyPatTrainPageMessageVO> values = new ArrayList<>(dto.getValue().size());
+    int previousSort = -1;
+    for (PostTelegraphKeyPatTrainPageMessageVO value : dto.getValue()) {
+      if (value == null || value.getSort() == null || value.getSort() <= previousSort
+          || (value.getTrainId() != null && !Objects.equals(value.getTrainId(), dto.getId()))
+          || (value.getPageNumber() != null && !Objects.equals(value.getPageNumber(), dto.getPageNumber()))) {
+        throw new IllegalArgumentException("原始组必须有序且属于当前训练页");
+      }
+      List<String> body = stringArray(value.getValue());
+      List<String> times = stringArray(value.getTime());
+      stringArray(value.getKey());
+      if (body.size() != times.size()) {
+        throw new IllegalArgumentException("原始字符与事件时长数量不一致");
+      }
+      for (String time : times) {
+        if (Long.parseLong(time) < 0) {
+          throw new IllegalArgumentException("原始事件时长不能为负");
+        }
+      }
+      PostTelegraphKeyPatTrainPageMessageVO copy = new PostTelegraphKeyPatTrainPageMessageVO();
+      copy.setTrainId(dto.getId());
+      copy.setPageNumber(dto.getPageNumber());
+      copy.setSort(value.getSort());
+      copy.setKey(value.getKey());
+      copy.setValue(value.getValue());
+      copy.setTime(value.getTime());
+      values.add(copy);
+      previousSort = value.getSort();
+    }
+    return values;
+  }
+
+  private static long bodyCharacters(List<PostTelegraphKeyPatTrainPageMessageVO> values) {
+    long count = 0;
+    for (PostTelegraphKeyPatTrainPageMessageVO group : values) {
+      for (String token : stringArray(group.getValue())) {
+        if (!CONTROL_TOKENS.contains(token)) {
+          count += token.codePoints().filter(c -> !Character.isWhitespace(c)
+              && !Character.isSpaceChar(c) && !Character.isISOControl(c)).count();
+        }
+      }
+    }
+    return count;
+  }
+
+  private PostTelegraphKeyPatTrainVO toVO(PostTelegraphKeyPatTrainEntity entity) {
+    PostTelegraphKeyPatTrainVO vo = PojoUtils.convertOne(entity, PostTelegraphKeyPatTrainVO.class);
+    setMetadata(entity, vo);
+    return vo;
+  }
+
+  private void setMetadata(PostTelegraphKeyPatTrainEntity entity, PostTelegraphKeyPatTrainVO vo) {
+    vo.setProtocolVersion(entity.getProtocolVersion());
+    vo.setAttempt(entity.getAttempt());
+    vo.setServerElapsedMs(Math.max(0, elapsedAt(entity, LocalDateTime.now())));
+    List<PostTelegraphKeyPatTrainPageVO> pages = new ArrayList<>();
+    List<Integer> pageNumbers = new ArrayList<>();
+    if (Objects.equals(entity.getProtocolVersion(), 1)) {
+      for (PostTelegraphKeyPatTrainRawPageEntity raw : rawPageDao.findPages(entity.getId())) {
+        PostTelegraphKeyPatTrainPageVO page = new PostTelegraphKeyPatTrainPageVO();
+        setPageMetadata(entity, raw, page);
+        page.setMessageVO(rawValues(raw));
+        pages.add(page);
+        pageNumbers.add(raw.getPageNumber());
+      }
+    }
+    vo.setSavedPages(pages);
+    vo.setSavedPageNumbers(pageNumbers);
+  }
+
+  private void setPageMetadata(PostTelegraphKeyPatTrainEntity entity,
+      PostTelegraphKeyPatTrainRawPageEntity raw, PostTelegraphKeyPatTrainPageVO vo) {
+    vo.setProtocolVersion(entity.getProtocolVersion());
+    vo.setAttempt(entity.getAttempt());
+    vo.setServerElapsedMs(Math.max(0, elapsedAt(entity, LocalDateTime.now())));
+    vo.setSubmitted(raw != null);
+    vo.setSavedCaptureIntervals(raw == null ? List.of() : intervals(raw));
   }
 }

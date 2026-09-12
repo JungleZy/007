@@ -5,6 +5,7 @@ import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.MessageDeduct;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.score.SpeedDeduct;
+import com.nip.dto.score.TrainingRateUnit;
 import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
@@ -696,6 +697,10 @@ public class TickerPatUtils {
     PostTelegramTrainRule ret = new PostTelegramTrainRule();
     Map<String, Object> contentMap = JSONUtils.fromJson(content, new TypeToken<>() {
     });
+    Object rateUnit = contentMap.get("rateUnit");
+    if (rateUnit != null) {
+      ret.setRateUnit(TrainingRateUnit.valueOf(rateUnit.toString()));
+    }
     SpeedDeduct wpm = JSONUtils.fromJson(contentMap.get("wpm").toString(), SpeedDeduct.class);
     // 得到偏移量
     Integer skew = Integer.valueOf(contentMap.get("skew").toString());

@@ -17,6 +17,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @RegisterForReflection
 public class PostTelegramTrainRule {
+  private TrainingRateUnit rateUnit;
   /**
    * 偏移量
    */

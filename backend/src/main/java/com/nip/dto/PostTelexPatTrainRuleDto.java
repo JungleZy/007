@@ -1,5 +1,6 @@
 package com.nip.dto;
 
+import com.nip.dto.score.TrainingRateUnit;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @RegisterForReflection
 public class PostTelexPatTrainRuleDto {
+  private TrainingRateUnit rateUnit;
 
   /**
    * 速度

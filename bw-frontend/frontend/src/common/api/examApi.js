@@ -56,34 +56,18 @@ export const findExamPatTrainById = (data) => {
   })
 };
 
-export const beginExamTrainInfo = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/telegraphKeyPatTrainSynthetical/begin",
-    data
-  })
-};
+export const beginExamTrainInfo = (data, config) => { return axios({method: "post",
+url: "/api/telegraphKeyPatTrainSynthetical/begin",
+data, config}) }
 
-export const stopExamTrainInfo = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/telegraphKeyPatTrainSynthetical/stop",
-    data
-  })
-};
+export const stopExamTrainInfo = (data, config) => { return axios({method: "post",
+url: "/api/telegraphKeyPatTrainSynthetical/stop",
+data, config}) }
 
-export const goTopExamTrainInfo = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/telegraphKeyPatTrainSynthetical/goTo",
-    data
-  })
-};
+export const goTopExamTrainInfo = (data, config) => { return axios({method: "post",
+url: "/api/telegraphKeyPatTrainSynthetical/goTo",
+data, config}) }
 
-export const endExamTrainInfo = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/telegraphKeyPatTrainSynthetical/finish",
-    data
-  })
-};
+export const endExamTrainInfo = (data, config) => { return axios({method: "post",
+url: "/api/telegraphKeyPatTrainSynthetical/finish",
+data, config}) }

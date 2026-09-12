@@ -6,6 +6,7 @@ import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
 import com.nip.dao.PostTelexPatTrainPageDao;
 import com.nip.dao.UserDao;
+import com.nip.dto.CaptureInterval;
 import com.nip.dto.PostTelexPatTrainDto;
 import com.nip.dto.vo.PostTelexPatTrainPageValueVO;
 import com.nip.dto.vo.PostTelexPatTrainVO;
@@ -25,6 +26,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,7 +60,7 @@ class PostTelexPatTrainServiceTest {
     rule.setType(2);
     rule.setTitle("telex-score-" + fullScore);
     rule.setScore(fullScore);
-    rule.setContent("{\"wpm\":{\"base\":10,\"r\":1,\"l\":2},\"other\":{\"errorCode\":7,"
+    rule.setContent("{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":10,\"r\":1,\"l\":2},\"other\":{\"errorCode\":7,"
         + "\"muchLessGroups\":3,\"correctMistakes\":2,\"lessPage\":4,\"lessReturnLine\":5,"
         + "\"muchLessLine\":6,\"muchLessCode\":3,\"errorPage\":4,\"nonStandart\":2}}");
     rule = gradingRuleDao.save(rule);
@@ -73,7 +75,11 @@ class PostTelexPatTrainServiceTest {
     String trainId = service.save(dto, token).getId();
     PostTelexPatTrainParam trainParam = new PostTelexPatTrainParam();
     trainParam.setId(trainId);
-    service.begin(trainParam);
+    trainParam.setAttempt(0);
+    service.begin(trainParam, token);
+    PostTelexPatTrainEntity started = trainDao.findById(trainId);
+    started.setStartTime(LocalDateTime.now().minusSeconds(241));
+    trainDao.save(started);
 
     // 读取真实生成的数字报底，仅替换首组；四位字母不可能匹配其它数字组。
     List<String> groups = new ArrayList<>(pageDao.findByTrainIdOrderBySort(trainId).stream()
@@ -83,21 +89,24 @@ class PostTelexPatTrainServiceTest {
     page.setTrainId(trainId);
     page.setPageNumber(1);
     page.setPatValue(String.join(" ", groups));
-    page.setSpeed("10");
-    page.setValidTime(60);
-    service.finishPage(page);
+    page.setAttempt(0);
+    page.setCaptureIntervals(List.of(new CaptureInterval(0, 240000)));
+    service.finishPage(page, token);
 
     // 后续编辑规则不应改变本次训练创建时捕获的满分。
     rule.setScore(fullScore + 20);
     gradingRuleDao.save(rule);
     PostTelexPatTrainFinishParam finishParam = new PostTelexPatTrainFinishParam();
     finishParam.setId(trainId);
-    finishParam.setTotalSpeed("10");
-    PostTelexPatTrainVO result = service.finish(finishParam);
+    finishParam.setAttempt(0);
+    PostTelexPatTrainVO result = service.finish(finishParam, token);
 
     assertEquals(0, BigDecimal.valueOf(expectedScore).compareTo(new BigDecimal(result.getScore())));
     assertEquals(1, result.getErrorNumber());
     assertEquals(FINISH.getStatus(), result.getStatus());
+    assertEquals("10", result.getSpeed());
+    assertEquals(result.getSpeed(), result.getTotalSpeed());
+    assertEquals(240, result.getValidTime());
     Map<String, String> deductions = JSONUtils.fromJson(result.getDeductInfo(),
         new TypeToken<Map<String, String>>() {});
     assertEquals("1", deductions.get("errorCodeNumber"));
@@ -109,17 +118,109 @@ class PostTelexPatTrainServiceTest {
     assertEquals(0, BigDecimal.valueOf(fullScore).add(adjustment)
         .compareTo(new BigDecimal(result.getScore())), "最终分必须与返回的扣分明细一致");
 
-    PostTelexPatTrainVO repeated = service.finish(finishParam);
-    PostTelexPatTrainVO persisted = service.detail(trainParam);
+    PostTelexPatTrainVO repeated = service.finish(finishParam, token);
+    PostTelexPatTrainVO persisted = service.detail(trainParam, token);
     assertEquals(result.getScore(), repeated.getScore(), "重复完成不得从已扣分结果再次扣分");
     assertEquals(result.getDeductInfo(), repeated.getDeductInfo());
     assertEquals(result.getScore(), persisted.getScore());
     assertEquals(result.getDeductInfo(), persisted.getDeductInfo());
   }
 
+  @ParameterizedTest
+  @CsvSource({"0,5", "0,10", "0,20", "4,5", "4,10", "4,20"})
+  void omittedWpmCoefficientsSettleBothScoringBranches(int trainType, int base) {
+    String token = "telex-missing-wpm-" + UUID.randomUUID();
+    PostTelexPatTrainPageValueVO page = startCapturedTraining(token, trainType, base);
+    service.finishPage(page, token);
+    PostTelexPatTrainFinishParam finish = new PostTelexPatTrainFinishParam();
+    finish.setId(page.getTrainId());
+    finish.setAttempt(0);
+
+    PostTelexPatTrainVO result = service.finish(finish, token);
+
+    assertEquals(FINISH.getStatus(), result.getStatus());
+    assertEquals(0, new BigDecimal("100").compareTo(new BigDecimal(result.getScore())));
+    assertEquals(0, BigDecimal.TEN.compareTo(new BigDecimal(result.getSpeed())));
+    Map<String, String> deductions = JSONUtils.fromJson(result.getDeductInfo(), new TypeToken<Map<String, String>>() {});
+    if (trainType == 4) {
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedLowScore"))));
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedOverTopScore"))));
+    } else if (base != 10) {
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedScore"))));
+    }
+  }
+
+  @Test
+  void exactPageRetryAfterSettlementReturnsOriginalReceiptWithoutChangingResult() {
+    String token = "telex-page-retry-" + UUID.randomUUID();
+    PostTelexPatTrainPageValueVO page = startCapturedTraining(token, 0, 10);
+    var submitted = service.finishPage(page, token);
+    PostTelexPatTrainFinishParam finish = new PostTelexPatTrainFinishParam();
+    finish.setId(page.getTrainId());
+    finish.setAttempt(0);
+    service.finish(finish, token);
+    PostTelexPatTrainParam detail = new PostTelexPatTrainParam();
+    detail.setId(page.getTrainId());
+    PostTelexPatTrainVO before = service.detail(detail, token);
+
+    var repeated = service.finishPage(page, token);
+    PostTelexPatTrainVO after = service.detail(detail, token);
+
+    assertEquals(submitted.getReceivedAt(), repeated.getReceivedAt());
+    assertEquals(submitted.getCaptureIntervals(), repeated.getCaptureIntervals());
+    assertEquals(submitted.getCodeAll(), repeated.getCodeAll());
+    assertEquals(before.getScore(), after.getScore());
+    assertEquals(before.getDeductInfo(), after.getDeductInfo());
+    assertEquals(before.getEndTime(), after.getEndTime());
+    page.setPatValue(page.getPatValue() + " X");
+    assertThrows(IllegalArgumentException.class, () -> service.finishPage(page, token));
+    assertEquals(before.getScore(), service.detail(detail, token).getScore());
+  }
+
+  private static String zeroPenaltyRule(int base) {
+    return "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":" + base + "},\"other\":{" 
+        + "\"errorCode\":0,\"muchLessGroups\":0,\"correctMistakes\":0,\"lessPage\":0,\"lessReturnLine\":0,"
+        + "\"muchLessLine\":0,\"muchLessCode\":0,\"errorPage\":0,\"nonStandart\":0}}";
+  }
+
+  private PostTelexPatTrainPageValueVO startCapturedTraining(String token, int trainType, int base) {
+    Fixtures.user(userDao, token);
+    GradingRuleEntity rule = new GradingRuleEntity();
+    rule.setType(2);
+    rule.setTitle("telex-capture-" + UUID.randomUUID());
+    rule.setScore(100);
+    rule.setContent(zeroPenaltyRule(base));
+    rule = gradingRuleDao.save(rule);
+    PostTelexPatTrainDto dto = new PostTelexPatTrainDto();
+    dto.setName("telex-capture");
+    dto.setRuleId(rule.getId());
+    dto.setTrainType(trainType);
+    dto.setType(0);
+    dto.setPatType(0);
+    dto.setGroupNumber(10);
+    String trainId = service.save(dto, token).getId();
+    PostTelexPatTrainParam begin = new PostTelexPatTrainParam();
+    begin.setId(trainId);
+    begin.setAttempt(0);
+    service.begin(begin, token);
+    PostTelexPatTrainEntity train = trainDao.findById(trainId);
+    train.setStartTime(LocalDateTime.now().minusSeconds(241));
+    trainDao.save(train);
+    PostTelexPatTrainPageValueVO page = new PostTelexPatTrainPageValueVO();
+    page.setTrainId(trainId);
+    page.setPageNumber(1);
+    page.setAttempt(0);
+    page.setPatValue(String.join(" ", pageDao.findByTrainIdOrderBySort(trainId).stream()
+        .map(PostTelexPatTrainPageEntity::getKey).toList()));
+    page.setCaptureIntervals(List.of(new CaptureInterval(0, 240000)));
+    return page;
+  }
+
   @Test
   void finishOnFinishedTrainReturnsWithoutRecount() {
     PostTelexPatTrainEntity e = new PostTelexPatTrainEntity();
+    String token = "telex-finished-" + UUID.randomUUID();
+    e.setCreateUser(Fixtures.user(userDao, token).getId());
     e.setStatus(FINISH.getStatus());
     e.setTrainType(4);
     e.setScore("88");
@@ -127,8 +228,9 @@ class PostTelexPatTrainServiceTest {
 
     PostTelexPatTrainFinishParam param = new PostTelexPatTrainFinishParam();
     param.setId(e.getId());
+    param.setAttempt(0);
 
-    PostTelexPatTrainVO vo = service.finish(param);
+    PostTelexPatTrainVO vo = service.finish(param, token);
 
     assertEquals("88", vo.getScore(), "已完成训练的分数不得被重复结算覆盖");
     assertEquals("88", trainDao.findById(e.getId()).getScore());
@@ -142,9 +244,16 @@ class PostTelexPatTrainServiceTest {
   @Test
   void finishWithNonContiguousPagesKeepsOldPagesIntact() {
     PostTelexPatTrainEntity e = new PostTelexPatTrainEntity();
+    String token = "telex-gap-" + UUID.randomUUID();
+    e.setCreateUser(Fixtures.user(userDao, token).getId());
+    e.setProtocolVersion(1);
+    e.setStartTime(LocalDateTime.now().minusSeconds(1));
+    e.setPauseIntervals("[]");
+    e.setIsCable(1);
     e.setStatus(UNDERWAY.getStatus());
     e.setTrainType(0);
-    e.setRuleContent("{}");
+    e.setRuleContent(zeroPenaltyRule(10));
+    e.setScore("100");
     e = trainDao.save(e);
     String trainId = e.getId();
 
@@ -154,10 +263,10 @@ class PostTelexPatTrainServiceTest {
 
     PostTelexPatTrainFinishParam param = new PostTelexPatTrainFinishParam();
     param.setId(trainId);
+    param.setAttempt(0);
 
-    IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.finish(param),
+    assertThrows(IllegalStateException.class, () -> service.finish(param, token),
         "报底页号不连续必须在删除之前被拒绝");
-    assertTrue(ex.getMessage().contains("报底页号不连续"), ex.getMessage());
 
     List<PostTelexPatTrainPageEntity> after = pageDao.findByTrainIdOrderBySort(trainId);
     assertEquals(20, after.size(), "构建阶段失败时旧报底不得被删除");

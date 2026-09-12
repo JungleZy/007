@@ -13,6 +13,7 @@ import java.util.List;
 @Data
 @RegisterForReflection
 public class GeneralKeyPatUserInfoVO {
+  private Integer protocolVersion;
 
   private Integer isCable;
   private String userId;
@@ -74,6 +75,7 @@ public class GeneralKeyPatUserInfoVO {
    */
   @Schema(title = "有效时长")
   private Long duration;
+  private Long activeMillis;
 
   private Integer totalNumber;
   private Integer pageCount;

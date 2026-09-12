@@ -14,8 +14,10 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
+import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
+import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 import static com.nip.common.constants.BaseConstants.USER_ID;
 
@@ -41,9 +43,9 @@ public class GeneralTickerSocketController {
   @POST
   @Path("updateTrainStatus")
   @Operation(summary = "修改训练状态")
-  @RequestPass
-  public Response<?> updateTrainStatus(@RequestBody GeneralTickerPatTrainUpdateDto dto) {
-    trainService.updateStatus(dto);
+  public Response<?> updateTrainStatus(@RequestBody GeneralTickerPatTrainUpdateDto dto,
+      @RestHeader(TOKEN) String token) {
+    trainService.updateStatus(dto, token);
     return ResponseResult.success("ok");
   }
 }

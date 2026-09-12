@@ -48,6 +48,16 @@ public class GeneralKeyPatUserEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Integer id;
 
+  @Column(nullable = false)
+  private Integer attempt = 0;
+
+  private LocalDateTime captureStartedAt;
+
+  private Long activeMillis;
+
+  @Column(columnDefinition = "longtext", nullable = false)
+  private String capturePages = "{}";
+
   /**
    * 正确率
    */
@@ -56,6 +66,7 @@ public class GeneralKeyPatUserEntity {
   /**
    * 扣分详情
    */
+  @Column(columnDefinition = "longtext")
   private String deductInfo;
 
   /**
@@ -71,6 +82,7 @@ public class GeneralKeyPatUserEntity {
   /**
    * 统计信息
    */
+  @Column(columnDefinition = "longtext")
   private String statisticInfo;
 
   /**

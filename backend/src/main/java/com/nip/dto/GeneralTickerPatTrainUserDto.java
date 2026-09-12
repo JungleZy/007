@@ -30,4 +30,5 @@ public class GeneralTickerPatTrainUserDto {
   private Integer isFinish;
   private String userName;
   private String userImg;
+  private Long activeMillis;
 }

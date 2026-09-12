@@ -24,7 +24,6 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
-import java.util.Collections;
 import java.util.List;
 
 import static com.nip.common.constants.BaseConstants.TOKEN;
@@ -64,43 +63,43 @@ public class PostTelegramTrainController {
   @POST
   @Path("/detail")
   @Operation(summary = "详情")
-  public Response<PostTelegramTrainVO> detail(PostTelegramTrainQueryParam param) {
-    return ResponseResult.success((postTelegramTrainService.detail(param)));
+  public Response<PostTelegramTrainVO> detail(PostTelegramTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success((postTelegramTrainService.detail(param, token)));
   }
 
   @POST
   @Path("/findMessageBody")
   @Operation(summary = "根据训练id和报底编号查询报文内容")
-  public Response<PostTelegramTrainContentVO> findMessageBody(PostTelegramTrainFloorContentQueryParam param) {
-    return ResponseResult.success((postTelegramTrainService.findMessageBody(param)));
+  public Response<PostTelegramTrainContentVO> findMessageBody(PostTelegramTrainFloorContentQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success((postTelegramTrainService.findMessageBody(param, token)));
   }
 
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<PostTelegramTrainVO> begin(PostTelegramTrainQueryParam param) {
-    return ResponseResult.success((postTelegramTrainService.begin(param.getId())));
+  public Response<PostTelegramTrainVO> begin(PostTelegramTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success((postTelegramTrainService.begin(param.getId(), param.getAttempt(), token)));
   }
 
   @POST
   @Path("/printBottomReport")
   @Operation(summary = "打印报底——生成报底")
-  public Response<List<String>> printBottomReport(@RequestBody PostTelegramTrainQueryParam param) {
-    return ResponseResult.success(postTelegramTrainService.printBottomReport(param));
+  public Response<List<String>> printBottomReport(@RequestBody PostTelegramTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelegramTrainService.printBottomReport(param, token));
   }
 
   @POST
   @Path("/stop")
   @Operation(summary = "重置训练")
-  public Response<Void> stop(PostTelegramTrainQueryParam param) {
-    postTelegramTrainService.stop(param.getId());
+  public Response<Void> stop(PostTelegramTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    postTelegramTrainService.stop(param.getId(), param.getAttempt(), token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<PostTelegramTrainVO> finish(PostTelegramTrainFinishDto dto) {
+  public Response<PostTelegramTrainVO> finish(PostTelegramTrainFinishDto dto, @RestHeader(TOKEN) String token) {
     try {
       if (dto == null) {
         return ResponseResult.error(ResponseCode.PARAMS_ERROR);
@@ -108,13 +107,7 @@ public class PostTelegramTrainController {
       if (dto.getId() == null || dto.getId().isBlank()) {
         return ResponseResult.error(ResponseCode.PARAMS_ERROR);
       }
-      if (dto.getValidTime() == null || dto.getValidTime() < 0) {
-        dto.setValidTime(0);
-      }
-      if (dto.getFinishInfo() == null) {
-        dto.setFinishInfo(Collections.emptyList());
-      }
-      return ResponseResult.success(postTelegramTrainService.finish(dto));
+      return ResponseResult.success(postTelegramTrainService.finish(dto, token));
     } catch (IndexOutOfBoundsException e) {
       return ResponseResult.error(ResponseCode.PARAMS_ERROR, "数组越界错误", "数组越界错误");
     } catch (IllegalArgumentException e) {
@@ -127,22 +120,22 @@ public class PostTelegramTrainController {
   @POST
   @Path("/saveContentValue")
   @Operation(summary = "记录用户拍发时间")
-  public Response<Void> saveContentValue(PostTelegramTrainContentValueDto dto) {
-    postTelegramTrainService.saveContentValue(dto);
+  public Response<Void> saveContentValue(PostTelegramTrainContentValueDto dto, @RestHeader(TOKEN) String token) {
+    postTelegramTrainService.saveContentValue(dto, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/addContentValue")
   @Operation(summary = "追加content")
-  public Response<List<Integer>> addContentValue(PostTelegramTrainAddContentValueVO vo) {
-    return ResponseResult.success((postTelegramTrainService.addContentValue(vo)));
+  public Response<List<Integer>> addContentValue(PostTelegramTrainAddContentValueVO vo, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success((postTelegramTrainService.addContentValue(vo, token)));
   }
 
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(postTelegramTrainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelegramTrainService.delete(trainId, token));
   }
 }

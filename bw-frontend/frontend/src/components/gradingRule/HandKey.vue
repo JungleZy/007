@@ -20,6 +20,12 @@
     </div>
     <div class="h-full grading-list overflow-auto" style="width: calc(100% - 200px)">
       <div class="w-full pl-1 pr-1 layout-left-center" v-if="pickRuleIndex > -1">
+        <a-alert v-if="ruleList[pickRuleIndex].content.rateUnit !== 'CHARACTERS_PER_MINUTE'" class="w-full" type="warning" show-icon message="旧规则单位未确认或不匹配。请逐项核对速度及每单位加扣分，必要时手动修改数值，再确认单位并提交；系统不会自动乘除4。" />
+        <a-row class="w-full">
+          <a-checkbox :checked="ruleList[pickRuleIndex].content.rateUnit === 'CHARACTERS_PER_MINUTE'" @change="event => ruleList[pickRuleIndex].content.rateUnit = event.target.checked ? 'CHARACTERS_PER_MINUTE' : undefined">
+            已核对速度及每单位加扣分，确认使用字符/分钟（提交规则后生效）
+          </a-checkbox>
+        </a-row>
         <a-row class="w-full">
           <a-col :span="3" class="layout-right-center pr-1">规则名称</a-col>
           <a-col :span="5" class="layout-left-center">
@@ -34,33 +40,26 @@
           <a-col :span="5" class="layout-left-center">
             <a-switch checked-children="是" un-checked-children="否" v-model:checked="ruleList[pickRuleIndex].isDefault" style="margin-left: 6px" />
           </a-col>
-          <!--<a-col :span="3" class="layout-right-center pr-1">码率单位</a-col>
-          <a-col :span="5" class="layout-left-center">
-            <a-switch checked-children="WPM" un-checked-children="码/分" :disabled="wpmTOmm" v-model:checked="ruleList[pickRuleIndex].content.wpm.type" @change="changeSpeedUnit"/>
-          </a-col>-->
         </a-row>
         <a-row class="w-full">
           <a-col :span="3" class="layout-right-center pr-1">设定速度</a-col>
           <a-col :span="4" class="layout-left-center">
             <a-input-number
               :min="1"
-              :max="ruleList[pickRuleIndex].content.wpm.type ? 50 : 150"
+              :max="150"
               :step="1"
               style="width: 100%"
               :precision="0"
-              :formatter="value => `${value}` + (ruleList[pickRuleIndex].content.wpm.type ? 'WPM' : '码/分')"
-              :parser="value => value.replace(ruleList[pickRuleIndex].content.wpm.type ? 'WPM' : '码/分', '')"
+              :formatter="value => `${value}字符/分钟`"
+              :parser="value => value.replace('字符/分钟', '')"
               v-model:value="ruleList[pickRuleIndex].content.wpm.base"
             />
           </a-col>
           <a-col :span="1" class="layout-right-center cursor-pointer-def">
             <a-tooltip class="layout-right-center" color="orange">
               <template #title>
-                WPM：每分钟包含的无间隔点的个数除以50<br />
-                公式：<br />
-                (1000÷X)×60÷50=Y<br />
-                X：点长度，单位为毫秒<br />
-                Y：发报速度，单位WPM
+                评分速度按有效采集时长计算，单位为字符/分钟。<br />
+                低一扣、高一加均按每字符/分钟的差值计算；不是播放WPM。
               </template>
               <QuestionCircleOutlined style="color: orange" />
             </a-tooltip>
@@ -426,12 +425,11 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, onMounted } from 'vue'
 import * as gr from '../../common/api/GradingRuleApi.js'
 import { PlusOutlined, QuestionCircleOutlined, StopOutlined, CheckOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
 import { deepClone } from '../../common/utils/Utils.js'
-const wpmTOmm = inject('wpmTOmm')
 const loading = ref(false)
 const ruleList = ref([])
 const pickRuleIndex = ref(-1)
@@ -470,6 +468,7 @@ const addGradingRuleInfo = () => {
     status: 0,
     isDefault: false,
     content: {
+      rateUnit: 'CHARACTERS_PER_MINUTE',
       wpm: {
         type: false,
         base: 60,
@@ -560,9 +559,6 @@ const pickGradingRuleInfo = index => {
     }
   })
 }
-const changeSpeedUnit = () => {
-  ruleList.value[pickRuleIndex.value].content.wpm.base = ruleList.value[pickRuleIndex.value].content.wpm.type ? 10 : 60
-}
 const js = type => {
   let content = ruleList.value[pickRuleIndex.value].content
   if (type === 0) {
@@ -589,6 +585,10 @@ const handleCancel = () => {
 }
 const handleSubmit = () => {
   let data = deepClone(ruleList.value[pickRuleIndex.value])
+  if (data.content.rateUnit !== 'CHARACTERS_PER_MINUTE') {
+    message.warning('请先核对速度及每单位加扣分，并确认字符/分钟单位后重新提交规则')
+    return
+  }
   data.isDefault = data.isDefault ? 0 : 1
   data.content = JSON.stringify(data.content)
   gr.saveGradingRule(data).then(res => {

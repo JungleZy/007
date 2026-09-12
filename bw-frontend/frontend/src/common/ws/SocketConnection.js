@@ -14,12 +14,13 @@ export default class SocketConnection {
     this.heartbeatTimer = null
   }
 
-  connect(url, onMessage, onOpen) {
+  connect(url, onMessage, onOpen, onState) {
     this.close()
     this.active = true
     this.url = url
     this.onMessage = onMessage
     this.onOpen = onOpen
+    this.onState = onState
     this.open(this.generation)
   }
 
@@ -29,6 +30,7 @@ export default class SocketConnection {
     try {
       socket = new WebSocket(this.url)
     } catch (error) {
+      this.onState?.('offline')
       this.reconnect(generation)
       return
     }
@@ -37,6 +39,7 @@ export default class SocketConnection {
     let lastReply = Date.now()
     const disconnected = () => {
       if (!current()) return
+      this.onState?.('offline')
       this.releaseSocket()
       this.reconnect(generation)
     }
@@ -57,6 +60,7 @@ export default class SocketConnection {
       if (!current()) return
       lastReply = Date.now()
       this.retryCount = 0
+      this.onState?.('open')
       this.onOpen?.(event)
     }
     socket.onclose = disconnected
@@ -99,6 +103,7 @@ export default class SocketConnection {
     this.reconnectTimer = null
     this.retryCount = 0
     this.releaseSocket()
+    this.onState?.('closed')
   }
 
   send(message) {

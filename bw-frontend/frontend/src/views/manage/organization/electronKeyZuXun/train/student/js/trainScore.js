@@ -1,4 +1,4 @@
-import {ref, onMounted, onUnmounted, watch, nextTick} from "vue";
+import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue";
 import {useRoute} from "vue-router"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
 import {partTimeFormatInfo,sum} from "../../../../../../../common/utils/Utils.js";
@@ -30,6 +30,7 @@ export default function telegramList(showChart,selfId) {
     },
     telegraph: null,
   });
+  const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '四码组/分' : '码/分（历史）');
   const initSymbol = ref({
     alter: '001100',
     next: '0010,11',
@@ -83,16 +84,10 @@ export default function telegramList(showChart,selfId) {
           }else {
             scoreData.value.pag = Math.ceil(scoreData.value.totalNumber/100);
           }
-          scoreData.value.duration = partTimeFormatInfo(scoreData.value.duration*1000, 'number');
+          scoreData.value.duration = partTimeFormatInfo(scoreData.value.activeMillis ?? scoreData.value.duration*1000, 'number');
           scoreData.value.duration = scoreData.value.duration.replace(/：/g, ':');
           trendLogKeyData.value = scoreData.value.content;
-          patTotal.value = scoreData.value.pageAnalyzeVOS;
-          if (scoreData.value.pageAnalyzeVOS.length < scoreData.value.pag) {
-            const num = (scoreData.value.pag - scoreData.value.pageAnalyzeVOS.length);
-            for(let p=0;p<num;p++) {
-              patTotal.value.push({patNumber:0,totalTime: 1})
-            }
-          }
+          patTotal.value = scoreData.value.pageAnalyzeVOS.map((item, index) => ({...item, pageNumber: item.pageNumber || index + 1})).sort((a, b) => a.pageNumber - b.pageNumber);
           resolve.value = [];
           totalTelegraghMsg();
         }
@@ -230,9 +225,9 @@ export default function telegramList(showChart,selfId) {
   const renderLineChart = () => {
     let data = [],speed = 0,xTxt = [];
     patTotal.value.map((item,i) => {
-      speed = Number(parseFloat(item.patNumber/(item.totalTime/60/1000) / 4).toFixed(0));
-      xTxt.push('第'+(i+1)+'页');
-      data.push(isNaN(speed)?0:speed)
+      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime / 4).toFixed(0)) : 0;
+      xTxt.push('第'+item.pageNumber+'页');
+      data.push(speed)
     });
 
     nextTick(()=>{
@@ -254,7 +249,7 @@ export default function telegramList(showChart,selfId) {
           borderColor: '#0d4c93',
           padding: [5,10],
           textStyle: {color: '#6ebdff', fontSize: 12},
-          formatter: '<div class="tooltipItem"><div>{b0}码率：</div><div>{c0}'+' 组/分'+'</div></div>'
+          formatter: '<div class="tooltipItem"><div>{b0}码率：</div><div>{c0} '+(scoreData.value.protocolVersion === 1 ? speedUnit.value : '组/分（历史）')+'</div></div>'
         },
         xAxis: {
           type: 'category',
@@ -379,7 +374,7 @@ export default function telegramList(showChart,selfId) {
 
 
   return {
-    scoreData,loading,patHairTrendBoxRef,trendLogKeyData,resolve,moreLine,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,resolve,moreLine,switchTelegram,seeCurrKeysHairTrend
   }
 }
 

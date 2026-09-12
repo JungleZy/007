@@ -57,7 +57,11 @@ public class GeneralKeyPatEntity {
   /**
    * 评分规则内容
    */
+  @Column(columnDefinition = "longtext")
   private String ruleContent;
+
+  @Column(nullable = false)
+  private Integer protocolVersion = 1;
 
   /**
    * 创建人UID
@@ -81,7 +85,7 @@ public class GeneralKeyPatEntity {
 
   /**
    * 训练状态
-   * 0未开始，1，进行中，2已完成
+   * 0未开始，1进行中，2已完成，3收尾补交
    */
   private Integer status;
 

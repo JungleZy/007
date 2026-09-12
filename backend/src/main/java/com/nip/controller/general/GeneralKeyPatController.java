@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
+import static com.nip.common.constants.BaseConstants.ATTEMPT;
 
 @JWT
 @Path("/generalKeyPat")
@@ -91,24 +92,26 @@ public class GeneralKeyPatController {
   @POST
   @Path("updateTrainStatus")
   @Operation(summary = "修改训练状态")
-  public Response<?> updateTrainStatus(@RequestBody GeneralKeyPathUpdateStatusParam param) {
-    patTrainService.updateStatus(param.getTrainId(), param.getStatus());
+  public Response<?> updateTrainStatus(@RequestBody GeneralKeyPathUpdateStatusParam param,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.updateStatus(param.getTrainId(), param.getStatus(), token);
     return ResponseResult.success("");
   }
 
   @POST
   @Path("finish")
   @Operation(summary = "完成训练")
-  public Response<List<GeneralKeyPatUserInfoVO>> finish(@RequestBody GeneralKeyPatFinishDto vo) {
-    return ResponseResult.success(patTrainService.finish(vo));
+  public Response<List<GeneralKeyPatUserInfoVO>> finish(@RequestBody GeneralKeyPatFinishDto vo,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.finish(vo, token));
   }
 
   @POST
   @Path("/getPage")
   @Operation(summary = "获取指定页得content")
-  public Response<PostTelegraphKeyPatTrainPageVO> getPage(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult
-        .success(patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId()));
+  public Response<PostTelegraphKeyPatTrainPageVO> getPage(@RequestBody GeneralKeyPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId(), token));
   }
 
   @POST
@@ -172,16 +175,17 @@ public class GeneralKeyPatController {
   @GET
   @Path("/startTrain")
   @Operation(summary = "用户开始训练")
-  public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
-    patTrainService.startTrain(trainId, token);
+  public Response<Void> startTrain(@RestQuery(TRAIN_ID) Integer trainId, @RestQuery(ATTEMPT) Integer attempt,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.startTrain(trainId, attempt, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/reset")
   @Operation(summary = "重置当前学员的电子键训练数据")
-  public Response<Void> reset(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
-    patTrainService.reset(param.getTrainId(), token);
+  public Response<Void> reset(@RequestBody GeneralKeyPatFinishDto param, @RestHeader(TOKEN) String token) {
+    patTrainService.reset(param.getTrainId(), param.getAttempt(), token);
     return ResponseResult.success();
   }
 

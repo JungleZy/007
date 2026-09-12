@@ -1,5 +1,8 @@
 package com.nip.dto.vo.simulation.tickerPat;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
+import com.nip.dto.CaptureInterval;
 import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainContentAddParam;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
@@ -15,10 +18,9 @@ import java.util.List;
 @Data
 @RegisterForReflection
 public class GeneralTickerPatTrainContentValueVO {
-
-
-  //@ApiModelProperty(value = "用户id")
-  private String userId;
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
+  private List<CaptureInterval> captureIntervals;
 
 
   /**
@@ -47,15 +49,4 @@ public class GeneralTickerPatTrainContentValueVO {
   private String finishInfo;
 
 
-  //@ApiModelProperty(value = "有效时长",position = 2)
-  private Integer validTime;
-
-  //@ApiModelProperty(value = "速率",position = 3)
-  private String speed;
-
-  //@ApiModelProperty(value = "错误个数",position = 4)
-  private Integer errorNumber;
-
-  //@ApiModelProperty(value = "正确率",position = 5)
-  private String accuracy;
 }

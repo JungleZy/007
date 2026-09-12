@@ -1,5 +1,7 @@
 package com.nip.dto;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
@@ -25,6 +27,7 @@ public class PostTelegramTrainContentValueDto {
    * 报底页数
    */
   //@ApiModelProperty(value = "报底页数",position = 2)
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
   private Integer floorNumber;
 
   /**
@@ -40,18 +43,7 @@ public class PostTelegramTrainContentValueDto {
   //@ApiModelProperty(value = "完成信息",position = 5)
   private String finishInfo;
 
-
-  //@ApiModelProperty(value = "有效时长",position = 2)
-  private Integer validTime;
-
-  //@ApiModelProperty(value = "速率",position = 3)
-  private String speed;
-
-  //@ApiModelProperty(value = "错误个数",position = 4)
-  private Integer errorNumber;
-
-  //@ApiModelProperty(value = "正确率",position = 5)
-  private String accuracy;
-
-
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
+  private List<CaptureInterval> captureIntervals;
 }

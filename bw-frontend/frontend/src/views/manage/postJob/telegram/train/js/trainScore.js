@@ -1,4 +1,4 @@
-import {ref, onMounted, onUnmounted, watch, nextTick} from "vue";
+import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue";
 import {useRoute} from "vue-router"
 import useMorse from "../../../../../../common/mixin/useMorse.js";
 import {partTimeFormatInfo,sum} from "../../../../../../common/utils/Utils.js";
@@ -29,6 +29,8 @@ export default function telegramList(showChart) {
     },
     telegraph: null,
   });
+  const speedUnit = computed(() => scoreData.value.protocolVersion === 1
+    ? '字符/分' : (scoreData.value.ruleContent?.wpm?.type ? 'wpm' : '码/分') + '（历史）');
   const initSymbol = ref({
     alter: '001100',
     next: '0010,11',
@@ -65,7 +67,7 @@ export default function telegramList(showChart) {
           scoreData.value.ruleContent = JSON.parse(scoreData.value.ruleContent);
           scoreData.value.statisticInfo = JSON.parse(scoreData.value.statisticInfo);
           scoreData.value.standards = scoreData.value.standards.map(item => JSON.parse(item));
-          scoreData.value.validTime = partTimeFormatInfo(scoreData.value.validTime, 'number');
+          scoreData.value.validTime = partTimeFormatInfo(scoreData.value.activeMillis ?? scoreData.value.validTime, 'number');
           scoreData.value.validTime = scoreData.value.validTime.replace(/：/g, ':');
           short.value = (scoreData.value.type===1?'letter':scoreData.value.type===2?'mix':scoreData.value.codeSort?'long':'short');
           trendLogKeyData.value = [];
@@ -403,21 +405,12 @@ export default function telegramList(showChart) {
    * 渲染拍发码率折线图
    */
   const renderLineChart = () => {
-    let data = [],xTxt = [],_data = JSON.parse(scoreData.value.speedLog);
-    _data.map((item,i) => {
-      if (i < scoreData.value.pag) {
-        xTxt.push('第'+(i+1)+'页');
-        data.push(Number(item))
-      }
-    });
-    if (scoreData.value.pag > _data.length) {
-      for(let p=0; p< scoreData.value.pag; p++) {
-        if (p >= _data.length) {
-          xTxt.push('第'+(p+1)+'页');
-          data.push(0)
-        }
-      }
-    }
+    const pages = scoreData.value.protocolVersion === 1
+      ? scoreData.value.pageAnalyzeVOS.map(item => ({pageNumber: item.pageNumber, speed: item.totalTime > 0 ? item.patNumber * 60000 / item.totalTime : 0}))
+      : JSON.parse(scoreData.value.speedLog || '[]').map((speed, index) => ({pageNumber: index + 1, speed: Number(speed)}))
+    pages.sort((a, b) => a.pageNumber - b.pageNumber)
+    const xTxt = pages.map(item => '第' + item.pageNumber + '页')
+    const data = pages.map(item => Number(item.speed.toFixed(0)))
 
     nextTick(()=>{
       let xian=document.getElementById("lineChart")
@@ -438,7 +431,7 @@ export default function telegramList(showChart) {
           borderColor: '#0d4c93',
           padding: [5,10],
           textStyle: {color: '#6ebdff', fontSize: 12},
-          formatter: '<div class="tooltipItem"><div>{b0}码率：</div><div>{c0}'+(scoreData.value.ruleContent.wpm.type?' wpm':' 码/分')+'</div></div>'
+          formatter: '<div class="tooltipItem"><div>{b0}码率：</div><div>{c0} '+speedUnit.value+'</div></div>'
         },
         xAxis: {
           type: 'category',
@@ -525,7 +518,7 @@ export default function telegramList(showChart) {
 
 
   return {
-    scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend
   }
 }
 

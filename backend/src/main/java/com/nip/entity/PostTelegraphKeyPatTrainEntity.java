@@ -25,6 +25,12 @@ public class PostTelegraphKeyPatTrainEntity {
   @GeneratedValue(strategy = GenerationType.UUID)
   private String id;
 
+  @Column(nullable = false)
+  private Integer protocolVersion = 0;
+  @Column(nullable = false)
+  private Integer attempt = 0;
+  private BigDecimal fullScore;
+
   /**
    * 标题
    */
@@ -98,11 +104,13 @@ public class PostTelegraphKeyPatTrainEntity {
   /**
    * 评分规则
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String ruleContent;
 
   /**
    * 扣分详情
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String deductInfo;
 
   /**

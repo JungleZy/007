@@ -58,6 +58,29 @@ public class PostTelexPatTrainVO {
   @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
   private LocalDateTime startTime;
 
+  @Schema(title = "采集协议版本，0为历史记录，1为原始采集协议")
+  private int protocolVersion;
+
+  @Schema(title = "训练轮次")
+  private int attempt;
+
+  @Schema(title = "相对本轮开始时间的服务端已过毫秒数")
+  private long serverElapsedMs;
+
+  @Schema(title = "倒计时秒数，null表示不限时")
+  private Integer countdownSeconds;
+
+  @Schema(title = "权威剩余毫秒数，暂停时冻结，null表示不限时")
+  private Long remainingMs;
+
+  @Schema(title = "服务端采集截止时间")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss.SSS", timezone = "GMT+8")
+  private LocalDateTime deadline;
+
+  @Schema(title = "显式暂停开始时间")
+  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss.SSS", timezone = "GMT+8")
+  private LocalDateTime pausedAt;
+
   /**
    * 结束时间
    */
@@ -144,5 +167,23 @@ public class PostTelexPatTrainVO {
    */
   @Schema(title = "平均速率")
   private String totalSpeed;
+
+  public PostTelexPatTrainVO() {
+  }
+
+  public PostTelexPatTrainVO(String id, String name, Integer isCable, Integer type,
+      Integer status, String speed, String totalSpeed, Integer validTime, String score,
+      Integer groupNumber) {
+    this.id = id;
+    this.name = name;
+    this.isCable = isCable;
+    this.type = type;
+    this.status = status;
+    this.speed = speed;
+    this.totalSpeed = totalSpeed;
+    this.validTime = validTime;
+    this.score = score;
+    this.groupNumber = groupNumber;
+  }
 
 }

@@ -9,6 +9,7 @@ import * as echarts from 'echarts'
 
 export default function telegramList(patHairTrendBoxRef) {
   const loading = ref(true)
+  const scoreReady = ref(false)
   const route = useRoute()
   const scoreData = ref({
     trainId: '',
@@ -33,82 +34,51 @@ export default function telegramList(patHairTrendBoxRef) {
     codeAll: [],
     nextCode: []
   })
-  onMounted(() => {
-    if (route.query.id && route.query.id !== '') {
+  const loadScore = async () => {
+    if (!route.query.id) { loading.value = false; return }
+    loading.value = true
+    scoreReady.value = false
+    try {
       scoreData.value.trainId = route.query.id
-      getTelexTrainByID({
-        id: scoreData.value.trainId
-      }).then(res => {
-        loading.value = false
-        if (res.code === 200) {
-          let arr = formatData(res.data.existPage)
-          res.data.codeAll.sort((a, b) => a.pageNumber-b.pageNumber)
-          scoreData.value.content = arr.slice(0, 100)
-          scoreData.value.nextContent = arr.slice(100, 200)
-
-          scoreData.value.errorNumber = res.data.errorNumber
-          scoreData.value.speed = res.data.totalSpeed
-          scoreData.value.accuracy = parseInt(res.data.accuracy)
-          scoreData.value.validTime = res.data.validTime
-          scoreData.value.score = res.data.score
-          scoreData.value.deductInfo = JSON.parse(res.data.deductInfo)
-          scoreData.value.change = res.data.change
-          scoreData.value.name = res.data.name
-          if(res.data.isCable===1){
-            page.value.pageAll = res.data.pageNumber
-          }else {
-            page.value.pageAll = Math.ceil(res.data.groupNumber / 100)
-          }
-
-
-          if (res.data.codeAll.length > 0 && res.data.codeAll[0].patValue) {
-            testData.value.codeAll = res.data.codeAll[0].patValue
-          }
-          if (res.data.codeAll.length > 1 && res.data.codeAll[1].patValue) {
-            testData.value.nextCode = res.data.codeAll[1].patValue
-          }
-
-          // testData.value.pagecode.forEach(item=>{
-          //   pagecode.value.push(JSON.parse(JSON.stringify(item)))
-          // })
-        }
+      const res = await getTelexTrainByID({ id: route.query.id })
+      if (res.code !== 200) throw new Error(res.message || '成绩读取失败')
+      if (res.data.status !== 3) throw new Error('训练尚未完成确认，请返回训练页重试提交')
+      Object.assign(scoreData.value, {
+        protocolVersion: res.data.protocolVersion,
+        errorNumber: res.data.errorNumber, speed: res.data.totalSpeed,
+        accuracy: Number(res.data.accuracy), validTime: res.data.validTime,
+        score: res.data.score, deductInfo: JSON.parse(res.data.deductInfo || '{}'),
+        change: res.data.change, name: res.data.name
       })
+      page.value.pageAll = res.data.isCable === 1 ? res.data.pageNumber : Math.ceil(res.data.groupNumber / 100)
+      const first = await apiPostTelexPatTrainGetPage({ pageNumber: 1, trainId: route.query.id })
+      if (first.code !== 200) throw new Error(first.message || '成绩页面读取失败')
+      scoreData.value.content = formatData(first.data.pageVo)
+      testData.value.codeAll = first.data.codeAll
+      page.value.current = 1
+      scoreReady.value = true
+    } catch (error) {
+      message.error(`${error.message || '成绩读取失败'}，请点击重新加载`)
+    } finally {
+      loading.value = false
     }
-  })
+  }
+  onMounted(loadScore)
   const pageTurn = async num => {
-    if (num == 1) {
-      if (page.value.current == page.value.pageAll) {
-        return false
-      }
-      page.value.current++
-      scoreData.value.preContent = deepClone(scoreData.value.content)
-      scoreData.value.content = deepClone(scoreData.value.nextContent)
-      testData.value.preCode = deepClone(testData.value.codeAll)
-      testData.value.codeAll = deepClone(testData.value.nextCode)
-    } else {
-      if (page.value.current == 1) {
-        return false
-      }
-      page.value.current--
-      scoreData.value.nextContent = deepClone(scoreData.value.content)
-      scoreData.value.content = deepClone(scoreData.value.preContent)
-      testData.value.nextCode = deepClone(testData.value.codeAll)
-      testData.value.codeAll = deepClone(testData.value.preCode)
+    const target = page.value.current + num
+    if (loading.value || target < 1 || target > page.value.pageAll) return
+    loading.value = true
+    try {
+      const res = await apiPostTelexPatTrainGetPage({ pageNumber: target, trainId: scoreData.value.trainId })
+      if (res.code !== 200) throw new Error(res.message || '成绩页面读取失败')
+      scoreData.value.content = formatData(res.data.pageVo)
+      testData.value.codeAll = res.data.codeAll
+      page.value.current = target
+    } catch (error) {
+      message.error(`${error.message || '成绩页面读取失败'}，页码未变，请重新翻页`)
+    } finally {
+      loading.value = false
     }
-    let number = page.value.current + num
-    if (number > page.value.pageAll || number < 1) return false
-    const res = await apiPostTelexPatTrainGetPage({
-      pageNumber: number,
-      trainId: scoreData.value.trainId
-    })
-    if (num == 1) {
-      scoreData.value.nextContent =formatData(res.data.pageVo)
-      testData.value.nextCode = res.data.codeAll
-    } else {
-      scoreData.value.preContent = formatData(res.data.pageVo)
-      testData.value.preCode = res.data.codeAll
-    }
-    return false
   }
   //格式化数据
   const formatData = (data)=>{
@@ -137,26 +107,6 @@ export default function telegramList(patHairTrendBoxRef) {
     return arr
   }
 
-  //获取指定分页低报
-  const getPostTelexPatTrainGetPage = num => {
-    // setTimeout(() => {
-    //   computedCharts()
-    // }, 1000)
-    let number = page.value.current + num
-    if (number > page.value.pageAll || number < 1) return
-    apiPostTelexPatTrainGetPage({
-      pageNumber: number,
-      trainId: scoreData.value.trainId
-    }).then(res => {
-      if (num == 1) {
-        scoreData.value.nextContent = res.data.pageVo
-        testData.value.nextCode = res.data.codeAll
-      } else {
-        scoreData.value.preContent = res.data.pageVo
-        testData.value.preCode = res.data.codeAll
-      }
-    })
-  }
   const showChart = ref('total')
 
   /**
@@ -172,6 +122,8 @@ export default function telegramList(patHairTrendBoxRef) {
     })
   }
   return {
+    loadScore,
+    scoreReady,
     scoreData,
     loading,
     page,

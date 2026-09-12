@@ -97,7 +97,7 @@ class GeneralKeyPatResetTest {
     more.setMoreLine("[]");
     moreDao.saveAndFlush(more);
 
-    service.reset(train.getId(), token);
+    service.reset(train.getId(), 0, token);
 
     GeneralKeyPatUserEntity reset = userDaoByTrain.findByUserIdAndTrainId(user.getId(), train.getId());
     assertEquals(0, reset.getIsFinish());

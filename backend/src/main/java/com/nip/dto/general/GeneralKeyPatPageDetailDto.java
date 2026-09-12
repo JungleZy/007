@@ -10,7 +10,7 @@ public class GeneralKeyPatPageDetailDto {
     /**
      * 报底ID
      */
-    private Integer id;
+    private String id;
 
     /**
      * 页码

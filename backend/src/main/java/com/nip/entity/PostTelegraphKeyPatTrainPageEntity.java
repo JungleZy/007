@@ -30,17 +30,19 @@ public class PostTelegraphKeyPatTrainPageEntity {
   /**
    * 生成得key
    */
-  @Column(name = "`key`")
+  @Column(name = "`key`", columnDefinition = "LONGTEXT")
   private String key;
 
   /**
    * 用户拍发得内容
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String value;
 
   /**
    * 拍发得时间
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String time;
 
   /**

@@ -1,6 +1,7 @@
 package com.nip.dto.vo;
 
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
+import com.nip.dto.CaptureInterval;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,6 +20,11 @@ import java.util.List;
 @Accessors(chain = true)
 //@ApiModel(value = "手键拍发报文VO")
 public class PostTelegramTrainContentVO {
+  private Integer protocolVersion;
+  private Integer attempt;
+  private long serverElapsedMs;
+  private boolean submitted;
+  private List<CaptureInterval> savedCaptureIntervals;
 
   //@ApiModelProperty(value = "报底内容",position = 1)
   private String messageBody;

@@ -21,8 +21,8 @@
               <template #duration="{ text }">
                 {{ text ? partTimeFormatInfo(parseInt(text * 1000), 'chinese') : '--' }}
               </template>
-              <template #totalSpeed="{ text }">
-                {{ text == null ? '--' : text + '码/分' }}
+              <template #totalSpeed="{ text, record }">
+                {{ text == null ? '--' : text + (record.protocolVersion === 1 ? '字符/分' : '（历史原口径）') }}
               </template>
               <template #score="{ record }">
                 {{ record.status == 3?record.score:"100" }}

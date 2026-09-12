@@ -3,7 +3,8 @@
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
-    <div class="main w-full h-full">
+    <a-button style="position: absolute; right: 16px; top: 8px; z-index: 2" :disabled="loading" @click="loadScore">重新加载</a-button>
+    <div v-if="scoreReady" class="main w-full h-full">
       <div class="main_t">
         <div class="dataBox">
           <div class="top">
@@ -41,7 +42,7 @@
           </div>
           <div class="chartBox">
             <div class="tabs">
-              <div :class="{ 'tab colu': true, on: showChart == 'total' }" @click="changeChart('total')">
+              <div :class="{ 'tab colu': true, on: showChart == 'total' }" @click="showChart = 'total'">
                 <img :src="chartIcoOn3" v-show="showChart == 'total'" class="ico" />
                 <img :src="chartIco3" v-show="showChart != 'total'" class="ico" />
                 统计
@@ -57,7 +58,7 @@
                 <template v-if="scoreData.deductInfo">
                   <div class="row">
                     <div class="item lab full">码率</div>
-                    <div class="item">{{ scoreData.speed?scoreData.speed:0 }} 组/分</div>
+                    <div class="item">{{ scoreData.speed || 0 }} {{ scoreData.protocolVersion === 1 ? '字符/分' : '（历史原口径）' }}</div>
                     <div class="item">{{ scoreData.deductInfo.speedScore?scoreData.deductInfo.speedScore*1:'--' }} 分</div>
                   </div>
                   <div class="row">
@@ -280,7 +281,7 @@
   const selectMenu = index => {
     activeMenu.value = index
   }
-  const { scoreData, loading, page, testData, pageTurn, changeChart, showChart, situaData } = trainScore(patHairTrendBoxRef)
+  const { scoreData, loading, loadScore, scoreReady, page, testData, pageTurn, showChart, situaData } = trainScore(patHairTrendBoxRef)
 </script>
 <style scoped lang="less">
   @import "../../../../../common/styles/css/score";

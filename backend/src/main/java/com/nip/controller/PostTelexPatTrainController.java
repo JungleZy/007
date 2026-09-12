@@ -61,43 +61,63 @@ public class PostTelexPatTrainController {
   @POST
   @Path("/detail")
   @Operation(summary = "详情")
-  public Response<PostTelexPatTrainVO> detail(PostTelexPatTrainParam param) {
-    return ResponseResult.success(postTelexPatTrainService.detail(param));
+  public Response<PostTelexPatTrainVO> detail(PostTelexPatTrainParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.detail(param, token));
   }
 
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<PostTelexPatTrainVO> begin(PostTelexPatTrainParam param) {
-    return ResponseResult.success(postTelexPatTrainService.begin(param));
+  public Response<PostTelexPatTrainVO> begin(PostTelexPatTrainParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.begin(param, token));
+  }
+
+  @POST
+  @Path("/pause")
+  @Operation(summary = "暂停训练")
+  public Response<PostTelexPatTrainVO> pause(PostTelexPatTrainParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.pause(param, token));
+  }
+
+  @POST
+  @Path("/resume")
+  @Operation(summary = "恢复训练")
+  public Response<PostTelexPatTrainVO> resume(PostTelexPatTrainParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.resume(param, token));
+  }
+
+  @POST
+  @Path("/reset")
+  @Operation(summary = "重置训练轮次并保留报底")
+  public Response<PostTelexPatTrainVO> reset(PostTelexPatTrainParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.reset(param, token));
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<PostTelexPatTrainVO> finish(PostTelexPatTrainFinishParam param) {
-    return ResponseResult.success(postTelexPatTrainService.finish(param));
+  public Response<PostTelexPatTrainVO> finish(PostTelexPatTrainFinishParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.finish(param, token));
   }
 
   @GET
   @Path("/getPage")
   @Operation(summary = "查询指定页的内容")
-  public Response<PostTelexPatTrainPageInfoVO> getPage(@RestQuery(TRAIN_ID) String trainId, @RestQuery(PAGE_NUMBER) Integer pageNumber) {
-    return ResponseResult.success(postTelexPatTrainService.getPage(trainId, pageNumber));
+  public Response<PostTelexPatTrainPageInfoVO> getPage(@RestQuery(TRAIN_ID) String trainId, @RestQuery(PAGE_NUMBER) Integer pageNumber, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.getPage(trainId, pageNumber, token));
   }
 
   @POST
   @Path("/finishPage")
   @Operation(summary = "上传每页拍发内容")
-  public Response<Void> finishPage(@RequestBody PostTelexPatTrainPageValueVO vo) {
-    postTelexPatTrainService.finishPage(vo);
-    return ResponseResult.success();
+  public Response<PostTelexPatTrainPageInfoVO> finishPage(@RequestBody PostTelexPatTrainPageValueVO vo, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.finishPage(vo, token));
   }
 
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(postTelexPatTrainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(postTelexPatTrainService.delete(trainId, token));
   }
 }

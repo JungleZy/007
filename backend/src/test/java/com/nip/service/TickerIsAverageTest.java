@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.nip.common.utils.JSONUtils;
+import com.nip.dao.GradingRuleDao;
 import com.nip.dao.UserDao;
 import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainAddParam;
 import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainContentAddParam;
@@ -44,6 +45,7 @@ class TickerIsAverageTest {
 
   @Inject GeneralTickerPatService service;
   @Inject UserDao userDao;
+  @Inject GradingRuleDao gradingRuleDao;
 
   /** 一页里「2 位低码 + 2 位高码」的组数——平均报的拼装特征。 */
   private static long evenSplitGroups(List<GeneralTickerPatTrainContentAddParam> page) {
@@ -69,6 +71,7 @@ class TickerIsAverageTest {
     // >200：add 只预生成前 2 页，第 3 页留给 findMessageBody 懒生成
     param.setMessageNumber(300);
     param.setUserId(List.of());
+    param.setRuleId(Fixtures.handkeyRule(gradingRuleDao).getId());
     return service.add(param, token).getId();
   }
 

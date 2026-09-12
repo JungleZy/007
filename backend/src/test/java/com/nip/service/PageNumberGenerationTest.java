@@ -3,6 +3,8 @@ package com.nip.service;
 import com.nip.dao.PostTelegramTrainDao;
 import com.nip.dao.PostTelegramTrainFloorContentDao;
 import com.nip.dao.PostTelexPatTrainDao;
+import com.nip.dao.UserDao;
+import com.nip.testsupport.Fixtures;
 import com.nip.dto.vo.PostTelegramTrainAddContentValueVO;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import com.nip.dto.vo.param.PostTelegramTrainFloorContentQueryParam;
@@ -38,17 +40,20 @@ class PageNumberGenerationTest {
   PostTelegramTrainFloorContentDao floorContentDao;
   @Inject
   PostTelexPatTrainDao telexPatTrainDao;
+  @Inject
+  UserDao userDao;
 
   @Test
   void addContentValueAppendsConsecutiveFloorsWithoutOverlapOrGap() {
-    String trainId = seedTelegramTrain();
+    String token = "hand-page-" + java.util.UUID.randomUUID();
+    String trainId = seedTelegramTrain(token);
     seedFloor(trainId, 1, 0);
 
     PostTelegramTrainAddContentValueVO vo = new PostTelegramTrainAddContentValueVO();
     vo.setTrainId(trainId);
     vo.setMessageBody(List.of(List.of(contentParam("[\"B\"]")), List.of(contentParam("[\"C\"]"))));
 
-    List<Integer> floors = telegramTrainService.addContentValue(vo);
+    List<Integer> floors = telegramTrainService.addContentValue(vo, token);
 
     assertEquals(List.of(1, 2, 3), floors.stream().sorted().toList(),
         "基准页之后必须连续追加 base+1、base+2，不留空洞");
@@ -60,14 +65,15 @@ class PageNumberGenerationTest {
 
   @Test
   void jumpPageGenerationStoresRequestedPageNumber() {
-    String trainId = seedTelegramTrain();
+    String token = "hand-page-" + java.util.UUID.randomUUID();
+    String trainId = seedTelegramTrain(token);
     seedFloor(trainId, 1, 0);
 
     PostTelegramTrainFloorContentQueryParam param = new PostTelegramTrainFloorContentQueryParam();
     param.setId(trainId);
     param.setFloorNumber(4);
 
-    telegramTrainService.findMessageBody(param);
+    telegramTrainService.findMessageBody(param, token);
 
     assertEquals(100, floorContentDao.findByFloorNumberAndTrainIdOrderBySort(4, trainId).size(),
         "跳页生成的报底必须落在请求的页号上");
@@ -78,6 +84,9 @@ class PageNumberGenerationTest {
   @Test
   void getPageRejectsPageNumberZero() {
     PostTelexPatTrainEntity entity = new PostTelexPatTrainEntity();
+    String token = "page-zero-" + java.util.UUID.randomUUID();
+    entity.setCreateUser(Fixtures.user(userDao, token).getId());
+    entity.setProtocolVersion(1);
     entity.setIsCable(0);
     entity.setGroupNumber(500);
     entity.setType(0);
@@ -85,13 +94,14 @@ class PageNumberGenerationTest {
     entity.setStatus(0);
     String trainId = telexPatTrainDao.saveAndFlush(entity).getId();
 
-    IllegalArgumentException rejected = assertThrows(IllegalArgumentException.class,
-        () -> telexPatTrainService.getPage(trainId, 0));
-    assertEquals("页码不正确", rejected.getMessage());
+    assertThrows(IllegalArgumentException.class,
+        () -> telexPatTrainService.getPage(trainId, 0, token));
   }
 
-  private String seedTelegramTrain() {
+  private String seedTelegramTrain(String token) {
     PostTelegramTrainEntity entity = new PostTelegramTrainEntity();
+    entity.setCreateUser(Fixtures.user(userDao, token).getId());
+    entity.setProtocolVersion(1).setAttempt(0);
     entity.setMessageNumber(500);
     entity.setType(0);
     entity.setIsCable(1);

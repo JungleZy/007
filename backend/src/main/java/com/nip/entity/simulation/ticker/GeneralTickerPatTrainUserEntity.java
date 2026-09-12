@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
     @NamedNativeQuery(
         name = "find_general_ticker_pat_train_user_dto",
         query = "SELECT u.user_name userName,u.user_img userImg,t.id,t.train_id trainId,t.user_id userId,t.role,t.score,t.deduct_info deductInfo,t.statistic_info statisticInfo," +
-            "t.error_number errorNumber,t.accuracy,t.speed,t.speed_log speedLog,t.lack,t.finish_time finishTime,t.create_time createTime,t.is_finish isFinish " +
+            "t.error_number errorNumber,t.accuracy,t.speed,t.speed_log speedLog,t.lack,t.finish_time finishTime,t.create_time createTime,t.is_finish isFinish,t.active_millis activeMillis " +
             "from general_ticker_pat_train_user t LEFT JOIN t_user u on u.id = t.user_id " +
             "where t.train_id = ?1 and  if(?2  is not null and ?2!='',u.id=?2,1=1) AND ! ISNULL( u.id )",
         resultSetMapping = "general_ticker_pat_train_user_dto"),
@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
         @ColumnResult(name = "finishTime", type = LocalDateTime.class), @ColumnResult(name = "createTime", type = LocalDateTime.class),
         @ColumnResult(name = "isFinish"), @ColumnResult(name = "userName"),
         @ColumnResult(name = "userImg"),
+        @ColumnResult(name = "activeMillis", type = Long.class),
     })),
 })
 public class GeneralTickerPatTrainUserEntity implements Serializable {
@@ -47,6 +48,13 @@ public class GeneralTickerPatTrainUserEntity implements Serializable {
   private Integer trainId;
 
   private String userId;
+
+  @Column(nullable = false)
+  private Integer attempt = 0;
+
+  private LocalDateTime captureStartedAt;
+
+  private Long activeMillis;
 
   /**
    * 角色 0 参训人 1 组训人

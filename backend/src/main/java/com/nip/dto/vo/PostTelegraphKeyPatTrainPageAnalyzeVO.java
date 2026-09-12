@@ -11,11 +11,12 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Data
 @Schema(title = "每页速率个数信息统计")
 public class PostTelegraphKeyPatTrainPageAnalyzeVO {
+  private Integer pageNumber;
 
   @Schema(title = "拍发个数")
   private Integer patNumber;
 
   @Schema(title = "总时长")
-  private Integer totalTime;
+  private long totalTime;
 
 }

@@ -1,5 +1,8 @@
 package com.nip.dto.general;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
+import com.nip.dto.CaptureInterval;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
@@ -11,6 +14,9 @@ import java.util.List;
 @Data
 @RegisterForReflection
 public class GeneralKeyPatPageSubmitDto {
+    @JsonDeserialize(using = StrictIntegerDeserializer.class)
+    private Integer attempt;
+    private List<CaptureInterval> captureIntervals;
 
     /**
      * 训练ID

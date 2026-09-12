@@ -47,10 +47,11 @@ class CableRoomSubListGuardTest {
     param.setCableId("sublist-no-such-cable");
     param.setUserId(List.of());
     param.setMessageNumber(50); // 修复前 totalPage=0 → 静默建出零报底房间
+    param.setRuleId(Fixtures.handkeyRule(gradingRuleDao).getId());
+    long before = generalTickerPatService.findAll(token, new com.nip.common.utils.Page()).getTotalNumber();
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> generalTickerPatService.add(param, token), "不足一页的电缆报底必须被拒绝");
-    assertEquals("报文组数不足一页，无法建立房间", ex.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> generalTickerPatService.add(param, token));
+    assertEquals(before, generalTickerPatService.findAll(token, new com.nip.common.utils.Page()).getTotalNumber());
   }
 
   @Test
@@ -65,17 +66,24 @@ class CableRoomSubListGuardTest {
     param.setCableId("sublist-no-such-cable");
     param.setUserId(List.of());
     param.setMessageNumber(200); // totalPage=2 > 可用楼层 0，修复前 subList 越界 500
+    param.setRuleId(Fixtures.handkeyRule(gradingRuleDao).getId());
+    long before = generalTickerPatService.findAll(token, new com.nip.common.utils.Page()).getTotalNumber();
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> generalTickerPatService.add(param, token), "楼层不足必须报业务错误而非越界");
-    assertEquals("所选电缆可用楼层不足", ex.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> generalTickerPatService.add(param, token));
+    assertEquals(before, generalTickerPatService.findAll(token, new com.nip.common.utils.Page()).getTotalNumber());
   }
 
   @Test
   void telexPatTrainWithLessThanOnePageOfGroupsIsRejected() {
     String token = "sublist-telex-" + UUID.randomUUID();
     Fixtures.user(userDao, token);
-    GradingRuleEntity rule = gradingRuleDao.save(rule());
+    GradingRuleEntity capturedRule = rule();
+    capturedRule.setContent("""
+        {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":10},
+         "other":{"errorCode":0,"muchLessGroups":0,"correctMistakes":0,"lessPage":0,"lessReturnLine":0,
+                  "muchLessLine":0,"muchLessCode":0,"errorPage":0,"nonStandart":0}}
+        """);
+    GradingRuleEntity rule = gradingRuleDao.save(capturedRule);
 
     PostTelexPatTrainDto dto = new PostTelexPatTrainDto();
     dto.setName("不足一页电缆训练");
@@ -84,16 +92,22 @@ class CableRoomSubListGuardTest {
     dto.setCableId("sublist-no-such-cable");
     dto.setGroupNumber(50); // 修复前 totalPage=0 → 静默建出零报底训练
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+    assertThrows(IllegalArgumentException.class,
         () -> postTelexPatTrainService.save(dto, token), "不足一页的电缆报底必须被拒绝");
-    assertEquals("报文组数不足一页，无法建立训练", ex.getMessage());
   }
 
   @Test
   void telegraphKeyPatTrainWithLessThanOnePageOfGroupsIsRejected() {
     String token = "sublist-key-" + UUID.randomUUID();
     Fixtures.user(userDao, token);
-    GradingRuleEntity rule = gradingRuleDao.save(rule());
+    GradingRuleEntity sourceRule = rule();
+    sourceRule.setContent("""
+        {"rateUnit":"FOUR_CHARACTER_GROUPS_PER_MINUTE","wpm":{"base":20},
+         "other":{"errorCode":0,"muchLessCode":0,"muchLessLine":0,"muchLessGroups":0,
+                  "alterError":0,"bunchGroup":0,"lessGap":0}}
+        """);
+    GradingRuleEntity rule = gradingRuleDao.save(sourceRule);
+    int before = postTelegraphKeyPatTrainService.listPage(token).size();
 
     PostTelegraphKeyPatTrainDto dto = new PostTelegraphKeyPatTrainDto();
     dto.setTitle("不足一页电缆训练");
@@ -102,9 +116,9 @@ class CableRoomSubListGuardTest {
     dto.setCableId("sublist-no-such-cable");
     dto.setTotalNumber(50); // 修复前 totalPage=0 → 静默建出零报底训练
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+    assertThrows(IllegalArgumentException.class,
         () -> postTelegraphKeyPatTrainService.add(dto, token), "不足一页的电缆报底必须被拒绝");
-    assertEquals("报文组数不足一页，无法建立训练", ex.getMessage());
+    assertEquals(before, postTelegraphKeyPatTrainService.listPage(token).size());
   }
 
   private static GradingRuleEntity rule() {

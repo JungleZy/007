@@ -15,7 +15,7 @@
             fill="#3589FD"></path>
       </svg>
     </div>
-    <div class="w-full layout-center mt-2">点击获取控制权限</div>
+    <div class="w-full layout-center mt-2">{{ audioMessage }}（点击重试）</div>
   </div>
 </template>
 
@@ -25,17 +25,18 @@ export default {
 }
 </script>
 <script setup>
-import {onMounted, ref, watch} from "vue";
+import {onMounted, onUnmounted, ref, watch} from "vue";
 import MorseVoice from "../../common/utils/MorseVoice.js";
-import operationMorseVoice from "../../common/utils/voice/operationMorseVoice.js";
+import {audioOperation} from "../../common/utils/MorseVoice.js";
 import {ipcRenderer} from "../../electron";
 import {useRoute} from "vue-router";
-import {useMousePressed} from '@vueuse/core'
 import {PubSub} from "../../common/utils/PubSub.js";
 
-let morseVoice
+import {message} from 'ant-design-vue'
+const morseVoice = MorseVoice('new')
 const ipc = ref(ipcRenderer.isEE)
 const maskShow = ref(false)
+const audioMessage = ref('点击启用音频')
 const voiceList = ref([
   'receiveBasicTrain',
   'receiveTrain',
@@ -69,64 +70,41 @@ const modelList = ref([
 ])
 const routeName = ref('')
 const route = useRoute()
-const isFist = ref(true)
-
-const {operation} = operationMorseVoice()
-const {pressed} = useMousePressed({touch: false})
-
-watch(route, () => {
-  if (!isFist.value) {
-    routeName.value = route.name
-    changeMode()
+const pageName = () => location.hash.split('?')[0].split('/').pop()
+const needsAudio = () => voiceList.value.includes(String(route.name)) || voiceList.value.includes(pageName())
+const changeMode = () => {
+  audioOperation({type: 'model', data: !(modelList.value.includes(String(route.name)) || modelList.value.includes(pageName()))})
+  maskShow.value = needsAudio() && !morseVoice.isReady()
+}
+const audioSubscription = PubSub.subscribe('receiveProcessData', data => {
+  if (data.type === 'failure' || data.type === 'suspended') {
+    audioMessage.value = data.message || '音频不可用，请检查权限'
+    if (data.type === 'failure') message.error({key: 'morse-audio', content: audioMessage.value})
+    maskShow.value = data.type === 'failure' || needsAudio()
+  } else if (data.status === 'initialized') {
+    maskShow.value = false
+    audioMessage.value = '点击恢复音频'
   }
 })
-watch(pressed, () => {
-  if (!morseVoice && !ipc.value) {
-    initMorseVoice()
-  }
+const maskBG = async () => {
+  audioMessage.value = '正在启用音频'
+  const ready = await morseVoice.init()
+  maskShow.value = needsAudio() && !ready
+}
+watch(() => route.fullPath, () => {
+  routeName.value = route.name
+  morseVoice.stop()
+  changeMode()
 })
 onMounted(() => {
-  isFist.value = false
   routeName.value = route.name
-  if (ipc.value) {
-    maskShow.value = false
-    initMorseVoice()
-  } else {
-    let pageName = location.hash.split('?')[0].split('/')[location.hash.split('/').length - 1]
-    if (voiceList.value.indexOf(pageName) > -1) {
-      maskShow.value = true
-    }
-  }
+  changeMode()
+  if (ipc.value) maskBG()
 })
-const maskBG = () => {
-  maskShow.value = false
-  initMorseVoice()
-}
-const initMorseVoice = () => {
-  if (morseVoice){
-    return
-  }
-  morseVoice = MorseVoice('new')
-  // changeMode()
-  PubSub.subscribe('receiveProcessData', data => {
-    console.log(data);
-    if (data.status === "initialized") {
-      changeMode()
-      PubSub.unsubscribe('receiveProcessData')
-    }
-  })
-}
-//改变音频模式
-const changeMode = () => {
-  if (morseVoice) {
-    let pageName = location.hash.split('?')[0].split('/')[location.hash.split('/').length - 1]
-    if (modelList.value.indexOf(pageName) > -1) {
-      operation({type: 'model', data: false})
-    } else {
-      operation({type: 'model', data: true})
-    }
-  }
-}
+onUnmounted(() => {
+  PubSub.unsubscribe(audioSubscription)
+  morseVoice.destroy()
+})
 </script>
 
 <style scoped lang="less">

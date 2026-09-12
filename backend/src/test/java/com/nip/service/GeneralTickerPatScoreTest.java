@@ -8,6 +8,7 @@ import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainPageDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainUserDao;
 import com.nip.dto.GeneralTickerPatTrainUserDto;
+import com.nip.dto.CaptureInterval;
 import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainContentAddParam;
 import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainContentValueVO;
 import com.nip.dto.vo.simulation.tickerPat.GeneralTickerPatTrainFinishInfoVO;
@@ -36,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class GeneralTickerPatScoreTest {
 
   private static final String RULE_JSON = """
-      {"wpm":{"base":70,"r":2,"l":1},"skew":51,
+      {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":40,"r":2,"l":1},"skew":51,
        "code":{"dot":{"base":30,"l":1,"r":2,"max":1},"dash":{"base":50,"l":1,"r":2,"max":5}},
        "gap":{"little":{"base":40,"l":1,"r":2,"max":4},"middle":{"base":60,"l":1,"r":2,"max":4},
               "large":{"base":90,"l":1,"r":2,"max":4}},
@@ -53,7 +54,8 @@ class GeneralTickerPatScoreTest {
 
   @Test
   void finishCapsDashIndependentlyAndPreservesOtherDeductionsAndConfiguredTotal() {
-    UserEntity user = Fixtures.user(userDao, "general-dash-" + UUID.randomUUID());
+    String token = "general-dash-" + UUID.randomUUID();
+    UserEntity user = Fixtures.user(userDao, token);
     GradingRuleEntity rule = new GradingRuleEntity();
     rule.setTitle("General dash cap regression");
     rule.setScore(150);
@@ -64,9 +66,10 @@ class GeneralTickerPatScoreTest {
         .setName("General dash cap regression")
         .setType(0).setTrainType(1).setCodeSort(0).setIsRandom(0).setIsCable(0).setIsAverage(0)
         .setMessageNumber(1).setRuleId(rule.getId()).setCreateUser(user.getId())
+        .setRuleContent(RULE_JSON).setRuleScore(150)
         .setStatus(1).setStartTime(LocalDateTime.now().minusMinutes(1)));
     trainUserDao.save(new GeneralTickerPatTrainUserEntity()
-        .setTrainId(train.getId()).setUserId(user.getId()).setRole(0).setIsFinish(0));
+        .setTrainId(train.getId()).setUserId(user.getId()).setRole(0).setIsFinish(0).setCaptureStartedAt(train.getStartTime()));
     GeneralTickerPatTrainPageEntity page = pageDao.save(new GeneralTickerPatTrainPageEntity()
         .setTrainId(train.getId()).setFloorNumber(1).setSort(0).setMoresKey("[\"1\",\"1\",\"1\",\"1\"]"));
 
@@ -96,19 +99,17 @@ class GeneralTickerPatScoreTest {
     standard.setOffSize(51);
     GeneralTickerPatTrainContentValueVO upload = new GeneralTickerPatTrainContentValueVO();
     upload.setTrainId(train.getId());
-    upload.setUserId(user.getId());
     upload.setFloorNumber(1);
     upload.setMessageBody(List.of(content));
     upload.setStandard(List.of(standard));
-    upload.setSpeed("70");
-    upload.setErrorNumber(1);
-    upload.setAccuracy("0.00");
-    service.saveContentValue(upload);
+    upload.setAttempt(0);
+    upload.setCaptureIntervals(List.of(new CaptureInterval(0, 6000)));
+    service.saveContentValue(upload, token);
 
     GeneralTickerPatTrainFinishVO finish = new GeneralTickerPatTrainFinishVO();
     finish.setId(train.getId());
-    finish.setUserId(user.getId());
-    service.finish(finish);
+    finish.setAttempt(0);
+    service.finish(finish, token);
 
     // Read the persisted projection used by the training report, outside the finish transaction.
     GeneralTickerPatTrainUserDto result = trainUserDao.findByTrainIdToMap(train.getId(), user.getId()).getFirst();

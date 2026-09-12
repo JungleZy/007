@@ -9,8 +9,9 @@
     <TrainLeft :trainData="trainData" @startTest="startTrain" @endTest="endTrain">
       <template v-slot:top>
         <div class="desc">
-          {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行，当前总耗时' : trainData.status == 2 ? '本次练习正在进行，当前总耗时' : '本次练习已结束,总用时' }}
+          {{ trainData.status === 3 ? '收尾补交 / 待结算（不能重新开始）' : trainData.status === 2 ? '训练已结算' : trainData.status === 1 ? '训练进行中' : '等待开始训练' }}
         </div>
+        <a-button v-if="trainData.status === 3" @click="refreshSettlement">刷新结算状态</a-button>
         <count-down class="width-100-per layout-center" color="#70c9ff" ref="trainTimeRef" style="height: 55px" />
       </template>
       <template v-slot:bottom>
@@ -111,7 +112,7 @@
 
   const {
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,
-    startTrain,endTrain,seeStudentScore,getChartDataSource
+    startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement
   } = teacher()
 
 </script>

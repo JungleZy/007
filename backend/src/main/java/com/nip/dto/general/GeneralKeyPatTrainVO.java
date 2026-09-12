@@ -21,6 +21,7 @@ public class GeneralKeyPatTrainVO {
 
   @Schema(title = "id")
   private Integer id;
+  private Integer protocolVersion;
 
   @Schema(title = "训练名称")
   private String title;
@@ -49,7 +50,7 @@ public class GeneralKeyPatTrainVO {
   @Schema(title = "训练时长")
   private Long validTime;
 
-  @Schema(title = "0未开始，1，进行中，2已完成")
+  @Schema(title = "0未开始，1进行中，2已完成，3收尾补交")
   private Integer status;
 
   @Schema(title = "创建人ID")

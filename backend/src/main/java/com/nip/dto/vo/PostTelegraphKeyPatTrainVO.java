@@ -24,6 +24,12 @@ public class PostTelegraphKeyPatTrainVO {
   @Schema(title = "id")
   private String id;
 
+  private Integer protocolVersion;
+  private Integer attempt;
+  private long serverElapsedMs;
+  private List<PostTelegraphKeyPatTrainPageVO> savedPages;
+  private List<Integer> savedPageNumbers;
+
   /**
    * 标题
    */

@@ -1,5 +1,7 @@
 package com.nip.dto.vo.simulation.tickerPat;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
@@ -16,11 +18,8 @@ public class GeneralTickerPatTrainFinishVO {
   //@ApiModelProperty(value = "id",position = 1)
   private Integer id;
 
-  //@ApiModelProperty(value = "userId",position = 2)
-  private String userId;
-
-  /*@ApiModelProperty(value = "完成内容",position = 3)
-  private List<GeneralTickerPatTrainFinishInfoVO> finishInfo;*/
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
 
 
 }

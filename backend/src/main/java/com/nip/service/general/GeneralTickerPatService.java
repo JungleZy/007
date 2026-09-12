@@ -6,13 +6,17 @@ import com.nip.common.PageInfo;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.constants.TrainConstants;
 import com.nip.common.response.Response;
+import com.nip.controller.general.GeneralTickerPatTrainController;
 import com.nip.common.utils.ArraysSafeUtils;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
-import com.nip.controller.general.GeneralTickerPatTrainController;
+import com.nip.common.utils.CaptureTimeline;
+import com.nip.common.utils.ScoringRuleValidation;
+import com.nip.dto.CaptureInterval;
+import com.nip.dto.score.TrainingRateUnit;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainPageDao;
@@ -63,6 +67,7 @@ import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +78,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +89,6 @@ import java.util.concurrent.locks.Lock;
 
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 import static com.nip.common.utils.PatTrainStatisticsUtil.calculateRate;
-import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.*;
 
 @Slf4j
@@ -100,6 +105,8 @@ public class GeneralTickerPatService {
   private final MessageComparisonService messageComparisonService;
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
+  @Inject
+  GeneralPatResultNotifier resultNotifier;
 
   @Inject
   public GeneralTickerPatService(UserService userService, GeneralTickerPatTrainDao trainDao,
@@ -120,6 +127,15 @@ public class GeneralTickerPatService {
   @Transactional
   public GeneralTickerPatTrainVO add(GeneralTickerPatTrainAddParam param, String token) {
     UserEntity userEntity = userService.getUserByToken(token);
+    // 报底数与报文类型是下面两个分支都要用的必填项：缺失时显式报错，不再裸拆箱成 NPE
+    Integer messageNumber = param.getMessageNumber();
+    if (messageNumber == null) {
+      throw new IllegalArgumentException("报底数不能为空");
+    }
+    Integer patType = param.getType();
+    if (patType == null) {
+      throw new IllegalArgumentException("报文类型不能为空");
+    }
     GeneralTickerPatTrainEntity trainEntity = PojoUtils.convertOne(param, GeneralTickerPatTrainEntity.class);
     trainEntity.setCreateUser(userEntity.getId());
     // 默认状态为未开始
@@ -131,6 +147,13 @@ public class GeneralTickerPatService {
     trainEntity.setCodeSort(Boolean.TRUE.equals(param.getCodeSort()) ? 1 : 0);
     trainEntity.setIsRandom(Boolean.TRUE.equals(param.getIsRandom()) ? 1 : 0);
     trainEntity.setIsAverage(Boolean.TRUE.equals(param.getIsAverage()) ? 1 : 0);
+    GradingRuleEntity frozenRule = gradingRuleDao.findByIdOptional(trainEntity.getRuleId())
+        .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
+    ScoringRuleValidation.handkey(frozenRule.getContent());
+    if (frozenRule.getScore() == null || frozenRule.getScore() <= 0) {
+      throw new IllegalArgumentException("评分规则满分不合法");
+    }
+    trainEntity.setRuleContent(frozenRule.getContent()).setRuleScore(frozenRule.getScore()).setProtocolVersion(1);
     GeneralTickerPatTrainEntity save = trainDao.save(trainEntity);
     // 保存参训人员信息
     List<GeneralTickerPatTrainUserEntity> trainUserEntityList = new ArrayList<>();
@@ -157,15 +180,6 @@ public class GeneralTickerPatService {
     trainUserDao.save(trainUserEntityList);
 
     // 生成报文
-    // 报底数与报文类型是下面两个分支都要用的必填项：缺失时显式报错，不再裸拆箱成 NPE
-    Integer messageNumber = param.getMessageNumber();
-    if (messageNumber == null) {
-      throw new IllegalArgumentException("报底数不能为空");
-    }
-    Integer patType = param.getType();
-    if (patType == null) {
-      throw new IllegalArgumentException("报文类型不能为空");
-    }
     // 平均报/随机报是 Boolean 且无默认值，null 按「否」处理
     boolean average = Boolean.TRUE.equals(param.getIsAverage());
     boolean random = Boolean.TRUE.equals(param.getIsRandom());
@@ -278,15 +292,19 @@ public class GeneralTickerPatService {
 
   @Transactional
   public GeneralTickerPatTrainContentVO findMessageBody(GeneralTickerPatTrainPageParam param, String token) {
-    UserEntity userEntity = userService.getUserByIdNew(param.getUserId());
-    GeneralTickerPatTrainEntity entity = trainDao.findById(param.getId());
-    Optional.ofNullable(entity)
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    GeneralTickerPatTrainEntity entity = lockedTrain(param.getId());
+    GeneralTickerPatTrainUserEntity member = readableMember(entity, param.getUserId(), token);
+    if (param.getFloorNumber() == null || param.getFloorNumber() < 1
+        || param.getFloorNumber() > (entity.getMessageNumber() + 99) / 100) {
+      throw new IllegalArgumentException("页码不正确");
+    }
     List<GeneralTickerPatTrainPageEntity> contentEntities;
     List<GeneralTickerPatTrainContentAddParam> addParams;
-    synchronized (this) {
       contentEntities = trainPageDao.findByFloorNumberAndTrainIdOrderBySort(param.getFloorNumber(), param.getId());
       if (contentEntities.isEmpty()) {
+        if (Objects.equals(entity.getIsCable(), 1)) {
+          throw new IllegalStateException("固定报底页不存在");
+        }
         Integer currentPage = param.getFloorNumber();
         Integer messageNumber = entity.getMessageNumber();
         int totalPage = messageNumber / 100;
@@ -348,26 +366,22 @@ public class GeneralTickerPatService {
       addParams = contentEntities.stream()
           .map(e -> PojoUtils.convertOne(e, GeneralTickerPatTrainContentAddParam.class))
           .toList();
-    }
 
     // 查询此页提交内容
     GeneralTickerPatTrainUserValueEntity contentFloorValueEntity = userValueDao
-        .findByFloorNumberAndTrainIdAndUserId(param.getFloorNumber(), param.getId(), userEntity.getId());
-    List<GeneralTickerPatTrainContentAddParam> finalAddParams = addParams;
-    return new GeneralTickerPatTrainContentVO(
-        Optional.ofNullable(contentFloorValueEntity)
-            .map(GeneralTickerPatTrainUserValueEntity::getMessageBody)
-            .orElseGet(() -> JSONUtils.toJson(finalAddParams)),
-        addParams,
-        Optional.ofNullable(contentFloorValueEntity)
-            .map(GeneralTickerPatTrainUserValueEntity::getFinishInfo)
-            .orElse("[]"),
-        Optional.ofNullable(contentFloorValueEntity)
-            .map(GeneralTickerPatTrainUserValueEntity::getStandard)
-            .orElse("[]"),
-        Optional.ofNullable(contentFloorValueEntity)
-            .map(GeneralTickerPatTrainUserValueEntity::getResolver)
-            .orElse("[]"));
+        .findByFloorNumberAndTrainIdAndUserId(param.getFloorNumber(), param.getId(), member.getUserId());
+    GeneralTickerPatTrainContentVO result = new GeneralTickerPatTrainContentVO()
+        .setMessageBody(contentFloorValueEntity == null ? JSONUtils.toJson(addParams) : contentFloorValueEntity.getMessageBody())
+        .setMessageKey(addParams)
+        .setFinishInfo(contentFloorValueEntity == null ? "[]" : contentFloorValueEntity.getFinishInfo())
+        .setStandard(contentFloorValueEntity == null ? "[]" : contentFloorValueEntity.getStandard())
+        .setResolver(contentFloorValueEntity == null ? "[]" : contentFloorValueEntity.getResolver());
+    result.setProtocolVersion(entity.getProtocolVersion()).setAttempt(member.getAttempt())
+        .setServerElapsedMs(elapsedMillis(member.getCaptureStartedAt()))
+        .setSubmitted(contentFloorValueEntity != null)
+        .setSavedCaptureIntervals(contentFloorValueEntity == null || !Objects.equals(entity.getProtocolVersion(), 1)
+            ? List.of() : captureIntervals(contentFloorValueEntity));
+    return result;
   }
 
   @Transactional
@@ -465,11 +479,10 @@ public class GeneralTickerPatService {
               item.setExistNumber(userValueDao.countByTrainIdAndUserIdGroupByPageNumber(e.getId(), item.getUserId()));
               // log.info("完成统计页码信息:{}", LocalDateTime.now());
             }
-            // 如果已完成填报，计算训练持续时长
-            if (item.getFinishTime() != null && Objects.equals(item.getIsFinish(), 1)) {
-              LocalDateTime finishTime = Optional.of(item.getFinishTime())
-                  .orElse(LocalDateTime.now());
-              item.setValidTime(LocalDateTimeUtil.between(trainEntity.getStartTime(), finishTime).toMillis() / 1000);
+            if (Objects.equals(trainEntity.getProtocolVersion(), 1)) {
+              item.setValidTime(item.getActiveMillis() == null ? 0 : item.getActiveMillis() / 1000);
+            } else if (item.getFinishTime() != null && Objects.equals(item.getIsFinish(), 1)) {
+              item.setValidTime(LocalDateTimeUtil.between(trainEntity.getStartTime(), item.getFinishTime()).toMillis() / 1000);
             }
           }
         }
@@ -478,7 +491,7 @@ public class GeneralTickerPatService {
           v.setValidTime(0L);
         } else if (Objects.equals(e.getStatus(), 1)) {
           v.setValidTime(LocalDateTimeUtil.between(e.getStartTime(), LocalDateTime.now()).toMillis() / 1000);
-        } else if (Objects.equals(e.getStatus(), 2)) {
+        } else if (Objects.equals(e.getStatus(), 2) || Objects.equals(e.getStatus(), 3)) {
           v.setValidTime(LocalDateTimeUtil.between(e.getStartTime(), e.getEndTime()).toMillis() / 1000);
         }
         if (Objects.equals(e.getIsCable(), 1)) {
@@ -496,24 +509,45 @@ public class GeneralTickerPatService {
   }
 
   @Transactional
-  public GeneralTickerPatTrainVO finish(GeneralTickerPatTrainFinishVO dto) {
-    GeneralTickerPatTrainEntity entity = Optional.ofNullable(trainDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    GeneralTickerPatTrainUserEntity user = Optional.ofNullable(
-        trainUserDao.findByUserIdAndTrainId(dto.getUserId(), entity.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该用户的参训记录"));
+  public GeneralTickerPatTrainVO finish(GeneralTickerPatTrainFinishVO dto, String token) {
+    String userId = userService.getUserByToken(token).getId();
+    GeneralTickerPatTrainEntity entity = lockedTrain(dto.getId());
+    GeneralTickerPatTrainUserEntity user = student(entity.getId(), userId);
+    requireAttempt(dto.getAttempt(), user);
+    if (!Objects.equals(user.getIsFinish(), 1)) {
+      requireProtocol(entity);
+      if (Objects.equals(entity.getStatus(), 3)) {
+        if (LocalDateTime.now().isBefore(entity.getEndTime().plusSeconds(60))) {
+          captureBound(entity, user, LocalDateTime.now());
+        } else {
+          settleClosing(entity);
+        }
+      } else {
+        requireUnderway(entity);
+      }
+    }
+    GeneralTickerPatTrainVO result = finishUser(entity, user);
+    if (Objects.equals(entity.getStatus(), 3)
+        && trainUserDao.count("trainId = ?1 and role = 0 and (isFinish is null or isFinish <> 1)", entity.getId()) == 0) {
+      entity.setStatus(2);
+      result.setStatus(2);
+    }
+    return result;
+  }
+
+  private GeneralTickerPatTrainVO finishUser(GeneralTickerPatTrainEntity entity,
+      GeneralTickerPatTrainUserEntity user) {
     if (Objects.equals(user.getIsFinish(), 1)) {
       return PojoUtils.convertOne(entity, GeneralTickerPatTrainVO.class, (t, r) -> {
         r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
         r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
       });
     }
-    countScore(entity, dto);
+    countScore(entity, user.getUserId());
     trainDao.saveAndFlush(entity);
-    trainUserDao.findRoleAdminByUserId(dto.getId()).forEach(admin -> {
-      WebSocketService.sendInfo(admin.getUserId(), new ResponseModel(CodeConstants.NOTIFICATION_TRAIN_RESULT.getCode(),
-          Map.of("type", "ticker", "userId", dto.getUserId(), "trainId", entity.getId())));
-    });
+    resultNotifier.publish("ticker", entity.getId(), user.getUserId(),
+        trainUserDao.findRoleAdminByUserId(entity.getId()).stream()
+            .map(GeneralTickerPatTrainUserEntity::getUserId).toList());
     return PojoUtils.convertOne(entity, GeneralTickerPatTrainVO.class, (t, r) -> {
       r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
       r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
@@ -521,39 +555,58 @@ public class GeneralTickerPatService {
   }
 
   @Transactional
-  public void saveContentValue(GeneralTickerPatTrainContentValueVO dto) {
-    GeneralTickerPatTrainEntity trainEntity = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-
-    GeneralTickerPatTrainUserEntity trainUserEntity = Optional.ofNullable(
-            trainUserDao.findByUserIdAndTrainId(dto.getUserId(), trainEntity.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
-    trainUserEntity.setIsFinish(0);
-
-    // 记录每页速率
-    List<String> speedLog = Optional.ofNullable(trainUserEntity.getSpeedLog())
-        .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
-        }))
-        .orElseGet(ArrayList::new);
-    speedLog.add(dto.getSpeed());
-    trainUserEntity.setSpeedLog(JSONUtils.toJson(speedLog));
-    trainUserEntity.setErrorNumber(dto.getErrorNumber());
-    trainUserEntity.setAccuracy(dto.getAccuracy());
-
-    GeneralTickerPatTrainUserValueEntity trainUserValueEntity = PojoUtils.convertOne(dto,
-        GeneralTickerPatTrainUserValueEntity.class, (d, e) -> {
-          List<GeneralTickerPatTrainContentAddParam> messageBody = d.getMessageBody();
-          e.setMessageBody(JSONUtils.toJson(messageBody));
-          List<GeneralTickerPatTrainFinishInfoVO> standard = dto.getStandard();
-          e.setStandard(JSONUtils.toJson(standard));
-
-        });
-    // 保存拍发速率
-    // postTelegramTrainDao.save(trainEntity);
-    trainUserDao.save(trainUserEntity);
-    // 删除之前保存的训练记录
-    userValueDao.deleteByTrainIdAndFloorNumberAndUserId(dto.getTrainId(), dto.getFloorNumber(), dto.getUserId());
-    userValueDao.save(trainUserValueEntity);
+  public void saveContentValue(GeneralTickerPatTrainContentValueVO dto, String token) {
+    LocalDateTime receivedAt = LocalDateTime.now();
+    String userId = userService.getUserByToken(token).getId();
+    GeneralTickerPatTrainEntity train = lockedTrain(dto.getTrainId());
+    GeneralTickerPatTrainUserEntity member = student(train.getId(), userId);
+    requireProtocol(train);
+    if (!Objects.equals(dto.getAttempt(), member.getAttempt())) {
+      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+    }
+    if (dto.getFloorNumber() == null || dto.getFloorNumber() < 1
+        || dto.getFloorNumber() > (train.getMessageNumber() - 1) / 100 + 1
+        || dto.getMessageBody() == null || dto.getStandard() == null) {
+      throw new IllegalArgumentException("页码、拍发记录和校准记录不能为空");
+    }
+    String messageBody = JSONUtils.toJson(dto.getMessageBody());
+    String standard = JSONUtils.toJson(dto.getStandard());
+    GeneralTickerPatTrainUserValueEntity previous = userValueDao.findByFloorNumberAndTrainIdAndUserId(
+        dto.getFloorNumber(), train.getId(), userId);
+    if (previous != null) {
+      List<CaptureInterval> previousIntervals = captureIntervals(previous);
+      if (Objects.equals(previousIntervals, dto.getCaptureIntervals())) {
+        if (Objects.equals(previous.getMessageBody(), messageBody) && Objects.equals(previous.getStandard(), standard)
+            && Objects.equals(previous.getFinishInfo(), dto.getFinishInfo())) {
+          return;
+        }
+        throw new IllegalStateException("该页采集区间已确认，但拍发内容不一致");
+      }
+      CaptureTimeline.requireExtension(previousIntervals, dto.getCaptureIntervals());
+    }
+    if (Objects.equals(member.getIsFinish(), 1)) {
+      throw new IllegalStateException("已结算的训练不能上传");
+    }
+    long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), captureBound(train, member, receivedAt));
+    PageMeasure measured = measurePage(dto.getMessageBody());
+    if ((measured.characters() > 0 && duration == 0) || measured.symbolMillis() > duration + dto.getCaptureIntervals().size()) {
+      throw new IllegalArgumentException("原始按键时长与采集区间不一致");
+    }
+    List<List<CaptureInterval>> timelines = new ArrayList<>();
+    for (GeneralTickerPatTrainUserValueEntity page : userValueDao.list("trainId = ?1 and userId = ?2", train.getId(), userId)) {
+      if (!Objects.equals(page.getFloorNumber(), dto.getFloorNumber())) {
+        timelines.add(captureIntervals(page));
+      }
+    }
+    timelines.add(dto.getCaptureIntervals());
+    CaptureTimeline.requireNoOverlap(timelines);
+    GeneralTickerPatTrainUserValueEntity value = new GeneralTickerPatTrainUserValueEntity()
+        .setTrainId(train.getId()).setUserId(userId).setFloorNumber(dto.getFloorNumber())
+        .setAttempt(dto.getAttempt()).setCaptureIntervals(JSONUtils.toJson(dto.getCaptureIntervals()))
+        .setReceivedAt(receivedAt).setMessageBody(messageBody)
+        .setStandard(standard).setFinishInfo(dto.getFinishInfo());
+    userValueDao.deleteByTrainIdAndFloorNumberAndUserId(train.getId(), dto.getFloorNumber(), userId);
+    userValueDao.saveAndFlush(value);
   }
 
   /**
@@ -580,56 +633,63 @@ public class GeneralTickerPatService {
    * @param dto 参数
    */
   @Transactional
-  public void updateStatus(GeneralTickerPatTrainUpdateDto dto) {
-    GeneralTickerPatTrainEntity tickerPatTrain = Optional.ofNullable(trainDao.findById(dto.getTrainId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    // 状态是本方法唯一要写的列：为 null 时显式报错，否则会把 status 抹成 null 后照常提交
-    if (dto.getStatus() == null) {
-      throw new IllegalArgumentException("训练状态不能为空");
+  public void updateStatus(GeneralTickerPatTrainUpdateDto dto, String token) {
+    String userId = userService.getUserByToken(token).getId();
+    GeneralTickerPatTrainEntity tickerPatTrain = lockedTrain(dto.getTrainId());
+    GeneralTickerPatTrainUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, dto.getTrainId());
+    if (!Objects.equals(tickerPatTrain.getCreateUser(), userId)
+        && (member == null || !Objects.equals(member.getRole(), 1))) {
+      throw new IllegalArgumentException("无权管理该训练");
     }
-    tickerPatTrain.setStatus(dto.getStatus());
-    if (Objects.equals(tickerPatTrain.getStatus(), 1)) {
-      tickerPatTrain.setStartTime(LocalDateTime.now());
+    requireProtocol(tickerPatTrain);
+    if (!Objects.equals(dto.getStatus(), 1) && !Objects.equals(dto.getStatus(), 2)) {
+      throw new IllegalArgumentException("训练状态不合法");
     }
-    if (Objects.equals(tickerPatTrain.getStatus(), 2)) {
-      tickerPatTrain.setEndTime(LocalDateTime.now());
-      // 计算训练时长
-      tickerPatTrain.setValidTime(
-          LocalDateTimeUtil.between(tickerPatTrain.getStartTime(), tickerPatTrain.getEndTime(), ChronoUnit.MINUTES));
-      // 查询出该训练中的所有人
-      List<GeneralTickerPatTrainUserEntity> trainUserEntities = trainUserDao.findByTrainIdAndRole(dto.getTrainId(), 0);
-      // 查询用户所在房间状态
-      Map<String, Object> httpParam = new HashMap<>();
-      httpParam.put(TRAIN_ID, dto.getTrainId());
-      List<GeneralPatTrainUserDto> userDto = new ArrayList<>();
-      try {
-        // userDto.addAll(HttpUtils.getRequestList(BASE_URL + FIND_USER_INFO, httpParam,
-        // GeneralTickerPatTrainUserDto.class));
-        GeneralTickerPatTrainController gGeneralTickerPatTrainSocketController = new GeneralTickerPatTrainController();
-        Response<List<GeneralPatTrainUserDto>> userInfo = gGeneralTickerPatTrainSocketController
-            .findUserInfo(dto.getTrainId());
-        userDto.addAll(userInfo.getData());
-      } catch (Exception ex) {
-        log.error("获取训练用户信息失败，训练ID: {}", dto.getTrainId(), ex);
+    if (Objects.equals(tickerPatTrain.getStatus(), dto.getStatus())
+        || (Objects.equals(tickerPatTrain.getStatus(), 3) && Objects.equals(dto.getStatus(), 2))) {
+      return;
+    }
+    if (Objects.equals(dto.getStatus(), 1)) {
+      if (!Objects.equals(tickerPatTrain.getStatus(), 0)) {
+        throw new IllegalStateException("训练不能重新开始");
       }
-      List<String> userId = userDto.stream().map(GeneralPatTrainUserDto::getId).toList();
-      // 拿到过滤后的人员信息
-      List<GeneralTickerPatTrainUserEntity> userEntities = trainUserEntities.stream()
-          .filter(item -> userId.contains(item.getUserId()))
-          .toList();
-      for (GeneralTickerPatTrainUserEntity trainUser : userEntities) {
-        // 查询出用户是否有提交内容
-        Integer integer = userValueDao.countByTrainIdAndUserId(dto.getTrainId(), trainUser.getUserId());
-        if (integer > 0) {
-          // 自动提交
-          GeneralTickerPatTrainFinishVO vo = new GeneralTickerPatTrainFinishVO();
-          vo.setId(dto.getTrainId());
-          vo.setUserId(trainUser.getUserId());
-          finish(vo);
-        }
+      ScoringRuleValidation.handkey(tickerPatTrain.getRuleContent());
+      LocalDateTime now = LocalDateTime.now();
+      tickerPatTrain.setStatus(1).setStartTime(now);
+      for (GeneralTickerPatTrainUserEntity participant : trainUserDao.findByTrainIdAndRole(dto.getTrainId(), 0)) {
+        participant.setCaptureStartedAt(now);
+      }
+    } else {
+      requireUnderway(tickerPatTrain);
+      tickerPatTrain.setStatus(3).setEndTime(LocalDateTime.now());
+      tickerPatTrain.setValidTime(Duration.between(tickerPatTrain.getStartTime(), tickerPatTrain.getEndTime()).toSeconds());
+      if (trainUserDao.count("trainId = ?1 and role = 0 and (isFinish is null or isFinish <> 1)", dto.getTrainId()) == 0) {
+        tickerPatTrain.setStatus(2);
       }
     }
-    trainDao.save(tickerPatTrain);
+  }
+
+  @Transactional
+  public List<Integer> closingTrainIds() {
+    return trainDao.find("protocolVersion = 1 and status = 3 and endTime <= ?1", LocalDateTime.now().minusSeconds(60))
+        .list().stream().map(GeneralTickerPatTrainEntity::getId).toList();
+  }
+
+  @Transactional
+  public void settleExpired(Integer trainId) {
+    GeneralTickerPatTrainEntity train = lockedTrain(trainId);
+    if (Objects.equals(train.getProtocolVersion(), 1) && Objects.equals(train.getStatus(), 3)
+        && !LocalDateTime.now().isBefore(train.getEndTime().plusSeconds(60))) {
+      settleClosing(train);
+    }
+  }
+
+  private void settleClosing(GeneralTickerPatTrainEntity train) {
+    for (GeneralTickerPatTrainUserEntity participant : trainUserDao.findByTrainIdAndRole(train.getId(), 0)) {
+      finishUser(train, participant);
+    }
+    train.setStatus(2);
+    trainDao.flush();
   }
 
   /**
@@ -638,8 +698,18 @@ public class GeneralTickerPatService {
    * @param param
    */
   @Transactional
-  public void reset(GeneralTickerPatTrainResetParam param) {
-    userValueDao.deleteByUserIdAndTrainId(param.getUid(), param.getId());
+  public void reset(GeneralTickerPatTrainResetParam param, String token) {
+    String userId = userService.getUserByToken(token).getId();
+    GeneralTickerPatTrainEntity entity = lockedTrain(param.getId());
+    GeneralTickerPatTrainUserEntity user = student(entity.getId(), userId);
+    requireAttempt(param.getAttempt(), user);
+    requireUnderway(entity);
+    requireProtocol(entity);
+    user.setAttempt(Math.incrementExact(user.getAttempt())).setCaptureStartedAt(LocalDateTime.now()).setActiveMillis(null);
+    userValueDao.deleteByUserIdAndTrainId(userId, param.getId());
+    user.setScore(null).setDeductInfo(null).setStatisticInfo(null).setErrorNumber(0)
+        .setAccuracy("0.00").setSpeed("0").setSpeedLog(null).setLack(0)
+        .setFinishTime(null).setIsFinish(0);
   }
 
   /**
@@ -656,12 +726,132 @@ public class GeneralTickerPatService {
     return statisticsScoreAndDotLineGapRate(trainUserEntities);
   }
 
-  public void startTrain(Integer trainId, String token) {
+  @Transactional
+  public void startTrain(Integer trainId, Integer attempt, String token) {
     String userId = userService.getUserByToken(token).getId();
-    GeneralTickerPatTrainUserEntity patUserEntity = trainUserDao.findByUserIdAndTrainId(userId, trainId);
-    if (null != patUserEntity) {
-      patUserEntity.setIsFinish(2);
-      trainUserDao.save(patUserEntity);
+    GeneralTickerPatTrainEntity entity = lockedTrain(trainId);
+    GeneralTickerPatTrainUserEntity user = student(trainId, userId);
+    requireAttempt(attempt, user);
+    captureBound(entity, user, LocalDateTime.now());
+    requireProtocol(entity);
+    if (Objects.equals(user.getIsFinish(), 1)) {
+      throw new IllegalStateException("已结算的训练需要先重置");
+    }
+    user.setIsFinish(2);
+  }
+
+  private GeneralTickerPatTrainEntity lockedTrain(Integer trainId) {
+    if (trainId == null) {
+      throw new IllegalArgumentException("训练ID不能为空");
+    }
+    return Optional.ofNullable(trainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+  }
+
+  private GeneralTickerPatTrainUserEntity student(Integer trainId, String userId) {
+    GeneralTickerPatTrainUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, trainId);
+    if (member == null || !Objects.equals(member.getRole(), 0)) {
+      throw new IllegalArgumentException("未查询到该用户的学员参训记录");
+    }
+    return member;
+  }
+
+  private GeneralTickerPatTrainUserEntity readableMember(GeneralTickerPatTrainEntity train, String requestedUser, String token) {
+    String actor = userService.getUserByToken(token).getId();
+    String target = requestedUser == null ? actor : requestedUser;
+    GeneralTickerPatTrainUserEntity actorMember = trainUserDao.findByUserIdAndTrainId(actor, train.getId());
+    if (!Objects.equals(actor, target) && !Objects.equals(train.getCreateUser(), actor)
+        && (actorMember == null || !Objects.equals(actorMember.getRole(), 1))) {
+      throw new IllegalArgumentException("无权读取该学员的拍发记录");
+    }
+    return Optional.ofNullable(trainUserDao.findByUserIdAndTrainId(target, train.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
+  }
+
+  private long elapsedMillis(LocalDateTime startedAt) {
+    return startedAt == null ? 0 : Math.max(0, Duration.between(startedAt, LocalDateTime.now()).toMillis());
+  }
+
+  private void requireAttempt(Integer attempt, GeneralTickerPatTrainUserEntity member) {
+    if (attempt == null || !Objects.equals(attempt, member.getAttempt())) {
+      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+    }
+  }
+
+  private void requireProtocol(GeneralTickerPatTrainEntity train) {
+    if (!Objects.equals(train.getProtocolVersion(), 1)) {
+      throw new IllegalStateException("旧训练缺少原始采集协议，请重新创建训练；历史成绩保持不变");
+    }
+  }
+
+  private long captureBound(GeneralTickerPatTrainEntity train, GeneralTickerPatTrainUserEntity member,
+      LocalDateTime receivedAt) {
+    if (member.getCaptureStartedAt() == null) {
+      throw new IllegalStateException("采集尚未开始");
+    }
+    long elapsed = Math.max(0, Duration.between(member.getCaptureStartedAt(), receivedAt).toMillis());
+    if (Objects.equals(train.getStatus(), 1)) {
+      return elapsed;
+    }
+    if (Objects.equals(train.getStatus(), 3) && train.getEndTime() != null
+        && receivedAt.isBefore(train.getEndTime().plusSeconds(60))) {
+      return elapsed;
+    }
+    throw new IllegalStateException("训练已停止接收拍发记录");
+  }
+
+  private List<CaptureInterval> captureIntervals(GeneralTickerPatTrainUserValueEntity page) {
+    List<CaptureInterval> intervals = JSONUtils.fromJson(page.getCaptureIntervals(), new TypeToken<>() {});
+    if (intervals == null) {
+      throw new IllegalStateException("已保存页缺少原始采集时间轴");
+    }
+    return intervals;
+  }
+
+  private PageMeasure measurePage(List<GeneralTickerPatTrainContentAddParam> groups) {
+    long count = 0;
+    double symbolMillis = 0;
+    for (GeneralTickerPatTrainContentAddParam group : groups) {
+      if (group == null) throw new IllegalArgumentException("拍发组不能为空");
+      List<String> characters = JSONUtils.fromJson(group.getPatKeys(), new TypeToken<>() {});
+      List<List<String>> signals = JSONUtils.fromJson(group.getMoresValue(), new TypeToken<>() {});
+      List<List<Double>> times = JSONUtils.fromJson(group.getMoresTime(), new TypeToken<>() {});
+      if (characters == null || signals == null || times == null
+          || signals.size() != characters.size() || times.size() != characters.size()) {
+        throw new IllegalArgumentException("拍发字符、原始码和时长数量不一致");
+      }
+      for (int index = 0; index < characters.size(); index++) {
+        String character = characters.get(index);
+        List<String> signal = signals.get(index);
+        List<Double> durations = times.get(index);
+        if (character == null || character.codePointCount(0, character.length()) != 1) {
+          throw new IllegalArgumentException("每个拍发事件必须是一个正文字符");
+        }
+        if (signal == null || signal.isEmpty() || durations == null || durations.size() != signal.size()) {
+          throw new IllegalArgumentException("原始点划与时长数量不一致");
+        }
+        for (int symbol = 0; symbol < signal.size(); symbol++) {
+          if (!"0".equals(signal.get(symbol)) && !"1".equals(signal.get(symbol))) {
+            throw new IllegalArgumentException("原始拍发码只能包含点和划");
+          }
+          Double milliseconds = durations.get(symbol);
+          if (milliseconds == null || !Double.isFinite(milliseconds) || milliseconds < 0) {
+            throw new IllegalArgumentException("原始拍发时长必须为有限非负数");
+          }
+          symbolMillis += milliseconds;
+        }
+        if (!character.isBlank() && !character.equals("?")) count++;
+      }
+    }
+    return new PageMeasure(count, symbolMillis);
+  }
+
+  private record PageMeasure(long characters, double symbolMillis) {}
+
+
+  private void requireUnderway(GeneralTickerPatTrainEntity entity) {
+    if (!Objects.equals(entity.getStatus(), 1)) {
+      throw new IllegalStateException("训练不在进行中");
     }
   }
 
@@ -797,20 +987,20 @@ public class GeneralTickerPatService {
    * 计算分数
    *
    * @param entity
-   * @param dto
+   * @param userId 已校验的参训用户
    */
-  private void countScore(GeneralTickerPatTrainEntity entity, GeneralTickerPatTrainFinishVO dto) {
+  private void countScore(GeneralTickerPatTrainEntity entity, String userId) {
     try {
       Map<String, Integer> deductMap = new HashMap<>();
-      GradingRuleEntity ruleEntity = gradingRuleDao.findByIdOptional(entity.getRuleId())
-          .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
-      Integer score = ruleEntity.getScore();
-      PostTelegramTrainRule rule = parseContent(ruleEntity.getContent());
+      requireProtocol(entity);
+      Integer score = Optional.ofNullable(entity.getRuleScore())
+          .orElseThrow(() -> new IllegalStateException("训练缺少冻结的规则满分"));
+      PostTelegramTrainRule rule = ScoringRuleValidation.handkey(entity.getRuleContent());
       PostTelegramTrainStatisticsVO statisticsVO = new PostTelegramTrainStatisticsVO();
       PostTelegramTrainScoreVO scoreVO = new PostTelegramTrainScoreVO();
 
-      List<Integer> existFloorNumber = userValueDao.countByTrainIdAndUserIdGroupByPageNumber(entity.getId(), dto.getUserId());
-      processPageComparisons(entity, dto.getUserId(), existFloorNumber, scoreVO, rule, statisticsVO);
+      List<Integer> existFloorNumber = userValueDao.countByTrainIdAndUserIdGroupByPageNumber(entity.getId(), userId);
+      processPageComparisons(entity, userId, existFloorNumber, scoreVO, rule, statisticsVO);
 
       statisticsAllAvg(statisticsVO, 0, 0, 0, 0, 0);
 
@@ -818,13 +1008,12 @@ public class GeneralTickerPatService {
 
       score = applyDeductions(score, scoreVO, rule, deductMap);
 
-      saveTrainUserResult(entity, dto.getUserId(), scoreVO, score, lack, statisticsVO, deductMap, rule);
-      entity.setRuleContent(ruleEntity.getContent());
+      saveTrainUserResult(entity, userId, scoreVO, score, lack, statisticsVO, deductMap, rule);
     } catch (IllegalArgumentException | IllegalStateException e) {
       throw e;
     } catch (Exception e) {
       log.error("计算分数失败，训练ID: {}", entity.getId(), e);
-      throw new RuntimeException("计算分数异常");
+      throw new RuntimeException("计算分数异常", e);
     }
   }
 
@@ -956,18 +1145,22 @@ public class GeneralTickerPatService {
       trainUserEntity.setAccuracy(accuracy);
     }
 
-    List<String> speedLog = Optional.ofNullable(trainUserEntity.getSpeedLog())
-        .map(s -> JSONUtils.fromJson(s, new TypeToken<List<String>>() {}))
-        .orElseGet(ArrayList::new);
-
-    if (!speedLog.isEmpty()) {
-      String speed = speedLog.stream()
-          .map(BigDecimal::new)
-          .reduce(BigDecimal.ZERO, BigDecimal::add)
-          .divide(new BigDecimal(speedLog.size()), 0, RoundingMode.HALF_DOWN)
-          .toString();
-      trainUserEntity.setSpeed(speed);
+    long activeMillis = 0;
+    long characters = 0;
+    List<String> pageRates = new ArrayList<>();
+    List<GeneralTickerPatTrainUserValueEntity> savedPages = userValueDao.find(
+        "trainId = ?1 and userId = ?2 order by floorNumber", entity.getId(), userId).list();
+    for (GeneralTickerPatTrainUserValueEntity page : savedPages) {
+      List<GeneralTickerPatTrainContentAddParam> body = JSONUtils.fromJson(page.getMessageBody(), new TypeToken<>() {});
+      long pageCharacters = measurePage(body).characters();
+      long pageMillis = CaptureTimeline.durationMillis(captureIntervals(page), Long.MAX_VALUE);
+      characters += pageCharacters;
+      activeMillis += pageMillis;
+      pageRates.add(TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(pageCharacters, pageMillis).toPlainString());
     }
+    trainUserEntity.setActiveMillis(activeMillis);
+    trainUserEntity.setSpeed(TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(characters, activeMillis).toPlainString());
+    trainUserEntity.setSpeedLog(JSONUtils.toJson(pageRates));
 
     int wpmScore = calculateWpmScore(rule.getWpm(), new BigDecimal(trainUserEntity.getSpeed()).intValue());
     deductMap.put("wpmScore", wpmScore);

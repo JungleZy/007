@@ -98,7 +98,7 @@ public class GeneralTickerPatTrainEntity {
   private Long validTime;
 
   /**
-   * 0未开始，1，进行中，2已完成
+   * 0未开始，1进行中，2已完成，3收尾补交
    */
   private Integer status;
 
@@ -117,6 +117,11 @@ public class GeneralTickerPatTrainEntity {
    */
   @Column(columnDefinition = "longtext")
   private String ruleContent;
+
+  private Integer ruleScore;
+
+  @Column(nullable = false)
+  private Integer protocolVersion = 1;
 
   /**
    * 创建时间

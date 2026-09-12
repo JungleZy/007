@@ -1,5 +1,7 @@
 package com.nip.dto.vo.param;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import lombok.Data;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -12,4 +14,6 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Data
 public class PostTelegramTrainQueryParam {
   private String id;
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
 }

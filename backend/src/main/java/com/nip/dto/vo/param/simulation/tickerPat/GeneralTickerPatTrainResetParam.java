@@ -1,5 +1,7 @@
 package com.nip.dto.vo.param.simulation.tickerPat;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import lombok.Data;
 
 /**
@@ -10,5 +12,7 @@ import lombok.Data;
 @Data
 public class GeneralTickerPatTrainResetParam {
   private Integer id;
-  private String uid;
+
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
 }

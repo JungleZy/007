@@ -243,42 +243,46 @@ export const getPostTelegramTrainById = data => {
   })
 }
 
-export const getPostTelegramMsgBody = data => {
-  return axios({
-    method: 'post',
-    url: '/api/postTelegramTrain/findMessageBody',
-    data
-  })
-}
+export const getPostTelegramMsgBody = (data, config) => { return axios({method: 'post',
+url: '/api/postTelegramTrain/findMessageBody',
+data, config}) }
 
-export const getTelexTrainByID = data => {
+export const getTelexTrainByID = (data, config) => {
   return axios({
     method: 'post',
     url: '/api/postTelexPatTrain/detail',
+    config,
     data
   })
 }
-export const postTelexPatTrain = data => {
+export const postTelexPatTrain = (data, config) => {
   return axios({
     method: 'post',
     url: '/api/postTelexPatTrain/begin',
+    config,
     data
   })
 }
-export const endTelexPatTrain = data => {
+export const endTelexPatTrain = (data, config) => {
   return axios({
     method: 'post',
     url: '/api/postTelexPatTrain/finish',
+    config,
     data
   })
 }
-export const beginPostTelegramTrain = data => {
-  return axios({
-    method: 'post',
-    url: '/api/postTelegramTrain/begin',
-    data
-  })
-}
+export const pausePostTelexPatTrain = (data, config) => axios({
+  method: 'post', url: '/api/postTelexPatTrain/pause', data, config
+})
+export const resumePostTelexPatTrain = (data, config) => axios({
+  method: 'post', url: '/api/postTelexPatTrain/resume', data, config
+})
+export const resetPostTelexPatTrain = (data, config) => axios({
+  method: 'post', url: '/api/postTelexPatTrain/reset', data, config
+})
+export const beginPostTelegramTrain = (data, config) => { return axios({method: 'post',
+url: '/api/postTelegramTrain/begin',
+data, config}) }
 
 export const resetPostTelegramTrain = data => {
   return axios({
@@ -288,21 +292,13 @@ export const resetPostTelegramTrain = data => {
   })
 }
 
-export const savePostTelegramContent = data => {
-  return axios({
-    method: 'post',
-    url: '/api/postTelegramTrain/saveContentValue',
-    data
-  })
-}
+export const savePostTelegramContent = (data, config) => { return axios({method: 'post',
+url: '/api/postTelegramTrain/saveContentValue',
+data, config}) }
 
-export const finishPostTelegramTrain = data => {
-  return axios({
-    method: 'post',
-    url: '/api/postTelegramTrain/finish',
-    data
-  })
-}
+export const finishPostTelegramTrain = (data, config) => { return axios({method: 'post',
+url: '/api/postTelegramTrain/finish',
+data, config}) }
 
 export const saveHandKeyBasicTrain = data => {
   return axios({
@@ -376,21 +372,13 @@ export const getPostExamTrainDetails = data => {
   })
 }
 
-export const startPostExamTrainInfo = data => {
-  return axios({
-    method: 'post',
-    url: '/api/PostTelegraphKeyPatTrain/begin',
-    data
-  })
-}
+export const startPostExamTrainInfo = (data, config) => { return axios({method: 'post',
+url: '/api/PostTelegraphKeyPatTrain/begin',
+data, config}) }
 
-export const endPostExamTrainInfo = data => {
-  return axios({
-    method: 'post',
-    url: '/api/PostTelegraphKeyPatTrain/finish',
-    data
-  })
-}
+export const endPostExamTrainInfo = (data, config) => { return axios({method: 'post',
+url: '/api/PostTelegraphKeyPatTrain/finish',
+data, config}) }
 
 export const getPreTermTrainTotal = data => {
   return axios({
@@ -448,26 +436,24 @@ export const deleteTermItemData = data => {
   })
 }
 
-export const apiPostTelexPatTrainFinishPage = data => {
+export const apiPostTelexPatTrainFinishPage = (data, config) => {
   return axios({
     method: 'post',
     url: '/api/postTelexPatTrain/finishPage',
+    config,
     data
   })
 }
 
-export const apiPostTelegraphKeyPatTrainGetPage = data => {
-  return axios({
-    method: 'get',
-    url: '/api/PostTelegraphKeyPatTrain/getPage',
-    data
-  })
-}
+export const apiPostTelegraphKeyPatTrainGetPage = (data, config) => { return axios({method: 'get',
+url: '/api/PostTelegraphKeyPatTrain/getPage',
+data, config}) }
 
-export const apiPostTelexPatTrainGetPage = data => {
+export const apiPostTelexPatTrainGetPage = (data, config) => {
   return axios({
     method: 'get',
     url: '/api/postTelexPatTrain/getPage',
+    config,
     data
   })
 }
@@ -480,12 +466,8 @@ export const apiPostTelegramTrainPrintBottomReport = data => {
   })
 }
 
-export const apiPostTelegraphKeyPatTrainFinishPage = (data, pageNumber, trainId) => {
-  return axios({
-    method: 'post',
-    url: `/api/PostTelegraphKeyPatTrain/finishPage/?pageNumber=${pageNumber}&trainId=${trainId}`,
-    data
-  })
+export const apiPostTelegraphKeyPatTrainFinishPage = (data, config) => {
+  return axios({method: 'post', url: '/api/PostTelegraphKeyPatTrain/finishPage', data, config})
 }
 
 export const deleteList = (data) => {

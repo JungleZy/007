@@ -21,9 +21,6 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @RegisterForReflection
 public class PostTelegraphKeyPatTrainDto {
 
-  @Schema(title  = "id")
-  private String id;
-
   /**
    * 标题
    */
@@ -46,18 +43,6 @@ public class PostTelegraphKeyPatTrainDto {
   private Integer startPage;
 
   /**
-   *  0 未开始 1 进行中 2 暂停 3 完成
-   */
-  @Schema(title  = "0 未开始 1 进行中 2 完成")
-  private Integer status;
-
-  /**
-   * 时长
-   */
-  @Schema(title  = "时长")
-  private String duration;
-
-  /**
    * // 全报文数量
    */
   @Schema(title  = "全报文数量")
@@ -66,31 +51,6 @@ public class PostTelegraphKeyPatTrainDto {
   @Schema(title = "训练报文 0数码 1字码 2混合码 ")
   private Integer messageType;
 
-
-  /**
-   * // 错误数量
-   */
-  @Schema(title  = "错误数量")
-  private Integer errorNumber;
-
-  /**
-   *正确率
-   */
-  @Schema(title  = "正确率")
-  private Integer accuracy;
-
-  /**
-   *速率
-   */
-  @Schema(title  = "速率")
-  private String speed;
-
-
-  /**
-   * 报文内容
-   */
-  @Schema(title  = "报文内容")
-  private String content;
 
 
   @Schema(title  = "评分规则Id")

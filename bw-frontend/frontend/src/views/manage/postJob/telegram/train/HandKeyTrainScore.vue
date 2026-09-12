@@ -53,7 +53,7 @@
               <div :class="{'tab colu': true, on: showChart=='line'}" @click="showChart = 'line'">
                 <img :src="chartIcoOn2" v-show="showChart == 'line'" class="ico">
                 <img :src="chartIco2" v-show="showChart != 'line'" class="ico">
-                码率({{scoreData.ruleContent&&scoreData.ruleContent.wpm.type?'wpm':'码/分'}})
+                码率({{ speedUnit }})
               </div>
             </div>
             <div class="box">
@@ -70,8 +70,8 @@
                   <template v-if="scoreData.ruleContent">
                     <div class="row">
                       <div class="item lab full">码率</div>
-                      <div class="item">{{scoreData.ruleContent.wpm.base}} {{scoreData.ruleContent.wpm.type?'wpm':'码/分'}}</div>
-                      <div class="item">{{ scoreData.speed }} {{scoreData.ruleContent.wpm.type?'wpm':'码/分'}}</div>
+                      <div class="item">{{scoreData.ruleContent.wpm.base}} {{ speedUnit }}</div>
+                      <div class="item">{{ scoreData.speed }} {{ speedUnit }}</div>
                     </div>
                     <div class="row">
                       <div class="item lab full">点划比</div>
@@ -424,7 +424,7 @@
     return data?data:'--'
   }
 
-  const { scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend } = trainScore(showChart);
+  const { speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend } = trainScore(showChart);
 
 </script>
 

@@ -1,13 +1,26 @@
 <template>
-  <div class="w-full h-full overflow-hidden relative">
+  <div class="w-full h-full overflow-hidden relative" style="display: flex; flex-direction: column">
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..."/>
     </div>
-    <div class="w-full h-full trainBoxs content-mask-bg">
+    <a-alert v-if="failure" type="error" :message="failure" show-icon>
+      <template #description><a-button :disabled="busy || authBlocked" @click="retry">重试</a-button></template>
+    </a-alert>
+    <a-alert v-if="expired" type="warning" message="已到截止时间，输入已冻结；60秒内可补交截止前采集内容，之后仅可查看服务端结果。" show-icon />
+          <div class="layout-center" style="gap: 6px; flex-wrap: wrap">
+            <a-button v-if="trainData.status === 1" :disabled="inputLocked" @click="pauseTest">暂停</a-button>
+            <a-button v-if="trainData.status === 2" :disabled="busy || !!failure" @click="resumeTest">恢复</a-button>
+            <a-button v-if="trainData.status === 2" :disabled="busy || !!failure" @click="endTest">结束训练</a-button>
+            <a-popconfirm title="重置将清除本轮已提交和未提交内容，并开启新轮次，是否继续？" @confirm="resetTest">
+              <a-button :disabled="!ready || busy || authBlocked">重置本轮</a-button>
+            </a-popconfirm>
+            <a-button v-if="expired || failure || trainData.status === 3" :disabled="busy || authBlocked" @click="checkResult">核对结果</a-button>
+          </div>
+    <div class="w-full trainBoxs content-mask-bg" style="flex: 1; min-height: 0">
       <TrainLeft @startTest="startTest" @endTest="endTest" :trainData="trainData">
         <template v-slot:top>
           <div class="desc">
-            {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行，当前总耗时' : trainData.status == 2 ? '本次练习正在进行，当前总耗时' : '本次练习已结束,总用时' }}
+            {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行' : trainData.status == 2 ? '训练已显式暂停，恢复后继续采集' : '本次练习已结束' }}
           </div>
           <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 55px" />
         </template>
@@ -21,6 +34,11 @@
           <div :class="{ flipContainer: true }" style="height: calc(100% - 102px)">
             <div :class="{ 'h-full overflow-auto totalBoxs': true }" style="padding: 0 8px">
               <div class="basicInit" style="height: 100%">
+                <div style="padding: 8px">
+                  <span>倒计时：</span><a-switch v-model:checked="isCountdown" :disabled="trainData.status !== 0 || busy" />
+                  <a-input-number v-if="isCountdown" v-model:value="duration" :min="1" :max="1440" :precision="0" :disabled="trainData.status !== 0 || busy" />
+                  <span v-if="isCountdown">分钟</span>
+                </div>
                 <div class="tipSymbol" v-if="isfocus">
                   <div class="symItem">
                     <div>换组：</div>
@@ -50,8 +68,8 @@
                   <div class="item relative">
                     <img :src="labSpeed" class="ico" />
                     <div>
-                      <div class="title">速度</div>
-                      <div class="tags nobr">{{ trainData.speed }}码/分</div>
+                      <div class="title">预估速度</div>
+                      <div class="tags nobr">{{ trainData.speed }}字符/分</div>
                     </div>
                   </div>
                 </template>
@@ -152,7 +170,7 @@
                       </div>
                       <div class="keyBox">
                         <template v-for="(key, index) in 100" :key="index">
-                          <div :class="{ key: true, curr: activeIndex == index && trainData.status != 0 && compileCodePage.length + 1 == page.current }"
+                          <div :class="{ key: true, curr: activeIndex == index && trainData.status === 1 }"
                                v-if="trainData.content[index]?trainData.content[index].pageNumber === page.current:true">
                             {{ trainData.content[index]?.key ?? '' }}
                           </div>
@@ -222,7 +240,7 @@
   const countDown = ref(null)
   const isfocus = ref(true)
   const isTips = ref(false)
-  const { trainData, code, compileCode, activeIndex, page, compileCodePage, next, prev, startTest, endTest } = telexTrain(countDown, loading)
+  const { trainData, code, compileCode, activeIndex, page, compileCodePage, next, prev, startTest, endTest, failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult, isCountdown, duration } = telexTrain(countDown, loading)
 </script>
 
 <style scoped>

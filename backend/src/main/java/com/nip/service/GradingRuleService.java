@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
+import com.nip.common.utils.ScoringRuleValidation;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelegramTrainDao;
 import com.nip.dao.PostTelexPatTrainDao;
@@ -59,6 +60,12 @@ public class GradingRuleService {
 
   @Transactional
   public Response<GradingRuleEntity> saveGradingRule(GradingRuleEntity entity) {
+    if (entity == null) throw new IllegalArgumentException("评分规则不能为空");
+    if ((Objects.equals(entity.getType(), 0) || Objects.equals(entity.getType(), 2) || Objects.equals(entity.getType(), 3))
+        && (entity.getScore() == null || entity.getScore() < 0)) throw new IllegalArgumentException("评分规则满分必须为非负整数");
+    if (Objects.equals(entity.getType(), 0)) ScoringRuleValidation.handkey(entity.getContent());
+    else if (Objects.equals(entity.getType(), 2)) ScoringRuleValidation.telex(entity.getContent());
+    else if (Objects.equals(entity.getType(), 3)) ScoringRuleValidation.electronic(entity.getContent());
     List<GradingRuleEntity> byType = gradingRuleDao.findByType(entity.getType());
     List<GradingRuleEntity> def = new ArrayList<>();
     boolean flag = true;
@@ -102,6 +109,7 @@ public class GradingRuleService {
     }
     return ResponseResult.success(entity);
   }
+
 
   @Transactional
   public Response<GradingRuleEntity> updateGradingRuleStatus(String id, Integer status) {

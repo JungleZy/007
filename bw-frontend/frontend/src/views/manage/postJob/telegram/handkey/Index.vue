@@ -22,8 +22,8 @@
               <template #isCable="{text}">
                 {{ text == 0 ? '随机报' : '固定报' }}
               </template>
-              <template #validTime="{ text }">
-                {{ text == 0 ? '--' : partTimeFormatInfo(parseInt(text), 'chinese') }}
+              <template #validTime="{ text, record }">
+                {{ (record.activeMillis ?? text * 1000) > 0 ? partTimeFormatInfo(record.activeMillis ?? text * 1000, 'chinese') : '--' }}
               </template>
               <template #speed="{ text }">
                 {{ text }}

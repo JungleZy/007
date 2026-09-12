@@ -13,7 +13,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 public class PostTelegraphKeyPatTrainPageMessageVO {
 
   @Schema(title = "id")
-  private Integer id;
+  private String id;
 
   /**
    * 训练id

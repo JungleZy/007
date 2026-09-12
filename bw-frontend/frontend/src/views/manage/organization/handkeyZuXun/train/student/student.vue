@@ -1,5 +1,8 @@
 <template>
   <div class="w-full h-full overflow-hidden relative">
+    <a-alert v-if="submissionError" type="error" :message="submissionError" style="position:absolute;z-index:1000;top:8px;left:20%">
+      <template #description><a-button :loading="submissionBusy" @click="retrySubmit">重试原提交</a-button></template>
+    </a-alert>
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
@@ -7,7 +10,7 @@
       <TrainLeft :trainData="trainData">
         <template v-slot:top>
           <div class="desc">
-            {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行，当前总耗时' : trainData.status == 2 ? '本次练习正在进行，当前总耗时' : '本次练习已结束,总用时' }}
+            {{ trainData.status === 3 ? '收尾补交 / 待结算，已停止新采集' : trainData.status === 2 ? '本轮已完成' : trainData.status === 1 ? '本轮正在进行' : '等待教员开始训练' }}
           </div>
           <div class="desc" style="top: 46px;font-size: 14px">{{trainData.name}}</div>
           <count-down class="width-100-per layout-center" color="#70c9ff" ref="trainTimeRef" style="height: 55px;margin-top: 24px" />
@@ -65,8 +68,8 @@
                     <div class="item relative">
                       <img :src="labSpeed" class="ico" />
                       <div>
-                        <div class="title">拍发码率</div>
-                        <div class="tags nobr">{{ parseFloat(trainData.speed) }}码/分</div>
+                        <div class="title">本次采集码率（预估）</div>
+                        <div class="tags nobr">{{ parseFloat(trainData.speed) }}字符/分</div>
                       </div>
                     </div>
                   </div>
@@ -148,8 +151,8 @@
                     </div>
                     <div class="keyBox">
                       <template v-for="(key, index) in trainData.telegraph[trainData.floorNow - 1]" :key="index">
-                        <div :class="{ key: true, curr: currPatKeyIndex == index }" v-if="key.moresKey != '#'">
-                          {{ JSON.parse(key.moresKey).join('') }}
+                        <div :class="{ key: true, curr: currPatKeyIndex == index }">
+                          {{ key.moresKey === '#' ? '#' : JSON.parse(key.moresKey).join('') }}
                         </div>
                       </template>
                       <template v-if="trainData.telegraph[trainData.floorNow - 1] && trainData.telegraph[trainData.floorNow - 1].length < 100">
@@ -217,9 +220,10 @@
         </div>
         <div class="roadItem" style="padding-top: 60px">
           <div style="font-size: 46px" v-if="readyPat&&cutTimer!=null">{{ cutTime }}</div>
-          <div class="roadBtn" v-if="!readyPat" @click="readyTrainPat">{{trainData.status==0?'准备拍发':'重新拍发'}}</div>
-          <div class="roadBtn ml-5" v-if="trainData.status==1 && (currPatKeyIndex > 0 || trainData.floorNow > 1)"
+          <div class="roadBtn" v-if="!readyPat && trainData.status !== 3" @click="readyTrainPat">{{trainData.status==0?'准备拍发':'重新拍发'}}</div>
+          <div class="roadBtn ml-5" v-if="trainData.status==1"
                @click="readyTrainPat(1)">继续拍发</div>
+          <a-button v-if="trainData.status === 3" @click="readyTrainPat(1)">补交 / 完成本轮</a-button>
         </div>
       </div>
     </div>
@@ -274,9 +278,10 @@
   })
   const emits = defineEmits(['changeStatus'])
 
-  const { handKeyDown, patStandard, initFloat, handKeyValue, diffTime, gapTime, wsOnline, devOnline, audioVolume, init } = useControl(trainData)
+  const { handKeyDown, patStandard, initFloat, onKey, wsOnline, devOnline, audioVolume } = useControl(trainData)
 
   const {
+    submissionError, submissionBusy, retrySubmit,
     patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
     switchTelegram, resetPatStart,handleReceiveKeyCode, timeAreaShow, getScoreOffsetInfo,readyTrainPat,connectWebsocket,
     initTrainTimeInfo,cutTime,cutTimer,showPatCodeLog
@@ -315,17 +320,14 @@
             }
           })
           // console.log(trainData.value)
-          getPostTrainKeyInfo(1)
-          if (trainData.value.pag > 1) {
-            getPostTrainKeyInfo(2)
-          }
+          trainData.value.floorNow = Math.min(trainData.value.floorNow, trainData.value.pag)
+          getPostTrainKeyInfo(trainData.value.floorNow)
           if (res.data.status === 2) {
             timeAreaShow(trainData.value.validTime)
           } else {
             connectWebsocket();
           }
           getScoreOffsetInfo(res.data.ruleId)
-          init().then()
         }
       })
     }
@@ -353,11 +355,7 @@
       window.localStorage.setItem('handKeyZuXun'+trainData.value.trainId, JSON.stringify(obj))
     }
   }
-  watch(handKeyValue, () => {
-    if (handKeyValue.value !== '') {
-      handleReceiveKeyCode(handKeyValue.value, diffTime.value, gapTime.value)
-    }
-  })
+  onKey(event => handleReceiveKeyCode(event.code, event.diffTime, event.gapTime, event))
 </script>
 
 <style scoped lang="less">

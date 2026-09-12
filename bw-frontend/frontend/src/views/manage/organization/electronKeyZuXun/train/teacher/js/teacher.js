@@ -101,7 +101,7 @@ export default function () {
         } else {
           trainData.value.userInfoList = trainData.value.userInfoList.sort((x,y)=>y.isFinish-x.isFinish);
           timeAreaShow(trainData.value.validTime * 1000);
-          trainStatistics()
+          if (trainData.value.status === 2) trainStatistics()
         }
       }
     })
@@ -187,8 +187,6 @@ export default function () {
     }
     if(updateUserStatus.length===0){
       scoreloading.value = false
-      trainData.value.status = 2
-      trainStatistics();
       getZuXunTrainDetails()
     }
   }
@@ -281,11 +279,13 @@ export default function () {
 
   /** 开始训练 */
   const startTrain = () => {
+    if (trainData.value.status !== 0) return
     updateElectronKeyTrainStatusInfo(1)
   }
 
   /** 结束训练 */
   const endTrain = () => {
+    if (trainData.value.status !== 1) return
     scoreloading.value = true
     trainData.value.userInfoList.forEach(item=>{
       if(item.userStatus!==0&&item.isFinish!==1){
@@ -299,28 +299,26 @@ export default function () {
    * 更新组训状态
    * @param status 1-开始；2-结束；
    */
-  const updateElectronKeyTrainStatusInfo = (status) => {
-    updateElectronKeyTrainStatus({
-      trainId: trainId.value,
-      status: status
-    }).then(res => {
-      if (res.code === 200) {
-        if (status == 1) {
-          trainData.value.status = 1
-          sendMessage({topic: 'begin',})
-          initTrainTimeInfo()
-        } else if (status == 2) {
-          sendMessage({topic: 'end'})
-          clearInterval(trainTimer.value)
-          if(updateUserStatus.length===0){
-            scoreloading.value = false
-            trainData.value.status = 2
-            trainStatistics();
-            getZuXunTrainDetails()
-          }
-        }
+  const updateElectronKeyTrainStatusInfo = async status => {
+    try {
+      const res = await updateElectronKeyTrainStatus({trainId: trainId.value, status})
+      if (res.code !== 200) throw new Error(res.message || '训练状态更新失败')
+      if (status === 1) {
+        trainData.value.status = 1
+        sendMessage({topic: 'begin'})
+        initTrainTimeInfo()
+      } else {
+        trainData.value.status = 3
+        sendMessage({topic: 'end'})
+        clearInterval(trainTimer.value)
+        getZuXunTrainDetails()
       }
-    })
+    } catch (error) {
+      console.error(error)
+      window.alert(error.message || '训练状态更新失败，请重试')
+    } finally {
+      scoreloading.value = false
+    }
   }
 
   /** 查看学员成绩 */
@@ -586,6 +584,6 @@ export default function () {
 
   return {
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,
-    startTrain,endTrain,seeStudentScore,getChartDataSource
+    startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails
   }
 }

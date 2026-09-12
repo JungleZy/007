@@ -1,6 +1,5 @@
 package com.nip.service;
 
-import com.nip.dto.PostTelegramTrainFinishDto;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
@@ -62,10 +61,9 @@ class PostTelegramTrainScoreTest {
   private static PostTelegramTrainEntity saveResultWithSpeed(String speed, Map<String, Integer> deductMap) {
     PostTelegramTrainRule rule = parseContent(RULE_JSON);
     PostTelegramTrainEntity entity = new PostTelegramTrainEntity();
-    PostTelegramTrainFinishDto dto = new PostTelegramTrainFinishDto();
-    dto.setSpeed(speed);
+    entity.setSpeed(speed);
     PostTelegramTrainService.saveTrainResult(entity, new PostTelegramTrainScoreVO(), 100,
-        new PostTelegramTrainStatisticsVO(), deductMap, rule, dto);
+        new PostTelegramTrainStatisticsVO(), deductMap, rule);
     return entity;
   }
 }

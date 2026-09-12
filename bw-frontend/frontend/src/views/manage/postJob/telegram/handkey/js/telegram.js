@@ -84,7 +84,8 @@ export default function telegramList() {
         tableList.value = [];
         res.data.map((item, i) => {
           item.ruleContent = JSON.parse(item.ruleContent);
-          item.speed = item.status===2?(item.speed+(item.ruleContent.wpm.type?'WPM':'码/分')):'--';
+          item.speed = item.status !== 2 ? '--'
+            : item.speed + (item.protocolVersion === 1 ? '字符/分' : (item.ruleContent.wpm.type ? 'WPM' : '码/分') + '（历史）');
           if (item.messageNumber>0) {
             tableData.value.push(item);
             if (i<currTablePage.value*10) {

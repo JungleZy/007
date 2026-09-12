@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
@@ -37,6 +38,13 @@ public class GeneralTickerPatTrainUserValueEntity implements Serializable {
    * 报底页数
    */
   private Integer floorNumber;
+
+  private Integer attempt;
+
+  @Column(columnDefinition = "longtext")
+  private String captureIntervals;
+
+  private LocalDateTime receivedAt;
 
   /**
    * 客户按下松开的时间

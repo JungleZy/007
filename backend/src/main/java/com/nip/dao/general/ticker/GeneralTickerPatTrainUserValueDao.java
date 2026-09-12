@@ -32,7 +32,7 @@ public class GeneralTickerPatTrainUserValueDao extends BaseRepository<GeneralTic
   public List<Integer> countByTrainIdAndUserIdGroupByPageNumber(Integer trainId, String userId) {
     return entityManager.createQuery("select floorNumber " +
             "from general_ticker_pat_train_user_value " +
-            "where trainId =?1 and userId=?2 group by floorNumber", Integer.class)
+            "where trainId =?1 and userId=?2 group by floorNumber order by floorNumber", Integer.class)
         .setParameter(1, trainId)
         .setParameter(2, userId)
         .getResultList();

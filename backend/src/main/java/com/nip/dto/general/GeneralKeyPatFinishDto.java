@@ -1,5 +1,7 @@
 package com.nip.dto.general;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
@@ -16,6 +18,8 @@ public class GeneralKeyPatFinishDto {
      */
     Integer trainId;
 
-    private String userId;
+    @JsonDeserialize(using = StrictIntegerDeserializer.class)
+    private Integer attempt;
+
 
 }

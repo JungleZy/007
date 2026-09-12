@@ -6,11 +6,16 @@ import { PubSub } from '../../../../../../common/utils/PubSub'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { getGradingRuleById } from '../../../../../../common/api/GradingRuleApi.js'
-import { getPostTelegramMsgBody, beginPostTelegramTrain, resetPostTelegramTrain, savePostTelegramContent, finishPostTelegramTrain } from '../../../../../../common/api/TelegramApi.js'
+import { getPostTelegramMsgBody, beginPostTelegramTrain, savePostTelegramContent, finishPostTelegramTrain } from '../../../../../../common/api/TelegramApi.js'
 import { timeFormatInfo } from '../../../../../../common/utils/Utils'
 import countPatStandard from './patStandard.js'
+import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
+import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'
 
 export default function (trainData, patStandard, initFloat, wsOnline, devOnline, loading,messageBodyList) {
+  const submission = useConfirmedSubmission()
+  const capture = useTrainingCapture()
+  const snapshotKey = () => `personal-handkey:pending:${trainData.value.trainId}`
   const patKeyBoxRef = ref(null) // 字码和词组展示区域的容器
   const patValBoxRef = ref(null) // 拍发电码展示区域的容器
   const trainTimeRef = ref(null) // 训练时间展示区域的容器
@@ -23,12 +28,11 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   const cachePatKey = ref([]) // 缓存字码 - 还未翻页提交的字码集合
   const currPatKeyIndex = ref(-1) // 正在拍发的电报纸字码的下标
   const showPatCodeLog = ref([])//展示出来的拍发记录
-  const { morseCode, codeKey, dots } = useMorse()
+  const { morseCode, codeKey } = useMorse()
   const { countPatStandardInfo, countAverageStandard } = countPatStandard()
   const router = useRouter()
   const scorePath = ref('')
   const errorText = ref('')
-  const speedUnit = ref(true)
   const patNumber = ref(0)
   const initSymbol = ref({
     // 拍发特殊符号的电码值
@@ -74,7 +78,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
         maskClosable: true,
         onOk: () => {
           statisticsTelegraphData('end')
-          // resetTrainInfo() 结束重置训练
         }
       })
     } else {
@@ -89,11 +92,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     }
   }
   onMounted(() => {
-    window.addEventListener('beforeunload', e => {
-      if (trainData.value.status === 1) {
-        resetTrainInfo()
-      }
-    })
 
     patKeyBoxRef.value.addEventListener('mousewheel', e => {
       if (e.deltaY > 0) {
@@ -115,14 +113,14 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   });
 
   onUnmounted(() => {
-    PubSub.unsubscribe("send_handKeyPostTrainPage");
-    clearInterval(trainTimer.value);
-    if (trainData.value.status === 1) {
-      resetTrainInfo();
-    }
-    window.removeEventListener('beforeunload', e => {});
-    window.removeEventListener("keydown", keyDownStart)
-    console.log(111111)
+    clearTimeout(wordTimer.value)
+    clearTimeout(groupTimer.value)
+    clearTimeout(textTimer.value)
+    controlCandidates = []
+    capture.close()
+    clearInterval(trainTimer.value)
+    PubSub.unsubscribe('send_handKeyPostTrainPage')
+    window.removeEventListener('keydown', keyDownStart)
   });
 
   /**
@@ -134,7 +132,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       if (res.code === 200) {
         let rule = JSON.parse(res.data.content)
         initFloat.value = rule.skew
-        speedUnit.value = rule.wpm.type
       }
     })
   }
@@ -145,19 +142,22 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * @param type
    */
   const getPostTrainKeyInfo = (index, type) => {
-    getPostTelegramMsgBody({
-      id: trainData.value.trainId,
-      floorNumber: index
-    }).then(res => {
-      if (res.code === 200) {
-         let print = []
-        trainData.value.telegraph[type] = res.data.messageKey
-        res.data.messageKey.forEach(key => {
-          print.push(JSON.parse(key.moresKey))
-        })
-        messageBodyList.value.push(print)
-        console.log(messageBodyList.value);
+    capture.close()
+    const saved = type === 'curr' ? submission.loadSnapshot(snapshotKey()) : null
+    if (saved) index = saved.payload.floorNumber
+    return submission.run(async request => {
+      const response = await request(config => getPostTelegramMsgBody({id: trainData.value.trainId, floorNumber: index}, config))
+      trainData.value.telegraph[type] = saved?.payload.attempt === response.data.attempt ? deepClone(saved.payload.messageBody) : response.data.messageKey
+      if (type === 'curr') {
+        trainData.value.floorNow = index
+        capture.bind(response.data)
+        if (trainData.value.status === 1) {
+          trainData.value.process = 2
+          if (!saved) capture.open()
+        }
       }
+      messageBodyList.value.push(response.data.messageKey.map(item => item.moresKey === '#' ? ['#'] : JSON.parse(item.moresKey)))
+      if (saved) submission.defer(() => savePatTelegraphBody(saved.type), true)
     })
   }
 
@@ -165,16 +165,14 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * 训练时间转换显示
    */
   const initTrainTimeInfo = () => {
+    clearInterval(trainTimer.value)
     trainTimer.value = setInterval(() => {
       if (!(trainData.value.validTime && trainData.value.validTime > 0)) {
         trainData.value.validTime = 0
       }
-      trainData.value.validTime += 1000
-      if (!speedUnit.value) {
-        console.log(patNumber.value);
-        let type = trainData.value.type == 1 ? 'letter' : trainData.value.type == 2 ? 'mix' : trainData.value.codeSort ? 'long' : 'short'
-        trainData.value.speed = ((400 * 60 * 1000 * patNumber.value) / (trainData.value.validTime * dots[type])).toFixed(2)
-      }
+      trainData.value.validTime = capture.elapsed()
+      trainData.value.speed = trainData.value.validTime > 0
+        ? (patNumber.value * 60000 / trainData.value.validTime).toFixed(1) : '0'
       timeAreaShow(trainData.value.validTime)
     }, 1000)
   }
@@ -200,6 +198,7 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * @param type
    */
   const switchTelegram = type => {
+    if ([1, 3].includes(trainData.value.status)) return
     if ((type === 'prev' && trainData.value.floorNow <= 1) || (type === 'next' && trainData.value.floorNow >= trainData.value.pag)) return false
     if (type === 'prev') {
       trainData.value.floorNow--
@@ -229,21 +228,24 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * @param diffTime
    * @param gapTime
    */
-  const handleReceiveKeyCode = (val,diffTime,gapTime) => {
+  const handleReceiveKeyCode = (val,diffTime,gapTime,event = {}) => {
+    if (trainData.value.status !== 1) return
+    if (submission.pending() && !event.captureSpan) event = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
+    if (submission.defer(() => handleReceiveKeyCode(val, diffTime, gapTime, event))) return
+    if (event.captureSpan) {
+      capture.recordQueued(event.captureSpan)
+      capture.open()
+    } else capture.open(event.startedAt ?? event.receivedAt)
+    if (val === -1) {
+      const gap = gapTime[1] - gapTime[0]
+      if (gap > patStandard.value.codeGap * (1 + initFloat.value / 100)) codeCompileKeyInfo('word')
+      if (gap > patStandard.value.codeGap * (3 + initFloat.value / 100)) codeCompileKeyInfo('group')
+      if (submission.pending()) return
+    }
     if (loading.value || trainData.value.status == 2) return false;
     let gap = 0,diff = 0;
     if (val === -1) {
       gap = gapTime[1]-gapTime[0];
-      if (gap < patStandard.value.codeGap*(1 + initFloat.value/100)) {
-        patNumber.value ++;
-        trainData.value.countPatSpeedCode.code.push(gap);
-      } else if (gap < patStandard.value.wordGap*(1 + initFloat.value/100)) {
-        patNumber.value += 3;
-        trainData.value.countPatSpeedCode.word.push(gap);
-      } else if (gap < patStandard.value.groupGap*(1 + initFloat.value/100)) {
-        patNumber.value += 5;
-        trainData.value.countPatSpeedCode.group.push(gap);
-      }
       if (trainData.value.process === 3) {
         finishPatLogs.value[finishPatLogs.value.length - 1].patLogs.push({
           name: '间隔' + finishPatLogs.value[finishPatLogs.value.length - 1].patLogs.length,
@@ -267,12 +269,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       }
     } else {
       diff = diffTime[1]-diffTime[0];
-      if (diff > 10 && diff <= patStandard.value.dot*(1 + initFloat.value/100)) {
-        trainData.value.countPatSpeedCode.dot.push(diff);
-      } else if (diff <= patStandard.value.line*(1 + initFloat.value/100)) {
-        trainData.value.countPatSpeedCode.line.push(diff);
-      }
-      patNumber.value += val == 0 ? 1 : 3
       if (trainData.value.process === 3) {
         finishPatLogs.value[finishPatLogs.value.length - 1].patLogs.push({
           name: (val === 0 ? '点' : '划') + finishPatLogs.value[finishPatLogs.value.length - 1].patLogs.length,
@@ -584,183 +580,96 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   /**
    * 电码信号转码成字符
    */
-  let numI = 0
+  let controlCandidates = []
+      const patterns = [
+        ['start', ['10001']], ['end', ['01010']], ['alter', ['001100']],
+        ['next', ['001011']], ['next', ['0010', '11']],
+        ['turn', ['000000']], ['turn', ['00', '00', '00']],
+        ['turn', ['00', '0000']], ['turn', ['0000', '00']]
+      ]
   const codeCompileKeyInfo = type => {
-    let code = cachePatCode.value.map(item => item.code).join(''),
-        short = (trainData.value.type===1?'letter':trainData.value.type===2?'mix':trainData.value.codeSort?'long':'short'),
-        codeInit = codeKey[short],
-        len = trainData.value.patKeyVal.length,
-        lastPatKey;
-    if (currPatKeyIndex.value == -1) {
-      code = code.slice(-5,code.length)
-    }
-    if (code === initSymbol.value.start && trainData.value.floorNow == 1 && currPatKeyIndex.value <= 2) {
-      trainData.value.patKeyVal = [];
-      trainData.value.patKeyVal.push(['开始']);
-      trainData.value.patKeyVal.push([]);
-      cachePatCode.value = [];
-      currPatKeyIndex.value = 0;
-      cachePatKey.value = [];
-      trainData.value.telegraph.curr[0].moresValue = [];
-      trainData.value.telegraph.curr[0].moresTime = [];
-      trainData.value.telegraph.curr[0].patKeys = [];
-      trainData.value.telegraph.curr[0].patLogs = [];
-      trainData.value.telegraph.curr[1].moresValue = [];
-      trainData.value.telegraph.curr[1].moresTime = [];
-      trainData.value.telegraph.curr[1].patKeys = [];
-      trainData.value.telegraph.curr[1].patLogs = [];
-      trainData.value.validTime = 0;
-      patNumber.value = 0;
-      startStatus.value = true;
-    }
-    else if (code === initSymbol.value.start && trainData.value.floorNow > 1 && currPatKeyIndex.value == -1) {
-      trainData.value.patKeyVal.push(['开始']);
-      trainData.value.patKeyVal.push([]);
-      cachePatCode.value = [];
-      currPatKeyIndex.value = 0;
-      cachePatKey.value = [];
-      trainData.value.telegraph.curr[0].moresValue = [];
-      trainData.value.telegraph.curr[0].moresTime = [];
-      trainData.value.telegraph.curr[0].patKeys = [];
-      trainData.value.telegraph.curr[0].patLogs = [];
-      startStatus.value = true;
-    }
-    else if (type === 'word' && startStatus.value) {
-      if (alter.value ===3) {
-        alter.value = 0;
-      }
-      cacheKeyCode.value.push(code);
-      let cacheArr1 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-1)
-      let cacheArr2 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-2)
-      let cacheArr3 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-3)
-      if (cacheArr1.join(',') === initSymbol.value.end) {
-        statisticsTelegraphData('autoEnd');
-        return false;
-      }
-      console.log(cacheKeyCode.value);
-      if (cacheArr3.join(',') === initSymbol.value.turn||cacheArr3.join(',') ==='00,0000'||cacheArr3.join(',') ==='0000,00') {//句号翻页
-
-        //去掉翻页#号
-        trainData.value.telegraph.curr[currPatKeyIndex.value].patKeys = trainData.value.telegraph.curr[currPatKeyIndex.value].patKeys.splice(0,trainData.value.telegraph.curr[currPatKeyIndex.value].patKeys.length-2)
-        // 去掉翻页展示框中最后一组的 #
-        let endRow = trainData.value.patKeyVal[trainData.value.patKeyVal.length-1]
-        let arr = endRow[endRow.length-1].split('')
-        arr = arr.splice(0,arr.length-2)
-        let s = ''
-        arr.forEach(item => {
-          s+=item
-        })
-        endRow[endRow.length-1] = s
-        //
-        if (trainData.value.floorNow == trainData.value.pag) {
-          statisticsTelegraphData('autoEnd');
-          return false;
-        } else {
-          statisticsTelegraphData('turn');
-          return false;
+    if (submission.busy.value || submission.error.value) return
+    const code = cachePatCode.value.map(item => item.code).join('')
+    const alphabet = trainData.value.type === 1 ? 'letter' : trainData.value.type === 2 ? 'mix' : trainData.value.codeSort ? 'long' : 'short'
+    if (type === 'word' && code) {
+      const match = patterns.find(([, parts]) => {
+        if (parts[parts.length - 1] !== code || parts.length > controlCandidates.length + 1) return false
+        return parts.slice(0, -1).every((part, i) => controlCandidates[controlCandidates.length - parts.length + 1 + i].code === part)
+      })
+      if (match) {
+        const [action, parts] = match
+        const prior = controlCandidates.slice(controlCandidates.length - parts.length + 1)
+        const correctionSignal = prior.flatMap(item => item.signal).concat(cachePatCode.value)
+        const correctionLogs = prior.flatMap(item => item.logs).concat(cachePatLogs.value)
+        for (let i = prior.length - 1; i >= 0; i--) prior[i].undo()
+        if (prior.length) currPatKeyIndex.value = prior[0].groupIndex
+        controlCandidates = []
+        cachePatCode.value = []
+        cachePatLogs.value = []
+        if (action === 'start') {
+          if (!startStatus.value || currPatKeyIndex.value < 0) {
+            startStatus.value = true
+            currPatKeyIndex.value = 0
+            cacheKey.value = []
+            trainData.value.patKeyVal.push(['开始'], [])
+          }
+          return
         }
-      }
-
-      if (code === initSymbol.value.alter) {
-        alter.value = 3;
-        cacheKey.value.push('?');
+        if (!startStatus.value) return
+        if (action === 'end' || action === 'turn') {
+          statisticsTelegraphData(action === 'end' || trainData.value.floorNow === trainData.value.pag ? 'autoEnd' : 'turn')
+          return
+        }
+        // Corrections operate on existing groups, including the first group.
+        const occupied = cacheKey.value.length > 0
+        currPatKeyIndex.value = Math.max(0, currPatKeyIndex.value - (action === 'next' ? (occupied ? 1 : 2) : (occupied ? 0 : 1)))
+        cacheKey.value = []
+        cachePatCode.value = correctionSignal
+        cachePatLogs.value = correctionLogs
         updateMoresKeyInfo('?')
-      } else if (cacheArr2.join(',') === initSymbol.value.next) {
-        alter.value = 1;
-        // cacheKey.value.pop();
-        // 删除上一组编译错误数据
-        // trainData.value.telegraph.curr[currPatKeyIndex.value].patKeys.pop()
-        // trainData.value.patKeyVal.pop()
-        // trainData.value.patKeyVal[trainData.value.patKeyVal.length-1].pop()
-        // debugger
-        // debugger
-        cacheKey.value.push('/');
-        // "/"改错出现在每一组的开头下标减2
-        if(cacheKey.value[0]==='/'){
-          currPatKeyIndex.value -=2;
-          numI = 2
-        }else {
-          currPatKeyIndex.value --
-        }
-        // currPatKeyIndex.value--
-        if(currPatKeyIndex.value<0){
-          currPatKeyIndex.value = 0
-        }
-        if(cacheKey.value.length===1){
-          // trainData.value.patKeyVal[trainData.value.patKeyVal.length-1].pop()
-        }
-        updateMoresKeyInfo('?','error')
-        console.log(trainData.value.telegraph.curr);
-      } else {
-        cacheKey.value.push(codeInit[code]!=undefined&&code!=initSymbol.value.start?codeInit[code]:'#');
-        updateMoresKeyInfo(codeInit[code]!=undefined&&code!=initSymbol.value.start?codeInit[code]:'#')
+        trainData.value.patKeyVal.push([action === 'next' ? '/' : '?'], [])
+        return
       }
-
-      lastPatKey = trainData.value.patKeyVal[len-1];
-      if (cacheKey.value.length === 1) {
-        lastPatKey.push(cacheKey.value.join(''));
-        cachePatKey.value.push(cacheKey.value.join(''));
-      } else {
-        lastPatKey[lastPatKey.length - 1] = cacheKey.value.join('')
-        cachePatKey.value[cachePatKey.value.length - 1] = cacheKey.value.join('')
-      }
+      if (!startStatus.value) { cachePatCode.value = []; cachePatLogs.value = []; return }
+      const key = codeKey[alphabet][code] ?? '#'
+      const groupIndex = Math.max(0, currPatKeyIndex.value)
+      currPatKeyIndex.value = groupIndex
+      const keys = cacheKey.value
+      const keyIndex = keys.length
+      keys.push(key)
+      const page = trainData.value.telegraph.curr
+      const before = page[groupIndex]
+      const valueIndex = before ? (typeof before.patKeys === 'string' ? JSON.parse(before.patKeys).length : before.patKeys.length) : 0
+      const signal = cachePatCode.value
+      const logs = cachePatLogs.value
+      updateMoresKeyInfo(key)
+      const characters = Array.from(key).filter(character => !/[\s?.。]/u.test(character)).length
+      patNumber.value += characters
+      const item = page[groupIndex]
+      let row = trainData.value.patKeyVal[trainData.value.patKeyVal.length - 1]
+      if (!row) { row = []; trainData.value.patKeyVal.push(row) }
+      const rowIndex = keyIndex === 0 ? row.length : row.length - 1
+      row[rowIndex] = keys.join('')
+      controlCandidates.push({code, groupIndex, signal, logs, undo: () => {
+        // Remove only this token's own provisional entry, never unrelated '#'.
+        for (const field of ['patKeys', 'moresValue', 'moresTime', 'patLogs']) item[field].splice(valueIndex, 1)
+        patNumber.value -= characters
+        keys.splice(keyIndex, 1)
+        row[rowIndex] = keys.join('')
+      }})
+      if (controlCandidates.length > 2) controlCandidates.shift()
+    } else if (type === 'group' && startStatus.value && cacheKey.value.length) {
+      pageResetPatStandard()
+      currPatKeyIndex.value++
+      cacheKey.value = []
     }
-    else if (type === 'group' && startStatus.value) {
-      if (cacheKey.value.length >= 3 || currPatKeyIndex.value % 2 == 0) {
-        pageResetPatStandard()
-      }
-      if (alter.value === 2) {
-        updateMoresKeyInfo('?')
-        alter.value = 0;
-      }
-
-      lastPatKey = trainData.value.patKeyVal[len-1];
-      if (alter.value===1) {
-        alter.value = 2;
-        // 改错前一组恢复下标变量赋值
-        if(numI===0){
-          numI = 1
-        }
-      }
-
-      if (lastPatKey.length > 1) {
-        lastPatKey[lastPatKey.length - 1] = cacheKey.value.join('');
-      }
-      if (cachePatKey.value.length > 1) {
-        cachePatKey.value[cachePatKey.value.length - 1] = cacheKey.value.join('');
-      }
-      if (alter.value === 0) {
-        if (cachePatKey.value.length > 0) {
-          // 改错前一组恢复下标
-          // if(numI===1){
-          //   currPatKeyIndex.value+=1;
-          //   numI = 0
-          // }else if(numI === 2){
-          //   // currPatKeyIndex.value+=2;
-          //   numI = 0
-          // }else {
-          //   currPatKeyIndex.value ++;
-          // }
-          currPatKeyIndex.value ++;
-          trainData.value.telegraph.curr[currPatKeyIndex.value].patKeys=[]
-        }
-        cacheKey.value = [];
-        cacheKeyCode.value = [];
-      }
-      if (alter.value ===3) {
-        alter.value = 0;
-      }
-    }
-    if (patKeyBoxRef.value) {
-      patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight
-    }
+    if (patKeyBoxRef.value) patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight
   }
 
   /**
    * 更新待提交的字码数据
    */
   const updateMoresKeyInfo = (key,type=' ') => {
-    console.log(key,type,currPatKeyIndex.value);
     let item = trainData.value.telegraph.curr[currPatKeyIndex.value];
     let code = cachePatCode.value.map(c => c.code);
     let diff = cachePatCode.value.map(c => c.diff);
@@ -782,14 +691,11 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       item.moresValue.push(code);
       item.patLogs.push(cachePatLogs.value);
       item.moresTime.push(diff);
-    } else if (currPatKeyIndex.value > 99) {
-      trainData.value.telegraph.curr.push({
-        moresKey: '#',
-        patKeys: [key],
-        moresValue: [code],
-        patLogs: [cachePatLogs.value],
-        moresTime: [diff],
-      })
+    } else {
+      trainData.value.telegraph.curr[currPatKeyIndex.value] = {
+        moresKey: '#', patKeys: [key], moresValue: [code],
+        patLogs: [cachePatLogs.value], moresTime: [diff]
+      }
     }
 
     cachePatCode.value = [];
@@ -818,115 +724,39 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   /**
    * 开始训练
    */
-  const beginTrainInfo = () => {
-    beginPostTelegramTrain({
-      id: trainData.value.trainId
-    }).then(res => {
-      if (res.code === 200) {
-        trainData.value.startTime = res.data.startTime
-        trainData.value.status = res.data.status
-      } else {
-        message.error(res.message)
-      }
-    })
-  }
+  const beginTrainInfo = () => submission.run(async request => {
+    const current = await request(config => getPostTelegramMsgBody({id: trainData.value.trainId, floorNumber: trainData.value.floorNow}, config))
+    const response = await request(config => beginPostTelegramTrain({id: trainData.value.trainId, attempt: current.data.attempt}, config))
+    capture.bind({...current.data, serverElapsedMs: response.data.serverElapsedMs, attempt: response.data.attempt, protocolVersion: response.data.protocolVersion})
+    capture.open()
+    trainData.value.startTime = response.data.startTime
+    trainData.value.status = response.data.status
+    const saved = submission.loadSnapshot(snapshotKey())
+    if (saved) {
+      message.warning('存在尚未确认的提交，请使用结束/重试提交，不会重新覆盖原始记录')
+    }
+  })
 
   /**
    * 结束训练
    * @param type
    */
-  const finishTrainInfo = type => {
-    let turnLen = initSymbol.value.turn.split(',').length,
-        endLen = initSymbol.value.end.split(',').length
-    finishPatLogs.value = finishPatLogs.value.filter(item => item.patLogs.length > 0)
-    finishPatLogs.value.map((item, i) => {
-      if (i < finishPatLogs.value.length - 1) {
-        item.patLogs = item.patLogs.filter((code, c) => c < item.patLogs.length - (turnLen * 2 - 1))
-      }
-      if (type === 'autoEnd' && i === finishPatLogs.value.length - 1) {
-        item.patLogs = item.patLogs.filter((code, c) => c < item.patLogs.length - (endLen * 2 - 1))
-      }
-    })
-    loading.value = true
-    finishPostTelegramTrain(  {
-      id: trainData.value.trainId,
-      validTime: trainData.value.validTime,
-      finishInfo: finishPatLogs.value,
-      speed:trainData.value.speed?trainData.value.speed+'':''
-    }).then(res => {
-      loading.value = false
-      if (res.code === 200) {
-        trainData.value.status = 2
-        clearInterval(trainTimer.value)
-        router.push({ path: scorePath.value, query: { id: trainData.value.trainId } })
-      } else {
-        message.error(res.message)
-      }
-    })
+  const finishTrainInfo = async request => {
+    await request(config => finishPostTelegramTrain({id: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
+    trainData.value.status = 2
+    clearInterval(trainTimer.value)
+    router.push({path: scorePath.value, query: {id: trainData.value.trainId}})
   }
 
   /**
    * 统计每页电报纸报文内容的正确性
    * @param type
    */
-  const statisticsTelegraphData = (type) => {
-    let short = (trainData.value.type===0&&!trainData.value.codeSort?'short':'mix'),
-        countObj = trainData.value.countPatSpeedCode,codeArr = '',codeArr1 = '',codeArr3 = '',error = 0,
-        total = trainData.value.messageNumber;
-
-    trainData.value.telegraph.curr.map((item,ci) => {
-      if (typeof item.moresKey === 'string' && item.moresKey != '#') {
-        item.moresKey = JSON.parse(item.moresKey);
-      }
-      if (typeof item.patKeys === 'string') {
-        item.patKeys = JSON.parse(item.patKeys)
-      }
-      if (typeof item.moresValue === 'string') {
-        item.moresValue = JSON.parse(item.moresValue)
-      }
-      if (typeof item.patLogs === 'string') {
-        item.patLogs = JSON.parse(item.patLogs)
-      }
-      if (typeof item.moresTime === 'string') {
-        item.moresTime = JSON.parse(item.moresTime)
-      }
-      if (item.moresKey === '#' || item.moresValue.length !== item.moresKey.length || item.moresKey.some((key, k) => item.moresValue[k].join('') !== morseCode[short][key].value)) {
-        error++
-      }
-      if (typeof item.moresKey !== 'string') {
-        item.moresKey = JSON.stringify(item.moresKey)
-      }
-      codeArr = item.moresValue.map(k => k.join(''));
-      codeArr1 = codeArr.filter((subI,i) => i>=codeArr.length-1);
-      codeArr3 = codeArr.filter((subI,i) => i>=codeArr.length-3);
-      if (codeArr3.join(',') === initSymbol.value.turn) {
-        item.moresValue = item.moresValue.filter((ii,i) => i<item.moresValue.length-3);
-        item.moresTime = item.moresTime.filter((ii,i) => i<item.moresValue.length-3);
-        item.patKeys = item.patKeys.filter((ii,i) => i<item.moresValue.length-3);
-        item.patLogs = item.patLogs.filter((ii,i) => i<item.moresValue.length-3);
-      }
-      if (codeArr1.join(',') === initSymbol.value.end) {
-        item.moresValue = item.moresValue.filter((ii,i) => i<item.moresValue.length-1);
-        item.moresTime = item.moresTime.filter((ii,i) => i<item.moresValue.length-1);
-        item.patKeys = item.patKeys.filter((ii,i) => i<item.moresValue.length-1);
-        item.patLogs = item.patLogs.filter((ii,i) => i<item.moresValue.length-1);
-      }
-
-    });
-    error = (error>100?100:error);
-    trainData.value.errorNumber += error;
-    if (total >= trainData.value.errorNumber) {
-      trainData.value.accuracy = parseFloat((total - trainData.value.errorNumber) / total).toFixed(2)
-    } else {
-      trainData.value.accuracy = '0.00'
-    }
-    countObj.WPM = (sum(countObj.dot) / countObj.dot.length + sum(countObj.line) / (countObj.line.length * 3) + sum(countObj.code) / countObj.code.length + sum(countObj.word) / (countObj.word.length * 3) + sum(countObj.group) / (countObj.group.length * 5)) / 5
-    if (speedUnit.value) {
-      trainData.value.speed = parseFloat(1200 / countObj.WPM).toFixed(2)
-    }
-
-    pageResetPatStandard('turn')
-    savePatTelegraphBody(type)
+  const statisticsTelegraphData = type => {
+    if (submission.error.value || submission.busy.value) return submission.retry()
+    if (cachePatCode.value.length) codeCompileKeyInfo('word')
+    if (submission.error.value || submission.busy.value) return
+    return savePatTelegraphBody(type)
   }
 
   /**
@@ -934,92 +764,65 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * @param type
    */
   const savePatTelegraphBody = type => {
-    trainData.value.telegraph.curr.map(item => {
-      item.moresTime = JSON.stringify(item.moresTime)
-      item.moresValue = JSON.stringify(item.moresValue)
-      item.patKeys = JSON.stringify(item.patKeys)
-      item.patLogs = JSON.stringify(item.patLogs)
-    })
-    let finish = finishPatLogs.value[trainData.value.floorNow - 1]
-    if (trainData.value.floorNow > 1) {
-      let turnLen = initSymbol.value.turn.split(',').length
-      finish.patLogs = finish.patLogs.filter((code, c) => c < finish.patLogs.length - (turnLen * 2 - 1))
-    }
-    savePostTelegramContent({
-      trainId: trainData.value.trainId,
-      floorNumber: trainData.value.floorNow,
-      messageBody: trainData.value.telegraph.curr,
-      validTime: trainData.value.validTime,
-      errorNumber: trainData.value.errorNumber,
-      speed: trainData.value.speed,
-      accuracy: trainData.value.accuracy,
-      standard: pagePatStandard.value,
-      finishInfo: JSON.stringify(finish)
-    }).then(res => {
-      if (res.code === 200) {
-        pagePatStandard.value = [{
-          dot: patStandard.value.dot,
-          line: patStandard.value.line,
-          codeGap: patStandard.value.codeGap,
-          wordGap: patStandard.value.wordGap,
-          groupGap: patStandard.value.groupGap,
-          offSize: initFloat.value,
-        }];
-        finishPatLogs.value[trainData.value.floorNow - 1].patLogs = [{
-          name:'点',
-          key:0,
-          value:0
-        }]
-        startStatus.value = false;
-        if (type == 'turn') {
-          if (trainData.value.patKeyVal.length > 0) {
-            trainData.value.patKeyVal.push(['句号']);
-            trainData.value.patKeyVal.push([]);
-            currPatKeyIndex.value = -1;
-            cachePatKey.value = [];
-            if (trainData.value.floorNow < trainData.value.pag) {
-              switchTelegram('next')
-            }
-          }
-        } else {
-          trainData.value.patKeyVal.push(['完结']);
-          finishTrainInfo(type);
+    clearTimeout(wordTimer.value)
+    clearTimeout(groupTimer.value)
+    const saved = submission.loadSnapshot(snapshotKey())
+    const pageNumber = saved?.payload.floorNumber ?? trainData.value.floorNow
+    let payload = saved?.payload
+    if (saved) type = saved.type
+    if (!payload) {
+      const messageBody = deepClone(trainData.value.telegraph.curr)
+      for (const item of messageBody) {
+        for (const field of ['moresTime', 'moresValue', 'patKeys', 'patLogs', 'moresKey']) {
+          if (typeof item[field] !== 'string') item[field] = JSON.stringify(item[field])
         }
-      } else {
-        message.error(res.message)
       }
+      payload = {trainId: trainData.value.trainId, floorNumber: pageNumber, messageBody,
+        ...capture.snapshot(), standard: deepClone(pagePatStandard.value.length ? pagePatStandard.value : [{...patStandard.value, offSize: initFloat.value}]),
+        finishInfo: JSON.stringify(finishPatLogs.value[pageNumber - 1] ?? {...patStandard.value, offSize: initFloat.value, patLogs: []})}
+    }
+    submission.saveSnapshot(snapshotKey(), {type, payload})
+    let uploaded = false
+    return submission.run(async request => {
+      if (payload.attempt !== capture.metadata.value?.attempt) throw new Error('训练轮次已变化，旧记录不会提交到新轮次')
+      if (!uploaded) {
+        await request(config => savePostTelegramContent(payload, config))
+        uploaded = true
+      }
+      if (type === 'turn' && pageNumber < trainData.value.pag) {
+        startStatus.value = false
+        const next = await request(config => getPostTelegramMsgBody({id: trainData.value.trainId, floorNumber: pageNumber + 1}, config))
+        const previous = trainData.value.telegraph.curr
+        capture.bind(next.data)
+        capture.open()
+        trainData.value.telegraph.curr = next.data.messageKey
+        trainData.value.telegraph.prev = previous
+        currPatKeyIndex.value = -1
+        cacheKey.value = []
+        cachePatKey.value = []
+        cacheKeyCode.value = []
+        cachePatCode.value = []
+        cachePatLogs.value = []
+        controlCandidates = []
+        trainData.value.patKeyVal.push(['句号'], [])
+        trainData.value.floorNow = pageNumber + 1
+        pagePatStandard.value = []
+        finishPatLogs.value[pageNumber] = {...patStandard.value, offSize: initFloat.value, patLogs: []}
+      } else {
+        await finishTrainInfo(request)
+      }
+      submission.clearSnapshot(snapshotKey())
     })
   }
 
-  /**
-   * 退出页面重置训练
-   */
-  const resetTrainInfo = () => {
-    if (trainData.value.status !== 1) return false
-    trainData.value.status = 0
-    resetPostTelegramTrain({
-      id: trainData.value.trainId
-    }).then(res => {
-      if (res.code === 200) {
-        trainData.value.status = 0
-        trainData.value.errorNumber = 1
-        trainData.value.speed = '0'
-        trainData.value.accuracy = '0'
-        finishPatLogs.value = []
-        PubSub.publish('callback_handKeyPostTrainPage', true)
-      } else {
-        message.error(res.message)
-      }
-    })
-  }
 
   return {
+    submissionError: submission.error, submissionBusy: submission.busy, retrySubmit: submission.retry,
     patKeyBoxRef,
     patValBoxRef,
     trainTimeRef,
     initSymbol,
     errorText,
-    speedUnit,
     currPatKeyIndex,
     getPostTrainKeyInfo,
     switchTelegram,
@@ -1029,7 +832,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     timeAreaShow,
     statisticsTelegraphData,
     getScoreOffsetInfo,
-    resetTrainInfo,
     showPatCodeLog
   }
 }

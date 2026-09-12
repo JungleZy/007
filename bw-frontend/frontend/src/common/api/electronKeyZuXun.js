@@ -14,34 +14,18 @@ export const saveElectronKeyZuXunTrain = (data) => {
     data
   })
 }
-export const finishElectronKeyZuXun = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalKeyPat/finish",
-    data
-  })
-}
-export const getElectronKeyZuXunPageNumber = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalKeyPat/getPage",
-    data
-  })
-}
-export const uploadElectronKeyZuXunPatResult = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalKeyPat/uploadResult",
-    data
-  })
-}
-export const resetElectronKeyZuXunTrain = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/generalKeyPat/reset",
-    data
-  })
-}
+export const finishElectronKeyZuXun = (data, config) => { return axios({method: "post",
+url: "/api/generalKeyPat/finish",
+data, config}) }
+export const getElectronKeyZuXunPageNumber = (data, config) => { return axios({method: "post",
+url: "/api/generalKeyPat/getPage",
+data, config}) }
+export const uploadElectronKeyZuXunPatResult = (data, config) => { return axios({method: "post",
+url: "/api/generalKeyPat/uploadResult",
+data, config}) }
+export const resetElectronKeyZuXunTrain = (data, config) => { return axios({method: "post",
+url: "/api/generalKeyPat/reset",
+data, config}) }
 export const updateElectronKeyPatTrainDetails = (data) => {
   return axios({
     method: "post",
@@ -84,12 +68,8 @@ export const resetHandKeyZuXunStatistics = (data) => {
     data
   })
 }
-export const startTrainUser = (data) => {
-  return axios({
-    method: "get",
-    url: `/api/generalKeyPat/startTrain?trainId=${data}`,
-    data
-  })
+export const startTrainUser = ({trainId, attempt}, config) => {
+  return axios({method: 'get', url: '/api/generalKeyPat/startTrain', data: {trainId, attempt}, config})
 }
 export const deleteTrain = (data) => {
   return axios({

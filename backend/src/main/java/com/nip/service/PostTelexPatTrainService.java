@@ -3,11 +3,13 @@ package com.nip.service;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
+import com.nip.common.utils.CaptureTimeline;
 import com.nip.common.utils.CheckUtils;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
+import com.nip.common.utils.ScoringRuleValidation;
 import com.nip.common.utils.TelexPatUtils;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
@@ -15,6 +17,7 @@ import com.nip.dao.PostTelexPatTrainPageDao;
 import com.nip.dao.PostTelexPatTrainPageValueDao;
 import com.nip.dto.*;
 import com.nip.dto.vo.PostTelexPatTrainPageInfoVO;
+import com.nip.dto.score.TrainingRateUnit;
 import com.nip.dto.vo.PostTelexPatTrainPageVO;
 import com.nip.dto.vo.PostTelexPatTrainPageValueVO;
 import com.nip.dto.vo.PostTelexPatTrainVO;
@@ -24,12 +27,14 @@ import com.nip.entity.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -41,7 +46,6 @@ import static com.nip.common.constants.PostTelexPatTrainStatusEnum.NOT_STARTED;
 import static com.nip.common.constants.PostTelexPatTrainStatusEnum.UNDERWAY;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.bePointed;
 import static com.nip.common.utils.GlobalMessageGeneratedUtil.generatedNumber;
-import static com.nip.common.utils.TelexPatUtils.calculateAverage;
 
 /**
  * @Author: wushilin
@@ -58,6 +62,11 @@ public class PostTelexPatTrainService {
   private static final Pattern PATTERN_REG_4 = Pattern.compile("^\\w+/+");
   private static final Pattern PATTERN_REG_5 = Pattern.compile("^\\d{1,2}");
   private static final Pattern PATTERN_REG_6 = Pattern.compile("^\\w{4,}-\\w+/\\d+");
+  private static final Pattern CAPTURE_LINES = Pattern.compile("\\r\\n|[\\r\\n]");
+  private static final Pattern CAPTURE_TOKEN = Pattern.compile("[^\\s\\p{Z}\\p{Cc}]+");
+  private static final Pattern PAGE_SUFFIX = Pattern.compile("(.*)-[1-9]\\d{0,2}(?:/[1-9]\\d{0,2})*");
+  private static final Pattern PAGE_SELECTOR = Pattern.compile("[1-9]\\d{0,2}[Pp]");
+  private static final Pattern GROUP_RANGE = Pattern.compile("[1-9]\\d{0,2}---[1-9]\\d{0,2}");
 
   private final PostTelexPatTrainDao postTelexPatTrainDao;
   private final PostTelexPatTrainPageDao pageDao;
@@ -87,11 +96,18 @@ public class PostTelexPatTrainService {
     // 查询评分内容
     GradingRuleEntity ruleEntity = Optional.ofNullable(gradingRuleDao.findById(dto.getRuleId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到评分规则"));
+    ScoringRuleValidation.telex(ruleEntity.getContent());
+    if (ruleEntity.getScore() == null || ruleEntity.getScore() < 0) {
+      throw new IllegalArgumentException("评分规则满分必须为非负数");
+    }
     PostTelexPatTrainEntity entity = PojoUtils.convertOne(dto, PostTelexPatTrainEntity.class, (t, r) -> {
       // 设置默认值
       r.setAccuracy("0.00");
       r.setSpeed("0");
       r.setStatus(NOT_STARTED.getStatus());
+      r.setProtocolVersion(1);
+      r.setAttempt(0);
+      r.setPauseIntervals("[]");
       r.setErrorNumber(0);
       r.setValidTime(0);
       r.setValidTimeLog(null);
@@ -170,7 +186,7 @@ public class PostTelexPatTrainService {
       pageDao.save(list);
     }
 
-    return PojoUtils.convertOne(save, PostTelexPatTrainVO.class);
+    return clockView(save, LocalDateTime.now());
   }
 
   public PageInfo<PostTelexPatTrainVO> findAll(String token, Integer trainType, Page page) {
@@ -197,64 +213,148 @@ public class PostTelexPatTrainService {
     // userService.getUserByToken(token).getId());
   }
 
-  public PostTelexPatTrainVO detail(PostTelexPatTrainParam param) {
-    PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(param.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
+  @Transactional
+  public PostTelexPatTrainVO detail(PostTelexPatTrainParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireReadable(entity);
     List<PostTelexPatTrainPageEntity> pageEntities = pageDao.findByTrainIdTop2(param.getId());
     List<PostTelexPatTrainPageValueEntity> pageValueEntities = valueDao.findByTrainIdTop2(param.getId());
     List<PostTelexPatTrainPageValueVO> pageValueVOS = PojoUtils.convert(pageValueEntities,
-        PostTelexPatTrainPageValueVO.class);
+        PostTelexPatTrainPageValueVO.class, (source, target) -> target.setCaptureIntervals(
+            source.getCaptureIntervals() == null ? null : intervals(source.getCaptureIntervals())));
     List<PostTelexPatTrainPageVO> convert = PojoUtils.convert(pageEntities, PostTelexPatTrainPageVO.class);
-    return PojoUtils.convertOne(entity, PostTelexPatTrainVO.class, (e, v) -> {
-      v.setExistPage(convert);
-      v.setCodeAll(pageValueVOS);
-      v.setPageNumber(pageDao.findMaxPageNumber(entity.getId()));
-    });
+    PostTelexPatTrainVO result = clockView(entity, LocalDateTime.now());
+    result.setExistPage(convert);
+    result.setCodeAll(pageValueVOS);
+    result.setPageNumber(pageDao.findMaxPageNumber(entity.getId()));
+    return result;
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public PostTelexPatTrainVO begin(PostTelexPatTrainParam param) {
-    try {
-      PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(param.getId()))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
-      // 参数校验
-      CheckUtils.statusCheck(NOT_STARTED.getStatus(), entity.getStatus(),
-          "该训练状态不是未开始");
-      // 修改状态并保存
-      entity.setStatus(UNDERWAY.getStatus());
-      entity.setStartTime(LocalDateTime.now());
-      return PojoUtils.convertOne(postTelexPatTrainDao.save(entity), PostTelexPatTrainVO.class);
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("开始训练失败，训练ID: {}", param.getId(), e);
-      throw new RuntimeException(e);
+  public PostTelexPatTrainVO begin(PostTelexPatTrainParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireMutableAttempt(entity, param.getAttempt());
+    Integer seconds = param.getCountdownSeconds();
+    if (seconds != null && (seconds <= 0 || seconds > 86400)) {
+      throw new IllegalArgumentException("倒计时须为1至86400秒或不启用");
     }
-  }
-
-  @Transactional(rollbackOn = Exception.class)
-  public PostTelexPatTrainVO finish(PostTelexPatTrainFinishParam param) {
-    try {
-      PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(param.getId()))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
-      // P1-09：恢复 finish 幂等守卫——已完成的训练直接返回，不再重复结算
-      if (PostTelexPatTrainStatusEnum.FINISH.getStatus().equals(entity.getStatus())) {
-        return PojoUtils.convertOne(entity, PostTelexPatTrainVO.class);
+    LocalDateTime now = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+    if (!NOT_STARTED.getStatus().equals(entity.getStatus())) {
+      if (!Objects.equals(seconds, entity.getCountdownSeconds())) {
+        throw new IllegalArgumentException("训练开始后不能修改倒计时");
       }
-      PostTelexPatTrainEntity postTelexPatTrainEntity = countScore(param, entity);
-      postTelexPatTrainEntity.setTotalSpeed(param.getTotalSpeed());
-      return PojoUtils.convertOne(postTelexPatTrainDao.save(postTelexPatTrainEntity), PostTelexPatTrainVO.class);
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("完成训练失败，训练ID: {}", param.getId(), e);
-      throw new RuntimeException(e);
+      return clockView(entity, now);
     }
+    validateFrozenRule(entity);
+    entity.setStatus(UNDERWAY.getStatus());
+    entity.setStartTime(now);
+    entity.setCountdownSeconds(seconds);
+    entity.setDeadline(seconds == null ? null : now.plusSeconds(seconds));
+    entity.setPausedAt(null);
+    entity.setPauseIntervals("[]");
+    return clockView(postTelexPatTrainDao.save(entity), now);
   }
 
-  public PostTelexPatTrainPageInfoVO getPage(String trainId, Integer pageNumber) {
-    PostTelexPatTrainEntity trainEntity = Optional.ofNullable(postTelexPatTrainDao.findById(trainId))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
+  @Transactional(rollbackOn = Exception.class)
+  public PostTelexPatTrainVO pause(PostTelexPatTrainParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireMutableAttempt(entity, param.getAttempt());
+    LocalDateTime now = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+    if (PostTelexPatTrainStatusEnum.PAUSE.getStatus().equals(entity.getStatus())) {
+      return clockView(entity, now);
+    }
+    CheckUtils.statusCheck(UNDERWAY.getStatus(), entity.getStatus(), "训练不在进行中");
+    if (entity.getDeadline() != null && !now.isBefore(entity.getDeadline())) {
+      throw new IllegalArgumentException("倒计时已结束，仅可补交截止前的内容");
+    }
+    entity.setPausedAt(now);
+    entity.setStatus(PostTelexPatTrainStatusEnum.PAUSE.getStatus());
+    return clockView(postTelexPatTrainDao.save(entity), now);
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public PostTelexPatTrainVO resume(PostTelexPatTrainParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireMutableAttempt(entity, param.getAttempt());
+    LocalDateTime now = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+    if (UNDERWAY.getStatus().equals(entity.getStatus())) return clockView(entity, now);
+    CheckUtils.statusCheck(PostTelexPatTrainStatusEnum.PAUSE.getStatus(), entity.getStatus(), "训练未暂停");
+    LocalDateTime pausedAt = Objects.requireNonNull(entity.getPausedAt(), "暂停时刻缺失");
+    List<CaptureInterval> pauses = new ArrayList<>(intervals(entity.getPauseIntervals()));
+    long started = elapsed(entity, pausedAt);
+    long ended = elapsed(entity, now);
+    if (ended > started) pauses.add(new CaptureInterval(started, ended));
+    entity.setPauseIntervals(JSONUtils.toJson(pauses));
+    if (entity.getDeadline() != null) {
+      entity.setDeadline(entity.getDeadline().plus(Duration.between(pausedAt, now)));
+    }
+    entity.setPausedAt(null);
+    entity.setStatus(UNDERWAY.getStatus());
+    return clockView(postTelexPatTrainDao.save(entity), now);
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public PostTelexPatTrainVO reset(PostTelexPatTrainParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireMutableAttempt(entity, param.getAttempt());
+    entity.setAttempt(Math.incrementExact(entity.getAttempt()));
+    valueDao.delete("trainId", entity.getId());
+    for (PostTelexPatTrainPageEntity page : pageDao.findByTrainIdOrderBySort(entity.getId())) {
+      page.setValue(null);
+    }
+    entity.setStatus(NOT_STARTED.getStatus());
+    entity.setStartTime(null);
+    entity.setEndTime(null);
+    entity.setCountdownSeconds(null);
+    entity.setDeadline(null);
+    entity.setPausedAt(null);
+    entity.setPauseIntervals("[]");
+    entity.setSpeed("0");
+    entity.setTotalSpeed("0");
+    entity.setValidTime(0);
+    entity.setSpeedLog(null);
+    entity.setValidTimeLog(null);
+    entity.setAccuracy("0.00");
+    entity.setErrorNumber(0);
+    entity.setChange(0);
+    entity.setDeductInfo(null);
+    return clockView(postTelexPatTrainDao.save(entity), LocalDateTime.now());
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public PostTelexPatTrainVO finish(PostTelexPatTrainFinishParam param, String token) {
+    PostTelexPatTrainEntity entity = requireOwnedTrain(param.getId(), token);
+    requireReadable(entity);
+    requireAttempt(entity, param.getAttempt());
+    if (isFinished(entity)) return clockView(entity, LocalDateTime.now());
+    return clockView(settle(entity), LocalDateTime.now());
+  }
+
+  @Transactional(value = Transactional.TxType.REQUIRES_NEW, rollbackOn = Exception.class)
+  public void settleDue(String trainId) {
+    PostTelexPatTrainEntity entity = postTelexPatTrainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE);
+    if (entity == null || entity.getProtocolVersion() != 1 || !UNDERWAY.getStatus().equals(entity.getStatus())
+        || entity.getDeadline() == null || LocalDateTime.now().isBefore(entity.getDeadline().plusSeconds(60))) return;
+    settle(entity);
+  }
+
+  private PostTelexPatTrainEntity settle(PostTelexPatTrainEntity entity) {
+    requireReadable(entity);
+    if (!UNDERWAY.getStatus().equals(entity.getStatus())
+        && !PostTelexPatTrainStatusEnum.PAUSE.getStatus().equals(entity.getStatus())) {
+      throw new IllegalArgumentException("训练尚未开始，不能结算");
+    }
+    PostTelexPatTrainRuleDto rule = validateFrozenRule(entity);
+    ensureReportFloor(entity);
+    deriveCapture(entity);
+    return postTelexPatTrainDao.save(countScore(entity, rule));
+  }
+
+  @Transactional
+  public PostTelexPatTrainPageInfoVO getPage(String trainId, Integer pageNumber, String token) {
+    PostTelexPatTrainEntity trainEntity = requireOwnedTrain(trainId, token);
+    requireReadable(trainEntity);
+    requirePageNumber(trainEntity, pageNumber);
     Integer groupNumber = 0;
     int generateNumber = 100;
     if (Objects.equals(trainEntity.getIsCable(), 0)) {
@@ -277,69 +377,295 @@ public class PostTelexPatTrainService {
     }
 
     List<PostTelexPatTrainPageEntity> pageEntities = pageDao.findByTrainIdAndPageNumberOrderBySort(trainId, pageNumber);
-    if (pageEntities.isEmpty()) {
+    if (pageEntities.isEmpty() && !isFinished(trainEntity)) {
       pageEntities = generateContent(trainEntity, generateNumber, pageNumber, trainId);
     }
-    String codeAll = Optional.ofNullable(valueDao.findByTrainIdAndPageNumber(trainId, pageNumber))
-        .map(PostTelexPatTrainPageValueEntity::getPatValue)
-        .orElseGet(String::new);
+    PostTelexPatTrainPageValueEntity submitted = valueDao.findByTrainIdAndPageNumber(trainId, pageNumber);
+    return pageReceipt(trainEntity, pageNumber, submitted, pageEntities);
+  }
+
+  private PostTelexPatTrainPageInfoVO pageReceipt(PostTelexPatTrainEntity trainEntity, Integer pageNumber,
+      PostTelexPatTrainPageValueEntity submitted, List<PostTelexPatTrainPageEntity> pageEntities) {
     PostTelexPatTrainPageInfoVO ret = new PostTelexPatTrainPageInfoVO();
-    ret.setCodeAll(codeAll);
+    ret.setSubmitted(submitted != null);
+    ret.setCodeAll(submitted == null ? "" : submitted.getPatValue());
+    ret.setAttempt(trainEntity.getAttempt());
+    ret.setCaptureIntervals(trainEntity.getProtocolVersion() == 0 ? null
+        : submitted == null ? List.of() : intervals(submitted.getCaptureIntervals()));
+    ret.setReceivedAt(submitted == null ? null : submitted.getReceivedAt());
+    if (submitted != null) {
+      List<Integer> times = JSONUtils.fromJson(trainEntity.getValidTimeLog(), new TypeToken<List<Integer>>() {});
+      List<String> speeds = JSONUtils.fromJson(trainEntity.getSpeedLog(), new TypeToken<List<String>>() {});
+      ret.setValidTime(times != null && times.size() >= pageNumber ? times.get(pageNumber - 1) : null);
+      ret.setSpeed(speeds != null && speeds.size() >= pageNumber ? speeds.get(pageNumber - 1) : null);
+    }
     ret.setPageVo(PojoUtils.convert(pageEntities, PostTelexPatTrainPageVO.class));
     return ret;
   }
 
-  @Transactional
-  public void finishPage(PostTelexPatTrainPageValueVO vo) {
-    PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(vo.getTrainId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
-    // Phase 7.4：pageNumber 参与 List 下标运算，为空时下面多处拆箱会 NPE
-    if (vo.getPageNumber() == null) {
-      throw new IllegalArgumentException("页码不能为空");
-    }
-    // 记录每页速率
-    List<String> speedLog = Optional.ofNullable(entity.getSpeedLog())
-        .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
-        })).orElseGet(ArrayList::new);
-    if (!StringUtils.isEmpty(vo.getSpeed())) {
-      if (speedLog.isEmpty()) {
-        speedLog.add(vo.getSpeed());
-      } else {
-        if (speedLog.size() >= vo.getPageNumber()) {
-          if (!StringUtils.isEmpty(speedLog.get(vo.getPageNumber() - 1))) {
-            speedLog.set(vo.getPageNumber() - 1, vo.getSpeed());
-          }
-        } else {
-          speedLog.add(vo.getSpeed());
-        }
+  @Transactional(rollbackOn = Exception.class)
+  public PostTelexPatTrainPageInfoVO finishPage(PostTelexPatTrainPageValueVO vo, String token) {
+    LocalDateTime receivedAt = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+    PostTelexPatTrainEntity entity = requireOwnedTrain(vo.getTrainId(), token);
+    requireReadable(entity);
+    requireAttempt(entity, vo.getAttempt());
+    if (entity.getProtocolVersion() != 1) throw new IllegalArgumentException("历史训练不支持逐页采集写入");
+    requirePageNumber(entity, vo.getPageNumber());
+    PostTelexPatTrainPageValueEntity saved = valueDao.findByTrainIdAndPageNumber(entity.getId(), vo.getPageNumber());
+    if (saved != null) {
+      requireAttempt(entity, saved.getAttempt());
+      if (Objects.equals(saved.getPatValue(), vo.getPatValue())
+          && intervals(saved.getCaptureIntervals()).equals(vo.getCaptureIntervals())) {
+        return pageReceipt(entity, vo.getPageNumber(), saved,
+            pageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), vo.getPageNumber()));
       }
     }
-    entity.setSpeedLog(JSONUtils.toJson(speedLog));
-    log.info("speed:{},speedLog:{}", vo.getSpeed(), speedLog);
-    // 记录每页耗时
-    List<Integer> validTimeLog = Optional.ofNullable(entity.getValidTimeLog())
-        .map(validTime -> JSONUtils.fromJson(validTime, new TypeToken<List<Integer>>() {
-        })).orElseGet(ArrayList::new);
-    if (vo.getValidTime() != null) {
-      if (validTimeLog.isEmpty()) {
-        validTimeLog.add(vo.getValidTime());
-      } else {
-        if (validTimeLog.size() >= vo.getPageNumber()) {
-          validTimeLog.set(vo.getPageNumber() - 1, vo.getValidTime());
-        } else {
-          validTimeLog.add(vo.getValidTime());
-        }
-      }
+    requireMutableAttempt(entity, vo.getAttempt());
+    if (!UNDERWAY.getStatus().equals(entity.getStatus())
+        && !PostTelexPatTrainStatusEnum.PAUSE.getStatus().equals(entity.getStatus())) {
+      throw new IllegalArgumentException("训练不在进行中，不能提交页面");
     }
-    entity.setValidTimeLog(JSONUtils.toJson(validTimeLog));
-    log.info("每页耗时：validTime{},validTimeLog{}", vo.getValidTime(), validTimeLog);
+    if (entity.getDeadline() != null && entity.getPausedAt() == null
+        && !receivedAt.isBefore(entity.getDeadline().plusSeconds(60))) {
+      throw new IllegalArgumentException("补交窗口已结束，不能修改页面");
+    }
+    if (vo.getPatValue() == null) throw new IllegalArgumentException("页面内容不能为空");
+    long duration = CaptureTimeline.durationMillis(vo.getCaptureIntervals(), captureBound(entity, receivedAt));
+    if (characterCount(vo.getPatValue(), entity.getTrainType()) > 0 && duration == 0) {
+      throw new IllegalArgumentException("非空正文必须有有效采集时长");
+    }
+    List<List<CaptureInterval>> timelines = new ArrayList<>();
+    timelines.add(vo.getCaptureIntervals());
+    timelines.add(intervals(entity.getPauseIntervals()));
+    for (PostTelexPatTrainPageValueEntity page : valueDao.findAllByTrainId(entity.getId())) {
+      requireAttempt(entity, page.getAttempt());
+      if (!Objects.equals(page.getPageNumber(), vo.getPageNumber())) timelines.add(intervals(page.getCaptureIntervals()));
+    }
+    CaptureTimeline.requireNoOverlap(timelines);
+    if (saved != null) CaptureTimeline.requireExtension(intervals(saved.getCaptureIntervals()), vo.getCaptureIntervals());
+    if (saved == null) {
+      saved = new PostTelexPatTrainPageValueEntity();
+      saved.setTrainId(entity.getId());
+      saved.setPageNumber(vo.getPageNumber());
+    }
+    saved.setPatValue(vo.getPatValue());
+    saved.setAttempt(entity.getAttempt());
+    saved.setCaptureIntervals(JSONUtils.toJson(vo.getCaptureIntervals()));
+    saved.setReceivedAt(receivedAt);
+    valueDao.save(saved);
+    deriveCapture(entity);
     postTelexPatTrainDao.save(entity);
-    valueDao.delete("trainId=?1 and pageNumber=?2", vo.getTrainId(), vo.getPageNumber());
-    valueDao.save(PojoUtils.convertOne(vo, PostTelexPatTrainPageValueEntity.class));
+    return getPage(entity.getId(), vo.getPageNumber(), token);
+  }
+
+  private PostTelexPatTrainRuleDto validateFrozenRule(PostTelexPatTrainEntity entity) {
+    if (entity.getScore() == null || new BigDecimal(entity.getScore()).signum() < 0) {
+      throw new IllegalArgumentException("训练冻结满分必须为非负数");
+    }
+    return ScoringRuleValidation.telex(entity.getRuleContent());
+  }
+
+  private boolean isFinished(PostTelexPatTrainEntity entity) {
+    return PostTelexPatTrainStatusEnum.FINISH.getStatus().equals(entity.getStatus());
+  }
+
+  private void requireReadable(PostTelexPatTrainEntity entity) {
+    if (entity.getProtocolVersion() != 1 && !isFinished(entity)) {
+      throw new IllegalArgumentException("旧训练缺少原始采集时序，请终止旧训练并重新创建训练");
+    }
+  }
+
+  private void requireAttempt(PostTelexPatTrainEntity entity, Integer attempt) {
+    if (attempt == null || attempt != entity.getAttempt()) {
+      throw new IllegalArgumentException("训练轮次已改变，请重新读取训练，旧轮次不能提交");
+    }
+  }
+
+  private void requireMutableAttempt(PostTelexPatTrainEntity entity, Integer attempt) {
+    requireReadable(entity);
+    requireAttempt(entity, attempt);
+    if (isFinished(entity)) throw new IllegalArgumentException("训练已完成，不能修改");
+  }
+
+  private long elapsed(PostTelexPatTrainEntity entity, LocalDateTime time) {
+    if (entity.getStartTime() == null || time == null) {
+      throw new IllegalArgumentException("训练开始或采集接收时刻缺失");
+    }
+    return Duration.between(entity.getStartTime(), time).toMillis();
+  }
+
+  private long captureBound(PostTelexPatTrainEntity entity, LocalDateTime receivedAt) {
+    long bound = elapsed(entity, receivedAt);
+    if (entity.getDeadline() != null) bound = Math.min(bound, elapsed(entity, entity.getDeadline()));
+    if (entity.getPausedAt() != null) bound = Math.min(bound, elapsed(entity, entity.getPausedAt()));
+    return bound;
+  }
+
+  private List<CaptureInterval> intervals(String json) {
+    List<CaptureInterval> result = JSONUtils.fromJson(json, new TypeToken<List<CaptureInterval>>() {});
+    if (result == null) throw new IllegalArgumentException("原始采集时间轴缺失，不能计算成绩");
+    return result;
+  }
+
+  // Count the transmitted body, not the corrected final text: earlier wrong characters still
+  // count, while recognized commands and their address operands do not. Incomplete commands
+  // and unknown tokens remain body instead of being removed by a broad text replacement.
+  static long characterCount(String text, Integer trainType) {
+    if (text == null) throw new IllegalArgumentException("已保存正文缺失");
+    long characters = 0;
+    boolean telex = !Objects.equals(trainType, 4);
+    for (String line : CAPTURE_LINES.split(text)) {
+      List<String> groups = new ArrayList<>();
+      var tokens = CAPTURE_TOKEN.matcher(line);
+      while (tokens.find()) groups.add(tokens.group());
+      if (telex && groups.size() == 2 && TelexPatUtils.isBetweenOneAndHundred(groups.getFirst())) {
+        characters += bodyTokenCharacters(groups.getLast(), false);
+        continue;
+      }
+      for (int index = 0; index < groups.size(); index++) {
+        String group = groups.get(index);
+        int remaining = groups.size() - index - 1;
+        if (telex) {
+          if ((group.equals("QTA") || group.equals("ADD")) && remaining > 0) {
+            int addressed = addressedGroups(groups.get(index + 1));
+            if (addressed > 0 && (group.equals("QTA") || remaining >= addressed + 1)) {
+              index++;
+              if (group.equals("ADD")) {
+                for (int body = 0; body < addressed; body++) {
+                  characters += bodyTokenCharacters(groups.get(++index), false);
+                }
+              }
+              continue;
+            }
+          }
+          if (remaining >= 2 && PAGE_SELECTOR.matcher(group).matches()
+              && TelexPatUtils.isPageModification(group)
+              && TelexPatUtils.isBetweenOneAndHundred(groups.get(index + 1))) {
+            characters += bodyTokenCharacters(groups.get(index + 2), false);
+            index += 2;
+            continue;
+          }
+          if (remaining > 0 && TelexPatUtils.isBetweenOneAndTen(group)) {
+            characters += bodyTokenCharacters(groups.get(++index), false);
+            continue;
+          }
+          if (remaining > 0 && ((index > 0 && TelexPatUtils.isOnlySlashes(group))
+              || TelexPatUtils.isValidFormat(group))) {
+            characters += bodyTokenCharacters(group, true);
+            characters += bodyTokenCharacters(groups.get(++index), false);
+            continue;
+          }
+        }
+        boolean slashControl = telex && (TelexPatUtils.containsPattern(group)
+            || TelexPatUtils.hasMiddleSlash(group)
+            || (index > 0 && PATTERN_REG_3.matcher(group).matches()));
+        characters += bodyTokenCharacters(group, slashControl);
+      }
+    }
+    return characters;
+  }
+
+  private static int addressedGroups(String selector) {
+    if (TelexPatUtils.isBetweenOneAndHundred(selector)) return 1;
+    if (GROUP_RANGE.matcher(selector).matches() && TelexPatUtils.checkHyphenPattern(selector) == 1) {
+      List<Integer> bounds = TelexPatUtils.extractNumbersAroundHyphens(selector);
+      return bounds.getLast() - bounds.getFirst() + 1;
+    }
+    return 0;
+  }
+
+  private static long bodyTokenCharacters(String token, boolean slashControl) {
+    var page = PAGE_SUFFIX.matcher(token);
+    int end = page.matches() ? page.end(1) : token.length();
+    long characters = 0;
+    for (int offset = 0; offset < end;) {
+      int character = token.codePointAt(offset);
+      if (!slashControl || character != '/') characters++;
+      offset += Character.charCount(character);
+    }
+    return characters;
+  }
+
+  private void deriveCapture(PostTelexPatTrainEntity entity) {
+    long totalMillis = 0;
+    long totalCharacters = 0;
+    List<Integer> times = new ArrayList<>();
+    List<String> speeds = new ArrayList<>();
+    List<List<CaptureInterval>> timelines = new ArrayList<>();
+    List<CaptureInterval> pauses = intervals(entity.getPauseIntervals());
+    CaptureTimeline.durationMillis(pauses, elapsed(entity, LocalDateTime.now()));
+    timelines.add(pauses);
+    for (PostTelexPatTrainPageValueEntity page : valueDao.findAllByTrainId(entity.getId())) {
+      requireAttempt(entity, page.getAttempt());
+      requirePageNumber(entity, page.getPageNumber());
+      List<CaptureInterval> captured = intervals(page.getCaptureIntervals());
+      long duration = CaptureTimeline.durationMillis(captured, captureBound(entity, page.getReceivedAt()));
+      long characters = characterCount(page.getPatValue(), entity.getTrainType());
+      if (characters > 0 && duration == 0) throw new IllegalArgumentException("非空正文必须有有效采集时长");
+      timelines.add(captured);
+      totalMillis = Math.addExact(totalMillis, duration);
+      totalCharacters = Math.addExact(totalCharacters, characters);
+      while (times.size() < page.getPageNumber()) {
+        times.add(null);
+        speeds.add(null);
+      }
+      times.set(page.getPageNumber() - 1, Math.toIntExact(duration / 1000));
+      speeds.set(page.getPageNumber() - 1, TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(characters, duration).toPlainString());
+    }
+    CaptureTimeline.requireNoOverlap(timelines);
+    String rate = TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(totalCharacters, totalMillis).toPlainString();
+    entity.setSpeed(rate);
+    entity.setTotalSpeed(rate);
+    entity.setValidTime(Math.toIntExact(totalMillis / 1000));
+    entity.setSpeedLog(JSONUtils.toJson(speeds));
+    entity.setValidTimeLog(JSONUtils.toJson(times));
+  }
+
+  private PostTelexPatTrainVO clockView(PostTelexPatTrainEntity entity, LocalDateTime now) {
+    PostTelexPatTrainVO result = PojoUtils.convertOne(entity, PostTelexPatTrainVO.class);
+    result.setServerElapsedMs(entity.getStartTime() == null ? 0 : Math.max(0, elapsed(entity, now)));
+    result.setRemainingMs(entity.getDeadline() == null ? null : isFinished(entity) ? 0L
+        : Math.max(0, Duration.between(entity.getPausedAt() == null ? now : entity.getPausedAt(),
+            entity.getDeadline()).toMillis()));
+    return result;
+  }
+
+  private void ensureReportFloor(PostTelexPatTrainEntity entity) {
+    if (!Objects.equals(entity.getIsCable(), 0)) return;
+    if (entity.getGroupNumber() == null || entity.getGroupNumber() <= 0) {
+      throw new IllegalArgumentException("训练组数缺失，不能结算");
+    }
+    Set<Integer> generated = new HashSet<>(pageDao.countPageNumber(entity.getId()));
+    int pageCount = (entity.getGroupNumber() + 99) / 100;
+    for (int number = 1; number <= pageCount; number++) {
+      if (!generated.contains(number)) {
+        generateContent(entity, Math.min(100, entity.getGroupNumber() - (number - 1) * 100), number, entity.getId());
+      }
+    }
+  }
+
+  private PostTelexPatTrainEntity requireOwnedTrain(String trainId, String token) {
+    UserEntity user = userService.getUserByToken(token);
+    PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
+    if (user == null || !Objects.equals(user.getId(), entity.getCreateUser())) {
+      throw new IllegalArgumentException("无权访问该训练");
+    }
+    return entity;
+  }
+
+  private void requirePageNumber(PostTelexPatTrainEntity entity, Integer pageNumber) {
+    Integer maximum = Objects.equals(entity.getIsCable(), 1)
+        ? pageDao.findMaxPageNumber(entity.getId())
+        : entity.getGroupNumber() == null ? null : (entity.getGroupNumber() + 99) / 100;
+    if (pageNumber == null || pageNumber < 1 || maximum == null || pageNumber > maximum) {
+      throw new IllegalArgumentException("页码不正确");
+    }
   }
 
   @Transactional
-  public Boolean delete(String trainId) {
+  public Boolean delete(String trainId, String token) {
+    requireOwnedTrain(trainId, token);
     pageDao.delete("trainId", trainId);
     valueDao.delete("trainId", trainId);
     return postTelexPatTrainDao.deleteById(trainId);
@@ -371,10 +697,9 @@ public class PostTelexPatTrainService {
   /**
    * 计算得分
    *
-   * @param param
    * @return
    */
-  private PostTelexPatTrainEntity countScore(PostTelexPatTrainFinishParam param, PostTelexPatTrainEntity entity) {
+  private PostTelexPatTrainEntity countScore(PostTelexPatTrainEntity entity, PostTelexPatTrainRuleDto rule) {
     // Phase 7.4：trainType 是可空 Integer，裸 compareTo 会拆箱 NPE（下方 :393/:405 同一字段由本守卫覆盖）
     if (entity.getTrainType() == null) {
       throw new IllegalArgumentException("训练类型缺失，无法结算");
@@ -407,12 +732,12 @@ public class PostTelexPatTrainService {
       // 改错次数
       int change = 0;
 
-      List<Integer> pageNumber = pageDao.countPageNumber(param.getId());
-      List<PostTelexPatTrainPageEntity> pageEntities = pageDao.findByTrainIdOrderBySort(param.getId());
+      List<Integer> pageNumber = pageDao.countPageNumber(entity.getId());
+      List<PostTelexPatTrainPageEntity> pageEntities = pageDao.findByTrainIdOrderBySort(entity.getId());
       List<Map<String, Object>> codeAll = new ArrayList<>();
       List<String> page = new ArrayList<>();
       pageNumber.forEach(item -> {
-        PostTelexPatTrainPageValueEntity pageValueEntity = valueDao.findByTrainIdAndPageNumber(param.getId(), item);
+        PostTelexPatTrainPageValueEntity pageValueEntity = valueDao.findByTrainIdAndPageNumber(entity.getId(), item);
         if (pageValueEntity != null) {
           String patValue = pageValueEntity.getPatValue();
           if (entity.getTrainType().compareTo(0) == 0) {
@@ -423,6 +748,7 @@ public class PostTelexPatTrainService {
             page.add(Optional.ofNullable(patValue).orElse(""));
           }
         }
+        else page.add("");
       });
 
       // 得到 codeAll[{"text":"4","time":0}...] 用户输入的内容
@@ -465,11 +791,6 @@ public class PostTelexPatTrainService {
       // 得到 code正确的内容
       List<List<List<PostTelexPatTrainPageEntity>>> convertText = convertTextListString(pageEntities);
 
-      // 具体的评分规则
-      PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(entity.getRuleContent(), PostTelexPatTrainRuleDto.class);
-      if (rule == null) {
-        throw new IllegalArgumentException("评分规则未设定");
-      }
 
       BigDecimal score = new BigDecimal(entity.getScore());
 
@@ -730,31 +1051,20 @@ public class PostTelexPatTrainService {
       deductMap.put("updateErrorNumber", change + "");
       deductMap.put("updateErrorScore", updateScore.toString());
 
-      // 计算速率 组数 / 耗时(秒) 折算次/分钟（ScoreMath 统一口径，validTime 为空/0 返 0）
-      long patGroupCount = parseCodeAll.stream()
-          .flatMap(Collection::stream)
-          .mapToLong(List::size)
-          .sum();
-      long validTimeMillis = param.getValidTime() == null ? 0L : param.getValidTime() * 1000L;
-      BigDecimal speed = ScoreMath.rate(patGroupCount, validTimeMillis);
-      // 计算在结算速率是否高于规定速率
-      int speedDiffer = rule.getWpm().getBase() - Integer.parseInt(param.getTotalSpeed());
-      if (speedDiffer > 0) {
-        // 乘法
-        BigDecimal speedLow = rule.getWpm().getL().multiply(new BigDecimal(speedDiffer));
-        // 减法
-        score = score.subtract(speedLow);
+      BigDecimal speed = new BigDecimal(entity.getSpeed());
+      BigDecimal speedDiffer = BigDecimal.valueOf(rule.getWpm().getBase()).subtract(speed);
+      BigDecimal speedAdjustment = ScoreMath.wpmScore(rule.getWpm().getBase(), rule.getWpm().getR(), rule.getWpm().getL(), speed);
+      score = score.add(speedAdjustment);
+      if (speedDiffer.signum() > 0) {
         // 速率扣分
-        deductMap.put("speedLowNumber", Math.abs(speedDiffer) + "");
-        deductMap.put("speedLowScore", speedLow.toString());
+        deductMap.put("speedLowNumber", speedDiffer.abs().toPlainString());
+        deductMap.put("speedLowScore", speedAdjustment.negate().toString());
         deductMap.put("speedOverTopNumber", "0");
         deductMap.put("speedOverTopScore", "0");
       } else {
-        BigDecimal speedOverTop = rule.getWpm().getR().multiply(new BigDecimal(Math.abs(speedDiffer)));
-        score = score.add(speedOverTop);
         // 速率超出
-        deductMap.put("speedOverTopNumber", Math.abs(speedDiffer) + "");
-        deductMap.put("speedOverTopScore", speedOverTop.toString());
+        deductMap.put("speedOverTopNumber", speedDiffer.abs().toPlainString());
+        deductMap.put("speedOverTopScore", speedAdjustment.toString());
         deductMap.put("speedLowNumber", "0");
         deductMap.put("speedLowScore", "0");
       }
@@ -777,7 +1087,6 @@ public class PostTelexPatTrainService {
       } else {
         entity.setAccuracy("0.0");
       }
-      entity.setValidTime(param.getValidTime());
       entity.setEndTime(LocalDateTime.now());
       entity.setStatus(PostTelexPatTrainStatusEnum.FINISH.getStatus());
       entity.setScore(score.toString());
@@ -818,10 +1127,10 @@ public class PostTelexPatTrainService {
       entity.setDeductInfo(deductInfo);
       return entity;
     } else {
-      List<Integer> pageNumbers = pageDao.countPageNumber(param.getId());
+      List<Integer> pageNumbers = pageDao.countPageNumber(entity.getId());
       TelexPatStatisticalDto ks = new TelexPatStatisticalDto();
       List<TelexPatValueTransferDto> pageValueResult = new ArrayList<>();
-      List<PostTelexPatTrainPageValueEntity> trainUserValues = valueDao.findAllByTrainId(param.getId());
+      List<PostTelexPatTrainPageValueEntity> trainUserValues = valueDao.findAllByTrainId(entity.getId());
       List<PostTelexPatTrainPageEntity> trainPages = pageDao.findByTrainIdOrderBySort(entity.getId());
       Map<Integer, PostTelexPatTrainPageValueEntity> valueMap = trainUserValues.stream()
           .filter(e -> Objects.nonNull(e.getPageNumber())) // 过滤掉pageNumber为null的实体
@@ -840,10 +1149,6 @@ public class PostTelexPatTrainService {
             null == pageValueEntity ? null : pageValueEntity.getPatValue(), ks, pageNumber == pageNumbers.size() - 1);
       });
       List<PostTelexPatTrainPageEntity> convert = PojoUtils.convert(pageValueResult, PostTelexPatTrainPageEntity.class);
-      PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(entity.getRuleContent(), PostTelexPatTrainRuleDto.class);
-      if (rule == null) {
-        throw new IllegalArgumentException("评分规则未设定");
-      }
       // P2-2.3：报底重建改为「先构建 + 校验，后删除 + 写入」。校验不过直接抛出，delete 绝不先发生，
       // 否则构建失败会把旧报底删空（目标表实测 MyISAM，事务回滚在其上是空操作）。
       checkRebuiltPages(entity.getId(), pageMap, convert);
@@ -912,28 +1217,15 @@ public class PostTelexPatTrainService {
           .subtract(errorPageScore)
           .subtract(nonStandartScore)
           .subtract(correctMistakesScore);
-      BigDecimal avgSpeed = calculateAverage(JSONUtils.fromJson(entity.getSpeedLog(), new TypeToken<>() {
-      }), 0, RoundingMode.HALF_UP).orElse(BigDecimal.ZERO);
-      if (avgSpeed.compareTo(new BigDecimal(rule.getWpm().getBase())) > 0) {
-        int diff = avgSpeed.intValue() - rule.getWpm().getBase();
-        BigDecimal speedScore = rule.getWpm().getR().multiply(new BigDecimal(diff));
-        score = score.add(speedScore);
+      BigDecimal avgSpeed = new BigDecimal(entity.getSpeed());
+      BigDecimal speedScore = ScoreMath.wpmScore(rule.getWpm().getBase(), rule.getWpm().getR(), rule.getWpm().getL(), avgSpeed);
+      score = score.add(speedScore);
+      int speedComparison = avgSpeed.compareTo(BigDecimal.valueOf(rule.getWpm().getBase()));
+      if (speedComparison > 0) {
         deductMap.put("speedScore", "+" + speedScore);
-      } else if (avgSpeed.compareTo(new BigDecimal(rule.getWpm().getBase())) < 0) {
-        int diff = rule.getWpm().getBase() - avgSpeed.intValue();
-        BigDecimal speedScore = rule.getWpm().getL().multiply(new BigDecimal(diff));
-        score = score.subtract(speedScore);
-        deductMap.put("speedScore", minus + speedScore);
+      } else if (speedComparison < 0) {
+        deductMap.put("speedScore", minus + speedScore.abs());
       }
-      List<Integer> validTimeLog = JSONUtils.fromJson(entity.getValidTimeLog(), new TypeToken<>() {
-      });
-      int validTime = 0;
-      if (validTimeLog != null) {
-        for (Integer i : validTimeLog) {
-          validTime += i;
-        }
-      }
-      entity.setValidTime(validTime);
       entity.setSpeed(String.valueOf(avgSpeed));
       entity.setScore(String.valueOf(score));
       entity.setAccuracy(String.valueOf(accuracy));

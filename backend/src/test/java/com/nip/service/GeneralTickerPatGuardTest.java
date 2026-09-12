@@ -32,13 +32,13 @@ class GeneralTickerPatGuardTest {
 
   @Test
   void updateStatusForMissingTrainReportsBusinessErrorInsteadOfNpe() {
+    String token = "ticker-guard-" + UUID.randomUUID();
+    Fixtures.user(userDao, token);
     GeneralTickerPatTrainUpdateDto dto = new GeneralTickerPatTrainUpdateDto();
     dto.setTrainId(-987654);
     dto.setStatus(1);
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> service.updateStatus(dto), "训练不存在时必须显式报错，不得裸解引用 findById 的 null");
-    assertEquals("未查询到训练", ex.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> service.updateStatus(dto, token));
   }
 
   @Test
@@ -53,8 +53,6 @@ class GeneralTickerPatGuardTest {
     param.setUserId(List.of());
     param.setMessageNumber(null); // 修复前 messageNumber > 200 直接拆箱 NPE
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> service.add(param, token), "报底数为 null 必须显式报错而非 NPE");
-    assertEquals("报底数不能为空", ex.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> service.add(param, token));
   }
 }

@@ -6,11 +6,18 @@ import {useRouter} from "vue-router";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {getGradingRuleById} from "../../../../../../../common/api/GradingRuleApi.js";
 import {
-  getHandKeyZuXunPageNumber,saveHandKeyZuXunData,finishHandKeyZuXunTrain,resetHandKeyZuXunTrain,startTrainUser
+  getHandKeyZuXunPageNumber,saveHandKeyZuXunData,finishHandKeyZuXunTrain,startTrainUser,resetHandKeyZuXunTrain
 } from "../../../../../../../common/api/handkeyZuXun.js";
 import countPatStandard from "./patStandard.js";
+import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
+import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'
 
 export default function (trainData,patStandard,initFloat,wsOnline,devOnline,loading,emits) {
+  const submission = useConfirmedSubmission()
+  const capture = useTrainingCapture()
+  let closingAt = null
+  let resetting = false
+  const snapshotKey = () => `handkey:pending:${userInfo.id}:${trainData.value.trainId}`
   const patKeyBoxRef = ref(null); // 字码和词组展示区域的容器
   const patValBoxRef = ref(null); // 拍发电码展示区域的容器
   const trainTimeRef = ref(null); // 训练时间展示区域的容器
@@ -23,7 +30,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
   const cachePatKey = ref([]); // 缓存字码 - 还未翻页提交的字码集合
   const showPatCodeLog = ref([]); // 展示的拍发记录
   const currPatKeyIndex = ref(-1); // 正在拍发的电报纸字码的下标
-  const {morseCode,codeKey,dots} = useMorse();
+  const {morseCode,codeKey} = useMorse();
   const {countPatStandardInfo,countAverageStandard} = countPatStandard();
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
   const router = useRouter();
@@ -57,6 +64,10 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const readyPat = ref(false);
   const patUser = ref({});
+  watch(() => [trainData.value.status, patUser.value.userStatus], ([status, userStatus], previous = []) => {
+    if (status !== 1 || userStatus === 3) capture.close()
+    else if (previous[1] === 3 && capture.metadata.value) capture.open()
+  }, {flush: 'sync'})
   const patWsData = ref({topic: 'pat', id: userInfo.id, log: {code: 0, diff: 0, gap: 0 }})
   const startStatus = ref(false);
   router.getRoutes().forEach(r => {
@@ -85,6 +96,12 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
 
   onUnmounted(() => {
     clearInterval(trainTimer.value);
+    clearTimeout(wordTimer.value)
+    clearTimeout(groupTimer.value)
+    clearTimeout(textTimer.value)
+    clearInterval(cutTimer.value)
+    controlCandidates = []
+    capture.close()
     closeWebSocket();
   });
 
@@ -105,29 +122,24 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * 获取电报纸的报文内容
    * @param page
    */
-  const getPostTrainKeyInfo = (page) => {
-    getHandKeyZuXunPageNumber({
-      id: trainData.value.trainId,
-      userId: userInfo.id,
-      floorNumber: page
-    }).then(res => {
-      if (res.code === 200) {
-        trainData.value.telegraph[page-1] = res.data.messageKey;
-      }
-    })
-  };
+  const getPostTrainKeyInfo = page => submission.run(async request => {
+    const response = await request(config => getHandKeyZuXunPageNumber({id: trainData.value.trainId, userId: userInfo.id, floorNumber: page}, config))
+    trainData.value.telegraph[page - 1] = response.data.messageKey
+    if (page === trainData.value.floorNow) capture.bind(response.data)
+  })
 
   /**
    * 训练时间转换显示
    */
   const initTrainTimeInfo = () => {
+    clearInterval(trainTimer.value)
     if (!trainData.value.validTime) {
       trainData.value.validTime = 0;
     }
     trainTimer.value = setInterval(() => {
-      trainData.value.validTime += 1;
-      let type = (trainData.value.type==1?'letter':trainData.value.type==2?'mix':(trainData.value.codeSort?'long':'short'));
-      trainData.value.speed = ((400 * 60 * 1000 * patNumber.value) / (trainData.value.validTime * 1000 * dots[type])).toFixed(2);
+      const elapsed = capture.elapsed()
+      trainData.value.validTime = elapsed / 1000;
+      trainData.value.speed = elapsed > 0 ? (patNumber.value * 60000 / elapsed).toFixed(1) : '0';
       timeAreaShow(trainData.value.validTime * 1000);
     },1000);
   };
@@ -153,6 +165,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * @param type
    */
   const switchTelegram = (type) => {
+    if ([1, 3].includes(trainData.value.status)) return
     if ((type === 'prev' && trainData.value.floorNow <= 1) ||
         (type === 'next' && trainData.value.floorNow >= trainData.value.pag)) return false;
     if (type === 'prev') {
@@ -182,17 +195,34 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * @param diffTime
    * @param gapTime
    */
-  const handleReceiveKeyCode = (val,diffTime,gapTime) => {
+  const handleReceiveKeyCode = (val,diffTime,gapTime,event = {}) => {
+    if (resetting) return
+    const beforeClose = closingAt !== null && event.receivedAt <= closingAt
+    if ((closingAt !== null && !beforeClose) || (trainData.value.status !== 1 && !beforeClose) || patUser.value.userStatus === 3) return
+    if (submission.pending() && !event.captureSpan) event = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
+    if (submission.defer(() => handleReceiveKeyCode(val, diffTime, gapTime, event))) return
+    if (isFirstKey && trainData.value.process === 2) {
+      capture.close()
+      return submission.run(async request => {
+        await request(config => startTrainUser({trainId: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
+        isFirstKey = false
+        const queuedEvent = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
+        submission.defer(() => handleReceiveKeyCode(val, diffTime, gapTime, queuedEvent), true)
+      })
+    }
+    if (event.captureSpan) {
+      capture.recordQueued(event.captureSpan)
+      if (closingAt === null) capture.open()
+    } else if (closingAt === null) capture.open(event.startedAt ?? event.receivedAt)
+    if (val === -1) {
+      const gap = gapTime[1] - gapTime[0]
+      if (gap > patStandard.value.codeGap * (1 + initFloat.value / 100)) codeCompileKeyInfo('word')
+      if (gap > patStandard.value.codeGap * (3 + initFloat.value / 100)) codeCompileKeyInfo('group')
+      if (submission.pending()) return
+    }
     if (loading.value || patUser.value.userStatus == 3) return false;
     if (val === -1) {
       let gap = gapTime[1]-gapTime[0];
-      if (gap < patStandard.value.codeGap*(1 + initFloat.value/100)) {
-        patNumber.value ++;
-      } else if (gap < patStandard.value.wordGap*(1 + initFloat.value/100)) {
-        patNumber.value += 3;
-      } else if (gap < patStandard.value.groupGap*(1 + initFloat.value/100)) {
-        patNumber.value += 5;
-      }
       if (trainData.value.process === 2) {
         finishPatLogs.value[finishPatLogs.value.length-1].patLogs.push({
           name: '间隔'+finishPatLogs.value[finishPatLogs.value.length-1].patLogs.length,
@@ -217,7 +247,6 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
       }
     } else {
       let diff = diffTime[1]-diffTime[0];
-      patNumber.value += (val == 0 ? 1 : 3);
       if (trainData.value.process === 2) {
         finishPatLogs.value[finishPatLogs.value.length-1].patLogs.push({
           name: (val===0?'点':'划')+finishPatLogs.value[finishPatLogs.value.length-1].patLogs.length,
@@ -275,10 +304,6 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
     if(wordTimer.value) {clearTimeout(wordTimer.value);wordTimer.value=null;}
     if(groupTimer.value) {clearTimeout(groupTimer.value);groupTimer.value=null;}
     if (trainData.value.process === 2 && val !== -1) {
-      if(isFirstKey){
-        isFirstKey = false
-        startTrainUser(trainData.value.trainId)
-      }
       if (cachePatCode.value.length > 0) {
         // 编译成单个字码
         if (!wordTimer.value) {
@@ -346,6 +371,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
         trainData.value.patKeyVal.push(['开始']);
         trainData.value.patKeyVal.push([]);
         trainData.value.validTime = 0;
+        patNumber.value = 0;
         startStatus.value = true;
 
         oldPatStandard.value = {
@@ -446,170 +472,91 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
   /**
    * 电码信号转码成字符
    */
-  let numI = 0
-  const codeCompileKeyInfo = (type) => {
-    let code = cachePatCode.value.map(item => item.code).join(''),
-        short = (trainData.value.type===1?'letter':trainData.value.type===2?'mix':trainData.value.codeSort?'long':'short'),
-        codeInit = codeKey[short],
-        len = trainData.value.patKeyVal.length,
-        lastPatKey;
-
-    if (currPatKeyIndex.value == -1) {
-      startStatus.value = false;
-      code = code.slice(-5,code.length)
-    }
-    if (code === initSymbol.value.start && trainData.value.floorNow == 1 && currPatKeyIndex.value <= 2)
-    {
-      trainData.value.patKeyVal = [];
-      trainData.value.patKeyVal.push(['开始']);
-      trainData.value.patKeyVal.push([]);
-      cachePatCode.value = [];
-      cachePatKey.value = [];
-      cacheKey.value = [];
-      currPatKeyIndex.value = 0;
-      trainData.value.validTime = 0;
-      startStatus.value = true;
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].moresValue = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].moresTime = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].patKeys = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].patLogs = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][1].moresValue = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][1].moresTime = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][1].patKeys = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][1].patLogs = [];
-    } else if (code === initSymbol.value.start && trainData.value.floorNow > 1 && currPatKeyIndex.value == -1)
-    {
-      trainData.value.patKeyVal.push(['开始']);
-      trainData.value.patKeyVal.push([]);
-      cachePatCode.value = [];
-      cachePatKey.value = [];
-      cacheKey.value = [];
-      currPatKeyIndex.value = 0;
-      startStatus.value = true;
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].moresValue = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].moresTime = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].patKeys = [];
-      trainData.value.telegraph[trainData.value.floorNow - 1][0].patLogs = [];
-    } else if (type === 'word' && startStatus.value)
-    {
-      cacheKeyCode.value.push(code);
-
-      let cacheArr1 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-1)
-      let cacheArr2 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-2)
-      let cacheArr3 = cacheKeyCode.value.filter((ii,i) => i>=cacheKeyCode.value.length-3)
-      if (cacheArr1.join(',') === initSymbol.value.end) {
-        statisticsTelegraphData('autoEnd');
-        return false;
-      }
-      if (cacheArr3.join(',') === initSymbol.value.turn||cacheArr3.join(',') ==='00,0000'||cacheArr3.join(',') ==='0000,00') {
-        if (trainData.value.floorNow == trainData.value.pag) {
-          statisticsTelegraphData('autoEnd');
-          return false;
-        } else {
-          statisticsTelegraphData('turn');
-          return false;
+  let controlCandidates = []
+      const patterns = [
+        ['start', ['10001']], ['end', ['01010']], ['alter', ['001100']],
+        ['next', ['001011']], ['next', ['0010', '11']],
+        ['turn', ['000000']], ['turn', ['00', '00', '00']],
+        ['turn', ['00', '0000']], ['turn', ['0000', '00']]
+      ]
+  const codeCompileKeyInfo = type => {
+    if (submission.busy.value || submission.error.value) return
+    const code = cachePatCode.value.map(item => item.code).join('')
+    const alphabet = trainData.value.type === 1 ? 'letter' : trainData.value.type === 2 ? 'mix' : trainData.value.codeSort ? 'long' : 'short'
+    if (type === 'word' && code) {
+      const match = patterns.find(([, parts]) => {
+        if (parts[parts.length - 1] !== code || parts.length > controlCandidates.length + 1) return false
+        return parts.slice(0, -1).every((part, i) => controlCandidates[controlCandidates.length - parts.length + 1 + i].code === part)
+      })
+      if (match) {
+        const [action, parts] = match
+        const prior = controlCandidates.slice(controlCandidates.length - parts.length + 1)
+        const correctionSignal = prior.flatMap(item => item.signal).concat(cachePatCode.value)
+        const correctionLogs = prior.flatMap(item => item.logs).concat(cachePatLogs.value)
+        for (let i = prior.length - 1; i >= 0; i--) prior[i].undo()
+        if (prior.length) currPatKeyIndex.value = prior[0].groupIndex
+        controlCandidates = []
+        cachePatCode.value = []
+        cachePatLogs.value = []
+        if (action === 'start') {
+          if (!startStatus.value || currPatKeyIndex.value < 0) {
+            startStatus.value = true
+            currPatKeyIndex.value = 0
+            cacheKey.value = []
+            trainData.value.patKeyVal.push(['开始'], [])
+          }
+          return
         }
-      }
-
-      if (code === initSymbol.value.alter)
-      {
-        if (cacheKey.value.legnth == 0) {
-          currPatKeyIndex.value --;
+        if (!startStatus.value) return
+        if (action === 'end' || action === 'turn') {
+          statisticsTelegraphData(action === 'end' || trainData.value.floorNow === trainData.value.pag ? 'autoEnd' : 'turn')
+          return
         }
-        alter.value = 3;
-        cacheKey.value.push('?');
+        // Corrections operate on existing groups, including the first group.
+        const occupied = cacheKey.value.length > 0
+        currPatKeyIndex.value = Math.max(0, currPatKeyIndex.value - (action === 'next' ? (occupied ? 1 : 2) : (occupied ? 0 : 1)))
+        cacheKey.value = []
+        cachePatCode.value = correctionSignal
+        cachePatLogs.value = correctionLogs
         updateMoresKeyInfo('?')
-      } else if (cacheArr2.join(',') === initSymbol.value.next) {
-        alter.value = 1;
-        // cacheKey.value.pop();
-        console.log(cacheKey.value);
-        cacheKey.value.push('/');
-        if (cacheKey.value.legnth == 0||cacheKey.value[0]==='/') {
-          currPatKeyIndex.value -= 2;
-        } else {
-          currPatKeyIndex.value --;
-        }
-
-        if(cacheKey.value.length===1){
-          // trainData.value.patKeyVal[trainData.value.patKeyVal.length-1].pop()
-        }
-        updateMoresKeyInfo('?')
-      } else if (code == '000000') {
-        statisticsTelegraphData('turn');
-        return false;
-        /*trainData.value.patKeyVal.push(['句号']);
-        trainData.value.patKeyVal.push([]);
-        currPatKeyIndex.value = -1;
-        cachePatKey.value = [];
-        cacheKey.value = [];
-        cacheKeyCode.value = [];
-        cachePatCode.value = [];
-        cachePatLogs.value = [];*/
-      } else {
-        cacheKey.value.push(codeInit[code]!=undefined&&code!=initSymbol.value.start?codeInit[code]:'#');
-        updateMoresKeyInfo(codeInit[code]!=undefined&&code!=initSymbol.value.start?codeInit[code]:'#')
+        trainData.value.patKeyVal.push([action === 'next' ? '/' : '?'], [])
+        return
       }
-
-      lastPatKey = trainData.value.patKeyVal[len-1];
-      if (cacheKey.value.length === 1 || lastPatKey.length == 0) {
-        lastPatKey.push(cacheKey.value.join(''));
-        cachePatKey.value.push(cacheKey.value.join(''));
-      } else {
-        lastPatKey[lastPatKey.length-1] = cacheKey.value.join('');
-        cachePatKey.value[cachePatKey.value.length - 1] = cacheKey.value.join('');
-      }
-    } else if (type === 'group' && startStatus.value)
-    {
-      if (cacheKey.value.length >= 3 || currPatKeyIndex.value % 2 == 0) {
-        pageResetPatStandard()
-      }
-      if (alter.value === 2) {
-        updateMoresKeyInfo('?')
-        alter.value = 0;
-        // 改错前一组恢复下标变量赋值
-        if(numI===0){
-          numI = 1
-        }
-      }
-      lastPatKey = trainData.value.patKeyVal[len-1];
-      if (alter.value===1) {
-        alter.value = 2;
-      }
-
-      if (lastPatKey.length > 1) {
-        lastPatKey[lastPatKey.length - 1] = cacheKey.value.join('');
-      }
-      if (cachePatKey.value.length > 1) {
-        cachePatKey.value[cachePatKey.value.length - 1] = cacheKey.value.join('');
-      }
-
-      if (alter.value === 0) {
-        if (cachePatKey.value.length > 0) {
-          // 改错前一组恢复下标
-          // if(numI===1){
-          //   currPatKeyIndex.value+=2;
-          //   numI = 0
-          // }else if(numI === 2){
-          //   currPatKeyIndex.value+=2;
-          //   numI = 0
-          // }else {
-          //   currPatKeyIndex.value ++;
-          // }
-          currPatKeyIndex.value ++;
-          console.log(trainData.value);
-          trainData.value.telegraph[trainData.value.floorNow-1][currPatKeyIndex.value].patKeys=[]
-        }
-        cacheKey.value = [];
-        cacheKeyCode.value = [];
-      }
-      if (alter.value ===3) {
-        alter.value = 0;
-      }
+      if (!startStatus.value) { cachePatCode.value = []; cachePatLogs.value = []; return }
+      const key = codeKey[alphabet][code] ?? '#'
+      const groupIndex = Math.max(0, currPatKeyIndex.value)
+      currPatKeyIndex.value = groupIndex
+      const keys = cacheKey.value
+      const keyIndex = keys.length
+      keys.push(key)
+      const page = trainData.value.telegraph[trainData.value.floorNow - 1]
+      const before = page[groupIndex]
+      const valueIndex = before ? (typeof before.patKeys === 'string' ? JSON.parse(before.patKeys).length : before.patKeys.length) : 0
+      const signal = cachePatCode.value
+      const logs = cachePatLogs.value
+      updateMoresKeyInfo(key)
+      const characters = key.trim() && key !== '?' ? 1 : 0
+      patNumber.value += characters
+      const item = page[groupIndex]
+      let row = trainData.value.patKeyVal[trainData.value.patKeyVal.length - 1]
+      if (!row) { row = []; trainData.value.patKeyVal.push(row) }
+      const rowIndex = keyIndex === 0 ? row.length : row.length - 1
+      row[rowIndex] = keys.join('')
+      controlCandidates.push({code, groupIndex, signal, logs, undo: () => {
+        // Remove only this token's own provisional entry, never unrelated '#'.
+        for (const field of ['patKeys', 'moresValue', 'moresTime', 'patLogs']) item[field].splice(valueIndex, 1)
+        patNumber.value -= characters
+        keys.splice(keyIndex, 1)
+        row[rowIndex] = keys.join('')
+      }})
+      if (controlCandidates.length > 2) controlCandidates.shift()
+    } else if (type === 'group' && startStatus.value && cacheKey.value.length) {
+      pageResetPatStandard()
+      currPatKeyIndex.value++
+      cacheKey.value = []
     }
-    if (patKeyBoxRef.value) {
-      patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight;
-    }
-  };
+    if (patKeyBoxRef.value) patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight
+  }
 
   /**
    * 更新待提交的字码数据
@@ -636,14 +583,11 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
       item.moresValue.push(code);
       item.patLogs.push(cachePatLogs.value);
       item.moresTime.push(diff);
-    } else if (currPatKeyIndex.value > 99) {
-      trainData.value.telegraph[trainData.value.floorNow - 1].push({
-        moresKey: '#',
-        patKeys: [key],
-        moresValue: [code],
-        patLogs: [cachePatLogs.value],
-        moresTime: [diff],
-      })
+    } else {
+      trainData.value.telegraph[trainData.value.floorNow - 1][currPatKeyIndex.value] = {
+        moresKey: '#', patKeys: [key], moresValue: [code],
+        patLogs: [cachePatLogs.value], moresTime: [diff]
+      }
     }
 
     cachePatCode.value = [];
@@ -654,165 +598,84 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * 结束训练
    * @param type
    */
-  const finishTrainInfo = (type) => {
-    let turnLen = initSymbol.value.turn.split(',').length,
-        endLen = initSymbol.value.end.split(',').length;
-
-    if (type != 'end') {
-      patUser.value.isFinish = 1
-      sendMessage({ topic: 'finish', id: userInfo.id })
-    }
-
-    finishPatLogs.value = finishPatLogs.value.filter(item => item.patLogs.length > 0);
-    finishPatLogs.value.map((item,i) => {
-      if (i < finishPatLogs.value.length - 1) {
-        item.patLogs = item.patLogs.filter((code,c) => c < (item.patLogs.length - (turnLen*2 - 1)))
-      }
-      if (type === 'autoEnd' && i === finishPatLogs.value.length - 1) {
-        item.patLogs = item.patLogs.filter((code,c) => c < (item.patLogs.length - (endLen*2 - 1)))
-      }
-    });
-    loading.value = true;
-    finishHandKeyZuXunTrain({
-      id: trainData.value.trainId,
-      userId: userInfo.id,
-      validTime: trainData.value.validTime,
-      finishInfo: finishPatLogs.value
-    }).then(res => {
-      loading.value = false;
-      if (res.code === 200) {} else {
-        message.error(res.message);
-      }
-      router.push({path: scorePath.value, query: {id: trainData.value.trainId,status: 2}})
-      emits('changeStatus')
-    });
-  };
+  const finishTrainInfo = async request => {
+    await request(config => finishHandKeyZuXunTrain({id: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
+    trainData.value.status = 2
+    clearInterval(trainTimer.value)
+    patUser.value.isFinish = 1
+    sendMessage({topic: 'finish', id: userInfo.id})
+    router.push({path: scorePath.value, query: {id: trainData.value.trainId, status: 2}})
+    emits('changeStatus')
+  }
 
   /**
    * 统计每页电报纸报文内容的正确性
    * @param type
    */
-  const statisticsTelegraphData = (type) => {
-    let short = (trainData.value.type===0&&!trainData.value.codeSort?'short':'mix'),
-        codeArr = '',codeArr1 = '',codeArr3 = '',error = 0, total = trainData.value.messageNumber;
-
-    trainData.value.telegraph[trainData.value.floorNow - 1].map(item => {
-      if (typeof item.moresKey === 'string' && item.moresKey !== '#') {
-        item.moresKey = JSON.parse(item.moresKey);
-      }
-      if (typeof item.patKeys === 'string') {
-        item.patKeys = JSON.parse(item.patKeys);
-      }
-      if (typeof item.moresValue === 'string') {
-        item.moresValue = JSON.parse(item.moresValue);
-      }
-      if (typeof item.patLogs === 'string') {
-        item.patLogs = JSON.parse(item.patLogs);
-      }
-      if (typeof item.moresTime === 'string') {
-        item.moresTime = JSON.parse(item.moresTime);
-      }
-      if (item.moresKey === '#' || item.moresValue.length !== item.moresKey.length ||
-          item.moresKey.some((key,k) => item.moresValue[k].join('') !== morseCode[short][key].value)) {
-        error ++;
-      }
-      if (typeof item.moresKey !== 'string') {
-        item.moresKey = JSON.stringify(item.moresKey);
-      }
-      codeArr = item.moresValue.map(k => k.join(''));
-      codeArr1 = codeArr.filter((subI,i) => i>=codeArr.length-1);
-      codeArr3 = codeArr.filter((subI,i) => i>=codeArr.length-3);
-      if (codeArr3.join(',') === initSymbol.value.turn) {
-        item.moresValue = item.moresValue.filter((ii,i) => i<item.moresValue.length-3);
-        item.moresTime = item.moresTime.filter((ii,i) => i<item.moresValue.length-3);
-        item.patKeys = item.patKeys.filter((ii,i) => i<item.moresValue.length-3);
-        item.patLogs = item.patLogs.filter((ii,i) => i<item.moresValue.length-3);
-      }
-      if (codeArr1.join(',') === initSymbol.value.end) {
-        item.moresValue = item.moresValue.filter((ii,i) => i<item.moresValue.length-1);
-        item.moresTime = item.moresTime.filter((ii,i) => i<item.moresValue.length-1);
-        item.patKeys = item.patKeys.filter((ii,i) => i<item.moresValue.length-1);
-        item.patLogs = item.patLogs.filter((ii,i) => i<item.moresValue.length-1);
-      }
-    });
-    error = (error>100?100:error);
-    trainData.value.errorNumber += error;
-    if (total >= trainData.value.errorNumber) {
-      trainData.value.accuracy = parseFloat((total-trainData.value.errorNumber)/total).toFixed(2);
-    } else {
-      trainData.value.accuracy = '0.00';
-    }
-    pageResetPatStandard('turn');
-    savePatTelegraphBody(type);
-  };
+  const statisticsTelegraphData = type => {
+    if (submission.error.value || submission.busy.value) return submission.retry()
+    if (cachePatCode.value.length) codeCompileKeyInfo('word')
+    if (submission.error.value || submission.busy.value) return
+    return savePatTelegraphBody(type)
+  }
 
   /**
    * 保存一页电报纸拍发内容
    * @param type
    */
-  const savePatTelegraphBody = (type) => {
-    trainData.value.telegraph[trainData.value.floorNow - 1].map(item => {
-      item.moresTime = JSON.stringify(item.moresTime);
-      item.moresValue = JSON.stringify(item.moresValue);
-      item.patKeys = JSON.stringify(item.patKeys);
-      item.patLogs = JSON.stringify(item.patLogs);
-    });
-    let finish = finishPatLogs.value[trainData.value.floorNow - 1];
-    if (trainData.value.floorNow > 1) {
-      let turnLen = initSymbol.value.turn.split(',').length;
-      finish.patLogs = finish.patLogs.filter((code,c) => c < (finish.patLogs.length - (turnLen*2 - 1)))
-    }
-    saveHandKeyZuXunData({
-      trainId: trainData.value.trainId,
-      userId: userInfo.id,
-      floorNumber: trainData.value.floorNow,
-      messageBody: trainData.value.telegraph[trainData.value.floorNow - 1],
-      validTime: trainData.value.validTime,
-      errorNumber: trainData.value.errorNumber,
-      speed: trainData.value.speed,
-      accuracy: trainData.value.accuracy,
-      standard: pagePatStandard.value,
-      finishInfo: JSON.stringify(finish)
-    }).then(res => {
-      if (res.code === 200) {
-        // finishPatLogs.value[trainData.value.floorNow - 1].patLogs = []
-        pagePatStandard.value = [{
-          dot: patStandard.value.dot,
-          line: patStandard.value.line,
-          codeGap: patStandard.value.codeGap,
-          wordGap: patStandard.value.wordGap,
-          groupGap: patStandard.value.groupGap,
-          offSize: initFloat.value,
-        }];
-        if (type == 'turn') {
-          if (trainData.value.patKeyVal.length > 0) {
-            trainData.value.patKeyVal.push(['句号']);
-            trainData.value.patKeyVal.push([]);
-            currPatKeyIndex.value = -1;
-            cachePatKey.value = [];
-            if (trainData.value.floorNow < trainData.value.pag) {
-              switchTelegram('next');
-            }
-          }
-        } else {
-          trainData.value.patKeyVal.push(['完结']);
-          clearInterval(trainTimer.value);
-          finishTrainInfo(type);
+  const savePatTelegraphBody = (type, savedPayload = null) => {
+    if (submission.pending()) return submission.retry()
+    clearTimeout(wordTimer.value)
+    clearTimeout(groupTimer.value)
+    const pageNumber = savedPayload?.floorNumber ?? trainData.value.floorNow
+    let payload = savedPayload
+    if (!payload) {
+      const messageBody = deepClone(trainData.value.telegraph[pageNumber - 1])
+      for (const item of messageBody) {
+        for (const field of ['moresTime', 'moresValue', 'patKeys', 'patLogs', 'moresKey']) {
+          if (typeof item[field] !== 'string') item[field] = JSON.stringify(item[field])
         }
-      } else {
-        message.error(res.message);
       }
-    });
-  };
+      payload = {trainId: trainData.value.trainId, floorNumber: pageNumber, messageBody,
+        ...capture.snapshot(), standard: deepClone(pagePatStandard.value.length ? pagePatStandard.value : [{...patStandard.value, offSize: initFloat.value}]),
+        finishInfo: JSON.stringify(finishPatLogs.value[pageNumber - 1] ?? {...patStandard.value, offSize: initFloat.value, patLogs: []})}
+    }
+    submission.saveSnapshot(snapshotKey(), {type, payload})
+    let uploaded = false
+    return submission.run(async request => {
+      if (payload.attempt !== capture.metadata.value?.attempt) throw new Error('训练轮次已变化，旧记录不会提交到新轮次')
+      if (!uploaded) {
+        await request(config => saveHandKeyZuXunData(payload, config))
+        uploaded = true
+      }
+      if (type === 'turn' && pageNumber < trainData.value.pag) {
+        const next = await request(config => getHandKeyZuXunPageNumber({id: trainData.value.trainId, userId: userInfo.id, floorNumber: pageNumber + 1}, config))
+        trainData.value.telegraph[pageNumber] = next.data.messageKey
+        capture.bind(next.data)
+        if (closingAt === null) capture.open()
+        startStatus.value = false
+        currPatKeyIndex.value = -1
+        cacheKey.value = []
+        cachePatKey.value = []
+        cacheKeyCode.value = []
+        cachePatCode.value = []
+        cachePatLogs.value = []
+        controlCandidates = []
+        trainData.value.patKeyVal.push(['句号'], [])
+        trainData.value.floorNow = pageNumber + 1
+        trainData.value.process = 2
+        pagePatStandard.value = []
+        finishPatLogs.value[pageNumber] = {...patStandard.value, offSize: initFloat.value, patLogs: []}
+      } else {
+        await finishTrainInfo(request)
+      }
+      submission.clearSnapshot(snapshotKey())
+    })
+  }
 
   /**
    * 重置训练
    */
-  const resetTrainInfo = () => {
-    resetHandKeyZuXunTrain({
-      id: trainData.value.trainId
-    }).then(res => {});
-  };
 
   const connectWebsocket = () => {
     const url =`/generalTickerPat/${userInfo.id}/${trainData.value.trainId}/0`
@@ -831,73 +694,116 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
       message.error('教员已离开！')
     }
     else if (data.topic == 'begin') {
-      message.success("训练已开始，请开始训练！")
-      cutTimer.value = setInterval(()=>{
-        cutTime.value--
-        if(cutTime.value==0){
-          clearInterval(cutTimer.value)
-          cutTimer.value = "begin"
-          if (trainTimer.value) {
-            clearInterval(trainTimer.value);
-          }
-          initTrainTimeInfo()
-
-          trainData.value.floorNow = 1;
-          trainData.value.status = 1;
-          trainData.value.process = 1;
-          trainData.value.validTime = 0;
-          cachePatCode.value = [];
-          logsPatStandardCode.value = [];
-          finishPatLogs.value = [];
-        }
-      },1000)
-
-
+      trainData.value.floorNow = 1
+      getPostTrainKeyInfo(1).then(confirmed => {
+        if (!confirmed) return
+        cutTime.value = 0
+        cutTimer.value = 'begin'
+        trainData.value.status = 1
+        capture.open()
+        trainData.value.process = 1
+        trainData.value.validTime = 0
+        cachePatCode.value = []
+        logsPatStandardCode.value = []
+        finishPatLogs.value = []
+        clearInterval(trainTimer.value)
+        initTrainTimeInfo()
+      })
     }
     else if (data.topic == 'end') {
-      trainData.value.status = 2;
-      clearInterval(trainTimer.value)
-      if (patUser.value.isFinish != 1) {
+      if (closingAt !== null) return
+      closingAt = performance.now()
+      capture.close()
+      trainData.value.status = 3
+      clearTimeout(wordTimer.value)
+      clearTimeout(groupTimer.value)
+      const finishAfterInput = () => {
+        if (patUser.value.isFinish === 1) return
         statisticsTelegraphData('end')
-      } else {
-        router.push({path: scorePath.value, query: {id: trainData.value.trainId,status: 2}})
-        emits('changeStatus')
       }
+      if (!submission.defer(finishAfterInput)) finishAfterInput()
     }
   }
 
-  const readyTrainPat = (type) => {
-    if(!wsOnline.value) {message.error('报训软件未连接!'); return false;}
-    if(!devOnline.value) {message.error('电子键设备未连接！'); return false;}
-    readyPat.value = true;
-    if (type == 1) {
-      const saved = JSON.parse(window.localStorage.getItem('handKeyZuXun'+trainData.value.trainId) || 'null')
-      if (saved) {
-        trainData.value.floorNow = saved.patPage
-        trainData.value.validTime = saved.time
-        trainData.value.speed = saved.speed
-        currPatKeyIndex.value = saved.patKeyIndex
+  const resetAttempt = () => {
+    if (trainData.value.status !== 1 || !capture.metadata.value) return
+    const attempt = capture.metadata.value.attempt
+    resetting = true
+    submission.cancel()
+    capture.close()
+    let resetConfirmed = false
+    return submission.run(async request => {
+      if (!resetConfirmed) {
+        const observed = await request(config => getHandKeyZuXunPageNumber({id: trainData.value.trainId, userId: userInfo.id, floorNumber: 1}, config))
+        if (observed.data.attempt === attempt) {
+          await request(config => resetHandKeyZuXunTrain({id: trainData.value.trainId, attempt}, config))
+        } else if (observed.data.attempt !== attempt + 1) {
+          throw new Error('训练轮次已由其他操作改变，请重新进入训练')
+        }
+        resetConfirmed = true
+        submission.clearSnapshot(snapshotKey())
       }
-    } else {
-      cachePatCode.value = [];
-      logsPatStandardCode.value = [];
-      finishPatLogs.value = [];
-      trainData.value.floorNow = 1;
-      currPatKeyIndex.value = -1;
-      trainData.value.validTime = 0;
-      trainData.value.errorNumber = 0;
-      trainData.value.accuracy = '0';
-      trainData.value.speed = 0;
-      if (trainData.value.status == 1) {
-        trainData.value.process = 1;
-        cutTimer.value = "begin"
-        resetTrainInfo();
-      }
+      const response = await request(config => getHandKeyZuXunPageNumber({id: trainData.value.trainId, userId: userInfo.id, floorNumber: 1}, config))
+      if (response.data.attempt !== attempt + 1) throw new Error('重拍轮次已变化，请重新进入训练')
+      trainData.value.telegraph = [response.data.messageKey]
+      trainData.value.floorNow = 1
+      trainData.value.attempt = response.data.attempt
+      if (trainData.value.status === 1) closingAt = null
+      capture.bind(response.data)
+      if (closingAt === null) capture.open()
+      trainData.value.process = 1
+      trainData.value.validTime = 0
+      trainData.value.patKeyVal = []
+      trainData.value.patCodeLog = []
+      currPatKeyIndex.value = -1
+      cachePatCode.value = []
+      cachePatLogs.value = []
+      cacheKey.value = []
+      cacheKeyCode.value = []
+      logsPatStandardCode.value = []
+      pagePatStandard.value = []
+      finishPatLogs.value = []
+      patNumber.value = 0
+      isFirstKey = true
+      patUser.value.isFinish = 0
+      startStatus.value = false
+      readyPat.value = true
+      cutTimer.value = 'begin'
+      controlCandidates = []
+      initTrainTimeInfo()
+      resetting = false
+    })
+  }
+
+  const readyTrainPat = async type => {
+    if (resetting) return submission.retry()
+    if (type !== 1 && trainData.value.status === 1) {
+      Modal.confirm({title: '重新拍发', content: '将清空本轮记录并创建新轮次，是否继续？', onOk: resetAttempt})
+      return
+    }
+    const saved = submission.loadSnapshot(snapshotKey())
+    if (saved) {
+      trainData.value.floorNow = saved.payload.floorNumber
+      if (!await getPostTrainKeyInfo(trainData.value.floorNow)) return
+      return savePatTelegraphBody(trainData.value.status === 3 ? 'end' : saved.type, saved.payload)
+    }
+    if (trainData.value.status === 3) {
+      if (capture.metadata.value?.submitted) return submission.run(finishTrainInfo)
+      message.warning('训练收尾中，无本轮待补交快照，不能重新采集')
+      return
+    }
+    if (!await getPostTrainKeyInfo(Math.min(trainData.value.floorNow, trainData.value.pag))) return
+    readyPat.value = true
+    if (trainData.value.status === 1) {
+      trainData.value.process = 1
+      cutTimer.value = 'begin'
+      capture.open()
     }
     sendMessage({topic: 'ready', id: userInfo.id})
   }
 
   return {
+    submissionError: submission.error, submissionBusy: submission.busy, retrySubmit: submission.retry,
     patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
     switchTelegram, resetPatStart,handleReceiveKeyCode, timeAreaShow, getScoreOffsetInfo,readyTrainPat,connectWebsocket,
     initTrainTimeInfo,cutTime,cutTimer,showPatCodeLog

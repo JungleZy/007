@@ -19,8 +19,8 @@ public class GeneralKeyPatPageDao extends BaseRepository<GeneralKeyPatPageEntity
   }
 
   public List<Integer> countPageNumber(Integer trainId) {
-    return find("trainId = ?1 group by pageNumber", trainId).list()
-        .stream().map(GeneralKeyPatPageEntity::getPageNumber).toList();
+    return entityManager.createQuery("select distinct pageNumber from general_key_pat_page where trainId = ?1 order by pageNumber", Integer.class)
+        .setParameter(1, trainId).getResultList();
   }
 
   public List<GeneralKeyPatPageEntity> findTwoPage(Integer trainId) {

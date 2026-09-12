@@ -46,10 +46,4 @@ public class TickerTapeTrainSettingController {
     return ResponseResult.success(settingService.addOrUpdate(param));
   }
 
-  @Path("/getDotRate")
-  @POST
-  @Operation(summary = "低速报点标准速率")
-  public Response<Integer> getDotRage() {
-    return ResponseResult.success(settingService.getDotStandardRate());
-  }
 }

@@ -216,7 +216,7 @@ export default function broaddcastTeacheing(selectCable) {
    * 获取规则分类
    */
   const getAllRuleInfo = () => {
-    getGradingRuleListByType({type: 3}).then(res => {
+    getGradingRuleListByType({type: 2}).then(res => {
       if (res.code === 200) {
         res.data.map(rule => {
           if (rule.isDefault == 0) {

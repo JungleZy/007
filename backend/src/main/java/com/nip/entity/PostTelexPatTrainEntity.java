@@ -90,6 +90,21 @@ public class PostTelexPatTrainEntity {
    */
   private LocalDateTime startTime;
 
+  @Column(nullable = false)
+  private int protocolVersion = 0;
+
+  @Column(nullable = false)
+  private int attempt = 0;
+
+  private Integer countdownSeconds;
+
+  private LocalDateTime deadline;
+
+  private LocalDateTime pausedAt;
+
+  @Column(columnDefinition = "longtext")
+  private String pauseIntervals;
+
   /**
    * 结束时间
    */

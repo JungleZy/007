@@ -7,10 +7,18 @@ import {useRouter} from "vue-router";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {
   finishElectronKeyZuXun,
-  getElectronKeyZuXunPageNumber,uploadElectronKeyZuXunPatResult,resetElectronKeyZuXunTrain,startTrainUser
+  getElectronKeyZuXunPageNumber,uploadElectronKeyZuXunPatResult,startTrainUser,resetElectronKeyZuXunTrain
 } from "../../../../../../../common/api/electronKeyZuXun.js";
+import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
+import {audioOperation} from '../../../../../../../common/utils/MorseVoice'
+import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'
 
-export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,patKey) {
+export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,changeCriterion) {
+  const submission = useConfirmedSubmission()
+  const capture = useTrainingCapture()
+  let closingAt = null
+  let resetting = false
+  const snapshotKey = () => `electron:pending:${userInfo.id}:${trainData.value.trainId}`
   const patKeyBoxRef = ref(null); // 字码和词组展示区域的容器
   const patValBoxRef = ref(null); // 拍发电码展示区域的容器
   const trainTimeRef = ref(null); // 训练时间展示区域的容器
@@ -56,6 +64,10 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const readyPat = ref(false);
   const patUser = ref({});
+  watch(() => [trainData.value.status, patUser.value.userStatus], ([status, userStatus], previous = []) => {
+    if (status !== 1 || userStatus === 3) capture.close()
+    else if (previous[1] === 3 && capture.metadata.value) capture.open()
+  }, {flush: 'sync'})
   const patWsData = ref({topic: 'pat', id: userInfo.id, log: {key: '', time: 0}})
   const startStatus = ref(false);
 
@@ -91,6 +103,10 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
 
   onUnmounted(() => {
     clearInterval(trainTimer.value);
+    clearTimeout(timer)
+    clearInterval(cutTimer.value)
+    cacheCode = []
+    capture.close()
     closeWebSocket();
   });
 
@@ -98,33 +114,28 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
    * 获取电报纸的报文内容
    * @param page
    */
-  const getPostTrainKeyInfo = (page) => {
-    getElectronKeyZuXunPageNumber({
-      trainId: trainData.value.trainId,
-      userId: userInfo.id,
-      pageNumber: page
-    }).then(res => {
-      if (res.code === 200) {
-        res.data.messageVO.forEach((item)=>{
-          item.key=JSON.parse(item.key)
-          item.time=JSON.parse(item.time)
-          item.value=[]
-        })
-        trainData.value.telegraph[page-1] = res.data.messageVO;
-      }
-    })
-  };
+  const decodePage = rows => rows.map(item => ({...item,
+    key: typeof item.key === 'string' ? JSON.parse(item.key) : item.key,
+    value: typeof item.value === 'string' ? JSON.parse(item.value) : item.value || [],
+    time: typeof item.time === 'string' ? JSON.parse(item.time) : item.time || []}))
+  const getPostTrainKeyInfo = page => submission.run(async request => {
+    const response = await request(config => getElectronKeyZuXunPageNumber({trainId: trainData.value.trainId, userId: userInfo.id, pageNumber: page}, config))
+    trainData.value.telegraph[page - 1] = decodePage(response.data.messageVO)
+    if (page === trainData.value.floorNow) capture.bind(response.data)
+  })
 
   /**
    * 训练时间转换显示
    */
   const initTrainTimeInfo = () => {
+    clearInterval(trainTimer.value)
     if (!trainData.value.validTime) {
       trainData.value.validTime = 0;
     }
     trainTimer.value = setInterval(() => {
-      trainData.value.validTime += 1;
-      // trainData.value.speed = Number(patNumber.value / (trainData.value.validTime/60)).toFixed(1);
+      const elapsed = capture.elapsed()
+      trainData.value.validTime = elapsed / 1000;
+      trainData.value.speed = elapsed > 0 ? Number((patNumber.value * 60000 / 4 / elapsed).toFixed(1)) : 0;
       timeAreaShow(trainData.value.validTime * 1000);
     },1000);
   };
@@ -150,6 +161,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
    * @param type
    */
   const switchTelegram = (type) => {
+    if ([1, 3].includes(trainData.value.status)) return
     if ((type === 'prev' && trainData.value.floorNow <= 1) ||
         (type === 'next' && trainData.value.floorNow >= trainData.value.pag)) return false;
     if (type === 'prev') {
@@ -178,12 +190,21 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
    * @param val
    */
   let cacheCode = [],timer = null;
-  const handleReceiveKeyCode = (val) => {
-    let k_v = '#',time = 0,lastRow,lastKey,
-        curr_t = new Date().getTime();
+  let lastCharacterAt = null
+  const handleReceiveKeyCode = (val, receivedAt, receipt = null) => {
+    if (resetting) return
+    const beforeClose = closingAt !== null && receivedAt <= closingAt
+    if ((closingAt !== null && !beforeClose) || (trainData.value.status !== 1 && !beforeClose) || patUser.value.userStatus === 3) return
+    if (!receipt) receipt = Object.freeze({...capture.stamp(receivedAt, receivedAt), queued: submission.pending()})
+    if (submission.defer(() => handleReceiveKeyCode(val, receivedAt, receipt))) return
+    if (receipt.queued) {
+      capture.recordQueued(receipt)
+      if (closingAt === null) capture.open()
+    } else if (closingAt === null) capture.open(receivedAt)
+    let k_v = '#', time = 0, lastRow, lastKey, curr_t = receipt.endedMs;
     if (loading.value || patUser.value.userStatus == 3) return false;
     if((Number(val) == 14||Number(val) == 41)&&cacheCode.length>0){
-      time = curr_t - logsPatKeyTime.value;
+      time = capture.between(logsPatKeyTime.value, curr_t);
       k_v = codeOnKey[cacheCode.join('')] ?? '#'
       console.log(k_v);
       cacheCode = []
@@ -192,7 +213,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
         lastRow.push([]);
       }
       lastKey = lastRow[lastRow.length - 1];
-      patKeyAssignmentInfo(lastKey, k_v, time,true)
+      patKeyAssignmentInfo(lastKey, k_v, curr_t)
       clearTimeout(timer)
       timer = null
     }
@@ -217,6 +238,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
     if (Number(val)===44&&trainData.value.process===1&&isPatF1.value) {
       startTime = Date.now()
       logsPatKeyTime.value = curr_t;
+      lastCharacterAt = curr_t
       trainData.value.patKeyVal.push([['开始']]);
       trainData.value.patKeyVal.push([[]]);
       trainData.value.patCodeLog.push({key: '开始', time: 0});
@@ -231,9 +253,14 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
     if (trainData.value.process === 0) {message.error('训练还未开始!');return false;}
     if (trainData.value.process === 1) {message.error('请拍发开始键!');return false;}
     //开始训练初次拍发调用接口
-    if(isFirstKey){
-      isFirstKey = false
-      startTrainUser(trainData.value.trainId)
+    if (isFirstKey) {
+      capture.close()
+      return submission.run(async request => {
+        await request(config => startTrainUser({trainId: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
+        isFirstKey = false
+        const queuedReceipt = Object.freeze({...receipt, queued: true})
+        submission.defer(() => handleReceiveKeyCode(val, receivedAt, queuedReceipt), true)
+      })
     }
 
     if (trainData.value.patKeyVal.length === 0) {
@@ -247,7 +274,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
       lastKey = lastRow[lastRow.length - 1];
     }
     // lastKey = lastRow[lastRow.length - 1];
-    time = curr_t - logsPatKeyTime.value;
+    time = capture.between(logsPatKeyTime.value, curr_t);
 
 
     if (Number(val) === 41) {
@@ -283,12 +310,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
         currPatKeyIndex.value = 100;
         handlerSubmit('end');
       }else{
-        currPatKeyIndex.value = 0;
-        trainData.value.process = 1;
         handlerSubmit();
-        switchTelegram('next');
-        patWsData.value.log.key = '句号'
-        sendMessage(patWsData.value)
       }
       goScrollBottom()
       return false;
@@ -317,11 +339,10 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
             cacheCode.push(...codeInKey[val]._code)
             k_v = ''
           }
-          patKey.value = null;
           timer = setTimeout(() => {
             k_v = codeOnKey[cacheCode.join('')]??'#'
             cacheCode = []
-            patKeyAssignmentInfo(lastKey,k_v,time)
+            patKeyAssignmentInfo(lastKey,k_v,curr_t)
             clearTimeout(timer)
             timer = null
           },pauseDuration.value)
@@ -349,14 +370,11 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
     }
 
     if (isPatF1.value || isPatF3.value || k_v != '') {
-      patKeyAssignmentInfo(lastKey,k_v,time)
+      patKeyAssignmentInfo(lastKey,k_v,curr_t)
     }
 
 
 //计算码率
-    if(startTime!==0){
-      trainData.value.speed = Number(parseFloat(patNumber.value / ((Date.now()-startTime)/1000/ 60)).toFixed(1))
-    }
   };
   let codes = ''
 
@@ -366,14 +384,20 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
    * @param k_v
    * @param time
    */
-  const patKeyAssignmentInfo = (lastKey,k_v,time) => {
+  const patKeyAssignmentInfo = (lastKey,k_v,at) => {
+    const time = capture.between(lastCharacterAt ?? at, at)
+    lastCharacterAt = Math.max(lastCharacterAt ?? at, at)
     let currData = trainData.value.telegraph[trainData.value.floorNow - 1]
-    patNumber.value++;
+    if (k_v.trim() && k_v !== '?' && k_v !== '/') patNumber.value++;
+    if (capture.elapsed() > 0) {
+      trainData.value.speed = Number((patNumber.value * 60000 / 4 / capture.elapsed()).toFixed(1))
+      changeCriterion(trainData.value.speed, trainData.value.messageType === 1 ? 'letter' : trainData.value.messageType === 2 ? 'mix' : 'short')
+    }
     lastKey.push(k_v);
-    trainData.value.patCodeLog.push({key: k_v, time: (time>20000?20000:time)});
+    trainData.value.patCodeLog.push({key: k_v, time});
     currPatKeyIndex.value = currPatKeyIndex.value<0?0:currPatKeyIndex.value
     patWsData.value.log.key = k_v
-    patWsData.value.log.time = (time>20000?20000:time)
+    patWsData.value.log.time = time
     sendMessage(patWsData.value)
     if (!currData) {
       currData = [{key: ['#'], value: [], time: []}]
@@ -431,63 +455,70 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
   /**
    * 提交当前页面拍发的数据
    */
-  let count = 0
-  const handlerSubmit = (type)=>{
-    if(count!==0)return
-    const data = deepClone(trainData.value.telegraph[trainData.value.floorNow - 1])
-    const submitData = data.filter(item=>item.value.length>0)
-    submitData.forEach((item)=>{
-      item.value = JSON.stringify(item.value)
-      item.key = JSON.stringify(item.key)
-      item.time = JSON.stringify(item.time)
-    })
-    count++
-    uploadElectronKeyZuXunPatResult({
-      trainId: trainData.value.trainId,
-      pageValue: submitData,
-      pageNumber: trainData.value.floorNow,
-    }).then(res => {
-      count=0
-      if (res.code === 200) {
-        if (trainData.value.floorNow > trainData.value.pag || type == 'end') {
-          patWsData.value.log.key = '完结'
-          sendMessage(patWsData.value)
-          finishTrainInfo(type)
-        }
+  const handlerSubmit = (type, savedPayload = null) => {
+    if (submission.pending()) return submission.retry()
+    clearTimeout(timer)
+    if (cacheCode.length && !savedPayload) {
+      const row = trainData.value.patKeyVal.at(-1)
+      const key = row?.at(-1)
+      if (key) patKeyAssignmentInfo(key, codeOnKey[cacheCode.join('')] ?? '#', logsPatKeyTime.value)
+      cacheCode = []
+    }
+    const pageNumber = savedPayload?.pageNumber ?? trainData.value.floorNow
+    let payload = savedPayload
+    if (!payload) {
+      const pageValue = deepClone(trainData.value.telegraph[pageNumber - 1]).filter(item => item.value.length > 0)
+      for (const item of pageValue) {
+        item.value = JSON.stringify(item.value)
+        item.key = JSON.stringify(item.key)
+        item.time = JSON.stringify(item.time)
       }
+      payload = {trainId: trainData.value.trainId, pageNumber, pageValue, ...capture.snapshot()}
+    }
+    submission.saveSnapshot(snapshotKey(), {type, payload})
+    let uploaded = false
+    return submission.run(async request => {
+      if (payload.attempt !== capture.metadata.value?.attempt) throw new Error('训练轮次已变化，旧记录不会提交到新轮次')
+      if (!uploaded) {
+        await request(config => uploadElectronKeyZuXunPatResult(payload, config))
+        uploaded = true
+      }
+      if (type === 'end' || pageNumber >= trainData.value.pag) {
+        await finishTrainInfo(request)
+      } else {
+        const response = await request(config => getElectronKeyZuXunPageNumber({trainId: trainData.value.trainId, userId: userInfo.id, pageNumber: pageNumber + 1}, config))
+        trainData.value.telegraph[pageNumber] = decodePage(response.data.messageVO)
+        capture.bind(response.data)
+        if (closingAt === null) capture.open()
+        trainData.value.floorNow = pageNumber + 1
+        trainData.value.process = 1
+        currPatKeyIndex.value = 0
+        cacheCode = []
+        patWsData.value.log.key = '句号'
+        sendMessage(patWsData.value)
+      }
+      submission.clearSnapshot(snapshotKey())
     })
-  };
+  }
 
 
   /**
    * 结束训练
    * @param type
    */
-  const finishTrainInfo = (type) => {
-    if (type == 'end') {
-      patUser.value.isFinish = 1
-      sendMessage({ topic: 'finish', id: userInfo.id })
-    }
-    loading.value = true;
-    finishElectronKeyZuXun({
-      trainId: trainData.value.trainId,
-      userId: userInfo.id,
-    }).then(res => {
-      loading.value = false;
-      if (res.code === 200) {} else {
-        message.error(res.message);
-      }
-      router.push({path: scorePath.value, query: {id: trainData.value.trainId,status: 2}})
-      emits('changeStatus')
-    });
-  };
+  const finishTrainInfo = async request => {
+    await request(config => finishElectronKeyZuXun({trainId: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
+    trainData.value.status = 2
+    patUser.value.isFinish = 1
+    clearInterval(trainTimer.value)
+    sendMessage({topic: 'finish', id: userInfo.id})
+    router.push({path: scorePath.value, query: {id: trainData.value.trainId, status: 2}})
+    emits('changeStatus')
+  }
 
   /**
    * 重置训练
    */
-  const resetTrainInfo = () => {
-    resetElectronKeyZuXunTrain({trainId: trainData.value.trainId}).then(res => {});
-  };
 
   const connectWebsocket = () => {
     const url =`/generalKeyPatTrain/${userInfo.id}/${trainData.value.trainId}`
@@ -506,71 +537,126 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,pa
       message.error('教员已离开！')
     }
     else if (data.topic == 'begin') {
-      message.success("教员已开始训练，准备开始训练！")
-      cutTimer.value = setInterval(()=>{
-        cutTime.value--
-        if(cutTime.value==0){
-          clearInterval(cutTimer.value)
-          cutTimer.value = "begin"
-          if (trainTimer.value) {
-            clearInterval(trainTimer.value);
-          }
-          initTrainTimeInfo()
-
-          trainData.value.floorNow = 1;
-          trainData.value.status = 1;
-          trainData.value.process = 1;
-          trainData.value.validTime = 0;
-          cachePatCode.value = [];
-          logsPatStandardCode.value = [];
-          finishPatLogs.value = [];
-        }
-      },1000)
+      if (!audioOperation({type: 'ready'})) {
+        audioOperation({type: 'message', data: {data: [], numType: 'short'}})
+        return
+      }
+      trainData.value.floorNow = 1
+      getPostTrainKeyInfo(1).then(confirmed => {
+        if (!confirmed) return
+        cutTime.value = 0
+        cutTimer.value = 'begin'
+        trainData.value.status = 1
+        capture.open()
+        trainData.value.process = 1
+        trainData.value.validTime = 0
+        cacheCode = []
+        clearInterval(trainTimer.value)
+        initTrainTimeInfo()
+      })
     }
     else if (data.topic == 'end') {
-      trainData.value.status = 2;
-      clearInterval(trainTimer.value)
-      if (patUser.value.isFinish != 1) {
+      if (closingAt !== null) return
+      closingAt = performance.now()
+      capture.close()
+      trainData.value.status = 3
+      clearTimeout(timer)
+      const finishAfterInput = () => {
+        if (patUser.value.isFinish === 1) return
         handlerSubmit('end')
-      } else {
-        router.push({path: scorePath.value, query: {id: trainData.value.trainId,status: 2}})
-        emits('changeStatus')
       }
+      if (!submission.defer(finishAfterInput)) finishAfterInput()
     }
   }
 
-  const readyTrainPat = (type) => {
-    if(!wsOnline.value) {message.error('报训软件未连接!'); return false;}
-    if(!devOnline.value) {message.error('电子键设备未连接！'); return false;}
-    readyPat.value = true;
-    if (type == 1) {
-      const saved = JSON.parse(window.localStorage.getItem('electronKeyZuXun'+trainData.value.trainId) || 'null')
-      if (saved) {
-        trainData.value.floorNow = saved.patPage
-        trainData.value.validTime = saved.time
-        trainData.value.speed = saved.speed
-        currPatKeyIndex.value = saved.patKeyIndex
+  const resetAttempt = () => {
+    if (trainData.value.status !== 1 || !capture.metadata.value) return
+    const attempt = capture.metadata.value.attempt
+    resetting = true
+    audioOperation({type: 'stop'})
+    clearTimeout(timer)
+    timer = null
+    submission.cancel()
+    capture.close()
+    let resetConfirmed = false
+    return submission.run(async request => {
+      if (!resetConfirmed) {
+        const observed = await request(config => getElectronKeyZuXunPageNumber({trainId: trainData.value.trainId, userId: userInfo.id, pageNumber: 1}, config))
+        if (observed.data.attempt === attempt) {
+          await request(config => resetElectronKeyZuXunTrain({trainId: trainData.value.trainId, attempt}, config))
+        } else if (observed.data.attempt !== attempt + 1) {
+          throw new Error('训练轮次已由其他操作改变，请重新进入训练')
+        }
+        resetConfirmed = true
+        submission.clearSnapshot(snapshotKey())
       }
-    } else {
-      cachePatCode.value = [];
-      logsPatStandardCode.value = [];
-      finishPatLogs.value = [];
-      trainData.value.floorNow = 1;
-      currPatKeyIndex.value = -1;
-      trainData.value.validTime = 0;
-      trainData.value.errorNumber = 0;
-      trainData.value.accuracy = '0';
-      trainData.value.speed = 0;
-      if (trainData.value.status == 1) {
-        trainData.value.process = 1;
-        cutTimer.value = "begin"
-        resetTrainInfo();
-      }
+      const response = await request(config => getElectronKeyZuXunPageNumber({trainId: trainData.value.trainId, userId: userInfo.id, pageNumber: 1}, config))
+      if (response.data.attempt !== attempt + 1) throw new Error('重拍轮次已变化，请重新进入训练')
+      trainData.value.telegraph = [decodePage(response.data.messageVO)]
+      trainData.value.floorNow = 1
+      trainData.value.attempt = response.data.attempt
+      if (trainData.value.status === 1) closingAt = null
+      capture.bind(response.data)
+      if (closingAt === null) capture.open()
+      trainData.value.process = 1
+      trainData.value.validTime = 0
+      trainData.value.patKeyVal = []
+      trainData.value.patCodeLog = []
+      currPatKeyIndex.value = -1
+      cachePatCode.value = []
+      cachePatLogs.value = []
+      cacheKey.value = []
+      cacheKeyCode.value = []
+      logsPatStandardCode.value = []
+      pagePatStandard.value = []
+      finishPatLogs.value = []
+      patNumber.value = 0
+      isFirstKey = true
+      patUser.value.isFinish = 0
+      startStatus.value = false
+      readyPat.value = true
+      cutTimer.value = 'begin'
+      cacheCode = []
+      lastCharacterAt = null
+      clearTimeout(timer)
+      const rule = typeof trainData.value.ruleContent === 'string' ? JSON.parse(trainData.value.ruleContent) : trainData.value.ruleContent
+      changeCriterion(rule.wpm.base, trainData.value.messageType === 1 ? 'letter' : trainData.value.messageType === 2 ? 'mix' : 'short')
+      initTrainTimeInfo()
+      resetting = false
+    })
+  }
+
+  const readyTrainPat = async type => {
+    if (resetting) return submission.retry()
+    if (type !== 1 && trainData.value.status === 1) {
+      Modal.confirm({title: '重新拍发', content: '将清空本轮记录并创建新轮次，是否继续？', onOk: resetAttempt})
+      return
+    }
+    const saved = submission.loadSnapshot(snapshotKey())
+    if (saved) {
+      trainData.value.floorNow = saved.payload.pageNumber
+      if (!await getPostTrainKeyInfo(trainData.value.floorNow)) return
+      return handlerSubmit(trainData.value.status === 3 ? 'end' : saved.type, saved.payload)
+    }
+    if (!await getPostTrainKeyInfo(Math.min(trainData.value.floorNow, trainData.value.pag))) return
+    if (trainData.value.status === 3) {
+      if (capture.metadata.value?.submitted) return submission.run(finishTrainInfo)
+      message.warning('训练收尾中，无本轮待补交快照，不能重新采集')
+      return
+    }
+    if (!wsOnline.value || !devOnline.value) { message.error('报训设备未连接'); return }
+    if (!await audioOperation({type: 'init'})) return
+    readyPat.value = true
+    if (trainData.value.status === 1) {
+      trainData.value.process = 1
+      cutTimer.value = 'begin'
+      capture.open()
     }
     sendMessage({topic: 'ready', id: userInfo.id})
   }
 
   return {
+    submissionError: submission.error, submissionBusy: submission.busy, retrySubmit: submission.retry,
     patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
     switchTelegram, resetPatStart,handleReceiveKeyCode, timeAreaShow,readyTrainPat,connectWebsocket,
     initTrainTimeInfo,cutTime,cutTimer

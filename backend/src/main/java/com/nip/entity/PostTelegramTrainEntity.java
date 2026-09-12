@@ -20,6 +20,10 @@ import java.time.LocalDateTime;
 @Accessors(chain = true)
 @Cacheable(value = false)
 public class PostTelegramTrainEntity {
+  private Integer protocolVersion;
+  private Integer attempt;
+  private Integer fullScore;
+  private Long activeMillis;
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
@@ -120,6 +124,7 @@ public class PostTelegramTrainEntity {
   /**
    * 评分规则信息
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String ruleContent;
 
   private String score;
@@ -127,6 +132,7 @@ public class PostTelegramTrainEntity {
   /**
    * 统计信息 点、划、间隔
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String statisticInfo;
 
   /**
@@ -137,6 +143,7 @@ public class PostTelegramTrainEntity {
   /**
    * 扣分详情
    */
+  @Column(columnDefinition = "LONGTEXT")
   private String deductInfo;
 
   /**

@@ -25,6 +25,7 @@ import java.util.List;
 public class GeneralTickerPatTrainVO {
   @Schema(title = "id")
   private Integer id;
+  private Integer protocolVersion;
 
   /**
    * 训练名称

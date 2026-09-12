@@ -1,7 +1,12 @@
 package com.nip.dto.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.nip.common.utils.StrictIntegerDeserializer;
+import com.nip.dto.CaptureInterval;
 import lombok.Data;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+import java.util.List;
 
 /**
  * @Author: wushilin
@@ -30,9 +35,10 @@ public class PostTelexPatTrainPageValueVO {
   @Schema(title = "拍发内容")
   private String patValue;
 
-  @Schema(title = "有效时长")
-  private Integer validTime;
+  @Schema(title = "训练轮次")
+  @JsonDeserialize(using = StrictIntegerDeserializer.class)
+  private Integer attempt;
 
-  @Schema(title = "速率")
-  private String speed;
+  @Schema(title = "相对本轮开始时间的有效采集区间（毫秒）")
+  private List<CaptureInterval> captureIntervals;
 }

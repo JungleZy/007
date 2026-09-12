@@ -1,5 +1,6 @@
 package com.nip.dto.vo.simulation.tickerPat;
 
+import com.nip.dto.CaptureInterval;
 import com.nip.dto.vo.param.simulation.tickerPat.GeneralTickerPatTrainContentAddParam;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.AllArgsConstructor;
@@ -39,4 +40,10 @@ public class GeneralTickerPatTrainContentVO {
    */
   //@ApiModelProperty(value = "",position = 5)
   private String resolver;
+
+  private Integer protocolVersion;
+  private Integer attempt;
+  private long serverElapsedMs;
+  private boolean submitted;
+  private List<CaptureInterval> savedCaptureIntervals;
 }

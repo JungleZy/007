@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 /**
  * @Author: wushilin
  * @Data: 2023-03-15 14:03
@@ -32,5 +34,12 @@ public class PostTelexPatTrainPageValueEntity {
    */
   @Column(columnDefinition = "longtext")
   private String patValue;
+
+  private Integer attempt;
+
+  @Column(columnDefinition = "longtext")
+  private String captureIntervals;
+
+  private LocalDateTime receivedAt;
 
 }

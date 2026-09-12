@@ -21,6 +21,10 @@ import java.util.List;
 @NoArgsConstructor
 @Accessors(chain = true)
 public class PostTelegramTrainVO {
+  private Integer protocolVersion;
+  private Integer attempt;
+  private long serverElapsedMs;
+  private Long activeMillis;
 
   //@ApiModelProperty(value = "id",position = 1)
   private String id;
@@ -126,6 +130,8 @@ public class PostTelegramTrainVO {
 
   //@ApiModelProperty(value = "各页速率记录",position = 17)
   private String speedLog;
+
+  private List<PostTelegraphKeyPatTrainPageAnalyzeVO> pageAnalyzeVOS;
 
   //@ApiModelProperty(value = "完成内容，用户统计使用",position = 18)
   private List<PostTelegramTrainFinishInfoDto> finishInfo;

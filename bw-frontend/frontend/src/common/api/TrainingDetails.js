@@ -39,10 +39,10 @@ export const groupNetTrain = (data) => {
     data
   })
 }
-export const groupNetTrainSubmitAnswer = (data) => {
+export const groupNetTrainSubmitAnswer = ({id, answer}) => {
   return axios({
     method: 'POST',
     url: '/api/groupNetTrain/submitAnswer',
-    data
+    data: {id, answer}
   })
 }

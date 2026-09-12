@@ -1,5 +1,8 @@
 <template>
   <div class="w-full h-full overflow-hidden relative">
+    <a-alert v-if="submissionError" type="error" :message="submissionError" style="position:absolute;z-index:1000;top:8px;left:20%">
+      <template #description><a-button :loading="submissionBusy" @click="retrySubmit">重试原提交</a-button></template>
+    </a-alert>
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
@@ -21,7 +24,7 @@
                 <div class="tipSymbol">
                   <div class="symItem" v-if="trainData.ruleContent">
                     <div>设定码率：</div>
-                    <div>{{ trainData.ruleContent.wpm.base }} 码/分</div>
+                    <div>{{ trainData.ruleContent.wpm.base }} 四码组/分</div>
                   </div>
                 </div>
                 <div class="item relative" v-if="trainData.messageType==2 || trainData.messageType==1">
@@ -69,14 +72,14 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico" />
                   <div>
-                    <div class="title">拍发码率</div>
-                    <div class="tags nobr">{{ trainData.speed }}码/分</div>
+                    <div class="title">本次采集码率（预估）</div>
+                    <div class="tags nobr">{{ trainData.speed }}四码组/分</div>
                   </div>
                 </div>
                 <div class="item relative">
 <!--                  <img :src="labSpeed" class="ico" />-->
                   <div>
-                    <div class="title">播报速率</div>
+                    <div class="title">播报速率（四码组/分）</div>
                     <a-input style="width: 100px" v-model:value="playSpeed"/>
                     <a-button @click="changePlaySpeed">修改</a-button>
                   </div>
@@ -203,6 +206,7 @@ const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()
 import {ref} from "vue";
 const autoLine = ref(true)
 const {
+  submissionError, submissionBusy, retrySubmit,
   loading, patValBoxRef, patKeyBoxRef, wsOnline, devOnline, trainData, countDown, currPage, allPage, patCodeLogs,
   patKeysLogs, pauseDuration,currPageIndex, switchPage, startTrain, endTrain,changePlaySpeed,
   playSpeed,lastPatKey

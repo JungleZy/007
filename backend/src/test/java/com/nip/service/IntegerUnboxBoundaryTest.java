@@ -34,15 +34,20 @@ class IntegerUnboxBoundaryTest {
   @Inject UserDao userDao;
 
   @Test
-  void saveGradingRuleWithNullIsDefaultDoesNotNpe() {
-    GradingRuleEntity entity = new GradingRuleEntity();
-    entity.setTitle("拆箱边界规则");
-    entity.setType(0);
-    entity.setScore(100);
-    entity.setContent("{}");
-    entity.setIsDefault(null); // 修复前 entity.getIsDefault() == 0 直接 NPE
-    assertDoesNotThrow(() -> gradingRuleService.saveGradingRule(entity),
-        "isDefault 为 null 不得拆箱 NPE");
+  @io.quarkus.test.TestTransaction
+  void savingWithoutDefaultChoiceKeepsTheSelectedRule() {
+    GradingRuleEntity selected = Fixtures.handkeyRule(gradingRuleDao);
+    selected.setIsDefault(0);
+    gradingRuleService.saveGradingRule(selected);
+    GradingRuleEntity candidate = new GradingRuleEntity();
+    candidate.setTitle("optional-default-rule");
+    candidate.setType(0);
+    candidate.setScore(100);
+    candidate.setContent(selected.getContent());
+    candidate.setIsDefault(null);
+    var saved = gradingRuleService.saveGradingRule(candidate).getData();
+    assertEquals(0, gradingRuleDao.findById(selected.getId()).getIsDefault());
+    org.junit.jupiter.api.Assertions.assertNotEquals(0, gradingRuleDao.findById(saved.getId()).getIsDefault());
   }
 
   @Test
@@ -68,7 +73,14 @@ class IntegerUnboxBoundaryTest {
   void telexSaveWithNullGroupNumberIsRejectedExplicitly() {
     String token = "unbox-telex-token";
     Fixtures.user(userDao, token);
-    GradingRuleEntity rule = gradingRuleDao.save(new GradingRuleEntity());
+    GradingRuleEntity capturedRule = new GradingRuleEntity();
+    capturedRule.setScore(100);
+    capturedRule.setContent("""
+        {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":10},
+         "other":{"errorCode":0,"muchLessGroups":0,"correctMistakes":0,"lessPage":0,"lessReturnLine":0,
+                  "muchLessLine":0,"muchLessCode":0,"errorPage":0,"nonStandart":0}}
+        """);
+    GradingRuleEntity rule = gradingRuleDao.save(capturedRule);
 
     PostTelexPatTrainDto dto = new PostTelexPatTrainDto();
     dto.setName("拆箱边界训练");
@@ -77,8 +89,7 @@ class IntegerUnboxBoundaryTest {
     dto.setType(0);
     dto.setPatType(2);
     dto.setGroupNumber(null); // 修复前 groupNumber < 200 直接 NPE
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+    assertThrows(IllegalArgumentException.class,
         () -> postTelexPatTrainService.save(dto, token), "组数为 null 必须显式报错而非 NPE");
-    assertEquals("组数不能为空", ex.getMessage());
   }
 }

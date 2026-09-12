@@ -6,6 +6,12 @@ import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
+import com.nip.common.utils.CaptureTimeline;
+import com.nip.common.utils.ScoringRuleValidation;
+import com.nip.dto.CaptureInterval;
+import com.nip.dto.score.TrainingRateUnit;
+import jakarta.persistence.LockModeType;
+import java.time.Duration;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelegramTrainContentValueDao;
 import com.nip.dao.PostTelegramTrainDao;
@@ -21,6 +27,7 @@ import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.dto.vo.PostTelegramTrainVO;
+import com.nip.dto.vo.PostTelegraphKeyPatTrainPageAnalyzeVO;
 import com.nip.dto.vo.param.PostTelegramTrainAddParam;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import com.nip.dto.vo.param.PostTelegramTrainFloorContentQueryParam;
@@ -54,7 +61,6 @@ import static com.nip.common.constants.PostTelegramTrainEnum.*;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.NUMBER_MESSAGE;
 import static com.nip.common.constants.PostTelegramTrainTypeEnum.STRING_MESSAGE;
 import static com.nip.common.utils.TickerPatUtils.handleMessageBody;
-import static com.nip.common.utils.TickerPatUtils.parseContent;
 import static com.nip.common.utils.ToolUtil.calculateScore;
 import static com.nip.common.utils.ToolUtil.calculateTS;
 import static com.nip.service.general.GeneralKeyPatService.REGEX;
@@ -172,7 +178,13 @@ public class PostTelegramTrainService {
     UserEntity userEntity = userService.getUserByToken(token);
     GradingRuleEntity gradingRule = gradingRuleDao.findByIdOptional(param.getRuleId())
         .orElseThrow(() -> new IllegalArgumentException("评分规则不存在"));
+    ScoringRuleValidation.handkey(gradingRule.getContent());
+    if (gradingRule.getScore() == null || gradingRule.getScore() < 0) throw new IllegalArgumentException("评分规则满分必须为非负整数");
     PostTelegramTrainEntity entity = PojoUtils.convertOne(param, PostTelegramTrainEntity.class, (t, r) -> {
+      r.setProtocolVersion(1);
+      r.setAttempt(0);
+      r.setFullScore(gradingRule.getScore());
+      r.setActiveMillis(0L);
       // 初始速度是0
       r.setSpeed("0");
       // 默认状态为未开始
@@ -338,11 +350,22 @@ public class PostTelegramTrainService {
     });
   }
 
-  public PostTelegramTrainVO detail(PostTelegramTrainQueryParam param) {
-    PostTelegramTrainEntity entity = postTelegramTrainDao.findByIdOptional(param.getId())
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+  public PostTelegramTrainVO detail(PostTelegramTrainQueryParam param, String token) {
+    PostTelegramTrainEntity entity = owned(param.getId(), token, false);
+    requireReadable(entity);
 
     return PojoUtils.convertOne(entity, PostTelegramTrainVO.class, (t, r) -> {
+      r.setServerElapsedMs(elapsed(entity, LocalDateTime.now()));
+      if (Objects.equals(entity.getProtocolVersion(), 1)) {
+        r.setPageAnalyzeVOS(contentValueDao.findAllByTrainIdOrderByFloorNumber(entity.getId()).stream().map(page -> {
+          PostTelegraphKeyPatTrainPageAnalyzeVO analysis = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+          analysis.setPageNumber(page.getFloorNumber());
+          analysis.setPatNumber(Math.toIntExact(countCharacters(JSONUtils.fromJson(page.getMessageBody(),
+              new TypeToken<List<PostTelegramTrainContentAddParam>>() {}))));
+          analysis.setTotalTime(CaptureTimeline.durationMillis(intervals(page), elapsed(entity, page.getReceivedAt())));
+          return analysis;
+        }).toList());
+      }
       // 判断报底是否为null
       if (t.getFloorNow() == null) {
         r.setFloorNow(1);
@@ -397,13 +420,16 @@ public class PostTelegramTrainService {
     });
   }
 
-  public PostTelegramTrainContentVO findMessageBody(PostTelegramTrainFloorContentQueryParam param) {
-    PostTelegramTrainEntity entity = postTelegramTrainDao.findByIdOptional(param.getId())
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+  @Transactional
+  public PostTelegramTrainContentVO findMessageBody(PostTelegramTrainFloorContentQueryParam param, String token) {
+    PostTelegramTrainEntity entity = owned(param.getId(), token, true);
+    requireReadable(entity);
+    requirePage(entity, param.getFloorNumber());
 
     List<PostTelegramTrainFloorContentEntity> contentEntities = floorContentDao.findByFloorNumberAndTrainIdOrderBySort(
         param.getFloorNumber(), param.getId());
     if (contentEntities.isEmpty()) {
+      if (Objects.equals(entity.getStatus(), FINISH.getStatus())) throw new IllegalArgumentException("历史训练缺少该页报底，不再生成新内容");
       // Phase 7.4：floorNumber/messageNumber/type/isAverage/isRandom 均为可空包装类型，裸拆箱会 NPE
       if (param.getFloorNumber() == null) {
         throw new IllegalArgumentException("页码不能为空");
@@ -461,32 +487,42 @@ public class PostTelegramTrainService {
     PostTelegramTrainContentFloorValueEntity contentFloorValueEntity = contentValueDao.findByFloorNumberAndTrainId(
         param.getFloorNumber(), param.getId());
 
-    return new PostTelegramTrainContentVO(
-        Optional.ofNullable(contentFloorValueEntity).map(PostTelegramTrainContentFloorValueEntity::getMessageBody)
-            .orElseGet(() -> JSONUtils.toJson(addParams)),
-        addParams,
-        Optional.ofNullable(contentFloorValueEntity).map(PostTelegramTrainContentFloorValueEntity::getFinishInfo)
-            .orElse(EMPTY_JSON_ARRAY),
-        Optional.ofNullable(contentFloorValueEntity).map(PostTelegramTrainContentFloorValueEntity::getStandard)
-            .orElse(EMPTY_JSON_ARRAY),
-        Optional.ofNullable(contentFloorValueEntity).map(PostTelegramTrainContentFloorValueEntity::getResolver)
-            .orElse(""));
+    return new PostTelegramTrainContentVO()
+        .setProtocolVersion(entity.getProtocolVersion()).setAttempt(entity.getAttempt())
+        .setServerElapsedMs(elapsed(entity, LocalDateTime.now()))
+        .setSubmitted(contentFloorValueEntity != null)
+        .setSavedCaptureIntervals(contentFloorValueEntity == null || !Objects.equals(entity.getProtocolVersion(), 1)
+            ? List.of() : intervals(contentFloorValueEntity))
+        .setMessageBody(contentFloorValueEntity == null ? JSONUtils.toJson(addParams) : contentFloorValueEntity.getMessageBody())
+        .setMessageKey(addParams)
+        .setFinishInfo(contentFloorValueEntity == null ? EMPTY_JSON_ARRAY : contentFloorValueEntity.getFinishInfo())
+        .setStandard(contentFloorValueEntity == null ? EMPTY_JSON_ARRAY : contentFloorValueEntity.getStandard())
+        .setResolver(contentFloorValueEntity == null ? "" : contentFloorValueEntity.getResolver());
   }
 
   @Transactional()
-  public PostTelegramTrainVO begin(String id) {
-    PostTelegramTrainEntity entity = Optional.ofNullable(postTelegramTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
-    entity.setStartTime(LocalDateTime.now());
-    entity.setStatus(UNDERWAY.getStatus());
-    postTelegramTrainDao.saveAndFlush(entity);
-    return PojoUtils.convertOne(entity, PostTelegramTrainVO.class);
+  public PostTelegramTrainVO begin(String id, Integer attempt, String token) {
+    PostTelegramTrainEntity entity = owned(id, token, true);
+    requireProtocol(entity);
+    requireAttempt(entity, attempt);
+    if (Objects.equals(entity.getStatus(), FINISH.getStatus())) {
+      throw new IllegalArgumentException("已完成训练不可重新开始");
+    }
+    ScoringRuleValidation.handkey(entity.getRuleContent());
+    if (entity.getFullScore() == null || entity.getFullScore() < 0) throw new IllegalArgumentException("训练满分快照无效，请新建训练");
+    if (Objects.equals(entity.getStatus(), NOT_STARTED.getStatus())) {
+      entity.setStartTime(LocalDateTime.now());
+      entity.setStatus(UNDERWAY.getStatus());
+      postTelegramTrainDao.saveAndFlush(entity);
+    }
+    return trainingView(entity);
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public void stop(String id) {
-    PostTelegramTrainEntity entity = Optional.ofNullable(postTelegramTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+  public void stop(String id, Integer attempt, String token) {
+    PostTelegramTrainEntity entity = owned(id, token, true);
+    requireProtocol(entity);
+    requireAttempt(entity, attempt);
     // 判断状态是否是进行中
     if (entity.getStatus().compareTo(UNDERWAY.getStatus()) != 0) {
       throw new IllegalArgumentException(entity.getName() + "训练的状态不是进行中");
@@ -497,6 +533,17 @@ public class PostTelegramTrainService {
     entity.setSpeedLog(null);
     entity.setErrorNumber(0);
     entity.setAccuracy("0.00");
+    entity.setAttempt(Math.addExact(entity.getAttempt(), 1));
+    entity.setStartTime(null);
+    entity.setEndTime(null);
+    entity.setValidTime(0L);
+    entity.setActiveMillis(0L);
+    entity.setSpeed("0.00");
+    entity.setScore(String.valueOf(entity.getFullScore()));
+    entity.setFinishInfo(null);
+    entity.setStatisticInfo(null);
+    entity.setDeductInfo(null);
+    entity.setLack(0);
     // 清除本场训练的所有拍发内容
     contentValueDao.deleteByTrainId(id);
     // 清除floor content 内容
@@ -505,22 +552,35 @@ public class PostTelegramTrainService {
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public PostTelegramTrainVO finish(PostTelegramTrainFinishDto dto) {
+  public PostTelegramTrainVO finish(PostTelegramTrainFinishDto dto, String token) {
     try {
-      PostTelegramTrainEntity entity = Optional.ofNullable(postTelegramTrainDao.findById(dto.getId()))
-          .orElseThrow(() -> new IllegalArgumentException("未查询到该场训练"));
+      PostTelegramTrainEntity entity = owned(dto.getId(), token, true);
+      if (Objects.equals(entity.getProtocolVersion(), 1)) requireAttempt(entity, dto.getAttempt());
+      if (Objects.equals(entity.getStatus(), FINISH.getStatus())) return trainingView(entity);
+      requireUnderway(entity);
       // 校验状态是否是进行中
       entity.setEndTime(LocalDateTime.now());
       entity.setStatus(FINISH.getStatus());
-      entity.setValidTime(Long.valueOf(dto.getValidTime()));
-
-      // 分数计算
-      countScore(entity, dto);
+      List<PostTelegramTrainContentFloorValueEntity> pages = contentValueDao.findAllByTrainIdOrderByFloorNumber(entity.getId());
+      long activeMillis = 0;
+      long characters = 0;
+      List<List<CaptureInterval>> timelines = new ArrayList<>();
+      for (PostTelegramTrainContentFloorValueEntity page : pages) {
+        List<CaptureInterval> timeline = intervals(page);
+        if (!Objects.equals(page.getAttempt(), entity.getAttempt()) || page.getReceivedAt() == null) {
+          throw new IllegalStateException("已保存页轮次或接收时间缺失");
+        }
+        activeMillis = Math.addExact(activeMillis, CaptureTimeline.durationMillis(timeline, elapsed(entity, page.getReceivedAt())));
+        characters = Math.addExact(characters, countCharacters(JSONUtils.fromJson(page.getMessageBody(), new TypeToken<List<PostTelegramTrainContentAddParam>>() {})));
+        timelines.add(timeline);
+      }
+      CaptureTimeline.requireNoOverlap(timelines);
+      entity.setActiveMillis(activeMillis);
+      entity.setValidTime(activeMillis / 1000);
+      entity.setSpeed(TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(characters, activeMillis).toPlainString());
+      countScore(entity);
       postTelegramTrainDao.saveAndFlush(entity);
-      return PojoUtils.convertOne(entity, PostTelegramTrainVO.class, (t, r) -> {
-        r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
-        r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
-      });
+      return trainingView(entity);
     } catch (Exception e) {
       log.error("完成训练失败，训练ID: {}", dto.getId(), e);
       throw e;
@@ -528,51 +588,72 @@ public class PostTelegramTrainService {
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public void saveContentValue(PostTelegramTrainContentValueDto dto) {
-    PostTelegramTrainEntity trainEntity = Optional.ofNullable(postTelegramTrainDao.findById(dto.getTrainId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询待该训练"));
-    // Phase 7.4：floorNumber/messageNumber 均为可空 Integer，裸拆箱会 NPE
-    if (dto.getFloorNumber() == null) {
-      throw new IllegalArgumentException("页码不能为空");
+  public void saveContentValue(PostTelegramTrainContentValueDto dto, String token) {
+    LocalDateTime receivedAt = LocalDateTime.now();
+    PostTelegramTrainEntity trainEntity = owned(dto.getTrainId(), token, true);
+    requireProtocol(trainEntity);
+    requirePage(trainEntity, dto.getFloorNumber());
+    if (!Objects.equals(dto.getAttempt(), trainEntity.getAttempt())) {
+      throw new IllegalArgumentException("训练轮次已变化，请重新加载训练");
     }
-    if (trainEntity.getMessageNumber() != null
-        && trainEntity.getMessageNumber().compareTo(dto.getFloorNumber()) > 0) {
-      trainEntity.setFloorNow(dto.getFloorNumber() + 1);
-    }
-    // 记录每页速率：按 floorNumber upsert，与下方 deleteByTrainIdAndFloorNumber 的重传语义对齐（Task 3.5）
-    List<String> speedLog = Optional.ofNullable(trainEntity.getSpeedLog())
-        .map(speed -> JSONUtils.fromJson(speed, new TypeToken<List<String>>() {
-        })).orElseGet(ArrayList::new);
-    int speedIndex = dto.getFloorNumber() - 1; // floorNumber 从 1 开始
-    if (speedIndex >= 0) {
-      while (speedLog.size() <= speedIndex) {
-        speedLog.add("0");
+    long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), elapsed(trainEntity, receivedAt));
+    long characters = countCharacters(dto.getMessageBody());
+    if (characters > 0 && duration == 0) throw new IllegalArgumentException("拍发正文缺少有效采集区间");
+    if (dto.getStandard() == null || (characters > 0 && dto.getStandard().isEmpty())) throw new IllegalArgumentException("点划基准记录不能为空");
+    for (PostTelegramTrainFinishInfoDto calibration : dto.getStandard()) {
+      if (calibration == null || calibration.getDot() == null || calibration.getDot() <= 0
+          || calibration.getLine() == null || calibration.getLine() <= 0 || calibration.getCodeGap() == null || calibration.getCodeGap() <= 0
+          || calibration.getWordGap() == null || calibration.getWordGap() <= 0 || calibration.getGroupGap() == null || calibration.getGroupGap() <= 0) {
+        throw new IllegalArgumentException("点划自校准基准记录无效");
       }
-      speedLog.set(speedIndex, dto.getSpeed());
-    } else {
-      speedLog.add(dto.getSpeed());
     }
-    trainEntity.setSpeedLog(JSONUtils.toJson(speedLog));
-    trainEntity.setErrorNumber(dto.getErrorNumber());
-    trainEntity.setAccuracy(dto.getAccuracy());
-
-    PostTelegramTrainContentFloorValueEntity valueEntity = PojoUtils.convertOne(
-        dto, PostTelegramTrainContentFloorValueEntity.class, (d, e) -> {
-          List<PostTelegramTrainContentAddParam> messageBody = handleMessageBody(d.getMessageBody());
-          e.setMessageBody(JSONUtils.toJson(messageBody));
-          List<PostTelegramTrainFinishInfoDto> standard = dto.getStandard();
-          e.setStandard(JSONUtils.toJson(standard));
-        });
-    // 保存拍发速率
-    postTelegramTrainDao.saveAndFlush(trainEntity);
-    // 删除之前保存的训练记录
-    contentValueDao.deleteByTrainIdAndFloorNumber(dto.getTrainId(), dto.getFloorNumber());
+    String body = JSONUtils.toJson(dto.getMessageBody());
+    String standard = JSONUtils.toJson(dto.getStandard());
+    String capture = JSONUtils.toJson(dto.getCaptureIntervals());
+    List<PostTelegramTrainContentFloorValueEntity> pages = contentValueDao.findAllByTrainIdOrderByFloorNumber(dto.getTrainId());
+    PostTelegramTrainContentFloorValueEntity valueEntity = pages.stream()
+        .filter(saved -> Objects.equals(saved.getFloorNumber(), dto.getFloorNumber())).findFirst().orElse(null);
+    if (valueEntity != null && Objects.equals(valueEntity.getMessageBody(), body)
+        && Objects.equals(valueEntity.getStandard(), standard) && Objects.equals(valueEntity.getCaptureIntervals(), capture)
+        && Objects.equals(valueEntity.getFinishInfo(), dto.getFinishInfo())) return;
+    requireUnderway(trainEntity);
+    if (valueEntity == null) {
+      valueEntity = new PostTelegramTrainContentFloorValueEntity();
+    } else {
+      CaptureTimeline.requireExtension(intervals(valueEntity), dto.getCaptureIntervals());
+    }
+    PostTelegramTrainFloorContentQueryParam sourcePage = new PostTelegramTrainFloorContentQueryParam();
+    sourcePage.setId(dto.getTrainId());
+    sourcePage.setFloorNumber(dto.getFloorNumber());
+    findMessageBody(sourcePage, token);
+    List<List<CaptureInterval>> timelines = pages.stream()
+        .filter(page -> !Objects.equals(page.getFloorNumber(), dto.getFloorNumber()))
+        .map(this::intervals).collect(Collectors.toCollection(ArrayList::new));
+    timelines.add(dto.getCaptureIntervals());
+    CaptureTimeline.requireNoOverlap(timelines);
+    valueEntity.setTrainId(dto.getTrainId());
+    valueEntity.setFloorNumber(dto.getFloorNumber());
+    valueEntity.setAttempt(dto.getAttempt());
+    valueEntity.setMessageBody(body);
+    valueEntity.setStandard(standard);
+    valueEntity.setFinishInfo(dto.getFinishInfo());
+    valueEntity.setCaptureIntervals(capture);
+    valueEntity.setReceivedAt(receivedAt);
+    valueEntity.setResolver(null);
+    trainEntity.setFloorNow(Math.max(trainEntity.getFloorNow() == null ? 1 : trainEntity.getFloorNow(),
+        Math.min(dto.getFloorNumber() + 1, (trainEntity.getMessageNumber() + 99) / 100)));
     contentValueDao.saveAndFlush(valueEntity);
+    postTelegramTrainDao.saveAndFlush(trainEntity);
   }
 
-  public List<String> printBottomReport(PostTelegramTrainQueryParam param) {
-    PostTelegramTrainEntity entity = postTelegramTrainDao.findByIdOptional(param.getId())
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+
+  @Transactional
+  public List<String> printBottomReport(PostTelegramTrainQueryParam param, String token) {
+    PostTelegramTrainEntity entity = owned(param.getId(), token, true);
+    requireReadable(entity);
+    if (Objects.equals(entity.getStatus(), FINISH.getStatus())) {
+      return floorContentDao.findByTrainIdOrderByFloorNumberSort(entity.getId()).stream().map(PostTelegramTrainFloorContentEntity::getMoresKey).toList();
+    }
     PostTelegramTrainFloorContentEntity floorContentEntity = floorContentDao
         .findByTrainIdOrderByFloorNumberDescSortDesc(param.getId());
     // Phase 7.4：messageNumber/type 均为可空 Integer，裸拆箱会 NPE
@@ -627,17 +708,16 @@ public class PostTelegramTrainService {
    * 计算分数
    *
    * @param entity
-   * @param dto
    */
-  private void countScore(PostTelegramTrainEntity entity, PostTelegramTrainFinishDto dto) {
+  private void countScore(PostTelegramTrainEntity entity) {
     Map<String, Integer> deductMap = new HashMap<>();
-    Integer score = StringUtils.isEmpty(entity.getScore()) ? 100 : Integer.parseInt(entity.getScore());
-    PostTelegramTrainRule rule = parseContent(entity.getRuleContent());
+    Integer score = Objects.requireNonNull(entity.getFullScore(), "训练满分快照缺失");
+    PostTelegramTrainRule rule = ScoringRuleValidation.handkey(entity.getRuleContent());
     PostTelegramTrainStatisticsVO statisticsVO = new PostTelegramTrainStatisticsVO();
     PostTelegramTrainScoreVO scoreVO = new PostTelegramTrainScoreVO();
 
     List<Integer> existFloorNumber = contentValueDao.countExistFloorNumber(entity.getId());
-    if (dto.getFinishInfo().isEmpty()) {
+    if (existFloorNumber.isEmpty()) {
       handleEmptyFinishInfo(entity, deductMap, statisticsVO);
       return;
     }
@@ -651,7 +731,7 @@ public class PostTelegramTrainService {
 
     score = applyDeductions(score, scoreVO, rule, deductMap);
 
-    saveTrainResult(entity, scoreVO, score, statisticsVO, deductMap, rule, dto);
+    saveTrainResult(entity, scoreVO, score, statisticsVO, deductMap, rule);
   }
 
   private void handleEmptyFinishInfo(PostTelegramTrainEntity entity, Map<String, Integer> deductMap,
@@ -681,8 +761,7 @@ public class PostTelegramTrainService {
           floorNumber, entity.getId());
       String messageBody = contentFloorValueEntity.getMessageBody();
       String standard = contentFloorValueEntity.getStandard();
-      List<PostTelegramTrainContentAddParam> userContents = JSONUtils.fromJson(messageBody, new TypeToken<>() {
-      });
+      List<PostTelegramTrainContentAddParam> userContents = handleMessageBody(JSONUtils.fromJson(messageBody, new TypeToken<List<PostTelegramTrainContentAddParam>>() {}));
       List<PostTelegramTrainFinishInfoDto> standards = JSONUtils.fromJson(standard, new TypeToken<>() {
       });
 
@@ -716,12 +795,9 @@ public class PostTelegramTrainService {
       existPageNumber.add(i + 1);
     }
     existPageNumber.removeAll(existFloorNumber);
-    for (int i = 0; i < existPageNumber.size(); i++) {
-      if (i != existPageNumber.size() - 1) {
-        scoreVO.setLackGroup(scoreVO.getLackGroup() + 100);
-      } else {
-        scoreVO.setLackGroup(scoreVO.getLackGroup() + messageNumber - ((totalFloorNumber - 1) * 100));
-      }
+    for (Integer missingPage : existPageNumber) {
+      int groups = Math.min(100, messageNumber - (missingPage - 1) * 100);
+      scoreVO.setLackGroup(scoreVO.getLackGroup() + groups);
     }
   }
 
@@ -795,8 +871,7 @@ public class PostTelegramTrainService {
   }
 
   static void saveTrainResult(PostTelegramTrainEntity entity, PostTelegramTrainScoreVO scoreVO,
-      int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule,
-      PostTelegramTrainFinishDto dto) {
+      int score, PostTelegramTrainStatisticsVO statisticsVO, Map<String, Integer> deductMap, PostTelegramTrainRule rule) {
     entity.setErrorNumber(scoreVO.getErrorNumber());
     entity.setLack(scoreVO.getLackGroup());
 
@@ -809,11 +884,10 @@ public class PostTelegramTrainService {
       entity.setAccuracy(accuracy);
     }
 
-    entity.setSpeed(dto.getSpeed());
 
     // 与公共评分契约一致：高于基准按r加分，低于基准按l扣分。
     SpeedDeduct baseWpm = rule.getWpm();
-    int speed = new BigDecimal(entity.getSpeed()).intValue();
+    int speed = new BigDecimal(entity.getSpeed()).intValueExact();
     int wpmScore = ScoreMath.wpmScore(baseWpm.getBase(),
         baseWpm.getR() == null ? null : BigDecimal.valueOf(baseWpm.getR()),
         baseWpm.getL() == null ? null : BigDecimal.valueOf(baseWpm.getL()), speed).intValue();
@@ -832,7 +906,10 @@ public class PostTelegramTrainService {
    */
 
   @Transactional(rollbackOn = Exception.class)
-  public List<Integer> addContentValue(PostTelegramTrainAddContentValueVO vo) {
+  public List<Integer> addContentValue(PostTelegramTrainAddContentValueVO vo, String token) {
+    PostTelegramTrainEntity train = owned(vo.getTrainId(), token, true);
+    requireProtocol(train);
+    if (!Objects.equals(train.getStatus(), NOT_STARTED.getStatus())) throw new IllegalArgumentException("训练开始后不可追加报底");
     Integer floorNumber = 0;
     PostTelegramTrainFloorContentEntity entity = floorContentDao.findByTrainId(vo.getTrainId());
     if (!Objects.isNull(entity)) {
@@ -861,10 +938,93 @@ public class PostTelegramTrainService {
   }
 
   @Transactional
-  public Boolean delete(String trainId) {
+  public Boolean delete(String trainId, String token) {
+    owned(trainId, token, true);
     contentValueDao.delete("trainId", trainId);
     floorContentDao.delete("trainId", trainId);
     return postTelegramTrainDao.deleteById(trainId);
+  }
+
+  private PostTelegramTrainEntity owned(String id, String token, boolean lock) {
+    UserEntity user = userService.getUserByToken(token);
+    PostTelegramTrainEntity entity = lock ? postTelegramTrainDao.findById(id, LockModeType.PESSIMISTIC_WRITE) : postTelegramTrainDao.findById(id);
+    if (entity == null || user == null || !Objects.equals(entity.getCreateUser(), user.getId())) {
+      throw new IllegalArgumentException("训练不存在或无权访问");
+    }
+    return entity;
+  }
+
+  private void requireProtocol(PostTelegramTrainEntity entity) {
+    if (!Objects.equals(entity.getProtocolVersion(), 1)) throw new IllegalArgumentException("旧训练缺少原始采集协议，请终止旧训练并新建");
+  }
+
+  private void requireAttempt(PostTelegramTrainEntity entity, Integer attempt) {
+    if (attempt == null || !Objects.equals(entity.getAttempt(), attempt)) throw new IllegalArgumentException("训练轮次已变化，请重新加载训练");
+  }
+
+  private void requireReadable(PostTelegramTrainEntity entity) {
+    if (!Objects.equals(entity.getStatus(), FINISH.getStatus())) requireProtocol(entity);
+  }
+
+  private void requireUnderway(PostTelegramTrainEntity entity) {
+    requireProtocol(entity);
+    if (!Objects.equals(entity.getStatus(), UNDERWAY.getStatus()) || entity.getStartTime() == null) throw new IllegalArgumentException("训练不在进行中");
+  }
+
+  private void requirePage(PostTelegramTrainEntity entity, Integer page) {
+    if (page == null || page < 1 || entity.getMessageNumber() == null || page > (entity.getMessageNumber() + 99) / 100) throw new IllegalArgumentException("页码超出训练范围");
+  }
+
+  private long elapsed(PostTelegramTrainEntity entity, LocalDateTime now) {
+    return entity.getStartTime() == null ? 0 : Math.max(0, Duration.between(entity.getStartTime(), now).toMillis());
+  }
+
+  private PostTelegramTrainVO trainingView(PostTelegramTrainEntity entity) {
+    return PojoUtils.convertOne(entity, PostTelegramTrainVO.class, (t, r) -> {
+      r.setCodeSort(Objects.equals(t.getCodeSort(), 1));
+      r.setIsRandom(Objects.equals(t.getIsRandom(), 1));
+      r.setServerElapsedMs(elapsed(t, LocalDateTime.now()));
+    });
+  }
+
+  private List<CaptureInterval> intervals(PostTelegramTrainContentFloorValueEntity page) {
+    return JSONUtils.fromJson(page.getCaptureIntervals(), new TypeToken<List<CaptureInterval>>() {});
+  }
+
+  static long countCharacters(List<PostTelegramTrainContentAddParam> body) {
+    if (body == null) throw new IllegalArgumentException("拍发原始记录不能为空");
+    long count = 0;
+    for (PostTelegramTrainContentAddParam group : body) {
+      if (group == null) throw new IllegalArgumentException("拍发组不能为空");
+      List<String> keys = JSONUtils.fromJson(group.getPatKeys(), new TypeToken<List<String>>() {});
+      List<List<Integer>> times = JSONUtils.fromJson(group.getMoresTime(), new TypeToken<List<List<Integer>>>() {});
+      List<List<Integer>> values = JSONUtils.fromJson(group.getMoresValue(), new TypeToken<List<List<Integer>>>() {});
+      List<List<PostTelegramTrainFinishInfoDto.PatLogs>> logs = JSONUtils.fromJson(group.getPatLogs(), new TypeToken<List<List<PostTelegramTrainFinishInfoDto.PatLogs>>>() {});
+      if (keys == null || times == null || values == null || logs == null || keys.size() != logs.size() || keys.size() != times.size() || keys.size() != values.size()) {
+        throw new IllegalArgumentException("拍发字符、码值与时长记录不一致");
+      }
+      for (int i = 0; i < keys.size(); i++) {
+        String key = keys.get(i);
+        if (key == null || times.get(i) == null || values.get(i) == null || times.get(i).size() != values.get(i).size()
+            || times.get(i).stream().anyMatch(time -> time == null || time < 0)
+            || values.get(i).stream().anyMatch(value -> value == null || (value != 0 && value != 1))) {
+          throw new IllegalArgumentException("拍发码值或时长记录无效");
+        }
+        List<PostTelegramTrainFinishInfoDto.PatLogs> events = logs.get(i);
+        if (events == null) throw new IllegalArgumentException("拍发事件记录不能为空");
+        int symbol = 0;
+        for (PostTelegramTrainFinishInfoDto.PatLogs event : events) {
+          if (event == null || event.getKey() == null || event.getKey() < 0 || event.getKey() > 4 || event.getValue() == null || event.getValue() < 0) throw new IllegalArgumentException("拍发事件类型或时长无效");
+          if (event.getKey() < 2) {
+            if (symbol >= values.get(i).size() || !Objects.equals(event.getKey(), values.get(i).get(symbol)) || !Objects.equals(event.getValue(), times.get(i).get(symbol))) throw new IllegalArgumentException("拍发事件与码值时长不一致");
+            symbol++;
+          }
+        }
+        if (symbol != values.get(i).size()) throw new IllegalArgumentException("拍发事件缺少码值记录");
+        count += key.codePoints().filter(c -> !Character.isWhitespace(c) && c != '?' && c != '.' && c != '。').count();
+      }
+    }
+    return count;
   }
 
   /**

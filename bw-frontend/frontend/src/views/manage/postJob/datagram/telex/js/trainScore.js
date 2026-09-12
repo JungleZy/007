@@ -10,6 +10,7 @@ import { log } from '@antv/g2plot/lib/utils/invariant.js'
 
 export default function telegramList(patHairTrendBoxRef) {
   const loading = ref(true)
+  const scoreReady = ref(false)
   const route = useRoute()
   const scoreData = ref({
     trainId: '',
@@ -37,83 +38,65 @@ export default function telegramList(patHairTrendBoxRef) {
   let speedChart = null
   const situaData = ref([])
   const strCode = ref('')
-  onMounted(() => {
-    if (route.query.id && route.query.id !== '') {
+  const displayText = text => {
+    if (scoreData.value.protocolVersion === 1 || !text?.trimStart().startsWith('[')) return text
+    // Protocol-0 results may contain either raw text or the historical key-event array.
+    let events
+    try { events = JSON.parse(text) } catch { return text }
+    if (!Array.isArray(events) || !events.every(event => typeof event?.text === 'string')) return text
+    return events.map(event => event.text === 'Enter' ? '\n' : event.text).join('')
+  }
+  const loadScore = async () => {
+    if (!route.query.id) { loading.value = false; return }
+    loading.value = true
+    scoreReady.value = false
+    try {
       scoreData.value.trainId = route.query.id
-      getTelexTrainByID({
-        id: scoreData.value.trainId
-      }).then(res => {
-        loading.value = false
-        if (res.code === 200) {
-          let arr = formatData(res.data.existPage)
-          console.log(arr);
-          scoreData.value.content = arr.slice(0, 100)
-          // scoreData.value.nextContent = res.data.existPage.slice(100, 200)
-          scoreData.value.errorNumber = res.data.errorNumber
-          scoreData.value.speed = res.data.speed
-          scoreData.value.accuracy = parseInt(res.data.accuracy)
-          scoreData.value.validTime = res.data.validTime
-          scoreData.value.score = res.data.score
-          scoreData.value.deductInfo = JSON.parse(res.data.deductInfo)
-          scoreData.value.change = res.data.change
-          scoreData.value.name = res.data.name
-          if(res.data.isCable===1){
-            page.value.pageAll = res.data.pageNumber
-          }else {
-            page.value.pageAll = Math.ceil(res.data.groupNumber / 100)
-          }
-          scoreData.value.validTimeLog = JSON.parse(res.data.validTimeLog)
-          scoreData.value.speedLog = JSON.parse(res.data.speedLog)
-
-          apiPostTelexPatTrainGetPage({
-            pageNumber: page.value.current,
-            trainId: scoreData.value.trainId
-          }).then(res => {
-            scoreData.value.content = formatData(res.data.pageVo)
-            testData.value.codeAll = res.data.codeAll
-            strCode.value = res.data.codeAll
-            try {
-              //老数据兼容，没有老数据可以删掉
-              testData.value.codeAll = JSON.parse(res.data.codeAll)
-              strCode.value = ""
-              testData.value.codeAll.map(v=>{
-                if(v.text!=="Enter"){
-                  strCode.value+=v.text
-                }else {
-                  strCode.value+="\n"
-                }
-              })
-            }catch (e) {
-
-            }
-          })
-        }
+      const res = await getTelexTrainByID({ id: route.query.id })
+      if (res.code !== 200) throw new Error(res.message || '成绩读取失败')
+      if (res.data.status !== 3) throw new Error('训练尚未完成确认，请返回训练页重试提交')
+      Object.assign(scoreData.value, {
+        protocolVersion: res.data.protocolVersion,
+        errorNumber: res.data.errorNumber, speed: res.data.totalSpeed,
+        accuracy: Number(res.data.accuracy), validTime: res.data.validTime,
+        score: res.data.score, deductInfo: JSON.parse(res.data.deductInfo || '{}'),
+        change: res.data.change, name: res.data.name,
+        validTimeLog: JSON.parse(res.data.validTimeLog || '[]'), speedLog: JSON.parse(res.data.speedLog || '[]')
       })
+      page.value.pageAll = res.data.isCable === 1 ? res.data.pageNumber : Math.ceil(res.data.groupNumber / 100)
+      const first = await apiPostTelexPatTrainGetPage({ pageNumber: 1, trainId: route.query.id })
+      if (first.code !== 200) throw new Error(first.message || '成绩页面读取失败')
+      scoreData.value.content = formatData(first.data.pageVo)
+      testData.value.codeAll = first.data.codeAll
+      strCode.value = displayText(first.data.codeAll)
+      page.value.current = 1
+      scoreReady.value = true
+    } catch (error) {
+      message.error(`${error.message || '成绩读取失败'}，请点击重新加载`)
+    } finally {
+      loading.value = false
     }
-  })
+  }
+  onMounted(loadScore)
 
 
   //获取指定分页低报
-  const pageTurn =async num => {
-    page.value.current += num
-    if (page.value.current < 1) {
-      page.value.current = 1
-      // message.error('已经是第一页')
-      return false
+  const pageTurn = async num => {
+    const target = page.value.current + num
+    if (loading.value || target < 1 || target > page.value.pageAll) return
+    loading.value = true
+    try {
+      const res = await apiPostTelexPatTrainGetPage({ pageNumber: target, trainId: scoreData.value.trainId })
+      if (res.code !== 200) throw new Error(res.message || '成绩页面读取失败')
+      scoreData.value.content = formatData(res.data.pageVo)
+      testData.value.codeAll = res.data.codeAll
+      strCode.value = displayText(res.data.codeAll)
+      page.value.current = target
+    } catch (error) {
+      message.error(`${error.message || '成绩页面读取失败'}，页码未变，请重新翻页`)
+    } finally {
+      loading.value = false
     }
-    if (page.value.current > page.value.pageAll) {
-      page.value.current = page.value.pageAll
-      // message.error('已经是最后一页')
-      return false
-    }
-    const res = await apiPostTelexPatTrainGetPage({
-      pageNumber: page.value.current,
-      trainId: scoreData.value.trainId
-    })
-    scoreData.value.content =formatData(res.data.pageVo)
-    testData.value.codeAll = res.data.codeAll
-    strCode.value = res.data.codeAll
-    return false
   }
 
   //格式化数据
@@ -174,7 +157,7 @@ export default function telegramList(patHairTrendBoxRef) {
           borderColor: '#0d4c93',
           padding: [5, 10],
           textStyle: { color: '#6ebdff', fontSize: 12 },
-          formatter: '<div class="tooltipItem"><div>码率：</div><div>{c0}' + ' 码/分</div></div>'
+          formatter: '<div class="tooltipItem"><div>码率：</div><div>{c0} ' + (scoreData.value.protocolVersion === 1 ? '字符/分' : '（历史原口径）') + '</div></div>'
         },
         xAxis: {
           type: 'category',
@@ -306,6 +289,8 @@ export default function telegramList(patHairTrendBoxRef) {
     })
   }
   return {
+    loadScore,
+    scoreReady,
     scoreData,
     loading,
     page,

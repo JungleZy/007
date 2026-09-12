@@ -1,14 +1,27 @@
 <template>
-  <div class="w-full h-full overflow-hidden relative">
+  <div class="w-full h-full overflow-hidden relative" style="display: flex; flex-direction: column">
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..."/>
     </div>
-    <div class="w-full h-full trainBoxs content-mask-bg">
+    <a-alert v-if="failure" type="error" :message="failure" show-icon>
+      <template #description><a-button :disabled="busy || authBlocked" @click="retry">重试</a-button></template>
+    </a-alert>
+    <a-alert v-if="expired" type="warning" message="已到截止时间，输入已冻结；60秒内可补交截止前采集内容，之后仅可查看服务端结果。" show-icon />
+          <div class="layout-center" style="gap: 6px; flex-wrap: wrap">
+            <a-button v-if="trainData.status === 1" :disabled="inputLocked" @click="pauseTest">暂停</a-button>
+            <a-button v-if="trainData.status === 2" :disabled="busy || !!failure" @click="resumeTest">恢复</a-button>
+            <a-button v-if="trainData.status === 2" :disabled="busy || !!failure" @click="endTest">结束训练</a-button>
+            <a-popconfirm title="重置将清除本轮已提交和未提交内容，并开启新轮次，是否继续？" @confirm="resetTest">
+              <a-button :disabled="!ready || busy || authBlocked">重置本轮</a-button>
+            </a-popconfirm>
+            <a-button v-if="expired || failure || trainData.status === 3" :disabled="busy || authBlocked" @click="checkResult">核对结果</a-button>
+          </div>
+    <div class="w-full trainBoxs content-mask-bg" style="flex: 1; min-height: 0">
       <TrainLeft @startTest="startTest" @endTest="endTest" :trainData="trainData">
         <template v-slot:top>
           <div class="desc">
             {{
-            trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行，当前总耗时' : trainData.status == 2 ? '本次练习正在进行，当前总耗时' : '本次练习已结束,总用时'
+            trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行' : trainData.status == 2 ? '训练已显式暂停，恢复后继续采集' : '本次练习已结束'
             }}
           </div>
           <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 55px"/>
@@ -19,11 +32,11 @@
             <div :class="{ 'h-full overflow-auto totalBoxs': true }" style="padding: 0 8px">
               <div class="basicInit" style="height: 100%">
                 <div class=" relative" style="padding: 10px 0 10px 20px">
-                  <span style="font-weight: bold">是否倒计时:</span>  <a-switch v-model:checked="isCountdown" checked-children="是" un-checked-children="否" @change="changeCountdown"></a-switch>
+                  <span style="font-weight: bold">是否倒计时:</span> <a-switch v-model:checked="isCountdown" :disabled="trainData.status !== 0 || busy" checked-children="是" un-checked-children="否" @change="changeCountdown"></a-switch>
                 </div>
                 <div class=" relative" style="padding: 10px 0 10px 20px" v-if="isCountdown">
                   <span style="font-weight: bold">倒计时时长:</span>
-                  <a-input-number v-model:value="duration" :min="0" :step="1" @focus="getFocus" @blur="lackFocus" @change="changeCountdown"/>
+                  <a-input-number v-model:value="duration" :disabled="trainData.status !== 0 || busy" :min="1" :max="1440" :step="1" @focus="getFocus" @blur="lackFocus" @change="changeCountdown"/>
                   <span style="font-weight: bold">分钟</span>
                 </div>
                 <div class="item relative">
@@ -36,8 +49,8 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico"/>
                   <div>
-                    <div class="title">速度</div>
-                    <div class="tags nobr">{{ trainData.speed }}组/分</div>
+                    <div class="title">预估速度</div>
+                    <div class="tags nobr">{{ trainData.speed }}字符/分</div>
                   </div>
                 </div>
               </div>
@@ -53,7 +66,7 @@
                 <div class="relative">
                   <img :src="keyBg" class="bg" style="height: 310px"/>
                   <div class="w-full h-full overflow-auto absolute" ref="patKeyBoxRef" style="display: block;top: 0">
-                    <a-textarea v-model:value="pageCodes[page.current - 1]" @change="textareaChange" spellcheck="false"
+                    <a-textarea v-model:value="pageCodes[page.current - 1]" :readonly="inputLocked" @beforeinput="beforeInput" @change="textareaChange" spellcheck="false"
                                 style="height: 100%; resize: none; font-size: 22px;font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;line-height: 30px;color: white"></a-textarea>
                   </div>
                 </div>
@@ -151,6 +164,7 @@
   const isfocus = ref(true)
   const isTips = ref(false)
   const {
+    failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult,
     trainData,
     code,
     activeIndex,
@@ -164,6 +178,7 @@
     startTest,
     endTest,
     textareaChange,
+    beforeInput,
     getFocus,
     lackFocus
   } = telexTrain(countDown, loading)

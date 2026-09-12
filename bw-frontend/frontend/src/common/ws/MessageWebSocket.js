@@ -1,14 +1,12 @@
-import {onMounted, onUnmounted, ref, watch} from 'vue'
+import {onMounted, onUnmounted, ref} from 'vue'
 import {v1} from 'uuid-umd'
 import {traffic} from '../../config/pinia/index.js'
-import {useDocumentVisibility} from '@vueuse/core'
 import {ipcRenderer} from '../../electron/index'
 import WebSerial from '../utils/WebSerial.js'
 
 const trafficStore = traffic.useTrafficStore()
-const trafficDataStore = traffic.useTrafficDataStore()
+import {publishTrafficFrame} from '../mixin/useTraffic'
 const webSerial = new WebSerial(9600)
-let visibility = useDocumentVisibility()
 const msgCode = {all: 0, volume: 1, fre: 2}
 let ws = null
 let reconnectTimer = null
@@ -17,9 +15,6 @@ let lifecycleGeneration = 0
 let active = false
 let beforeUnloadInstalled = false
 
-watch(useDocumentVisibility(), () => {
-	visibility = useDocumentVisibility()
-})
 
 const clearReconnectTimer = () => {
 	if (reconnectTimer !== null) {
@@ -64,7 +59,7 @@ export async function shutdownMessageWebSocket() {
 		try {
 			await webSerial.close()
 		} catch (e) {
-			// A partially opened serial port must not prevent logout cleanup.
+      console.error('Serial shutdown failed', e)
 		}
 	}
 }
@@ -73,6 +68,8 @@ export default function messageWebSocket(type, reset) {
 	active = true
 	lifecycleGeneration++
 	const generation = lifecycleGeneration
+  clearReconnectTimer()
+  closeSocket()
 	const wsFlag = ref(true)
 	const volume = ref(0)
 	const fre = ref(1200)
@@ -86,7 +83,9 @@ export default function messageWebSocket(type, reset) {
 		shutdownMessageWebSocket()
 	})
 	const num = ref(0)
-	const connect = (reset) => {
+  const connect = async (reset) => {
+    await webSerial.close()
+    if (!active || generation !== lifecycleGeneration) return
 		webSerial.init((res) => {
 			if (!active || generation !== lifecycleGeneration) return
 			try {
@@ -95,17 +94,20 @@ export default function messageWebSocket(type, reset) {
 					if (res.code === -1 && num.value < 4) num.value++
 				} else if (res.code === 10) {
 					trafficStore.$patch({linkStatus: true, devStatus: true})
-				} else if (visibility.value === 'visible') {
+        } else {
 					num.value = 0
-					trafficDataStore.$patch({message: res.data})
+          publishTrafficFrame(res.data)
 				}
 			} catch (e) {
-				// Isolate malformed serial data from the receive loop.
+        console.error('Serial frame delivery failed', e)
 			}
 		}, reset)
 	}
 	const localSerial = localStorage.getItem('serial')
-	if (type === 'reset' || localSerial !== null) connect(reset)
+  if (!ipcRenderer.isEE && (type === 'reset' || localSerial !== null)) connect(reset).catch(error => {
+    trafficStore.$patch({linkStatus: false, devStatus: false})
+    console.error('Serial reconnect failed', error)
+  })
 
 	const ws_connect = async () => {
 		if (!active || generation !== lifecycleGeneration) return
@@ -130,7 +132,7 @@ export default function messageWebSocket(type, reset) {
 				const parsed = JSON.parse(e.data)
 				if (parsed && parsed.data !== undefined) handleMsg(parsed.data)
 			} catch (err) {
-				// Ignore one malformed frame; keep the bridge alive.
+        console.error('Malformed bridge frame', err)
 			}
 		}
 	}
@@ -148,10 +150,11 @@ export default function messageWebSocket(type, reset) {
 			if (data.status !== undefined) {
 				if (data.status) sendMag({type: msgCode.all, fre: fre.value, volume: volume.value})
 				trafficStore.$patch({devStatus: data.status})
-			} else trafficDataStore.$patch({message: data})
-		} catch (e) {}
+      } else publishTrafficFrame(data)
+    } catch (e) { console.error('Bridge frame delivery failed', e) }
 	}
 	const sendMag = (msg) => {
 		if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
 	}
+  if (ipcRenderer.isEE) ws_connect()
 }

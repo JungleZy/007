@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class GeneralKeyPatSyncDto {
 
     private Integer id;
+    private Integer protocolVersion = 0;
 
     /**
      * 房间名称

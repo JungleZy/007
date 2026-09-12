@@ -44,10 +44,12 @@ public class GeneralKeyPatUserValueEntity {
   /**
    * 用户拍发的值
    */
+  @Column(columnDefinition = "longtext")
   private String value;
 
   /**
    * 拍发的时长
    */
+  @Column(columnDefinition = "longtext")
   private String time;
 }

@@ -4,10 +4,13 @@ import com.nip.common.utils.JSONUtils;
 import com.nip.dao.PostTelegramTrainContentValueDao;
 import com.nip.dao.PostTelegramTrainDao;
 import com.nip.dto.PostTelegramTrainFinishDto;
-import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
 import com.nip.entity.PostTelegramTrainContentFloorValueEntity;
 import com.nip.entity.PostTelegramTrainEntity;
+import com.nip.dao.UserDao;
+import com.nip.testsupport.Fixtures;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -28,26 +31,21 @@ class PostTelegramFinishCorruptionTest {
   @Inject PostTelegramTrainService service;
   @Inject PostTelegramTrainDao trainDao;
   @Inject PostTelegramTrainContentValueDao contentValueDao;
+  @Inject UserDao userDao;
 
-  // t_grading_rule type=0 的精简规则：rule_content 列为 VARCHAR(255)，此处保留结构与关键 base 值，
-  // other 段用空对象压到 255 以内；countScore 在读到损坏 patLogs 前只需 parseContent 成功。
-  private static final String RULE_CONTENT = "{\"wpm\":{\"base\":70},\"skew\":51,"
-      + "\"code\":{\"dot\":{\"base\":30},\"dash\":{\"base\":50}},"
-      + "\"gap\":{\"little\":{\"base\":40},\"middle\":{\"base\":60},\"large\":{\"base\":90}},"
-      + "\"other\":{\"errorCode\":{},\"quantoCode\":{},\"quantoGroup\":{},"
-      + "\"alterError\":{},\"quantoRow\":{},\"bunchGroup\":{}}}";
+  private static final String RULE_CONTENT = PostTelegramTrainServiceTest.RULE;
   private static String corruptMessageBody() {
-    PostTelegramTrainContentAddParam item = new PostTelegramTrainContentAddParam();
-    item.setPatKeys(JSONUtils.toJson(List.of("ABCD")));
+    PostTelegramTrainContentAddParam item = PostTelegramTrainServiceTest.group(List.of("A", "B", "C", "D"));
     item.setPatLogs("[broken");
-    item.setMoresTime("[[1,2]]");
-    item.setMoresValue("[[1,2]]");
     return JSONUtils.toJson(List.of(item));
   }
 
   @Test
   void finishRollsBackWhenStoredPatLogsJsonIsCorrupt() {
     PostTelegramTrainEntity train = new PostTelegramTrainEntity();
+    String token = "hand-corrupt-" + UUID.randomUUID();
+    train.setCreateUser(Fixtures.user(userDao, token).getId());
+    train.setProtocolVersion(1).setAttempt(0).setFullScore(88).setStartTime(LocalDateTime.now().minusMinutes(1));
     train.setMessageNumber(100);
     train.setStatus(1); // 进行中
     train.setScore("88");
@@ -58,6 +56,9 @@ class PostTelegramFinishCorruptionTest {
     PostTelegramTrainContentFloorValueEntity floor = new PostTelegramTrainContentFloorValueEntity();
     floor.setTrainId(trainId);
     floor.setFloorNumber(1);
+    floor.setAttempt(0);
+    floor.setCaptureIntervals("[{\"startedMs\":0,\"endedMs\":1000}]");
+    floor.setReceivedAt(LocalDateTime.now());
     floor.setMessageBody(corruptMessageBody());
     floor.setStandard("[]");
     floor.setResolver("OLD_RESOLVER");
@@ -66,10 +67,9 @@ class PostTelegramFinishCorruptionTest {
 
     PostTelegramTrainFinishDto dto = new PostTelegramTrainFinishDto();
     dto.setId(trainId);
-    dto.setValidTime(60);
-    dto.setFinishInfo(List.of(new PostTelegramTrainFinishInfoDto()));
+    dto.setAttempt(0);
 
-    assertThrows(IllegalStateException.class, () -> service.finish(dto));
+    assertThrows(com.google.gson.JsonParseException.class, () -> service.finish(dto, token));
 
     assertEquals(Integer.valueOf(1), trainDao.findById(trainId).getStatus(),
         "外层事务须回滚：状态保持进行中");

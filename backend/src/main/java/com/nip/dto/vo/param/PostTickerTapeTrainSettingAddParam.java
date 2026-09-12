@@ -19,6 +19,4 @@ public class PostTickerTapeTrainSettingAddParam implements Serializable {
   @Schema(title = "id")
   private List<PostTickerTapeTrainSettingAddParamList> paramList;
 
-  @Schema(title = "低速训练 点 标准时长")
-  private Integer dotStandardTime;
 }

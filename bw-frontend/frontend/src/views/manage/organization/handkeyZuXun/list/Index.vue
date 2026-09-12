@@ -34,6 +34,7 @@
             <template #status="{ text }">
               <span class="tag finish" v-if="text == 2">已结束</span>
               <span class="tag oper" v-else-if="text == 1">进行中</span>
+              <span class="tag oper" v-else-if="text == 3">收尾补交 / 待结算</span>
               <span class="tag" v-else>未开始</span>
             </template>
             <template #ident="{ record }">
@@ -43,13 +44,13 @@
             <template #action="{ record }">
               <div class="flex layout-center">
                 <div class="table_action_btn">
-                  <div class="table_btn" :title="record.status == 2 ? '查看报底' : record.status == 1 ? '继续训练' : '开始训练'"
+                  <div class="table_btn" :title="record.status == 3 ? '查看收尾补交' : record.status == 2 ? '查看报底' : record.status == 1 ? '继续训练' : '开始训练'"
                        @click="startTrain(record)">
                     <FileTextOutlined v-if="record.status == 2"/>
                     <PlayCircleOutlined v-else-if="record.status == 1"/>
                     <PlayCircleOutlined v-else/>
                   </div>
-                  <div class="table_btn" v-if="record.createUser===userInfo.id&&record.status != 1">
+                  <div class="table_btn" v-if="record.createUser===userInfo.id&&record.status != 1&&record.status != 3">
                     <DeleteOutlined style="color: red;" title="删除" @click="deleteModel(record)" />
                   </div>
                 </div>
@@ -209,7 +210,7 @@ import {
       query: {
         id: item.id,
         teacher: (item.createUser == userInfo.id ? '1' : undefined),
-        status: item.status == 1 && isFinish == 1 ? 2 : item.status
+        status: [1, 3].includes(item.status) && isFinish == 1 ? 2 : item.status
       }
     })
   }

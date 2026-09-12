@@ -34,4 +34,25 @@ class PostTelexPatTrainScoreTest {
     assertArrayEquals(new String[]{"2345", "6789"}, groups);
     assertEquals(0, count);
   }
+
+  @Test
+  void rawCountRetainsOriginalAndReplacementBodiesButNotCorrectionMarks() {
+    assertEquals(25, PostTelexPatTrainService.characterCount(
+        "1234 //// 5678 9// 0123 4567/8901 2345-2/1", 0));
+  }
+
+  @Test
+  void rawCountExcludesCommandsAndSelectorsButCountsInsertedBodies() {
+    assertEquals(24, PostTelexPatTrainService.characterCount(
+        "1234 QTA 1 ADD 2 ABCD\n20 EFGH\n1P 3 IJKL\nADD 2---3 MNOP QRST", 0));
+  }
+
+  @Test
+  void rawCountPreservesEmbeddedUnknownAndIncompleteCommands() {
+    assertEquals(16, PostTelexPatTrainService.characterCount("XQTA PREADD QTA ADD", 0));
+    assertEquals(6, PostTelexPatTrainService.characterCount("WORD-X", 0));
+    assertEquals(4, PostTelexPatTrainService.characterCount("////", 0));
+    assertEquals(4, PostTelexPatTrainService.characterCount("QTA 1 ADD 2 1234-1", 0));
+    assertEquals(12, PostTelexPatTrainService.characterCount("QTA 1 ADD 2 1234-1", 4));
+  }
 }

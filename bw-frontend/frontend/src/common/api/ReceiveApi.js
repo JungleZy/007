@@ -160,21 +160,6 @@ export const findPrevReceiveTrainInfo = (data) => {
   })
 };
 
-export const getReceiveDotRate = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/postTickerTapeTrainSetting/getDotRate",
-    data
-  })
-};
-
-export const getPreReceiveDotRate = (data) => {
-  return axios({
-    method: "post",
-    url: "/api/tickerTapeTrainSetting/getDotRate",
-    data
-  })
-};
 
 export const getPreKochStageArray = (data) => {
   return axios({

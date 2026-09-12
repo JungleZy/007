@@ -88,6 +88,7 @@ public class GeneralTickerPatTrainUserInfoVO {
    * 有效时长
    */
   private Long validTime;
+  private Long activeMillis;
 
   /**
    * 结束时间

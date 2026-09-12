@@ -11,6 +11,7 @@ public class BaseConstants {
   public static final String EXAM_ID = "examId";
   public static final String ROOM_ID = "roomId";
   public static final String TRAIN_ID = "trainId";
+  public static final String ATTEMPT = "attempt";
   public static final String TOKEN = "token";
   public static final String TOPIC = "topic";
   public static final String ONLINE = "online";

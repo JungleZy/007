@@ -1,5 +1,8 @@
 <template>
   <div class="w-full h-full overflow-hidden relative">
+    <a-alert v-if="submissionError" type="error" :message="submissionError" style="position:absolute;z-index:1000;top:8px;left:20%">
+      <template #description><a-button :loading="submissionBusy" @click="retrySubmit">重试原提交</a-button></template>
+    </a-alert>
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
@@ -45,10 +48,9 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico" />
                   <div>
-                    <div class="title">拍发码率</div>
+                    <div class="title">本次采集码率（预估）</div>
                     <div class="tags nobr">
-                      <span v-if="speedUnit">{{ parseFloat(trainData.speed) }}WPM</span>
-                      <span v-else>{{ parseFloat(trainData.speed) }}码/分</span>
+                      <span>{{ parseFloat(trainData.speed) }}字符/分</span>
                     </div>
                   </div>
                 </div>
@@ -152,8 +154,8 @@
                     </div>
                     <div class="keyBox">
                       <template v-for="(key, index) in trainData.telegraph.curr" :key="index">
-                        <div :class="{ key: true, curr: currPatKeyIndex == index }" v-if="key.moresKey != '#'">
-                          {{ JSON.parse(key.moresKey).join('') }}
+                        <div :class="{ key: true, curr: currPatKeyIndex == index }">
+                          {{ key.moresKey === '#' ? '#' : JSON.parse(key.moresKey).join('') }}
                         </div>
                       </template>
                       <template v-if="trainData.telegraph.curr && trainData.telegraph.curr.length < 100">
@@ -266,23 +268,15 @@
     },
     patCodeLog: [], // 实时的电码拍发记录集合
     patKeyVal: [], // 拍发电码转换成的字码集合
-    countPatSpeedCode: {
-      // 待提交计算码率的电码/间隔的时间集合
-      dot: [],
-      line: [],
-      code: [],
-      word: [],
-      group: [],
-      WPM: 0
-    }
   })
 
-  const { handKeyDown, patStandard, initFloat, handKeyValue, diffTime, gapTime, wsOnline, devOnline, audioVolume, init } = useControl(trainData)
+  const { handKeyDown, patStandard, initFloat, onKey, wsOnline, devOnline, audioVolume } = useControl(trainData)
 
   const {
-    patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, speedUnit, currPatKeyIndex, getPostTrainKeyInfo,
+    submissionError, submissionBusy, retrySubmit,
+    patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex, getPostTrainKeyInfo,
     switchTelegram, handleReceiveKeyCode, beginExerciseInfo, resetPatMachine, timeAreaShow, statisticsTelegraphData,
-    getScoreOffsetInfo,resetTrainInfo,showPatCodeLog
+    getScoreOffsetInfo,showPatCodeLog
   } = details(
       trainData,
       patStandard,
@@ -318,14 +312,6 @@
       console.log(res)
       loading.value = false
       if (res.code === 200) {
-        if(res.data.status===1){
-          trainData.value.status = res.data.status
-          resetTrainInfo()
-          setTimeout(()=>{
-            getTrainDetails()
-          },1000)
-          return
-        }
         for (let key in res.data) {
           trainData.value[key] = res.data[key]
         }
@@ -336,27 +322,16 @@
         })
         getScoreOffsetInfo(res.data.ruleId)
         getPostTrainKeyInfo(res.data.floorNow, 'curr')
-        if (res.data.floorNow > 1) {
-          getPostTrainKeyInfo(res.data.floorNow - 1, 'prev')
-        }
-        if (res.data.floorNow < trainData.value.pag) {
-          getPostTrainKeyInfo(res.data.floorNow + 1, 'next')
-        }
         if (res.data.status === 2) {
           timeAreaShow(trainData.value.time.validTime)
         }
-        init().then()
       }
     })
   }
   onUnmounted(() => {
     PubSub.unsubscribe('message')
   })
-  watch(handKeyValue, () => {
-    if (handKeyValue.value !== '') {
-      handleReceiveKeyCode(handKeyValue.value, diffTime.value, gapTime.value)
-    }
-  })
+  onKey(event => handleReceiveKeyCode(event.code, event.diffTime, event.gapTime, event))
 </script>
 
 <style scoped>

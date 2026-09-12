@@ -42,7 +42,7 @@
               <div :class="{ 'tab colu': true, on: showChart == 'line' }" @click="showChart = 'line'">
                 <img :src="chartIcoOn2" v-show="showChart == 'line'" class="ico" />
                 <img :src="chartIco2" v-show="showChart != 'line'" class="ico" />
-                码率(码/分)
+                码率({{ speedUnit }})
               </div>
             </div>
             <div class="box">
@@ -57,7 +57,7 @@
                   <template v-if="scoreData.deductInfo">
                     <div class="row">
                       <div class="item lab full">码率</div>
-                      <div class="item">{{ Number(scoreData.deductInfo.speedNumber)}} 码/分</div>
+                      <div class="item">{{ Number(scoreData.deductInfo.speedNumber)}} {{ speedUnit }}</div>
                       <div class="item">{{ scoreData.deductInfo.speedScore*1 }} 分</div>
                     </div>
                     <div class="row">
@@ -373,7 +373,7 @@
   const { morseCode } = useMorse()
   const showChart = ref('total')
 
-  const { scoreData, loading, patHairTrendBoxRef, trendLogKeyData, resolve,moreLine, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart)
+  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, resolve,moreLine, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart)
 </script>
 
 <style scoped lang="less">

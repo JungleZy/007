@@ -37,17 +37,9 @@ public class PostTickerTapeTrainSettingService {
     tickerTapeTrainSettingDao.deleteAll();
     List<PostTickerTapeTrainSettingEntity> entityList = PojoUtils.convert(
         addParams.getParamList(), PostTickerTapeTrainSettingEntity.class);
-    for (PostTickerTapeTrainSettingEntity entity : entityList) {
-      entity.setDot(addParams.getDotStandardTime());
-    }
     tickerTapeTrainSettingDao.save(entityList);
     return addParams;
   }
 
 
-  public Integer getDotStandard() {
-    return tickerTapeTrainSettingDao.findAll().list().stream().findFirst()
-        .orElse(new PostTickerTapeTrainSettingEntity()).getDot();
-
-  }
 }

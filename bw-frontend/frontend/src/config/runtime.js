@@ -73,7 +73,6 @@ export async function configureRuntime() {
 
   localforage.config({name: 'WisdomJ233'})
   window.interfaceStyle = 'HJJ'
-  window.audioSpeedDeviation = 1.18
   window.cool = false
   if (localStorage.getItem('cool') === null) localStorage.setItem('cool', 'false')
   document.body.classList.add(window.interfaceStyle)
