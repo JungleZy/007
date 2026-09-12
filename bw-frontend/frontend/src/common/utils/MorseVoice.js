@@ -103,60 +103,33 @@ const NUM_TYPE = {
   LONG: 'long',
   SHORT: 'short'
 }
-// let osc;
-export default function MorseVoice(type='old',data) {
-  const protocol = document.location.protocol
-  const hostname = document.location.hostname
-  let morseVoice
-  if(type==='new'){
-    morseVoice = new MorseVoiceNew()
-    morseVoice.init(e=>{
-      console.log(e)
-    })
-    morseVoice.on('message',e=>{
-      // console.log(e);
-      PubSub.publish('receiveProcessData',e)
-    })
-    PubSub.subscribe('receiveSendData',data=>{
-      switch (data.type) {
-        case 'message':
-          morseVoice.play(data.data)
-          break;
-        case 'addCode':
-          morseVoice.addCode(data.data)
-          break;
-        case 'pause':
-          morseVoice.pause()
-          break;
-        case 'stop':
-          morseVoice.stop()
-          break;
-        case 'continue':
-          morseVoice.continue()
-          break;
-        case 'changeFrequency':
-          morseVoice.changeFrequency(data.data)
-          break;
-        case 'changeVolume':
-          morseVoice.changeVolume(data.data)
-          break;
-        case 'changeCriterion':
-          morseVoice.changeCriterion(data.data)
-          break;
-        case 'changeRatio':
-          morseVoice.changeRatio(data.data)
-          break;
-        case 'model':
-          morseVoice.changeModel(data.data)
-          break;
-        case 'pressed':
-          morseVoice.changePressed(data.data)
-          break
-      }
-    })
-  }else {
-    morseVoice = new MorseVoiceOld()
+const sharedVoice = new MorseVoiceNew()
+sharedVoice.on('message', data => PubSub.publishSync('receiveProcessData', data))
+
+export function audioOperation(command) {
+  const {type, data} = command
+  switch (type) {
+    case 'configure': sharedVoice.configure(data); return true
+    case 'init': return sharedVoice.init()
+    case 'ready': return sharedVoice.isReady()
+    case 'message': return sharedVoice.play(data)
+    case 'addCode': return sharedVoice.addCode(data)
+    case 'pause': return sharedVoice.pause()
+    case 'stop': return sharedVoice.stop()
+    case 'continue': return sharedVoice.continue()
+    case 'changeFrequency': return sharedVoice.changeFrequency(data)
+    case 'changeVolume': return sharedVoice.changeVolume(data)
+    case 'changeCriterion': return sharedVoice.changeCriterion(data)
+    case 'changeRatio': return sharedVoice.changeRatio(data)
+    case 'model': return sharedVoice.changeModel(data)
+    case 'pressed': return sharedVoice.changePressed(data)
   }
-  return morseVoice
+}
+
+// Subscribe before the permission component mounts so cold-start settings are never lost.
+PubSub.subscribe('receiveSendData', audioOperation)
+
+export default function MorseVoice(type = 'old') {
+  return type === 'new' ? sharedVoice : new MorseVoiceOld()
 }
 export { forwardTable, NUM_TYPE }

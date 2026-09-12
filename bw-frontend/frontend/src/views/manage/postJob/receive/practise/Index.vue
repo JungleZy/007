@@ -125,14 +125,14 @@
                 </div>
               </div>
               <div class="rowItem" v-if="playRate == 0 || formData.isLowRate">
-                <div class="lab">{{ formData.isLowRate ? '低速' : '自定义' }}码率：</div>
+                <div class="lab">{{ formData.isLowRate ? '平均速度（符号35字符/分）' : '自定义码率' }}：</div>
                 <div class="item flex" style="width: 100%; align-items: center">
-                  <div>{{ formData.isLowRate ? '20' : '40' }}</div>
+                  <div>{{ formData.isLowRate ? '1' : '40' }}</div>
                   <div class="formSlider" style="width: 266px">
-                    <a-slider v-model:value="formData.rate" v-if="formData.isLowRate" :min="20" :max="39"></a-slider>
+                    <a-slider v-model:value="formData.rate" v-if="formData.isLowRate" :min="1" :max="35"></a-slider>
                     <a-slider v-model:value="formData.rate" v-else :min="40" :max="500"></a-slider>
                   </div>
-                  <div>{{ formData.isLowRate ? '39' : '500' }}</div>
+                  <div>{{ formData.isLowRate ? '35' : '500' }}</div>
                 </div>
               </div>
               <div class="rowItem">
@@ -271,11 +271,7 @@
           <div class="groupBoxs">
             <div class="groupTitle">低速配置</div>
             <div class="rowItem mini mt-2">
-              <div class="item" style="width: 80px; text-align: center">点时长</div>
-              <div class="item flex" style="align-items: center">
-                <a-input-number v-model:value="basicSpeed.dotTime" :min="5" :max="120" placeholder="播报码率" style="width: 100px; text-align: center"></a-input-number>
-                <div class="ml-1">ms</div>
-              </div>
+              <div class="item">符号速度固定35字符/分；降低平均速度只扩展字、组和页间隔。</div>
               <div class="auditionBtn" @click="auditionInfo">试听</div>
             </div>
           </div>
@@ -308,14 +304,15 @@
   import useMorse from '../../../../../common/mixin/useMorse.js'
   import { timeFormatInfo, partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
   import { getPostReceiveSetting, savePostReceiveSetting, saveReceivePostTrain,saveHeader } from '../../../../../common/api/ReceiveApi.js'
-  import Voice from '../../../../../common/utils/MorseVoice'
+  import operationMorseVoice from '../../../../../common/utils/voice/operationMorseVoice'
+  import {calculateTiming} from '../../../../../common/utils/voice/MorseVoiceHighPerformance'
   import {getCableAll} from "../../../../../common/api/CableApi";
   import SelectCable from "../../../../../components/cable/SelectCable.vue"
 
   import Pagination from '../../../../../components/common/Pagination.vue'
   const wpmTOmm = inject('wpmTOmm')
   const { baseCode, morseCode } = useMorse()
-  let voice = new Voice({ fre: 1000 })
+  const {operation, ensureReady} = operationMorseVoice()
   const router = useRouter()
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const drillPath = ref('')
@@ -387,9 +384,6 @@
   const playRate = ref(60)
   const basicTrainDeployModal = ref(false)
   const basicDeployData = ref([])
-  const basicSpeed = ref({
-    dotTime: 80
-  })
 
   const selectCable = ref(null)
   const cableList = ref([])
@@ -668,7 +662,6 @@
     }
     savePostReceiveSetting({
       paramList: data,
-      dotStandardTime: basicSpeed.value.dotTime
     }).then(res => {
       loading.value = false
       if (res.code === 200) {
@@ -680,9 +673,10 @@
     })
   }
 
-  const auditionInfo = () => {
-    voice.changeCriterion(parseInt(basicSpeed.value.dotTime))
-    voice.play([0, 0, 0, 0, 0])
+  const auditionInfo = async () => {
+    if (!await ensureReady()) return
+    operation({type: 'configure', data: {...calculateTiming({rate: 35, type: 'short'}), frequency: 1000, volume: 1, model: true}})
+    operation({type: 'message', data: {numType: 'short', data: '5555 '}})
   }
 </script>
 

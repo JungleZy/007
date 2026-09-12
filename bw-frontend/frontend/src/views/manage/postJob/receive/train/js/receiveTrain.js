@@ -1,14 +1,13 @@
 import { ref, onMounted, onBeforeUnmount, onUnmounted, watch, createVNode, inject, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
-import { getReceiveTrainDetails, startReceivePostTrain, endReceivePostTrain, resetReceivePostTrain, getReceiveDotRate, apiPostTickerTapeTrainFindPage,findHeader } from '../../../../../../common/api/ReceiveApi.js'
-// import Voice from '../../../../../../common/utils/MorseVoice.js'
-import useMorse from '../../../../../../common/mixin/useMorse.js'
+import { getReceiveTrainDetails, startReceivePostTrain, endReceivePostTrain, resetReceivePostTrain, apiPostTickerTapeTrainFindPage,findHeader } from '../../../../../../common/api/ReceiveApi.js'
 import { PubSub } from '../../../../../../common/utils/PubSub'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { deepClone } from '../../../../../../common/utils/Utils.js'
 import { all } from 'ramda'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
+import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 
 export default function telegramList(wpmTOmm) {
   const receiveBgRef = ref(null)
@@ -16,10 +15,10 @@ export default function telegramList(wpmTOmm) {
   const trainTimer = ref(null)
   const route = useRoute()
   const receiveData = ref({})
+  const audioCodeType = () => Number(receiveData.value.type) === 1 ? 'letter' : Number(receiveData.value.type) === 2 ? 'mix' : Number(receiveData.value.codeShort) === 0 ? 'short' : 'long'
   // let voicePlayData = ref([]);
   const audioVolume = ref(100)
   const broadcastFinished = ref(false)
-  const { dots, scatter, morseCode } = useMorse()
   const symbol = ref({
     start: [1, 0, 0, 0, 1],
     end: [0, 1, 0, 1, 0]
@@ -36,7 +35,6 @@ export default function telegramList(wpmTOmm) {
   })
   const audioData = ref([])
   const audioSpeed = ref(60)
-  const audioSpeedDeviation = ref(1.18)
   const audioDataNext = ref([])
   const allPage = ref(0)
   let pageNumber = ref(0)
@@ -101,7 +99,6 @@ export default function telegramList(wpmTOmm) {
     }
   ])
   const disturbVol = ref(60)
-  let voice = null
   const header = ref("")
   const isheader = ref(false)
   const router = useRouter()
@@ -112,7 +109,8 @@ export default function telegramList(wpmTOmm) {
     }
   })
 
-  const {operation} = operationMorseVoice()
+  const {operation, ensureReady} = operationMorseVoice()
+  let audioSubscription
   PubSub.subscribe('send_receiveTrainPage', e => {
     if (receiveData.value.status === 1) {
       Modal.confirm({
@@ -132,18 +130,19 @@ export default function telegramList(wpmTOmm) {
     }
   })
   let timer = null
+  let disposed = false
+  let contentReady = false
+  let pageLoadGeneration = 0
+  const beforeUnload = () => {
+    if (receiveData.value.status === 1) resetTrainInfo()
+  }
   onMounted(() => {
-   //  延迟加载订阅，预防刷新页面监听不到进度
-   setTimeout( () => {
-     PubSub.subscribe('receiveProcessData',res=>{
-       // console.log(res);
-       if(res.type==='playing'&&res.codeLength - res.i===50&&isActive.value<allPage.value){
-         if(timer===null){
-           timer = 'add'
+     audioSubscription = PubSub.subscribe('receiveProcessData',res=>{
+       if (res.status === 'start') timer = null
+       if(res.type === 'playing' && res.status === 'progress' && !isheader.value && !audioTest.value && res.codeLength - res.i === 50 && isActive.value < allPage.value){
+         if(timer !== res.codeLength){
+           timer = res.codeLength
            getPageList('add')
-           setTimeout( () => {
-             timer=null
-           },5000)
          }
        }
        if (res.status==='finish') {
@@ -169,15 +168,10 @@ export default function telegramList(wpmTOmm) {
          }
        }
      })
-   },3000)
     if (route.query.id && route.query.id !== '') {
       getTelegramTrainInfo()
     }
-    window.addEventListener('beforeunload', e => {
-      if (receiveData.value.status === 1) {
-        resetTrainInfo()
-      }
-    })
+    window.addEventListener('beforeunload', beforeUnload)
     if (receiveBgRef.value) {
       receiveBgRef.value.currentTime = 4.7
     }
@@ -200,7 +194,9 @@ export default function telegramList(wpmTOmm) {
   });
 
   onBeforeUnmount(() => {
-    window.removeEventListener('beforeunload', e => {})
+    disposed = true
+    clearInterval(trainTimer.value)
+    window.removeEventListener('beforeunload', beforeUnload)
     disturbList.value.map(item => {
       if (item.ctx) {
         changeAudioPlay(item, false)
@@ -209,7 +205,7 @@ export default function telegramList(wpmTOmm) {
   })
   onUnmounted(() => {
     PubSub.unsubscribe('send_receiveTrainPage')
-    PubSub.unsubscribe('receiveProcessData')
+    PubSub.unsubscribe(audioSubscription)
   })
 
   /**
@@ -218,14 +214,14 @@ export default function telegramList(wpmTOmm) {
   const getTelegramTrainInfo = () => {
     getReceiveTrainDetails({
       id: route.query.id
-    }).then(res => {
+    }).then(async res => {
+      if (disposed) return
       if (res.code === 200) {
-        findHeader(route.query.id).then(res=>{
-          if(res.data!==null){
-            isheader.value = true
-            header.value = res.data.content
-          }
-        })
+        const headerResult = await findHeader(route.query.id)
+        if (disposed) return
+        if (headerResult.code !== 200) throw new Error(headerResult.message || '报头加载失败')
+        header.value = headerResult.data?.content || ''
+        isheader.value = !!header.value
         res.data.codeMessageBody.map(item => {
           item.key = JSON.parse(item.key)
           item.value = JSON.parse(item.value)
@@ -235,36 +231,7 @@ export default function telegramList(wpmTOmm) {
         receiveData.value.status = receiveData.value.status===1?0:receiveData.value.status
         audioSpeed.value = receiveData.value.rate
         receiveData.value['disturbText'] = disturbList.value.filter(item => res.data.disturb.indexOf(item.type) > -1).map(item => item.name)
-        if (wpmTOmm.value) {
-          let type = receiveData.value.type == 0 ? 'letter' : receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long'
-          let cri = ((400 / (receiveData.value.isLowRate ? 35 : receiveData.value.rate)) * 60 * 1000) / dots[type]
-          // voice = new Voice({ fre: frequency.value, criterion: parseInt(cri), ratio: {
-          //     dot: 1, // 比例 点长度
-          //     dash: res.data.ratio, // 比例 划长度
-          //     gap: 1, // 比例 点划间隔
-          //     word: 3, // 比例 词间隔
-          //     suite: 5, // 比例 组间隔
-          //     leaf: 7 // 比例 电报纸间隔
-          //   }, })
-
-         //  避免刷新页面出现问题
-         setTimeout(()=>{
-           operation({type:'changeFrequency',data:frequency.value})
-           operation({type:'changeCriterion',data: cri*audioSpeedDeviation.value})
-           operation({type:'changeRatio',data: {
-               dot: 1, // 比例 点长度
-               dash: res.data.ratio, // 比例 划长度
-               gap: 1, // 比例 点划间隔
-               word: 3, // 比例 词间隔
-               suite: 5, // 比例 组间隔
-               leaf: 7 // 比例 电报纸间隔
-             }})
-         },1000)
-        } else {
-          // voice = new Voice({ fre: frequency.value, criterion: parseInt(1200 / res.data.rate) })
-          operation({type:'changeFrequency',data:frequency.value})
-          operation({type:'changeCriterion',data: parseInt(1200 / res.data.rate)})
-        }
+        changeRate()
         if(res.data.isCable===1){
           allPage.value = res.data.pageNumber
         } else {
@@ -273,106 +240,48 @@ export default function telegramList(wpmTOmm) {
 
         //获取首保训练分页并转码
         if(res.data.status===0){
-          getPageList(isActive.value)
+          if (!await getPageList(isActive.value)) return
         }
-        // if (allPage.value > 1) {
-        //   setTimeout(() => {
-        //     getPageList(isActive.value)
-        //   }, 500)
-        // }
         if (res.data.status >= 2) {
           timeAreaShow(parseInt(res.data.validTime * 1000))
         }
-        if (receiveData.value.isLowRate == 1) {
-          getDotTimeInfo(receiveData.value.rate)
-        }
+        contentReady = true
       } else {
         message.error(res.message)
       }
-    })
+    }).catch(error => { if (!disposed) message.error(error.message) })
   }
   const pageData = ref([])
   let allCode = []
   //分页列表
-  const getPageList = (type) => {
-    isActive.value++
-    allCode = []
-    apiPostTickerTapeTrainFindPage({
-      pageNumber: isActive.value,
-      trainId: route.query.id
-    }).then(res => {
-      let arr = []
-      res.data.messageBody.forEach((item,index)=>{
-        arr.push(item.key.split(''))
-        if(index===0&&(receiveData.value.isStartSign===1||isActive.value===1)){
-          allCode.push('#')
-          allCode.push(' ')
-        }
-        allCode.push(...item.key.split(''))
-        allCode.push(' ')
+  const getPageList = async (type) => {
+    const generation = pageLoadGeneration
+    const page = isActive.value + 1
+    try {
+      const res = await apiPostTickerTapeTrainFindPage({pageNumber: page, trainId: route.query.id})
+      if (disposed || generation !== pageLoadGeneration) return false
+      if (res.code !== 200) throw new Error(res.message || '报文加载失败，请重试')
+      const code = []
+      const rows = res.data.messageBody.map((item, index) => {
+        if (index === 0 && (receiveData.value.isStartSign === 1 || page === 1)) code.push('#', ' ')
+        code.push(...item.key, ' ')
+        return [...item.key]
       })
-      pageData.value.push(arr)
-      if(isActive.value<allPage.value){
-        allCode.push('/')
-        allCode.push(' ')
-        // getPageList()
-      }else {
-        // message.success({content:'报底加载完毕！',key:'noticeOk'})
-        allCode.push('!')
+      if (page < allPage.value) code.push('/', ' ')
+      else code.push('!')
+      isActive.value = page
+      pageData.value.push(rows)
+      allCode = code
+      if (type === 'add') {
+        operation({type: 'addCode', data: {data: code, numType: audioCodeType()}})
       }
-      // 添加报文
-      if(type==='add'){
-        operation({type:'addCode',data:{
-            data:allCode,
-            numType:receiveData.value.codeShort ? 'long' : 'short',
-          }})
-      }
-      // return;
-      // if (res.code != 200) return
-      // let code = null
-      // if (receiveData.value.type == 0) {
-      //   code = morseCode[receiveData.value.codeShort ? 'long' : 'short'] //数字报
-      // } else if (receiveData.value.type == 1) {
-      //   code = morseCode['letter'] //字码报
-      // } else {
-      //   code = morseCode['mix'] //混合报
-      // }
-      // res.data.messageBody.forEach((item, i) => {
-      //   item.value = []
-      //   item.key = item.key.split('')
-      //   item.key.forEach((a, j) => {
-      //     const list = code[a].value.split('')
-      //     item.value.push(list)
-      //   })
-      // })
-      // audioData.value = res.data.messageBody
-      // handleVoicePlayCode(audioData.value)
-    })
-
+      return true
+    } catch (error) {
+      if (!disposed) message.error(error.message)
+      return false
+    }
   }
 
-  const getDotTimeInfo = rate => {
-    console.log("********")
-    getReceiveDotRate().then(res => {
-      if (res.code === 200) {
-        let type = receiveData.value.type == 0 ? 'letter' : receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long'
-        let ms = res.data
-        let ml = ((400 / rate) * 60 * 1000) / dots[type]
-        let pr1 = (((ml - ms) * scatter[type].d) / scatter[type].l + ml * 3) / ml
-        let pr2 = (((ml - ms) * scatter[type].d) / scatter[type].w + ml * 3) / ml
-        let pr3 = (((ml - ms) * scatter[type].d) / scatter[type].g + ml * 5) / ml
-        operation({type:'changeRatio',data:{
-            dot: 1,
-            dash: Number(pr1.toFixed(2)),
-            gap: 1,
-            word: Number(pr2.toFixed(2)),
-            suite: Number(pr3.toFixed(2)),
-            leaf: Number(((pr3 / 5) * 7).toFixed(2))
-          }})
-        operation({type:'changeCriterion',data:ms})
-      }
-    })
-  }
 
   /**
    * 训练时间转换显示
@@ -439,15 +348,13 @@ export default function telegramList(wpmTOmm) {
    */
   const playVoiceInfo = () => {
     if(isheader.value){
-      console.log("播放报头")
       operation({type:'message',data:{
           numType:'long',
           data:header.value
         }})
     }else {
-      console.log("播放报文")
       operation({type:'message',data:{
-          numType:receiveData.value.codeShort ? 'long' : 'short',
+          numType:audioCodeType(),
           data:allCode
         }})
     }
@@ -463,7 +370,8 @@ export default function telegramList(wpmTOmm) {
   /**
    * 试听
    */
-  const auditionInfo = () => {
+  const auditionInfo = async () => {
+    if (!await ensureReady()) return
     audioTest.value = true
     operation({type:'message',data:{
         numType:'short',
@@ -474,13 +382,17 @@ export default function telegramList(wpmTOmm) {
   /**
    * 开始训练
    */
-  const startTrainInfo = () => {
-    if (!allCode.length > 0) return
-    console.log(allCode);
-    // return;
+  const startTrainInfo = async () => {
+    if (!await ensureReady()) return
+    if (!changeRate()) return
+    if (!contentReady || !allCode.length) {
+      message.warning('报文尚未加载完成，请稍后重试')
+      return
+    }
     startReceivePostTrain({
       id: receiveData.value.id
     }).then(res => {
+      if (disposed) return
       if (res.code === 200) {
         if (receiveBgRef.value) {
           receiveBgRef.value.play()
@@ -520,6 +432,7 @@ export default function telegramList(wpmTOmm) {
           }
         })
         operation({type:'stop'})
+        pageLoadGeneration++
         if (go === 'go') {
           PubSub.publish('callback_receiveTrainPage', true)
         }
@@ -544,6 +457,7 @@ export default function telegramList(wpmTOmm) {
         }
         receiveData.value.status = 0
         operation({type:'stop'})
+        pageLoadGeneration++
         disturbList.value.map(item => {
           if (item.ctx) {
             changeAudioPlay(item, false)
@@ -558,20 +472,20 @@ export default function telegramList(wpmTOmm) {
   /**
    * 重听
    */
-  const hardHearingInfo = () => {
-    isheader.value = true
+  const hardHearingInfo = async () => {
+    if (!await ensureReady()) return
+    operation({type: 'stop'})
+    pageLoadGeneration++
+    isheader.value = !!header.value
     isActive.value = 0
     pageNumber.value = 0
-    // voicePlayData.value=[];
+    pageData.value = []
     audioData.value = []
     listAll.value = []
-    setTimeout(() => {
-      playVoiceInfo()
-      broadcastFinished.value = false
-      if (receiveBgRef.value) {
-        receiveBgRef.value.play()
-      }
-    }, 500)
+    if (!await getPageList(0)) return
+    playVoiceInfo()
+    broadcastFinished.value = false
+    if (receiveBgRef.value) receiveBgRef.value.play()
   }
 
   /**
@@ -614,19 +528,16 @@ export default function telegramList(wpmTOmm) {
     }
   }
   //改变播放码率
-  const changeRate = ()=>{
-    if (wpmTOmm.value) {
-      // receiveData.value.rate = audioSpeed.value * audioSpeedDeviation.value
-      const rate = audioSpeed.value * audioSpeedDeviation.value
-      let type = receiveData.value.type == 0 ? 'letter' : receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long'
-      let cri = ((400 / (receiveData.value.isLowRate ? 35 : rate)) * 60 * 1000) / dots[type]
-      operation({type:'changeCriterion',data:parseInt(cri)})
-    } else {
-      operation({type:'changeCriterion',data:parseInt(1200 / speedRate.value)})
+  const changeRate = () => {
+    try {
+      operation({type: 'configure', data: {...calculateTiming({rate: audioSpeed.value, type: audioCodeType(), unit: wpmTOmm.value ? 'characters' : 'wpm', lowRate: Number(receiveData.value.isLowRate) === 1, ratio: {dash: receiveData.value.ratio ?? 3}}), frequency: Number(frequency.value), volume: audioVolume.value / 100, model: true}})
+      return true
+    } catch (error) {
+      message.error(error.message)
+      return false
     }
   }
   return {
-    audioSpeedDeviation,
     receiveBgRef,
     receiveData,
     frequency,

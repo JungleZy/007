@@ -52,15 +52,15 @@
           </template>
           <template v-if="showSetting=='rate'">
             <div class="flex" style="justify-content: space-between">
-              <span>码率</span>
-              <span>{{ rateWpm }}{{wpmTOmm?'码/分':'WPM'}}</span>
+              <span>平均速度（符号35字符/分）</span>
+              <span>{{ rateWpm }}字符/分</span>
             </div>
             <div class="volumeSlider voice" style="margin-top: 16px;">
-              <a-slider v-model:value="rateWpm" :min="20" :max="39" :step="1" :tooltipVisible="false"></a-slider>
+              <a-slider v-model:value="rateWpm" :min="1" :max="35" :step="1" :tooltipVisible="false"></a-slider>
             </div>
             <div class="flex text" style="justify-content: space-between">
-              <div>20</div>
-              <div>39</div>
+              <div>1</div>
+              <div>35</div>
             </div>
           </template>
           <template v-if="showSetting=='disturb'">

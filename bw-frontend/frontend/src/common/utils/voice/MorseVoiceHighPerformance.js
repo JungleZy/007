@@ -140,364 +140,221 @@ const forwardTable = {
 		9: [1, 2, 1, 2, 1, 2, 1, 2, 0]
 	}
 }
-const keyCodes = {
-	A: [0, 1],
-	B: [1, 0, 0, 0],
-	C: [1, 0, 1, 0],
-	D: [1, 0, 0],
-	E: [0],
-	F: [0, 0, 1, 0],
-	G: [1, 1, 0],
-	H: [0, 0, 0, 0],
-	I: [0, 0],
-	J: [0, 1, 1, 1],
-	K: [1, 0, 1],
-	L: [0, 1, 0, 0],
-	M: [1, 1],
-	N: [1, 0],
-	O: [1, 1, 1],
-	P: [0, 1, 1, 0],
-	Q: [1, 1, 0, 1],
-	R: [0, 1, 0],
-	S: [0, 0, 0],
-	T: [1],
-	U: [0, 0, 1],
-	V: [0, 0, 0, 1],
-	W: [0, 1, 1],
-	X: [1, 0, 0, 1],
-	Y: [1, 0, 1, 1],
-	Z: [1, 1, 0, 0],
-	0: [1, 1, 1, 1, 1],
-	1: [0, 1, 1, 1, 1],
-	2: [0, 0, 1, 1, 1],
-	3: [0, 0, 0, 1, 1],
-	4: [0, 0, 0, 0, 1],
-	5: [0, 0, 0, 0, 0],
-	6: [1, 0, 0, 0, 0],
-	7: [1, 1, 0, 0, 0],
-	8: [1, 1, 1, 0, 0],
-	9: [1, 1, 1, 1, 0],
-	'?': [0, 0, 1, 1, 0, 0],
-	'/': [1, 0, 0, 1, 0],
-	'<': [1, 0, 1, 1, 0, 1],
-	'>': [1, 0, 1, 1, 0, 1],
-	'。': [0, 0, 2, 0, 0, 2, 0, 0],
-	'.': [0, 1, 0, 1, 0, 1]
-}
 const NUM_TYPE = {
 	LONG: 'long',
 	SHORT: 'short'
 }
-/**
- * MorseVoice 类用于将文本转换为摩尔斯电码并通过音频播放。
- *
- * @class
- * @param {Object} [obj] - 初始化参数对象。
- * @param {number} [obj.criterion=83] - 基准点时长，单位为毫秒。
- * @param {number} [obj.volume=1.0] - 初始音量。
- * @param {number} [obj.frequency=1000] - 初始频率。
- * @param {Object} [obj.ratio] - 点划比例对象。
- * @param {number} [obj.ratio.dot=1] - 点长度比例。
- * @param {number} [obj.ratio.dash=3] - 划长度比例。
- * @param {number} [obj.ratio.gap=1] - 点划间隔比例。
- * @param {number} [obj.ratio.word=3] - 词间隔比例。
- * @param {number} [obj.ratio.suite=5] - 组间隔比例。
- * @param {number} [obj.ratio.leaf=7] - 电报纸间隔比例。
- *
- * @property {number} criterion - 基准点时长，单位为毫秒。
- * @property {number} volume - 当前音量。
- * @property {number} frequency - 当前频率。
- * @property {Object} ratio - 点划比例对象。
- * @property {AudioContext|null} audioContext - 音频上下文。
- * @property {AudioWorkletNode|null} oscillatorNode - 音频工作节点。
- * @property {string} type - 当前状态，可能值为 'none', 'failure', 'ready', 'playing', 'pause'。
- *
- * @example
- * const morseVoice = new MorseVoice();
- * morseVoice.init((params) => {
- *   if (params instanceof Error) {
- *     console.error('初始化失败:', params);
- *   } else {
- *     console.log('初始化成功:', params);
- *   }
- * });
- */
+export const DEFAULT_RATIO = Object.freeze({dot: 1, dash: 3, gap: 1, word: 3, suite: 5, leaf: 7})
+
+// Calibration is a 400-character page, cycling the selected alphabet in four-code groups.
+export const CALIBRATION_TEXT = Object.fromEntries(['short', 'long', 'letter', 'mix'].map(type => {
+	const alphabet = type === 'letter' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' : type === 'mix' ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' : '0123456789'
+	let text = ''
+	for (let i = 0; i < 400; i++) text += alphabet[i % alphabet.length] + (i % 4 === 3 ? ' ' : '')
+	return [type, text]
+}))
+const calibrationCounts = Object.fromEntries(Object.entries(CALIBRATION_TEXT).map(([type, text]) => {
+	const counts = [0, 0, 0, 300, 100, 0]
+	for (const char of text) {
+		if (char === ' ') continue
+		for (const symbol of forwardTable[type][char]) counts[symbol]++
+	}
+	return [type, counts]
+}))
+
+export function calculateTiming({rate, unit = 'characters', type = 'short', lowRate = false, ratio = DEFAULT_RATIO}) {
+	rate = Number(rate)
+	if (!Number.isFinite(rate) || rate <= 0) throw new Error('播报速度必须大于零')
+	const resolved = {...DEFAULT_RATIO, ...ratio}
+	if (Object.values(resolved).some(value => !Number.isFinite(Number(value)) || Number(value) <= 0)) throw new Error('音频比例必须为正数')
+	for (const key of Object.keys(resolved)) resolved[key] = Number(resolved[key])
+	if (unit === 'wpm' && !lowRate) return {criterion: 1200 / rate, ratio: resolved}
+	if (!['characters', 'groups', 'wpm'].includes(unit) || !calibrationCounts[type]) throw new Error('未知播报单位或报文类型')
+	const charactersPerMinute = unit === 'groups' ? rate * 4 : rate
+	if (lowRate && charactersPerMinute > 35) throw new Error('低速模式平均速度不得超过35字符/分')
+	const counts = calibrationCounts[type]
+	const keys = ['dot', 'dash', 'gap', 'word', 'suite', 'leaf']
+	const units = counts.reduce((sum, count, i) => sum + count * resolved[keys[i]], 0)
+	const criterion = 400 * 60000 / ((lowRate ? 35 : charactersPerMinute) * units)
+	if (lowRate) {
+		const symbolUnits = counts.slice(0, 3).reduce((sum, count, i) => sum + count * resolved[keys[i]], 0)
+		const stretch = (400 * 60000 / charactersPerMinute / criterion - symbolUnits) / (units - symbolUnits)
+		for (const key of ['word', 'suite', 'leaf']) resolved[key] *= stretch
+	}
+	return {criterion, ratio: resolved}
+}
+
+export function receiveTiming(data, rate = data.rate, unit = 'characters') {
+	return calculateTiming({rate, unit, type: Number(data.type) === 0 ? 'letter' : Number(data.type) === 2 ? 'mix' : Number(data.codeShort) === 1 ? 'short' : 'long', lowRate: Number(data.isLowRate) === 1, ratio: {...DEFAULT_RATIO, dash: data.ratio ?? 3}})
+}
+
 export default class MorseVoice extends EventEmitter {
-	constructor(obj) {
+	constructor(obj = {}) {
 		super()
-		obj = obj || {
-			criterion: 83,
-			volume: 1.0,
-			frequency: 1000,
-			ratio: {
-				dot: 1, // 比例 点长度
-				dash: 3, // 比例 划长度
-				gap: 1, // 比例 点划间隔
-				word: 3, // 比例 词间隔
-				suite: 5, // 比例 组间隔
-				leaf: 7 // 比例 电报纸间隔
-			}
-		}
 		this.criterion = obj.criterion ?? 83
-		this.volume = obj.volume ?? 1.0
+		this.volume = obj.volume ?? 1
 		this.frequency = obj.frequency ?? 1000
-		this.ratio = obj.ratio ?? {
-			dot: 1, // 比例 点长度
-			dash: 3, // 比例 划长度
-			gap: 1, // 比例 点划间隔
-			word: 3, // 比例 词间隔
-			suite: 5, // 比例 组间隔
-			leaf: 7 // 比例 电报纸间隔
-		}
+		this.ratio = {...DEFAULT_RATIO, ...obj.ratio}
+		this.model = true
 		this.audioContext = null
 		this.oscillatorNode = null
-		// none:未初始化，failure:初始化失败，ready:初始化完成,等待播放中，playing:播放中，pause:暂停中
 		this.type = 'none'
+		this.initializing = null
+		this.generation = 0
 	}
 
-	/**
-	 * 初始化 MorseVoice 音频上下文并设置音频工作节点。
-	 *
-	 * @property {number} frequency - 振荡器的初始频率。
-	 * @property {number} volume - 振荡器的初始音量。
-	 * @property {number} criterion - 基准点时长，毫秒。
-	 * @property {number} ratio - 点划比例。
-	 *
-	 * @example
-	 * const morseVoice = new MorseVoice();
-	 * morseVoice.init();
-	 */
-	init() {
-		try {
-			if (this.type === 'none' || this.type === 'failure') {
-				this.audioContext = new AudioContext()
-				this.audioContext.audioWorklet.addModule('processor.js').then(() => {
-					this.oscillatorNode = new AudioWorkletNode(
-						this.audioContext,
-						'sine-processor',
-						{processorOptions:{bufferSize:64}}
-					)
-					this.oscillatorNode.connect(this.audioContext.destination)
-					this.oscillatorNode.port.onmessage = (event) => {
-						const data = event.data
-						// console.log("data",data);
-						if (data.type === 'pause') {
-							this.type = data.status
-						} else if (data.type === 'playing' && data.status === 'finish') {
-							this.type = 'ready'
-
-							this.emit('message', data)
-							this.emit('message', {
-								type: this.type
-							})
-						} else {
-							this.emit('message', data)
-						}
+	async init() {
+		// Electron may request resume before a user gesture; another click must retry it.
+		if (this.initializing && this.audioContext?.state === 'suspended') {
+			this.audioContext.resume().catch(error => this.emit('message', {type: 'failure', message: error.message}))
+		}
+		if (this.initializing) return this.initializing
+		const generation = this.generation
+		this.initializing = (async () => {
+			try {
+				const Context = globalThis.AudioContext || globalThis.webkitAudioContext
+				if (!Context || !globalThis.AudioWorkletNode) throw new Error('当前环境不支持AudioWorklet，请使用支持音频的安全上下文')
+				if (!this.audioContext || this.audioContext.state === 'closed') this.audioContext = new Context()
+				const context = this.audioContext
+				if (!context.audioWorklet) throw new Error('音频工作线程不可用，请使用HTTPS或本机环境')
+				if (context.state !== 'running') await context.resume()
+				if (context.state !== 'running') throw new Error('请点击启用或恢复音频')
+				if (!this.oscillatorNode) {
+					await context.audioWorklet.addModule(new URL('processor.js', document.baseURI).href)
+					if (generation !== this.generation) return false
+					this.oscillatorNode = new AudioWorkletNode(context, 'sine-processor')
+					this.oscillatorNode.onprocessorerror = () => {
+						this.destroy()
+						this.type = 'failure'
+						this.emit('message', {type: 'failure', message: '音频工作线程已停止，请点击重新启用音频'})
 					}
-					// 设置初始参数
-					this.updateParam('frequency', this.frequency) // 频率
-					this.updateParam('volume', this.volume) // 音量
-					this.updateParam('sampleRate', this.audioContext.sampleRate)
-					this.type = 'ready'
-					this.emit('message', {
-						type: this.type,
-						status: 'initialized',
-						volume: this.volume,
-						frequency: this.frequency,
-						criterion: this.criterion,
-						ratio: this.ratio
-					})
-				})
+					this.oscillatorNode.connect(context.destination)
+					this.oscillatorNode.port.onmessage = ({data}) => {
+						if (data.type === 'pause') this.type = data.status
+						if (data.type === 'playing' && data.status === 'finish') this.type = 'ready'
+						if (data.type === 'failure') this.type = 'failure'
+						this.emit('message', data)
+					}
+					context.onstatechange = () => {
+						if (context.state !== 'running') this.emit('message', {type: 'suspended', message: '音频已暂停，请点击恢复音频'})
+					}
+				}
+				if (context.state !== 'running') throw new Error('音频已暂停，请点击恢复音频')
+				this.pushState()
+				if (!['playing', 'pause'].includes(this.type)) this.type = 'ready'
+				this.emit('message', {type: 'ready', status: 'initialized'})
+				return true
+			} catch (error) {
+				this.type = 'failure'
+				this.emit('message', {type: 'failure', message: error.message})
+				return false
 			}
-		} catch (e) {
-			this.type = 'failure'
-			this.emit('message', {type: this.type, data: e})
+		})()
+		try { return await this.initializing } finally { this.initializing = null }
+	}
+
+	pushState() {
+		this.oscillatorNode?.port.postMessage({type: 'state', data: {criterion: this.criterion, ratio: this.ratio, frequency: this.frequency, volume: this.volume, model: this.model}})
+	}
+
+	configure(state) {
+		for (const key of ['criterion', 'ratio', 'frequency', 'volume', 'model']) {
+			if (state[key] !== undefined) this[key] = key === 'ratio' ? {...DEFAULT_RATIO, ...state[key]} : state[key]
 		}
+		this.pushState()
 	}
 
-	/**
-	 *  模式开关，开启为收报模式，关闭为发报模式
-	 *
-	 * @param {string} data -。
-	 */
-	changeModel(data) {
-		this.oscillatorNode?.port.postMessage({
-			type: 'model',
-			data: data
-		})
+	isReady() { return !!this.oscillatorNode && this.audioContext?.state === 'running' && this.type !== 'failure' }
+
+	checkReady() {
+		if (this.isReady()) return true
+		this.emit('message', {type: 'failure', message: '音频尚未就绪，请点击启用或恢复音频后重试'})
+		return false
 	}
 
-	/**
-	 *  手键音频 true响起 false 停止
-	 *
-	 * @param {string} data -。
-	 */
+	changeModel(data) { this.updateParam('model', data) }
 	changePressed(data) {
-		this.oscillatorNode.port.postMessage({
-			type: 'pressed',
-			data: data
-		})
+		if (data && !this.checkReady()) return false
+		this.oscillatorNode?.port.postMessage({type: 'pressed', data})
+		return true
 	}
-
-	/**
-	 * 播放给定的数据作为莫尔斯电码。
-	 *
-	 * @param {string} data - 这些数据被转换成摩尔斯电码并播放。
-	 */
 	play(data) {
-		console.time()
-		const morseCode = this.convert(data)
-		console.timeEnd()
-		console.log("morseCode");
-		console.log(morseCode);
-		this.oscillatorNode.port.postMessage({
-			type: 'start',
-			morseCode: morseCode.result
-		})
+		if (!this.checkReady()) return false
+		this.oscillatorNode.port.postMessage({type: 'start', morseCode: this.convert(data).result})
 		this.type = 'playing'
+		return true
 	}
-  addCode(data){
-    const morseCode = this.convert(data)
-    console.log("morseCode");
-    console.log(morseCode);
-    this.oscillatorNode.port.postMessage({
-      type: 'addCode',
-      morseCode:morseCode.result
-    })
-  }
-
-	/**
-	 * 暂停播放莫尔斯电码。
-	 * 如果当前状态为播放中，则发送暂停消息。
-	 */
+	addCode(data) {
+		if (!this.checkReady()) return false
+		this.oscillatorNode.port.postMessage({type: 'addCode', morseCode: this.convert(data).result})
+		this.type = 'playing'
+		return true
+	}
 	pause() {
-		if (this.type === 'playing' && this.oscillatorNode) {
-			this.oscillatorNode.port.postMessage({type: 'pause', data: true})
+		if (this.type === 'playing') {
+			this.oscillatorNode?.port.postMessage({type: 'pause', data: true})
+			this.type = 'pause'
 		}
 	}
-
-	/**
-	 * 继续播放声音的方法。
-	 * 如果当前类型为 'pause' 且存在 oscillatorNode，则向 oscillatorNode 的端口发送消息以取消暂停。
-	 *
-	 * @method
-	 */
 	continue() {
-		if (this.type === 'pause' && this.oscillatorNode) {
-			this.oscillatorNode.port.postMessage({type: 'pause', data: false})
-		}
+		if (!this.checkReady()) return false
+		this.oscillatorNode.port.postMessage({type: 'pause', data: false})
+		this.type = 'playing'
+		return true
 	}
-
-	/**
-	 * 停止播放莫尔斯电码。
-	 * 如果当前状态为播放中或暂停中，则发送停止消息。
-	 */
 	stop() {
-		if (
-			(this.type === 'playing' || this.type === 'pause') &&
-			this.oscillatorNode
-		) {
-			this.oscillatorNode.port.postMessage({type: 'stop'})
-		}
+		this.oscillatorNode?.port.postMessage({type: 'stop'})
+		if (this.isReady()) this.type = 'ready'
 	}
-
-	/**
-	 * 清除音频上下文和振荡器节点。
-	 * 如果存在振荡器节点，则断开连接并将其设置为 null。
-	 * 如果存在音频上下文，则关闭并将其设置为 null。
-	 * 调用回调函数并传递清除类型。
-	 */
-	clear() {
-		if (this.oscillatorNode) {
-			this.oscillatorNode.port.onmessage = null // 清除事件监听
-			this.oscillatorNode.disconnect()
-			this.oscillatorNode = null
-		}
+	clear() { this.stop() }
+	destroy() {
+		this.generation++
+		this.oscillatorNode?.disconnect()
+		if (this.oscillatorNode) this.oscillatorNode.port.onmessage = null
+		this.oscillatorNode = null
 		if (this.audioContext) {
-			this.audioContext.close().then(() => {
-				this.audioContext = null
-			})
+			this.audioContext.onstatechange = null
+			this.audioContext.close().catch(error => this.emit('message', {type: 'failure', message: error.message}))
 		}
+		this.audioContext = null
 		this.type = 'none'
-		this.emit('message', {
-			type: 'clear'
-		})
 	}
+	updateParam(type, value) { this.configure({[type]: value}) }
+	changeVolume(value) { this.updateParam('volume', Number(value)) }
+	changeFrequency(value) { this.updateParam('frequency', Number(value)) }
+	changeCriterion(value) { this.updateParam('criterion', Number(value)) }
+	changeRatio(value) { this.updateParam('ratio', value) }
 
-	updateParam(type, value) {
-		this[type] = value
-		if (this.oscillatorNode) {
-			this.oscillatorNode.port.postMessage({type, data: value})
-		}
-	}
-
-	/**
-	 * 改变音量大小
-	 * @param {*} volume 音量
-	 */
-	changeVolume(volume) {
-		this.updateParam('volume', parseFloat(volume))
-	}
-
-	/**
-	 * 改变音频频率
-	 * @param {*} frequency 频率
-	 */
-	changeFrequency(frequency) {
-		this.updateParam('frequency', parseFloat(frequency))
-	}
-
-	/**
-	 * 改变基准时长（点时长）
-	 * 单位毫秒
-	 * @param {*} criterion 点时长
-	 */
-	changeCriterion(criterion) {
-		this.updateParam('criterion', parseInt(criterion, 10))
-	}
-
-	/**
-	 * 改变点、划、词、组比例
-	 * @param {*} ratio
-	 */
-	changeRatio(ratio) {
-		this.updateParam('ratio', ratio)
-	}
-
-	/**
-	 * 将输入的文本转换为摩尔斯电码。
-	 *
-	 * @param {Object} obj - 包含要转换的数据和数字类型的对象。
-	 * @param {string} obj.numType - 数字类型，可以是 'long' 或 'short'。
-	 * @param {string} obj.data - 要转换的文本数据。
-	 * @returns {Object} 包含摩尔斯电码结果和基础结果的对象。
-	 */
 	convert(obj) {
-		const {numType = 'long', data} = obj
+		const {numType = 'long', data, sourceOffset = 0} = obj
 		const list = [...data]
 		const result = []
 		let resultBase = []
 
 		list.forEach((char, index) => {
-			const trimmedChar = char.trim()
+			const trimmedChar = String(char).trim()
 			const nextChar = list[index + 1]
 			if (trimmedChar === '') {
-				result.push({key: ' ', value: [4]})
-				resultBase.push({key: ' ', value: [4]})
+				if (list[index - 1] !== '/') {
+					const gap = char === '\n' ? 5 : 4
+					result.push({key: ' ', value: [gap], sourceIndex: sourceOffset + index})
+					resultBase.push({key: ' ', value: [gap]})
+				}
+				return
 			}
 			if (trimmedChar === '/') {
-				result.push({key: '/', value: [0, 2, 0, 3, 0, 2, 0, 3, 0, 2, 0, 3]})
-				resultBase.push({key: '/', value: [0, 2, 0, 3, 0, 2, 0, 3, 0, 2, 0, 3]})
+				result.push({key: '/', value: [0, 2, 0, 3, 0, 2, 0, 3, 0, 2, 0, 5], sourceIndex: sourceOffset + index})
+				resultBase.push({key: '/', value: [0, 2, 0, 3, 0, 2, 0, 3, 0, 2, 0, 5]})
 			} else {
 				const isLetter = isNaN(trimmedChar)
 				const table = isLetter ? forwardTable.letter : forwardTable[numType]
 				const morseCode = table[trimmedChar.toUpperCase()] || []
 				if (morseCode.length > 0) {
 					const value =
-						nextChar === undefined || nextChar !== ' '
+						nextChar === undefined || String(nextChar).trim() !== ''
 							? [...morseCode, 3]
 							: morseCode
-					result.push({key: trimmedChar, value})
+					result.push({key: trimmedChar, value, sourceIndex: sourceOffset + index})
 					resultBase.push({
 						key: trimmedChar,
 						value: value.filter((num) => num === 0 || num === 1)

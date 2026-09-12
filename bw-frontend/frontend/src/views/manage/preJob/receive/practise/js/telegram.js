@@ -3,10 +3,12 @@ import { useRouter } from 'vue-router'
 import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
 import { timeFormatInfo } from '../../../../../../common/utils/Utils.js'
-import { getBasicSetting, saveBasicSetting, saveTelegramTrain, findReceiveTrainTotal, findPrevReceiveTrainInfo, getPreReceiveDotRate } from '../../../../../../common/api/ReceiveApi.js'
+import { getBasicSetting, saveBasicSetting, saveTelegramTrain, findReceiveTrainTotal, findPrevReceiveTrainInfo } from '../../../../../../common/api/ReceiveApi.js'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
+import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 
 export default function telegramList() {
+  const {operation, ensureReady} = operationMorseVoice()
   const { baseCode, morseCode } = useMorse()
   const router = useRouter()
   const drillPath = ref('')
@@ -23,7 +25,6 @@ export default function telegramList() {
       drillKochPath.value = r.path
     }
   })
-  const {operation} = operationMorseVoice()
 
   const loading = ref(false)
   const addDrillModal = ref(false)
@@ -59,9 +60,6 @@ export default function telegramList() {
   const playRate = ref(null)
   const basicTrainDeployModal = ref(false)
   const basicDeployData = ref([])
-  const basicSpeed = ref({
-    dotTime: 80
-  })
 
   onMounted(() => {
     findPrevTrainMsg(22)
@@ -275,11 +273,6 @@ export default function telegramList() {
         })
       }
     })
-    getPreReceiveDotRate().then(res => {
-      if (res.code === 200) {
-        basicSpeed.value.dotTime = res.data
-      }
-    })
   }
 
   /**
@@ -331,7 +324,6 @@ export default function telegramList() {
     }
     saveBasicSetting({
       paramList: data,
-      dotStandardTime: basicSpeed.value.dotTime
     }).then(res => {
       loading.value = false
       if (res.code === 200) {
@@ -343,11 +335,10 @@ export default function telegramList() {
     })
   }
 
-  const auditionInfo = () => {
-    operation({type:'changeCriterion',data:parseInt(basicSpeed.value.dotTime)})
-    operation({type:'message',data:{
-      numType:'long', data: ["0"]
-    }})
+  const auditionInfo = async () => {
+    if (!await ensureReady()) return
+    operation({type: 'configure', data: {...calculateTiming({rate: 35, type: 'short'}), frequency: 1000, volume: 1, model: true}})
+    operation({type: 'message', data: {numType: 'short', data: '5555 '}})
   }
 
   return {
@@ -370,7 +361,6 @@ export default function telegramList() {
     closeBasicNorm,
     saveDeploy,
     findPrevTrainMsg,
-    basicSpeed,
     auditionInfo
   }
 }

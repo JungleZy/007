@@ -198,12 +198,7 @@
             <div class="groupBoxs">
               <div class="groupTitle">低速配置</div>
               <div class="rowItem mini mt-2">
-                <div class="item" style="width: 80px;text-align: center">点时长</div>
-                <div class="item flex" style="align-items: center">
-                  <a-input-number v-model:value="basicSpeed.dotTime" :min="10" :max="120" placeholder="播报码率"
-                                  style="width: 100px;text-align: center"></a-input-number>
-                  <div class="ml-1">ms</div>
-                </div>
+                <div class="item">符号速度固定35字符/分；降低平均速度只扩展字、组和页间隔。</div>
                 <div class="auditionBtn" @click="auditionInfo" :style="{fontSize: (fs * 1 + 12) + 'px'}">试听</div>
               </div>
             </div>
@@ -252,7 +247,6 @@ const {
   closeBasicNorm,
   saveDeploy,
   findPrevTrainMsg,
-  basicSpeed,
   auditionInfo
 } = telegramList()
 </script>

@@ -2,11 +2,11 @@ import {ref, onMounted, onUnmounted, watch} from "vue";
 import {useRoute,useRouter} from "vue-router"
 import {message} from "ant-design-vue";
 import {
-  getTelegramTrain,startReceiveTrain,pauseReceiveTrain,goOnReceiveTrain,endReceiveTrain,getPreReceiveDotRate
+  getTelegramTrain,startReceiveTrain,pauseReceiveTrain,goOnReceiveTrain,endReceiveTrain
 } from "../../../../../../common/api/ReceiveApi.js";
 import {PubSub} from "../../../../../../common/utils/PubSub";
-import useMorse from "../../../../../../common/mixin/useMorse.js";
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
+import {receiveTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 
 export default function telegramList(wpmTOmm) {
   const receiveBgRef = ref(null);
@@ -21,7 +21,6 @@ export default function telegramList(wpmTOmm) {
     curr: 1,
   });
   const validTime = ref([0,0,0,0,0,0]);
-  const {dots,scatter} = useMorse();
   const voicePlayData = ref({
     curr: [],
     flow: [],
@@ -36,7 +35,6 @@ export default function telegramList(wpmTOmm) {
     start: [1,0,0,0,1],
     end: [0,1,0,1,0]
   });
-  const dotTime = ref(80)
   /** 播报配置 */
   const frequency = ref(1000);
   const freqGather = ref({
@@ -109,15 +107,16 @@ export default function telegramList(wpmTOmm) {
   const playType = ref('')
   const activePlayindex = ref(1)//当前播报字码总顺序
   const activeIndex = ref(0)//当前播报字码顺序
-  const {operation} = operationMorseVoice()
+  const {operation, ensureReady} = operationMorseVoice()
   PubSub.subscribe('send_receiveTrainPage', (e)=>{
     if (receiveData.value.status === 1) {
       pauseTrainInfo();
     }
     PubSub.publish('callback_receiveTrainPage', true);
   });
-  PubSub.subscribe('receiveProcessData',res=>{
-    playType.value = res.type
+  const audioSubscription = PubSub.subscribe('receiveProcessData',res=>{
+    if (res.type === 'playing' || res.type === 'pause') playType.value = res.status === 'finish' ? 'ready' : res.type
+    if (res.type === 'stopped') playType.value = 'ready'
     if(res.i>0){
       voicePlayData.value.index ++;
       receiveData.value.schedule = parseFloat((voicePlayData.value.index/voicePlayData.value.total)*100).toFixed(1);
@@ -143,24 +142,18 @@ export default function telegramList(wpmTOmm) {
       activePlayindex.value =  res.i
     }
   })
+  const beforeUnload = () => {
+    if (receiveData.value.status === 1) pauseTrainInfo()
+  }
   onMounted(() => {
     if (route.query.id && route.query.id !== '') {
       getTelegramTrainInfo()
     }
-    window.addEventListener('beforeunload', e => {
-      if (receiveData.value.status === 1) {
-        pauseTrainInfo();
-      }
-    });
+    window.addEventListener('beforeunload', beforeUnload)
     if (receiveBgRef.value) {
       receiveBgRef.value.currentTime = 4.7;
     }
 
-    getPreReceiveDotRate().then(res => {
-      if (res.code === 200) {
-        dotTime.value = res.data;
-      }
-    })
   });
 
   watch(frequency, () => {
@@ -179,28 +172,24 @@ export default function telegramList(wpmTOmm) {
     })
   });
 
-  watch(rateWpm, () => {
-    let type = (receiveData.value.type==0?'letter':receiveData.value.type==2?'mix':(receiveData.value.codeShort==1?'short':'long'));
-    let ms = dotTime.value;
-    let ml = 400 / rateWpm.value * 60 * 1000 / dots[type];
-    let pr1 = ((ml - ms) * scatter[type].d / scatter[type].l + ml * 3) / ml;
-    let pr2 = ((ml - ms) * scatter[type].d / scatter[type].w + ml * 3) / ml;
-    let pr3 = ((ml - ms) * scatter[type].d / scatter[type].g + ml * 5) / ml;
-    operation({type:'changeRatio',data:{
-        dot: 1,
-        dash: Number(pr1.toFixed(2)),
-        gap: 1,
-        word: Number(pr2.toFixed(2)),
-        suite: Number(pr3.toFixed(2)),
-        leaf: Number((pr3 / 5 * 7).toFixed(2))
-      }})
-  });
+  const applyTiming = () => {
+    if (!receiveData.value.rate) return false
+    try {
+      operation({type: 'configure', data: {...receiveTiming(receiveData.value, receiveData.value.isLowRate == 1 ? rateWpm.value : receiveData.value.rate, wpmTOmm.value ? 'characters' : 'wpm'), frequency: Number(frequency.value), volume: audioVolume.value / 100, model: true}})
+      return true
+    } catch (error) {
+      message.error(error.message)
+      return false
+    }
+  }
+  watch([rateWpm, wpmTOmm], applyTiming)
 
   onUnmounted(() => {
     PubSub.unsubscribe("send_receiveTrainPage");
-    PubSub.unsubscribe("receiveProcessData");
+    PubSub.unsubscribe(audioSubscription);
     operation({type:'stop'})
-    window.removeEventListener('beforeunload', e => {});
+    clearInterval(trainTimer.value)
+    window.removeEventListener('beforeunload', beforeUnload)
     disturbList.value.map(item => {
       if (item.ctx) {changeAudioPlay(item, false)}
     })
@@ -236,15 +225,7 @@ export default function telegramList(wpmTOmm) {
         receiveData.value.codeMessageBody=list;
         plugData.value.body = receiveData.value.codeMessageBody.filter((item, i) => i < 100);
         plugData.value.pag = Math.ceil(receiveData.value.codeMessageBody.length / 100);
-        if(wpmTOmm.value){
-          let type = (receiveData.value.type==0?'letter':receiveData.value.type==2?'mix':(receiveData.value.codeShort==1?'short':'long'));
-          let cri = (400 / (receiveData.value.isLowRate==1?35:receiveData.value.rate) * 60 * 1000 / dots[type]);
-          PubSub.publish('receiveSendData',{type:'changeFrequency',data:parseFloat(frequency.value)})
-          PubSub.publish('receiveSendData',{type:'changeCriterion',data:parseInt(cri)})
-        }else {
-          PubSub.publish('receiveSendData',{type:'changeFrequency',data:parseFloat(frequency.value)})
-          PubSub.publish('receiveSendData',{type:'changeCriterion',data:calculateSpeed(res.data.rate)})
-        }
+        applyTiming()
         voicePlayData.value.curr = res.data.mark.split(',').map(n => Number(n));
         if (res.data.validTime && res.data.validTime > 0) {
           handleValidTime(res.data.validTime);
@@ -255,12 +236,6 @@ export default function telegramList(wpmTOmm) {
     })
   };
 
-  /**
-   * 计算播报码率
-   */
-  const calculateSpeed = (val) => {
-    return parseInt(1200/val)
-  };
 
   /**
    * 处理训练用时
@@ -299,8 +274,9 @@ export default function telegramList(wpmTOmm) {
   /**
    * 试听
    */
-  const auditionInfo = () => {
-    PubSub.publish('receiveSendData',{type:'message',data:{
+  const auditionInfo = async () => {
+    if (!await ensureReady()) return
+    operation({type:'message',data:{
         numType:'short',
         data: ['5','0']
       }})
@@ -334,7 +310,9 @@ export default function telegramList(wpmTOmm) {
   /**
    * 开始训练
    */
-  const startTrainInfo = () => {
+  const startTrainInfo = async () => {
+    if (!await ensureReady()) return
+    if (!applyTiming()) return
     startReceiveTrain({
       id: receiveData.value.id
     }).then(res => {
@@ -344,7 +322,7 @@ export default function telegramList(wpmTOmm) {
         }
         receiveData.value.status = 1;
         operation({type:'message',data:{
-            numType:receiveData.value.codeShort==1?'short':'long',
+            numType:receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long',
             data:playCode.value
           }})
         initTrainTiming();
@@ -363,7 +341,7 @@ export default function telegramList(wpmTOmm) {
    * 暂停训练
    */
   const pauseTrainInfo = () => {
-    PubSub.publish('receiveSendData',{type:'pause'})
+    operation({type:'pause'})
     clearInterval(trainTimer.value);
     pauseReceiveTrain({
       id: receiveData.value.id,
@@ -389,7 +367,9 @@ export default function telegramList(wpmTOmm) {
   /**
    * 继续训练
    */
-  const continueTrainInfo = (i) => {
+  const continueTrainInfo = async (i) => {
+    if (!await ensureReady()) return
+    if (!applyTiming()) return
     goOnReceiveTrain({
       id: receiveData.value.id
     }).then(res => {
@@ -398,12 +378,12 @@ export default function telegramList(wpmTOmm) {
           receiveBgRef.value.play();
         }
         console.log(receiveData.value.validTime)
-        if(playType.value==='playing'){
-          PubSub.publish('receiveSendData',{type:'continue'})
+        if(playType.value === 'playing' || playType.value === 'pause'){
+          operation({type:'continue'})
         }else {
           //刷新页面重头开始
-          PubSub.publish('receiveSendData',{type:'message',data:{
-              numType:receiveData.value.codeShort==1?'short':'long',
+          operation({type:'message',data:{
+              numType:receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long',
               data:playCode.value
             }})
         }
@@ -437,7 +417,7 @@ export default function telegramList(wpmTOmm) {
           receiveBgRef.value.currentTime = 4.7;
         }
         receiveData.value.status = 3;
-        PubSub.publish('receiveSendData',{type:'stop'})
+        operation({type:'stop'})
         disturbList.value.map(item => {
           if (item.ctx) {changeAudioPlay(item, false)}
         })
@@ -451,7 +431,8 @@ export default function telegramList(wpmTOmm) {
   /**
    * 重听
    */
-  const repeatTrainInfo = (i) => {
+  const repeatTrainInfo = async (i) => {
+    if (!await ensureReady()) return
     if (i === 0) {
       receiveData.value.schedule = 0;
       voicePlayData.value.index = 0;
@@ -466,8 +447,8 @@ export default function telegramList(wpmTOmm) {
     activeIndex.value = 0
     activePlayindex.value = 0
     receiveData.value.status = 1;
-    PubSub.publish('receiveSendData',{type:'message',data:{
-        numType:receiveData.value.codeShort==1?'short':'long',
+    operation({type:'message',data:{
+        numType:receiveData.value.type == 2 ? 'mix' : receiveData.value.codeShort == 1 ? 'short' : 'long',
         data:playCode.value
       }})
   };

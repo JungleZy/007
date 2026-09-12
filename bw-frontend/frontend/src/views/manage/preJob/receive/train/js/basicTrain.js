@@ -6,6 +6,7 @@ import { deepClone } from '../../../../../../common/utils/Utils.js'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
 import { saveReceiveBasicTrain } from '../../../../../../common/api/TelegramApi'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
+import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 export default function telegramList(wpmTOmm) {
   const downTimeRef = ref(null)
   const validTime = ref([0, 0, 0, 0, 0, 0])
@@ -100,13 +101,14 @@ export default function telegramList(wpmTOmm) {
   const checkedDisturb = ref([])
   const disturbVol = ref(60)
   const playStatus = ref('')
-  const loopData = ref('')
-  const {operation} = operationMorseVoice()
+  let loopData = null
+  let playbackGeneration = 0
+  const {operation, ensureReady} = operationMorseVoice()
   onMounted(() => {
     initTrainTiming()
     changeCode(0)
   })
-  PubSub.subscribe('receiveProcessData',res=>{
+  const audioSubscription = PubSub.subscribe('receiveProcessData',res=>{
     keyArray.value.index=res.j
     if(playStatus.value==='播报'){
       currKeyIndex.value=res.i
@@ -122,8 +124,8 @@ export default function telegramList(wpmTOmm) {
       keyArray.value.index = 0
       if (loop.value&&playType.value!==null) {
         waitTimer.value = setTimeout(() => {
-          clearTimeout(waitTimer.value)
-          playVoice(loopData[0], loopData[1],'播报')
+          waitTimer.value = null
+          if (loop.value && playType.value !== null && loopData) playVoice(loopData[0], loopData[1], '播报')
         }, parseInt((15 * 1000) / speedRate.value))
       } else {
         playType.value = null
@@ -144,13 +146,9 @@ export default function telegramList(wpmTOmm) {
       }
     })
   })
-  watch(speedRate, () => {
-    if (wpmTOmm.value) {
-      operation({type:'changeCriterion',data:parseInt(((1 / speedRate.value) * 60 * 1000) / 12)})
-    } else {
-      operation({type:'changeCriterion',data:parseInt(1200 / speedRate.value)})
-    }
-  },{immediate:true})
+  watch([speedRate, wpmTOmm, () => keyArray.value.switchCode], () => {
+    operation({type: 'configure', data: calculateTiming({rate: speedRate.value, unit: wpmTOmm.value ? 'characters' : 'wpm', type: keyArray.value.switchCode == 2 ? 'letter' : keyArray.value.switchCode == 1 ? 'short' : 'long'})})
+  }, {immediate: true})
   onBeforeUnmount(() => {
     saveReceiveBasicTrain({
       type: 21,
@@ -158,8 +156,10 @@ export default function telegramList(wpmTOmm) {
     }).then()
   })
   onUnmounted(() => {
-    PubSub.unsubscribe('receiveProcessData')
-    PubSub.publish('receiveSendData',{type:'stop'})
+    clearInterval(trainTimer.value)
+    clearTimeout(waitTimer.value)
+    PubSub.unsubscribe(audioSubscription)
+    operation({type:'stop'})
     disturbList.value.map(item => {
       if (item.ctx) {
         changeAudioPlay(item, false)
@@ -170,8 +170,10 @@ export default function telegramList(wpmTOmm) {
   /**
    * 播报
    */
-  const playVoice = (key, i,type=false) => {
-    loopData.value = [key,i]
+  const playVoice = async (key, i,type=false) => {
+    const generation = playbackGeneration
+    if (!await ensureReady() || generation !== playbackGeneration) return
+    loopData = [key, i]
     let code
     if(Array.isArray(key)){
       code = key
@@ -293,7 +295,8 @@ export default function telegramList(wpmTOmm) {
   /**
    * 听报识别
    */
-  const identityInfo = () => {
+  const identityInfo = async () => {
+    if (!await ensureReady()) return
     let len = keyArray.value.switchCode == 2 ? 26 : 10,
       arr,
       bcIndex = parseInt(Math.random() * len)
@@ -310,7 +313,8 @@ export default function telegramList(wpmTOmm) {
   /**
    * 试听
    */
-  const auditionInfo = () => {
+  const auditionInfo = async () => {
+    if (!await ensureReady()) return
     operation({type:'message',data:{
         numType: keyArray.value.switchCode==1?'short':'long',
         data: ['5','0']
@@ -368,6 +372,10 @@ export default function telegramList(wpmTOmm) {
    * 停止练习
    */
   const stopTrain = () => {
+    playbackGeneration++
+    clearTimeout(waitTimer.value)
+    waitTimer.value = null
+    loopData = null
     operation({type:'stop'})
     playType.value = null
     currKeyIndex.value = null

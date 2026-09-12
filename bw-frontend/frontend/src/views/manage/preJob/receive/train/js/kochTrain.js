@@ -3,9 +3,9 @@ import { saveReceiveBasicTrain } from '../../../../../../common/api/TelegramApi'
 import { findPrevReceiveTrainInfo, getPreKochStageArray, updatePreKochStageArray } from '../../../../../../common/api/ReceiveApi'
 import { Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
-import useMorse from '../../../../../../common/mixin/useMorse.js'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
 import {PubSub} from "../../../../../../common/utils/PubSub";
+import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 
 export default function kochTrain(wpmTOmm) {
   const validTime = ref([0, 0, 0, 5, 0, 0])
@@ -37,7 +37,6 @@ export default function kochTrain(wpmTOmm) {
     checkedWpm.value = 60
   }
   const checkedSignalStrength = ref(0.99)
-  const criterion = ref(80)
   const duration = ref(0)
   const elapsed = ref([])
   const cacheElapsed = ref([])
@@ -49,7 +48,6 @@ export default function kochTrain(wpmTOmm) {
   const startDelayTimer = ref(null)
   const waitTime = ref(1)
   const waitTimer = ref(null)
-  const { dots } = useMorse()
   const groupLenOptions = ref([
     {
       label: '随机长度',
@@ -118,13 +116,18 @@ export default function kochTrain(wpmTOmm) {
     SHORT: 'short'
   }
   let noiseAudio = null
-  const activeIndex = ref(0)//当前组播放字码顺序
-  const activeData = ref('')//当前组播放字码
-  const {operation} = operationMorseVoice()
-  PubSub.subscribe('receiveProcessData',res=>{
-    if(res.status==='finish'){
-      activeIndex.value++
-      playing(activeData.value, activeIndex.value)
+  let activeIndex = -1
+  let playbackGeneration = 0
+  const displayTimers = new Set()
+  const {operation, ensureReady} = operationMorseVoice()
+  const audioSubscription = PubSub.subscribe('receiveProcessData', res => {
+    if (!voicePlaying.value) return
+    if (res.status === 'progress' && res.i !== activeIndex) {
+      activeIndex = res.i
+      cacheElapsed.value.push(res.key)
+      handleElapsed(res.key)
+    } else if (res.status === 'finish') {
+      createCode()
     }
   })
   onMounted(() => {
@@ -138,12 +141,6 @@ export default function kochTrain(wpmTOmm) {
         value: 40 + i * 10
       })
     }
-    if (wpmTOmm.value) {
-      criterion.value = parseInt(((400 / checkedWpm.value) * 60 * 1000) / dots['mix'])
-      // criterion.value = parseInt(1/checkedWpm.value*60*1000 / 12)
-    } else {
-      criterion.value = parseInt(1200 / checkedWpm.value)
-    }
     getStageAll()
     findPrevReceiveTrainInfo({ type: 22 }).then(res => {
       if (res.code === 200) {
@@ -155,27 +152,20 @@ export default function kochTrain(wpmTOmm) {
     })
   })
   onBeforeUnmount(() => {
-    if (voicePlaying.value) {
-      stopTrain()
-    }
+    if (voicePlaying.value) stopTrain()
+    else playbackGeneration++
   })
   onUnmounted(() => {
-    PubSub.unsubscribe("receiveProcessData");
+    PubSub.unsubscribe(audioSubscription);
     clearInterval(trainTimer.value)
     if (noiseAudio != null) {
       noiseAudio.close()
     }
   })
-  watch(checkedWpm, () => {
-    if (wpmTOmm.value) {
-      criterion.value = parseInt(((400 / checkedWpm.value) * 60 * 1000) / dots['mix'])
-      // criterion.value = parseInt(1/checkedWpm.value*60*1000 / 12)
-    } else {
-      criterion.value = parseInt(1200 / checkedWpm.value)
-    }
-    // criterion.value = parseInt(1200 / checkedWpm.value)
-    operation({type:'changeCriterion',data:criterion.value})
-  },{immediate:true})
+  watch([checkedWpm, wpmTOmm], () => {
+    const timing = calculateTiming({rate: checkedWpm.value, unit: wpmTOmm.value ? 'characters' : 'wpm', type: 'mix'})
+    operation({type: 'configure', data: timing})
+  }, {immediate: true})
   watch(checkedSignalStrength, () => {
     operation({type:'changeVolume',data:checkedSignalStrength.value})
   },{immediate:true})
@@ -217,7 +207,9 @@ export default function kochTrain(wpmTOmm) {
     t = h + m + s
     validTime.value = t.split('').map(num => parseInt(num))
   }
-  const startTrain = () => {
+  const startTrain = async () => {
+    const generation = ++playbackGeneration
+    if (!await ensureReady() || generation !== playbackGeneration) return
     voicePlaying.value = true
     validTime.value = [0, 0, 0, 5, 0, 0]
     showTextTime.value = displayDelay.value
@@ -225,9 +217,9 @@ export default function kochTrain(wpmTOmm) {
     elapsed.value = []
     cacheElapsed.value = []
     startDelayTimer.value = setTimeout(() => {
+      if (!voicePlaying.value || generation !== playbackGeneration) return
       initTrainTiming()
-      createCode()
-      makeNoise()
+      if (createCode()) makeNoise()
     }, startDelay.value * 1000)
 
     if (waitTime.value > 0) {
@@ -241,14 +233,18 @@ export default function kochTrain(wpmTOmm) {
     }
   }
   const stopTrain = () => {
-    clearInterval(trainTimer.value)
-    clearTimeout(startDelayTimer.value)
-    // closeNoise()
-   operation({type:'stop'})
+    playbackGeneration++
     voicePlaying.value = false
+    clearInterval(trainTimer.value)
+    clearInterval(waitTimer.value)
+    clearTimeout(startDelayTimer.value)
+    for (const timer of displayTimers) clearTimeout(timer)
+    displayTimers.clear()
+    if (noiseAudio) closeNoise()
+    operation({type:'stop'})
     showTextTime.value = 0
     startNumber.value.old = startNumber.value.new
-    elapsed.value = cacheElapsed.value
+    elapsed.value = [...cacheElapsed.value]
     saveReceiveBasicTrain({
       type: 22,
       validTime: validTimeNumber.value.toString(),
@@ -302,44 +298,27 @@ export default function kochTrain(wpmTOmm) {
     noiseAudio = null
   }
   const createCode = () => {
+    if (!voicePlaying.value) return false
     const stageCode = phrase.value[stage.value - 1]
-    let num = groupLength.value === 0 ? randomNum(1, 8) : 4
-    let codes = []
-    for (let i = 0; i < num; i++) {
-      codes.push(stageCode.sort(() => 0.5 - Math.random())[0])
-    }
-
-     activeData.value =codes
-     activeIndex.value = 0
-    playing(activeData.value, activeIndex.value)
+    const count = groupLength.value === 0 ? randomNum(1, 8) : 4
+    const codes = []
+    for (let i = 0; i < count; i++) codes.push(stageCode[randomNum(0, stageCode.length - 1)])
+    codes.push(' ')
+    activeIndex = -1
+    const accepted = operation({type: 'message', data: {numType: 'long', data: codes}})
+    if (!accepted) stopTrain()
+    return accepted
   }
-  const playing = (data, index) => {
-    if (index < data.length) {
-      cacheElapsed.value.push(data[index])
-      handleElapsed(data[index])
-      operation({type:'message',data:{
-          numType:'long',
-          data: [data[index]]
-        }})
-    } else {
-      if (voicePlaying.value) {
-        handleElapsed(' ')
-        cacheElapsed.value.push(' ')
-        setTimeout(() => {
-          createCode()
-        }, criterion.value * 5)
-      } else {
-        closeNoise()
-      }
-    }
-  }
-  const handleElapsed = e => {
-    setTimeout(() => {
-      if (voicePlaying.value && startNumber.value.old < startNumber.value.new) {
-        elapsed.value.push(e)
-        codeBodyRef.value.scrollTop = codeBodyRef.value.scrollHeight
+  const handleElapsed = value => {
+    const generation = playbackGeneration
+    const timer = setTimeout(() => {
+      displayTimers.delete(timer)
+      if (voicePlaying.value && generation === playbackGeneration && startNumber.value.old < startNumber.value.new) {
+        elapsed.value.push(value)
+        if (codeBodyRef.value) codeBodyRef.value.scrollTop = codeBodyRef.value.scrollHeight
       }
     }, showTextTime.value * 1000)
+    displayTimers.add(timer)
   }
   const randomNum = (min, max) => {
     min = Math.ceil(min)

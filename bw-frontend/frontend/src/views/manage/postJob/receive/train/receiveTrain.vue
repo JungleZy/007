@@ -141,15 +141,8 @@
                   </div>
                 </div>
                 <div class="layout-left-center relative" style="margin-top: 20px;margin-left: 30px">
-                  <a-input-number :min="35" :max="500" v-model:value="audioSpeed"></a-input-number>
-                  <div class="item_group btn" @click="changeRate">修改码率</div>
-                </div>
-                <div class="layout-left-center relative" style="margin-top: 20px;margin-left: 30px">
-                  <a-input-number :min="0.5" :max="2" step="0.01" v-model:value="audioSpeedDeviation"></a-input-number>
-                  <div class="item_group btn" @click="changeRate">修改偏差</div>
-                  <a-tooltip placement="right" color="#47421e" >
-                    <template #title>由于算法不同导致的播报速率偏差，播报速率实际偏差值。</template>&nbsp;<QuestionCircleOutlined style="color: orange;font-size: 24px" />
-                  </a-tooltip>
+                  <a-input-number :min="1" :max="receiveData.isLowRate == 1 ? 35 : 500" v-model:value="audioSpeed"></a-input-number>
+                  <div class="item_group btn" @click="changeRate">修改{{ receiveData.isLowRate == 1 ? '平均字符/分（符号35字符/分）' : '播报速度' }}</div>
                 </div>
 <!--                查看报底-->
                 <div class="layout-left-center relative" style="margin-top: 20px;margin-left: 30px">
@@ -302,7 +295,6 @@ const {
   trainTimeRef,
   broadcastFinished,
   audioSpeed,
-  audioSpeedDeviation,
   disturbVol,
   pageData,
   messageHeader,
