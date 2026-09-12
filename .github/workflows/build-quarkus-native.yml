@@ -54,6 +54,12 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: bw-frontend/frontend/package-lock.json
+      # 发布校验契约测试（Git fixture，不依赖网络/npm）。桌面包本体只在 tag 上构建，
+      # PR/push 由这一步守门：tag 与三个版本号的一致性、产物目录集合、桌面包
+      # 内嵌后端二进制的一致性全部在这里可观察。
+      - name: Test release verification contracts
+        working-directory: bw-frontend
+        run: node --test 'scripts/test/*.test.mjs'
       - name: Install dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Test question import contracts
@@ -208,9 +214,92 @@ jobs:
           path: backend/target/artifact-${{ matrix.asset_suffix }}/*
           if-no-files-found: error
 
+  desktop:
+    name: Desktop package (linux --dir)
+    # 只在 tag 上跑：一次完整 vite build + 下载 electron 运行时 + ~300MB 未打包产物，
+    # 每次 push 都构建代价过大；PR/push 的守门放在 frontend job 的契约测试里。
+    if: startsWith(github.ref, 'refs/tags/')
+    # 必须等 build：桌面包内的后端二进制取自本次 native 产物，不是打包者本机状态。
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 桌面工具链（electron-builder 22.14.13）是 2021 年的版本，固定在 Node 20 LTS；
+      # Web 链路继续用 24。
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            bw-frontend/package-lock.json
+            bw-frontend/frontend/package-lock.json
+
+      - name: Download Linux amd64 native artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-native-linux-amd64
+          path: ${{ runner.temp }}/native-linux-amd64
+
+      # package.json 的 extraFiles 只声明 ./bin，而 electron/service/index.js:27 按
+      # `<appPath>/bin/server/server` 启动后端 —— 本地打包时这份二进制是打包者手工放的
+      # （DELIVERY-04 抱怨的「取自打包者本机状态」）。这里从已校验的 native 产物 staging：
+      # bin/server/ 已在 bw-frontend/.gitignore（native 二进制超 GitHub 单文件上限），
+      # 因此写进工作树不会让 git status 变脏 —— bin/ 的内容恰好是「tag 的 git 树 +
+      # 本次 native 产物」，这就是 extraFiles 需要的干净 staging 目录，无需改 package.json。
+      - name: Stage released backend binary into bin/server/server
+        env:
+          NATIVE_INPUT: ${{ runner.temp }}/native-linux-amd64
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          runners=("$NATIVE_INPUT"/quarkus-*-linux-amd64)
+          if [ "${#runners[@]}" -ne 1 ]; then
+            echo "Expected exactly one native runner in $NATIVE_INPUT, found ${#runners[@]}"
+            exit 1
+          fi
+          mkdir -p bw-frontend/bin/server
+          cp "${runners[0]}" bw-frontend/bin/server/server
+          chmod +x bw-frontend/bin/server/server
+
+      # 不能加 --ignore-scripts：electron 的 postinstall 才会把运行时解到
+      # node_modules/electron/dist，下一步的 --config.electronDist 就指向它。
+      - name: Install desktop dependencies
+        working-directory: bw-frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        working-directory: bw-frontend/frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # --dir 只出未打包目录：deb/nsis 需要 fpm、中文 productName 的资产名规范化与
+      # /opt 权限处理，本轮明确不做（Spec §1.2）。前端由 beforePack 钩子自行构建。
+      # electronDist 复用 npm ci 已解出的运行时，省掉 electron-builder 的二次下载；
+      # 这条命令与 docs/plans/2026-09-10-customer-issue-fix-plan.md:178 记录的本地成功调用一致。
+      - name: Build unpacked desktop package
+        working-directory: bw-frontend
+        run: npm run build-e-l -- --dir --config.electronDist=node_modules/electron/dist
+
+      # 先按 backend 契约校验下载来的 native 产物，再逐字节确认包内 bin/server/server
+      # 就是它，然后产出桌面 manifest（含 SHA 清单与后端来源 SHA）与 zip。
+      - name: Package desktop artifact and manifest
+        env:
+          NATIVE_INPUT: ${{ runner.temp }}/native-linux-amd64
+          DESKTOP_OUTPUT: ${{ runner.temp }}/desktop-artifacts
+        run: node bw-frontend/scripts/artifact-manifest.cjs package-desktop "$NATIVE_INPUT" "$DESKTOP_OUTPUT"
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          path: ${{ runner.temp }}/desktop-artifacts/*
+          if-no-files-found: error
+
   release:
     name: Publish Release
-    needs: [frontend, build, test]
+    needs: [frontend, build, test, desktop]
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -242,12 +331,21 @@ jobs:
         with:
           name: backend-native-windows-amd64
           path: ${{ runner.temp }}/release-input/windows-amd64
+      - name: Download desktop artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux
+          path: ${{ runner.temp }}/release-input/desktop-linux
+      # RELEASE_REF 让校验器断言 tag 版本 == backend/pom.xml == frontend/package.json
+      # == bw-frontend/package.json；三者互不相干，只比一个就会放出
+      # 「v1.1.0 的 tag 挂 3.1.0 桌面包」的发布。
       - name: Verify complete clean-source release set
         env:
           EXPECTED_COMMIT: ${{ github.sha }}
+          RELEASE_REF: ${{ github.ref }}
           RELEASE_INPUT: ${{ runner.temp }}/release-input
           RELEASE_OUTPUT: ${{ runner.temp }}/release-assets
-        run: node bw-frontend/scripts/artifact-manifest.cjs release "$RELEASE_INPUT" "$RELEASE_OUTPUT" "$EXPECTED_COMMIT"
+        run: node bw-frontend/scripts/artifact-manifest.cjs release "$RELEASE_INPUT" "$RELEASE_OUTPUT" "$EXPECTED_COMMIT" "$RELEASE_REF"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
