@@ -4,6 +4,7 @@
 - **评审对象**：`backend/`（Quarkus 3.20.4 / Java 21，770 个主源文件、61 个 controller、80 个 service）+ `bw-frontend/`（Electron 壳）+ `bw-frontend/frontend/`（Vue，262 个 `.vue`、293 个 `.js`、28 个 api 模块）
 - **代码基线**：`main` = `9f70c22`；本轮客户报障整改共 16 个提交（`4819227..9f70c22`），已推送 origin
 - **验证基线**：`cd backend && ./mvnw -B clean verify` → **316 测试 / 74 suite，0 失败 0 错误 0 跳过**（2026-09-12，2 分 36 秒）；前端 `npm run build` 成功
+- **整改后基线**：`main` = `0efbdf1`（已推送 origin），B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）；后端 **391 测试 / 93 suite 全绿**、前端 `npm run test` 19/19 + `build` 成功、迁移演练双快照全绿。详见 §6.2
 - **评审方式**：8 路并行只读评审队（评分采集 / 数据与迁移 / 安全授权 / 并发与 WS / 跨栈契约 / 前端 / 交付形态 / 测试与文档），逐条要求根相对 `path:line` 取证；全部 P0/P1 由主评审独立复核，复核结论与纠正记录见 §9
 - **本文定位**：**替代 `docs/reviews/2026-09-08-full-project-review.md` 成为当前唯一全项目评审入口**。2026-09-08 评审降为历史证据（其 216 测试基线等数字已过期）
 - **关联文档**：客户报障分析 `docs/reviews/2026-09-10-customer-issue-analysis.md`；本轮规格 `docs/specs/2026-09-10-customer-issue-fix-spec.md`；本轮计划 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付仍未完成）
@@ -33,6 +34,11 @@
 | R6 测试与文档漂移 | TESTDOC-01…12 | `%test` 未禁调度器致评分门禁竞态；AGENTS.md 四处事实性断言已过期 |
 
 **结论：不建议在 R1/R2/R4 处置前进行客户现场交付。** 本轮功能整改质量不构成阻塞项，阻塞项是授权与交付面。
+
+> **整改状态（2026-09-12 收口，本节结论已被执行结果覆盖）**：R1/R2/R4 连同 B1–B5、B7 已全部执行完毕，
+> 4 条 P0 与 11 条 P1 均已处置并有运行证据，执行记录与提交号见 §6.2。上述「不建议交付」结论对应的是
+> 评审当时的代码状态；当前阻塞项只剩 G4 可信证书与真实训练房间的设备授权环境，两者都是外部前置。
+> 唯一撤销项是 SEC-12 的 `%prod` 启动守卫（技术上不成立，理由见 §6.2）。
 
 ---
 
@@ -268,13 +274,13 @@ GET /api/generalKeyPat/getTrainInfoBatch
 
 | 批次 | 内容 | 覆盖 | 阻塞关系 |
 |---|---|---|---|
-| **B1 止血（发布前必做）** | ① `UserSyncDto` 删除 `password/token/deviceId` 或 convert 忽略三字段；② 4 个 controller 补类级 `@JWT`；③ `teacherUploadScore` 加授权；④ 文件服务路径归一 + 绑定 127.0.0.1 + 去 CORS `*` | P0-01…04 | 无；应先于任何交付 |
-| **B2 授权层收口** | `@RequireAdmin` 扩到评分规则/主数据/题库写端点；训练 `delete`/`updateStatus` 改属主或管理员判定（复用 `readableMember` 同构的 `writableTrain`）；理论考试与 free 统计端点改 token 推导身份并删除请求体 `userId`；补架构测试防回归 | SEC-03/07/08/09/10、SCORE-02 | 跨栈契约改动，需同步 `common/api/*.js`（红线 5） |
-| **B3 凭据协议** | token 改 `SecureRandom` 不透明串（与口令解耦）+ DB 存哈希 + `issuedAt/expiresAt` + 移除 query-string 回退；WS 握手校验 token/deviceId 并以校验结果覆盖路径 `uid`；`%prod` 口令改环境变量注入并降权 | SEC-04/05/06/12 | 依赖 B2；需前端 `http/index.js` 同版本发布，接 `docs/plans/2026-09-09-password-session-migration-plan.md` |
-| **B4 组训数据报域** | 纳入采集契约重算码率/用时 + 冻结满分 + 行锁 + 事务后通知 + token 主体；前端 `datagramZuXun` 同步 `telexZuXun` 修复。**或**整域下线 | SCORE-01/02/03、CONTRACT-01、FE-02 | 需先确认该域是否启用（§7） |
-| **B5 桌面交付** | `bin/nip.db` 发布态归一为 localhost；`contextIsolation:true` + preload 白名单、恢复 `webSecurity`、去 `--ignore-certificate-errors`；桌面包纳入 CI 并出 manifest；release 断言 tag == `pom.version`；串口选择器三处修复 | DELIVERY-01/03/04/05/06/07 | B5 的证书项是 G4「可信证书」门禁前提 |
+| **B1 止血（发布前必做）** ✅**已执行（2026-09-12）** | ① `UserSyncDto` 删除 `password/token/deviceId` 或 convert 忽略三字段；② 4 个 controller 补类级 `@JWT`；③ `teacherUploadScore` 加授权；④ 文件服务路径归一 + 绑定 127.0.0.1 + 去 CORS `*` | P0-01…04 | 无；应先于任何交付 |
+| **B2 授权层收口** ✅**已执行（2026-09-12）** | `@RequireAdmin` 扩到评分规则/主数据/题库写端点；训练 `delete`/`updateStatus` 改属主或管理员判定（复用 `readableMember` 同构的 `writableTrain`）；理论考试与 free 统计端点改 token 推导身份并删除请求体 `userId`；补架构测试防回归 | SEC-03/07/08/09/10、SCORE-02 | 跨栈契约改动，需同步 `common/api/*.js`（红线 5） |
+| **B3 凭据协议** ✅**已执行（2026-09-12，SEC-12 守卫项撤销）** | token 改 `SecureRandom` 不透明串（与口令解耦）+ DB 存哈希 + `issuedAt/expiresAt` + 移除 query-string 回退；WS 握手校验 token/deviceId 并以校验结果覆盖路径 `uid`；`%prod` 口令改环境变量注入并降权 | SEC-04/05/06/12 | 依赖 B2；需前端 `http/index.js` 同版本发布，接 `docs/plans/2026-09-09-password-session-migration-plan.md` |
+| **B4 组训数据报域** ✅**已执行（2026-09-12，选「修复」而非下线）** | 纳入采集契约重算码率/用时 + 冻结满分 + 行锁 + 事务后通知 + token 主体；前端 `datagramZuXun` 同步 `telexZuXun` 修复。**或**整域下线 | SCORE-01/02/03、CONTRACT-01、FE-02 | 需先确认该域是否启用（§7） |
+| **B5 桌面交付** ✅**已执行（2026-09-12，证书门禁仍为外部前置）** | `bin/nip.db` 发布态归一为 localhost；`contextIsolation:true` + preload 白名单、恢复 `webSecurity`、去 `--ignore-certificate-errors`；桌面包纳入 CI 并出 manifest；release 断言 tag == `pom.version`；串口选择器三处修复 | DELIVERY-01/03/04/05/06/07 | B5 的证书项是 G4「可信证书」门禁前提 |
 | **B6 测试与文档** ✅**已执行（2026-09-12）** | 见下方执行记录 | TESTDOC-01…12 | 已完成 |
-| **B7 长尾** | 电传倒计时补索引；`GeneralSettlementRecovery` 扫描兜底；裸 `firstResult()` 分批收敛（优先鉴权与结算写路径）；迁移序号唯一化 + 回滚 runbook；死代码与热路径日志清理 | DATA-01…07、CONC-01、SEC-11、FE-01/03 | 无 |
+| **B7 长尾** ✅**已执行（2026-09-12）** | 电传倒计时补索引；`GeneralSettlementRecovery` 扫描兜底；裸 `firstResult()` 分批收敛（优先鉴权与结算写路径）；迁移序号唯一化 + 回滚 runbook；死代码与热路径日志清理 | DATA-01…07、CONC-01、SEC-11、FE-01/03 | 无 |
 
 ### 6.1 B6 执行记录（2026-09-12，7 个提交 `f31861a..dfb43c3`）
 
@@ -291,6 +297,82 @@ GET /api/generalKeyPat/getTrainInfoBatch
 **执行后基线**：后端 `./mvnw -B clean verify` → **317 测试 / 75 suite，0 失败 0 错误 0 跳过**；前端 `npm run test` 15/15、`npm run build` 成功。中间提交非坏态已验证（`7873645`、`5eda012` 独立 `test-compile` 通过）。
 
 **B6 未做的两项**（需重构生产代码，另立项）：`ElectronMorse` 的纯状态机与 `useConfirmedSubmission` 的「单在途 + generation 取消」状态机需从 Vue 生命周期/`Modal`/`localStorage` 中剥离才能单测；四个 WS 测试类各自的私有 `SessionProbe` 未合并（共享版 `getBasicRemote()` 返回非 null，会把当前被 `catch` 吞掉的 NPE 变成真实记账，可能翻转既有断言）。
+
+### 6.2 B1–B5、B7 执行记录（2026-09-12，32 个提交 `e7b5477..0efbdf1`）
+
+Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-review-fix-spec.md)、[`../plans/2026-09-12-review-fix-plan.md`](../plans/2026-09-12-review-fix-plan.md)（两份文档已按执行中的实测结果就地更正，撤销项保留撤销理由）。
+
+**B1 止血（4 条 P0 全关）**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| P0-01 | 训练同步端点不再回传 `token/deviceId/password`；导出加归属判定 | `fcbd798` |
+| P0-02 | 4 个 controller 补类级 `@JWT`，并加架构测试守卫（新增非 free controller 漏注解即失败） | `bb69a0c` |
+| P0-03 | `teacherUploadScore` 补 `@RequireAdmin` + 考生归属校验 | `e2af312` |
+| P0-04 | 文件服务路径约束在资源根内、默认只监听 127.0.0.1；死配置与硬编码业务地址清理 | `07ef886`、`e1d9cdd`、`25b7830` |
+
+**B2 授权层收口**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| SEC-07/08 | 评分规则与理论主数据写端点补管理员授权 | `5fd80fb` |
+| SEC-09 | 用户目录端点收敛授权并参数化查询（顺手消除拼接查询） | `caca347` |
+| SEC-10、SCORE-02 | 理论考试与训练统计端点按 token 收口身份，删除请求体 `userId` | `995c669` |
+| 授权语义 | 统一授权拒绝为 `code:207`，并把「对象不存在」与「无权」分离（不再用 404 语义泄露存在性） | `e7b5477`、`b8cc186`（既有用例改断言 207） |
+| 训练写权限 | `writableTrain` 统一口径，给缺判定的端点补授权；训练导入端点补授权 + 用户字段白名单 | `ea02d4a`、`47f0741` |
+
+**B3 凭据协议**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| SEC-04 | token 改 `SecureRandom` 不透明串（与口令解耦），DB 存哈希 | `f239d14` |
+| SEC-05 | 鉴权只接受请求头，移除 query-string 回退；停止回传原始异常 | `a548f14` |
+| SEC-06 | WS 握手校验 `token`+`deviceId` 并以校验身份覆盖路径 `uid`；`StartWebSocket` 整类删除；`/status` 按决策保持匿名 | `8fe2547` |
+| SEC-12 | `%prod` 凭据改 `${DB_USER}`/`${DB_PASSWORD}`（无默认值）、`/api/tools/system` 整端点删除 | `d5e3139` |
+| SEC-12 守卫项 | **撤销**：`@Observes StartupEvent` 守卫是死代码（JPA 引导早于观察者），前移到 SmallRye 配置拦截器会挡掉 `mvn package`；改为写入 `%prod` 配置注释与 `backend/README.md` 硬约束，并删除只断言静态方法的 5 条测试 | `0efbdf1` |
+
+**B4 组训数据报/电传域（选「修复」而非下线）**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| SCORE-01/02/03、CONTRACT-01 | 按服务端采集记录评分：码率/用时从原始区间重算、冻结满分、行锁 + 幂等、事务后通知、主体改 token 推导 | `0c03279` |
+| FE-02 | 前端 `datagramZuXun` 学生页同步 `telexZuXun` 的提交失败与恢复修复 | `9704267` |
+| 契约分层 | 终态与瞬态业务错误分离（新增 `208` 终态码 + `TerminalStateException`），前端不再对终态错误引导无效重试 | `e83d083`、`3216099` |
+
+**B5 桌面交付**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| DELIVERY-01 | 随包 `bin/nip.db` 归一为发布态默认（localhost:18001 / 127.0.0.1:8000） | `e1d9cdd` |
+| DELIVERY-03/04 | 渲染进程启用 `contextIsolation`、preload 白名单桥、恢复 `webSecurity`、移除 `--ignore-certificate-errors` | `2b465f2` |
+| DELIVERY-05 | 桌面包纳入 CI 并产出 manifest；release 断言 tag == `pom.version` == 两个 `package.json` 版本 | `3611281` |
+| DELIVERY-06/07 | 串口链路容错并改为用户显式授权（三处修复） | `5c3a285` |
+
+**B7 长尾**
+
+| 发现 | 处置 | 提交 |
+|---|---|---|
+| DATA-01 | 电传倒计时扫描补支撑索引 `idx_post_telex_due(status,deadline)`；演练数组按字典序重排 | `413370c` |
+| DATA 迁移序号 | 菜单数据迁移与电传时钟 DDL 拆分，序号唯一化 | `277d0ff` |
+| CONC-01 | 启动结算扫描兜底补回归测试 | `da1d32c` |
+| SEC-11 | 鉴权路径不再裸解引用 DAO 空返回（改走 `getUserByToken`，失效即 203） | `a80ae6d` |
+| 结算热路径 | 收尾扫描改主键投影 | `bea4614` |
+| FE-01/03 | 前端热路径日志与死代码清理；通播教学页显示后端真实拒因 | `acb1bcc`、`b5228ea` |
+
+**执行后基线**
+
+- 后端 `./mvnw -B clean verify` → **391 测试 / 93 suite，0 失败 0 错误 0 跳过**（B6 收口时为 317/75；本轮净增 74 条回归）。
+- 前端 `npm run test` **19/19**、`npm run build` 成功。
+- 迁移演练 `backend/scripts/rehearse-migrations.sh` **双快照全绿**，含新索引断言与「实体列 ⊆ 快照」的 `validate` 等价断言。
+- **真实打包产物实测**（`electron-builder --linux --dir` 产物 + CDP）：`require/process/module` 均 `undefined`、`window.electron.ipcRenderer` 只暴露 6 个白名单方法、`AudioWorklet.addModule` 在 `file://` + `contextIsolation` 下仍可用；随包地址为 `http://localhost:18001` / `http://127.0.0.1:8000/api/file/getFile`；文件服务只 `LISTEN 127.0.0.1:8000`，两条穿越样本均 404，局域网地址连接被拒。
+- **`%prod` 产物实测**：缺 `DB_USER`/`DB_PASSWORD` → JPA 引导失败退出、不监听 HTTP；注入后 `started in 3.188s`、`validate` 通过、`/q/openapi`=200、登录信封仍为 HTTP 200 + `code:500`。
+
+**残留（不在本轮范围或需外部前置）**
+
+- G4「可信证书」仍是外部门禁：本轮只移除了 `--ignore-certificate-errors`，未引入证书链。
+- 真实训练房间的浏览器 Network 证据仍需设备授权环境，属外部前置（与 §7 一致）。
+- 迁移演练首跑曾因 MySQL 容器就绪竞态失败一次（`mysqladmin ping` 会命中 entrypoint 的临时实例），重跑全绿；脚本的就绪判定可再加固，未纳入本轮。
+- §7 其余「需产品确认」事项未因本轮执行而关闭。
 
 ---
 
