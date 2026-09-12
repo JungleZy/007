@@ -8,6 +8,7 @@ import com.nip.dao.UserRoleDao;
 import com.nip.entity.RoleEntity;
 import com.nip.entity.UserEntity;
 import com.nip.entity.UserRoleEntity;
+import com.nip.testsupport.Fixtures;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -141,7 +142,7 @@ class PasswordMigrationTest {
     user.setStatus(0);
     String token = "password-token-" + UUID.randomUUID();
     // 库里只落摘要（与 UserService.login 同口径），返回对象保留明文供用例当请求头凭据
-    user.setToken(SessionToken.hash(token));
+    Fixtures.sessionToken(user, token);
     user.setDeviceId("password-device-" + UUID.randomUUID());
     UserEntity saved = userDao.saveAndFlush(user);
     saved.setToken(token);

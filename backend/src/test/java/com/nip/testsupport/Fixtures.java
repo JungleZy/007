@@ -37,11 +37,42 @@ public final class Fixtures {
     // existsUserEntitiesByIdCardOrUserAccount / findUserEntityByUserAccount 等
     // 按账号查询的路径跨用例串数据。
     u.setUserAccount("tester-" + UUID.randomUUID());
-    u.setToken(SessionToken.hash(token));
+    sessionToken(u, token);
     u.setDeviceId(deviceId);
     UserEntity saved = QuarkusTransaction.requiringNew().call(() -> userDao.save(u));
     saved.setToken(token);
     return saved;
+  }
+
+  /**
+   * 把明文 token 写成**库口径的摘要**，返回同一实例供调用方继续设置领域字段后自行落库。
+   *
+   * <p>给 {@link #user} 覆盖不到的播种场景用：那些用例要额外落 {@code idCard}/{@code phone}/
+   * {@code password}/{@code status}，或者要先返回脱管实体再由调用方保存。它们过去各自写
+   * {@code setToken(SessionToken.hash(t))}，于是"入库必须是摘要"这条口径在测试支撑里有 4 份副本，
+   * 抄漏一处就是鉴权按摘要查不到人、用例静默拿 206（`UserDirectoryAuthorizationTest` 已踩过一次）。
+   * 现在 {@link SessionToken#hash} 在测试侧只剩三类出现：本方法（写）、{@link #userIdByToken}（读），
+   * 以及两个**断言存储口径本身**的用例（`OpaqueSessionTokenTest`、`PasswordMigrationTest`）——
+   * 后者必须直接引用摘要函数，它就是被断言的契约。
+   *
+   * <p>落库后记得把明文写回返回值（{@code saved.setToken(明文)}）当请求头凭据用。
+   */
+  public static UserEntity sessionToken(UserEntity user, String plaintext) {
+    user.setToken(SessionToken.hash(plaintext));
+    return user;
+  }
+
+  /**
+   * 按明文 token 反查用户 id。
+   *
+   * <p>库里存的是摘要，所以不能拿明文直接 {@code find("token", 明文)} —— 那样查不到人，
+   * 用例会以 NPE 或空结果的形式莫名失败。三个训练域的 service 测试都要用播种用户的 id
+   * 填 {@code createUser}/{@code createUserId}，过去各自写一遍摘要转换。
+   */
+  public static String userIdByToken(UserDao userDao, String token) {
+    UserEntity user = userDao.find("token", SessionToken.hash(token)).firstResult();
+    if (user == null) throw new IllegalStateException("未按 token 找到播种用户，检查是否走了 Fixtures 播种");
+    return user.getId();
   }
 
   public static GradingRuleEntity handkeyRule(GradingRuleDao dao) {

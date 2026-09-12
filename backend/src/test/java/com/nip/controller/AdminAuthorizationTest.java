@@ -1,6 +1,6 @@
 package com.nip.controller;
 
-import com.nip.common.security.SessionToken;
+import com.nip.testsupport.Fixtures;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -190,7 +190,7 @@ class AdminAuthorizationTest {
     user.setPassword(MD5Util.encrypt("password"));
     String token = prefix + "-token-" + UUID.randomUUID();
     // 库里只落摘要（与 UserService.login 同口径），返回对象保留明文供用例当请求头凭据
-    user.setToken(SessionToken.hash(token));
+    Fixtures.sessionToken(user, token);
     user.setDeviceId(prefix + "-device-" + UUID.randomUUID());
     UserEntity saved = userDao.saveAndFlush(user);
     saved.setToken(token);
@@ -205,7 +205,7 @@ class AdminAuthorizationTest {
    */
   private UserEntity resave(UserEntity user) {
     String token = user.getToken();
-    user.setToken(SessionToken.hash(token));
+    Fixtures.sessionToken(user, token);
     UserEntity saved = userDao.saveAndFlush(user);
     saved.setToken(token);
     return saved;

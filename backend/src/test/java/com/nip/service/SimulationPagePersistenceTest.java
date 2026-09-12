@@ -1,6 +1,5 @@
 package com.nip.service;
 
-import com.nip.common.security.SessionToken;
 import com.nip.dao.UserDao;
 import com.nip.dao.simulation.SimulationRouterRoomContentDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
@@ -232,8 +231,7 @@ class SimulationPagePersistenceTest {
   }
 
   private String userId(String token) {
-    // t_user.token 存的是摘要（T3-1），按明文查不到人。
-    return userDao.find("token", SessionToken.hash(token)).singleResult().getId();
+    return Fixtures.userIdByToken(userDao, token);
   }
 
   private static String token() {

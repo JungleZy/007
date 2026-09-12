@@ -1,6 +1,6 @@
 package com.nip.controller;
 
-import com.nip.common.security.SessionToken;
+import com.nip.testsupport.Fixtures;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -61,7 +61,7 @@ class CatalogAuthorizationTest {
     user.setUserName("catalog-ordinary");
     user.setUserAccount("catalog-" + UUID.randomUUID());
     user.setIdCard("11010119900101" + String.format("%04d", UUID.randomUUID().hashCode() & 0xFFFF));
-    user.setToken(SessionToken.hash(token));
+    Fixtures.sessionToken(user, token);
     user.setDeviceId(deviceId);
     return user;
   }

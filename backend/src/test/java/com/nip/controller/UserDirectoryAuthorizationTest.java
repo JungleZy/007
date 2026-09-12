@@ -1,6 +1,5 @@
 package com.nip.controller;
 
-import com.nip.common.security.SessionToken;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -148,7 +147,7 @@ class UserDirectoryAuthorizationTest {
     user.setIdCard("11010119900101" + String.format("%04d", (UUID.randomUUID().hashCode() & 0x7FFFFFFF) % 10000));
     user.setPhone("139" + String.format("%08d", (UUID.randomUUID().hashCode() & 0x7FFFFFFF) % 100000000));
     user.setEmail(user.getUserAccount() + "@example.com");
-    user.setToken(SessionToken.hash(token));
+    Fixtures.sessionToken(user, token);
     UserEntity saved = userDao.saveAndFlush(user);
     saved.setToken(token);
     return saved;
