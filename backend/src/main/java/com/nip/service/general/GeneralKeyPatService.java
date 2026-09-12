@@ -17,7 +17,6 @@ import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
 import com.nip.controller.general.GeneralKeyPatTrainController;
 import com.nip.dao.GradingRuleDao;
-import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.general.key.GeneralKeyPatDao;
 import com.nip.dao.general.key.GeneralKeyPatPageDao;
@@ -69,6 +68,7 @@ import com.nip.entity.simulation.key.GeneralKeyPatUserEntity;
 import com.nip.entity.simulation.key.GeneralKeyPatUserValueEntity;
 import com.nip.entity.simulation.key.GeneralKeyPatUserValueResolverEntity;
 import com.nip.service.CableFloorService;
+import com.nip.service.TrainWriteAccess;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketGeneralKeyPatService;
 import com.nip.ws.WebSocketService;
@@ -114,10 +114,10 @@ public class GeneralKeyPatService {
   @Inject GeneralPatResultNotifier resultNotifier;
 
   /**
-   * 导出授权要判管理员一档。构造器已被 GeneralSettlementRecoveryTest 以固定实参列表调用，
+   * 写/导出授权的唯一口径。构造器已被 GeneralSettlementRecoveryTest 以固定实参列表调用，
    * 这里用字段注入避免改动构造器签名。
    */
-  @Inject RoleDao roleDao;
+  @Inject TrainWriteAccess trainWriteAccess;
 
   @Inject
   public GeneralKeyPatService(GeneralKeyPatDao trainDao,
@@ -274,7 +274,16 @@ public class GeneralKeyPatService {
     return PojoUtils.convertOne(save, GeneralKeyPatTrainVO.class);
   }
 
-  public boolean delete(Integer trainId) {
+  /**
+   * 解散电子键组训。口径 = 创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员，见 {@link TrainWriteAccess}。
+   * 属主字段是 {@code createUser}（各域字段名不同，这里显式传入）。
+   */
+  public boolean delete(Integer trainId, String token) {
+    String actorId = userService.getUserByToken(token).getId();
+    GeneralKeyPatEntity train = Optional.ofNullable(trainDao.findById(trainId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    trainWriteAccess.requireWritableTrain(actorId, train.getCreateUser(), () -> organizer(trainId, actorId),
+        "电子键组训 " + trainId);
     Lock lock = RoomLifecycleLocks.generalKeyRoom(trainId);
     GeneralPatTrainRoomUserDto removed;
     boolean deleted;
@@ -577,19 +586,17 @@ public class GeneralKeyPatService {
   }
 
   /**
-   * 开放给socket的接口
+   * 开放给socket的接口。
    *
-   * @param
+   * <p>写口径统一为「创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员」（{@link TrainWriteAccess}）：
+   * 组训人常常不是建训人，收窄到「仅创建者」会让他开不了自己带的训练；拒绝码由旧的 202 改为 207。
    */
   @Transactional
   public void updateStatus(Integer trainId, Integer status, String token) {
     String userId = userService.getUserByToken(token).getId();
     GeneralKeyPatEntity keyPatTrain = lockedTrain(trainId);
-    GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(userId, trainId);
-    if (!Objects.equals(keyPatTrain.getCreateUser(), userId)
-        && (member == null || !Objects.equals(member.getRole(), 1))) {
-      throw new IllegalArgumentException("无权管理该训练");
-    }
+    trainWriteAccess.requireWritableTrain(userId, keyPatTrain.getCreateUser(), () -> organizer(trainId, userId),
+        "电子键组训 " + trainId);
     requireProtocol(keyPatTrain);
     if (!Objects.equals(status, 1) && !Objects.equals(status, 2)) {
       throw new IllegalArgumentException("训练状态不合法");
@@ -624,8 +631,12 @@ public class GeneralKeyPatService {
 
   @Transactional
   public List<Integer> closingTrainIds() {
-    return trainDao.find("protocolVersion = 1 and status = 3 and endTime <= ?1", LocalDateTime.now().minusSeconds(60))
-        .list().stream().map(GeneralKeyPatEntity::getId).toList();
+    // 只投影主键：该查询每 5 秒由收尾定时器执行一次，取整行会把 ruleContent 等 longtext 一并载入持久化上下文后立刻丢弃。
+    return trainDao.getEntityManager().createQuery(
+            "select id from general_key_pat where protocolVersion = 1 and status = 3 and endTime <= :deadline",
+            Integer.class)
+        .setParameter("deadline", LocalDateTime.now().minusSeconds(60))
+        .getResultList();
   }
 
   @Transactional
@@ -1069,22 +1080,20 @@ public class GeneralKeyPatService {
   }
 
   /**
-   * 导出授权判定（唯一口径）：创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员。
+   * 导出授权判定，与写口径同构：创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员，统一在 {@link TrainWriteAccess}。
    *
-   * <p>与 {@link #readableMember} 同构，只多一档管理员（离线归档由管理员执行），不另立第二套口径。
-   * 训练不存在返回 {@code false}：批量导出据此跳过孤儿参训行；单点导出的「不存在」由调用方先判为 202。
+   * <p>训练不存在返回 {@code false}：批量导出据此跳过孤儿参训行；单点导出的「不存在」由调用方先判为 202。
    */
   private boolean exportable(Integer trainId, String actorId) {
     GeneralKeyPatEntity train = trainDao.findById(trainId);
-    if (train == null) {
-      return false;
-    }
-    if (Objects.equals(train.getCreateUser(), actorId)) {
-      return true;
-    }
+    return train != null
+        && trainWriteAccess.manages(actorId, train.getCreateUser(), () -> organizer(trainId, actorId));
+  }
+
+  /** 「调用者是该训练内的 {@code role=1} 组训人」。 */
+  private boolean organizer(Integer trainId, String actorId) {
     GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(actorId, trainId);
-    return (member != null && Objects.equals(member.getRole(), 1))
-        || roleDao.existsAdminRoleByUserId(actorId);
+    return member != null && Objects.equals(member.getRole(), 1);
   }
 
   private GeneralKeyPatTrainDto trainInfo(Integer trainId) {
@@ -1111,6 +1120,13 @@ public class GeneralKeyPatService {
     return dto;
   }
 
+  /**
+   * 离线导入。入口在 {@code /api/generalKeyPat/importTrainInfo}，已由 {@code @RequireAdmin} 限管理员（SEC-05）。
+   *
+   * <p>包内用户行一律经 {@link com.nip.service.UserService#replaceUserIdAndSaveIfNotExist(java.util.List)}
+   * 的字段白名单建号：只落业务标识，{@code token}/{@code deviceId}/{@code password} 留 NULL、
+   * {@code status} 服务端定 0 —— 导入不产生任何可直接使用的账号。
+   */
   @Transactional
   public void importTrainInfo(GeneralKeyPatTrainDto dto) {
     GeneralKeyPatSyncDto trainDto = dto.getTrainDto();

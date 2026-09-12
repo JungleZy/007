@@ -2,6 +2,7 @@ package com.nip.controller.general;
 
 import com.nip.common.PageInfo;
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.Page;
@@ -150,8 +151,13 @@ public class GeneralKeyPatController {
     return ResponseResult.success(patTrainService.getTrainInfo(trainId, token));
   }
 
+  /**
+   * 离线导入会按账号在本库<b>建账号</b>并重写训练归属，属于管理动作而非参训动作，
+   * 因此必须限管理员（SEC-05）。库里不存在教员角色，{@code @RequireAdmin} 是唯一可用口径。
+   */
   @POST
   @Path("importTrainInfo")
+  @RequireAdmin
   @Operation(summary = "导入到本地库")
   public Response<Void> importTrainInfo(@RequestBody GeneralKeyPatTrainDto dto) {
     patTrainService.importTrainInfo(dto);
@@ -167,6 +173,7 @@ public class GeneralKeyPatController {
 
   @POST
   @Path("importTrainInfoBatch")
+  @RequireAdmin
   @Operation(summary = "导入到本地库")
   public Response<Void> importTrainInfoBatch(@RequestBody List<GeneralKeyPatTrainDto> dto) {
     patTrainService.importTrainInfoBatch(dto);
@@ -193,7 +200,7 @@ public class GeneralKeyPatController {
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId) {
-    return ResponseResult.success(patTrainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.delete(trainId, token));
   }
 }
