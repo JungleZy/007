@@ -2,6 +2,7 @@ package com.nip.controller;
 
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.AllExamDto;
@@ -76,8 +77,15 @@ public class TheoryKnowledgeExamUserController {
     return ResponseResult.success(ret);
   }
 
+  /**
+   * 教员阅卷上分。
+   *
+   * <p>库中只有「系统管理员」(is_admin=0) 与「普通人员」(is_admin=1) 两种角色，没有教员角色，
+   * 因此上分权限只能收敛到系统管理员：需要上分的教员必须被赋予系统管理员角色。</p>
+   */
   @POST
   @Path("/teacherUploadScore")
+  @RequireAdmin
   public Response<Void> teacherUploadScore(@RequestBody Map<String, Object> map) {
     return theoryKnowledgeExamUserService.teacherUploadScore(String.valueOf(map.get(EXAM_ID)), map.get("list"));
   }

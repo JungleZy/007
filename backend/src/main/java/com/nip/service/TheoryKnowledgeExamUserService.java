@@ -14,8 +14,10 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -46,23 +48,46 @@ public class TheoryKnowledgeExamUserService {
     return ResponseResult.success(theoryKnowledgeExamUserEntities);
   }
 
+  /**
+   * 教员阅卷上分（端点已收敛到 {@code @RequireAdmin}）。
+   *
+   * <p>先整批校验归属，再整批落库：只要列表中有一个条目不是该 examId 下真实存在的考生行，
+   * 就抛 {@link IllegalArgumentException}（业务码 202）中止事务，同批的合法考生也不会被写入，
+   * 避免「半批上分」留下不可追溯的分数。</p>
+   */
   @Transactional
   public Response<Void> teacherUploadScore(String examId, Object map) {
     List<Map<String, Object>> maps = JSONUtils.fromJson(JSONUtils.toJson(map), new TypeToken<>() {
     });
+    if (Objects.isNull(maps) || maps.isEmpty()) {
+      throw new IllegalArgumentException("上分列表不能为空");
+    }
+    // 第一遍：解析并校验每个条目的考生归属，任一不匹配整批拒绝
+    List<TheoryKnowledgeExamUserEntity> targets = new ArrayList<>(maps.size());
     for (Map<String, Object> entry : maps) {
-      String userId = entry.get("user_id").toString();
-      TheoryKnowledgeExamUserEntity allByExamIdAndUserId = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, userId);
-      if (null != allByExamIdAndUserId) {
-        allByExamIdAndUserId.setScore(new BigDecimal(entry.get("score").toString()).intValue());
-        allByExamIdAndUserId.setState(4);
-        allByExamIdAndUserId.setContent(
-            Optional.ofNullable(entry.get("content"))
-                .map(JSONUtils::toJson)
-                .orElse("{}")
-        );
+      Object rawUserId = entry.get("user_id");
+      if (Objects.isNull(rawUserId) || rawUserId.toString().isBlank()) {
+        throw new IllegalArgumentException("上分列表中存在缺少 user_id 的条目，整批已拒绝");
       }
-      theoryKnowledgeExamUserDao.save(allByExamIdAndUserId);
+      String userId = rawUserId.toString();
+      TheoryKnowledgeExamUserEntity examUser = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, userId);
+      if (Objects.isNull(examUser)) {
+        throw new IllegalArgumentException("考生 " + userId + " 不是本场考试的考生，整批上分已拒绝");
+      }
+      targets.add(examUser);
+    }
+    // 第二遍：全部校验通过后才写入
+    for (int i = 0; i < maps.size(); i++) {
+      Map<String, Object> entry = maps.get(i);
+      TheoryKnowledgeExamUserEntity examUser = targets.get(i);
+      examUser.setScore(new BigDecimal(entry.get("score").toString()).intValue());
+      examUser.setState(4);
+      examUser.setContent(
+          Optional.ofNullable(entry.get("content"))
+              .map(JSONUtils::toJson)
+              .orElse("{}")
+      );
+      theoryKnowledgeExamUserDao.save(examUser);
     }
     return ResponseResult.success();
   }
