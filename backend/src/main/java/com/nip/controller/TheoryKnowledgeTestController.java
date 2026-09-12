@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.dto.TheoryKnowledgeTestDto;
 import com.nip.dto.TheoryKnowledgeTestUserDto;
@@ -41,6 +42,7 @@ public class TheoryKnowledgeTestController {
 
   @POST
   @Path("/saveTheoryKnowledgeTest")
+  @RequireAdmin
   public Response<TheoryKnowledgeTestDto> saveTheoryKnowledgeTest(@RestHeader(TOKEN) String token,
                                                                   TheoryKnowledgeTestDto testDto) {
     return testService.saveKnowledgeTest(token, testDto);

@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.entity.GradingRuleEntity;
 import com.nip.service.GradingRuleService;
@@ -51,6 +52,7 @@ public class GradingRuleController {
   @Path("/saveGradingRule")
   @Operation(summary = "保存评分规则")
   @POST
+  @RequireAdmin
   public Response<GradingRuleEntity> saveGradingRule(GradingRuleEntity entity) {
     return gradingRuleService.saveGradingRule(entity);
   }
@@ -58,6 +60,7 @@ public class GradingRuleController {
   @Path("/updateGradingRuleStatus")
   @POST
   @Operation(summary = "更新规则状态")
+  @RequireAdmin
   public Response<GradingRuleEntity> updateGradingRuleStatus(Map<String, Object> data) {
     return gradingRuleService.updateGradingRuleStatus(data.get(ID).toString(), (Integer) data.get("status"));
   }
@@ -65,6 +68,7 @@ public class GradingRuleController {
   @Path("/changeGradingRuleIsDefault")
   @POST
   @Operation(summary = "更新默认项")
+  @RequireAdmin
   public Response<Void> changeGradingRuleIsDefault(Map<String, Object> data) {
     return gradingRuleService.changeGradingRuleIsDefault(data.get(ID).toString());
   }
@@ -72,6 +76,7 @@ public class GradingRuleController {
   @Path("/deleteGradingRule")
   @POST
   @Operation(summary = "删除评分规则")
+  @RequireAdmin
   public Response<Void> deleteGradingRule(Map<String, String> data) {
     return gradingRuleService.deleteGradingRule(data.get(ID));
   }

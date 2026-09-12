@@ -3,6 +3,7 @@ package com.nip.controller;
 
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.JSONUtils;
@@ -121,6 +122,7 @@ public class TheoryKnowledgeController {
 
   @POST
   @Path("/saveTheoryKnowledge")
+  @RequireAdmin
   public Response<TheoryKnowledgeEntity> saveTheoryKnowledge(TheoryKnowledgesDto knowledgesDto) {
     return knowledgeService.saveTheoryKnowledge(knowledgesDto);
   }
@@ -134,6 +136,7 @@ public class TheoryKnowledgeController {
 
   @POST
   @Path("/deleteThroyKnowledgeById")
+  @RequireAdmin
   public Response<Void> deleteThroyKnowledgeById(@RequestBody Map<String, String> map) {
     return knowledgeService.deleteThroyKnowledgeById(map.get(ID));
   }
@@ -161,6 +164,7 @@ public class TheoryKnowledgeController {
   @POST
   @Path("/addClassify")
   @Operation(summary = "添加或修改难易/专业分类")
+  @RequireAdmin
   public Response<TheoryKnowledgeClassifyVO> addClassify(TheoryKnowledgeClassifyDto dto, @RestHeader(TOKEN) String token) {
     return ResponseResult.success(classifyService.add(dto, token));
   }
@@ -168,6 +172,7 @@ public class TheoryKnowledgeController {
   @POST
   @Path("/removeClassify")
   @Operation(summary = "移除难易/专业分类")
+  @RequireAdmin
   public Response<Void> removeClassify(@RequestBody TheoryKnowledgeClassifyDto dto) {
     classifyService.remove(dto);
     return ResponseResult.success();

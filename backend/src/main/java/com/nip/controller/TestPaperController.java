@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.dto.TestPaperDto;
 import com.nip.service.TestPaperService;
@@ -36,6 +37,7 @@ public class TestPaperController {
 
   @POST
   @Path("/saveTestPaper")
+  @RequireAdmin
   public Response<Void> saveTestPaper(@RestHeader(TOKEN) String token, TestPaperDto testPaperDto) {
     return testPaperService.saveTestPaper(token, testPaperDto);
   }
@@ -60,6 +62,7 @@ public class TestPaperController {
 
   @POST
   @Path("/deleteTestPaper")
+  @RequireAdmin
   public Response<Void> deleteTestPaper(Map<String, String> map) {
     return testPaperService.deleteTestPaper(map.get(ID));
   }

@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.DeviceScoringRuleDto;
@@ -39,6 +40,7 @@ public class DeviceScoringRuleController {
   @Path("/save")
   @POST
   @Operation(summary = "添加/修改规则")
+  @RequireAdmin
   public Response<Void> saveRule(DeviceScoringRuleDto dto) {
     ruleService.save(dto);
     return ResponseResult.success();
@@ -47,6 +49,7 @@ public class DeviceScoringRuleController {
   @GET()
   @Path("/delete")
   @Operation(summary = "删除")
+  @RequireAdmin
   public Response<Void> delete(@RestQuery(ID) Integer id) {
     ruleService.deleteRule(id);
     return ResponseResult.success();

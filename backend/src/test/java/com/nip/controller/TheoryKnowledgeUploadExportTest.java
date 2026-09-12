@@ -1,5 +1,10 @@
 package com.nip.controller;
 
+import com.nip.entity.UserRoleEntity;
+import com.nip.entity.UserEntity;
+import com.nip.entity.RoleEntity;
+import com.nip.dao.UserRoleDao;
+import com.nip.dao.RoleDao;
 import com.nip.dao.TheoryKnowledgeQuestionDao;
 import com.nip.dao.UserDao;
 import com.nip.entity.TheoryKnowledgeQuestionEntity;
@@ -39,12 +44,25 @@ class TheoryKnowledgeUploadExportTest {
 
   @Inject UserDao userDao;
   @Inject TheoryKnowledgeQuestionDao questionDao;
+  @Inject RoleDao roleDao;
+  @Inject UserRoleDao userRoleDao;
 
   @BeforeEach
   void seedUser() {
     RestAssured.defaultParser = Parser.JSON;
     if (userDao.findUserEntityByToken(TOKEN) == null) {
-      Fixtures.user(userDao, TOKEN, DEVICE);
+      // 题库导入/导出已收敛为管理员写端点（SEC-07），夹具用户必须带系统管理员角色（is_admin=0），
+      // 否则本类测的是 207 授权拒绝而不是导入行为本身。
+      UserEntity actor = Fixtures.user(userDao, TOKEN, DEVICE);
+      RoleEntity role = new RoleEntity();
+      role.setTitle("tk-upload-export-admin-" + UUID.randomUUID());
+      role.setIsAdmin(0);
+      role.setIsDefault(1);
+      role = roleDao.saveAndFlush(role);
+      UserRoleEntity link = new UserRoleEntity();
+      link.setUserId(actor.getId());
+      link.setRoleId(role.getId());
+      userRoleDao.saveAndFlush(link);
     }
   }
 

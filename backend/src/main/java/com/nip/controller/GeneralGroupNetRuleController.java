@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.GeneralGroupNetRuleVO;
@@ -30,6 +31,7 @@ public class GeneralGroupNetRuleController {
   @POST
   @Path("/save")
   @Operation(summary = "添加配置")
+  @RequireAdmin
   public Response<GeneralGroupNetRuleVO> save(@RequestBody GeneralGroupNetRuleVO vo) {
     return ResponseResult.success(ruleService.save(vo));
   }
@@ -44,6 +46,7 @@ public class GeneralGroupNetRuleController {
   @POST
   @Path("/deleteById")
   @Operation(summary = "根据id删除评分规则")
+  @RequireAdmin
   public Response<Void> deleteById(@RequestBody GeneralGroupNetRuleVO vo) {
     ruleService.deleteById(vo);
     return ResponseResult.success();

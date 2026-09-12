@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.TheoryKnowledgeQuestionAllDto;
@@ -42,12 +43,14 @@ public class TheoryKnowledgeQuestionController {
 
   @POST
   @Path("/saveTheoryKnowledgeQuestion")
+  @RequireAdmin
   public Response<TheoryKnowledgeQuestionEntity> saveTheoryKnowledgeQuestion(@RestHeader(TOKEN) String token, TheoryKnowledgeQuestionDto entity) {
     return theoryKnowledgeQuestionService.saveTheoryKnowledgeQuestion(token, entity);
   }
 
   @POST
   @Path("/saveTheoryKnowledgeQuestionLevel")
+  @RequireAdmin
   public Response<TheoryKnowledgeQuestionLevelEntity> saveTheoryKnowledgeQuestionLevel(@RestHeader(TOKEN) String token, TheoryKnowledgeQuestionLevelDto map) {
     return theoryKnowledgeQuestionService.saveTheoryKnowledgeQuestionLevel(token, map);
   }
@@ -60,12 +63,14 @@ public class TheoryKnowledgeQuestionController {
 
   @POST
   @Path("/deleteTheoryKnowledgeQuestionLevelById")
+  @RequireAdmin
   public Response<List<TheoryKnowledgeQuestionLevelEntity>> deleteTheoryKnowledgeQuestionLevelById(Map<String, String> map) {
     return theoryKnowledgeQuestionService.deleteTheoryKnowledgeQuestionLevelById(map.get(ID));
   }
 
   @POST
   @Path("/deleteTheoryKnowledgeQuestion")
+  @RequireAdmin
   public Response<List<TheoryKnowledgeQuestionEntity>> deleteTheoryKnowledgeQuestion(Map<String, String> map) {
     return theoryKnowledgeQuestionService.deleteTheoryKnowledgeQuestion(map.get(ID));
   }
@@ -86,6 +91,7 @@ public class TheoryKnowledgeQuestionController {
   @POST
   @Path("/saveBatch")
   @Operation(summary = "批量导入题库-代替之前的文件导入（Excel 由前端解析后提交 JSON 行）")
+  @RequireAdmin
   public Response<List<TheoryKnowledgeQuestionEntity>> saveBatch(@RestHeader(TOKEN) String token,
                                                                  List<TheoryKnowledgeQuestionDto> params) {
     return ResponseResult.success(theoryKnowledgeQuestionService.saveBatch(token, params));
