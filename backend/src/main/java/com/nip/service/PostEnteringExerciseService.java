@@ -21,6 +21,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @Author: wushilin
@@ -64,9 +65,9 @@ public class PostEnteringExerciseService {
       throw new IllegalArgumentException("训练类型不能为空");
     }
     if (entity.getType().compareTo(PostEnteringExerciseTypeEnum.JYCZ.getCode()) == 0) {
-      entity.setContent(wordStockDao.findByType(PostEnteringExerciseTypeEnum.JYCZ.getCode()).getContent());
+      entity.setContent(defaultContentOf(PostEnteringExerciseTypeEnum.JYCZ));
     } else if (entity.getType().compareTo(PostEnteringExerciseTypeEnum.TZYY.getCode()) == 0) {
-      entity.setContent(wordStockDao.findByType(PostEnteringExerciseTypeEnum.TZYY.getCode()).getContent());
+      entity.setContent(defaultContentOf(PostEnteringExerciseTypeEnum.TZYY));
     } else {
       //根据Type查询训练内容 content
       String content = wordStockDao.findByIdOptional(addParam.getWordId()).map(PostEnteringExerciseWordStockEntity::getContent)
@@ -75,6 +76,24 @@ public class PostEnteringExerciseService {
     }
     PostEnteringExerciseEntity save = exerciseDao.save(entity);
     return PojoUtils.convertOne(save, PostEnteringExerciseVO.class);
+  }
+
+  /**
+   * 取军语类训练的默认文章内容。
+   *
+   * <p>{@code findByType} 走 {@code firstResult()}，词库里没有该 type 的行时返回 null；
+   * 原先在这里直接 {@code .getContent()}，主数据没铺好就是一个 NPE 逸出成 500 堆栈，
+   * 运维看不出是哪个类型的词库缺了。词库是主数据、只能靠补配置恢复，所以按参数错误
+   * （{@code IllegalArgumentException} → 业务码 202）报出，文案里点名 type。
+   *
+   * <p>行存在但 {@code content} 为 null 同样不可用，{@code map} 会把它折成空 Optional 走同一条错误路径
+   * —— 与 {@code add} 里按 id 取文章的 else 分支同口径。
+   */
+  private String defaultContentOf(PostEnteringExerciseTypeEnum type) {
+    return Optional.ofNullable(wordStockDao.findByType(type.getCode()))
+        .map(PostEnteringExerciseWordStockEntity::getContent)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "未配置「" + type.getName() + "」类型（type=" + type.getCode() + "）的默认词库，请先在词库中添加该类型的文章"));
   }
 
   public List<PostEnteringExerciseVO> listPage(PostEnteringExercisePageParam param, String token) {
