@@ -5,7 +5,6 @@ import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
 import com.nip.dao.EnteringStatisticalDao;
 import com.nip.dao.EnteringTelexPatDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.vo.EnteringTelexPatVO;
 import com.nip.dto.vo.param.EnteringTelexPatQueryParam;
 import com.nip.dto.vo.param.EnteringTelexPatSaveParam;
@@ -30,20 +29,20 @@ import java.util.Optional;
 public class EnteringTelexPatService {
 
   private final EnteringTelexPatDao telexPatDao;
-  private final UserDao userDao;
+  private final UserService userService;
   private final EnteringStatisticalDao statisticalDao;
 
   @Inject
-  public EnteringTelexPatService(EnteringTelexPatDao telexPatDao, UserDao userDao, EnteringStatisticalDao statisticalDao) {
+  public EnteringTelexPatService(EnteringTelexPatDao telexPatDao, UserService userService, EnteringStatisticalDao statisticalDao) {
     this.telexPatDao = telexPatDao;
-    this.userDao = userDao;
+    this.userService = userService;
     this.statisticalDao = statisticalDao;
   }
 
   @Transactional
   public EnteringTelexPatVO save(String token, EnteringTelexPatSaveParam param) {
-    //从token中获取用户
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：从 token 取用户走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203）
+    UserEntity userEntity = userService.getUserByToken(token);
     //如果用户id为空，则需要校验数据库中同一用户是否存在同一类型的记录
     if (Objects.isNull(param.getId())) {
       EnteringTelexPatEntity check = telexPatDao.findByCreateUserIdAndType(userEntity.getId(), param.getType());
@@ -86,7 +85,7 @@ public class EnteringTelexPatService {
   }
 
   public EnteringTelexPatVO findByUserIdAndType(String token, Integer type) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     EnteringTelexPatEntity entity = telexPatDao.findByCreateUserIdAndType(userEntity.getId(), type);
     return Optional.ofNullable(entity).map(e -> PojoUtils.convertOne(e, EnteringTelexPatVO.class))
         .orElse(new EnteringTelexPatVO()
@@ -98,7 +97,7 @@ public class EnteringTelexPatService {
 
   @Transactional
   public EnteringTelexPatVO clear(EnteringTelexPatQueryParam param, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     EnteringTelexPatEntity entity = telexPatDao.findByCreateUserIdAndType(userEntity.getId(), param.getType());
     if (entity != null) {
       entity.setTotalTime(0);

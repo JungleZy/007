@@ -5,7 +5,6 @@ import com.nip.common.constants.PostEnteringExerciseWordStockTypeEnum;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.PostEnteringExerciseWordStockDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.PostEnteringExerciseWordStockDto;
 import com.nip.entity.PostEnteringExerciseWordStockEntity;
 import com.nip.entity.UserEntity;
@@ -28,13 +27,13 @@ import java.util.Objects;
 public class PostEnteringExerciseWordStockService {
 
   private final PostEnteringExerciseWordStockDao enteringExerciseWordStockDao;
-  private final UserDao userDao;
+  private final UserService userService;
 
   @Inject
   public PostEnteringExerciseWordStockService(PostEnteringExerciseWordStockDao enteringExerciseWordStockDao,
-                                              UserDao userDao) {
+                                              UserService userService) {
     this.enteringExerciseWordStockDao = enteringExerciseWordStockDao;
-    this.userDao = userDao;
+    this.userService = userService;
   }
 
   public PostEnteringExerciseWordStockDto findByType(Integer type) {
@@ -51,8 +50,8 @@ public class PostEnteringExerciseWordStockService {
 
   @Transactional(rollbackOn = Exception.class)
   public PostEnteringExerciseWordStockDto add(PostEnteringExerciseWordStockDto vo, String token) throws Exception {
-    //从token中获取用户
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：从 token 取用户走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203）
+    UserEntity userEntity = userService.getUserByToken(token);
     if (!Objects.isNull(vo.getId())) {
       PostEnteringExerciseWordStockEntity wordStockEntity = enteringExerciseWordStockDao.findByIdOptional(vo.getId())
           .orElseThrow(() -> new IllegalArgumentException("未查询到该词库"));

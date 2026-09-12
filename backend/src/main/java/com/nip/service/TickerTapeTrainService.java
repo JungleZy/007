@@ -11,7 +11,6 @@ import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.TickerTapeTrainDao;
 import com.nip.dao.TickerTapeTrainStatisticalDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.sql.TickerTapeTrainDaoCountBaseTrain;
 import com.nip.dto.vo.TelexPatTrainStatisticalVO;
 import com.nip.dto.vo.TickerTapeTrainVo;
@@ -45,19 +44,20 @@ public class TickerTapeTrainService {
 
   private final TickerTapeTrainDao tickerTapeTrainDao;
   private final TickerTapeTrainStatisticalDao statisticalDao;
-  private final UserDao userDao;
+  private final UserService userService;
 
   // 使用构造函数注入依赖项
   @Inject
-  public TickerTapeTrainService(TickerTapeTrainDao tickerTapeTrainDao, TickerTapeTrainStatisticalDao statisticalDao, UserDao userDao) {
+  public TickerTapeTrainService(TickerTapeTrainDao tickerTapeTrainDao, TickerTapeTrainStatisticalDao statisticalDao, UserService userService) {
     this.tickerTapeTrainDao = tickerTapeTrainDao;
     this.statisticalDao = statisticalDao;
-    this.userDao = userDao;
+    this.userService = userService;
   }
 
   @Transactional
   public TickerTapeTrainAddParam add(TickerTapeTrainAddParam param, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+    UserEntity userEntity = userService.getUserByToken(token);
     String codeMessage = JSONUtils.toJson(param.getCodeMessageBody());
     TickerTapeTrainEntity entity = BeanUtil.toBean(param, TickerTapeTrainEntity.class);
     entity.setUserId(userEntity.getId());
@@ -88,7 +88,7 @@ public class TickerTapeTrainService {
   }
 
   public PageInfo<TickerTapeTrainVo> listPage(Page page, String token) throws Exception {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     PanacheQuery<TickerTapeTrainEntity> query = tickerTapeTrainDao.find("userId = ?1 order by createTime desc",
         userEntity.getId()
     );
@@ -151,7 +151,7 @@ public class TickerTapeTrainService {
 
   @Transactional
   public void saveBaseTrain(TickerTapeBaseTrainAddParam param, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     TickerTapeTrainEntity entity = PojoUtils.convertOne(param, TickerTapeTrainEntity.class);
     entity.setStatus(TickerTapeTrainStatusEnum.FINISH.getCode());
     entity.setUserId(userEntity.getId());
@@ -197,7 +197,7 @@ public class TickerTapeTrainService {
 
   @Transactional
   public List<TelexPatTrainStatisticalVO> statisticalPage(String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     List<TickerTapeTrainStatisticalEntity> entities = statisticalDao.findByUserId(userEntity.getId());
     Map<Integer, List<TickerTapeTrainStatisticalEntity>> collect = entities.stream().collect(
         Collectors.groupingBy(TickerTapeTrainStatisticalEntity::getType));
@@ -220,7 +220,7 @@ public class TickerTapeTrainService {
   }
 
   public TickerTapeTrainVo lastTrain(String token, Integer type) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     TickerTapeTrainEntity entity = tickerTapeTrainDao.lastTrain(userEntity.getId(), type);
     if (entity == null) {
       return new TickerTapeTrainVo();

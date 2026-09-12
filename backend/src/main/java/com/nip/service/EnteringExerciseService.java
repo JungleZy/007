@@ -6,7 +6,6 @@ import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.EnteringExerciseDao;
 import com.nip.dao.EnteringStatisticalDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.vo.EnteringExerciseVO;
 import com.nip.dto.vo.EnteringExerciseWordStockVO;
 import com.nip.dto.vo.EnteringStatisticalVO;
@@ -37,22 +36,23 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class EnteringExerciseService {
 
-  private final UserDao userDao;
+  private final UserService userService;
   private final EnteringExerciseDao exerciseDao;
   private final EnteringStatisticalDao statisticalDao;
   private final EnteringExerciseWordStockService wordStockService;
 
   @Inject
-  public EnteringExerciseService(EnteringExerciseDao exerciseDao, EnteringStatisticalDao statisticalDao, UserDao userDao, EnteringExerciseWordStockService wordStockService) {
+  public EnteringExerciseService(EnteringExerciseDao exerciseDao, EnteringStatisticalDao statisticalDao, UserService userService, EnteringExerciseWordStockService wordStockService) {
     this.exerciseDao = exerciseDao;
     this.statisticalDao = statisticalDao;
-    this.userDao = userDao;
+    this.userService = userService;
     this.wordStockService = wordStockService;
   }
 
   @Transactional
   public EnteringExerciseVO add(EnteringExerciseAddParam addParam, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+    UserEntity userEntity = userService.getUserByToken(token);
     EnteringExerciseEntity entity = new EnteringExerciseEntity();
     entity.setCreateUserId(userEntity.getId());
     entity.setName(addParam.getName());
@@ -82,7 +82,7 @@ public class EnteringExerciseService {
   }
 
   public List<EnteringExerciseVO> listPage(EnteringExercisePageParam param, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     String sql;
     if (param.getType() == 0) {
       sql = "type <= ?1 and createUserId = ?2 order by createTime desc";
@@ -129,7 +129,7 @@ public class EnteringExerciseService {
 
   @Transactional
   public List<EnteringStatisticalVO> statisticalPage(String token, Integer type) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     List<EnteringStatisticalEntity> entities = statisticalDao.findByUserIdAndType(userEntity.getId(), type);
     Map<Integer, List<EnteringStatisticalEntity>> collect = entities.stream().collect(
         Collectors.groupingBy(EnteringStatisticalEntity::getChildType));
@@ -156,7 +156,7 @@ public class EnteringExerciseService {
   }
 
   public EnteringExerciseVO lastTrain(String token, Integer type) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     EnteringExerciseEntity entity = exerciseDao.lastTrain(userEntity.getId(), type);
     if (entity == null) {
       return null;

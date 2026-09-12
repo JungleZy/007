@@ -4,7 +4,6 @@ import com.nip.common.utils.PojoUtils;
 import com.nip.dao.DeviceDao;
 import com.nip.dao.DeviceDescriptionDao;
 import com.nip.dao.DeviceTypeDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.vo.DeviceTypeVO;
 import com.nip.dto.vo.param.DeviceTypeUpdateParam;
 import com.nip.entity.DeviceEntity;
@@ -26,14 +25,14 @@ import java.util.Map;
 @ApplicationScoped
 public class DeviceTypeService {
   private final DeviceTypeDao typeDao;
-  private final UserDao userDao;
+  private final UserService userService;
   private final DeviceDao deviceDao;
   private final DeviceDescriptionDao deviceDescriptionDao;
 
   @Inject
-  public DeviceTypeService(DeviceTypeDao typeDao, UserDao userDao, DeviceDao deviceDao, DeviceDescriptionDao deviceDescriptionDao) {
+  public DeviceTypeService(DeviceTypeDao typeDao, UserService userService, DeviceDao deviceDao, DeviceDescriptionDao deviceDescriptionDao) {
     this.typeDao = typeDao;
-    this.userDao = userDao;
+    this.userService = userService;
     this.deviceDao = deviceDao;
     this.deviceDescriptionDao = deviceDescriptionDao;
   }
@@ -41,7 +40,8 @@ public class DeviceTypeService {
   @Transactional
   public DeviceTypeVO save(DeviceTypeUpdateParam param, String token) {
     if (param.getId() == null) {
-      UserEntity userEntity = userDao.findUserEntityByToken(token);
+      // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+      UserEntity userEntity = userService.getUserByToken(token);
       DeviceTypeEntity deviceTypeEntity = PojoUtils.convertOne(param, DeviceTypeEntity.class);
       deviceTypeEntity.setUserId(userEntity.getId());
       DeviceTypeEntity save = typeDao.save(deviceTypeEntity);

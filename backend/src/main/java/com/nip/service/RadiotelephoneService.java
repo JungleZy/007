@@ -3,7 +3,6 @@ package com.nip.service;
 import com.nip.common.repository.IdempotentWrite;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.RadiotelephoneDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.RadiotelephoneDto;
 import com.nip.dto.vo.RadiotelephoneVO;
 import com.nip.entity.RadiotelephoneEntity;
@@ -25,21 +24,22 @@ import java.util.List;
 @Slf4j
 public class RadiotelephoneService {
 
-  private final UserDao userDao;
+  private final UserService userService;
   private final RadiotelephoneDao radiotelephoneDao;
   private final IdempotentWrite idempotentWrite;
 
   @Inject
-  public RadiotelephoneService(UserDao userDao, RadiotelephoneDao radiotelephoneDao,
+  public RadiotelephoneService(UserService userService, RadiotelephoneDao radiotelephoneDao,
                                IdempotentWrite idempotentWrite) {
-    this.userDao = userDao;
+    this.userService = userService;
     this.radiotelephoneDao = radiotelephoneDao;
     this.idempotentWrite = idempotentWrite;
   }
 
   @Transactional
   public List<RadiotelephoneVO> listPage(String token, RadiotelephoneDto dto) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+    UserEntity userEntity = userService.getUserByToken(token);
     List<RadiotelephoneEntity> entityList = radiotelephoneDao.findAllByUserId(userEntity.getId());
     RadiotelephoneEntity byUserIdAndType = radiotelephoneDao.findByUserIdAndType(userEntity.getId(), dto.getType());
     if (byUserIdAndType == null) {
@@ -53,7 +53,7 @@ public class RadiotelephoneService {
 
   @Transactional(rollbackOn = Exception.class)
   public RadiotelephoneVO finish(RadiotelephoneDto dto, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     int increment = dto.getTotalTime() == null ? 0 : dto.getTotalTime();
     // 前端可以不经 listPage 直接结算：与 listPage 同口径走同一条幂等懒建路径，避免裸解引用 NPE
     RadiotelephoneEntity save = accumulate(userEntity.getId(), dto.getType(), 1, increment);
