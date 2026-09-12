@@ -123,6 +123,28 @@ token 从「AES(账号-明文口令-deviceId)」改为 `SecureRandom` 不透明�
 - 内嵌文件服务默认只监听 `127.0.0.1:8000`。跨机访问「资源服务地址」能力保留，但需显式配置监听地址。
 - 发布校验会断言 git tag 与三个版本号（`backend/pom.xml`、`bw-frontend/frontend/package.json`、`bw-frontend/package.json`）一致，打 tag 前先对齐。
 
+### 4.5 Native 构建：会话随机数必须运行期初始化
+
+`backend/src/main/resources/application.yml` 的 `quarkus.native.additional-build-args` 包含
+`--initialize-at-run-time=com.nip.common.security.SessionToken`。不可移除：该类的静态
+`SecureRandom` 不能在构建机上初始化后固化进镜像，否则三个平台都在 Native Image 分析阶段失败
+（[失败运行 34688361957](https://github.com/JungleZy/007/actions/runs/34688361957)，错误指向 `SessionToken.RANDOM`）。
+此配置不改变令牌格式、随机强度或摘要算法，也不需要额外的部署启动参数。
+
+Linux x64 本地验证命令（需 Docker，使用 CI 同款 builder）：
+
+```bash
+cd backend
+JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
+  -Dquarkus.native.container-build=true \
+  -Dquarkus.native.builder-image=quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 \
+  -Dquarkus.native.march=x86-64
+```
+
+2026-09-12 修复后实测：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
+要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
+数据库业务可用，生产仍须满足 §4.1。Windows 与 ARM64 尚待修复提交的 CI 验证。
+
 ## 5. 发布后验证
 
 ```bash

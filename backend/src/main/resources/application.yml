@@ -61,7 +61,8 @@ quarkus:
     resources:
       includes: resources/**
     march: compatibility
-#    additional-build-args: -H:ReflectionConfigurationFiles=reflection-config.json
+    # SecureRandom 必须在运行期创建，不能把构建机的随机数状态固化进 native 镜像。
+    additional-build-args: --initialize-at-run-time=com.nip.common.security.SessionToken
 "%dev":
   quarkus:
     datasource:
