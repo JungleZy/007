@@ -3,6 +3,7 @@ package com.nip.service;
 import cn.hutool.core.bean.BeanUtil;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.constants.TickerTapeTrainStatisticalTypeEnum;
 import com.nip.common.constants.TickerTapeTrainStatusEnum;
 import com.nip.common.constants.TickerTapeTrainTypeEnum;
@@ -231,9 +232,9 @@ public class TickerTapeTrainService {
   private void checkStatus(String id) {
     TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    // 记录存在但 status 列为空时不得拆箱 NPE；TrainFinishedException 语义与响应码契约保持原样
+    // 记录存在但 status 列为空时不得拆箱 NPE；已结束是业务终态（重试无意义）→ 208
     if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
-      throw new TrainFinishedException("训练已结束");
+      throw new TerminalStateException("训练已结束");
     }
   }
 
@@ -258,11 +259,5 @@ public class TickerTapeTrainService {
 
         );
     statisticalDao.save(trainStatisticalEntity);
-  }
-
-  public static class TrainFinishedException extends RuntimeException {
-    public TrainFinishedException(String message) {
-      super(message);
-    }
   }
 }

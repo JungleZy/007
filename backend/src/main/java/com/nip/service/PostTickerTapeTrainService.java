@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.constants.PostTickerTapeTrainStatusEnum;
 import com.nip.common.utils.JSONUtils;
@@ -352,7 +353,7 @@ public class PostTickerTapeTrainService {
     // P1-08：统一用 PostTickerTapeTrainStatusEnum（finish 写 2）；已结束(2)/已评分(3) 均拦截
     if (entity.getStatus().compareTo(PostTickerTapeTrainStatusEnum.FINISH.getCode()) == 0
         || entity.getStatus().compareTo(HAS_SCORE.getCode()) == 0) {
-      throw new IllegalArgumentException("训练已结束");
+      throw new TerminalStateException("训练已结束");
     }
     return entity;
   }

@@ -2,6 +2,7 @@ package com.nip.service;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
@@ -509,7 +510,7 @@ public class PostTelegramTrainService {
     requireProtocol(entity);
     requireAttempt(entity, attempt);
     if (Objects.equals(entity.getStatus(), FINISH.getStatus())) {
-      throw new IllegalArgumentException("已完成训练不可重新开始");
+      throw new TerminalStateException("已完成训练不可重新开始");
     }
     ScoringRuleValidation.handkey(entity.getRuleContent());
     if (entity.getFullScore() == null || entity.getFullScore() < 0) throw new IllegalArgumentException("训练满分快照无效，请新建训练");
@@ -597,7 +598,7 @@ public class PostTelegramTrainService {
     requireProtocol(trainEntity);
     requirePage(trainEntity, dto.getFloorNumber());
     if (!Objects.equals(dto.getAttempt(), trainEntity.getAttempt())) {
-      throw new IllegalArgumentException("训练轮次已变化，请重新加载训练");
+      throw new TerminalStateException("训练轮次已变化，请重新加载训练");
     }
     long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), elapsed(trainEntity, receivedAt));
     long characters = countCharacters(dto.getMessageBody());
@@ -912,7 +913,7 @@ public class PostTelegramTrainService {
   public List<Integer> addContentValue(PostTelegramTrainAddContentValueVO vo, String token) {
     PostTelegramTrainEntity train = owned(vo.getTrainId(), token, true);
     requireProtocol(train);
-    if (!Objects.equals(train.getStatus(), NOT_STARTED.getStatus())) throw new IllegalArgumentException("训练开始后不可追加报底");
+    if (!Objects.equals(train.getStatus(), NOT_STARTED.getStatus())) throw new TerminalStateException("训练开始后不可追加报底");
     Integer floorNumber = 0;
     PostTelegramTrainFloorContentEntity entity = floorContentDao.findByTrainId(vo.getTrainId());
     if (!Objects.isNull(entity)) {
@@ -969,7 +970,7 @@ public class PostTelegramTrainService {
   }
 
   private void requireAttempt(PostTelegramTrainEntity entity, Integer attempt) {
-    if (attempt == null || !Objects.equals(entity.getAttempt(), attempt)) throw new IllegalArgumentException("训练轮次已变化，请重新加载训练");
+    if (attempt == null || !Objects.equals(entity.getAttempt(), attempt)) throw new TerminalStateException("训练轮次已变化，请重新加载训练");
   }
 
   private void requireReadable(PostTelegramTrainEntity entity) {

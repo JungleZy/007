@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.PostTelexPatTrainDao;
@@ -173,7 +174,8 @@ class PostTelexPatTrainServiceTest {
     assertEquals(before.getDeductInfo(), after.getDeductInfo());
     assertEquals(before.getEndTime(), after.getEndTime());
     page.setPatValue(page.getPatValue() + " X");
-    assertThrows(IllegalArgumentException.class, () -> service.finishPage(page, token));
+    assertThrows(TerminalStateException.class, () -> service.finishPage(page, token),
+        "已完成训练改页必须是业务终态（208），重试无意义");
     assertEquals(before.getScore(), service.detail(detail, token).getScore());
   }
 

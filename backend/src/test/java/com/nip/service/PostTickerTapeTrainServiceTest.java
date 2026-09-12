@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.exception.TerminalStateException;
 import com.nip.dao.PostTickerTapeTrainDao;
 import com.nip.dao.PostTickerTapeTrainPageValueDao;
 import com.nip.dto.vo.param.PostTickerTapeTrainUpdateParam;
@@ -52,17 +53,17 @@ class PostTickerTapeTrainServiceTest {
     service.finish(param);
     assertEquals(FINISH.getCode(), trainDao.findById(e.getId()).getStatus());
 
-    assertThrows(IllegalArgumentException.class, () -> service.finish(param),
-        "已结束训练重复 finish 必须被拦截");
-    assertThrows(IllegalArgumentException.class, () -> service.begin(e.getId()),
-        "已结束训练重复 begin 必须被拦截");
+    assertThrows(TerminalStateException.class, () -> service.finish(param),
+        "已结束训练重复 finish 必须被拦截为业务终态（208），而不是可重试的参数错误");
+    assertThrows(TerminalStateException.class, () -> service.begin(e.getId()),
+        "已结束训练重复 begin 必须被拦截为业务终态（208）");
   }
 
   @Test
   void scoredTrainRejectsBegin() {
     PostTickerTapeTrainEntity e = train(HAS_SCORE.getCode());
-    assertThrows(IllegalArgumentException.class, () -> service.begin(e.getId()),
-        "已评分训练必须被拦截");
+    assertThrows(TerminalStateException.class, () -> service.begin(e.getId()),
+        "已评分训练必须被拦截为业务终态（208）");
   }
 
   // Task 6.2(a)：reset 把 startTime 置 null，checkStatus 只拦 FINISH/HAS_SCORE ——

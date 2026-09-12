@@ -1,6 +1,7 @@
 import axios from 'axios'
 import {message, Modal} from 'ant-design-vue';
 import {apiUrl} from './endpoint.js'
+import {isTerminalCode, terminalReason} from './terminalCode.js'
 //创建axios的一个实例
 console.log(window.httpUrl)
 const instance = axios.create({
@@ -79,9 +80,13 @@ instance.interceptors.response.use((response) => {
       })
     }
   }
+  // 203/204/206 已在上面走登录跳转；其余非 200 一律提示。终态码（207/208）取终态文案，
+  // 后端没给 message 时也要说清「不可执行」，不能退化成通用的「请求失败」。
   if (typeof code === 'number' && code !== 200 && code !== 203 && code !== 204 && code !== 206
       && !response.config?.skipErrorToast) {
-    message.error(response.data.message || '请求失败')
+    message.error(isTerminalCode(code)
+      ? terminalReason(code, response.data.message)
+      : response.data.message || '请求失败')
   }
   return response.data
 }, (error) => {

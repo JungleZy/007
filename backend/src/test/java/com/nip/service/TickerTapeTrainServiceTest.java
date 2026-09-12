@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.nip.common.constants.TickerTapeTrainStatusEnum;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.dao.TickerTapeTrainDao;
 import com.nip.dao.TickerTapeTrainStatisticalDao;
 import com.nip.dao.UserDao;
@@ -109,8 +110,8 @@ class TickerTapeTrainServiceTest {
         () -> service.pause(missing), "训练不存在必须显式报错");
     assertEquals("未查询到训练", ex.getMessage());
 
-    // 记录存在且已结束：仍必须是 TrainFinishedException，
-    // 新增的判空不得把这条业务错误降级成参数错误（响应码契约不变）。
+    // 记录存在且已结束：必须是业务终态拒绝（TerminalStateException → 208），
+    // 既不得被判空降级成参数错误（202），也不得落到兜底 Mapper 变成 500。
     UserEntity user = Fixtures.user(userDao, "p74-finished-" + UUID.randomUUID());
     TickerTapeTrainEntity finished = seedTrain(user.getId(), 1, "finished", LocalDateTime.now());
     finished.setStatus(TickerTapeTrainStatusEnum.FINISH.getCode());
@@ -118,8 +119,8 @@ class TickerTapeTrainServiceTest {
 
     TickerTapeTrainUpdateParam param = new TickerTapeTrainUpdateParam();
     param.setId(finished.getId());
-    assertThrows(TickerTapeTrainService.TrainFinishedException.class,
-        () -> service.pause(param), "已结束训练必须仍抛 TrainFinishedException");
+    assertThrows(TerminalStateException.class,
+        () -> service.pause(param), "已结束训练必须抛业务终态拒绝，而不是参数错误");
   }
 
   private TickerTapeTrainEntity seedTrain(String userId, int type, String name, LocalDateTime createTime) {

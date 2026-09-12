@@ -2,6 +2,7 @@ package com.nip.service;
 
 
 import com.nip.common.PageInfo;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.Page;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.DeviceDao;
@@ -155,7 +156,7 @@ public class GroupNetTrainService {
     requireOwner(trainEntity, token);
     if (trainEntity.getScore() != null) {
       if (!GroupNetScoring.sameAnswer(trainEntity.getAnswer(), submitAnswerDto.getAnswer())) {
-        throw new IllegalArgumentException("训练已提交，不能修改答案或成绩");
+        throw new TerminalStateException("训练已提交，不能修改答案或成绩");
       }
       return PojoUtils.convertOne(trainEntity, GroupNetTrainDetailsVO.class);
     }

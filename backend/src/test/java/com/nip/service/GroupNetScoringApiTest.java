@@ -121,7 +121,7 @@ class GroupNetScoringApiTest {
     request(owner).body(Map.of("id", id, "answer", GroupNetScoringTest.answer()))
         .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(200)).body("data.score", is(5.5f));
     request(owner).body(Map.of("id", id, "answer", "{}"))
-        .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(202));
+        .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(208));
     request(other).queryParam("id", id).get("/api/groupNetTrain/details")
         .then().statusCode(200).body("code", is(207));
     assertEquals(0, new BigDecimal("5.50").compareTo(trainDao.findById(id).getScore()));
@@ -176,7 +176,7 @@ class GroupNetScoringApiTest {
     request(owner).body(Map.of("id", id, "answer", GroupNetScoringTest.answer()))
         .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(200));
     request(owner).body(Map.of("id", id, "answer", "{}"))
-        .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(202));
+        .post("/api/groupNetTrain/submitAnswer").then().statusCode(200).body("code", is(208));
     assertEquals(0.0f, request(owner).queryParam("id", id).get("/api/groupNetTrain/details")
         .then().statusCode(200).body("code", is(200)).extract().jsonPath().getFloat("data.score"));
   }

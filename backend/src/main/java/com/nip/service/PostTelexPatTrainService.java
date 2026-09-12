@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
 import com.nip.common.utils.CaptureTimeline;
@@ -245,7 +246,7 @@ public class PostTelexPatTrainService {
     LocalDateTime now = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     if (!NOT_STARTED.getStatus().equals(entity.getStatus())) {
       if (!Objects.equals(seconds, entity.getCountdownSeconds())) {
-        throw new IllegalArgumentException("训练开始后不能修改倒计时");
+        throw new TerminalStateException("训练开始后不能修改倒计时");
       }
       return clockView(entity, now);
     }
@@ -269,7 +270,7 @@ public class PostTelexPatTrainService {
     }
     CheckUtils.statusCheck(UNDERWAY.getStatus(), entity.getStatus(), "训练不在进行中");
     if (entity.getDeadline() != null && !now.isBefore(entity.getDeadline())) {
-      throw new IllegalArgumentException("倒计时已结束，仅可补交截止前的内容");
+      throw new TerminalStateException("倒计时已结束，仅可补交截止前的内容");
     }
     entity.setPausedAt(now);
     entity.setStatus(PostTelexPatTrainStatusEnum.PAUSE.getStatus());
@@ -431,7 +432,7 @@ public class PostTelexPatTrainService {
     }
     if (entity.getDeadline() != null && entity.getPausedAt() == null
         && !receivedAt.isBefore(entity.getDeadline().plusSeconds(60))) {
-      throw new IllegalArgumentException("补交窗口已结束，不能修改页面");
+      throw new TerminalStateException("补交窗口已结束，不能修改页面");
     }
     if (vo.getPatValue() == null) throw new IllegalArgumentException("页面内容不能为空");
     long duration = CaptureTimeline.durationMillis(vo.getCaptureIntervals(), captureBound(entity, receivedAt));
@@ -481,14 +482,14 @@ public class PostTelexPatTrainService {
 
   private void requireAttempt(PostTelexPatTrainEntity entity, Integer attempt) {
     if (attempt == null || attempt != entity.getAttempt()) {
-      throw new IllegalArgumentException("训练轮次已改变，请重新读取训练，旧轮次不能提交");
+      throw new TerminalStateException("训练轮次已改变，请重新读取训练，旧轮次不能提交");
     }
   }
 
   private void requireMutableAttempt(PostTelexPatTrainEntity entity, Integer attempt) {
     requireReadable(entity);
     requireAttempt(entity, attempt);
-    if (isFinished(entity)) throw new IllegalArgumentException("训练已完成，不能修改");
+    if (isFinished(entity)) throw new TerminalStateException("训练已完成，不能修改");
   }
 
   private long elapsed(PostTelexPatTrainEntity entity, LocalDateTime time) {
@@ -514,7 +515,7 @@ public class PostTelexPatTrainService {
   // Count the transmitted body, not the corrected final text: earlier wrong characters still
   // count, while recognized commands and their address operands do not. Incomplete commands
   // and unknown tokens remain body instead of being removed by a broad text replacement.
-  static long characterCount(String text, Integer trainType) {
+  public static long characterCount(String text, Integer trainType) {
     if (text == null) throw new IllegalArgumentException("已保存正文缺失");
     long characters = 0;
     boolean telex = !Objects.equals(trainType, 4);

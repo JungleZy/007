@@ -2,6 +2,7 @@ package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.constants.PostTelegraphKeyPatTrainEnum;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
@@ -157,7 +158,7 @@ public class PostTelegraphKeyPatTrainService {
       entity.setBeginTime(LocalDateTime.now());
       patTrainDao.save(entity);
     } else if (!Objects.equals(entity.getStatus(), UNDERWAY.getStatus())) {
-      throw new IllegalStateException("训练已结束，请重置或新建训练");
+      throw new TerminalStateException("训练已结束，请重置或新建训练");
     }
     return toVO(entity);
   }
@@ -385,7 +386,7 @@ public class PostTelegraphKeyPatTrainService {
     PostTelegraphKeyPatTrainRawPageEntity existing = rawPageDao.findPage(dto.getId(), dto.getPageNumber());
     if (existing != null) {
       if (!Objects.equals(existing.getAttempt(), dto.getAttempt())) {
-        throw new IllegalArgumentException("已保存页轮次不匹配，请重新读取训练");
+        throw new TerminalStateException("已保存页轮次不匹配，请重新读取训练");
       }
       if (existing.getCaptureIntervals().equals(intervals)) {
         if (existing.getValue().equals(rawValue)) {
@@ -693,7 +694,7 @@ public class PostTelegraphKeyPatTrainService {
       throw new IllegalStateException("旧训练缺少采集时间轴，请终止旧训练并新建训练");
     }
     if (!Objects.equals(protocolVersion, 1) || !Objects.equals(attempt, entity.getAttempt())) {
-      throw new IllegalArgumentException("训练协议或轮次已失效，请重新读取训练");
+      throw new TerminalStateException("训练协议或轮次已失效，请重新读取训练");
     }
   }
 
