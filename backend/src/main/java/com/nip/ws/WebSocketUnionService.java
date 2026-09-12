@@ -15,7 +15,6 @@ import com.nip.ws.service.RoomLifecycleLocks;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.websocket.*;
-import jakarta.websocket.server.PathParam;
 import jakarta.websocket.server.ServerEndpoint;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -43,10 +42,10 @@ import static com.nip.common.constants.BaseConstants.USER_ID;
 @Slf4j
 public class WebSocketUnionService {
 
-  private static final String SID = "sid";
-
   @Inject
   private UserDao userDao;
+  @Inject
+  WebSocketHandshake handshake;
 
   /**
    * 单连接持有者：端点是单例，连接态必须挂在每个连接自己的 holder 上
@@ -62,23 +61,24 @@ public class WebSocketUnionService {
   private static final ConcurrentHashMap<String, UserModel> onlineUsers = new ConcurrentHashMap<>();
 
   /**
-   * 连接建立成功调用的方法
+   * 连接建立成功调用的方法。
+   *
+   * <p>路径 {@code sid} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）。
    */
   @OnOpen
-  public void onOpen(Session session, @PathParam("sid") String sid) throws IOException {
+  public void onOpen(Session session) throws IOException {
+    UserEntity userEntity = handshake.authenticate(session);
+    if (userEntity == null) {
+      log.warn("联合训练连接被拒绝：登录凭据无效");
+      send(session,
+        new ResponseModel(CodeConstants.CLOSE.getCode(), "登录凭据无效，拒绝建立联合训练连接"));
+      close(session);
+      return;
+    }
+    String sid = userEntity.getId();
     Lock lock = RoomLifecycleLocks.unionUser(sid);
     lock.lock();
     try {
-      UserEntity userEntity = userDao.findUserEntityById(sid);
-      if (userEntity == null) {
-        // 端点无鉴权，sid 直接来自路径参数：库里查不到就拒连，不能带着 null 往下走。
-        log.warn("联合训练连接被拒绝，用户不存在:{}", sid);
-        send(session,
-          new ResponseModel(CodeConstants.CLOSE.getCode(), "用户不存在，拒绝建立联合训练连接"));
-        close(session);
-        return;
-      }
-
       Client existing = webSocketClientSet.get(sid);
       if (existing != null) {
         send(existing.session(),
@@ -89,7 +89,7 @@ public class WebSocketUnionService {
       userModel.setId(sid);
       userModel.setName(userEntity.getUserName());
       userModel.setUserImg(userEntity.getUserImg());
-      session.getUserProperties().put(SID, sid);
+      WebSocketHandshake.bind(session, sid);
       Client me = new Client(session, userModel);
       webSocketClientSet.put(sid, me);
       onlineUsers.put(sid, userModel);
@@ -221,11 +221,11 @@ public class WebSocketUnionService {
    * 不得命中新连接的条目（否则会把存活的新连接驱逐）
    */
   private static Client resolveClient(Session session) {
-    Object sid = session.getUserProperties().get(SID);
+    String sid = WebSocketHandshake.authenticatedId(session);
     if (sid == null) {
       return null;
     }
-    Client client = webSocketClientSet.get(sid.toString());
+    Client client = webSocketClientSet.get(sid);
     if (client == null || client.session() != session) {
       return null;
     }

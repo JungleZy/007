@@ -1,6 +1,5 @@
 package com.nip.ws;
 
-import com.nip.dao.UserDao;
 import com.nip.entity.UserEntity;
 import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.RoomModel;
@@ -12,7 +11,7 @@ import jakarta.websocket.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
 import java.lang.reflect.Proxy;
 import java.util.List;
@@ -39,11 +38,10 @@ class WebSocketUnionLifecycleTest {
   @Test
   void replacementWaitsForOldCleanupAndLeavesCompleteCurrentState() throws Exception {
     String sid = "same-user";
-    CountDownLatch replacementLookup = new CountDownLatch(1);
-    WebSocketUnionService endpoint = endpoint(new SignallingUserDao(2, replacementLookup));
-    TestSession oldSession = session("old");
-    TestSession replacementSession = session("replacement");
-    endpoint.onOpen(oldSession.session(), sid);
+    WebSocketUnionService endpoint = endpoint(new SignallingHandshake(0, new CountDownLatch(1)));
+    TestSession oldSession = session("old", sid);
+    TestSession replacementSession = session("replacement", sid);
+    endpoint.onOpen(oldSession.session());
 
     PauseAfterEmptyObservation members = new PauseAfterEmptyObservation();
     members.add(user(sid));
@@ -58,13 +56,22 @@ class WebSocketUnionLifecycleTest {
     assertTrue(members.emptyObserved.await(5, TimeUnit.SECONDS));
 
     FutureTask<Void> replacement = new FutureTask<>(() -> {
-      endpoint.onOpen(replacementSession.session(), sid);
+      endpoint.onOpen(replacementSession.session());
       return null;
     });
     Thread replacementThread = Thread.ofVirtual().start(replacement);
     try {
-      assertFalse(replacementLookup.await(250, TimeUnit.MILLISECONDS),
-          "replacement lookup/publication must wait until old cleanup completes");
+      // 断言的是连接表这一可观察状态，而不是握手的调用次数：握手鉴权（T3-5）在取锁之前完成，
+      // 计数探针会在锁外就被触发，测不到「等待旧连接清理」。真正不能提前发生的是
+      // 替代连接把自己发布进 webSocketClientSet —— 清理未完成前，表里必须仍是旧 Session。
+      Thread.sleep(250);
+      Object duringCleanup = unionTable("webSocketClientSet").get(sid);
+      // onClose 先摘掉连接映射、再清理房间成员（暂停点在后者），所以此刻表里是空洞是正常的。
+      // 不能发生的是：替代连接抢在清理完成前把自己发布进表 —— 缺锁时正是这个后果。
+      if (duringCleanup != null) {
+        assertSame(oldSession.session(), clientSession(duringCleanup),
+            "替代连接必须等旧连接清理完成后才能发布自己");
+      }
     } finally {
       members.resume.countDown();
     }
@@ -88,19 +95,19 @@ class WebSocketUnionLifecycleTest {
     CountDownLatch releaseFirstLookup = new CountDownLatch(1);
     CountDownLatch secondLookupEntered = new CountDownLatch(1);
     WebSocketUnionService endpoint = endpoint(
-        new FirstLookupBlockingUserDao(firstLookupEntered, releaseFirstLookup, secondLookupEntered));
-    TestSession first = session("first");
-    TestSession second = session("second");
+        new FirstLookupBlockingHandshake(firstLookupEntered, releaseFirstLookup, secondLookupEntered));
+    TestSession first = session("first", sid);
+    TestSession second = session("second", sid);
 
     FutureTask<Void> firstOpen = new FutureTask<>(() -> {
-      endpoint.onOpen(first.session(), sid);
+      endpoint.onOpen(first.session());
       return null;
     });
     Thread firstThread = Thread.ofVirtual().start(firstOpen);
     assertTrue(firstLookupEntered.await(5, TimeUnit.SECONDS));
 
     FutureTask<Void> secondOpen = new FutureTask<>(() -> {
-      endpoint.onOpen(second.session(), sid);
+      endpoint.onOpen(second.session());
       return null;
     });
     Thread secondThread = Thread.ofVirtual().start(secondOpen);
@@ -124,18 +131,18 @@ class WebSocketUnionLifecycleTest {
   void sameSidReplacementPreservesRoomMembershipWithoutUserExit() throws Exception {
     String sid = "member";
     WebSocketUnionService endpoint = endpoint(
-        new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
-    TestSession oldSession = session("member-old");
-    TestSession replacement = session("member-replacement");
-    TestSession watcher = session("watcher");
-    endpoint.onOpen(oldSession.session(), sid);
-    endpoint.onOpen(watcher.session(), "watcher");
+        new SignallingHandshake(Integer.MAX_VALUE, new CountDownLatch(0)));
+    TestSession oldSession = session("member-old", sid);
+    TestSession replacement = session("member-replacement", sid);
+    TestSession watcher = session("watcher", "watcher");
+    endpoint.onOpen(oldSession.session());
+    endpoint.onOpen(watcher.session());
     RoomModel room = room("room-member", sid,
         new CopyOnWriteArrayList<>(List.of(user(sid))));
     unionTable("onlineRooms").put(room.getId(), room);
     watcher.outbound().clear();
 
-    endpoint.onOpen(replacement.session(), sid);
+    endpoint.onOpen(replacement.session());
 
     RoomModel mapped = (RoomModel) unionTable("onlineRooms").get(room.getId());
     assertNotNull(mapped);
@@ -148,9 +155,10 @@ class WebSocketUnionLifecycleTest {
 
   @Test
   void soleMemberExplicitExitRemovesRoomKey() throws Exception {
-    WebSocketUnionService endpoint = endpoint(new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
-    TestSession owner = session("owner-session");
-    endpoint.onOpen(owner.session(), "owner");
+    WebSocketUnionService endpoint = endpoint(
+        new SignallingHandshake(Integer.MAX_VALUE, new CountDownLatch(0)));
+    TestSession owner = session("owner-session", "owner");
+    endpoint.onOpen(owner.session());
     RoomModel room = room("123", "owner", new CopyOnWriteArrayList<>(List.of(user("owner"))));
     unionTable("onlineRooms").put(room.getId(), room);
 
@@ -161,28 +169,29 @@ class WebSocketUnionLifecycleTest {
   }
 
   @Test
-  void unknownSidIsRejectedWithoutRegisteringOrDereferencingNull() throws Exception {
-    WebSocketUnionService endpoint = endpoint(new MissingUserDao());
-    TestSession ghost = session("ghost-session");
+  void invalidCredentialsAreRejectedWithoutRegisteringOrDereferencingNull() throws Exception {
+    WebSocketUnionService endpoint = endpoint(new RejectingHandshake());
+    TestSession ghost = session("ghost-session", "no-such-user");
 
-    endpoint.onOpen(ghost.session(), "no-such-user");
+    endpoint.onOpen(ghost.session());
 
     assertFalse(unionTable("webSocketClientSet").containsKey("no-such-user"),
-        "a sid with no user row must never be registered as a client");
+        "握手未通过的连接必须永不进入连接表");
     assertFalse(unionTable("onlineUsers").containsKey("no-such-user"),
-        "a sid with no user row must never appear in the online user list");
+        "握手未通过的连接必须永不出现在在线用户列表");
     assertFalse(ghost.open().get(), "the rejected connection must be closed, not left open");
-    assertTrue(ghost.outbound().stream().anyMatch(message -> message.contains("用户不存在")),
+    assertTrue(ghost.outbound().stream().anyMatch(message -> message.contains("登录凭据无效")),
         "the client must be told why it was rejected; outbound was " + ghost.outbound());
   }
 
   @Test
   void disconnectInterleavedWithJoinCannotPublishIntoDetachedRoom() throws Exception {
-    WebSocketUnionService endpoint = endpoint(new SignallingUserDao(Integer.MAX_VALUE, new CountDownLatch(0)));
-    TestSession owner = session("owner-session");
-    TestSession joiner = session("joiner-session");
-    endpoint.onOpen(owner.session(), "owner");
-    endpoint.onOpen(joiner.session(), "joiner");
+    WebSocketUnionService endpoint = endpoint(
+        new SignallingHandshake(Integer.MAX_VALUE, new CountDownLatch(0)));
+    TestSession owner = session("owner-session", "owner");
+    TestSession joiner = session("joiner-session", "joiner");
+    endpoint.onOpen(owner.session());
+    endpoint.onOpen(joiner.session());
     PauseBeforeJoinAdd members = new PauseBeforeJoinAdd("joiner");
     members.addInitial(user("owner"));
     RoomModel room = room("456", "owner", members);
@@ -216,11 +225,9 @@ class WebSocketUnionLifecycleTest {
     assertEquals(List.of("joiner"), mapped.getUsers().stream().map(UserModel::getId).toList());
   }
 
-  private static WebSocketUnionService endpoint(UserDao userDao) throws Exception {
+  private static WebSocketUnionService endpoint(WebSocketHandshake handshake) {
     WebSocketUnionService endpoint = new WebSocketUnionService();
-    Field field = WebSocketUnionService.class.getDeclaredField("userDao");
-    field.setAccessible(true);
-    field.set(endpoint, userDao);
+    endpoint.handshake = handshake;
     return endpoint;
   }
 
@@ -253,39 +260,41 @@ class WebSocketUnionLifecycleTest {
     return entity;
   }
 
-  private static final class SignallingUserDao extends UserDao {
+  /** 按握手次数发信号的桩：原用 UserDao.findUserEntityById 的次数，握手改造后计数点搬到这里。 */
+  private static final class SignallingHandshake extends WebSocketHandshake {
     private final int signalCall;
     private final CountDownLatch signal;
     private final AtomicInteger calls = new AtomicInteger();
 
-    private SignallingUserDao(int signalCall, CountDownLatch signal) {
+    private SignallingHandshake(int signalCall, CountDownLatch signal) {
       this.signalCall = signalCall;
       this.signal = signal;
     }
 
     @Override
-    public UserEntity findUserEntityById(String id) {
+    public UserEntity authenticate(Session session) {
       if (calls.incrementAndGet() == signalCall) {
         signal.countDown();
       }
-      return entity(id);
+      return entity(credentialUserId(session));
     }
   }
 
-  private static final class MissingUserDao extends UserDao {
+  /** 凭据无效：握手一律失败。 */
+  private static final class RejectingHandshake extends WebSocketHandshake {
     @Override
-    public UserEntity findUserEntityById(String id) {
+    public UserEntity authenticate(Session session) {
       return null;
     }
   }
 
-  private static final class FirstLookupBlockingUserDao extends UserDao {
+  private static final class FirstLookupBlockingHandshake extends WebSocketHandshake {
     private final CountDownLatch firstEntered;
     private final CountDownLatch releaseFirst;
     private final CountDownLatch secondEntered;
     private final AtomicInteger calls = new AtomicInteger();
 
-    private FirstLookupBlockingUserDao(
+    private FirstLookupBlockingHandshake(
         CountDownLatch firstEntered,
         CountDownLatch releaseFirst,
         CountDownLatch secondEntered) {
@@ -295,15 +304,20 @@ class WebSocketUnionLifecycleTest {
     }
 
     @Override
-    public UserEntity findUserEntityById(String id) {
+    public UserEntity authenticate(Session session) {
       if (calls.incrementAndGet() == 1) {
         firstEntered.countDown();
         await(releaseFirst);
       } else {
         secondEntered.countDown();
       }
-      return entity(id);
+      return entity(credentialUserId(session));
     }
+  }
+
+  /** 桩连接的 query 凭据里 token 就是用户 id，握手桩据此把身份还原出来。 */
+  private static String credentialUserId(Session session) {
+    return session.getRequestParameterMap().get("token").getFirst();
   }
 
   private static final class PauseAfterEmptyObservation extends CopyOnWriteArrayList<UserModel> {
@@ -360,10 +374,13 @@ class WebSocketUnionLifecycleTest {
   private record TestSession(Session session, AtomicBoolean open, List<String> outbound) {
   }
 
-  private static TestSession session(String id) {
+  /** 桩连接：query 凭据的 token 直接写用户 id，握手桩据此还原身份。 */
+  private static TestSession session(String id, String userId) {
     AtomicBoolean open = new AtomicBoolean(true);
     List<String> outbound = new CopyOnWriteArrayList<>();
-    Map<String, Object> properties = new java.util.concurrent.ConcurrentHashMap<>();
+    Map<String, Object> properties = new ConcurrentHashMap<>();
+    Map<String, List<String>> credentials =
+        Map.of("token", List.of(userId), "deviceId", List.of("device-" + userId));
     RemoteEndpoint.Async async = (RemoteEndpoint.Async) Proxy.newProxyInstance(
         RemoteEndpoint.Async.class.getClassLoader(),
         new Class<?>[]{RemoteEndpoint.Async.class},
@@ -378,6 +395,7 @@ class WebSocketUnionLifecycleTest {
         new Class<?>[]{Session.class},
         (proxy, method, args) -> switch (method.getName()) {
           case "getId" -> id;
+          case "getRequestParameterMap" -> credentials;
           case "getUserProperties" -> properties;
           case "getAsyncRemote" -> async;
           case "isOpen" -> open.get();

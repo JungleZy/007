@@ -7,6 +7,7 @@ import com.nip.common.utils.PojoUtils;
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.GeneralPatTrainUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
+import com.nip.entity.UserEntity;
 import com.nip.service.general.GeneralTelexPatService;
 import com.nip.ws.model.SocketResponseModel;
 import com.nip.ws.service.RoomLifecycleLocks;
@@ -37,6 +38,8 @@ import static com.nip.common.constants.BaseConstants.*;
 public class WebSocketGeneralTelexPatService {
   @Inject
   GeneralTelexPatService generalTelexPatService;
+  @Inject
+  WebSocketHandshake handshake;
   public static final Map<String, GeneralPatTrainRoomUserDto> ROOM = new ConcurrentHashMap<>();
 
   private record OpenTransition(
@@ -46,14 +49,23 @@ public class WebSocketGeneralTelexPatService {
       String notification) {}
 
   /**
-   * 打开连接
+   * 打开连接。
    *
-   * @param uid     用户id
+   * <p>路径 {@code uid} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）。
+   *
    * @param trainId 训练id
    * @param session 会话
    */
   @OnOpen
-  public void onOpen(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, Session session) {
+  public void onOpen(@PathParam(TRAIN_ID) String trainId, Session session) {
+    UserEntity authenticated = handshake.authenticate(session);
+    if (authenticated == null) {
+      sendErrMessage(session, "登录凭据无效，拒绝建立连接", "", "");
+      close(session);
+      return;
+    }
+    String uid = authenticated.getId();
+    WebSocketHandshake.bind(session, uid);
     OpenTransition transition;
     Lock lock = RoomLifecycleLocks.generalTelexRoom(trainId);
     lock.lock();
@@ -123,8 +135,12 @@ public class WebSocketGeneralTelexPatService {
   }
 
   @OnMessage
-  public void onMessage(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, String message, Session session) {
+  public void onMessage(@PathParam(TRAIN_ID) String trainId, String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
+    String uid = WebSocketHandshake.authenticatedId(session);
+    if (uid == null) {
+      return;
+    }
     GeneralPatTrainRoomUserDto trainRoomUser = ROOM.get(trainId);
     if (trainRoomUser == null) {
       sendErrMessage(session, "房间不存在", "", "");
@@ -159,7 +175,12 @@ public class WebSocketGeneralTelexPatService {
   }
 
   @OnClose
-  public void onClose(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, Session session) {
+  public void onClose(@PathParam(TRAIN_ID) String trainId, Session session) {
+    String uid = WebSocketHandshake.authenticatedId(session);
+    if (uid == null) {
+      //握手被拒的连接从未注册进房间，容器已在关闭它，无状态可清
+      return;
+    }
     Map<String, String> data = new HashMap<>();
     data.put(TOPIC, OFFLINE);
     data.put(ID, uid);
@@ -187,10 +208,10 @@ public class WebSocketGeneralTelexPatService {
   }
 
   @OnError
-  public void onError(@PathParam("uid") String uid, @PathParam(TRAIN_ID) String trainId, Session session, Throwable t) {
+  public void onError(@PathParam(TRAIN_ID) String trainId, Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
     //复用 onClose 清理该 session 对应的房间状态并关闭连接
-    onClose(uid, trainId, session);
+    onClose(trainId, session);
   }
 
   private static boolean sameConnection(GeneralPatTrainUserModelDto user, String uid, Session session) {

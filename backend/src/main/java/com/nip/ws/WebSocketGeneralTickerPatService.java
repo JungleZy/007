@@ -4,6 +4,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.entity.UserEntity;
 import com.nip.service.general.GeneralTickerPatService;
 import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import com.nip.ws.model.GeneralTickerPatTrainUserModel;
@@ -35,6 +36,8 @@ import static com.nip.common.constants.BaseConstants.*;
 public class WebSocketGeneralTickerPatService {
   @Inject
   GeneralTickerPatService generalTickerPatService;
+  @Inject
+  WebSocketHandshake handshake;
   public static final Map<Integer, GeneralTickerPatTrainRoomUserModel> PAT_ROOM = new ConcurrentHashMap<>();
 
   private record OpenTransition(
@@ -43,9 +46,23 @@ public class WebSocketGeneralTickerPatService {
       List<Session> recipients,
       String notification) {}
 
+  /**
+   * 打开连接。
+   *
+   * <p>路径 {@code uid} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）；
+   * {@code role} 仍与库里的角色比对（本域是唯一带 role 的端点）。
+   */
   @OnOpen
-  public void onOpen(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId,
+  public void onOpen(@PathParam(TRAIN_ID) Integer trainId,
       @PathParam("role") Integer role, Session session) {
+    UserEntity authenticated = handshake.authenticate(session);
+    if (authenticated == null) {
+      sendErrMessage(session, "登录凭据无效，拒绝建立连接", "", "");
+      close(session);
+      return;
+    }
+    String uid = authenticated.getId();
+    WebSocketHandshake.bind(session, uid);
     OpenTransition transition;
     Lock lock = RoomLifecycleLocks.generalTickerRoom(trainId);
     lock.lock();
@@ -139,9 +156,12 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnMessage
-  public void onMessage(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
+  public void onMessage(@PathParam(TRAIN_ID) Integer trainId, String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
-//    log.info("收到{}训练：{}的消息：{}", trainId, uid, message);
+    String uid = WebSocketHandshake.authenticatedId(session);
+    if (uid == null) {
+      return;
+    }
     GeneralTickerPatTrainRoomUserModel roomUser = PAT_ROOM.get(trainId);
     //房间可能已被 REST 删除（delete 只清 map 不关 session），判空短路
     if (roomUser == null) {
@@ -198,8 +218,12 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnClose
-  public void onClose(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId,
-      Session session) {
+  public void onClose(@PathParam(TRAIN_ID) Integer trainId, Session session) {
+    String uid = WebSocketHandshake.authenticatedId(session);
+    if (uid == null) {
+      //握手被拒的连接从未注册进房间，容器已在关闭它，无状态可清
+      return;
+    }
     Map<String, Object> msg = new HashMap<>();
     msg.put(BaseConstants.TOPIC, OFFLINE);
     msg.put(ID, uid);
@@ -226,10 +250,9 @@ public class WebSocketGeneralTickerPatService {
   }
 
   @OnError
-  public void onError(@PathParam("uid") String uid, @PathParam(TRAIN_ID) Integer trainId,
-      Session session, Throwable t) {
+  public void onError(@PathParam(TRAIN_ID) Integer trainId, Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
-    onClose(uid, trainId, session);
+    onClose(trainId, session);
     close(session);
   }
 

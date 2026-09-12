@@ -3,6 +3,9 @@ package com.nip.service.general;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.utils.JSONUtils;
+import com.nip.dao.UserDao;
+import com.nip.entity.UserEntity;
+import com.nip.testsupport.Fixtures;
 import com.nip.testsupport.WebSocketSessionProbe;
 import com.nip.ws.WebSocketService;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -32,6 +35,10 @@ class GeneralPatResultNotifierTest {
 
   @Inject
   GeneralPatResultNotifier notifier;
+  @Inject
+  UserDao userDao;
+  @Inject
+  WebSocketService webSocket;
 
   /**
    * 契约一：AFTER_SUCCESS 语义。事务提交前一帧都不能出去（在事务体内即求证），
@@ -39,12 +46,12 @@ class GeneralPatResultNotifierTest {
    */
   @Test
   void resultFrameLeavesOnlyAfterTheTransactionCommits() {
-    String recipient = "notifier-commit-" + UUID.randomUUID();
-    WebSocketSessionProbe probe = register(recipient);
+    Recipient recipient = register();
+    WebSocketSessionProbe probe = recipient.probe();
     try {
       assertThrows(IllegalStateException.class,
           () -> QuarkusTransaction.requiringNew().run(() -> {
-            notifier.publish("ticker", 9001, "student-rolled-back", List.of(recipient));
+            notifier.publish("ticker", 9001, "student-rolled-back", List.of(recipient.userId()));
             assertTrue(probe.outbound().isEmpty(), "事务尚未提交，接收方不得收到任何帧");
             throw new IllegalStateException("rollback");
           }));
@@ -52,7 +59,7 @@ class GeneralPatResultNotifierTest {
           "回滚的事务不得发出结果通知，实际收到：" + probe.outbound());
 
       QuarkusTransaction.requiringNew().run(() -> {
-        notifier.publish("ticker", 9002, "student-committed", List.of(recipient));
+        notifier.publish("ticker", 9002, "student-committed", List.of(recipient.userId()));
         assertTrue(probe.outbound().isEmpty(), "事务尚未提交，接收方不得收到任何帧");
       });
 
@@ -66,7 +73,7 @@ class GeneralPatResultNotifierTest {
       assertEquals("student-committed", payload.get("userId"), "载荷必须带回已提交那次的学员ID");
       assertEquals(9002, intValue(payload.get("trainId")), "载荷必须带回已提交那次的训练ID");
     } finally {
-      unregister(recipient, probe);
+      unregister(recipient);
     }
   }
 
@@ -76,28 +83,25 @@ class GeneralPatResultNotifierTest {
    */
   @Test
   void oneBrokenRecipientDoesNotStopTheRest() {
-    String broken = "notifier-broken-" + UUID.randomUUID();
-    String healthy = "notifier-healthy-" + UUID.randomUUID();
-    WebSocketSessionProbe brokenProbe = WebSocketSessionProbe.failing(broken);
-    WebSocketSessionProbe healthyProbe = WebSocketSessionProbe.open(healthy);
-    register(broken, brokenProbe);
-    register(healthy, healthyProbe);
+    Recipient broken = register(true);
+    Recipient healthy = register();
     try {
       assertDoesNotThrow(
           () -> QuarkusTransaction.requiringNew()
-              .run(() -> notifier.publish("key", 9101, "student-fanout", List.of(broken, healthy))),
+              .run(() -> notifier.publish("key", 9101, "student-fanout",
+                  List.of(broken.userId(), healthy.userId()))),
           "单个接收方发送失败不得让 publish 所在的事务失败");
 
-      assertTrue(brokenProbe.outbound().isEmpty(),
-          "写出即抛的接收方不可能留下成功帧，实际收到：" + brokenProbe.outbound());
-      assertEquals(1, healthyProbe.outbound().size(),
-          "前一个接收方发送失败后，后面的接收方仍须恰好收到一帧，实际收到：" + healthyProbe.outbound());
-      Map<String, Object> payload = payload(frame(healthyProbe.outbound().getFirst()));
+      assertTrue(broken.probe().outbound().isEmpty(),
+          "写出即抛的接收方不可能留下成功帧，实际收到：" + broken.probe().outbound());
+      assertEquals(1, healthy.probe().outbound().size(),
+          "前一个接收方发送失败后，后面的接收方仍须恰好收到一帧，实际收到：" + healthy.probe().outbound());
+      Map<String, Object> payload = payload(frame(healthy.probe().outbound().getFirst()));
       assertEquals("student-fanout", payload.get("userId"), "后续接收方收到的必须是同一条结果通知");
       assertEquals(9101, intValue(payload.get("trainId")), "后续接收方收到的必须是同一条结果通知");
     } finally {
-      unregister(broken, brokenProbe);
-      unregister(healthy, healthyProbe);
+      unregister(broken);
+      unregister(healthy);
     }
   }
 
@@ -107,38 +111,51 @@ class GeneralPatResultNotifierTest {
   @Test
   void offlineRecipientIsSkippedWithoutAffectingOnlineRecipient() {
     String offline = "notifier-offline-" + UUID.randomUUID(); // 从未 onOpen，不在在线连接表里
-    String online = "notifier-online-" + UUID.randomUUID();
-    WebSocketSessionProbe probe = register(online);
+    Recipient online = register();
     try {
       assertDoesNotThrow(
           () -> QuarkusTransaction.requiringNew()
-              .run(() -> notifier.publish("telex", 9201, "student-partial", List.of(offline, online))),
+              .run(() -> notifier.publish("telex", 9201, "student-partial",
+                  List.of(offline, online.userId()))),
           "收件人不在线不得让 publish 所在的事务失败");
 
-      assertEquals(1, probe.outbound().size(),
-          "离线收件人必须被静默跳过，在线接收方仍须恰好收到一帧，实际收到：" + probe.outbound());
-      Map<String, Object> payload = payload(frame(probe.outbound().getFirst()));
+      assertEquals(1, online.probe().outbound().size(),
+          "离线收件人必须被静默跳过，在线接收方仍须恰好收到一帧，实际收到：" + online.probe().outbound());
+      Map<String, Object> payload = payload(frame(online.probe().outbound().getFirst()));
       assertEquals("student-partial", payload.get("userId"), "在线接收方收到的必须是本次发布的结果通知");
       assertEquals(9201, intValue(payload.get("trainId")), "在线接收方收到的必须是本次发布的结果通知");
     } finally {
-      unregister(online, probe);
+      unregister(online);
     }
   }
 
-  /** 按生产注册路径把桩连接挂进端点在线表：sid 即收件人 userId。 */
-  private static WebSocketSessionProbe register(String sid) {
-    WebSocketSessionProbe probe = WebSocketSessionProbe.open(sid);
-    register(sid, probe);
-    return probe;
+  /** 一个已注册的收件人：在线表的键是该用户的真实 id（握手校验结果），不是路径参数。 */
+  private record Recipient(String userId, WebSocketSessionProbe probe) {}
+
+  private Recipient register() {
+    return register(false);
   }
 
-  private static void register(String sid, WebSocketSessionProbe probe) {
-    new WebSocketService().onOpen(probe.session(), sid);
+  /**
+   * 按生产注册路径把桩连接挂进端点在线表。
+   *
+   * <p>握手鉴权（SEC-06）后 {@code onOpen} 不再接受路径 sid：连接必须带一对真实的
+   * {@code token}/{@code deviceId}，在线表的键由校验出的用户 id 决定。
+   */
+  private Recipient register(boolean failOnSend) {
+    String token = "notifier-" + UUID.randomUUID();
+    String deviceId = "device-" + UUID.randomUUID();
+    UserEntity user = Fixtures.user(userDao, token, deviceId);
+    WebSocketSessionProbe probe = failOnSend
+        ? WebSocketSessionProbe.failing(user.getId(), user.getToken(), deviceId)
+        : WebSocketSessionProbe.open(user.getId(), user.getToken(), deviceId);
+    webSocket.onOpen(probe.session());
+    return new Recipient(user.getId(), probe);
   }
 
   /** 在线连接表是进程级 static，用例必须摘掉自己挂上的连接。 */
-  private static void unregister(String sid, WebSocketSessionProbe probe) {
-    new WebSocketService().onClose(sid, probe.session());
+  private void unregister(Recipient recipient) {
+    webSocket.onClose(recipient.probe().session());
   }
 
   private static Map<String, Object> frame(String raw) {

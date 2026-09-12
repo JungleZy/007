@@ -1,6 +1,7 @@
 package com.nip.ws;
 
 import com.nip.common.constants.SimulationRoomTypeEnum;
+import com.nip.dao.UserDao;
 import com.nip.dao.general.key.GeneralKeyPatDao;
 import com.nip.dao.general.telex.GeneralTelexPatDao;
 import com.nip.dao.general.ticker.GeneralTickerPatTrainDao;
@@ -9,6 +10,7 @@ import com.nip.dao.simulation.SimulationRouterRoomUserDao;
 import com.nip.dto.SimulationRouterRoomUserSimpDto;
 import com.nip.dto.general.GeneralPatTrainUserDto;
 import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
+import com.nip.entity.UserEntity;
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
 import com.nip.service.general.GeneralKeyPatService;
@@ -18,6 +20,7 @@ import com.nip.entity.simulation.ticker.GeneralTickerPatTrainEntity;
 import com.nip.service.general.GeneralTelexPatService;
 import com.nip.service.general.GeneralTickerPatService;
 import com.nip.testsupport.WebSocketStateReset;
+import com.nip.testsupport.Fixtures;
 
 import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.service.simulation.SimulationRouterRoomService;
@@ -36,9 +39,12 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +72,8 @@ class WebSocketDeleteOpenAtomicityTest {
   GeneralTickerPatTrainDao tickerDao;
   @Inject
   GeneralTickerPatService tickerDeleteService;
+  @Inject
+  UserDao userDao;
 
   @AfterEach
   void clearRooms() {
@@ -78,10 +86,11 @@ class WebSocketDeleteOpenAtomicityTest {
     WebSocketSimulationService endpoint = new WebSocketSimulationService();
     endpoint.roomUserDao = new FixedSimulationUserDao();
     endpoint.roomDao = new BlockingSimulationRoomDao(barrier);
+    endpoint.handshake = new FixedHandshake("student");
     SessionProbe probe = session("simulation");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen(probe.session(), "student", 301),
+        () -> endpoint.onOpen(probe.session(), 301),
         barrier,
         RoomLifecycleLocks.simulationRoom(301),
         () -> SimulationGlobal.routerRoom.remove(301),
@@ -94,10 +103,11 @@ class WebSocketDeleteOpenAtomicityTest {
     ValidationBarrier barrier = new ValidationBarrier();
     WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
     endpoint.generalKeyPatService = new BlockingKeyService(barrier);
+    endpoint.handshake = new FixedHandshake("student");
     SessionProbe probe = session("key");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen("student", 302, probe.session()),
+        () -> endpoint.onOpen(302, probe.session()),
         barrier,
         RoomLifecycleLocks.generalKeyRoom(302),
         () -> WebSocketGeneralKeyPatService.ROOM.remove(302),
@@ -110,10 +120,11 @@ class WebSocketDeleteOpenAtomicityTest {
     ValidationBarrier barrier = new ValidationBarrier();
     WebSocketGeneralTelexPatService endpoint = new WebSocketGeneralTelexPatService();
     endpoint.generalTelexPatService = new BlockingTelexService(barrier);
+    endpoint.handshake = new FixedHandshake("student");
     SessionProbe probe = session("telex");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen("student", "train-303", probe.session()),
+        () -> endpoint.onOpen("train-303", probe.session()),
         barrier,
         RoomLifecycleLocks.generalTelexRoom("train-303"),
         () -> WebSocketGeneralTelexPatService.ROOM.remove("train-303"),
@@ -126,10 +137,11 @@ class WebSocketDeleteOpenAtomicityTest {
     ValidationBarrier barrier = new ValidationBarrier();
     WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
     endpoint.generalTickerPatService = new BlockingTickerService(barrier);
+    endpoint.handshake = new FixedHandshake("student");
     SessionProbe probe = session("ticker");
 
     assertDeleteWinsAfterValidation(
-        () -> endpoint.onOpen("student", 304, 0, probe.session()),
+        () -> endpoint.onOpen(304, 0, probe.session()),
         barrier,
         RoomLifecycleLocks.generalTickerRoom(304),
         () -> WebSocketGeneralTickerPatService.PAT_ROOM.remove(304),
@@ -140,14 +152,20 @@ class WebSocketDeleteOpenAtomicityTest {
 
   @Test
   void productionDeleteFacadesRemoveCommittedRowsMapsAndSessions() {
+    UserEntity owner = Fixtures.user(userDao, "delete-facade-" + UUID.randomUUID());
     SimulationRouterRoomEntity simulation = simulationRoomDao.save(new SimulationRouterRoomEntity()
         .setName("delete-race-simulation")
         .setRoomType(2)
+        .setCreateUserId(owner.getId())
         .setStats(0));
-    GeneralKeyPatEntity key = keyDao.save(new GeneralKeyPatEntity().setTitle("delete-race-key"));
+    GeneralKeyPatEntity key = keyDao.save(new GeneralKeyPatEntity()
+        .setTitle("delete-race-key")
+        .setCreateUser(owner.getId()));
     GeneralTelexPatEntity telex = telexDao.save(new GeneralTelexPatEntity().setTitle("delete-race-telex"));
     GeneralTickerPatTrainEntity ticker = tickerDao.save(
-        new GeneralTickerPatTrainEntity().setName("delete-race-ticker"));
+        new GeneralTickerPatTrainEntity()
+            .setName("delete-race-ticker")
+            .setCreateUser(owner.getId()));
 
     SessionProbe simulationSession = session("delete-simulation");
     SimulationUserModel simulationUser = new SimulationUserModel();
@@ -170,10 +188,10 @@ class WebSocketDeleteOpenAtomicityTest {
     WebSocketGeneralTickerPatService.PAT_ROOM.put(ticker.getId(), tickerRoom);
 
     assertAll(
-        () -> assertTrue(simulationDeleteService.delete(simulation.getId())),
-        () -> assertTrue(keyDeleteService.delete(key.getId())),
+        () -> assertTrue(simulationDeleteService.delete(simulation.getId(), owner.getToken())),
+        () -> assertTrue(keyDeleteService.delete(key.getId(), owner.getToken())),
         () -> assertTrue(telexDeleteService.delete(telex.getId())),
-        () -> assertTrue(tickerDeleteService.delete(ticker.getId())));
+        () -> assertTrue(tickerDeleteService.delete(ticker.getId(), owner.getToken())));
 
     assertAll(
         () -> assertNull(simulationRoomDao.findById(simulation.getId())),
@@ -342,6 +360,25 @@ class WebSocketDeleteOpenAtomicityTest {
     }
   }
 
+  /**
+   * 固定身份的握手桩：本用例守的是「校验通过之后」的注册/删除因果，
+   * 凭据解析本身不在其射程内，所以直接把握手结果钉成同一个用户。
+   */
+  private static final class FixedHandshake extends WebSocketHandshake {
+    private final String userId;
+
+    private FixedHandshake(String userId) {
+      this.userId = userId;
+    }
+
+    @Override
+    public UserEntity authenticate(Session session) {
+      UserEntity user = new UserEntity();
+      user.setId(userId);
+      return user;
+    }
+  }
+
   private record SessionProbe(Session session, AtomicBoolean open) {
     private void close() throws Exception {
       session.close();
@@ -350,6 +387,7 @@ class WebSocketDeleteOpenAtomicityTest {
 
   private static SessionProbe session(String id) {
     AtomicBoolean open = new AtomicBoolean(true);
+    Map<String, Object> properties = new ConcurrentHashMap<>();
     RemoteEndpoint.Async async = remote(RemoteEndpoint.Async.class);
     RemoteEndpoint.Basic basic = remote(RemoteEndpoint.Basic.class);
     Session session = (Session) Proxy.newProxyInstance(
@@ -360,6 +398,7 @@ class WebSocketDeleteOpenAtomicityTest {
           case "isOpen" -> open.get();
           case "getAsyncRemote" -> async;
           case "getBasicRemote" -> basic;
+          case "getUserProperties" -> properties;
           case "close" -> {
             open.set(false);
             yield null;

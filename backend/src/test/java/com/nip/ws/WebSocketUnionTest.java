@@ -2,6 +2,7 @@ package com.nip.ws;
 
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.UserDao;
+import com.nip.entity.UserEntity;
 import com.nip.testsupport.Fixtures;
 import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.RoomModel;
@@ -53,14 +54,14 @@ class WebSocketUnionTest {
   // 用例A：广播可达性——共享 session 缺陷下先连者收不到任何广播
   @Test
   void firstClientStillReceivesBroadcastAfterSecondJoins() throws Exception {
-    String id1 = Fixtures.user(userDao, "t-ws-1").getId();
-    String id2 = Fixtures.user(userDao, "t-ws-2").getId();
+    TestUser u1 = user("t-ws-1");
+    TestUser u2 = user("t-ws-2");
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe p1 = new Probe();
     Probe p2 = new Probe();
-    try (Session s1 = c.connectToServer(p1, URI.create("ws://localhost:18081/websocketUnion/" + id1))) {
+    try (Session s1 = c.connectToServer(p1, uri(u1))) {
       p1.received.clear(); // 排掉自己 join 产生的消息
-      try (Session s2 = c.connectToServer(p2, URI.create("ws://localhost:18081/websocketUnion/" + id2))) {
+      try (Session s2 = c.connectToServer(p2, uri(u2))) {
         String got = p1.received.poll(5, TimeUnit.SECONDS);
         assertNotNull(got, "u2 加入后 u1 必须收到广播（缺陷下所有发送都走最后连接者的 session，u1 收不到）");
       }
@@ -74,18 +75,19 @@ class WebSocketUnionTest {
   // 再关旧连接；随后 watcher 在时间窗内轮询 USER_LIST(10)，断言 id1 恒在。
   @Test
   void reconnectWithSameSidDoesNotEvictNewConnection() throws Exception {
-    String id1 = Fixtures.user(userDao, "t-ws-c1").getId();
-    String id2 = Fixtures.user(userDao, "t-ws-c2").getId();
-    String idW = Fixtures.user(userDao, "t-ws-cw").getId();
+    TestUser u1 = user("t-ws-c1");
+    TestUser u2 = user("t-ws-c2");
+    TestUser watcherUser = user("t-ws-cw");
+    String id1 = u1.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe oldP = new Probe();
     Probe newP = new Probe();
     Probe p2 = new Probe();
     Probe watcherP = new Probe();
-    Session oldS = c.connectToServer(oldP, URI.create("ws://localhost:18081/websocketUnion/" + id1));
+    Session oldS = c.connectToServer(oldP, uri(u1));
     awaitRegistered(oldS, oldP);
-    try (Session newS = c.connectToServer(newP, URI.create("ws://localhost:18081/websocketUnion/" + id1));
-         Session watcher = c.connectToServer(watcherP, URI.create("ws://localhost:18081/websocketUnion/" + idW))) {
+    try (Session newS = c.connectToServer(newP, uri(u1));
+         Session watcher = c.connectToServer(watcherP, uri(watcherUser))) {
       awaitRegistered(newS, newP);
       awaitRegistered(watcher, watcherP);
       oldS.close(); // 旧连接真正关闭，触发 onClose(旧session)
@@ -105,7 +107,7 @@ class WebSocketUnionTest {
       }
       assertTrue(sawList, "监控窗内 watcher 必须至少收到一次 USER_LIST(10)");
       newP.received.clear();
-      try (Session s2 = c.connectToServer(p2, URI.create("ws://localhost:18081/websocketUnion/" + id2))) {
+      try (Session s2 = c.connectToServer(p2, uri(u2))) {
         String got = newP.received.poll(5, TimeUnit.SECONDS);
         assertNotNull(got, "旧连接关闭不得驱逐同 sid 的新连接：u2 加入时新连接必须仍收到广播");
       }
@@ -118,24 +120,22 @@ class WebSocketUnionTest {
 
   @Test
   void staleResolvedClientCannotRemoveReplacement() throws Exception {
-    String id = Fixtures.user(userDao, "t-ws-stale").getId();
-    String watcherId = Fixtures.user(userDao, "t-ws-stale-watcher").getId();
+    TestUser target = user("t-ws-stale");
+    TestUser watcherUser = user("t-ws-stale-watcher");
+    String id = target.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe oldProbe = new Probe();
     Probe replacementProbe = new Probe();
     Probe watcherProbe = new Probe();
 
-    try (Session oldSession = c.connectToServer(oldProbe,
-             URI.create("ws://localhost:18081/websocketUnion/" + id));
-         Session watcher = c.connectToServer(watcherProbe,
-             URI.create("ws://localhost:18081/websocketUnion/" + watcherId))) {
+    try (Session oldSession = c.connectToServer(oldProbe, uri(target));
+         Session watcher = c.connectToServer(watcherProbe, uri(watcherUser))) {
       awaitRegistered(oldSession, oldProbe);
       awaitRegistered(watcher, watcherProbe);
       Object staleClient = unionTable("webSocketClientSet").get(id);
       assertNotNull(staleClient, "旧连接必须已注册，才能复现 resolveClient 与 userExit 之间的竞态");
 
-      try (Session replacement = c.connectToServer(replacementProbe,
-          URI.create("ws://localhost:18081/websocketUnion/" + id))) {
+      try (Session replacement = c.connectToServer(replacementProbe, uri(target))) {
         awaitRegistered(replacement, replacementProbe);
         watcherProbe.received.clear();
 
@@ -177,16 +177,17 @@ class WebSocketUnionTest {
   // ROOM_MESSAGE(20) sendUser=用户id、receiveUser=房间id。
   @Test
   void roomMessageReachesRoomMemberOnly() throws Exception {
-    String id1 = Fixtures.user(userDao, "t-ws-b1").getId();
-    String id2 = Fixtures.user(userDao, "t-ws-b2").getId();
-    String id3 = Fixtures.user(userDao, "t-ws-b3").getId();
+    TestUser u1 = user("t-ws-b1");
+    TestUser u2 = user("t-ws-b2");
+    TestUser u3 = user("t-ws-b3");
+    String id1 = u1.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe p1 = new Probe();
     Probe p2 = new Probe();
     Probe p3 = new Probe();
-    try (Session s1 = c.connectToServer(p1, URI.create("ws://localhost:18081/websocketUnion/" + id1));
-         Session s2 = c.connectToServer(p2, URI.create("ws://localhost:18081/websocketUnion/" + id2));
-         Session s3 = c.connectToServer(p3, URI.create("ws://localhost:18081/websocketUnion/" + id3))) {
+    try (Session s1 = c.connectToServer(p1, uri(u1));
+         Session s2 = c.connectToServer(p2, uri(u2));
+         Session s3 = c.connectToServer(p3, uri(u3))) {
 
       // onOpen 异步派发：注册完成前服务端会丢弃消息，先等三条连接全部注册
       awaitRegistered(s1, p1);
@@ -224,13 +225,13 @@ class WebSocketUnionTest {
 
   @Test
   void soleRoomOwnerDisconnectRemovesRoom() throws Exception {
-    String ownerId = Fixtures.user(userDao, "t-ws-owner-exit").getId();
+    TestUser ownerUser = user("t-ws-owner-exit");
+    String ownerId = ownerUser.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe ownerProbe = new Probe();
     WebSocketStateReset.clearAll();
 
-    Session owner = c.connectToServer(ownerProbe,
-        URI.create("ws://localhost:18081/websocketUnion/" + ownerId));
+    Session owner = c.connectToServer(ownerProbe, uri(ownerUser));
     awaitRegistered(owner, ownerProbe);
     seedRoom("200000", ownerId);
 
@@ -244,8 +245,9 @@ class WebSocketUnionTest {
   // （P1-4/P1-5 同类缺陷在 Union 家族的表现）都会让全局静态表残留条目。
   @Test
   void concurrentChurnLeavesNoResidualState() throws Exception {
-    String idA = Fixtures.user(userDao, "t-ws-d1").getId();
-    String idB = Fixtures.user(userDao, "t-ws-d2").getId();
+    TestUser userA = user("t-ws-d1");
+    TestUser userB = user("t-ws-d2");
+    String idA = userA.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     // 起点清零：其余用例会在全局静态表里留下房间条目，与本用例守护的泄漏无关
     WebSocketStateReset.clearAll();
@@ -255,8 +257,8 @@ class WebSocketUnionTest {
       Probe pb = new Probe();
       // 背靠背发起两条连接：connectToServer 需要测试线程的请求上下文（CDI），
       // 服务端 onOpen 异步派发到 executor，两次注册在服务端天然并发
-      Session sa = connect(c, pa, idA);
-      Session sb = connect(c, pb, idB);
+      Session sa = connect(c, pa, userA);
+      Session sb = connect(c, pb, userB);
       awaitRegistered(sa, pa);
       awaitRegistered(sb, pb);
 
@@ -283,9 +285,9 @@ class WebSocketUnionTest {
     awaitEmpty("onlineRooms");
   }
 
-  private static Session connect(WebSocketContainer c, Probe p, String id) {
+  private static Session connect(WebSocketContainer c, Probe p, TestUser user) {
     try {
-      return c.connectToServer(p, URI.create("ws://localhost:18081/websocketUnion/" + id));
+      return c.connectToServer(p, uri(user));
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
@@ -343,16 +345,15 @@ class WebSocketUnionTest {
   @Test
   void malformedControlFrameDoesNotEvictSender() throws Exception {
     WebSocketStateReset.clearAll();
-    String ownerId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
-    String memberId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    TestUser ownerUser = user("t-ws-malformed-owner");
+    TestUser memberUser = user("t-ws-malformed-member");
+    String ownerId = ownerUser.id();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe ownerP = new Probe();
     Probe memberP = new Probe();
     String roomId = "300001";
-    try (Session owner = c.connectToServer(ownerP,
-             URI.create("ws://localhost:18081/websocketUnion/" + ownerId));
-         Session member = c.connectToServer(memberP,
-             URI.create("ws://localhost:18081/websocketUnion/" + memberId))) {
+    try (Session owner = c.connectToServer(ownerP, uri(ownerUser));
+         Session member = c.connectToServer(memberP, uri(memberUser))) {
       awaitRegistered(owner, ownerP);
       awaitRegistered(member, memberP);
       seedRoom(roomId, ownerId);
@@ -380,5 +381,20 @@ class WebSocketUnionTest {
     } finally {
       unionTable("onlineRooms").clear();
     }
+  }
+
+  /** 一个可用于握手的夹具用户：token/deviceId 随 query 送出，服务端据此认人。 */
+  private record TestUser(String id, String token, String deviceId) {}
+
+  private TestUser user(String label) {
+    String token = label + "-" + UUID.randomUUID();
+    String deviceId = "device-" + UUID.randomUUID();
+    UserEntity entity = Fixtures.user(userDao, token, deviceId);
+    return new TestUser(entity.getId(), entity.getToken(), deviceId);
+  }
+
+  private static URI uri(TestUser user) {
+    return URI.create("ws://localhost:18081/websocketUnion/" + user.id()
+        + "?token=" + user.token() + "&deviceId=" + user.deviceId());
   }
 }

@@ -45,7 +45,8 @@ docker run -d --name mysql-project006 \
 docker exec -i mysql-project006 mysql -uroot -proot project006 < database/project006.sql
 ```
 
-> 数据源默认连接 `jdbc:mysql://localhost:3306/project006`，账号 `root/root`（见 `application.yml` 的 `%dev`/`%prod`）。
+> 数据源默认连接 `jdbc:mysql://localhost:3306/project006`；`%dev` 用字面 `root/root`，
+> `%prod` 的账号口令改由环境变量 `DB_USER` / `DB_PASSWORD` 注入（见下文「生产部署硬约束」）。
 
 ### 3. 开发模式运行
 
@@ -86,11 +87,17 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | 默认 | — | `generation: none` | HTTP `0.0.0.0:18001`，CORS 全开，Agroal 池 `max-size=50 / min-size=20` |
 | `%dev` | 本地 `project006` | none | `quarkus:dev` 使用；Agroal 空闲 1 分钟回收 + 2 分钟后台校验 |
 | `%test` | DevServices `mysql:8.0` | `drop-and-create` | 测试端口 18081 |
-| `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast |
+| `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast；库凭据取自 `DB_USER` / `DB_PASSWORD` |
 
 > **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按日期顺序执行 `database/migrations/`
 > 下的全部 11 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
 > `2026-09-11-04-personal-handkey-capture`），否则启动校验失败。
+
+> **生产凭据硬约束**：`%prod` 的 `username`/`password` 写作 `${DB_USER}`/`${DB_PASSWORD}`，**不带默认值**，
+> 发布时必须注入这两个环境变量（如 `DB_USER=app DB_PASSWORD=**** java -jar quarkus-run.jar`）。
+> 漏注入时 Quarkus 把未展开的表达式当作「未配置」，MySQL 驱动会回退到操作系统用户名连库，
+> 进程照常启动并对外提供 HTTP——为杜绝这种「看起来正常」的错配，
+> `common/ProdDatasourceCredentialsValidator` 在 `%prod` 启动期直接抛出点名变量的 `IllegalStateException`。
 
 ---
 
@@ -130,12 +137,16 @@ WebSocket 类位于 `com.nip.ws`，端点路径（相对根，非 `/api` 前缀�
 |---|---|
 | `/websocket/{sid}` | 通用消息通道 |
 | `/websocketUnion/{sid}` | 联合训练通道 |
-| `/startWebsocket/{sid}` | 训练启动信令 |
-| `/status` | 状态广播 |
+| `/status` | 状态广播（匿名心跳探针，无身份语义） |
 | `/simulation/{id}/{roomId}` | 仿真推演房间 |
 | `/generalKeyPatTrain/{uid}/{trainId}` | 通用键控拍发训练 |
 | `/generalTelexPatTrain/{uid}/{trainId}` | 通用电传报底训练 |
 | `/generalTickerPat/{uid}/{trainId}/{role}` | 通用抄报训练（按角色） |
+
+除 `/status` 外的 6 个端点都带身份语义，握手必须在 query 上带 `token`+`deviceId`
+（浏览器 `WebSocket` 构造器无法设置请求头），由 `WebSocketHandshake` 按与 `JWTInterceptor`
+一致的口径校验，失败即发拒因帧并关闭连接。**路径里的 `sid`/`uid`/`id` 只作路由**，
+连接身份一律以握手校验结果为准。
 
 ---
 

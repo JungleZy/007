@@ -5,7 +5,6 @@ import com.nip.common.constants.BaseConstants;
 import com.nip.common.constants.SimulationDisturdTopicEnum;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
-import com.nip.dao.UserDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
 import com.nip.dao.simulation.SimulationRouterRoomUserDao;
 import com.nip.dto.SimulationRouterRoomUserSimpDto;
@@ -53,9 +52,9 @@ public class WebSocketSimulationService {
   @Inject
   SimulationRouterRoomDao roomDao;
   @Inject
-  UserDao userDao;
-  @Inject
   SimulationRouterRoomUserDao roomUserDao;
+  @Inject
+  WebSocketHandshake handshake;
 
   private record OpenTransition(
       String error,
@@ -64,17 +63,27 @@ public class WebSocketSimulationService {
       SimulationRoomLifecycle.Replacement replacement) {}
 
   /**
+   * 打开连接。
+   *
+   * <p>路径 {@code id} 只作路由：身份一律取 query 凭据的握手校验结果（SEC-06）。
+   *
    * @param session 会话
-   * @param id      用户id
    */
   @OnOpen
-  public void onOpen(Session session, @PathParam(ID) String id,
-      @PathParam(ROOM_ID) Integer roomId) throws IOException {
+  public void onOpen(Session session, @PathParam(ROOM_ID) Integer roomId) throws IOException {
+    UserEntity authenticated = handshake.authenticate(session);
+    if (authenticated == null) {
+      sendErrorMessage(session, "登录凭据无效，拒绝建立连接", "", "");
+      session.close();
+      return;
+    }
+    String id = authenticated.getId();
+    WebSocketHandshake.bind(session, id);
     OpenTransition transition;
     Lock lock = RoomLifecycleLocks.simulationRoom(roomId);
     lock.lock();
     try {
-      transition = openLocked(session, id, roomId);
+      transition = openLocked(session, authenticated, roomId);
     } finally {
       lock.unlock();
     }
@@ -87,7 +96,8 @@ public class WebSocketSimulationService {
     notifyOpen(roomId, transition.holder(), transition.room(), transition.replacement());
   }
 
-  private OpenTransition openLocked(Session session, String id, Integer roomId) {
+  private OpenTransition openLocked(Session session, UserEntity authenticated, Integer roomId) {
+    String id = authenticated.getId();
     SimulationRouterRoomUserSimpDto roomUserMap = roomUserDao.findByUserIdAndRoomId2Map(id, roomId);
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
@@ -99,18 +109,21 @@ public class WebSocketSimulationService {
         || Objects.equals(RECEPT.getType(), roomEntity.getRoomType()))) {
       return new OpenTransition("人员或房间信息未找到", null, null, null);
     }
+    if (roomUserMap == null && !Objects.equals(roomEntity.getCreateUserId(), id)) {
+      // 干扰房/路由房：无成员行时唯一的合法身份是建房人。口径同
+      // SimulationRoomAccess:33-34 的 teacher 判定——member==null 时 teacher 只剩
+      // 「createUserId 相等」这一项；其余无行连接一律拒绝。
+      return new OpenTransition("人员或房间信息未找到", null, null, null);
+    }
     if (roomUserMap == null) {
-      UserEntity userEntity = userDao.findById(id);
-      if (userEntity == null) {
-        return new OpenTransition("人员或房间信息未找到", null, null, null);
-      }
-      // 合成成员：无 roomUser 行的连接（干扰房/路由房的组训与旁观）。
-      // channel 置 -1（不落在任何真实频道上）；userType 保持 null——messageHandleRouter:576 正是以
-      // userType==null 识别组训人员，这里不能填默认值。下游所有 userType/channel 比较均已 null-safe。
+      // 合成成员：路由房/干扰房的建房人在 t_simulation_router_room_user 本就没有行
+      // （SimulationRouterRoomService 只为 send/receive 列表建行）。
+      // channel 置 -1（不落在任何真实频道上）；userType 保持 null——messageHandleRouter
+      // 正是以 userType==null 识别组训人员并向全房广播，这里不能填默认值。
       roomUserMap = new SimulationRouterRoomUserSimpDto();
-      roomUserMap.setId(userEntity.getId());
-      roomUserMap.setName(userEntity.getUserAccount());
-      roomUserMap.setUserImg(userEntity.getUserImg());
+      roomUserMap.setId(id);
+      roomUserMap.setName(authenticated.getUserAccount());
+      roomUserMap.setUserImg(authenticated.getUserImg());
       roomUserMap.setChannel(-1);
     }
     SimulationUserModel userModel = PojoUtils.convertOne(roomUserMap, SimulationUserModel.class);
@@ -233,8 +246,12 @@ public class WebSocketSimulationService {
    * 关闭
    */
   @OnClose
-  public void onClose(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
-      Session session) {
+  public void onClose(@PathParam(ROOM_ID) Integer roomId, Session session) {
+    String id = WebSocketHandshake.authenticatedId(session);
+    if (id == null) {
+      //握手被拒的连接从未进入任何房间列表，容器已在关闭它
+      return;
+    }
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
       SimulationRoomLifecycle.removeCurrent(SimulationGlobal.disturbRoom, roomId, id, session);
@@ -254,10 +271,9 @@ public class WebSocketSimulationService {
   }
 
   @OnError
-  public void onError(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
-      Session session, Throwable t) {
+  public void onError(@PathParam(ROOM_ID) Integer roomId, Session session, Throwable t) {
     log.error("ws error, session={}", session.getId(), t);
-    onClose(id, roomId, session);
+    onClose(roomId, session);
   }
 
   @Transactional
@@ -353,9 +369,12 @@ public class WebSocketSimulationService {
    * @param message 消息（JSON）
    */
   @OnMessage
-  public void onMessage(@PathParam(ID) String id, @PathParam(ROOM_ID) Integer roomId,
-      String message, Session session) {
+  public void onMessage(@PathParam(ROOM_ID) Integer roomId, String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
+    String id = WebSocketHandshake.authenticatedId(session);
+    if (id == null) {
+      return;
+    }
     Optional<SimulationRouterRoomEntity> optional = roomDao.findByIdOptional(roomId);
     if (optional.isEmpty()) {
       sendErrorMessage(session, "房间不存在", id, id);

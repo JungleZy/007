@@ -4,6 +4,25 @@ export const HEARTBEAT_PONG = '__nip_heartbeat_pong__'
 const HEARTBEAT_INTERVAL = 30000
 const STALE_TIMEOUT = 90000
 
+// 握手凭据注入点（SEC-06）：浏览器的 WebSocket 构造器无法设置请求头，
+// 后端 6 个带身份语义的端点只能从 query 读 token/deviceId。
+// 这里是全仓唯一注入点——PublicSocket.ws_connect 与 7 处直连都经过本类，
+// 且重连复用已带凭据的 this.url，因此训练页无需各自改造。
+function withCredentials(url) {
+  let token = null
+  let deviceId = null
+  try {
+    token = window.localStorage.getItem('token')
+    deviceId = window.localStorage.getItem('deviceId')
+  } catch (error) {
+    // 存储权限被禁：照原样连接，由服务端拒绝并给出拒因帧
+    return url
+  }
+  if (!token || !deviceId) return url
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}token=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(deviceId)}`
+}
+
 export default class SocketConnection {
   constructor() {
     this.socket = null
@@ -17,7 +36,7 @@ export default class SocketConnection {
   connect(url, onMessage, onOpen, onState) {
     this.close()
     this.active = true
-    this.url = url
+    this.url = withCredentials(url)
     this.onMessage = onMessage
     this.onOpen = onOpen
     this.onState = onState

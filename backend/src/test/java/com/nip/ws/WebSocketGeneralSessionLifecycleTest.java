@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,13 +28,13 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void keyStaleCloseDoesNotRemoveReplacement() {
-    Session oldSession = session("key-old");
-    Session currentSession = session("key-current");
+    Session oldSession = session("key-old", "user");
+    Session currentSession = session("key-current", "user");
     GeneralPatTrainUserModelDto current = generalUser("user", currentSession);
     GeneralPatTrainRoomUserDto room = generalRoom(current);
     WebSocketGeneralKeyPatService.ROOM.put(101, room);
 
-    new WebSocketGeneralKeyPatService().onClose("user", 101, oldSession);
+    new WebSocketGeneralKeyPatService().onClose(101, oldSession);
 
     GeneralPatTrainRoomUserDto actual = WebSocketGeneralKeyPatService.ROOM.get(101);
     assertNotNull(actual, "stale close must not remove the room containing the replacement");
@@ -41,25 +43,25 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void keyCurrentErrorThenCloseRemovesEmptyRoomIdempotently() {
-    Session currentSession = session("key-current");
+    Session currentSession = session("key-current", "user");
     WebSocketGeneralKeyPatService.ROOM.put(102, generalRoom(generalUser("user", currentSession)));
     WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
 
-    endpoint.onError("user", 102, currentSession, new RuntimeException("expected"));
-    assertDoesNotThrow(() -> endpoint.onClose("user", 102, currentSession));
+    endpoint.onError(102, currentSession, new RuntimeException("expected"));
+    assertDoesNotThrow(() -> endpoint.onClose(102, currentSession));
 
     assertFalse(WebSocketGeneralKeyPatService.ROOM.containsKey(102));
   }
 
   @Test
   void telexStaleCloseDoesNotRemoveReplacement() {
-    Session oldSession = session("telex-old");
-    Session currentSession = session("telex-current");
+    Session oldSession = session("telex-old", "user");
+    Session currentSession = session("telex-current", "user");
     GeneralPatTrainUserModelDto current = generalUser("user", currentSession);
     GeneralPatTrainRoomUserDto room = generalRoom(current);
     WebSocketGeneralTelexPatService.ROOM.put("train-101", room);
 
-    new WebSocketGeneralTelexPatService().onClose("user", "train-101", oldSession);
+    new WebSocketGeneralTelexPatService().onClose("train-101", oldSession);
 
     GeneralPatTrainRoomUserDto actual = WebSocketGeneralTelexPatService.ROOM.get("train-101");
     assertNotNull(actual, "stale close must not remove the room containing the replacement");
@@ -68,27 +70,27 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void telexCurrentErrorThenCloseRemovesEmptyRoomIdempotently() {
-    Session currentSession = session("telex-current");
+    Session currentSession = session("telex-current", "user");
     WebSocketGeneralTelexPatService.ROOM.put("train-102", generalRoom(generalUser("user", currentSession)));
     WebSocketGeneralTelexPatService endpoint = new WebSocketGeneralTelexPatService();
 
-    endpoint.onError("user", "train-102", currentSession, new RuntimeException("expected"));
-    assertDoesNotThrow(() -> endpoint.onClose("user", "train-102", currentSession));
+    endpoint.onError("train-102", currentSession, new RuntimeException("expected"));
+    assertDoesNotThrow(() -> endpoint.onClose("train-102", currentSession));
 
     assertFalse(WebSocketGeneralTelexPatService.ROOM.containsKey("train-102"));
   }
 
   @Test
   void tickerStaleErrorDoesNotRemoveReplacement() {
-    Session oldSession = session("ticker-old");
-    Session currentSession = session("ticker-current");
+    Session oldSession = session("ticker-old", "user");
+    Session currentSession = session("ticker-current", "user");
     GeneralTickerPatTrainUserModel current = tickerUser("user", currentSession);
     GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
     room.getJoinUser().add(current);
     WebSocketGeneralTickerPatService.PAT_ROOM.put(101, room);
 
     new WebSocketGeneralTickerPatService()
-        .onError("user", 101, oldSession, new RuntimeException("expected"));
+        .onError(101, oldSession, new RuntimeException("expected"));
 
     GeneralTickerPatTrainRoomUserModel actual = WebSocketGeneralTickerPatService.PAT_ROOM.get(101);
     assertNotNull(actual, "stale error must not remove the room containing the replacement");
@@ -97,14 +99,14 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void tickerCurrentErrorIsIdempotentAndRemovesEmptyRoom() {
-    Session currentSession = session("ticker-current");
+    Session currentSession = session("ticker-current", "user");
     GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
     room.getJoinUser().add(tickerUser("user", currentSession));
     WebSocketGeneralTickerPatService.PAT_ROOM.put(102, room);
     WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
 
-    endpoint.onError("user", 102, currentSession, new RuntimeException("expected"));
-    assertDoesNotThrow(() -> endpoint.onError("user", 102, currentSession,
+    endpoint.onError(102, currentSession, new RuntimeException("expected"));
+    assertDoesNotThrow(() -> endpoint.onError(102, currentSession,
         new RuntimeException("duplicate callback")));
 
     assertFalse(WebSocketGeneralTickerPatService.PAT_ROOM.containsKey(102));
@@ -112,16 +114,16 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void keyStaleStudentMessageDoesNotMutateReplacementOrNotifyTeacher() {
-    Session oldSession = session("key-old-message");
-    Session currentSession = session("key-current-message");
-    SessionProbe teacher = recordingSession("key-teacher");
+    Session oldSession = session("key-old-message", "student");
+    Session currentSession = session("key-current-message", "student");
+    SessionProbe teacher = recordingSession("key-teacher", "teacher");
     GeneralPatTrainUserModelDto current = generalUser("student", currentSession);
     GeneralPatTrainRoomUserDto room = generalRoom(current);
     room.setGroupUser(generalUser("teacher", teacher.session()));
     WebSocketGeneralKeyPatService.ROOM.put(201, room);
 
     new WebSocketGeneralKeyPatService()
-        .onMessage("student", 201, "{\"topic\":\"ready\"}", oldSession);
+        .onMessage(201, "{\"topic\":\"ready\"}", oldSession);
 
     assertEquals(1, current.getStatus());
     assertTrue(teacher.outbound().isEmpty());
@@ -129,24 +131,24 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void telexStaleTeacherControlMessageDoesNotBroadcastToStudents() {
-    Session oldTeacher = session("telex-old-teacher");
-    Session currentTeacher = session("telex-current-teacher");
-    SessionProbe student = recordingSession("telex-student");
+    Session oldTeacher = session("telex-old-teacher", "teacher");
+    Session currentTeacher = session("telex-current-teacher", "teacher");
+    SessionProbe student = recordingSession("telex-student", "student");
     GeneralPatTrainRoomUserDto room = generalRoom(generalUser("student", student.session()));
     room.setGroupUser(generalUser("teacher", currentTeacher));
     WebSocketGeneralTelexPatService.ROOM.put("train-201", room);
 
     new WebSocketGeneralTelexPatService()
-        .onMessage("teacher", "train-201", "{\"topic\":\"begin\"}", oldTeacher);
+        .onMessage("train-201", "{\"topic\":\"begin\"}", oldTeacher);
 
     assertTrue(student.outbound().isEmpty());
   }
 
   @Test
   void tickerStaleStudentMessageDoesNotMutateReplacementOrNotifyTeacher() {
-    Session oldSession = session("ticker-old-message");
-    Session currentSession = session("ticker-current-message");
-    SessionProbe teacher = recordingSession("ticker-teacher");
+    Session oldSession = session("ticker-old-message", "student");
+    Session currentSession = session("ticker-current-message", "student");
+    SessionProbe teacher = recordingSession("ticker-teacher", "teacher");
     GeneralTickerPatTrainUserModel current = tickerUser("student", currentSession);
     GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
     room.getJoinUser().add(current);
@@ -156,7 +158,7 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketGeneralTickerPatService.PAT_ROOM.put(201, room);
 
     new WebSocketGeneralTickerPatService()
-        .onMessage("student", 201, "{\"topic\":\"ready\"}", oldSession);
+        .onMessage(201, "{\"topic\":\"ready\"}", oldSession);
 
     assertEquals(1, current.getStatus());
     assertTrue(teacher.outbound().isEmpty());
@@ -164,18 +166,18 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @Test
   void deletedGeneralRoomSnapshotsCloseEverySession() {
-    Session keyTeacher = session("key-delete-teacher");
-    Session keyStudent = session("key-delete-student");
+    Session keyTeacher = session("key-delete-teacher", "teacher");
+    Session keyStudent = session("key-delete-student", "student");
     GeneralPatTrainRoomUserDto keyRoom = generalRoom(generalUser("student", keyStudent));
     keyRoom.setGroupUser(generalUser("teacher", keyTeacher));
 
-    Session telexTeacher = session("telex-delete-teacher");
-    Session telexStudent = session("telex-delete-student");
+    Session telexTeacher = session("telex-delete-teacher", "teacher");
+    Session telexStudent = session("telex-delete-student", "student");
     GeneralPatTrainRoomUserDto telexRoom = generalRoom(generalUser("student", telexStudent));
     telexRoom.setGroupUser(generalUser("teacher", telexTeacher));
 
-    Session tickerTeacher = session("ticker-delete-teacher");
-    Session tickerStudent = session("ticker-delete-student");
+    Session tickerTeacher = session("ticker-delete-teacher", "teacher");
+    Session tickerStudent = session("ticker-delete-student", "student");
     GeneralTickerPatTrainRoomUserModel tickerRoom = new GeneralTickerPatTrainRoomUserModel();
     tickerRoom.setGroupUser(tickerUser("teacher", tickerTeacher));
     tickerRoom.getJoinUser().add(tickerUser("student", tickerStudent));
@@ -220,13 +222,18 @@ class WebSocketGeneralSessionLifecycleTest {
   private record SessionProbe(Session session, List<String> outbound) {
   }
 
-  private static Session session(String id) {
-    return recordingSession(id).session();
+  /**
+   * 造一条「已完成握手」的连接：握手鉴权（SEC-06）后端点只认 onOpen 绑在会话上的身份，
+   * 路径参数不再参与认人，所以这里必须显式绑定该连接的用户 id。
+   */
+  private static Session session(String id, String userId) {
+    return recordingSession(id, userId).session();
   }
 
-  private static SessionProbe recordingSession(String id) {
+  private static SessionProbe recordingSession(String id, String userId) {
     AtomicBoolean open = new AtomicBoolean(true);
     List<String> outbound = new CopyOnWriteArrayList<>();
+    Map<String, Object> properties = new ConcurrentHashMap<>();
     RemoteEndpoint.Async async = (RemoteEndpoint.Async) Proxy.newProxyInstance(
         RemoteEndpoint.Async.class.getClassLoader(),
         new Class<?>[]{RemoteEndpoint.Async.class},
@@ -243,6 +250,7 @@ class WebSocketGeneralSessionLifecycleTest {
           case "getId" -> id;
           case "isOpen" -> open.get();
           case "getAsyncRemote" -> async;
+          case "getUserProperties" -> properties;
           case "close" -> {
             open.set(false);
             yield null;
@@ -252,6 +260,7 @@ class WebSocketGeneralSessionLifecycleTest {
           case "toString" -> "Session[" + id + "]";
           default -> defaultValue(method.getReturnType());
         });
+    WebSocketHandshake.bind(session, userId);
     return new SessionProbe(session, outbound);
   }
 

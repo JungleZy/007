@@ -3,6 +3,7 @@ package com.nip.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nip.common.utils.JSONUtils;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.dao.GradingRuleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.general.key.GeneralKeyPatDao;
@@ -117,8 +118,8 @@ class GeneralCaptureContractTest {
   @AfterEach
   void removeOnlyThisTestsRoomsRulesAndActors() {
     for (Room room : rooms) {
-      if (room.mode == Mode.TICKER) ticker.delete(room.id);
-      else key.delete(room.id);
+      if (room.mode == Mode.TICKER) ticker.delete(room.id, owner.getToken());
+      else key.delete(room.id, owner.getToken());
     }
     QuarkusTransaction.requiringNew().run(() -> {
       ruleIds.forEach(rules::deleteById);
@@ -137,8 +138,9 @@ class GeneralCaptureContractTest {
       rejected(post(room, "finish", denied, control(room, 0)));
       rejected(post(room, "reset", denied, control(room, 0)));
     }
+    // 非创建者、非 role=1 组训人、非管理员改状态 -> 授权拒绝（207），与「参数不合法/目标不存在」的 202 分开
     for (UserEntity denied : List.of(alice, outsider)) {
-      assertThrows(IllegalArgumentException.class, () -> status(room, 2, denied));
+      assertThrows(ForbiddenException.class, () -> status(room, 2, denied));
     }
     assertEquals(1, roomStatus(room));
     ok(post(room, "uploadResult", alice, upload));

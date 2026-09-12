@@ -4,6 +4,7 @@ import com.nip.dao.UserDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
 import com.nip.dao.simulation.SimulationRouterRoomUserDao;
 import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
+import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.testsupport.Fixtures;
 
@@ -73,8 +74,10 @@ class WebSocketSimulationTest {
   // 整房 playStatus 被置 0（暂停）并落库。
   @Test
   void studentDisconnectMustNotPauseRoomAsTeacher() throws Exception {
-    String teacherId = Fixtures.user(userDao, "t-sim-teacher").getId();
-    String studentId = Fixtures.user(userDao, "t-sim-student").getId();
+    TestUser teacher = user("t-sim-teacher");
+    TestUser student = user("t-sim-student");
+    String teacherId = teacher.id();
+    String studentId = student.id();
 
     SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
     room.setName("report-room");
@@ -93,12 +96,12 @@ class WebSocketSimulationTest {
     Probe teacherP = new Probe();
     // 连接顺序触发缺陷：先连学员、后连教员，共享字段停在教员身份。
     // onOpen 各自 get→new list→put 存在并发覆盖（P1-3，Phase 2 修），这里串行等待注册完成再连下一个。
-    Session student = c.connectToServer(studentP, uri(studentId, roomId));
+    Session studentSession = c.connectToServer(studentP, uri(student, roomId));
     awaitRoomSize(roomId, 1);
-    try (Session teacher = c.connectToServer(teacherP, uri(teacherId, roomId))) {
+    try (Session teacherSession = c.connectToServer(teacherP, uri(teacher, roomId))) {
       awaitRoomSize(roomId, 2);
 
-      student.close(); // 学员断线
+      studentSession.close(); // 学员断线
       awaitRemoved(roomId, studentId);
 
       SimulationRouterRoomEntity after = roomDao.findById(roomId);
@@ -108,17 +111,18 @@ class WebSocketSimulationTest {
       assertNotNull(members, "教员仍在线，房间列表不得消失");
       assertTrue(members.stream().anyMatch(m -> teacherId.equals(m.userModel().getId())),
           "教员连接必须仍在房间列表");
-      assertTrue(teacher.isOpen(), "教员连接必须仍然打开");
+      assertTrue(teacherSession.isOpen(), "教员连接必须仍然打开");
     } finally {
-      if (student.isOpen()) {
-        student.close();
+      if (studentSession.isOpen()) {
+        studentSession.close();
       }
     }
   }
 
   @Test
   void staleSessionErrorAfterReconnectDoesNotRemoveReplacementOrPauseRoom() throws Exception {
-    String studentId = Fixtures.user(userDao, "t-sim-reconnect-student").getId();
+    TestUser student = user("t-sim-reconnect-student");
+    String studentId = student.id();
     SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
     room.setName("report-room-reconnect");
     room.setCreateUserId(studentId);
@@ -130,13 +134,13 @@ class WebSocketSimulationTest {
     saveRoomUser(roomId, studentId, 1, 1);
 
     WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-    Session oldClient = container.connectToServer(new Probe(), uri(studentId, roomId));
+    Session oldClient = container.connectToServer(new Probe(), uri(student, roomId));
     Session oldServer = awaitServerSession(roomId, studentId, null);
-    Session currentClient = container.connectToServer(new Probe(), uri(studentId, roomId));
+    Session currentClient = container.connectToServer(new Probe(), uri(student, roomId));
     Session currentServer = awaitServerSession(roomId, studentId, oldServer);
 
     try {
-      service.onError(studentId, roomId, oldServer, new RuntimeException("stale callback"));
+      service.onError(roomId, oldServer, new RuntimeException("stale callback"));
 
       assertSame(currentServer, awaitServerSession(roomId, studentId, oldServer));
       assertEquals(1, roomDao.findById(roomId).getPlayStatus().intValue(),
@@ -153,7 +157,8 @@ class WebSocketSimulationTest {
 
   @Test
   void reportRoomRejectsUserWithoutMembershipWithoutPausingRoom() throws Exception {
-    String userId = Fixtures.user(userDao, "t-sim-unconfigured").getId();
+    TestUser member = user("t-sim-unconfigured");
+    String userId = member.id();
     SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
     room.setName("report-room-membership-required");
     room.setCreateUserId(userId);
@@ -165,7 +170,7 @@ class WebSocketSimulationTest {
 
     Probe probe = new Probe();
     Session unauthorized = ContainerProvider.getWebSocketContainer()
-        .connectToServer(probe, uri(userId, roomId));
+        .connectToServer(probe, uri(member, roomId));
     boolean enteredHolderList = awaitPresence(roomId, userId, unauthorized);
     String error = probe.received.poll(5, TimeUnit.SECONDS);
     boolean serverClosed = probe.closed.poll(5, TimeUnit.SECONDS) != null && !unauthorized.isOpen();
@@ -219,7 +224,8 @@ class WebSocketSimulationTest {
 
   @Test
   void malformedMessageReturnsProtocolErrorAndKeepsParticipantConnected() throws Exception {
-    String userId = Fixtures.user(userDao, "t-sim-malformed").getId();
+    TestUser participant = user("t-sim-malformed");
+    String userId = participant.id();
     SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
     room.setName("report-room-malformed");
     room.setCreateUserId(userId);
@@ -231,7 +237,7 @@ class WebSocketSimulationTest {
     saveRoomUser(roomId, userId, 1, 1);
 
     Probe probe = new Probe();
-    Session client = ContainerProvider.getWebSocketContainer().connectToServer(probe, uri(userId, roomId));
+    Session client = ContainerProvider.getWebSocketContainer().connectToServer(probe, uri(participant, roomId));
     try {
       assertTrue(awaitPresence(roomId, userId, client));
       client.getBasicRemote().sendText("{");
@@ -255,8 +261,19 @@ class WebSocketSimulationTest {
   }
 
 
-  private static URI uri(String userId, Integer roomId) {
-    return URI.create("ws://localhost:18081/simulation/" + userId + "/" + roomId);
+  /** 一个可用于握手的夹具用户：token/deviceId 随 query 送出，服务端据此认人。 */
+  private record TestUser(String id, String token, String deviceId) {}
+
+  private TestUser user(String label) {
+    String token = label + "-" + UUID.randomUUID();
+    String deviceId = "device-" + UUID.randomUUID();
+    UserEntity entity = Fixtures.user(userDao, token, deviceId);
+    return new TestUser(entity.getId(), entity.getToken(), deviceId);
+  }
+
+  private static URI uri(TestUser user, Integer roomId) {
+    return URI.create("ws://localhost:18081/simulation/" + user.id() + "/" + roomId
+        + "?token=" + user.token() + "&deviceId=" + user.deviceId());
   }
 
   private void saveRoomUser(Integer roomId, String userId, int userType, int channel) {
