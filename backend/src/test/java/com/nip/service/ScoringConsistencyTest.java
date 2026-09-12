@@ -17,13 +17,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 手键 {@code GeneralTickerPatService.calculateWpmScore} 委托它，
  * 电键 {@code GeneralKeyPatService.countScore} 与数据报 {@code GeneralTelexPatService.countScore}
  * 的速率分支也各自只剩一次 {@code ScoreMath.wpmScore(...)} 调用。
- * 那两条路径仍内嵌在依赖 DAO 的私有 {@code countScore} 里、无法直接调用，
- * 但收口后三者共用同一实现，<b>速率项的符号与方向由结构保证一致</b>——
- * 本类因此直接锁 {@code ScoreMath.wpmScore} 的契约：高于基准按 R 加分、低于基准按 L 扣分、等于基准为 0。
+ *
+ * <p>本类<b>只锁 {@code ScoreMath.wpmScore} 这一纯算法的契约</b>：高于基准按 R 加分、
+ * 低于基准按 L 扣分、等于基准为 0、小数系数不被截断、系数缺省不抛 NPE；
+ * 手键那条经 {@code calculateWpmScore} 的整数出口一并覆盖。
+ * 电键与数据报的速率分支内嵌在依赖 DAO 的私有 {@code countScore} 里，本类无法执行，
+ * 因此<b>各域落库成绩里码率项是否正确，由各域自己的结算用例负责</b>，不要指望本类替它们守门。
  */
 class ScoringConsistencyTest {
 
-  /** Key/Telex 侧 {@code Wpm.r}/{@code Wpm.l} 是 BigDecimal，可带小数系数。 */
+  /** 全类共用的速率基准（字/分）：高于它走 R 加分、低于它走 L 扣分、等于它得 0。 */
   private static final int BASE = 70;
 
   private static SpeedDeduct wpmRule() {
@@ -104,26 +107,5 @@ class ScoringConsistencyTest {
   void nullCoefficientsScoreZeroInsteadOfThrowing() {
     assertEquals(0, ScoreMath.wpmScore(BASE, null, null, 80).signum());
     assertEquals(0, ScoreMath.wpmScore(BASE, null, null, 60).signum());
-  }
-
-  /**
-   * 三个调用方的速率项符号一致。Ticker 可直接调静态方法；
-   * Key/Telex 的速率分支已委托同一个 {@code ScoreMath.wpmScore}（各自 countScore 内一次调用），
-   * 故此处断言同输入下该实现的结果，符号一致由「三者共用此实现」的结构保证。
-   */
-  @Test
-  void allThreeCallersAgreeOnRateSign() {
-    SpeedDeduct tickerRule = wpmRule();
-    BigDecimal r = new BigDecimal("2");
-    BigDecimal l = new BigDecimal("3");
-
-    for (int speed : new int[] {BASE + 10, BASE, BASE - 10}) {
-      int ticker = GeneralTickerPatService.calculateWpmScore(tickerRule, speed);
-      // Key 与 Telex 的速率分支就是这一行（rule.getWpm() 的 base/r/l 同口径）
-      int shared = ScoreMath.wpmScore(BASE, r, l, speed).signum();
-
-      assertEquals(Integer.signum(ticker), shared,
-          "speed=" + speed + " 时 Ticker 与 Key/Telex 共用实现的速率项符号必须一致");
-    }
   }
 }
