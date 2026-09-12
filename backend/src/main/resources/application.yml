@@ -97,8 +97,15 @@ quarkus:
     datasource:
       # 凭据只从部署环境注入：仓库内不留明文口令，且刻意不写 ${DB_USER:root} 这类默认值——
       # 带默认值等于没改。Quarkus 对未展开的 ${DB_USER} 不报错而是当作「未配置」，
-      # MySQL 驱动会回退到操作系统用户名连库、进程照常对外提供 HTTP，
-      # 所以缺变量必须由 com.nip.common.ProdDatasourceCredentialsValidator 在启动期直接失败。
+      # MySQL 驱动随即回退到操作系统用户名去连库。
+      #
+      # 漏注入的实测后果（打包产物 + -Dquarkus.profile=prod）：Hibernate 的 JPA 引导拿不到连接，
+      # 应用启动失败并退出，**不会**对外提供 HTTP；日志里是驱动级的
+      # "Access denied for user '<OS 用户>'@..."，看不出根因是环境变量没注入。
+      # 这条诊断信息无法在应用内改善：JPA 引导跑在独立的 "JPA Startup Thread" 上，
+      # 早于任何 @Observes StartupEvent 观察者；而把守卫前移到 SmallRye 配置拦截器
+      # 会连 `mvn package`（augmentation 也以 prod profile 解析配置）一起挡掉。
+      # 因此部署方必须注入这两个变量，见 docs/specs/2026-09-12-review-fix-spec.md §6 T3-6。
       username: ${DB_USER}
       password: ${DB_PASSWORD}
       jdbc:

@@ -90,14 +90,19 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast；库凭据取自 `DB_USER` / `DB_PASSWORD` |
 
 > **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按日期顺序执行 `database/migrations/`
-> 下的全部 11 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
-> `2026-09-11-04-personal-handkey-capture`），否则启动校验失败。
+> 下的全部 14 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
+> `2026-09-12-03-menu-telex-component-path`），否则启动校验失败。
+> 2026-09-12 实测：对落后若干版本的库按序补齐 14 个脚本后，`%prod` 的 `validate` 通过。
 
 > **生产凭据硬约束**：`%prod` 的 `username`/`password` 写作 `${DB_USER}`/`${DB_PASSWORD}`，**不带默认值**，
 > 发布时必须注入这两个环境变量（如 `DB_USER=app DB_PASSWORD=**** java -jar quarkus-run.jar`）。
-> 漏注入时 Quarkus 把未展开的表达式当作「未配置」，MySQL 驱动会回退到操作系统用户名连库，
-> 进程照常启动并对外提供 HTTP——为杜绝这种「看起来正常」的错配，
-> `common/ProdDatasourceCredentialsValidator` 在 `%prod` 启动期直接抛出点名变量的 `IllegalStateException`。
+> 漏注入时 Quarkus 把未展开的表达式当作「未配置」，MySQL 驱动会回退到操作系统用户名连库。
+>
+> 2026-09-12 打包产物实测：漏注入时应用在 JPA 引导阶段失败退出，**不会**对外提供 HTTP，
+> 但日志只有驱动级的 `Access denied for user '<OS 用户>'@…`，看不出根因是环境变量没注入。
+> 这条诊断信息无法在应用内改善：JPA 引导早于任何 `@Observes StartupEvent` 观察者，
+> 而把守卫前移到 SmallRye `ConfigSourceInterceptor` 会连 `mvn package` 一起挡掉
+> （augmentation 同样以 prod profile 解析配置）。**因此这是部署方的硬前提，不是应用能兜住的错误。**
 
 ---
 

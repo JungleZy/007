@@ -223,9 +223,9 @@
 - **现状**：`application.yml` 的 `%prod` 用 `root/root` 明文；`controller/free/ToolsController.java:41-77` `/api/tools/system` 匿名返回 OS/JVM/CPU/主机名/内网 IP。
 - **目标**：
   1. `%prod` 的 `username`/`password` 改 `${DB_USER}`/`${DB_PASSWORD}`（**不得写 `${DB_USER:root}` 默认值 —— 那等于没修**）；`%dev` 保留字面 `root/root`。
-  2. **必须加 `%prod` 启动校验**：Quarkus 对 `quarkus.datasource.username` 这类可选配置，未解析的 `${DB_USER}` **不抛错**而是当未配置，驱动回退到 OS 用户名去连库，进程照常启动 → 必须在 `@Observes StartupEvent` 里检查非空，缺失即抛带变量名的 `IllegalStateException`。
+  2. ~~**必须加 `%prod` 启动校验**：在 `@Observes StartupEvent` 里检查非空，缺失即抛带变量名的 `IllegalStateException`。~~ **首版此项技术上不成立，已撤销**（2026-09-12 打包产物实测）：Hibernate 的 JPA 引导跑在独立的 “JPA Startup Thread” 上，**早于任何 StartupEvent 观察者**，所以缺变量时应用是在 JPA 引导阶段就失败退出（`Access denied for user '<OS 用户>'@…`），观察者根本没机会执行 —— 这样的守卫是排序上的死代码。把守卫前移到 SmallRye `ConfigSourceInterceptor` 确实能拿到正确文案，但 augmentation（`mvn package`）同样以 prod profile 解析配置，会把**构建**一起挡掉，代价不可接受。结论：**不加应用内守卫**，把「必须注入 `DB_USER`/`DB_PASSWORD`」写进 `%prod` 配置注释与部署说明。
   3. `/api/tools/system` **整端点删除**（前端零消费，红线 6）。
-- **验收**：`%prod` 缺变量时**启动即失败**且错误文案含 `DB_USER`/`DB_PASSWORD`；`/api/tools/system` 返回 404。
+- **验收**（按实测修正）：`%prod` 缺变量时**启动失败且不对外提供 HTTP**（驱动级 `Access denied`，文案不含变量名 —— 见目标 2 的撤销理由）；注入 `DB_USER`/`DB_PASSWORD` 后 `%prod` 正常启动、`generation: validate` 通过、业务信封不变；`/api/tools/system` 返回 404。
 
 ## 7. B4 组训数据报/电传域（P1）
 

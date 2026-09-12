@@ -268,10 +268,10 @@
 
 ### T3-6 生产凭据外置与侦察面
 
-- [ ] `%prod` 改 `${DB_USER}`/`${DB_PASSWORD}`（**不写默认值**）；`%dev` 保留字面值
-- [ ] 新增 `%prod` 启动校验：取不到非空即抛含变量名的 `IllegalStateException`（Quarkus 不会自己 fail-fast，会回退 OS 用户名连库）
-- [ ] `/api/tools/system` **整端点删除**（前端零消费）
-- [ ] 回归：缺变量时启动即失败且文案含变量名；该端点 404
+- [x] `%prod` 改 `${DB_USER}`/`${DB_PASSWORD}`（**不写默认值**）；`%dev` 保留字面值
+- [x] ~~新增 `%prod` 启动校验~~ **撤销**：JPA 引导早于 `StartupEvent` 观察者，守卫是死代码；前移到 SmallRye 配置拦截器会挡掉 `mvn package`。改为在 `%prod` 配置注释里写明必须注入的变量（见 spec §6 T3-6 目标 2 的撤销理由）
+- [x] `/api/tools/system` **整端点删除**（前端零消费）
+- [x] 回归（打包产物实测）：缺变量 → 启动失败、不监听 HTTP；注入 `DB_USER=root DB_PASSWORD=root` → `started in 3.188s`、`validate` 通过、`/q/openapi`=200、登录信封仍为 `200 + code:500`；该端点 404
 - **提交**：`fix(security): 生产数据源凭据外置并删除系统侦察端点`
 
 ### T7-3 鉴权路径空返回收敛
