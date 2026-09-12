@@ -43,7 +43,7 @@ cd bw-frontend
 npm ci
 npm run dev-e      # 仅起 Electron；dev-f 仅起 Vite；build-e-w / build-e-l 打包
 ```
-> 详见当前综合评审 [`docs/reviews/2026-09-08-full-project-review.md`](docs/reviews/2026-09-08-full-project-review.md)。
+> 详见当前综合评审 [`docs/reviews/2026-09-12-full-project-review.md`](docs/reviews/2026-09-12-full-project-review.md)。
 
 ---
 
@@ -90,7 +90,7 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 
 | 项 | 状态 |
 |---|---|
-| 后端测试基线 | **228 测试全绿**（`./mvnw -B clean verify`，需 Docker）|
+| 后端测试基线 | **316 测试 / 74 suite 全绿**（`./mvnw -B clean verify`，需 Docker；2026-09-12）|
 | 后端单侧整改（2026-09-07 轮，34 条 P1）| 已完成，4 项偏离已于 2026-09-08 闭合（`docs/plans/archive/2026-09-07-fix-plan.md`）|
 | **跨栈整改（2026-09-08 联合评审）** | **进行中** —— P0 注册、P1 授权/脱敏、房间分页/错误码、导入与协议地址批次已落地；详见 `docs/plans/2026-09-08-joint-fix-plan.md` |
 | 已知未收口项 | 生产数据重复清理、未鉴权设备类写端点、其余训练域/WS/富文本/部署回归仍待处理；真实反代与登录态浏览器验收需外部环境 |
@@ -104,8 +104,9 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 | 主题 | 路径 |
 |---|---|
 | **文档地图（先看这个）** | [`docs/README.md`](docs/README.md) |
-| **当前全项目评审（唯一入口）** | [`docs/reviews/2026-09-08-full-project-review.md`](docs/reviews/2026-09-08-full-project-review.md) |
-| 当前联合评审详细证据 | [`docs/reviews/2026-09-08-joint-frontend-backend-review.md`](docs/reviews/2026-09-08-joint-frontend-backend-review.md) |
+| **当前全项目评审（唯一入口）** | [`docs/reviews/2026-09-12-full-project-review.md`](docs/reviews/2026-09-12-full-project-review.md) |
+| 跨栈契约详细证据（历史，仍有效） | [`docs/reviews/2026-09-08-joint-frontend-backend-review.md`](docs/reviews/2026-09-08-joint-frontend-backend-review.md) |
+| 上一轮全项目评审（已被取代） | [`docs/reviews/2026-09-08-full-project-review.md`](docs/reviews/2026-09-08-full-project-review.md) |
 | 跨栈修复 spec | [`docs/specs/2026-09-08-joint-fix-spec.md`](docs/specs/2026-09-08-joint-fix-spec.md) |
 | 历史评审证据 | [`docs/reviews/archive/`](docs/reviews/archive/) |
 | 后端整改规格 / 计划 | `docs/specs/`、`docs/plans/` |

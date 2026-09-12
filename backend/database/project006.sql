@@ -36460,9 +36460,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 --   * 两处 `is_start_sign` 缺列已写入上方 `simulation_router_room` 与
 --     `t_post_ticker_tape_train` 的 CREATE TABLE 块（迁移 01 第 2 节的等价结果）。
 -- 业务数据行未改动（保持原快照的 34626 条 INSERT）。
--- 迁移演练证据：docs/database/rehearsal/2026-09-08/（前一轮 2026-09-07-postbackfill 仍保留）
--- 权威结论：docs/reviews/2026-09-07-migration-rehearsal.md（迁移 01/02）
---           docs/reviews/2026-09-08-migration-rehearsal.md（迁移 03，本次追加）
+-- 迁移演练证据：backend/database/rehearsal/2026-09-08/（前一轮 2026-09-07-postbackfill 仍保留）
+-- 权威结论：docs/reviews/archive/2026-09-07-migration-rehearsal.md（迁移 01/02）
+--           docs/reviews/archive/2026-09-08-migration-rehearsal.md（迁移 03，本次追加）
 --
 -- 2026-09-08 追加回灌（deviation-fix-spec 批 4）：
 --   * `t_radiotelephone_train` 加 `uk_radiotelephone_train_user_type`(user_id, type)；

@@ -4,8 +4,8 @@
 
 - Maven 坐标：`com.nip:quarkus-template:1.1.0`
 - 仓库：`JungleZy/007`
-- 持久化：Hibernate ORM + Panache，MySQL 8.0.26（约 100 张业务表）
-- 规模：main 约 744 个 Java 文件（61 controller / 73 service / 103 entity / 101 dao / 26 WebSocket 类），test 57 个测试类（Testcontainers 驱动）
+- 持久化：Hibernate ORM + Panache，MySQL 8.0.26（当前快照 105 张表，全 InnoDB）
+- 规模：main 770 个 Java 文件（61 controller / 80 service / 104 entity / 102 dao / 27 WebSocket 类），test 74 个测试类（Testcontainers 驱动），全量 316 项测试
 
 ---
 
@@ -88,8 +88,9 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | `%test` | DevServices `mysql:8.0` | `drop-and-create` | 测试端口 18081 |
 | `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast |
 
-> **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先执行迁移脚本
-> `database/migrations/2026-08-26-01-schema-sync.sql` 与 `2026-08-26-02-engine-innodb.sql`，否则启动校验失败。
+> **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按日期顺序执行 `database/migrations/`
+> 下的全部 11 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
+> `2026-09-11-04-personal-handkey-capture`），否则启动校验失败。
 
 ---
 
@@ -150,9 +151,9 @@ WebSocket 类位于 `com.nip.ws`，端点路径（相对根，非 `/api` 前缀�
 ## 数据库与迁移
 
 - 快照：`database/project006.sql`（当前）、`project006-base.sql`（基线）。
-- 迁移脚本：`database/migrations/`（`01-schema-sync` 结构对齐 → `02-engine-innodb` 引擎转 InnoDB）。
-- **存储引擎自检**：`common/LifecycleApplication` 在启动时扫描 `information_schema`，发现 MyISAM 表时——生产（`NORMAL`）抛异常阻断启动并提示执行迁移 02，dev/test 仅告警。原因：MyISAM 不支持事务，`@Transactional` 回滚在其上是空操作，结算类「先删后插」一旦中断即永久丢数据。
-- 迁移演练记录见 `database/rehearsal/` 与 `../docs/reviews/*-migration-rehearsal.md`。
+- 迁移脚本：`database/migrations/`，共 11 个，按文件名日期顺序执行（`01-schema-sync` 结构对齐 → `02-engine-innodb` 引擎转 InnoDB → 后续唯一索引、JSON 容量、采集时钟等增量）。
+- **存储引擎自检**：`common/LifecycleApplication.checkStorageEngine` 在启动时扫描 `information_schema`，发现 MyISAM 表时——生产（`NORMAL`）抛 `IllegalStateException` 阻断启动并提示执行迁移 02，dev/test 仅告警。原因：MyISAM 不支持事务，`@Transactional` 回滚在其上是空操作，结算类「先删后插」一旦中断即永久丢数据。当前快照 `database/project006.sql` 已全部 InnoDB（0 张 MyISAM）；22 张 MyISAM 只存在于 `database/project006-base.sql`（78 InnoDB + 22 MyISAM，仅供迁移演练）。
+- 迁移演练记录见 `database/rehearsal/` 与 `../docs/reviews/archive/*-migration-rehearsal.md`。
 
 ---
 
@@ -167,19 +168,20 @@ src/main/java/com/nip/
 │   ├── exception/     #   各类 ExceptionMapper（统一 200 信封）
 │   └── utils/         #   Hutool 补充、雪花 ID、分页、评分数学等
 ├── controller/        # REST 端点（61 个），free/ 为免鉴权
-├── service/           # 业务服务（73 个），general/ simulation/ detector/ 等子域
-├── dao/               # Panache DAO（101 个）
-├── entity/            # JPA 实体（103 个）
+├── service/           # 业务服务（80 个），general/ simulation/ detector/ 等子域
+├── dao/               # Panache DAO（102 个）
+├── entity/            # JPA 实体（104 个）
 ├── dto/               # vo/ sql/ general/ 传输对象
-└── ws/                # WebSocket 端点与会话模型（26 个）
+└── ws/                # WebSocket 端点与会话模型（27 个）
 ```
 
 ---
 
 ## 文档索引
 
-- **当前全项目评审（唯一入口）**：[`../docs/reviews/2026-09-08-full-project-review.md`](../docs/reviews/2026-09-08-full-project-review.md)。
-- **前后端联合评审详细证据**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md)。
+- **当前全项目评审（唯一入口）**：[`../docs/reviews/2026-09-12-full-project-review.md`](../docs/reviews/2026-09-12-full-project-review.md)。
+- **前后端联合评审详细证据（历史，跨栈契约仍以此为准）**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md)。
+- 上一轮全项目评审（已被取代，仅作历史证据）：[`../docs/reviews/2026-09-08-full-project-review.md`](../docs/reviews/2026-09-08-full-project-review.md)。
 - 历史评审、分片、审计与迁移文字记录：`../docs/reviews/archive/`。
 - 整改规格 / 计划：`../docs/specs/`、`../docs/plans/`。
 - 迁移演练：`database/rehearsal/`。
