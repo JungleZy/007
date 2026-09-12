@@ -243,31 +243,29 @@
       })
     }
   })
-  onUnmounted(() => {
-    if (trainData.value.status === 1) {
-      let obj = {
-        patPage: trainData.floorNow,
-        patKeyIndex: currPatKeyIndex.value,
-        time: trainData.value.validTime,
-        speed: trainData.speed,
-        pageCodes: pageCodes.value
-      }
-      window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))
+  /**
+   * 写入本地恢复快照；trainData 是 ref，各字段必须经 .value 读取，
+   * 否则存进 localStorage 的是 undefined，刷新恢复后页号与速度会错乱。
+   */
+  const saveTrainSnapshot = () => {
+    if (Number(trainData.value.status) !== 1) return
+    const obj = {
+      patPage: trainData.value.floorNow,
+      patKeyIndex: currPatKeyIndex.value,
+      time: trainData.value.validTime,
+      speed: trainData.value.speed,
+      pageCodes: pageCodes.value
     }
+    window.localStorage.setItem('datagramZuXun' + trainData.value.trainId, JSON.stringify(obj))
+  }
+  // 用可注销的监听器代替 window.onbeforeunload 全局直赋值，
+  // 否则离开本训练后仍会持有已卸载组件的引用。
+  window.addEventListener('beforeunload', saveTrainSnapshot)
+  onUnmounted(() => {
+    saveTrainSnapshot()
+    window.removeEventListener('beforeunload', saveTrainSnapshot)
     PubSub.unsubscribe('message')
   })
-  window.onbeforeunload = () => {
-    if (trainData.value.status == 1) {
-      let obj = {
-        patPage: trainData.floorNow,
-        patKeyIndex: currPatKeyIndex.value,
-        time: trainData.value.validTime,
-        speed: trainData.speed,
-        pageCodes: pageCodes.value
-      }
-      window.localStorage.setItem('datagramZuXun'+trainData.value.trainId, JSON.stringify(obj))
-    }
-  }
 </script>
 
 <style scoped lang="less">
