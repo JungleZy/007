@@ -42,7 +42,7 @@ export default function useBroadStudent() {
       initialized = true
     } else {
       const response = await getRoomDetail({ roomId: Number(roomId) })
-      if (response.code !== 200) throw new Error(response.msg || '读取训练详情失败')
+      if (response.code !== 200) throw new Error(response.message || '读取训练详情失败')
       const data = response.data
       trainData.value.receiveUser = data.receiveUser
       trainData.value.status = data.stats
@@ -61,7 +61,7 @@ export default function useBroadStudent() {
       trainData.value.currPag = Math.max(1, Math.min(trainData.value.currPag || 1, trainData.value.pag))
       const page = trainData.value.currPag
       const response = await findUserPageBaoWenInfo({ roomId: Number(roomId), userId: selfId.value, pageNumber: page })
-      if (response.code !== 200) throw new Error(response.msg || '读取提交答案失败')
+      if (response.code !== 200) throw new Error(response.message || '读取提交答案失败')
       if (trainData.value.currPag === page) allBaoWen.value = { [page]: response.data }
     }
   }, () => !initialized || trainData.value.status != 2 || step.value != 2)
@@ -144,7 +144,8 @@ export default function useBroadStudent() {
       let d
       try {
         const envelope = JSON.parse(e.data)
-        if (envelope.code === -1) throw new Error(envelope.msg || '连接被拒绝')
+        // WS 错误帧的拒因文案在 data 字段（SimulationResponseModel 无 msg 字段）
+        if (envelope.code === -1) throw new Error(typeof envelope.data === 'string' && envelope.data ? envelope.data : '连接被拒绝')
         d = typeof envelope.data === 'string' ? JSON.parse(envelope.data) : envelope.data
         if (!d || typeof d !== 'object') throw new Error('训练通知格式无效')
       } catch (error) {
@@ -238,7 +239,7 @@ export default function useBroadStudent() {
       roomId: roomId,
       contentValue: _res
     }).then(res => {
-      if (res.code !== 200) throw new Error(res.msg || '提交答案失败')
+      if (res.code !== 200) throw new Error(res.message || '提交答案失败')
       return refresh()
     }).catch(error => {
       recoveryError.value = error.message || '提交答案失败'
@@ -292,10 +293,10 @@ export default function useBroadStudent() {
     return getRoomDetail({
       roomId: Number(roomId)
     }).then(async res => {
-      if (res.code !== 200) throw new Error(res.msg || '读取训练详情失败')
+      if (res.code !== 200) throw new Error(res.message || '读取训练详情失败')
       if (res.code === 200) {
         const headerResponse = await findHeader(route.query.id)
-        if (headerResponse.code !== 200) throw new Error(headerResponse.msg || '读取报头失败')
+        if (headerResponse.code !== 200) throw new Error(headerResponse.message || '读取报头失败')
         isheader.value = headerResponse.data != null && !(storage.value.codeIndex > 0)
         header.value = headerResponse.data?.content || ''
         trainData.value = res.data
@@ -336,7 +337,7 @@ export default function useBroadStudent() {
       userId: userId,
       pageNumber: pag
     }).then(res => {
-      if (res.code !== 200) throw new Error(res.msg || '读取报底失败')
+      if (res.code !== 200) throw new Error(res.message || '读取报底失败')
       if (res.code === 200) {
         allBaoWen.value[pag + ''] = res.data
         res.data.pageVos.forEach((item,index)=>{

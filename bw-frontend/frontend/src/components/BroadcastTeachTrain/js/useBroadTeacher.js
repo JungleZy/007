@@ -57,7 +57,7 @@ export default function useBroadTeacher(countDown) {
       userId: userId,
       pageNumber: pag
     }).then(res => {
-      if (res.code !== 200) throw new Error(res.msg || '读取学员答案失败')
+      if (res.code !== 200) throw new Error(res.message || '读取学员答案失败')
       if (result.value.user?.id === userId) result.value.res[pag + ''] = res.data
     }).catch(error => { recoveryError.value = error.message; throw error })
   }
@@ -90,7 +90,7 @@ export default function useBroadTeacher(countDown) {
       initialized = true
     } else {
       const response = await getRoomDetail({ roomId: Number(roomId) })
-      if (response.code !== 200) throw new Error(response.msg || '读取训练详情失败')
+      if (response.code !== 200) throw new Error(response.message || '读取训练详情失败')
       const data = response.data
       trainData.value.receiveUser = data.receiveUser
       trainData.value.status = data.stats
@@ -121,7 +121,8 @@ export default function useBroadTeacher(countDown) {
     socket.connect(window.wsUrl + '/simulation/' + selfId.value + '/' + roomId, event => {
       try {
         const envelope = JSON.parse(event.data)
-        if (envelope.code === -1) throw new Error(envelope.msg || '连接被拒绝')
+        // WS 错误帧的拒因文案在 data 字段（SimulationResponseModel 无 msg 字段）
+        if (envelope.code === -1) throw new Error(typeof envelope.data === 'string' && envelope.data ? envelope.data : '连接被拒绝')
         const data = typeof envelope.data === 'string' ? JSON.parse(envelope.data) : envelope.data
         if (data.type === 'result' || data.type == 4) {
           if (data.roomId == null || Number(data.roomId) === Number(roomId)) refresh()
@@ -276,10 +277,10 @@ export default function useBroadTeacher(countDown) {
     return getRoomDetail({
       roomId: Number(roomId)
     }).then(async res => {
-      if (res.code !== 200) throw new Error(res.msg || '读取训练详情失败')
+      if (res.code !== 200) throw new Error(res.message || '读取训练详情失败')
       if (res.code === 200) {
         const headerResponse = await findHeader(route.query.id)
-        if (headerResponse.code !== 200) throw new Error(headerResponse.msg || '读取报头失败')
+        if (headerResponse.code !== 200) throw new Error(headerResponse.message || '读取报头失败')
         isheader.value = headerResponse.data != null && !(storage.value.codeIndex > 0)
         header.value = headerResponse.data?.content || ''
         trainData.value = res.data
@@ -324,7 +325,7 @@ export default function useBroadTeacher(countDown) {
       userId: userId,
       pageNumber: pag
     }).then(res => {
-      if (res.code !== 200) throw new Error(res.msg || '读取报底失败')
+      if (res.code !== 200) throw new Error(res.message || '读取报底失败')
       if (res.code === 200) {
         allBaoWen.value[pag + ''] = res.data
         if (pag == trainData.value['currPag']) {
