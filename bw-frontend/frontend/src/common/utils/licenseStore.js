@@ -15,7 +15,7 @@ import {ipcRenderer, ipcApi} from '../../electron/index'
  * 写：并发写三处，≥1 成功即算成功。
  *
  * 关键约定：「读不出来」与「确实没有」必须区分。
- *   - 全部副本都读不出来 -> 抛错 -> 上层显示 storage_error（不销毁任何数据）
+ *   - 没有可用副本且任一副本读取失败 -> 抛错 -> 上层显示 storage_error（不销毁任何数据）
  *   - 全部副本都干净地返回空 -> 返回 null -> 上层判未授权
  */
 
@@ -70,6 +70,9 @@ const readIndexed = async () => {
 	try {
 		const machine = await readIdbKey(KEY_MACHINE)
 		const license = await readIdbKey(KEY_LICENSE)
+		if ((!machine || !machine.machineCode) && license && license.license) {
+			throw new Error('授权记录存在但设备码缺失，请联系管理员恢复；不会覆盖现有授权')
+		}
 		if (!machine || !machine.machineCode) {
 			return {source: '浏览器存储', data: null, error: null}
 		}
@@ -183,7 +186,7 @@ const clearFiles = async () => {
 
 /**
  * @returns {Promise<{record: object|null, results: Array}>}
- * @throws  所有副本均不可读时抛出（上层据此进入 storage_error，绝不当作未授权）
+ * @throws 无法确认存在授权且任一副本不可读时抛出，不能据此认定未授权
  */
 export async function readRecord() {
 	const results = [...(await readFiles()), await readIndexed()]
@@ -191,7 +194,7 @@ export async function readRecord() {
 
 	if (!withData.length) {
 		const failed = results.filter((r) => r.error)
-		if (failed.length && failed.length === results.length) {
+		if (failed.length) {
 			const err = new Error(failed.map((f) => `${f.source}: ${f.error}`).join('; '))
 			err.results = results
 			throw err
@@ -202,6 +205,14 @@ export async function readRecord() {
 	// sort 是稳定的，results 已按 machine -> user -> indexed 排列，
 	// 因此 updatedAt 相同时优先级为 machine > user > indexed。
 	const winner = withData.slice().sort((a, b) => (b.data.updatedAt || 0) - (a.data.updatedAt || 0))[0].data
+	if (!winner.license) {
+		const unreadable = results.filter((result) => result.error)
+		if (unreadable.length) {
+			const error = new Error(`无法确认授权状态，部分副本不可读：${unreadable.map((result) => `${result.source}：${result.error}`).join('；')}。请恢复存储权限后重试，不会覆盖现有记录`)
+			error.results = results
+			throw error
+		}
+	}
 
 	// 运行时长取各副本最大值，但只在「同一份授权」内合并，避免跨授权污染。
 	let duration = 0
@@ -269,5 +280,5 @@ export function selfHeal(record, results) {
 			|| (Number(d.duration) || 0) !== record.duration
 	})
 	if (!stale) return Promise.resolve(null)
-	return writeRecord(record).catch(() => null)
+	return writeRecord(record)
 }

@@ -1,6 +1,13 @@
 <template>
   <template v-if="licenseState === 'authorized'">
     <slot></slot>
+    <div style="position: fixed; right: 16px; bottom: 16px; z-index: 1000; max-width: 520px;">
+      <a-alert v-if="nearExpiry" type="warning" show-icon
+               :message="`离线授权剩余累计可运行 ${remainingHours} 小时，请联系管理员续发（不是自然日）`" />
+      <a-alert v-if="licenseWarning || hardwareError" type="warning" show-icon
+               :message="licenseWarning || hardwareError" />
+      <a-button size="small" @click="showStatus">离线授权状态</a-button>
+    </div>
   </template>
   <!-- 校验中：避免主界面先闪一下再跳授权页 -->
   <div class="w-full h-full layout-center relative license-context" v-else-if="licenseState === 'checking'">
@@ -13,24 +20,25 @@
     存储读取失败：这是「读不到」而不是「没授权」。
     此处必须显示错误页而非授权页，且不得展示设备码、不得接受输入、不得清除任何数据。
   -->
-  <div class="w-full h-full layout-center relative license-context" v-else-if="licenseState === 'storage_error'">
+  <div class="w-full h-full layout-center relative license-context" v-else-if="licenseState === 'storage_error' || licenseState === 'hardware_error'">
     <ActionBtn></ActionBtn>
     <!-- 连击 5 次为清除授权信息的隐藏入口，见 VerifyLicense.js 的 onLogoClick -->
     <img class="absolute" src="../../assets/HJ/lincense/wisdom.png" style="top: 100px" @click="onLogoClick"/>
     <div class="layout-side" style="width: 900px; height: 400px;box-shadow: 0px 0px 20px 0px #020f2f;">
       <div class="left h-full">
-        <div class="w-full layout-center py-2">授权信息读取失败</div>
-        <div class="w-full layout-center">本机授权数据未被清除，请勿重新授权</div>
+        <div class="w-full layout-center py-2">{{ licenseState === 'hardware_error' ? '本机硬件标识不可用' : '授权存储不可用' }}</div>
+        <div class="w-full layout-center">未主动清除授权记录，请勿重置设备码</div>
       </div>
       <div class="right h-full">
-        <div class="w-full layout-left-center" style="font-weight: 600">无法读取本机授权信息</div>
+        <div class="w-full layout-left-center" style="font-weight: 600">{{ licenseState === 'hardware_error' ? '无法取得本机硬件设备码' : '无法读取或保存授权信息' }}</div>
         <div class="w-full py-2" style="line-height: 1.8; color: #666">
-          这通常是系统存储暂时不可用导致的，<b>不代表授权已过期</b>。<br/>
-          请先重试；若重启软件后仍然出现，请联系管理员，不要自行重新授权。
+          当前无法完成离线授权校验，<b>不代表后端登录凭证失效或授权时长耗尽</b>。<br/>
+          请检查存储或系统权限后重试；不要清除记录。若重启后仍出现，请联系管理员。
         </div>
         <div class="w-full py-2" style="color: #999; word-break: break-all; font-size: 12px">
-          错误信息：{{ storageError || '未知错误' }}
+          错误信息：{{ hardwareError || storageError || '未知错误' }}
         </div>
+        <div class="w-full py-2" style="color: #666; font-size: 12px">{{ identityScope }}</div>
         <div class="layout-center w-full" style="margin-top: 28px">
           <a-button
               type="primary"
@@ -78,6 +86,8 @@
             </a-tooltip>
           </div>
         </div>
+        <div class="w-full" style="color: #666; font-size: 12px; line-height: 1.5">{{ identityScope }}</div>
+        <div v-if="hardwareError || licenseWarning" role="alert" style="color: #ad4e00; font-size: 12px">{{ hardwareError || licenseWarning }}</div>
         <div class="w-full layout-left-center py-2" style="margin-top: 28px">
           授权码&nbsp;&nbsp;-&nbsp;&nbsp;<ImportOutlined class="cursor-pointer-def" @click="triggerFileUpload"
                                                          style="color: #3670c5" title="导入授权码"/>
@@ -126,6 +136,12 @@ const {
   licenseCode,
   licenseState,
   storageError,
+  identityScope,
+  licenseWarning,
+  hardwareError,
+  nearExpiry,
+  remainingHours,
+  showStatus,
   tips,
   uploadInput,
   copy,
@@ -165,6 +181,7 @@ const {
     width: 400px;
     color: #333333;
     padding: 40px 28px;
+    overflow: auto;
     border-radius: 0 6px 6px 0;
   }
 

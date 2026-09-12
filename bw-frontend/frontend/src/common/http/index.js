@@ -13,8 +13,25 @@ const instance = axios.create({
 //请求拦截器
 instance.interceptors.request.use((config) => {
   // 每次发送请求之前判断是否存在token，如果存在，则统一在http请求的header都加上token，不用每次请求都手动添加了
-  const token = window.localStorage.getItem('token');
-  const deviceId = window.localStorage.getItem('deviceId');
+  let token
+  let deviceId
+  try {
+    token = window.localStorage.getItem('token');
+    deviceId = window.localStorage.getItem('deviceId');
+  } catch (error) {
+    const failure = new Error('无法读取本地登录凭证，请恢复浏览器存储权限后重新登录；这不代表离线授权失效')
+    failure.loginStorageError = true
+    throw failure
+  }
+  if (config.expectedToken !== undefined || config.expectedDeviceId !== undefined) {
+    if (!config.expectedToken || !config.expectedDeviceId
+        || config.expectedToken !== token || config.expectedDeviceId !== deviceId) {
+      const failure = new Error('登录会话已变更，本次提交已停止；请返回原会话处理尚未提交的数据')
+      failure.sessionChanged = true
+      failure.config = config
+      throw failure
+    }
+  }
   token && (config.headers.token = token);
   deviceId && (config.headers.deviceId = deviceId);
   //若请求方式为post，则将data参数转为JSON字符串
@@ -27,17 +44,31 @@ instance.interceptors.request.use((config) => {
   Promise.reject(error));
 
 let authPromptOpen = false
+const authMessages = {
+  203: {title: 'token不能为空', detail: '请求未携带后端登录凭证，可能尚未登录或本地会话记录已被清理。请重新登录。'},
+  204: {title: '设备标识不能为空', detail: '请求未携带当前会话的设备标识，请重新登录。不会在请求途中生成新标识替换有效会话。'},
+  206: {title: '账号登录凭证异常', detail: '后端登录凭证与当前记录不匹配，可能在其他位置登录、已退出或会话记录已变更；无法仅凭此响应确定原因。请重新登录。'}
+}
+
+export function explainAuthFailure(code) {
+  const explanation = authMessages[code]
+  return explanation ? `${explanation.title}：${explanation.detail} 此提示不是离线授权校验结果。` : ''
+}
 
 //响应拦截器
 instance.interceptors.response.use((response) => {
   const code = response.data?.code
   if (code === 203 || code === 204 || code === 206) {
+    const explanation = authMessages[code]
+    if (location.hash.split('?')[0] === '#/login' && !response.config?.skipErrorToast) {
+      message.error(explainAuthFailure(code))
+    }
     if (location.hash.split('?')[0] !== '#/login' && !authPromptOpen) {
       authPromptOpen = true
       Modal.error({
         keyboard: false,
-        title: '您的登录唯一凭证异常',
-        content: '请点击下方按钮返回登录页面重新登录本系统',
+        title: explanation.title,
+        content: `${explanation.detail} 后端登录与本机离线授权相互独立，请勿因此清除授权信息。`,
         okText: '返回登录页面',
         afterClose() {
           authPromptOpen = false
@@ -54,7 +85,11 @@ instance.interceptors.response.use((response) => {
   }
   return response.data
 }, (error) => {
-  if (error.response && error.response.status) {
+  if (error.sessionChanged) {
+    if (!error.config?.skipErrorToast) message.error(error.message)
+  } else if (error.loginStorageError) {
+    message.error(error.message)
+  } else if (error.response && error.response.status) {
     let msg = ''
     const status = error.response.status
     switch (status) {

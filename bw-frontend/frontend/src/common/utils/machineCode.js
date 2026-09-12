@@ -74,18 +74,43 @@ export function matchMachineCode(licensedCode, currentCode) {
 	return hit >= required(comparable)
 }
 
-/**
- * 读取本机硬件设备码。浏览器部署或采集失败时返回 null，
- * 上层据此回退到 v1 随机码，绝不因取不到指纹而阻塞授权。
- */
+// Web 没有硬件接口；Electron 读取失败必须显式交给调用者处理。
+export const isDesktop = !!ipcRenderer.isEE || window.location.protocol === 'file:'
+
+export const identityScope = isDesktop
+	? '桌面端离线授权使用本机授权副本，可从机器级、用户级文件或浏览器存储恢复；后端登录凭证与离线授权相互独立。'
+	: 'Web 设备标识只在当前浏览器配置与站点 origin（协议、主机、端口）内保存，不是物理机器标识。清除站点数据、换浏览器配置或更换 origin 后可能需要重新登录和授权，不能自动跨站点恢复。'
+
 export async function readHardwareCode(force) {
-	if (!(ipcRenderer && ipcRenderer.isEE && ipcRenderer.ipc)) return null
+	if (!isDesktop) return null
+	if (!ipcRenderer.ipc) throw new Error('桌面硬件接口不可用，请重启软件或联系管理员；不会改用浏览器随机标识')
+	const result = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.licenseFingerprint, {force: !!force})
+	if (!result || !result.code) {
+		throw new Error('未能取得足够的本机硬件因子，请检查系统权限并联系管理员；不会改用浏览器随机标识')
+	}
+	return result
+}
+
+// 仅在登录时调用；请求仍使用服务器签发会话中的 deviceId。
+export async function readLoginDeviceId() {
+	if (isDesktop) return (await readHardwareCode()).code
 	try {
-		const r = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.licenseFingerprint, {force: !!force})
-		if (!r || !r.code) return null
-		return r
-	} catch (e) {
-		console.warn('[license] 硬件设备码读取失败，回退随机设备码', e)
-		return null
+		const storage = window.localStorage
+		const key = 'loginDeviceId'
+		let id = storage.getItem(key)
+		if (!id) {
+			// 旧登录保存的指纹只用于首轮兼容迁移，不再重新采集。
+			id = storage.getItem('deviceId')
+			if (!id) {
+				const bytes = window.crypto.getRandomValues(new Uint8Array(16))
+				id = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+			}
+		}
+		storage.setItem(key, id)
+		if (storage.getItem(key) !== id) throw new Error('设备标识写入未持久化')
+		return id
+	} catch (error) {
+		console.error('[login] 设备标识存储不可用', error)
+		throw new Error('无法读取或保存当前站点的登录设备标识，请检查浏览器存储权限后重试；未清除旧记录，也未使用临时标识登录')
 	}
 }

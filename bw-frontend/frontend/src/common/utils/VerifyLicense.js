@@ -3,7 +3,7 @@ import {AES, enc, mode, pad} from 'crypto-js'
 import {message, Modal} from "ant-design-vue";
 import {useClipboard} from '@vueuse/core'
 import {clearRecord, readRecord, selfHeal, writeRecord} from './licenseStore'
-import {matchMachineCode, readHardwareCode} from './machineCode'
+import {identityScope, isDesktop, matchMachineCode, readHardwareCode} from './machineCode'
 
 const testCode = 'wjkj2025~'
 const aseKey = 'wisdom23'
@@ -16,6 +16,7 @@ const parse2 = {
 const DEFAULT_DAYS = 30
 // 到期语义为「累计运行时长」：deadline = 天数 * 86400（秒）
 const SECONDS_PER_DAY = 24 * 60 * 60
+const WARNING_SECONDS = 604800
 
 // 内存计数间隔 10s，每 30 个间隔（5 分钟）才落盘一次。
 // 原实现每 10s 写一次 IndexedDB（一天 8640 次），是 LevelDB 长期脏、
@@ -27,16 +28,31 @@ export default function VerifyLicense() {
 	const pc = ["o", "l", "L", "i", "I"]
 	const uploadInput = ref(null)
 	const licenseCode = ref('')
-	// checking | authorized | unauthorized | storage_error
+	// checking | authorized | unauthorized | storage_error | hardware_error
 	const licenseState = ref('checking')
 	// 兼容原有模板用法
 	const isPass = computed(() => licenseState.value === 'authorized')
 	const storageError = ref('')
 	const usage = ref({used: 0, total: 0})
+	const licenseWarning = ref('')
+	const hardwareError = ref('')
+	const remainingSeconds = computed(() => Math.max(0, usage.value.total - usage.value.used))
+	const remainingHours = computed(() => (Math.floor(remainingSeconds.value / 360) / 10).toFixed(1))
+	const nearExpiry = computed(() => usage.value.total > 0 && remainingSeconds.value <= WARNING_SECONDS)
+	const showStatus = () => Modal.info({
+		title: '离线授权状态（与后端登录相互独立）',
+		content: () => h('div', [
+			h('p', usage.value.total > 0 ? `剩余累计可运行 ${remainingHours.value} 小时，不是自然日到期时间。需续发时请联系管理员。` : '当前授权不按累计运行时长计时。'),
+			h('p', identityScope),
+			h('p', hardwareError.value),
+			h('p', licenseWarning.value),
+			h('p', '设备标识稳定不代表登录凭证不会丢失，也不提供防重放保证。')
+		])
+	})
 	// 本机硬件设备码（Electron 且采集到 >=2 个因子时才有值）
 	let hardware = null
 	const tips = ref({
-		title: '未查询到相关授权信息或设备已重置，请进行授权',
+		title: '当前存储中没有离线授权；首次使用或清除站点数据后需授权',
 		code: '',
 		codeTips: '设备码获取中...'
 	})
@@ -80,12 +96,12 @@ export default function VerifyLicense() {
 	}
 
 	const toUnauthorized = (title) => {
-		tips.value.title = title || '未查询到相关授权信息或设备已重置，请进行授权'
+		tips.value.title = title || '当前存储中没有离线授权；首次使用或清除站点数据后需授权'
 		licenseState.value = 'unauthorized'
 	}
 
 	const toStorageError = (err) => {
-		console.error('[license] 授权信息读取失败', err)
+		console.error('[license] 授权存储不可用', err)
 		storageError.value = (err && err.message) ? err.message : String(err)
 		licenseState.value = 'storage_error'
 	}
@@ -102,8 +118,20 @@ export default function VerifyLicense() {
 		}
 	}
 
+	const reportWrite = (result) => {
+		if (!result) return
+		const failed = result.outcomes.filter((outcome) => !outcome.ok)
+		licenseWarning.value = failed.length
+			? `授权已保存到可用副本，但部分副本写入失败：${failed.map((outcome) => outcome.source + '：' + outcome.error).join('；')}。请检查存储权限，勿清除现存授权。`
+			: ''
+	}
+	const reportStorageFailure = (error) => {
+		console.error('[license] 授权副本写入失败', error)
+		licenseWarning.value = '当前授权已校验，但授权副本或累计运行时长未能保存。请检查存储权限并联系管理员，勿清除现存授权。'
+	}
+	const heal = (record, results) => selfHeal(record, results).then(reportWrite).catch(reportStorageFailure)
 	const flush = (record) => {
-		writeRecord(record).catch((e) => console.warn('[license] 运行时长落盘失败', e))
+		writeRecord(record).then(reportWrite).catch(reportStorageFailure)
 	}
 
 	const onExpired = () => {
@@ -129,7 +157,7 @@ export default function VerifyLicense() {
 				record.duration = (Number(record.duration) || 0) + TICK_MS / 1000
 				usage.value = {used: record.duration, total: deadline}
 				ticksSinceFlush++
-				if (record.duration > deadline) {
+				if (record.duration >= deadline) {
 					flush(record)
 					stopHeartbeat()
 					onExpired()
@@ -157,6 +185,11 @@ export default function VerifyLicense() {
 
 	// -------- 校验主流程 --------
 	const bootstrap = async () => {
+		stopHeartbeat()
+		activeLicense = null
+		usage.value = {used: 0, total: 0}
+		hardwareError.value = ''
+		licenseWarning.value = ''
 		licenseState.value = 'checking'
 		let read
 		try {
@@ -167,25 +200,30 @@ export default function VerifyLicense() {
 			return
 		}
 
-		// 硬件设备码：取不到（浏览器部署 / 采集失败）时回退随机码，不阻塞流程
-		hardware = await readHardwareCode()
-
 		const record = read.record
-
-		// 需要重新授权时对外展示的设备码。
-		// 已授权机器不动其原有设备码；一旦进入未授权状态，就切换到硬件设备码，
-		// 这样用户申请的下一张授权码自然就是硬件绑定的，无需任何人工换发流程。
+		try {
+			hardware = await readHardwareCode()
+		} catch (error) {
+			hardware = null
+			hardwareError.value = error.message || String(error)
+			// 存量授权仍按原设备码校验，不因暂时无法采集而作废，也不生成随机替代码。
+			if (!record || !record.machineCode) {
+				licenseState.value = 'hardware_error'
+				return
+			}
+		}
 		const pendingCode = (hardware && hardware.code)
 			|| (record && record.machineCode)
 			|| generateUUID()
 
 		if (!record || !record.machineCode) {
-			// 所有副本都干净地返回空 —— 首次运行。只补设备码。
+			// 所有副本均明确为空；首次使用与清数据后的状态无法自动区分。
 			setCode(pendingCode)
 			try {
-				await writeRecord({machineCode: pendingCode, license: '', licenseTime: 0, duration: 0})
+				reportWrite(await writeRecord({machineCode: pendingCode, license: '', licenseTime: 0, duration: 0}))
 			} catch (e) {
-				console.warn('[license] 设备码写入失败，本次仅保存在内存中', e)
+				toStorageError(e)
+				return
 			}
 			toUnauthorized()
 			return
@@ -193,7 +231,7 @@ export default function VerifyLicense() {
 		setCode(record.machineCode)
 
 		if (!record.license) {
-			selfHeal(record, read.results)
+			heal(record, read.results)
 			setCode(pendingCode)
 			toUnauthorized()
 			return
@@ -202,7 +240,7 @@ export default function VerifyLicense() {
 		// 万能码：与原实现一致，跳过解密与设备码比对，且不启动运行时长心跳
 		if (record.license === testCode) {
 			licenseState.value = 'authorized'
-			selfHeal(record, read.results)
+			heal(record, read.results)
 			return
 		}
 
@@ -243,6 +281,10 @@ export default function VerifyLicense() {
 			return
 		}
 		const deadline = days * SECONDS_PER_DAY
+		if (!Number.isFinite(deadline)) {
+			fail('授权信息中的可运行时长无效，请联系管理员重新签发')
+			return
+		}
 
 		// 运行时长完整性钳制：累计运行时长不可能超过「自签发以来的墙钟时长」。
 		// 防止某个存储副本被写坏成大值而导致提前过期。
@@ -254,7 +296,7 @@ export default function VerifyLicense() {
 			if (wall >= 0) used = Math.min(used, wall)
 		}
 
-		if (used > deadline) {
+		if (used >= deadline) {
 			fail('本次授权的可用运行时长已用尽，请重新授权')
 			return
 		}
@@ -270,7 +312,7 @@ export default function VerifyLicense() {
 		// 校验已通过 —— 先放行。副本回写（含存量首启迁移）失败只告警，
 		// 不再因写盘失败而判未授权。
 		licenseState.value = 'authorized'
-		selfHeal(next, read.results)
+		heal(next, read.results)
 		startHeartbeat(next, deadline)
 	}
 
@@ -290,7 +332,9 @@ export default function VerifyLicense() {
 		if (purging.value) return
 		Modal.confirm({
 			title: () => '确认清除本机授权信息？',
-			content: () => '将清除机器级文件、用户级文件、浏览器存储三处副本，以及历史遗留记录（bin/nip.db）。清除后需要重新授权，操作不可撤销。',
+			content: () => isDesktop
+				? '将尝试清除机器级文件、用户级文件、浏览器存储及历史遗留记录（bin/nip.db）。未清除成功的副本可能在下次启动时恢复授权；全部清除后需重新授权，操作不可撤销。'
+				: '将清除当前浏览器、当前站点的离线授权记录。清除后需要重新授权，操作不可撤销；不能从其他 origin 自动恢复。',
 			okText: () => '确认清除',
 			okType: 'danger',
 			cancelText: () => '取消',
@@ -300,8 +344,9 @@ export default function VerifyLicense() {
 				activeLicense = null
 				try {
 					const outcomes = await clearRecord()
-					Modal.success({
-						title: () => '授权信息已清除',
+					toUnauthorized('已执行授权清除，请重新载入以确认所有副本状态')
+					Modal.info({
+						title: () => outcomes.every((outcome) => outcome.ok) ? '授权信息已清除' : '部分授权副本未能清除，可能自动恢复',
 						content: () => h('div', outcomes.map((o) => h(
 							'div',
 							{style: o.ok ? '' : 'color:#d4380d'},
@@ -316,6 +361,7 @@ export default function VerifyLicense() {
 					purging.value = false
 					console.error('[license] 清除授权信息失败', e)
 					message.error('清除失败：' + ((e && e.message) || e))
+					await bootstrap()
 				}
 			}
 		})
@@ -344,18 +390,18 @@ export default function VerifyLicense() {
 		})
 	}
 
-	// 硬件设备码环境下，设备码由本机硬件算出，「刷新」只是重新采集，不销毁任何数据。
-	// 无硬件指纹时（浏览器部署 / 采集失败）才保留原来的破坏性重置，且必须显式确认。
-	// 自动重置（原 handleCode(null) 路径）已彻底移除。
+	// 桌面端只重新采集硬件；不因采集失败退化为浏览器随机重置。
 	const resetCode = async () => {
-		if (hardware) {
-			const fresh = await readHardwareCode(true)
-			if (fresh && fresh.code) {
+		if (isDesktop) {
+			try {
+				const fresh = await readHardwareCode(true)
 				hardware = fresh
+				hardwareError.value = ''
 				setCode(fresh.code)
 				message.success('设备码已刷新!')
-			} else {
-				message.error('设备码刷新失败，请重试!')
+			} catch (error) {
+				hardwareError.value = error.message || String(error)
+				message.error(hardwareError.value)
 			}
 			return
 		}
@@ -374,8 +420,7 @@ export default function VerifyLicense() {
 					await writeRecord({machineCode: code, license: '', licenseTime: 0, duration: 0})
 					toUnauthorized()
 				} catch (e) {
-					message.error('设备码重置失败，请重试!')
-					console.error('[license] 设备码重置失败', e)
+					toStorageError(e)
 				}
 			}
 		})
@@ -402,7 +447,12 @@ export default function VerifyLicense() {
 					return
 				}
 				if (!matchMachineCode(info[0], tips.value.code)) {
-					message.error("授权失败,授权码错误!")
+					message.error('授权码与当前设备码不匹配，请使用本页设备码联系管理员续发授权')
+					return
+				}
+				const days = info.length === 2 ? DEFAULT_DAYS : Number(info[2])
+				if (!Number.isFinite(days) || days <= 0 || !Number.isFinite(days * SECONDS_PER_DAY)) {
+					message.error('授权码中的可运行时长无效，请联系管理员重新签发')
 					return
 				}
 			} catch (e) {
@@ -413,19 +463,18 @@ export default function VerifyLicense() {
 		try {
 			// 原实现此处调用 localforage.clear()，会连带清空 autoLoginInfo / cool 等业务数据。
 			// 改为只覆盖授权记录本身，并同时写入三个副本。
-			await writeRecord({
+			const saved = await writeRecord({
 				machineCode: tips.value.code,
 				license: licenseCode.value,
 				licenseTime: 0,
 				duration: 0
 			})
-			message.success("授权成功,3秒后自动刷新授权信息!")
-			setTimeout(() => {
-				location.reload()
-			}, 3000)
+			reportWrite(saved)
+			await bootstrap()
+			if (licenseState.value === 'authorized') message.success('离线授权成功')
 		} catch (e) {
 			console.error('[license] 授权信息写入失败', e)
-			message.error("授权失败!")
+			toStorageError(e)
 		}
 	}
 
@@ -437,6 +486,12 @@ export default function VerifyLicense() {
 		licenseState,
 		storageError,
 		usage,
+		identityScope,
+		licenseWarning,
+		hardwareError,
+		remainingHours,
+		nearExpiry,
+		showStatus,
 		tips,
 		uploadInput,
 		copy,

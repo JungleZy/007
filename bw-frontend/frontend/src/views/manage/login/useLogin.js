@@ -1,7 +1,8 @@
 import { userLogin, addSignin } from '../../../common/api/UserApi.js'
 import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
-import FingerprintJS from '@fingerprintjs/fingerprintjs'
+import { isNavigationFailure, NavigationFailureType, useRouter } from 'vue-router'
+import { readLoginDeviceId } from '../../../common/utils/machineCode'
+import { explainAuthFailure } from '../../../common/http/index.js'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { fontSizeDispose } from '../../../common/utils/Utils'
 
@@ -17,6 +18,9 @@ export default function (formState) {
         formState.username = ali.username
         formState.password = ali.password
       }
+    }).catch((error) => {
+      console.error('[login] 自动登录资料读取失败', error)
+      message.warning('无法读取已保存的自动登录资料，请检查浏览器存储或手动输入；离线授权状态不因此改变')
     })
 
     nextTick().then(() => {
@@ -25,7 +29,10 @@ export default function (formState) {
   })
   watch(autoLoginStatus, () => {
     if (!autoLoginStatus.value) {
-      localforage.removeItem('autoLoginInfo')
+      localforage.removeItem('autoLoginInfo').catch((error) => {
+        console.error('[login] 自动登录资料清除失败', error)
+        message.error('自动登录资料未能清除，请检查浏览器存储权限')
+      })
     }
   })
   const userData = ref({
@@ -47,11 +54,8 @@ export default function (formState) {
     eday: false
   })
   const addTrainModal = ref(false)
-  const onLogin = () => {
-    if (formState.isLoading) {
-      return
-    }
-    formState.buttonMsg = '请稍后，正在登录中...'
+  const onLogin = async () => {
+    if (formState.isLoading) return
     if (!formState.username.trim()) {
       message.error('请输入用户名')
       return
@@ -61,42 +65,30 @@ export default function (formState) {
       return
     }
     formState.isLoading = true
-    FingerprintJS.load()
-        .then((fp) => {
-          fp.get()
-              .then((result) => {
-                userLogin({
-                  userAccount: formState.username,
-                  password: formState.password,
-                  deviceId: result.visitorId
-                }).then((res) => {
-                  if (res.code === 200) {
-                    formState.buttonMsg = '登录成功，正在跳转...'
-                    message.success('登录成功，正在跳转...')
-                    createRouter(res.data)
-                  } else {
-                    message.error(res.description)
-                    formState.isLoading = false
-                    formState.buttonMsg = '登录'
-                  }
-                })
-              })
-              .catch((error) => {
-                // console.log(error);
-                message.error('浏览器唯一标识获取失败，请检查浏览器')
-                formState.isLoading = false
-                formState.buttonMsg = '登录'
-              })
-        })
-        .catch((error) => {
-          // console.log(error);
-          message.error('浏览器唯一标识获取失败，请检查浏览器')
-          formState.isLoading = false
-          formState.buttonMsg = '登录'
-        })
+    formState.buttonMsg = '请稍后，正在登录中...'
+    try {
+      const deviceId = await readLoginDeviceId()
+      const res = await userLogin({
+        userAccount: formState.username,
+        password: formState.password,
+        deviceId
+      })
+      if (res.code !== 200) {
+        message.error(explainAuthFailure(res.code) || res.message || res.description || '登录失败，请检查账号和密码')
+        return
+      }
+      await createRouter(res.data)
+      message.success('登录成功')
+    } catch (error) {
+      console.error('[login] 登录未完成', error)
+      message.error(error.message || '登录未完成，请检查网络及本地存储后重试')
+    } finally {
+      formState.isLoading = false
+      formState.buttonMsg = '登录'
+    }
   }
 
-  const createRouter = (data) => {
+  const createRouter = async (data) => {
     const interfaceStyle = window.interfaceStyle
     if(interfaceStyle=="HJ"){
       //过滤火报务路由
@@ -117,23 +109,42 @@ export default function (formState) {
     }
 
     console.log(data.menus)
-    window.localStorage.setItem('token', data.token)
-    window.localStorage.setItem('deviceId', data.deviceId)
-    window.localStorage.setItem('userInfo', JSON.stringify(data.user))
-    window.localStorage.setItem('userRole', JSON.stringify(data.role)) // 注意当登录接口换成V2版本时请校对返回的参数，该处会从role->roles
-    window.localStorage.setItem('userRouter', JSON.stringify(data.menus))
-    if (autoLoginStatus.value) {
-      localforage.setItem('autoLoginInfo', {
-        username: formState.username,
-        password: formState.password
-      })
-    } else {
-      localforage.removeItem('autoLoginInfo')
+    if (!data.token || !data.deviceId) throw new Error('登录响应缺少会话凭证，请联系管理员')
+    try {
+      const storage = window.localStorage
+      const entries = [
+        ['deviceId', data.deviceId],
+        ['userInfo', JSON.stringify(data.user)],
+        ['userRole', JSON.stringify(data.role)],
+        ['userRouter', JSON.stringify(data.menus)]
+      ]
+      storage.removeItem('token')
+      for (const [key, value] of entries) storage.setItem(key, value)
+      storage.setItem('token', data.token)
+    } catch (error) {
+      console.error('[login] 会话保存失败', error)
+      throw new Error('服务器已响应，但本地登录凭证保存失败，未进入系统；请恢复存储权限后重新登录。这不是离线授权失效')
     }
-    setTimeout(() => {
-      document.onkeydown = null
-      router.replace('/preview').then()
-    }, 1000)
+    try {
+      if (autoLoginStatus.value) {
+        await localforage.setItem('autoLoginInfo', {
+          username: formState.username,
+          password: formState.password
+        })
+      } else {
+        await localforage.removeItem('autoLoginInfo')
+      }
+    } catch (error) {
+      console.error('[login] 自动登录设置保存失败', error)
+      message.warning('本次会话已保存，但自动登录设置未保存，下次请手动登录')
+    }
+    document.onkeydown = null
+    const failure = await router.replace('/preview')
+    const atHome = router.currentRoute.value.path === '/preview'
+    const duplicated = isNavigationFailure(failure, NavigationFailureType.duplicated)
+    if (!atHome || (failure && !duplicated)) {
+      throw new Error('登录跳转未完成，请重新进入首页；若仍无法进入，请联系管理员', {cause: failure})
+    }
   }
   const addUser = () => {
     if (loading.value) return false
