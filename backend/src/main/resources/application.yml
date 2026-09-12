@@ -95,8 +95,12 @@ quarkus:
 "%prod":
   quarkus:
     datasource:
-      username: root
-      password: root
+      # 凭据只从部署环境注入：仓库内不留明文口令，且刻意不写 ${DB_USER:root} 这类默认值——
+      # 带默认值等于没改。Quarkus 对未展开的 ${DB_USER} 不报错而是当作「未配置」，
+      # MySQL 驱动会回退到操作系统用户名连库、进程照常对外提供 HTTP，
+      # 所以缺变量必须由 com.nip.common.ProdDatasourceCredentialsValidator 在启动期直接失败。
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
       jdbc:
         url: jdbc:mysql://localhost:3306/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true
         # 同 %dev：HikariCP 专有的 idleTimeout/connectionTestQuery 从 URL 移除，
