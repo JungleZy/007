@@ -14,8 +14,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,17 +21,18 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Task 3.1：TickerPatUtils 评分核心的 characterization 快照。
- * 输入样本在 src/test/resources/scoring/（patKeys 与规则取自 backend/database/project006.sql 真实数据），
- * 期望输出在 src/test/resources/scoring/expected/。
- * 重新生成快照：SCORING_UPDATE=1 运行本测试后人工核对 diff。
+ * 输入样本与期望快照均从 classpath 读取（源在 src/test/resources/scoring/ 与其 expected/ 子目录，
+ * patKeys 与规则取自 backend/database/project006.sql 真实数据），不依赖进程工作目录，
+ * 因此在 IDE、仓库根目录或任何 surefire workingDirectory 下结果一致。
+ *
+ * <p>本类只读快照，不具备回写源码树的能力：评分逻辑发生真实修复时，assertEquals 的失败信息里
+ * 已含完整的新输出，须逐项核对 diff 后手工改写 expected/*.json（快照最大 3KB）。
+ * 刻意不提供「一键重生成」入口——那会让一次真实修复看起来像回归被静默吸收。
  */
 class TickerPatUtilsCharacterizationTest {
-
-  private static final Path EXPECTED_DIR = Path.of("src/test/resources/scoring/expected");
 
   static class ResolverCase {
     List<String> patKeys;
@@ -90,24 +89,7 @@ class TickerPatUtilsCharacterizationTest {
 
   private static void assertSnapshot(String name, Object actualPayload) {
     String actual = JSONUtils.gson.newBuilder().setPrettyPrinting().create().toJson(actualPayload);
-    Path expectedFile = EXPECTED_DIR.resolve(name + ".json");
-    if ("1".equals(System.getenv("SCORING_UPDATE"))) {
-      try {
-        Files.createDirectories(EXPECTED_DIR);
-        Files.writeString(expectedFile, actual + "\n");
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-      return;
-    }
-    if (!Files.exists(expectedFile)) {
-      fail("缺少快照 " + expectedFile + "，先用 SCORING_UPDATE=1 生成并人工核对");
-    }
-    try {
-      assertEquals(Files.readString(expectedFile).stripTrailing(), actual, name);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    assertEquals(resource("expected/" + name + ".json").stripTrailing(), actual, name);
   }
 
   private static Map<String, Object> runResolver(String caseFile) {
