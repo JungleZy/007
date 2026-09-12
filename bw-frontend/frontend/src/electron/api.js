@@ -9,6 +9,7 @@ const ipcApiRoute = {
   getLocalIP: 'controller.system.getLocalIP',
   getSerialPorts: 'controller.serialPort.getSerialPortList',
   linkPort: 'controller.serialPort.linkPort',
+  grantAccess: 'controller.serialPort.grantAccess',
   // 授权信息的机器级 / 用户级文件副本
   licenseRead: 'controller.license.read',
   licenseWrite: 'controller.license.write',

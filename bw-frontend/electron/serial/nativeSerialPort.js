@@ -1,4 +1,4 @@
-const {exec, execSync, spawn} = require('child_process');
+const {exec, execSync} = require('child_process');
 const {platform} = process;
 
 class NativeSerialPort {
@@ -55,15 +55,10 @@ class NativeSerialPort {
 						console.warn(`跳过设备 ${device}: ${e.message}`);
 					}
 				});
+				// 列举串口是只读操作，绝不在此自动 pkexec 提权：
+				// 提权必须由用户在串口列表里显式点击「授权」触发（controller.serialPort.grantAccess）。
 				Promise.all(devicePromises)
-					.then(results => {
-						exec(`groups ${process.env.USER}`,(err,stdout)=>{
-							if(stdout.indexOf('dialout')===-1){
-								this.grantAccess(results)
-							}
-						})
-						return resolve(results.filter(Boolean))
-					})
+					.then(results => resolve(results.filter(Boolean)))
 					.catch(reject);
 			});
 		});
@@ -86,39 +81,35 @@ class NativeSerialPort {
 		});
 	}
 
-	// 授权Linux串口（需要sudo）
-	static grantAccess(ports,user = process.env.USER) {
-		if (platform !== 'linux') throw new Error('仅支持Linux系统');
-		if (!/^\w+$/.test(user)) throw new Error('无效用户名格式');
+	// 授权 Linux 串口（pkexec 会弹出系统提权框，仅允许用户显式点击后调用）。
+	// 恒不抛异常：用户取消 pkexec、缺少 polkit agent 等失败都只返回结果对象，
+	// 否则异常会落到无 catch 的异步回调栈上，直接打挂主进程。
+	// 返回值必须是可结构化克隆的纯数据（要经 preload 桥回渲染进程）。
+	static grantAccess(ports, user = process.env.USER) {
+		if (platform !== 'linux') {
+			return {ok: false, message: '当前系统无需串口授权'};
+		}
+		if (!/^\w+$/.test(user || '')) {
+			return {ok: false, message: '无效用户名格式，无法授权'};
+		}
+		const targets = (Array.isArray(ports) ? ports : [ports])
+			.filter(Boolean)
+			.map(port => (typeof port === 'string' ? port : port.path))
+			.filter(path => typeof path === 'string' && /^\/dev\/[\w/.-]+$/.test(path));
 		try {
 			execSync(`pkexec usermod -a -G dialout ${user}`);
-			ports.forEach(port=>{
-				execSync(`pkexec chmod 666 ${port.path}`);
-			})
-			return true;
+			targets.forEach(path => {
+				execSync(`pkexec chmod 666 ${path}`);
+			});
+			return {
+				ok: true,
+				message: `已将用户 ${user} 加入 dialout 组${targets.length ? `，并放开 ${targets.join('、')} 的读写权限` : ''}`,
+				granted: targets
+			};
 		} catch (error) {
-			throw new Error(`授权失败: ${error.message}`);
+			return {ok: false, message: `授权失败：${error.message}`, granted: []};
 		}
 	}
 }
 
 module.exports = NativeSerialPort
-// // 使用示例
-// (async () => {
-// 	try {
-// 		const ports = await NativeSerialPort.list();
-// 		console.log('可用串口:', JSON.stringify(ports, null, 2));
-//
-// 		// Linux下授权检测
-// 		if (platform === 'linux' && ports.some(p => !p.accessible)) {
-// 			console.log('尝试自动授权...');
-// 			const targetPort = ports.find(p => p.path.includes('USB'));
-// 			if (targetPort) {
-// 				NativeSerialPort.grantAccess(targetPort.path);
-// 				console.log('授权完成，请重新插拔设备');
-// 			}
-// 		}
-// 	} catch (error) {
-// 		console.error('错误:', error);
-// 	}
-// })();
