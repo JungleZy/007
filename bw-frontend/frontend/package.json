@@ -3,6 +3,7 @@
   "name": "project-006",
   "scripts": {
     "dev": "vite --host",
+    "test": "node --test test/*.test.mjs src/views/manage/basicTheory/test/questionBank/js/questionImport.test.mjs",
     "test:question-import": "node --test src/views/manage/basicTheory/test/questionBank/js/questionImport.test.mjs",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=9600 vite build && node ../scripts/artifact-manifest.cjs frontend",
     "serve": "vite preview",
@@ -78,7 +79,6 @@
     "@vue/compiler-sfc": "^3.5.42",
     "autoprefixer": "^10.4.4",
     "babel-eslint": "^10.1.0",
-    "babel-jest": "^29.6.0",
     "babel-plugin-import": "^1.13.3",
     "babel-plugin-syntax-jsx": "^6.18.0",
     "babel-plugin-transform-remove-console": "^6.9.4",
