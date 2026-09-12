@@ -191,8 +191,12 @@ jobs:
           fi
           echo 'Smoke test OK: native runner served /q/openapi'
 
+      # -D 参数必须整体加引号：Windows 分支默认 shell 是 pwsh，不加引号时
+      # `-Dexpression=project.version` 会被拆成 `-Dexpression=project` + `.version`，
+      # 后者被 Maven 当作生命周期阶段 → `Unknown lifecycle phase ".version"`
+      # （2026-09-10 run 34473213093 windows-2022 即因此失败；Linux/bash 分支不受影响）。
       - name: Resolve native artifact version
-        run: mvn -B help:evaluate -Dexpression=project.version -q -DforceStdout -Doutput=target/build-version.txt
+        run: mvn -B help:evaluate "-Dexpression=project.version" -q -DforceStdout "-Doutput=target/build-version.txt"
 
       - name: Package native binary and manifest
         run: node ../bw-frontend/scripts/artifact-manifest.cjs native ${{ matrix.asset_suffix }}
