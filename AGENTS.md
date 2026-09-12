@@ -26,7 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前基线 **391 测试 / 93 suite 全绿**（`docs/reviews/2026-09-12-full-project-review.md` §6.2）；新增测试只增不减。
+- 当前基线 **392 测试 / 93 suite 全绿**（`docs/reviews/2026-09-12-full-project-review.md` §6.2/§6.3）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 
@@ -52,6 +52,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 4. **token 查询有两条口径，别混用**：`UserService.getUserByToken` 查无即抛 `UnauthorizedException`（→ 200 + 203），是唯一对外口径；裸 DAO `UserDao.findUserEntityByToken` 用 `firstResult()`，**查无返回 null**。2026-09-12 已收敛：该 DAO 方法当前**只剩 2 个调用点，都在 `UserService` 内且都判空**（`userOut` 显式判 null、`getUserByToken` 抛异常），业务 service 里的 24 处裸解引用已全部改走 `getUserByToken`。**新代码一律走 `getUserByToken`，不要新增裸 DAO 解引用。** 同类裸 `firstResult()` 全仓仍有 **58 处 / 45 个 DAO 文件**（鉴权与结算写路径已收敛，其余为查询路径），改到时按调用点判空或换 `Optional`。行号会漂移，用 `grep -rn findUserEntityByToken backend/src/main/java` 现取。
 5. **跨栈契约不可单侧改**：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `bw-frontend/frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点，并把结果贴进提交正文。历史上后端单侧整改曾一次改断 4 处跨栈契约（`roomgId` 改名、上传能力边界收窄、`saveBatch`/`exportTemplate` 成孤儿端点、`Page.getRows()` 钳制），取证见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；这 4 处**均已闭环**，作为历史教训保留，红线规则本身继续有效。
 6. **鉴权 ≠ 授权**：前端 `v-per` 只是可篡改的软门控，服务端必须自己判。2026-09-12 已落地：`user/role/menus` 的写端点（`saveUser`/`importUser`/`addUserRole`/`resetPassword`/`addRole`/`addMenu`）与评分规则、理论主数据、题库写端点均已加 `@RequireAdmin`，训练 `delete`/`updateStatus` 走 `writableTrain` 属主或管理员判定，拒绝统一 207。**但覆盖仍不完整：43 个非 free controller 全文无 `@RequireAdmin`**（多为学员自助与查询端点，按设计只需 `@JWT` + 服务层属主判定）。新增管理类端点必须自己做服务端授权判定，并在测试里断言非管理员拿到 207。
+7. **`t_role.is_admin` 的取值与列名相反：`is_admin = 0` 才是管理员**。判定单点是 `RoleDao.existsAdminRoleByUserId`（`where r.isAdmin = 0`），`RequireAdminInterceptor` 只调它。2026-09-12 运行实测（本地 `project006`）：`系统管理员` 行 `is_admin=0`、`普通人员` 行 `is_admin=1`，前者调 `POST /api/user/getAllUser` 得 200、后者得 207 —— 数据与判定自洽。**两个方向的坑都要防**：① 看到 `= 0` 以为是笔误、改成 `= 1` → 所有 `普通人员` 瞬间变管理员（`AdminAuthorizationTest.ordinaryUserCannotDeleteAnotherUser`/`superAdminRoleAllowsProtectedOperation` 会拦住这种改动，别绕过它们）；② 新建角色时按字面填 `is_admin=0` 表示「不是管理员」→ 实际授予了管理员（`RoleService.addRole` 原样存客户端传的值，不做归一）。新增角色数据务必对照上述实测语义。
 
 ## 测试约定
 

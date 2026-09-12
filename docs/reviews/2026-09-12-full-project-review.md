@@ -4,7 +4,7 @@
 - **评审对象**：`backend/`（Quarkus 3.20.4 / Java 21，770 个主源文件、61 个 controller、80 个 service）+ `bw-frontend/`（Electron 壳）+ `bw-frontend/frontend/`（Vue，262 个 `.vue`、293 个 `.js`、28 个 api 模块）
 - **代码基线**：`main` = `9f70c22`；本轮客户报障整改共 16 个提交（`4819227..9f70c22`），已推送 origin
 - **验证基线**：`cd backend && ./mvnw -B clean verify` → **316 测试 / 74 suite，0 失败 0 错误 0 跳过**（2026-09-12，2 分 36 秒）；前端 `npm run build` 成功
-- **整改后基线**：`main` = `0efbdf1`（已推送 origin），B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）；后端 **391 测试 / 93 suite 全绿**、前端 `npm run test` 19/19 + `build` 成功、迁移演练双快照全绿。详见 §6.2
+- **整改后基线**：B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）+ 计划回写核验补做 5 个提交（`23cafc9..f9f97bd`）；后端 **392 测试 / 93 suite 全绿**、前端 `npm run test` 19/19 + `build` 成功、迁移演练双快照全绿。详见 §6.2（执行记录）与 §6.3（逐条核验与补做）
 - **评审方式**：8 路并行只读评审队（评分采集 / 数据与迁移 / 安全授权 / 并发与 WS / 跨栈契约 / 前端 / 交付形态 / 测试与文档），逐条要求根相对 `path:line` 取证；全部 P0/P1 由主评审独立复核，复核结论与纠正记录见 §9
 - **本文定位**：**替代 `docs/reviews/2026-09-08-full-project-review.md` 成为当前唯一全项目评审入口**。2026-09-08 评审降为历史证据（其 216 测试基线等数字已过期）
 - **关联文档**：客户报障分析 `docs/reviews/2026-09-10-customer-issue-analysis.md`；本轮规格 `docs/specs/2026-09-10-customer-issue-fix-spec.md`；本轮计划 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付仍未完成）
@@ -361,7 +361,7 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 
 **执行后基线**
 
-- 后端 `./mvnw -B clean verify` → **391 测试 / 93 suite，0 失败 0 错误 0 跳过**（B6 收口时为 317/75；本轮净增 74 条回归）。
+- 后端 `./mvnw -B clean verify` → **391 测试 / 93 suite，0 失败 0 错误 0 跳过**（B6 收口时为 317/75；本轮净增 74 条回归）。§6.3 的补做后为 **392 / 93**。
 - 前端 `npm run test` **19/19**、`npm run build` 成功。
 - 迁移演练 `backend/scripts/rehearse-migrations.sh` **双快照全绿**，含新索引断言与「实体列 ⊆ 快照」的 `validate` 等价断言。
 - **真实打包产物实测**（`electron-builder --linux --dir` 产物 + CDP）：`require/process/module` 均 `undefined`、`window.electron.ipcRenderer` 只暴露 6 个白名单方法、`AudioWorklet.addModule` 在 `file://` + `contextIsolation` 下仍可用；随包地址为 `http://localhost:18001` / `http://127.0.0.1:8000/api/file/getFile`；文件服务只 `LISTEN 127.0.0.1:8000`，两条穿越样本均 404，局域网地址连接被拒。
@@ -370,19 +370,48 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 **残留（不在本轮范围或需外部前置）**
 
 - G4「可信证书」仍是外部门禁：本轮只移除了 `--ignore-certificate-errors`，未引入证书链。
-- 真实训练房间的浏览器 Network 证据仍需设备授权环境，属外部前置（与 §7 一致）。
+- ~~真实训练房间的浏览器 Network 证据仍需设备授权环境~~ → **已在 §6.3 补足**（真实包登录 + 真实房间 WS 双角色）。仍需外部环境的只剩「真实硬件设备（手键/电子键/串口）接入下的端到端拍发」。
 - 迁移演练首跑曾因 MySQL 容器就绪竞态失败一次（`mysqladmin ping` 会命中 entrypoint 的临时实例），重跑全绿；脚本的就绪判定可再加固，未纳入本轮。
 - §7 其余「需产品确认」事项未因本轮执行而关闭。
+
+### 6.3 计划回写核验与本轮补做（2026-09-12，5 个提交 `23cafc9..f9f97bd`）
+
+§6.2 落地后，对 `docs/plans/2026-09-12-review-fix-plan.md` 的 **143 个复选框逐条核验**（6 路并行只读核验 + 我自己的运行验证），而不是照提交信息勾选。结果：**134 条有 path:line 或运行证据**、**5 条以偏离形态交付**（理由就地写明）、**4 条核验时发现未达成 → 本轮补做**。
+
+**4 条未达成项（含 1 条安全缺口）**
+
+| 条目 | 核验发现 | 处置 |
+|---|---|---|
+| T3-5 运行证据 | **握手门禁可被路径参数转换绕过**：4 个端点把 id 声明成 `@PathParam Integer`，容器在进入 `@OnOpen` 前做类型转换，失败时 `@OnOpen` 与 `@OnError` **都不被调用** → 未鉴权连接被无限保持。实测 `/generalKeyPatTrain/1/not-a-number` 不带凭据 `OPEN-HELD`；数字 id 同条件下 `CLOSED(1000)`，证明门禁本身对、只是被绕过。`@OnMessage` 仍有 `authenticatedId==null` 短路，故无数据泄露，但违反「不带凭据必须关闭」且可被挂满连接 | 四个端点一律先收 `String`、先鉴权、再自行解析；补 `malformedPathParamStillClosesUnauthenticatedConnection` 回归（`f9f97bd`） |
+| T7-7 真实拒因 | 同类缺陷**漏改 7 处**：`unionJob/` 的 `lineNotify`、`disturbCode`、`broadcastTeacheing` 仍读 `res.msg`/`data.msg`（后端信封字段是 `message`，取值恒 `undefined`，用户只看到兜底文案）。上一轮只改了通播教学页两个文件 → §11.2 的「前端 `res.msg` = 0」门禁此前**并未真正达成** | 7 处改读 `message`（其中 2 处是 `?.msg \|\| ?.message` 的死分支）（`23cafc9`） |
+| T3-1 会话失效 runbook + T7-4 逐脚本还原 | 两项都只存在于 spec/plan 的需求文里，仓库**没有任何发布说明制品**；14 个迁移里只有 1 个写了 `还原(runbook)` 头注。§6.2 曾把 B7 的「迁移序号与回滚 runbook」整条记为完成，是**错记**（序号重排与菜单迁移拆分做了，回滚 runbook 没做） | 新增 `docs/guides/2026-09-12-release-runbook.md`（14 脚本顺序 + 逐脚本还原 + 四个应用侧发布前提 + 发布后验证）；`backend/README.md` 补非幂等脚本与数据迁移的前端契约耦合（`92e528e`） |
+| T3-1 测试工厂单点 | `Fixtures.user()` 正确，但「入库必须是 SHA-256 摘要」这条口径在测试侧另有 **7 份手写副本**（4 处播种 + 3 处按 token 反查），抄漏一处就是静默 206（`UserDirectoryAuthorizationTest` 注释显示已有人踩过） | 补 `Fixtures.sessionToken`/`userIdByToken` 两个单点并迁移全部调用点；摘要函数在测试侧只剩「写/读各一处 + 两个断言存储口径的用例」（`1033f7d`） |
+
+**5 条偏离交付（保留原状，理由已写入计划）**：T3-0/T2-3 的三个旧 helper 方法名保留（它们是各域「取实体 + 不存在→202」的取数封装，授权判定已统一到 `TrainWriteAccess`，删名会让每个调用点重复取数+加锁+404 映射）；T1-2 规则页走 spec 的第二条路径（207 可见解释而非恢复 `v-per`）；T2-4 脱敏 DTO 以 `UserSummary` 交付（非计划文本的 `UserDirectoryEntry`，仅命名差异）；T4-2 两域未合并为共享实现（理由在 `9704267` 正文）。
+
+**T3-5 修复后的完整运行证据**
+
+- 11 条路径实测：6 个带身份端点在「无凭据」与「非法路径」两种情况下一律 `CLOSED(1000)`；`/status` 仍匿名 `OPEN`。
+- **真实房间 happy path**：新建手键组训（id=75，`%prod` 产物）→ 教员 `role=1` 与学员 `role=0` 各带凭据连入均 `OPEN` → 学员上线时教员收到 `{"topic":"online","id":"2"}` → 学员发 `ready` 教员收到 `{"topic":"ready"}` → 删除该训练清理。
+- **真实打包桌面**：`--dir` 产物冷启动 → 真实登录 UI（`admin`）→ dashboard → shipped `SocketConnection` 注入凭据的 `ws://localhost:18001/websocket/1?token=…&deviceId=…` `opened=true` 且收到推送帧；`localStorage.token` 为 43 字符不透明串、库里是 64 位摘要（T3-1 的两侧同时验证）。
 
 ---
 
 ## 7. 需运行验证或需产品确认（本次只读约束下无法判定）
 
+**已用运行证据闭合的 4 条**（2026-09-12，真实 `%prod` 打包产物 + 本地 `project006`）：
+
+| 事项 | 结论 |
+|---|---|
+| 组训数据报/电传域是否启用 | **按「启用」处置**：代码与两个学员页均为活，B4 走修复而非下线（见 §6.2） |
+| `@RequireAdmin` 运行时是否真生效 | **生效**：`系统管理员` 调 `POST /api/user/getAllUser` 得 `code:200`，`普通人员` 得 `code:207` |
+| `t_role.is_admin` 实际数据分布 | **数据与判定自洽，但列名与取值相反**：判定是 `RoleDao.existsAdminRoleByUserId` 的 `where r.isAdmin = 0`，库里 `系统管理员`=0、`普通人员`=1，因此只有管理员通过。两个方向的坑（把 `=0` 当笔误改成 `=1` → 全员提权；新建角色按字面填 `0` 表示「非管理员」→ 误授权）已写入 `AGENTS.md` 红线 7；既有用例 `AdminAuthorizationTest` 已钉住该约定 |
+| Hibernate 6.6 的 `validate` 是否容忍 `varchar`↔`longtext` | **容忍**：对按序补齐 14 个迁移的库跑真实 `%prod`，`generation: validate` 通过并 `started in 3.188s` |
+
+**仍待运行验证或产品确认**：
+
 | 事项 | 需要什么 |
 |---|---|
-| **组训数据报/电传域是否启用**（决定 B4 走修复还是下线） | 产品/负责人确认；代码路由与前端两个学员页当前均为活 |
-| `@RequireAdmin` 运行时是否真生效（CDI 拦截器 + `@Context` 注入边界） | 用非管理员 token 请求 `POST /api/user/getAllUser`，观察是否返回 `code:207` |
-| `t_role.is_admin` 实际数据分布（是否有 `isAdmin=0` 角色被派给学员，使 207 形同虚设） | 查库 `select id,title,is_admin from t_role` 与 `t_user_role` 分布 |
 | `getTrainInfo`/`importTrainInfo` 收紧后是否打断「离线库导入」 | 该功能的真实使用场景说明 + 前端调用面 grep |
 | 部署形态单实例 vs 多实例 | 若多实例，`static` WS 房间态与进程内 `ReentrantLock` 不跨节点（结算仍靠 DB 行锁，安全） |
 | `onClose/onError` 中 `this.quitRoom*` 自调用 `@Transactional` 是否真开启事务 | 触发一次断连，观察 `userStatus` 是否落库 |
@@ -412,4 +441,6 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 | CONC-02 WS `TOPIC_RESULT` 静默 return | P3 推断项，疑前端仍发该帧致结果丢失 | **排除**：前端已全量改走 REST，无发送点（§5.2） |
 | DELIVERY-02 文件服务 | P1 | **上调 P0**：无凭据、局域网可达、可任意路径写 |
 
-**评审边界**：本次为静态取证评审，未运行应用、未连数据库、未执行构建或测试（`316/74` 基线取自本轮已完成的 `verify` 运行）。§7 列出的事项需运行态或产品输入才能闭合。
+**评审边界**：**评审本身**为静态取证，未运行应用、未连数据库、未执行构建或测试（`316/74` 基线取自本轮已完成的 `verify` 运行）。
+
+**执行阶段（2026-09-12 收口）补足了运行态证据**：真实 `%prod` 打包产物 + 本地 `project006`（按序补齐 14 个迁移）+ 真实 `electron-builder --dir` 桌面包 + 真实 WS 客户端，覆盖 §7 的 4 条（见该节）与 §6.2「执行后基线」。**运行验证不是形式**：它在 T3-5 抓出一个静态取证看不出的握手门禁缺口 —— `@PathParam Integer` 转换失败时 `@OnOpen`/`@OnError` 都不被调用，未鉴权连接被无限保持（修复见 §6.3）。
