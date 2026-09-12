@@ -1,6 +1,7 @@
 package com.nip.testsupport;
 
 import com.nip.common.constants.BaseConstants;
+import com.nip.ws.WebSocketHandshake;
 import jakarta.websocket.RemoteEndpoint;
 import jakarta.websocket.Session;
 
@@ -28,11 +29,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 并发写时正是抛 {@link IllegalStateException}。生产出站入口
  * （{@code WebSocketService.send}）以 {@code catch (Exception)} 兜住单个接收方的失败，
  * 该变体就是用来验证这条隔离契约的。
+ *
+ * <p>出站帧按通道分别记账：{@link #basicOutbound()} 收 {@code getBasicRemote()} 的同步写，
+ * {@link #asyncOutbound()} 收 {@code getAsyncRemote()} 的异步写，{@link #outbound()} 是两者
+ * 按发送先后的归并视图。拒接路径「先发错误帧、再关连接」依赖同步写才有送达保证，
+ * 分通道记账是把这条契约断死的前提。
  */
 public final class WebSocketSessionProbe {
 
   private final AtomicBoolean open = new AtomicBoolean(true);
   private final List<String> outbound = new CopyOnWriteArrayList<>();
+  private final List<String> basicOutbound = new CopyOnWriteArrayList<>();
+  private final List<String> asyncOutbound = new CopyOnWriteArrayList<>();
   private final Map<String, Object> properties = new ConcurrentHashMap<>();
   private final Session session;
 
@@ -40,11 +48,13 @@ public final class WebSocketSessionProbe {
     RemoteEndpoint.Async async = (RemoteEndpoint.Async) Proxy.newProxyInstance(
         RemoteEndpoint.Async.class.getClassLoader(),
         new Class<?>[]{RemoteEndpoint.Async.class},
-        (proxy, method, args) -> recordFrame(method.getName(), args, method.getReturnType(), failOnSend));
+        (proxy, method, args) ->
+            recordFrame(method.getName(), args, method.getReturnType(), failOnSend, asyncOutbound));
     RemoteEndpoint.Basic basic = (RemoteEndpoint.Basic) Proxy.newProxyInstance(
         RemoteEndpoint.Basic.class.getClassLoader(),
         new Class<?>[]{RemoteEndpoint.Basic.class},
-        (proxy, method, args) -> recordFrame(method.getName(), args, method.getReturnType(), failOnSend));
+        (proxy, method, args) ->
+            recordFrame(method.getName(), args, method.getReturnType(), failOnSend, basicOutbound));
     this.session = (Session) Proxy.newProxyInstance(
         Session.class.getClassLoader(),
         new Class<?>[]{Session.class},
@@ -81,6 +91,21 @@ public final class WebSocketSessionProbe {
     return new WebSocketSessionProbe(id, false, Map.of());
   }
 
+  /**
+   * 已完成握手的连接：跳过 {@link WebSocketHandshake#authenticate}，直接把 {@code userId}
+   * 绑进会话属性，等价于 onOpen 鉴权通过后调用 {@code WebSocketHandshake.bind}。
+   *
+   * <p>与 {@link #open(String, String, String)} 的分工：{@code open} 带真实 query 凭据走完整
+   * 握手校验，因此必须配一行真实用户（{@code @QuarkusTest} + Fixtures）；{@code bound} 是
+   * 单元级桩 —— requestParameterMap 为空、不查库、不需要容器，只供验证 onMessage/onClose/
+   * onError 这些「握手之后」的回调。要验证握手拒绝路径本身用 {@link #anonymous(String)}。
+   */
+  public static WebSocketSessionProbe bound(String id, String userId) {
+    WebSocketSessionProbe probe = new WebSocketSessionProbe(id, false, Map.of());
+    WebSocketHandshake.bind(probe.session, userId);
+    return probe;
+  }
+
   private static Map<String, List<String>> credentials(String token, String deviceId) {
     return Map.of(BaseConstants.TOKEN, List.of(token), BaseConstants.DEVICE_ID, List.of(deviceId));
   }
@@ -94,12 +119,25 @@ public final class WebSocketSessionProbe {
     return outbound;
   }
 
-  private Object recordFrame(String method, Object[] args, Class<?> returnType, boolean failOnSend) {
+  /** 经 {@code getBasicRemote()} 同步写出的帧。 */
+  public List<String> basicOutbound() {
+    return basicOutbound;
+  }
+
+  /** 经 {@code getAsyncRemote()} 异步写出的帧。 */
+  public List<String> asyncOutbound() {
+    return asyncOutbound;
+  }
+
+  private Object recordFrame(String method, Object[] args, Class<?> returnType, boolean failOnSend,
+      List<String> channel) {
     if ("sendText".equals(method) && args != null && args.length > 0) {
       if (failOnSend) {
         throw new IllegalStateException("通道已损坏");
       }
-      outbound.add(String.valueOf(args[0]));
+      String frame = String.valueOf(args[0]);
+      channel.add(frame);
+      outbound.add(frame);
     }
     return defaultValue(returnType);
   }

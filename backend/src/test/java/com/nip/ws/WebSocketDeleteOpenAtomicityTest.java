@@ -52,6 +52,19 @@ import java.util.concurrent.locks.Lock;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * delete 与 onOpen 的原子性：删除赢了之后不得残留房间 map 键或活着的 Session。
+ *
+ * <p><b>为什么这里不用 {@code testsupport.WebSocketSessionProbe}</b>（别再试了）：
+ * <ul>
+ *   <li>本用例要跑通真实的 {@code onOpen} 鉴权分支，靠注入 {@code FixedHandshake}
+ *       这个 {@code WebSocketHandshake} 子类返回固定用户，而不是像共享探针的
+ *       {@code bound(...)} 那样绕过握手直接 bind —— 绕过去就测不到 onOpen 的门禁顺序。</li>
+ *   <li>断言对象是「房间键没了 + 连接已关」的因果，需要读会话开关并在编排线程里主动关闭它；
+ *       共享探针只暴露 {@code session()} 与出站帧，没有 {@code open()}/{@code close()}。</li>
+ *   <li>本用例不关心帧内容，两个 remote 故意是惰性桩；共享探针的分通道记账在这里是纯负担。</li>
+ * </ul>
+ */
 @QuarkusTest
 
 class WebSocketDeleteOpenAtomicityTest {

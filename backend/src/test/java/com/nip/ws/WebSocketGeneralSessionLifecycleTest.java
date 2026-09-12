@@ -2,20 +2,13 @@ package com.nip.ws;
 
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
+import com.nip.testsupport.WebSocketSessionProbe;
 import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import jakarta.websocket.Session;
-import jakarta.websocket.RemoteEndpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Proxy;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -116,7 +109,7 @@ class WebSocketGeneralSessionLifecycleTest {
   void keyStaleStudentMessageDoesNotMutateReplacementOrNotifyTeacher() {
     Session oldSession = session("key-old-message", "student");
     Session currentSession = session("key-current-message", "student");
-    SessionProbe teacher = recordingSession("key-teacher", "teacher");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("key-teacher", "teacher");
     GeneralPatTrainUserModelDto current = generalUser("student", currentSession);
     GeneralPatTrainRoomUserDto room = generalRoom(current);
     room.setGroupUser(generalUser("teacher", teacher.session()));
@@ -133,7 +126,7 @@ class WebSocketGeneralSessionLifecycleTest {
   void telexStaleTeacherControlMessageDoesNotBroadcastToStudents() {
     Session oldTeacher = session("telex-old-teacher", "teacher");
     Session currentTeacher = session("telex-current-teacher", "teacher");
-    SessionProbe student = recordingSession("telex-student", "student");
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("telex-student", "student");
     GeneralPatTrainRoomUserDto room = generalRoom(generalUser("student", student.session()));
     room.setGroupUser(generalUser("teacher", currentTeacher));
     WebSocketGeneralTelexPatService.ROOM.put("train-201", room);
@@ -148,7 +141,7 @@ class WebSocketGeneralSessionLifecycleTest {
   void tickerStaleStudentMessageDoesNotMutateReplacementOrNotifyTeacher() {
     Session oldSession = session("ticker-old-message", "student");
     Session currentSession = session("ticker-current-message", "student");
-    SessionProbe teacher = recordingSession("ticker-teacher", "teacher");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("ticker-teacher", "teacher");
     GeneralTickerPatTrainUserModel current = tickerUser("student", currentSession);
     GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
     room.getJoinUser().add(current);
@@ -195,6 +188,77 @@ class WebSocketGeneralSessionLifecycleTest {
         () -> assertFalse(tickerStudent.isOpen()));
   }
 
+  /**
+   * 拒接路径的送达契约：错误帧必须在关闭连接之前发出，否则客户端只看到一次无理由的断开。
+   *
+   * <p>断言「帧已记账 + 连接已关闭」即证明了先后次序：{@code sendErrMessage} 先查
+   * {@code session.isOpen()}，而 {@code close()} 把 open 翻成 false 之后不可逆，
+   * 所以这一帧只可能记在关闭之前。
+   *
+   * <p>本域 {@code sendErrMessage} 走 {@code getBasicRemote()}（同步写，见
+   * {@code WebSocketGeneralKeyPatService.sendErrMessage} 的方法注释），断言因此落在
+   * {@link WebSocketSessionProbe#basicOutbound()}：改成异步写就红。
+   */
+  @Test
+  void keyRejectedHandshakeSendsErrorFrameBeforeClosing() {
+    WebSocketSessionProbe rejected = WebSocketSessionProbe.anonymous("key-reject");
+    WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
+    endpoint.handshake = new WebSocketHandshake();
+
+    endpoint.onOpen("301", rejected.session());
+
+    assertAll(
+        () -> assertTrue(rejected.asyncOutbound().isEmpty(), "拒接原因不得走异步写"),
+        () -> assertEquals(1, rejected.basicOutbound().size(), "拒接必须发且只发一帧错误"),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("登录凭据无效，拒绝建立连接")),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("\"code\":-1"), "必须是错误信封"),
+        () -> assertFalse(rejected.session().isOpen(), "拒接后必须关闭连接"),
+        () -> assertFalse(WebSocketGeneralKeyPatService.ROOM.containsKey(301), "被拒的连接不得入房"));
+  }
+
+  /** 同 {@link #keyRejectedHandshakeSendsErrorFrameBeforeClosing}，telex 域同样是同步写。 */
+  @Test
+  void telexRejectedHandshakeSendsErrorFrameBeforeClosing() {
+    WebSocketSessionProbe rejected = WebSocketSessionProbe.anonymous("telex-reject");
+    WebSocketGeneralTelexPatService endpoint = new WebSocketGeneralTelexPatService();
+    endpoint.handshake = new WebSocketHandshake();
+
+    endpoint.onOpen("train-301", rejected.session());
+
+    assertAll(
+        () -> assertTrue(rejected.asyncOutbound().isEmpty(), "拒接原因不得走异步写"),
+        () -> assertEquals(1, rejected.basicOutbound().size(), "拒接必须发且只发一帧错误"),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("登录凭据无效，拒绝建立连接")),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("\"code\":-1"), "必须是错误信封"),
+        () -> assertFalse(rejected.session().isOpen(), "拒接后必须关闭连接"),
+        () -> assertFalse(WebSocketGeneralTelexPatService.ROOM.containsKey("train-301"), "被拒的连接不得入房"));
+  }
+
+  /**
+   * ticker 域的同一条契约。
+   *
+   * <p>本域 {@code sendErrMessage} 原先走 {@code getAsyncRemote()}，与 key/telex 的同步写不一致 ——
+   * 而它的三个拒接调用点都紧跟 {@code close(session)}，异步写只是入队，close 可能抢在刷出前执行。
+   * 该偏差已修（见 {@code WebSocketGeneralTickerPatService.sendErrMessage} 的注释），因此这里
+   * 与 key/telex 同口径钉死 basic 通道：谁把它改回异步写就红。
+   */
+  @Test
+  void tickerRejectedHandshakeSendsErrorFrameBeforeClosing() {
+    WebSocketSessionProbe rejected = WebSocketSessionProbe.anonymous("ticker-reject");
+    WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
+    endpoint.handshake = new WebSocketHandshake();
+
+    endpoint.onOpen("301", "0", rejected.session());
+
+    assertAll(
+        () -> assertTrue(rejected.asyncOutbound().isEmpty(), "拒接原因不得走异步写"),
+        () -> assertEquals(1, rejected.basicOutbound().size(), "拒接必须发且只发一帧错误"),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("登录凭据无效，拒绝建立连接")),
+        () -> assertTrue(rejected.basicOutbound().getFirst().contains("\"code\":-1"), "必须是错误信封"),
+        () -> assertFalse(rejected.session().isOpen(), "拒接后必须关闭连接"),
+        () -> assertFalse(WebSocketGeneralTickerPatService.PAT_ROOM.containsKey(301), "被拒的连接不得入房"));
+  }
+
   private static GeneralPatTrainRoomUserDto generalRoom(GeneralPatTrainUserModelDto user) {
     GeneralPatTrainRoomUserDto room = new GeneralPatTrainRoomUserDto();
     room.getJoinUser().add(user);
@@ -219,76 +283,11 @@ class WebSocketGeneralSessionLifecycleTest {
     return user;
   }
 
-  private record SessionProbe(Session session, List<String> outbound) {
-  }
-
   /**
    * 造一条「已完成握手」的连接：握手鉴权（SEC-06）后端点只认 onOpen 绑在会话上的身份，
    * 路径参数不再参与认人，所以这里必须显式绑定该连接的用户 id。
    */
   private static Session session(String id, String userId) {
-    return recordingSession(id, userId).session();
-  }
-
-  private static SessionProbe recordingSession(String id, String userId) {
-    AtomicBoolean open = new AtomicBoolean(true);
-    List<String> outbound = new CopyOnWriteArrayList<>();
-    Map<String, Object> properties = new ConcurrentHashMap<>();
-    RemoteEndpoint.Async async = (RemoteEndpoint.Async) Proxy.newProxyInstance(
-        RemoteEndpoint.Async.class.getClassLoader(),
-        new Class<?>[]{RemoteEndpoint.Async.class},
-        (proxy, method, args) -> {
-          if ("sendText".equals(method.getName()) && args != null && args.length > 0) {
-            outbound.add(args[0].toString());
-          }
-          return defaultValue(method.getReturnType());
-        });
-    Session session = (Session) Proxy.newProxyInstance(
-        Session.class.getClassLoader(),
-        new Class<?>[]{Session.class},
-        (proxy, method, args) -> switch (method.getName()) {
-          case "getId" -> id;
-          case "isOpen" -> open.get();
-          case "getAsyncRemote" -> async;
-          case "getUserProperties" -> properties;
-          case "close" -> {
-            open.set(false);
-            yield null;
-          }
-          case "hashCode" -> System.identityHashCode(proxy);
-          case "equals" -> proxy == args[0];
-          case "toString" -> "Session[" + id + "]";
-          default -> defaultValue(method.getReturnType());
-        });
-    WebSocketHandshake.bind(session, userId);
-    return new SessionProbe(session, outbound);
-  }
-
-  private static Object defaultValue(Class<?> type) {
-    if (!type.isPrimitive()) {
-      return null;
-    }
-    if (type == boolean.class) {
-      return false;
-    }
-    if (type == char.class) {
-      return '\0';
-    }
-    if (type == byte.class) {
-      return (byte) 0;
-    }
-    if (type == short.class) {
-      return (short) 0;
-    }
-    if (type == int.class) {
-      return 0;
-    }
-    if (type == long.class) {
-      return 0L;
-    }
-    if (type == float.class) {
-      return 0F;
-    }
-    return 0D;
+    return WebSocketSessionProbe.bound(id, userId).session();
   }
 }
