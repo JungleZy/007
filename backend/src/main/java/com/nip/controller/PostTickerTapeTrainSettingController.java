@@ -1,6 +1,8 @@
 package com.nip.controller;
 
 
+import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.PostTickerTapeTrainSettingVO;
@@ -20,6 +22,7 @@ import java.util.List;
  * @Data: 2022-04-06 16:02
  * @Description:
  */
+@JWT
 @ApplicationScoped
 @Path("/postTickerTapeTrainSetting")
 @Tag(name = "岗位训练-收报管理-速率配置")
@@ -39,6 +42,7 @@ public class PostTickerTapeTrainSettingController {
     return ResponseResult.success(settingService.findAll());
   }
 
+  @RequireAdmin
   @POST
   @Path("/addOrUpdate")
   @Operation(summary = "添加或修改速率配置")

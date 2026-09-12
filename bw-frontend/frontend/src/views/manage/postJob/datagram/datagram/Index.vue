@@ -7,8 +7,7 @@
           <div class="item_group btn" @click="addDrillModalInfo">
             <PlusOutlined/>&nbsp;新增训练
           </div>
-          <!--          <div class="item_group btn" v-per="'grad'" @click="gradingRuleModalInfo"><SettingOutlined />&nbsp;评分规则</div>-->
-          <div class="item_group btn" @click="gradingRuleModalInfo">
+          <div class="item_group btn" v-if="userRole.id != '2'" @click="gradingRuleModalInfo">
             <SettingOutlined/>&nbsp;评分规则
           </div>
         </div>
@@ -203,6 +202,8 @@
 
   const router = useRouter()
   const route = useRoute()
+  // 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。
+  const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const loading = ref(false)
   const addDrillModal = ref(false)
   const gradingRuleModal = ref(false)

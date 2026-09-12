@@ -4,8 +4,9 @@
       <div class="w-full h-full grouping_content content-mask-bg">
         <div class="w-full table_search_box">
           <div class="item_group btn" @click="addDrillModalInfo"><PlusOutlined />&nbsp;新增训练</div>
-          <!--          <div class="item_group btn" v-if="userRole.id != '2'" @click="basicDeploy">基础配置</div>-->
-          <div class="item_group btn"  @click="basicDeploy">基础配置</div>
+          <!-- 码速配置是全局写端点，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。
+               读端点 findAll 不受影响，新增训练弹窗仍能取到档位。 -->
+          <div class="item_group btn" v-if="userRole.id != '2'" @click="basicDeploy">基础配置</div>
         </div>
 
         <div class="w-full" style="max-height: calc(100% - 70px)">

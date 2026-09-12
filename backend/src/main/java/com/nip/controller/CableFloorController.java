@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.CableFindByIdOrFloorNumberVO;
@@ -13,6 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.List;
 
+@JWT
 @Path("/cable/floor")
 @Tag(name = "固定报文")
 @ApplicationScoped

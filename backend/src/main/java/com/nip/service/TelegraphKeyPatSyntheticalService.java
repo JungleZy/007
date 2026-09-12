@@ -1,8 +1,10 @@
 package com.nip.service;
 
 import com.nip.common.constants.TelegraphKeyPatSyntheticalEnum;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
+import com.nip.dao.RoleDao;
 import com.nip.dao.TelegraphKeyPatSyntheticalDao;
 import com.nip.dao.TelegraphKeyTrainStatisticalDao;
 import com.nip.dto.TelegraphKeyPatSyntheticalDto;
@@ -16,6 +18,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.nip.common.constants.BaseConstants.TRAINING_NOT_FOUND;
@@ -32,12 +35,40 @@ public class TelegraphKeyPatSyntheticalService {
   private final TelegraphKeyPatSyntheticalDao syntheticalDao;
   private final UserService userService;
   private final TelegraphKeyTrainStatisticalDao statisticalDao;
+  private final RoleDao roleDao;
 
   @Inject
-  public TelegraphKeyPatSyntheticalService(TelegraphKeyPatSyntheticalDao syntheticalDao, UserService userService, TelegraphKeyTrainStatisticalDao statisticalDao) {
+  public TelegraphKeyPatSyntheticalService(TelegraphKeyPatSyntheticalDao syntheticalDao, UserService userService,
+                                           TelegraphKeyTrainStatisticalDao statisticalDao, RoleDao roleDao) {
     this.syntheticalDao = syntheticalDao;
     this.userService = userService;
     this.statisticalDao = statisticalDao;
+    this.roleDao = roleDao;
+  }
+
+  /**
+   * 综合训练属主判定：训练行是学员自己的成绩载体，只有创建者本人与管理员可读写。
+   *
+   * <p>训练不存在 / 登录失效 -> 202；身份成立但既非创建者也非管理员 -> 207
+   * （{@link ForbiddenException}），两者不折叠，前端据此区分「参数错误可重试」与「无权限」。
+   */
+  private TelegraphKeyPatSyntheticalEntity owned(String token, String id) {
+    UserEntity user = userService.getUserByToken(token);
+    if (user == null) {
+      throw new IllegalArgumentException("登录已失效，请重新登录");
+    }
+    if (id == null || id.isBlank()) {
+      throw new IllegalArgumentException(TRAINING_NOT_FOUND);
+    }
+    TelegraphKeyPatSyntheticalEntity entity = syntheticalDao.findById(id);
+    if (entity == null) {
+      throw new IllegalArgumentException(TRAINING_NOT_FOUND);
+    }
+    if (!Objects.equals(entity.getCreateUserId(), user.getId())
+        && !roleDao.existsAdminRoleByUserId(user.getId())) {
+      throw new ForbiddenException("非创建者访问电子键综合训练 " + id);
+    }
+    return entity;
   }
 
   @Transactional
@@ -66,18 +97,16 @@ public class TelegraphKeyPatSyntheticalService {
   }
 
   @Transactional
-  public TelegraphKeyPatSyntheticalVO begin(String id) {
-    TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+  public TelegraphKeyPatSyntheticalVO begin(String token, String id) {
+    TelegraphKeyPatSyntheticalEntity entity = owned(token, id);
     entity.setStatus(UNDERWAY.getStatus());
     TelegraphKeyPatSyntheticalEntity save = syntheticalDao.save(entity);
     return PojoUtils.convertOne(save, TelegraphKeyPatSyntheticalVO.class);
   }
 
   @Transactional
-  public TelegraphKeyPatSyntheticalVO stop(TelegraphKeyPatSyntheticalDto dto) {
-    TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+  public TelegraphKeyPatSyntheticalVO stop(String token, TelegraphKeyPatSyntheticalDto dto) {
+    TelegraphKeyPatSyntheticalEntity entity = owned(token, dto.getId());
     entity.setErrorNumber(dto.getErrorNumber());
     entity.setDuration(dto.getDuration());
     entity.setContent(dto.getContent());
@@ -90,9 +119,8 @@ public class TelegraphKeyPatSyntheticalService {
 
 
   @Transactional
-  public TelegraphKeyPatSyntheticalVO goTo(String id) {
-    TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+  public TelegraphKeyPatSyntheticalVO goTo(String token, String id) {
+    TelegraphKeyPatSyntheticalEntity entity = owned(token, id);
     entity.setStatus(UNDERWAY.getStatus());
     TelegraphKeyPatSyntheticalEntity save = syntheticalDao.save(entity);
     return PojoUtils.convertOne(save, TelegraphKeyPatSyntheticalVO.class);
@@ -100,9 +128,8 @@ public class TelegraphKeyPatSyntheticalService {
 
 
   @Transactional
-  public TelegraphKeyPatSyntheticalVO finish(TelegraphKeyPatSyntheticalDto dto) {
-    TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
+  public TelegraphKeyPatSyntheticalVO finish(String token, TelegraphKeyPatSyntheticalDto dto) {
+    TelegraphKeyPatSyntheticalEntity entity = owned(token, dto.getId());
     entity.setStatus(FINISH.getStatus());
     entity.setTotalNumber(dto.getTotalNumber());
     entity.setSpeed(dto.getSpeed());
@@ -138,10 +165,8 @@ public class TelegraphKeyPatSyntheticalService {
     statisticalDao.save(trainStatisticalEntity);
   }
 
-  public TelegraphKeyPatSyntheticalVO findById(TelegraphKeyPatSyntheticalDto dto) {
-    TelegraphKeyPatSyntheticalEntity entity = Optional.ofNullable(syntheticalDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException(TRAINING_NOT_FOUND));
-    return PojoUtils.convertOne(entity, TelegraphKeyPatSyntheticalVO.class);
+  public TelegraphKeyPatSyntheticalVO findById(String token, TelegraphKeyPatSyntheticalDto dto) {
+    return PojoUtils.convertOne(owned(token, dto.getId()), TelegraphKeyPatSyntheticalVO.class);
   }
 
   public List<TelegraphKeyPatSyntheticalVO> findAll(String token) {

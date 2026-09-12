@@ -5,8 +5,7 @@
         <div class="w-full table_search_box" style="padding: 10px 10px 0px 0px">
           <!--          <div class="item_group btn" @click="goWordTrain">单字训练</div>-->
           <div class="item_group btn" @click="addDrillModalInfo"><PlusOutlined />&nbsp;新增训练</div>
-          <!--          <div class="item_group btn" v-per="'grad'" @click="gradingRuleModalInfo"><SettingOutlined />&nbsp;评分规则</div>-->
-          <div class="item_group btn" @click="gradingRuleModalInfo"><SettingOutlined />&nbsp;评分规则</div>
+          <div class="item_group btn" v-if="userRole.id != '2'" @click="gradingRuleModalInfo"><SettingOutlined />&nbsp;评分规则</div>
         </div>
 
         <div class="w-full" style="max-height: calc(100% - 70px)">
@@ -132,6 +131,8 @@
   import { apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType } from '../../../../../../common/api/postWording'
   const router = useRouter()
   const route = useRoute()
+  // 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。
+  const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const loading = ref(false)
   const addDrillModal = ref(false)
   const basicTrainDeployModal = ref(false)

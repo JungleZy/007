@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.TelegraphKeyPatSyntheticalDto;
@@ -24,6 +25,7 @@ import static com.nip.common.constants.BaseConstants.TOKEN;
  * @Data: 2022-06-09 10:23
  * @Description:
  */
+@JWT
 @ApplicationScoped
 @Path("/telegraphKeyPatTrainSynthetical")
 @Tag(name = "岗前训练-电子键拍发-综合训练")
@@ -56,36 +58,41 @@ public class TelegraphKeyPatTrainSyntheticalController {
   @Path("/begin")
   @POST
   @Operation(summary = "开始")
-  public Response<TelegraphKeyPatSyntheticalVO> begin(TelegraphKeyPatSyntheticalDto dto) {
-    return ResponseResult.success(syntheticalService.begin(dto.getId()));
+  public Response<TelegraphKeyPatSyntheticalVO> begin(@RestHeader(TOKEN) String token,
+                                                      TelegraphKeyPatSyntheticalDto dto) {
+    return ResponseResult.success(syntheticalService.begin(token, dto.getId()));
   }
 
   @Path("/stop")
   @POST
   @Operation(summary = "暂停")
-  public Response<TelegraphKeyPatSyntheticalVO> stop(TelegraphKeyPatSyntheticalDto dto) {
-    return ResponseResult.success(syntheticalService.stop(dto));
+  public Response<TelegraphKeyPatSyntheticalVO> stop(@RestHeader(TOKEN) String token,
+                                                     TelegraphKeyPatSyntheticalDto dto) {
+    return ResponseResult.success(syntheticalService.stop(token, dto));
   }
 
   @Path("/goTo")
   @POST
   @Operation(summary = "继续训练")
-  public Response<TelegraphKeyPatSyntheticalVO> goTo(TelegraphKeyPatSyntheticalDto dto) {
-    return ResponseResult.success(syntheticalService.goTo(dto.getId()));
+  public Response<TelegraphKeyPatSyntheticalVO> goTo(@RestHeader(TOKEN) String token,
+                                                     TelegraphKeyPatSyntheticalDto dto) {
+    return ResponseResult.success(syntheticalService.goTo(token, dto.getId()));
   }
 
   @Path("/finish")
   @POST
   @Operation(summary = "完成训练")
-  public Response<TelegraphKeyPatSyntheticalVO> finish(TelegraphKeyPatSyntheticalDto dto) {
-    return ResponseResult.success(syntheticalService.finish(dto));
+  public Response<TelegraphKeyPatSyntheticalVO> finish(@RestHeader(TOKEN) String token,
+                                                       TelegraphKeyPatSyntheticalDto dto) {
+    return ResponseResult.success(syntheticalService.finish(token, dto));
   }
 
   @Path("/findById")
   @POST
   @Operation(summary = "根据id查询")
-  public Response<TelegraphKeyPatSyntheticalVO> findById(TelegraphKeyPatSyntheticalDto dto) {
-    return ResponseResult.success(syntheticalService.findById(dto));
+  public Response<TelegraphKeyPatSyntheticalVO> findById(@RestHeader(TOKEN) String token,
+                                                         TelegraphKeyPatSyntheticalDto dto) {
+    return ResponseResult.success(syntheticalService.findById(token, dto));
   }
 
   @Path("/lastTrain")

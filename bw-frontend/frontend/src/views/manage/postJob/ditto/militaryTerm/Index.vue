@@ -4,8 +4,7 @@
       <div class="w-full h-full grouping_content content-mask-bg">
         <div class="w-full table_search_box" style="padding: 10px 10px 0px 0px">
           <div class="item_group btn" @click="handleTrainModalInfo"><PlusOutlined />&nbsp;新增训练</div>
-<!--          <div class="item_group btn"  v-per="'grad'" @click="basicDeploy">评分规则</div>-->
-          <div class="item_group btn"  @click="basicDeploy">评分规则</div>
+          <div class="item_group btn" v-if="userRole.id != '2'" @click="basicDeploy">评分规则</div>
         </div>
         <div class="w-full" style="max-height: calc(100% - 70px)">
           <div class="table_list_box overflow-auto" style="height: calc(100% - 35px);">
@@ -136,6 +135,8 @@ import { timeFormatInfo, partTimeFormatInfo } from '../../../../../common/utils/
 import { getMilitaryType, addPostMilitaryTrain } from '../../../../../common/api/MilitaryTermApi.js'
 import { apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType } from '../../../../../common/api/postWording'
 const router = useRouter()
+// 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。
+const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
 const fileUrl = ref(window.fileUrl)
 const addTrainModal = ref(false)
 const loading = ref(false)

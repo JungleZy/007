@@ -1,5 +1,7 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.PostTrainGlobalRuleVO;
@@ -14,6 +16,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.util.List;
 
+@JWT
 @ApplicationScoped
 @Path("/postTrainGlobalRule")
 @Tag(name = "岗位训练-报话训练 汉字录入 频分规则")
@@ -25,6 +28,7 @@ public class PostTrainGlobalRuleController {
     this.ruleService = ruleService;
   }
 
+  @RequireAdmin
   @POST
   @Path(value = "/addRule")
   @Operation(summary = "添加规则")
@@ -39,6 +43,7 @@ public class PostTrainGlobalRuleController {
     return ResponseResult.success(ruleService.findByType(vo));
   }
 
+  @RequireAdmin
   @POST
   @Path(value = "/deleteById")
   @Operation(summary = "删除评分规则")
