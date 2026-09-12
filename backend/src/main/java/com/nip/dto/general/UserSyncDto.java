@@ -3,6 +3,14 @@ package com.nip.dto.general;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
 
+/**
+ * 综合组训离线导出/导入用的用户行。
+ *
+ * <p>刻意不含 {@code password}/{@code token}/{@code deviceId}：该 DTO 会随
+ * {@code /api/generalKeyPat/getTrainInfo(Batch)} 序列化给客户端，一旦带上凭据字段，
+ * 拿到任意训练导出的人就拿到了参训者与创建者的活动会话（P0-01 / SEC-01）。
+ * 导入侧按字段名整体拷贝，缺字段即建号不落凭据 —— 新账号无口令，须管理员 resetPassword。
+ */
 @Data
 @RegisterForReflection
 public class UserSyncDto {
@@ -40,18 +48,6 @@ public class UserSyncDto {
    * 用户性别
    */
   private Integer userSex;
-  /**
-   * 用户密码
-   */
-  private String password;
-  /**
-   * token
-   */
-  private String token;
-  /**
-   * 设备编号
-   */
-  private String deviceId;
   /**
    * 登录时间
    */

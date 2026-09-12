@@ -144,9 +144,10 @@ public class GeneralKeyPatController {
   @GET
   @Path("getTrainInfo")
   @Operation(summary = "获取训练信息用来导入到本地库")
-  public Response<GeneralKeyPatTrainDto> fetchTrainInfo(@RestQuery(TRAIN_ID) Integer trainId) {
-
-    return ResponseResult.success(patTrainService.getTrainInfo(trainId));
+  public Response<GeneralKeyPatTrainDto> fetchTrainInfo(@RestQuery(TRAIN_ID) Integer trainId,
+      @RestHeader(TOKEN) String token) {
+    // trainId 自增可枚举，导出体里带着全部参训者与创建者的用户行 —— 必须按 token 推导身份判权。
+    return ResponseResult.success(patTrainService.getTrainInfo(trainId, token));
   }
 
   @POST

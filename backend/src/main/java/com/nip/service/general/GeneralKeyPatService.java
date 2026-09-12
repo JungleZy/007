@@ -7,6 +7,7 @@ import com.nip.common.constants.CodeConstants;
 import com.nip.common.constants.PostTelegramTrainEnum;
 import com.nip.common.constants.PostTelegramTrainTypeEnum;
 import com.nip.common.constants.TrainConstants;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.response.Response;
 import com.nip.common.utils.ArraysSafeUtils;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
@@ -16,6 +17,7 @@ import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.ScoreMath;
 import com.nip.controller.general.GeneralKeyPatTrainController;
 import com.nip.dao.GradingRuleDao;
+import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.general.key.GeneralKeyPatDao;
 import com.nip.dao.general.key.GeneralKeyPatPageDao;
@@ -110,6 +112,13 @@ public class GeneralKeyPatService {
   RoomDeletionTransaction roomDeletionTransaction;
 
   @Inject GeneralPatResultNotifier resultNotifier;
+
+  /**
+   * 导出授权要判管理员一档。构造器已被 GeneralSettlementRecoveryTest 以固定实参列表调用，
+   * 这里用字段注入避免改动构造器签名。
+   */
+  @Inject RoleDao roleDao;
+
   @Inject
   public GeneralKeyPatService(GeneralKeyPatDao trainDao,
       GeneralKeyPatPageDao trainPageDao,
@@ -1045,7 +1054,40 @@ public class GeneralKeyPatService {
     });
   }
 
-  public GeneralKeyPatTrainDto getTrainInfo(Integer trainId) {
+  /**
+   * 单点离线导出。训练不存在 / 登录失效 -> 202；身份成立但无导出权 -> 207，两者不折叠。
+   */
+  public GeneralKeyPatTrainDto getTrainInfo(Integer trainId, String token) {
+    String actorId = userService.getUserByToken(token).getId();
+    if (trainDao.findById(trainId) == null) {
+      throw new IllegalArgumentException("未查询到训练");
+    }
+    if (!exportable(trainId, actorId)) {
+      throw new ForbiddenException("非授权者导出电子键组训 " + trainId);
+    }
+    return trainInfo(trainId);
+  }
+
+  /**
+   * 导出授权判定（唯一口径）：创建者 ∪ 该训练内 {@code role=1} 组训人 ∪ 管理员。
+   *
+   * <p>与 {@link #readableMember} 同构，只多一档管理员（离线归档由管理员执行），不另立第二套口径。
+   * 训练不存在返回 {@code false}：批量导出据此跳过孤儿参训行；单点导出的「不存在」由调用方先判为 202。
+   */
+  private boolean exportable(Integer trainId, String actorId) {
+    GeneralKeyPatEntity train = trainDao.findById(trainId);
+    if (train == null) {
+      return false;
+    }
+    if (Objects.equals(train.getCreateUser(), actorId)) {
+      return true;
+    }
+    GeneralKeyPatUserEntity member = trainUserDao.findByUserIdAndTrainId(actorId, trainId);
+    return (member != null && Objects.equals(member.getRole(), 1))
+        || roleDao.existsAdminRoleByUserId(actorId);
+  }
+
+  private GeneralKeyPatTrainDto trainInfo(Integer trainId) {
     GeneralKeyPatTrainDto dto = new GeneralKeyPatTrainDto();
     GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(trainId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
@@ -1110,11 +1152,18 @@ public class GeneralKeyPatService {
     moreEntityDao.save(PojoUtils.convert(trainMoreDto, GeneralKeyPatTrainMoreEntity.class));
   }
 
+  /**
+   * 批量离线导出。{@code queryRelatedTrainId} 取的是该用户的**全部**参训行（含 role=0 学员行），
+   * 因此这里必须 filter 而不是抛异常：学员只是无可导出训练（空列表），不是越权访问（207）。
+   */
   public List<GeneralKeyPatTrainDto> getTrainInfoBatch(String token) {
-    UserEntity userEntityByToken = userDao.findUserEntityByToken(token);
+    String actorId = userService.getUserByToken(token).getId();
     List<GeneralKeyPatTrainDto> ls = new ArrayList<>();
-    List<Integer> ids = trainUserDao.queryRelatedTrainId(userEntityByToken.getId());
-    ids.forEach(item -> ls.add(getTrainInfo(item)));
+    for (Integer trainId : trainUserDao.queryRelatedTrainId(actorId)) {
+      if (exportable(trainId, actorId)) {
+        ls.add(trainInfo(trainId));
+      }
+    }
     return ls;
   }
 
