@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>{@code recover()} 同时挂在 {@code @Observes StartupEvent} 与 5s 定时器上：待收尾清单查询
  * 一旦把异常抛出方法之外，Quarkus 就据此中止整个应用启动——库瞬时不可达会升级成进程起不来。
- * 因此这里守的是启动流程与调度器可见的三件事：扫描失败不外抛、两域扫描互不连坐、
+ * 因此这里守的是启动流程与调度器可见的三件事：扫描失败不外抛、三域（手键/电子键/数据报）扫描互不连坐、
  * 单个训练收尾失败不吞掉同域其余训练（口径与 {@code PostTelexPatTrainRecovery} 一致）。
  *
  * <p>造「扫描抛异常」的手法：两个协作服务都是构造注入的重量级 bean，且工程内没有 Mockito，
@@ -25,10 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @QuarkusTest
 class GeneralSettlementRecoveryTest {
 
-  /** 契约一：手键（ticker）扫描抛异常既不外抛，也不阻断电子键（key）域的扫描与收尾。 */
+  /** 契约一：手键（ticker）扫描抛异常既不外抛，也不阻断电子键（key）与数据报（telex）域的扫描与收尾。 */
   @Test
-  void tickerScanFailureNeitherEscapesNorSkipsTheKeyDomain() {
+  void tickerScanFailureNeitherEscapesNorSkipsTheOtherDomains() {
     List<Integer> keySettled = new ArrayList<>();
+    List<String> telexSettled = new ArrayList<>();
     GeneralSettlementRecovery recovery = new GeneralSettlementRecovery();
     recovery.ticker = new GeneralTickerPatService(null, null, null, null, null, null, null, null) {
       @Override
@@ -47,9 +48,21 @@ class GeneralSettlementRecoveryTest {
         keySettled.add(trainId);
       }
     };
+    recovery.telex = new GeneralTelexPatService(null, null, null, null, null, null, null) {
+      @Override
+      public List<String> closingTrainIds() {
+        return List.of("telex-7");
+      }
+
+      @Override
+      public void settleExpired(String trainId) {
+        telexSettled.add(trainId);
+      }
+    };
 
     assertDoesNotThrow(recovery::recover, "扫描失败外抛会中断 StartupEvent，进而中止应用启动");
     assertEquals(List.of(7), keySettled, "手键扫描失败不得阻断电子键域的收尾");
+    assertEquals(List.of("telex-7"), telexSettled, "手键扫描失败不得阻断数据报域的收尾");
   }
 
   /** 契约二：单个训练收尾失败只跳过它自己，其余训练照收；另一域扫描同时失败也不外抛。 */
@@ -75,6 +88,12 @@ class GeneralSettlementRecoveryTest {
       @Override
       public List<Integer> closingTrainIds() {
         throw new IllegalStateException("模拟电子键待收尾清单查询失败");
+      }
+    };
+    recovery.telex = new GeneralTelexPatService(null, null, null, null, null, null, null) {
+      @Override
+      public List<String> closingTrainIds() {
+        return List.of();
       }
     };
 

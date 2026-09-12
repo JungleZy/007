@@ -630,7 +630,9 @@ class GeneralCaptureContractTest {
     assertTrue(response.statusCode() == 200 || response.statusCode() == 400, response.asString());
     if (response.statusCode() == 200) {
       int code = mapper.readTree(response.asString()).path("code").asInt();
-      assertTrue(code == 202 || code == 500, response.asString());
+      // 202=可修正的参数/目标问题；208=业务终态（轮次已变化、已结算不能上传）；500=兜底。
+      // 授权拒绝（207）在本 helper 之外单独断言，不得被当成普通拒绝混进来。
+      assertTrue(code == 202 || code == 208 || code == 500, response.asString());
     }
   }
 

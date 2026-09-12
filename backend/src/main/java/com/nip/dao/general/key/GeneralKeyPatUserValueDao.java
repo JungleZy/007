@@ -18,8 +18,14 @@ public class GeneralKeyPatUserValueDao extends BaseRepository<GeneralKeyPatUserV
   }
 
   public List<Integer> countByTrainIdAndUserIdGroupByPageNumber(Integer trainId, String userId) {
-    return find("trainId =?1 and userId=?2 group by page_number", trainId, userId).list()
-        .stream().map(GeneralKeyPatUserValueEntity::getPageNumber).toList();
+    // 同 GeneralTelexPatPageDao.countPageNumber：group by 配非聚合 select 在 only_full_group_by 下非法。
+    return entityManager.createQuery(
+            "select distinct pageNumber from general_key_pat_user_value "
+                + "where trainId = ?1 and userId = ?2 order by pageNumber",
+            Integer.class)
+        .setParameter(1, trainId)
+        .setParameter(2, userId)
+        .getResultList();
   }
 
   @Transactional

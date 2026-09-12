@@ -54,29 +54,33 @@ public class GeneralTelexPatController {
   @POST
   @Path("detail")
   @Operation(summary = "查询训练详情")
-  public Response<GeneralTelexPatTrainVO> detail(@RequestBody GeneralTelexPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.detail(param));
+  public Response<GeneralTelexPatTrainVO> detail(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.detail(param, token));
   }
 
   @POST
   @Path("patDetail")
   @Operation(summary = "查询训练详情")
-  public Response<GeneralTelexPatUserInfoVO> patDetail(@RequestBody GeneralTelexPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.patDetail(param));
+  public Response<GeneralTelexPatUserInfoVO> patDetail(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.patDetail(param, token));
   }
 
   @POST
   @Path("findPage")
   @Operation(summary = "按页查询报底")
-  public Response<GeneralTelexPatPageDto> findPage(@RequestBody GeneralTelexPatPageParamDto param) throws Exception {
-    return ResponseResult.success(patTrainService.findMessageBody(param));
+  public Response<GeneralTelexPatPageDto> findPage(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) throws Exception {
+    return ResponseResult.success(patTrainService.findMessageBody(param, token));
   }
 
   @POST
   @Path("updateTrainStatus")
   @Operation(summary = "修改训练状态")
-  public Response<?> updateTrainStatus(@RequestBody GeneralTelexPathUpdateStatusParam param) {
-    patTrainService.updateStatus(param.getTrainId(), param.getStatus());
+  public Response<?> updateTrainStatus(@RequestBody GeneralTelexPathUpdateStatusParam param,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.updateStatus(param.getTrainId(), param.getStatus(), token);
     return ResponseResult.success("");
   }
 
@@ -91,50 +95,57 @@ public class GeneralTelexPatController {
   @POST
   @Path("finish")
   @Operation(summary = "完成训练")
-  public Response<List<GeneralTelexPatUserInfoVO>> finish(@RequestBody GeneralTelexPatFinishDto vo) {
-    return ResponseResult.success(patTrainService.finish(vo));
+  public Response<List<GeneralTelexPatUserInfoVO>> finish(@RequestBody GeneralTelexPatFinishDto vo,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.finish(vo, token));
   }
 
   @POST
   @Path("/getPage")
   @Operation(summary = "获取指定页得content")
-  public Response<PostTelegraphTelexPatTrainPageVO> getPage(@RequestBody GeneralTelexPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId()));
+  public Response<PostTelegraphTelexPatTrainPageVO> getPage(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(
+        patTrainService.getPage(param.getTrainId(), param.getPageNumber(), param.getUserId(), token));
   }
 
   @POST
   @Path("/getPatValue")
   @Operation(summary = "获取指定用户拍发的报文")
-  public Response<List<GeneralTelexPatTrainUserValueVO>> getPatValue(@RequestBody GeneralTelexPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.getPatValue(param));
+  public Response<List<GeneralTelexPatTrainUserValueVO>> getPatValue(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.getPatValue(param, token));
   }
 
   @POST
   @Path("statistics")
   @Operation(summary = "统计信息")
-  public Response<GeneralTelexPatTrainStatisticVO> statistic(@RequestBody GeneralTelexPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.statistic(param.getTrainId()));
+  public Response<GeneralTelexPatTrainStatisticVO> statistic(@RequestBody GeneralTelexPatPageParamDto param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.statistic(param.getTrainId(), token));
   }
 
   @GET
   @Path("/getOnline")
   @Operation(summary = "获取在线人数")
-  public Response<List<GeneralPatTrainUserDto>> getOnline(@RestQuery(TRAIN_ID) String trainId) {
-    return patTrainService.getOnline(trainId);
+  public Response<List<GeneralPatTrainUserDto>> getOnline(@RestQuery(TRAIN_ID) String trainId,
+      @RestHeader(TOKEN) String token) {
+    return patTrainService.getOnline(trainId, token);
   }
 
   @GET
   @Path("/startTrain")
   @Operation(summary = "用户开始训练")
-  public Response<Void> startTrain(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
-    patTrainService.startTrain(trainId,token);
+  public Response<Void> startTrain(@RestQuery(TRAIN_ID) String trainId, @RestQuery("attempt") Integer attempt,
+      @RestHeader(TOKEN) String token) {
+    patTrainService.startTrain(trainId, attempt, token);
     return ResponseResult.success();
   }
 
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(patTrainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.delete(trainId, token));
   }
 }

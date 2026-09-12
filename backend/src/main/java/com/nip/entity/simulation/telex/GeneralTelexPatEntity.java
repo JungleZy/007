@@ -78,7 +78,20 @@ public class GeneralTelexPatEntity {
   /**
    * 评分规则信息
    */
+  @Column(columnDefinition = "longtext")
   private String ruleContent;
+
+  /**
+   * 冻结的评分规则满分。建训时从 {@code t_grading_rule.score} 复制，
+   * 结算基准只读这一列，规则事后被改也不影响已建训练的成绩口径。
+   */
+  private Integer ruleScore;
+
+  /**
+   * 采集协议版本：0 为历史训练（无原始采集时间轴，成绩不重算），1 为原始采集协议。
+   */
+  @Column(nullable = false)
+  private Integer protocolVersion = 1;
 
   /**
    * 创建人ID

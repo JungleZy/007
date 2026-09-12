@@ -16,6 +16,7 @@ import java.util.function.Supplier;
 public class GeneralSettlementRecovery {
   @Inject GeneralTickerPatService ticker;
   @Inject GeneralKeyPatService key;
+  @Inject GeneralTelexPatService telex;
 
   void onStartup(@Observes StartupEvent event) {
     recover();
@@ -25,6 +26,7 @@ public class GeneralSettlementRecovery {
   void recover() {
     recover("手键", ticker::closingTrainIds, ticker::settleExpired);
     recover("电子键", key::closingTrainIds, key::settleExpired);
+    recover("数据报", telex::closingTrainIds, telex::settleExpired);
   }
 
   /**
@@ -33,15 +35,15 @@ public class GeneralSettlementRecovery {
    * 待收尾清单查不到就整轮跳过，单个训练失败保留待重试状态，均由下一轮定时器重试。
    * 口径与 {@link com.nip.service.PostTelexPatTrainRecovery#recover()} 一致。
    */
-  private void recover(String domain, Supplier<List<Integer>> closingTrainIds, Consumer<Integer> settleExpired) {
-    List<Integer> trainIds;
+  private <I> void recover(String domain, Supplier<List<I>> closingTrainIds, Consumer<I> settleExpired) {
+    List<I> trainIds;
     try {
       trainIds = closingTrainIds.get();
     } catch (RuntimeException failure) {
       log.error("{}训练待收尾清单查询失败，下一轮将重试", domain, failure);
       return;
     }
-    for (Integer trainId : trainIds) {
+    for (I trainId : trainIds) {
       try {
         settleExpired.accept(trainId);
       } catch (RuntimeException failure) {

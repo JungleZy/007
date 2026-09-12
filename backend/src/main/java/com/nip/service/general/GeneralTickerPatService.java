@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.PageInfo;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.constants.TrainConstants;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.response.Response;
 import com.nip.controller.general.GeneralTickerPatTrainController;
 import com.nip.common.utils.ArraysSafeUtils;
@@ -575,7 +576,7 @@ public class GeneralTickerPatService {
     GeneralTickerPatTrainUserEntity member = student(train.getId(), userId);
     requireProtocol(train);
     if (!Objects.equals(dto.getAttempt(), member.getAttempt())) {
-      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+      throw new TerminalStateException("训练轮次已变化，请重新读取训练");
     }
     if (dto.getFloorNumber() == null || dto.getFloorNumber() < 1
         || dto.getFloorNumber() > (train.getMessageNumber() - 1) / 100 + 1
@@ -598,7 +599,7 @@ public class GeneralTickerPatService {
       CaptureTimeline.requireExtension(previousIntervals, dto.getCaptureIntervals());
     }
     if (Objects.equals(member.getIsFinish(), 1)) {
-      throw new IllegalStateException("已结算的训练不能上传");
+      throw new TerminalStateException("已结算的训练不能上传");
     }
     long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), captureBound(train, member, receivedAt));
     PageMeasure measured = measurePage(dto.getMessageBody());
@@ -752,7 +753,7 @@ public class GeneralTickerPatService {
     captureBound(entity, user, LocalDateTime.now());
     requireProtocol(entity);
     if (Objects.equals(user.getIsFinish(), 1)) {
-      throw new IllegalStateException("已结算的训练需要先重置");
+      throw new TerminalStateException("已结算的训练需要先重置");
     }
     user.setIsFinish(2);
   }
@@ -797,7 +798,7 @@ public class GeneralTickerPatService {
 
   private void requireAttempt(Integer attempt, GeneralTickerPatTrainUserEntity member) {
     if (attempt == null || !Objects.equals(attempt, member.getAttempt())) {
-      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+      throw new TerminalStateException("训练轮次已变化，请重新读取训练");
     }
   }
 

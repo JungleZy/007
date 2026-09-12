@@ -8,9 +8,12 @@ import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {
   getDatagramZuXunPageNumber,uploadDatagramResult,finishDatagramZuXun,startTrainUser
 } from "../../../../../../../common/api/datagramZuXun";
+import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture.js'
 export default function (trainData,loading,emits) {
 
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
+  // 采集时间轴由服务端下发、客户端续采，speed/validTime 一律由服务端重算，前端不再自算上传
+  const capture = useTrainingCapture()
   const router = useRouter();
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const currPatKeyIndex = ref(0); // 正在拍发的电报纸字码的下标
@@ -21,7 +24,7 @@ export default function (trainData,loading,emits) {
   const readyPat = ref(false);
   let isFirstKey = true
   let enterTimer = 0
-  let pageTime = 0
+
   const scorePath = ref('');
   const trainTimer = ref(null); // 记录训练时长的计时器
   const pageCodes = ref([])
@@ -103,9 +106,12 @@ export default function (trainData,loading,emits) {
       }
       switchTelegram('next')
     }
+    if (capture.metadata.value) {
+      capture.open()
+    }
     if(isFirstKey){
       isFirstKey = false
-      startTrainUser(trainData.value.trainId)
+      startTrainUser({trainId: trainData.value.trainId, attempt: capture.metadata.value?.attempt})
     }
   }
   const textareaChange = () => {
@@ -121,36 +127,46 @@ export default function (trainData,loading,emits) {
    * 切换电报纸
    * @param type
    */
-  const switchTelegram = (type) => {
-    handlerSubmit()
-
-    if((type === 'prev' && trainData.value.floorNow <= 1)){
+  const switchTelegram = async (type) => {
+    if (type === 'prev' && trainData.value.floorNow <= 1) {
       message.error('已经是第一页！')
       return false
     }
-    if(type === 'next' &&trainData.value.floorNow >= trainData.value.pag){
+    if (type === 'next' && trainData.value.floorNow >= trainData.value.pag) {
       message.error('已经是最后一页！')
       return false
     }
+    // 先提交当前页；提交失败则不翻页，否则本页采集内容会被静默丢弃
+    if (!await handlerSubmit()) return false
     if (type === 'prev') {
-      trainData.value.floorNow --;
+      trainData.value.floorNow--
     }
     if (type === 'next') {
-      trainData.value.floorNow ++;
+      trainData.value.floorNow++
       currPatKeyIndex.value++
-      pageCodes.value[currPatKeyIndex.value] = ""
+      pageCodes.value[currPatKeyIndex.value] = ''
     }
     if (!trainData.value.telegraph[trainData.value.floorNow + 1] && trainData.value.floorNow < trainData.value.pag) {
-      getPostTrainKeyInfo(trainData.value.floorNow + 1);
+      getPostTrainKeyInfo(trainData.value.floorNow + 1)
     }
-
+    // 换页后必须重新绑定本页的已确认采集区间，否则会把上一页的区间重复上传
+    try {
+      await getPostTrainKeyInfo(trainData.value.floorNow)
+      capture.open()
+    } catch (error) {
+      // 取页失败不能静默：本页采集区间未重绑，此时继续拍发会上传错误的时间轴
+      capture.reset()
+      message.error(error.message || '获取本页报文失败，请重新进入训练')
+      return false
+    }
+    return true
   };
   /**
    * 获取电报纸的报文内容
    * @param page
    */
   const getPostTrainKeyInfo = (page) => {
-    getDatagramZuXunPageNumber({
+    return getDatagramZuXunPageNumber({
       trainId: trainData.value.trainId,
       userId: userInfo.id,
       pageNumber: page
@@ -160,7 +176,12 @@ export default function (trainData,loading,emits) {
           item.value=[]
         })
         trainData.value.telegraph[page-1] = res.data.messageVO.filter(item=>item.sort>-1);
+        // 历史训练（protocolVersion=0）没有采集时间轴，不绑定；真正开始拍发时才明确报错
+        if (page === trainData.value.floorNow && res.data.protocolVersion === 1) {
+          capture.bind(res.data)
+        }
       }
+      return res
     })
   };
 
@@ -171,15 +192,19 @@ export default function (trainData,loading,emits) {
     if (submitPromise) return submitPromise
     const value = pageCodes.value[currPatKeyIndex.value]
     if (!value) return type === 'end' ? finishTrainInfo(type) : Promise.resolve(true)
-    const currentTime = Number(trainData.value.validTime) || 0
-    const elapsed = Math.max(0, currentTime - pageTime)
-    const groups = value.split(' ')
-    const speed = elapsed > 0 ? (groups.length / (elapsed / 60)).toFixed(1) : '0'
+    if (!capture.metadata.value) {
+      message.error('尚未同步采集时间轴，请重新进入训练')
+      return Promise.resolve(false)
+    }
     submitPromise = uploadDatagramResult({trainId: trainData.value.trainId, patValue: value,
-      pageNumber: trainData.value.floorNow, validTime: elapsed, speed}).then(res => {
+      pageNumber: trainData.value.floorNow, protocolVersion: 1, ...capture.snapshot()}).then(res => {
       if (res.code !== 200) { message.error(res.message || '提交训练内容失败'); return false }
-      pageTime = currentTime
+      capture.open()
       return type === 'end' ? finishTrainInfo(type) : true
+    }).catch(error => {
+      // 网络/解析失败同样要给出提示并返回 false，避免 reject 被静默吞掉
+      message.error(error.message || '提交训练内容失败')
+      return false
     }).finally(() => { submitPromise = null })
     return submitPromise
   }
@@ -192,8 +217,10 @@ export default function (trainData,loading,emits) {
   const finishTrainInfo = type => {
     if (finishPromise) return finishPromise
     if (patUser.value.isFinish === 1) return Promise.resolve(false)
+    capture.close()
     loading.value = true
-    finishPromise = finishDatagramZuXun({trainId: trainData.value.trainId, userId: userInfo.id}).then(res => {
+    finishPromise = finishDatagramZuXun({trainId: trainData.value.trainId,
+      attempt: capture.metadata.value?.attempt}).then(res => {
       if (res.code !== 200) { message.error(res.message || '完成训练失败'); return false }
       patUser.value.isFinish = 1
       sendMessage({topic: 'finish', id: userInfo.id})
@@ -204,15 +231,28 @@ export default function (trainData,loading,emits) {
     return finishPromise
   }
 
+  /**
+   * 读取本地恢复快照：不存在或 JSON 已损坏时一律返回 null
+   */
+  const readTrainSnapshot = () => {
+    try {
+      const raw = window.localStorage.getItem('datagramZuXun' + trainData.value.trainId)
+      const saved = raw ? JSON.parse(raw) : null
+      return saved && typeof saved === 'object' ? saved : null
+    } catch (e) {
+      return null
+    }
+  }
   const readyTrainPat = (type) => {
     readyPat.value = true;
     if (type == 1) {
-      let obj = JSON.parse(window.localStorage.getItem('datagramZuXun'+trainData.value.trainId))
-      trainData.value.floorNow = obj.patPage;
-      trainData.value.validTime = obj.time;
-      trainData.value.speed = obj.speed;
-      // pageCodes.value = obj.pageCodes;
-      currPatKeyIndex.value = obj.patKeyIndex;
+      const saved = readTrainSnapshot()
+      if (saved) {
+        trainData.value.floorNow = saved.patPage;
+        trainData.value.validTime = saved.time;
+        trainData.value.speed = saved.speed;
+        currPatKeyIndex.value = saved.patKeyIndex;
+      }
     } else {
       trainData.value.floorNow = 1;
       currPatKeyIndex.value = 0;
@@ -227,6 +267,10 @@ export default function (trainData,loading,emits) {
       }
     }
     startTrain()
+    // 先与服务端对齐采集时间轴，再开始接收键盘输入
+    getPostTrainKeyInfo(trainData.value.floorNow)
+      .then(() => capture.open())
+      .catch(error => message.error(error.message || '采集时间轴同步失败，请重新进入训练'))
     nextTick(() => {
       document.getElementsByTagName('textarea')[0].focus()
     })
@@ -265,21 +309,21 @@ export default function (trainData,loading,emits) {
       trainData.value.validTime = 0;
     }
     trainTimer.value = setInterval(() => {
-      trainData.value.validTime += 1;
-
-      // trainData.value.speed = Number(patNumber.value / (trainData.value.validTime/60)).toFixed(1);
-
+      // 展示口径与服务端一致：有效采集时长 + 字符/分钟（DatagramGardRule 的 rateUnit）
+      const elapsed = capture.elapsed()
+      trainData.value.validTime = Math.floor(elapsed / 1000);
       let codelength = 0
       pageCodes.value.forEach(item => {
         const str = item.replaceAll(" ",'')
         codelength += str.length
       })
-      trainData.value.speed = (codelength / (trainData.value.validTime / 60) / 4).toFixed(1) * 1
+      trainData.value.speed = elapsed > 0 ? Number((codelength * 60000 / elapsed).toFixed(1)) : 0
       timeAreaShow(trainData.value.validTime * 1000);
     },1000);
   };
   onUnmounted(() => {
     window.removeEventListener('keydown', keyCodeup)
+    capture.close();
     clearInterval(trainTimer.value);
     closeWebSocket();
   });

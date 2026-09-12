@@ -161,7 +161,8 @@ class WebSocketDeleteOpenAtomicityTest {
     GeneralKeyPatEntity key = keyDao.save(new GeneralKeyPatEntity()
         .setTitle("delete-race-key")
         .setCreateUser(owner.getId()));
-    GeneralTelexPatEntity telex = telexDao.save(new GeneralTelexPatEntity().setTitle("delete-race-telex"));
+    GeneralTelexPatEntity telex = telexDao.save(new GeneralTelexPatEntity().setTitle("delete-race-telex")
+        .setCreateUser(owner.getId()));
     GeneralTickerPatTrainEntity ticker = tickerDao.save(
         new GeneralTickerPatTrainEntity()
             .setName("delete-race-ticker")
@@ -190,7 +191,7 @@ class WebSocketDeleteOpenAtomicityTest {
     assertAll(
         () -> assertTrue(simulationDeleteService.delete(simulation.getId(), owner.getToken())),
         () -> assertTrue(keyDeleteService.delete(key.getId(), owner.getToken())),
-        () -> assertTrue(telexDeleteService.delete(telex.getId())),
+        () -> assertTrue(telexDeleteService.delete(telex.getId(), owner.getToken())),
         () -> assertTrue(tickerDeleteService.delete(ticker.getId(), owner.getToken())));
 
     assertAll(

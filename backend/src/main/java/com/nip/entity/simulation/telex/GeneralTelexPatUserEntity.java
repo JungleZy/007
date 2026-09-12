@@ -75,6 +75,22 @@ public class GeneralTelexPatUserEntity {
   private Integer role;
 
   /**
+   * 训练轮次栅栏：客户端上传/结算必须回带读到的轮次，轮次不符一律拒绝，防止陈旧请求写进新一轮。
+   */
+  @Column(nullable = false)
+  private Integer attempt = 0;
+
+  /**
+   * 本成员的采集起点（教员开始训练时写入）。采集区间与训练时钟都以它为零点。
+   */
+  private LocalDateTime captureStartedAt;
+
+  /**
+   * 服务端重算出的有效采集总毫秒数，来源是各页原始采集区间，不接受客户端上报。
+   */
+  private Long activeMillis;
+
+  /**
    * 正确率
    */
   private BigDecimal accuracy;
@@ -82,6 +98,7 @@ public class GeneralTelexPatUserEntity {
   /**
    * 扣分详情
    */
+  @Column(columnDefinition = "longtext")
   private String deductInfo;
 
   /**
@@ -110,6 +127,7 @@ public class GeneralTelexPatUserEntity {
   /**
    * 统计信息
    */
+  @Column(columnDefinition = "longtext")
   private String statisticInfo;
 
   /**

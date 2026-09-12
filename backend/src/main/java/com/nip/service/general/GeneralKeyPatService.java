@@ -8,6 +8,7 @@ import com.nip.common.constants.PostTelegramTrainEnum;
 import com.nip.common.constants.PostTelegramTrainTypeEnum;
 import com.nip.common.constants.TrainConstants;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.response.Response;
 import com.nip.common.utils.ArraysSafeUtils;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
@@ -506,7 +507,7 @@ public class GeneralKeyPatService {
       CaptureTimeline.requireExtension(previous.intervals(), dto.getCaptureIntervals());
     }
     if (Objects.equals(member.getIsFinish(), 1)) {
-      throw new IllegalStateException("已结算的训练不能上传");
+      throw new TerminalStateException("已结算的训练不能上传");
     }
     long activeMillis = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), captureBound(train, member, receivedAt));
     long characters = 0;
@@ -1213,7 +1214,7 @@ public class GeneralKeyPatService {
     requireProtocol(train);
     requireAttempt(attempt, user);
     if (Objects.equals(user.getIsFinish(), 1)) {
-      throw new IllegalStateException("已结算的训练需要先重置");
+      throw new TerminalStateException("已结算的训练需要先重置");
     }
     user.setIsFinish(2);
   }
@@ -1268,7 +1269,7 @@ public class GeneralKeyPatService {
 
   private void requireAttempt(Integer attempt, GeneralKeyPatUserEntity member) {
     if (attempt == null || !Objects.equals(attempt, member.getAttempt())) {
-      throw new IllegalStateException("训练轮次已变化，请重新读取训练");
+      throw new TerminalStateException("训练轮次已变化，请重新读取训练");
     }
   }
 

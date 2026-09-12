@@ -73,16 +73,17 @@ export const endPatDetail = (data) => {
   })
 }
 
+// 学员开始拍发：attempt 是服务端下发的训练轮次，缺它服务端一律拒绝（轮次栅栏）
 export const startTrainUser = (data) => {
   return axios({
     method: "get",
-    url: `/api/generalTelexPat/startTrain?trainId=${data}`,
+    url: `/api/generalTelexPat/startTrain?trainId=${data.trainId}&attempt=${data.attempt}`,
   })
 }
+// 服务端用 @RestQuery 读 trainId：GET 带 body 在浏览器里根本发不出去，必须放 query
 export const deleteTrain = (data) => {
   return axios({
     method: "get",
-    url: "/api/generalTelexPat/delete",
-    data
+    url: `/api/generalTelexPat/delete?trainId=${data.trainId}`,
   })
 }

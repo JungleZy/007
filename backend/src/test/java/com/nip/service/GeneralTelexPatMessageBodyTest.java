@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.dao.UserDao;
 import com.nip.dao.general.telex.GeneralTelexPatDao;
 import com.nip.dao.general.telex.GeneralTelexPatPageDao;
 import com.nip.dto.general.GeneralTelexPatPageDetailDto;
@@ -8,6 +9,8 @@ import com.nip.dto.general.GeneralTelexPatPageParamDto;
 import com.nip.entity.simulation.telex.GeneralTelexPatEntity;
 import com.nip.entity.simulation.telex.GeneralTelexPatPageEntity;
 import com.nip.service.general.GeneralTelexPatService;
+import com.nip.entity.UserEntity;
+import com.nip.testsupport.Fixtures;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -28,6 +31,7 @@ class GeneralTelexPatMessageBodyTest {
   @Inject GeneralTelexPatService service;
   @Inject GeneralTelexPatDao trainDao;
   @Inject GeneralTelexPatPageDao trainPageDao;
+  @Inject UserDao userDao;
 
   private void page(String trainId, int pageNumber, int sort, String key) {
     GeneralTelexPatPageEntity entity = new GeneralTelexPatPageEntity();
@@ -40,11 +44,13 @@ class GeneralTelexPatMessageBodyTest {
 
   @Test
   void findMessageBodyReturnsRequestedPageInSortOrder() {
+    UserEntity owner = Fixtures.user(userDao, "telex-body-" + UUID.randomUUID());
     GeneralTelexPatEntity train = new GeneralTelexPatEntity();
     train.setTitle("telex-body-" + UUID.randomUUID());
     train.setTrainType(1);
     train.setTotalNumber(3);
     train.setStatus(0);
+    train.setCreateUser(owner.getId());
     String trainId = trainDao.save(train).getId();
 
     // 第 1 页故意乱序落库，第 2 页用于验证只返回请求页
@@ -56,7 +62,7 @@ class GeneralTelexPatMessageBodyTest {
     param.setTrainId(trainId);
     param.setPageNumber(1);
 
-    GeneralTelexPatPageDto dto = service.findMessageBody(param);
+    GeneralTelexPatPageDto dto = service.findMessageBody(param, owner.getToken());
     assertNotNull(dto, "findMessageBody 不得再返回 null");
     List<GeneralTelexPatPageDetailDto> content = dto.getMessageContent();
     assertEquals(List.of("p1-a", "p1-b"),
@@ -65,7 +71,7 @@ class GeneralTelexPatMessageBodyTest {
 
     param.setPageNumber(2);
     assertEquals(List.of("p2-a"),
-        service.findMessageBody(param).getMessageContent().stream()
+        service.findMessageBody(param, owner.getToken()).getMessageContent().stream()
             .map(GeneralTelexPatPageDetailDto::getKey).toList(),
         "第 2 页应返回本页报底");
   }

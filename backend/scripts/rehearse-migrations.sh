@@ -76,6 +76,7 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-11-03-post-telex-capture-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-04-general-capture-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-01-general-telex-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-02-post-telex-due-index.sql"
 )
 

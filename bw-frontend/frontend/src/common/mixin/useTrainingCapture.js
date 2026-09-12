@@ -24,6 +24,20 @@ export default function useTrainingCapture() {
     queuedSpan = null
     queuedStored = false
   }
+  /**
+   * 作废当前绑定：取页失败、换页失败等「本地已不知道服务端确认到哪」的场合调用。
+   * 之后 open()/snapshot() 会明确报「尚未同步采集时间轴」，而不是拿上一页的时间轴继续采并上传。
+   */
+  const reset = () => {
+    metadata.value = null
+    anchor = 0
+    opened = null
+    intervals = []
+    carriedMs = 0
+    confirmedMillis = 0
+    queuedSpan = null
+    queuedStored = false
+  }
   const open = (receivedAt = performance.now()) => {
     if (!metadata.value) throw new Error('尚未同步采集时间轴，请重新进入训练')
     if (opened === null) opened = Math.max(Math.floor(metadata.value.serverElapsedMs), intervals.at(-1)?.endedMs ?? 0, Math.floor(metadata.value.serverElapsedMs + receivedAt - anchor))
@@ -68,5 +82,5 @@ export default function useTrainingCapture() {
     return duration
   }
   const elapsed = () => carriedMs + Math.max(0, intervalMillis() - confirmedMillis) + (opened === null ? 0 : Math.max(0, now() - opened))
-  return {metadata, bind, open, close, snapshot, elapsed, stamp, recordQueued, between}
+  return {metadata, bind, reset, open, close, snapshot, elapsed, stamp, recordQueued, between}
 }

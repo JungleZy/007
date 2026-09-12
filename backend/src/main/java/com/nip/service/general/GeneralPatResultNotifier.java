@@ -16,7 +16,11 @@ import java.util.Map;
 public class GeneralPatResultNotifier {
   @Inject Event<Result> results;
 
-  public void publish(String type, Integer trainId, String userId, List<String> recipients) {
+  /**
+   * @param trainId 训练主键。general 手键/电子键是自增 {@code Integer}，组训电传是 UUID {@code String}，
+   *                两者都只做为 JSON 载荷原样回传给教员端，这里不做收敛，也不为此拆两个通知器。
+   */
+  public void publish(String type, Object trainId, String userId, List<String> recipients) {
     results.fire(new Result(type, trainId, userId, List.copyOf(recipients)));
   }
 
@@ -28,5 +32,5 @@ public class GeneralPatResultNotifier {
     }
   }
 
-  record Result(String type, Integer trainId, String userId, List<String> recipients) {}
+  record Result(String type, Object trainId, String userId, List<String> recipients) {}
 }
