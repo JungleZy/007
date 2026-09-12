@@ -426,7 +426,7 @@ t_post_radiotelephone_train	disturb	15	varchar	YES	<NULL>
 t_post_radiotelephone_train	id	16	varchar	NO	<NULL>
 t_post_radiotelephone_train	name	17	varchar	YES	<NULL>
 t_post_radiotelephone_train	user_id	18	varchar	YES	<NULL>
-t_post_telegram_train	attempt	1	int	YES	<NULL>
+t_post_telegram_train	attempt	1	int	NO	<NULL>
 t_post_telegram_train	code_sort	2	int	YES	<NULL>
 t_post_telegram_train	error_number	3	int	YES	<NULL>
 t_post_telegram_train	floor_now	4	int	YES	<NULL>
@@ -436,7 +436,7 @@ t_post_telegram_train	is_cable	7	int	YES	<NULL>
 t_post_telegram_train	is_random	8	int	YES	<NULL>
 t_post_telegram_train	lack	9	int	YES	<NULL>
 t_post_telegram_train	message_number	10	int	YES	<NULL>
-t_post_telegram_train	protocol_version	11	int	YES	<NULL>
+t_post_telegram_train	protocol_version	11	int	NO	<NULL>
 t_post_telegram_train	status	12	int	YES	<NULL>
 t_post_telegram_train	type	13	int	YES	<NULL>
 t_post_telegram_train	active_millis	14	bigint	YES	<NULL>
@@ -468,7 +468,7 @@ t_post_telegram_train_floor_content	mores_time	5	varchar	YES	<NULL>
 t_post_telegram_train_floor_content	mores_value	6	varchar	YES	<NULL>
 t_post_telegram_train_floor_content	pat_keys	7	varchar	YES	<NULL>
 t_post_telegram_train_floor_content	train_id	8	varchar	YES	<NULL>
-t_post_telegram_train_floor_content_value	attempt	1	int	YES	<NULL>
+t_post_telegram_train_floor_content_value	attempt	1	int	NO	<NULL>
 t_post_telegram_train_floor_content_value	floor_number	2	int	YES	<NULL>
 t_post_telegram_train_floor_content_value	received_at	3	datetime	YES	<NULL>
 t_post_telegram_train_floor_content_value	capture_intervals	4	longtext	YES	<NULL>
