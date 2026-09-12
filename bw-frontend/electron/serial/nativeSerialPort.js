@@ -1,4 +1,6 @@
-const {exec, execSync} = require('child_process');
+const {exec, execFileSync} = require('child_process');
+const {readdirSync, realpathSync, statSync} = require('fs');
+const {posix} = require('path');
 const {platform} = process;
 
 class NativeSerialPort {
@@ -92,14 +94,27 @@ class NativeSerialPort {
 		if (!/^\w+$/.test(user || '')) {
 			return {ok: false, message: '无效用户名格式，无法授权'};
 		}
-		const targets = (Array.isArray(ports) ? ports : [ports])
-			.filter(Boolean)
-			.map(port => (typeof port === 'string' ? port : port.path))
-			.filter(path => typeof path === 'string' && /^\/dev\/[\w/.-]+$/.test(path));
+		const requested = Array.isArray(ports) ? ports : [ports];
 		try {
-			execSync(`pkexec usermod -a -G dialout ${user}`);
+			if (!requested.length) {
+				return {ok: false, message: '请选择需要授权的串口设备', granted: []};
+			}
+			const devices = new Set(readdirSync('/dev'));
+			const targets = requested.map(port => {
+				const path = typeof port === 'string' ? port : port?.path;
+				if (typeof path !== 'string' || !/^\/dev\/tty(?:USB|ACM)\d+$/.test(path)
+					|| posix.normalize(path) !== path || !devices.has(posix.basename(path))) {
+					throw new Error('无效串口设备路径');
+				}
+				const canonical = realpathSync(path);
+				if (canonical !== path || !statSync(canonical).isCharacterDevice()) {
+					throw new Error('无效串口设备路径');
+				}
+				return canonical;
+			});
+			execFileSync('pkexec', ['usermod', '-a', '-G', 'dialout', user]);
 			targets.forEach(path => {
-				execSync(`pkexec chmod 666 ${path}`);
+				execFileSync('pkexec', ['chmod', '666', path]);
 			});
 			return {
 				ok: true,
