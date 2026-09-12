@@ -147,22 +147,30 @@ public class TelegramTrainService {
     }
   }
 
+  /**
+   * 按页取报底内容并经 WebSocket 推给调用者。
+   *
+   * <p>「缺页」（trainId+pageNumber 查无报底）是<b>查无即为错</b>：目标不存在但参数可修正后重试，
+   * 因此抛 {@code IllegalArgumentException} 走 {@code ValidationExceptionMapper} → HTTP 200 + 业务码 202，
+   * 而不是 208（208 留给「权限与参数都没问题、目标已终结、重试无意义」）。
+   *
+   * <p>原先这里裹着一层 {@code catch (Exception)}，缺页触发的 NPE 被吞成 {@code ResponseResult.error()}
+   * 的通用 500 信封，调用方只看到「服务器错误」，真因丢失。本方法不写库、无 {@code @Transactional}，
+   * 也没有需要补偿的资源，所以宽 catch 整体删除而不是缩小：业务异常直通各自 mapper，
+   * 其余意外异常交给 {@code GlobalExceptionMapper}（HTTP 500 + SYSTEM_ERROR，堆栈进日志）。
+   */
   public Response<Void> getFloorContentByFloorIdAsync(String token, String id, Integer pageNumber) {
-    try {
-      UserEntity userEntity = userService.getUserByToken(token);
-      TelegramTrainFloorEntity allByTrainIdAndPageNumber = telegramTrainFloorDao.findAllByTrainIdAndPageNumber(id, pageNumber);
-      List<TelegramTrainFloorContentEntity> byFloorIdIn = telegramTrainFloorContentDao.findAllByFloorIdOrderBySort(allByTrainIdAndPageNumber.getId());
-      Map<String, List<TelegramTrainFloorContentEntity>> list = new HashMap<>();
-      list.put(allByTrainIdAndPageNumber.getId(), byFloorIdIn);
-      WebSocketService.sendInfo(
-          userEntity.getId(), new ResponseModel(FLOOR_CONTENT_DATA.getCode(), JSONUtils.toJson(list)));
-      return ResponseResult.success();
-    } catch (UnauthorizedException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("getFloorContentByFloorIdAsync获取失败", e);
-      return ResponseResult.error();
-    }
+    UserEntity userEntity = userService.getUserByToken(token);
+    TelegramTrainFloorEntity floor = Optional
+        .ofNullable(telegramTrainFloorDao.findAllByTrainIdAndPageNumber(id, pageNumber))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练的第 " + pageNumber + " 页报底！"));
+    List<TelegramTrainFloorContentEntity> byFloorIdIn =
+        telegramTrainFloorContentDao.findAllByFloorIdOrderBySort(floor.getId());
+    Map<String, List<TelegramTrainFloorContentEntity>> list = new HashMap<>();
+    list.put(floor.getId(), byFloorIdIn);
+    WebSocketService.sendInfo(
+        userEntity.getId(), new ResponseModel(FLOOR_CONTENT_DATA.getCode(), JSONUtils.toJson(list)));
+    return ResponseResult.success();
   }
 
   public void asyncTask(String userId, String id) {

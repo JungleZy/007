@@ -3,7 +3,9 @@ package com.nip.service;
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.dao.TelegramTrainFloorContentDao;
+import com.nip.dao.TelegramTrainFloorDao;
 import com.nip.entity.TelegramTrainFloorContentEntity;
+import com.nip.entity.TelegramTrainFloorEntity;
 import com.nip.dao.TelegramTrainStatisticalDao;
 import com.nip.dao.UserDao;
 import com.nip.dto.vo.TelegramTrainStatisticalVO;
@@ -13,13 +15,22 @@ import com.nip.testsupport.Fixtures;
 
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.parsing.Parser;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -35,6 +46,59 @@ class TelegramTrainServiceTest {
   @Inject TelegramTrainFloorContentDao contentDao;
   @Inject TelegramTrainStatisticalDao statisticalDao;
   @Inject UserDao userDao;
+  @Inject TelegramTrainFloorDao floorDao;
+
+  private static final String PAT_TOKEN = "telegram-floor-page-" + UUID.randomUUID();
+  private static final String PAT_DEVICE = "telegram-floor-dev-" + UUID.randomUUID();
+
+  @BeforeEach
+  void seedPatUser() {
+    RestAssured.defaultParser = Parser.JSON;
+    if (userDao.findUserEntityByToken(PAT_TOKEN) == null) {
+      Fixtures.user(userDao, PAT_TOKEN, PAT_DEVICE);
+    }
+  }
+
+  /**
+   * 缺页（trainId+pageNumber 查无报底）必须是 202「目标不存在、可修正后重试」，
+   * 而且真因要原样回到调用方——改前 NPE 被宽 catch 吞成 ResponseResult.error()，
+   * 前端只看到 code 500 /「服务器错误」，分不清是缺页还是服务挂了。
+   */
+  @Test
+  void missingFloorPageReturns202WithRealCauseInsteadOfGenericFailure() {
+    given()
+        .contentType(ContentType.JSON)
+        .header("token", PAT_TOKEN)
+        .header("deviceId", PAT_DEVICE)
+        .body(Map.of("trainId", "no-such-train-" + UUID.randomUUID(), "pageNumber", 7))
+        .when().post("/api/telegramTrain/getFloorContentByFloor")
+        .then().statusCode(200)
+        // 明确业务码：缺页 = 参数可修正的「目标不存在」
+        .body("code", is(ResponseCode.PARAMS_ERROR.getCode()))
+        // 真因不再被吞：文案指向缺的那一页，而不是宽 catch 的通用「服务器错误」
+        .body("message", not(is(ResponseCode.SYSTEM_ERROR.getMessage())))
+        .body("message", containsString("7"))
+        .body("message", containsString("页报底"));
+  }
+
+  /** 缺页守卫不得误伤正常路径：报底存在时仍是 200。 */
+  @Test
+  void existingFloorPageStillSucceeds() {
+    String trainId = "telegram-floor-train-" + UUID.randomUUID();
+    TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
+    floor.setTrainId(trainId);
+    floor.setSort(3);
+    floorDao.saveAndFlush(floor);
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("token", PAT_TOKEN)
+        .header("deviceId", PAT_DEVICE)
+        .body(Map.of("trainId", trainId, "pageNumber", 3))
+        .when().post("/api/telegramTrain/getFloorContentByFloor")
+        .then().statusCode(200)
+        .body("code", is(ResponseCode.SUCCESS.getCode()));
+  }
 
   @Test
   void statisticalPageFillsMissingTypesAndSortsAscending() {
