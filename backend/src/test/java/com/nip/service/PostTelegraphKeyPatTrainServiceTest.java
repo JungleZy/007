@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
 import com.nip.dto.CaptureInterval;
@@ -45,7 +46,8 @@ class PostTelegraphKeyPatTrainServiceTest {
     train.setProtocolVersion(0).setStatus(FINISH.getStatus()).setScore(new BigDecimal("77"));
     trainDao.save(train);
     assertEquals(0, new BigDecimal("77").compareTo(service.finish(action(train), token).getScore()));
-    assertThrows(IllegalArgumentException.class, () -> service.finish(action(train), token()));
+    // 已完成的旧训练对非创建者仍必须是授权拒绝（207），不能因为「反正不重算」就退化成参数错误。
+    assertThrows(ForbiddenException.class, () -> service.finish(action(train), token()));
     assertEquals(0, new BigDecimal("77").compareTo(trainDao.findById(train.getId()).getScore()));
   }
 
@@ -204,14 +206,15 @@ class PostTelegraphKeyPatTrainServiceTest {
     String token = token();
     String stranger = token();
     PostTelegraphKeyPatTrainEntity train = seed(token, 1);
-    assertThrows(IllegalArgumentException.class, () -> service.details(train.getId(), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.getPage(train.getId(), 1, stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.begin(action(train), stranger));
-    assertThrows(IllegalArgumentException.class,
+    // 非创建者的读与全部写路径都必须是 ForbiddenException -> 207（与目标不存在的 202 分离）。
+    assertThrows(ForbiddenException.class, () -> service.details(train.getId(), stranger));
+    assertThrows(ForbiddenException.class, () -> service.getPage(train.getId(), 1, stranger));
+    assertThrows(ForbiddenException.class, () -> service.begin(action(train), stranger));
+    assertThrows(ForbiddenException.class,
         () -> service.finishPage(page(train, 1, 0, 1000, "1"), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.finish(action(train), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.reset(action(train), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.delete(train.getId(), stranger));
+    assertThrows(ForbiddenException.class, () -> service.finish(action(train), stranger));
+    assertThrows(ForbiddenException.class, () -> service.reset(action(train), stranger));
+    assertThrows(ForbiddenException.class, () -> service.delete(train.getId(), stranger));
     assertEquals(UNDERWAY.getStatus(), trainDao.findById(train.getId()).getStatus());
     assertEquals(List.of(), rawDao.findPages(train.getId()));
   }

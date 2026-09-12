@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
 import com.nip.dto.*;
@@ -173,13 +174,15 @@ class PostTelegramTrainServiceTest {
     PostTelegramTrainEntity train = train(owner, 100);
     PostTelegramTrainQueryParam query = new PostTelegramTrainQueryParam(); query.setId(train.getId());
     PostTelegramTrainFloorContentQueryParam pageQuery = new PostTelegramTrainFloorContentQueryParam(); pageQuery.setId(train.getId()); pageQuery.setFloorNumber(1);
-    assertThrows(IllegalArgumentException.class, () -> service.detail(query, stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.findMessageBody(pageQuery, stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.begin(train.getId(), 0, stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.stop(train.getId(), 0, stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.saveContentValue(page(train, 1, 0, 4000), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.finish(finish(train), stranger));
-    assertThrows(IllegalArgumentException.class, () -> service.delete(train.getId(), stranger));
+    // 非创建者一律是授权拒绝（ForbiddenException -> code 207），与「参数不合法/训练不存在」的 202 分离；
+    // 旧实现把两者折叠成同一个 IllegalArgumentException，前端无法区分「无权限」与「可重试的参数错误」。
+    assertThrows(ForbiddenException.class, () -> service.detail(query, stranger));
+    assertThrows(ForbiddenException.class, () -> service.findMessageBody(pageQuery, stranger));
+    assertThrows(ForbiddenException.class, () -> service.begin(train.getId(), 0, stranger));
+    assertThrows(ForbiddenException.class, () -> service.stop(train.getId(), 0, stranger));
+    assertThrows(ForbiddenException.class, () -> service.saveContentValue(page(train, 1, 0, 4000), stranger));
+    assertThrows(ForbiddenException.class, () -> service.finish(finish(train), stranger));
+    assertThrows(ForbiddenException.class, () -> service.delete(train.getId(), stranger));
     train.setProtocolVersion(0); trainDao.save(train);
     assertThrows(IllegalArgumentException.class, () -> service.begin(train.getId(), 0, owner));
     assertThrows(IllegalArgumentException.class, () -> service.finish(finish(train), owner));
