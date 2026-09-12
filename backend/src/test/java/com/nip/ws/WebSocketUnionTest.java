@@ -3,6 +3,7 @@ package com.nip.ws;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.UserDao;
 import com.nip.testsupport.Fixtures;
+import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.RoomModel;
 import com.nip.ws.model.UserModel;
 
@@ -16,7 +17,6 @@ import jakarta.websocket.Session;
 import jakarta.websocket.WebSocketContainer;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Map;
@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
+import static com.nip.testsupport.WebSocketStateReset.unionTable;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -130,7 +131,7 @@ class WebSocketUnionTest {
              URI.create("ws://localhost:18081/websocketUnion/" + watcherId))) {
       awaitRegistered(oldSession, oldProbe);
       awaitRegistered(watcher, watcherProbe);
-      Object staleClient = unionMap("webSocketClientSet").get(id);
+      Object staleClient = unionTable("webSocketClientSet").get(id);
       assertNotNull(staleClient, "旧连接必须已注册，才能复现 resolveClient 与 userExit 之间的竞态");
 
       try (Session replacement = c.connectToServer(replacementProbe,
@@ -226,9 +227,7 @@ class WebSocketUnionTest {
     String ownerId = Fixtures.user(userDao, "t-ws-owner-exit").getId();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     Probe ownerProbe = new Probe();
-    unionMap("webSocketClientSet").clear();
-    unionMap("onlineUsers").clear();
-    unionMap("onlineRooms").clear();
+    WebSocketStateReset.clearAll();
 
     Session owner = c.connectToServer(ownerProbe,
         URI.create("ws://localhost:18081/websocketUnion/" + ownerId));
@@ -249,9 +248,7 @@ class WebSocketUnionTest {
     String idB = Fixtures.user(userDao, "t-ws-d2").getId();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
     // 起点清零：其余用例会在全局静态表里留下房间条目，与本用例守护的泄漏无关
-    unionMap("webSocketClientSet").clear();
-    unionMap("onlineUsers").clear();
-    unionMap("onlineRooms").clear();
+    WebSocketStateReset.clearAll();
 
     for (int i = 0; i < 50; i++) {
       Probe pa = new Probe();
@@ -302,31 +299,23 @@ class WebSocketUnionTest {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private static void seedRoom(String roomId, String adminId) throws Exception {
+  private static void seedRoom(String roomId, String adminId) {
     UserModel admin = new UserModel();
     admin.setId(adminId);
     RoomModel room = new RoomModel();
     room.setId(roomId);
     room.setAdmin(adminId);
     room.setUsers(new CopyOnWriteArrayList<>(List.of(admin)));
-    ((Map<String, RoomModel>) unionMap("onlineRooms")).put(roomId, room);
-  }
-
-  /** 反射读取 WebSocketUnionService 的全局静态表（字段私有，测试专用通道）。 */
-  private static Map<String, ?> unionMap(String field) throws Exception {
-    Field f = WebSocketUnionService.class.getDeclaredField(field);
-    f.setAccessible(true);
-    return (Map<String, ?>) f.get(null);
+    unionTable("onlineRooms").put(roomId, room);
   }
 
   /** onClose 在服务端异步执行：时间窗内轮询直到该全局表清零。 */
   private static void awaitEmpty(String field) throws Exception {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-    while (System.nanoTime() < deadline && !unionMap(field).isEmpty()) {
+    while (System.nanoTime() < deadline && !unionTable(field).isEmpty()) {
       Thread.sleep(100);
     }
-    assertEquals(0, unionMap(field).size(), field + " 必须在 50 次并发进出后清零");
+    assertEquals(0, unionTable(field).size(), field + " 必须在 50 次并发进出后清零");
   }
 
   /** 轮询直到收到指定业务码的消息；超时返回 null。 */
@@ -353,9 +342,7 @@ class WebSocketUnionTest {
   // userExit 把发送者从连接表和所有房间里剔除，并向全体广播 USER_EXIT(3)。
   @Test
   void malformedControlFrameDoesNotEvictSender() throws Exception {
-    unionMap("webSocketClientSet").clear();
-    unionMap("onlineUsers").clear();
-    unionMap("onlineRooms").clear();
+    WebSocketStateReset.clearAll();
     String ownerId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
     String memberId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
     WebSocketContainer c = ContainerProvider.getWebSocketContainer();
@@ -391,7 +378,7 @@ class WebSocketUnionTest {
       assertTrue(roomInfo.get("data").toString().contains(ownerId),
           "发送者必须仍在房间成员列表里");
     } finally {
-      unionMap("onlineRooms").clear();
+      unionTable("onlineRooms").clear();
     }
   }
 }

@@ -17,6 +17,7 @@ import com.nip.entity.simulation.telex.GeneralTelexPatEntity;
 import com.nip.entity.simulation.ticker.GeneralTickerPatTrainEntity;
 import com.nip.service.general.GeneralTelexPatService;
 import com.nip.service.general.GeneralTickerPatService;
+import com.nip.testsupport.WebSocketStateReset;
 
 import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.service.simulation.SimulationRouterRoomService;
@@ -68,10 +69,7 @@ class WebSocketDeleteOpenAtomicityTest {
 
   @AfterEach
   void clearRooms() {
-    SimulationGlobal.routerRoom.clear();
-    WebSocketGeneralKeyPatService.ROOM.clear();
-    WebSocketGeneralTelexPatService.ROOM.clear();
-    WebSocketGeneralTickerPatService.PAT_ROOM.clear();
+    WebSocketStateReset.clearAll();
   }
 
   @Test

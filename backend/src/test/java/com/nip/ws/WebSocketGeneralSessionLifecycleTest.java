@@ -2,6 +2,7 @@ package com.nip.ws;
 
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
+import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.GeneralTickerPatTrainRoomUserModel;
 import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import jakarta.websocket.Session;
@@ -20,9 +21,7 @@ class WebSocketGeneralSessionLifecycleTest {
 
   @AfterEach
   void clearRooms() {
-    WebSocketGeneralKeyPatService.ROOM.clear();
-    WebSocketGeneralTelexPatService.ROOM.clear();
-    WebSocketGeneralTickerPatService.PAT_ROOM.clear();
+    WebSocketStateReset.clearAll();
   }
 
   @Test

@@ -2,9 +2,9 @@ package com.nip.ws;
 
 import com.nip.dao.UserDao;
 import com.nip.entity.UserEntity;
+import com.nip.testsupport.WebSocketStateReset;
 import com.nip.ws.model.RoomModel;
 import com.nip.ws.model.UserModel;
-
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.websocket.RemoteEndpoint;
@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.nip.testsupport.WebSocketStateReset.unionTable;
 import static org.junit.jupiter.api.Assertions.*;
 
 @QuarkusTest
@@ -31,10 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class WebSocketUnionLifecycleTest {
 
   @AfterEach
-  void clearState() throws Exception {
-    unionMap("webSocketClientSet").clear();
-    unionMap("onlineUsers").clear();
-    unionMap("onlineRooms").clear();
+  void clearState() {
+    WebSocketStateReset.clearAll();
   }
 
   @Test
@@ -49,7 +48,7 @@ class WebSocketUnionLifecycleTest {
     PauseAfterEmptyObservation members = new PauseAfterEmptyObservation();
     members.add(user(sid));
     RoomModel room = room("room", sid, members);
-    unionMap("onlineRooms").put(room.getId(), room);
+    unionTable("onlineRooms").put(room.getId(), room);
 
     FutureTask<Void> cleanup = new FutureTask<>(() -> {
       endpoint.onClose(oldSession.session());
@@ -75,10 +74,10 @@ class WebSocketUnionLifecycleTest {
     cleanupThread.join();
     replacementThread.join();
 
-    Object current = unionMap("webSocketClientSet").get(sid);
+    Object current = unionTable("webSocketClientSet").get(sid);
     assertNotNull(current);
     assertSame(replacementSession.session(), clientSession(current));
-    assertTrue(unionMap("onlineUsers").containsKey(sid));
+    assertTrue(unionTable("onlineUsers").containsKey(sid));
     assertTrue(replacementSession.open.get());
   }
 
@@ -113,7 +112,7 @@ class WebSocketUnionLifecycleTest {
     firstThread.join();
     secondThread.join();
 
-    Object current = unionMap("webSocketClientSet").get(sid);
+    Object current = unionTable("webSocketClientSet").get(sid);
     assertNotNull(current);
     Session currentSession = clientSession(current);
     assertTrue(currentSession.isOpen());
@@ -133,17 +132,17 @@ class WebSocketUnionLifecycleTest {
     endpoint.onOpen(watcher.session(), "watcher");
     RoomModel room = room("room-member", sid,
         new CopyOnWriteArrayList<>(List.of(user(sid))));
-    unionMap("onlineRooms").put(room.getId(), room);
+    unionTable("onlineRooms").put(room.getId(), room);
     watcher.outbound().clear();
 
     endpoint.onOpen(replacement.session(), sid);
 
-    RoomModel mapped = (RoomModel) unionMap("onlineRooms").get(room.getId());
+    RoomModel mapped = (RoomModel) unionTable("onlineRooms").get(room.getId());
     assertNotNull(mapped);
     assertEquals(List.of(sid), mapped.getUsers().stream().map(UserModel::getId).toList());
     assertFalse(watcher.outbound().stream().anyMatch(message -> message.contains("\"code\":3")),
         "same-sid replacement must not broadcast USER_EXIT");
-    assertSame(replacement.session(), clientSession(unionMap("webSocketClientSet").get(sid)));
+    assertSame(replacement.session(), clientSession(unionTable("webSocketClientSet").get(sid)));
     assertFalse(oldSession.open().get(), "same-sid replacement must close the displaced Session");
   }
 
@@ -153,11 +152,11 @@ class WebSocketUnionLifecycleTest {
     TestSession owner = session("owner-session");
     endpoint.onOpen(owner.session(), "owner");
     RoomModel room = room("123", "owner", new CopyOnWriteArrayList<>(List.of(user("owner"))));
-    unionMap("onlineRooms").put(room.getId(), room);
+    unionTable("onlineRooms").put(room.getId(), room);
 
     endpoint.onMessage("{\"code\":14,\"data\":123}", owner.session());
 
-    assertFalse(unionMap("onlineRooms").containsKey("123"),
+    assertFalse(unionTable("onlineRooms").containsKey("123"),
         "explicit EXIT by the sole member must remove the room key");
   }
 
@@ -168,9 +167,9 @@ class WebSocketUnionLifecycleTest {
 
     endpoint.onOpen(ghost.session(), "no-such-user");
 
-    assertFalse(unionMap("webSocketClientSet").containsKey("no-such-user"),
+    assertFalse(unionTable("webSocketClientSet").containsKey("no-such-user"),
         "a sid with no user row must never be registered as a client");
-    assertFalse(unionMap("onlineUsers").containsKey("no-such-user"),
+    assertFalse(unionTable("onlineUsers").containsKey("no-such-user"),
         "a sid with no user row must never appear in the online user list");
     assertFalse(ghost.open().get(), "the rejected connection must be closed, not left open");
     assertTrue(ghost.outbound().stream().anyMatch(message -> message.contains("用户不存在")),
@@ -187,7 +186,7 @@ class WebSocketUnionLifecycleTest {
     PauseBeforeJoinAdd members = new PauseBeforeJoinAdd("joiner");
     members.addInitial(user("owner"));
     RoomModel room = room("456", "owner", members);
-    unionMap("onlineRooms").put(room.getId(), room);
+    unionTable("onlineRooms").put(room.getId(), room);
 
     FutureTask<Void> join = new FutureTask<>(() -> {
       endpoint.onMessage("{\"code\":13,\"data\":456}", joiner.session());
@@ -212,7 +211,7 @@ class WebSocketUnionLifecycleTest {
     joinThread.join();
     disconnectThread.join();
 
-    RoomModel mapped = (RoomModel) unionMap("onlineRooms").get("456");
+    RoomModel mapped = (RoomModel) unionTable("onlineRooms").get("456");
     assertNotNull(mapped, "JOIN success must not target a room holder detached from the map");
     assertEquals(List.of("joiner"), mapped.getUsers().stream().map(UserModel::getId).toList());
   }
@@ -244,13 +243,6 @@ class WebSocketUnionLifecycleTest {
     var accessor = client.getClass().getDeclaredMethod("session");
     accessor.setAccessible(true);
     return (Session) accessor.invoke(client);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Map<String, Object> unionMap(String fieldName) throws Exception {
-    Field field = WebSocketUnionService.class.getDeclaredField(fieldName);
-    field.setAccessible(true);
-    return (Map<String, Object>) field.get(null);
   }
 
   private static UserEntity entity(String id) {
