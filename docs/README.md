@@ -2,8 +2,10 @@
 
 全仓文字文档统一存放在 `docs/`。评审资料采用“当前入口 + 历史归档”结构：
 
-- `docs/reviews/2026-09-08-full-project-review.md`：**当前唯一的全项目评审入口**，覆盖前后端、数据库、部署和验证结果。
-- `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：当前联合评审的详细契约证据，供修改跨栈接口前查阅。
+- `docs/reviews/2026-09-12-full-project-review.md`：**当前唯一的全项目评审入口**（2026-09-12 基线，48 条发现 / P0 4 条），覆盖前后端、数据库、交付形态、测试与文档一致性。
+- `docs/reviews/2026-09-10-customer-issue-analysis.md`：客户报障 12 条的根因分析与取证，是本轮整改的事实基础。
+- `docs/reviews/2026-09-08-full-project-review.md`：上一轮全项目评审，**降为历史证据**（其 216 测试基线等数字已过期，勿作为当前状态依据）。
+- `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：跨栈契约的详细历史证据，供修改跨栈接口前查阅。
 - `docs/reviews/archive/`：历史评审、分片、审计、整改核销和迁移演练记录，仅作为取证档案，不代表当前代码状态。
 - `docs/specs/`：整改规格；`docs/specs/archive/`：已闭环的历史规格（2026-08-26、2026-09-07、2026-09-08 偏离闭合）。
 - `docs/plans/`：整改计划和执行记录；`docs/plans/archive/`：已闭环的历史计划（2026-08-26、2026-08-28、2026-09-07 波次与 2026-09-09 已完成的决策/spike）。
@@ -15,9 +17,13 @@
 
 | 目的 | 入口 |
 |---|---|
-| 了解当前全项目状态 | [`reviews/2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) |
-| 修改跨栈契约 | [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) + 全项目评审 |
-| 承接整改任务 | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) + [`plans/2026-09-08-joint-fix-plan.md`](plans/2026-09-08-joint-fix-plan.md) |
+| 了解当前全项目状态 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) |
+| 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
+| 承接当前整改任务 | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
+| 修改跨栈契约 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) §5.5 + [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) |
+| 会话与口令协议迁移 | [`plans/2026-09-09-password-session-migration-plan.md`](plans/2026-09-09-password-session-migration-plan.md) |
+| 前端 Worker/WASM 可行性 | [`plans/2026-09-09-frontend-wasm-feasibility-report.md`](plans/2026-09-09-frontend-wasm-feasibility-report.md) |
+| 承接历史联合整改（已闭环部分） | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) + [`plans/2026-09-08-joint-fix-plan.md`](plans/2026-09-08-joint-fix-plan.md) |
 | 全量 Rust 后端重写计划 | [`plans/2026-09-10-rust-full-rewrite-plan.md`](plans/2026-09-10-rust-full-rewrite-plan.md) |
 | Rust 后端重构可行性评估 | [`specs/2026-09-10-rust-backend-feasibility.md`](specs/2026-09-10-rust-backend-feasibility.md) |
 | 查询历史分片证据 | [`reviews/archive/`](reviews/archive/) |
@@ -27,14 +33,16 @@
 
 ### 全项目综合评审
 
-[`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) 是当前 HEAD 的汇总文档，包含：
+[`2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) 是当前 HEAD（`9f70c22`）的汇总文档，包含：
 
-- P0/P1/P2/P3 优先级问题；
-- 后端鉴权、授权、事务、WebSocket 和敏感数据结论；
-- 前端会话、XSS、网络、状态管理和构建结论；
-- 前后端 API、业务码、文件上传和训练域契约；
-- 数据库迁移、CI、版本和交付验证；
-- 已修复的历史问题、历史报告勘误和未验证边界。
+- 48 条发现（P0 4 / P1 11 / P2 24 / P3 9）与六个根因簇；
+- 后端授权边界、凭据协议、评分采集、并发与结算结论；
+- 组训数据报/电传域未纳入本轮迁移的证据与二选一处置；
+- 桌面交付形态（内嵌文件服务、渲染进程安全特性、随包地址、CI 缺口）；
+- 测试与文档一致性（`%test` 调度器竞态、AGENTS.md 过期断言）；
+- §5 的已核实正确点清单（避免重复排查）、§6 整改批次、§7 待运行验证事项。
+
+上一轮 [`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) 仅作历史对照，其测试基线与 MyISAM 等数字已过期。
 
 ### 联合评审详细证据
 
@@ -63,6 +71,7 @@
 ## 其他文档
 
 - 后端工程说明：[`../backend/README.md`](../backend/README.md)
-- 前端工程说明：[`../frontend/README.md`](../frontend/README.md)
+- 前端工程说明：[`../bw-frontend/frontend/README.md`](../bw-frontend/frontend/README.md)
+- 桌面壳说明：[`../bw-frontend/README.md`](../bw-frontend/README.md)
 - 工程约定：[`../AGENTS.md`](../AGENTS.md)
 - 单仓总览：[`../README.md`](../README.md)
