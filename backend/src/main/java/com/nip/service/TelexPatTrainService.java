@@ -40,6 +40,9 @@ public class TelexPatTrainService {
   private final ManagedExecutor managedExecutor;
   private final TransactionManager transactionManager;
 
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
+
   @Inject
   public TelexPatTrainService(TelexPatTrainDao telexPatTrainDao, UserService userService,
       TelexPatTrainStatisticalService statisticalService, ManagedExecutor managedExecutor,
@@ -137,12 +140,14 @@ public class TelexPatTrainService {
   }
 
   /**
-   * 根据id删除训练
-   *
-   * @param: id
+   * 根据id删除训练。属主字段是 {@code createUserId}（各域字段名不同，这里显式传入）。
    */
   @Transactional
-  public void deleteById(String id) {
+  public void deleteById(String id, String token) {
+    TelexPatTrainEntity entity = telexPatTrainDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(userService.getUserByToken(token).getId(), entity.getCreateUserId(),
+        "个人电传练习 " + id);
     telexPatTrainDao.deleteById(id);
   }
 }

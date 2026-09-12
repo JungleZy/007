@@ -118,7 +118,7 @@ public class GeneralTickerPatController {
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId) {
-    return ResponseResult.success(patTrainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) Integer trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.delete(trainId, token));
   }
 }

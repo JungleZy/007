@@ -48,6 +48,9 @@ public class PostTickerTapeTrainService {
   private final PostTickerTapeTrainPageValueDao valueDao;
   private final CableFloorService cableFloorService;
 
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
+
   @Inject
   public PostTickerTapeTrainService(PostTickerTapeTrainDao tickerTapeTrainDao,
       UserService userService,
@@ -354,8 +357,15 @@ public class PostTickerTapeTrainService {
     return entity;
   }
 
+  /**
+   * 删除个人抄报训练。属主字段是 {@code userId}（各域字段名不同，这里显式传入）。
+   */
   @Transactional
-  public boolean delete(String trainId) {
+  public boolean delete(String trainId, String token) {
+    PostTickerTapeTrainEntity entity = tickerTapeTrainDao.findByIdOptional(trainId)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(userService.getUserByToken(token).getId(), entity.getUserId(),
+        "个人抄报训练 " + trainId);
     valueDao.delete("trainId=?1", trainId);
     pageDao.delete("trainId=?1", trainId);
     return tickerTapeTrainDao.deleteById(trainId);

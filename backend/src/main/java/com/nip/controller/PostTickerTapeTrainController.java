@@ -20,8 +20,10 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
+import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.PAGE_NUMBER;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 
@@ -104,8 +106,8 @@ public class PostTickerTapeTrainController {
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(trainService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.delete(trainId, token));
   }
 
 }

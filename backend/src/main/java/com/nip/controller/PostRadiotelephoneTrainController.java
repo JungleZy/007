@@ -98,7 +98,7 @@ public class PostRadiotelephoneTrainController {
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(service.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(service.delete(trainId, token));
   }
 }

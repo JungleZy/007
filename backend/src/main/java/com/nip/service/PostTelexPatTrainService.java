@@ -76,6 +76,9 @@ public class PostTelexPatTrainService {
   private final GradingRuleDao gradingRuleDao;
   private final CableFloorService cableFloorService;
 
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。构造器已被现存用例以固定实参列表调用，这里用字段注入。 */
+  @Inject TrainWriteAccess trainWriteAccess;
+
   @Inject
   public PostTelexPatTrainService(PostTelexPatTrainDao postTelexPatTrainDao,
       PostTelexPatTrainPageDao pageDao,
@@ -646,15 +649,15 @@ public class PostTelexPatTrainService {
   }
 
   /**
-   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207（ForbiddenException），两者不再折叠。
+   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207，两者不再折叠。
+   *
+   * <p>本方法只负责取实体与「不存在 -> 202」，授权口径本身统一在 {@link TrainWriteAccess#requireTrainOwner}。
    */
   private PostTelexPatTrainEntity requireOwnedTrain(String trainId, String token) {
     UserEntity user = userService.getUserByToken(token);
     PostTelexPatTrainEntity entity = Optional.ofNullable(postTelexPatTrainDao.findById(trainId, LockModeType.PESSIMISTIC_WRITE))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练信息"));
-    if (user == null || !Objects.equals(user.getId(), entity.getCreateUser())) {
-      throw new ForbiddenException("非创建者访问个人电传训练 " + trainId);
-    }
+    trainWriteAccess.requireTrainOwner(user == null ? null : user.getId(), entity.getCreateUser(), "个人电传训练 " + trainId);
     return entity;
   }
 

@@ -52,6 +52,9 @@ public class PostTelegraphKeyPatTrainService {
   private final CableFloorService cableFloorService;
   private final PostTelegraphKeyPatTrainRawPageDao rawPageDao;
 
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。构造器已被现存用例以固定实参列表调用，这里用字段注入。 */
+  @Inject TrainWriteAccess trainWriteAccess;
+
   @Inject
   public PostTelegraphKeyPatTrainService(UserService userService,
       PostTelegraphKeyPatTrainDao patTrainDao,
@@ -660,7 +663,9 @@ public class PostTelegraphKeyPatTrainService {
   }
 
   /**
-   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207（ForbiddenException），两者不再折叠。
+   * 训练属主判定。不存在 -> 202；身份成立但非创建者 -> 207，两者不再折叠。
+   *
+   * <p>本方法只负责取实体与「不存在 -> 202」，授权口径本身统一在 {@link TrainWriteAccess#requireTrainOwner}。
    */
   private PostTelegraphKeyPatTrainEntity owned(String id, String token, boolean lock) {
     UserEntity user = requireUser(token);
@@ -672,9 +677,7 @@ public class PostTelegraphKeyPatTrainService {
     if (entity == null) {
       throw new IllegalArgumentException(TRAINING_NOT_FOUND);
     }
-    if (!Objects.equals(entity.getCreateUserId(), user.getId())) {
-      throw new ForbiddenException("非创建者访问个人电子键训练 " + id);
-    }
+    trainWriteAccess.requireTrainOwner(user.getId(), entity.getCreateUserId(), "个人电子键训练 " + id);
     return entity;
   }
 

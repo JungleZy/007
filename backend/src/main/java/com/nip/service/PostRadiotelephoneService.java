@@ -6,7 +6,6 @@ import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.PostRadiotelephoneDao;
 import com.nip.dao.RadiotelephoneTermDataDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.PostRadiotelephoneDto;
 import com.nip.dto.vo.PostRadiotelephoneVO;
 import com.nip.entity.PostRadiotelephoneTermDataEntity;
@@ -34,18 +33,22 @@ public class PostRadiotelephoneService {
 
   private final PostRadiotelephoneDao dao;
   private final RadiotelephoneTermDataDao dataDao;
-  private final UserDao userDao;
+  private final UserService userService;
+
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
 
   @Inject
-  public PostRadiotelephoneService(PostRadiotelephoneDao dao, RadiotelephoneTermDataDao dataDao, UserDao userDao) {
+  public PostRadiotelephoneService(PostRadiotelephoneDao dao, RadiotelephoneTermDataDao dataDao, UserService userService) {
     this.dao = dao;
     this.dataDao = dataDao;
-    this.userDao = userDao;
+    this.userService = userService;
   }
 
   @Transactional
   public PostRadiotelephoneVO add(String token, PostRadiotelephoneDto dto) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+    UserEntity userEntity = userService.getUserByToken(token);
     List<PostRadiotelephoneTermDataEntity> entityList = dataDao.findByTypeOrderByKey(dto.getType());
     // P2-20：单点取值无 +1/成对语义，size-1 会漏掉末条且 size<=1 时抛异常
     if (entityList.isEmpty()) {
@@ -80,7 +83,7 @@ public class PostRadiotelephoneService {
   }
 
   public List<PostRadiotelephoneVO> listPage(String token) throws Exception {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     List<PostRadiotelephoneTrainEntity> entityList = dao.findByUserIdOrderByCreateTimeDesc(userEntity.getId());
     List<PostRadiotelephoneVO> list = new ArrayList<>(entityList.size());
     for (PostRadiotelephoneTrainEntity e : entityList) {
@@ -120,8 +123,15 @@ public class PostRadiotelephoneService {
         .orElseThrow(() -> new IllegalArgumentException("未查询到该训练")), false);
   }
 
+  /**
+   * 删除个人无线电话训练。属主字段是 {@code userId}（各域字段名不同，这里显式传入）。
+   */
   @Transactional
-  public Boolean delete(String id) {
+  public Boolean delete(String id, String token) {
+    PostRadiotelephoneTrainEntity entity = dao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(userService.getUserByToken(token).getId(), entity.getUserId(),
+        "个人无线电话训练 " + id);
     return dao.deleteById(id);
   }
 

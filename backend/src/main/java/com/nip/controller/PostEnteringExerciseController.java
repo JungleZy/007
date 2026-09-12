@@ -21,6 +21,7 @@ import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
 
+import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 
 /**
@@ -92,7 +93,7 @@ public class PostEnteringExerciseController {
   @GET
   @Path(value = "delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(enteringExerciseService.delete(trainId));
+  public Response<Boolean> delete(@RestQuery(TRAIN_ID) String trainId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(enteringExerciseService.delete(trainId, token));
   }
 }

@@ -21,6 +21,7 @@ import com.nip.ws.service.RoomDeletionTransaction;
 import com.nip.ws.service.RoomLifecycleLocks;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
 import com.nip.service.CableFloorService;
+import com.nip.service.TrainWriteAccess;
 import com.nip.service.UserService;
 import com.nip.ws.WebSocketSimulationService;
 import com.nip.ws.model.SimulationSessionHolder;
@@ -48,6 +49,8 @@ public class SimulationReceptRoomService {
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
   @Inject SimulationRoomAccess roomAccess;
+  /** 写授权的唯一口径。 */
+  @Inject TrainWriteAccess trainWriteAccess;
 
   @Inject
   public SimulationReceptRoomService(SimulationRouterRoomDao reportRoomDao,
@@ -229,7 +232,16 @@ public class SimulationReceptRoomService {
     return simulationReportRoomVO;
   }
 
-  public boolean delete(Integer roomId) {
+  /**
+   * 解散房间。口径 = 建房人 ∪ 房间组训位 ∪ 管理员，见 {@link TrainWriteAccess}。
+   * 属主字段是 {@code createUserId}（各域字段名不同，这里显式传入）。
+   */
+  public boolean delete(Integer roomId, String token) {
+    String actorId = userService.getUserByToken(token).getId();
+    SimulationRouterRoomEntity room = reportRoomDao.findByIdOptional(roomId)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到房间信息"));
+    trainWriteAccess.requireWritableTrain(actorId, room.getCreateUserId(),
+        () -> roomAccess.isOrganizer(room, actorId), "仿真收报房间 " + roomId);
     Lock lock = RoomLifecycleLocks.simulationRoom(roomId);
     List<SimulationSessionHolder> removed;
     boolean deleted;

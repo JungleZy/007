@@ -6,7 +6,6 @@ import com.nip.common.constants.PostEnteringExerciseTypeEnum;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.PostEnteringExerciseDao;
 import com.nip.dao.PostEnteringExerciseWordStockDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.vo.PostEnteringExerciseVO;
 import com.nip.dto.vo.param.PostEnteringExerciseAddParam;
 import com.nip.dto.vo.param.PostEnteringExerciseFinishParam;
@@ -31,20 +30,24 @@ import java.util.Objects;
 @ApplicationScoped
 public class PostEnteringExerciseService {
 
-  private final UserDao userDao;
+  private final UserService userService;
   private final PostEnteringExerciseDao exerciseDao;
   private final PostEnteringExerciseWordStockDao wordStockDao;
 
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
+
   @Inject
-  public PostEnteringExerciseService(UserDao userDao, PostEnteringExerciseDao exerciseDao, PostEnteringExerciseWordStockDao wordStockDao) {
-    this.userDao = userDao;
+  public PostEnteringExerciseService(UserService userService, PostEnteringExerciseDao exerciseDao, PostEnteringExerciseWordStockDao wordStockDao) {
+    this.userService = userService;
     this.exerciseDao = exerciseDao;
     this.wordStockDao = wordStockDao;
   }
 
   @Transactional(rollbackOn = Exception.class)
   public PostEnteringExerciseVO add(PostEnteringExerciseAddParam addParam, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+    UserEntity userEntity = userService.getUserByToken(token);
     PostEnteringExerciseEntity entity = new PostEnteringExerciseEntity();
     entity.setCreateUserId(userEntity.getId());
     entity.setName(addParam.getName());
@@ -75,7 +78,7 @@ public class PostEnteringExerciseService {
   }
 
   public List<PostEnteringExerciseVO> listPage(PostEnteringExercisePageParam param, String token) {
-    UserEntity userEntity = userDao.findUserEntityByToken(token);
+    UserEntity userEntity = userService.getUserByToken(token);
     String sql;
     // Phase 7.4：type 是可空 Integer，裸 == 会拆箱 NPE；null 无法映射到三种查询口径，显式拒绝
     if (param.getType() == null) {
@@ -117,9 +120,15 @@ public class PostEnteringExerciseService {
     return PojoUtils.convertOne(entity, PostEnteringExerciseVO.class);
   }
 
+  /**
+   * 删除个人录入练习。属主字段是 {@code createUserId}（各域字段名不同，这里显式传入）。
+   */
   @Transactional
-  public boolean delete(String id) {
-
+  public boolean delete(String id, String token) {
+    PostEnteringExerciseEntity entity = exerciseDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(userService.getUserByToken(token).getId(), entity.getCreateUserId(),
+        "个人录入练习 " + id);
     return exerciseDao.deleteById(id);
   }
 

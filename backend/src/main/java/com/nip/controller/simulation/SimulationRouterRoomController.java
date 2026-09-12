@@ -20,6 +20,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestHeader;
 
 import java.util.List;
 
@@ -103,7 +104,7 @@ public class SimulationRouterRoomController {
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId) {
-    return ResponseResult.success(roomService.delete(roomId));
+  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(roomService.delete(roomId, token));
   }
 }

@@ -4,12 +4,12 @@ import cn.hutool.core.util.ObjectUtil;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.PostMilitaryTermTrainStatusEnum;
 import com.nip.common.exception.NIPException;
+import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.MilitaryTermDataDao;
 import com.nip.dao.PostMilitaryTermTrainDao;
 import com.nip.dao.PostMilitaryTermTrainTestPaperDao;
-import com.nip.dao.UserDao;
 import com.nip.dto.PostMilitaryTermTrainAddDto;
 import com.nip.dto.PostMilitaryTermTrainFinishDto;
 import com.nip.dto.vo.PostMilitaryTermTrainVO;
@@ -44,24 +44,25 @@ public class PostMilitaryTermTrainService {
   private final PostMilitaryTermTrainDao termTrainDao;
   private final MilitaryTermDataDao dataDao;
   private final PostMilitaryTermTrainTestPaperDao testPaperDao;
-  private final UserDao userDao;
   private final UserService userService;
+
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
 
   @Inject
   public PostMilitaryTermTrainService(PostMilitaryTermTrainDao termTrainDao, MilitaryTermDataDao dataDao,
-                                      PostMilitaryTermTrainTestPaperDao testPaperDao, UserDao userDao,
-                                      UserService userService) {
+                                      PostMilitaryTermTrainTestPaperDao testPaperDao, UserService userService) {
     this.termTrainDao = termTrainDao;
     this.dataDao = dataDao;
     this.testPaperDao = testPaperDao;
-    this.userDao = userDao;
     this.userService = userService;
   }
 
   @Transactional
   public PostMilitaryTermTrainVO add(PostMilitaryTermTrainAddDto dto, String token) {
     try {
-      UserEntity userEntity = userDao.findUserEntityByToken(token);
+      // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
+      UserEntity userEntity = userService.getUserByToken(token);
 
       PostMilitaryTermTrainEntity trainEntity = PojoUtils.convertOne(dto, PostMilitaryTermTrainEntity.class, (d, e) -> {
         e.setAccuracy(new BigDecimal(0));
@@ -108,7 +109,7 @@ public class PostMilitaryTermTrainService {
             .toList();
         v.setTypes(names);
       });
-    } catch (IllegalArgumentException | IllegalStateException e) {
+    } catch (IllegalArgumentException | IllegalStateException | UnauthorizedException e) {
       throw e;
     } catch (Exception e) {
       log.error("创建军事术语训练失败", e);
@@ -530,8 +531,15 @@ public class PostMilitaryTermTrainService {
     return PojoUtils.convertOne(save, PostMilitaryTermTrainVO.class);
   }
 
+  /**
+   * 删除个人军语训练。属主字段是 {@code userId}（各域字段名不同，这里显式传入）。
+   */
   @Transactional
-  public Boolean delete(String id) {
+  public Boolean delete(String id, String token) {
+    PostMilitaryTermTrainEntity entity = termTrainDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(userService.getUserByToken(token).getId(), entity.getUserId(),
+        "个人军语训练 " + id);
     testPaperDao.delete("trainId", id);
     return termTrainDao.deleteById(id);
   }

@@ -16,11 +16,13 @@ import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
 import java.util.List;
 
 import static com.nip.common.constants.BaseConstants.ROOM_ID;
+import static com.nip.common.constants.BaseConstants.TOKEN;
 
 @JWT
 @Path("/simulation/report")
@@ -61,7 +63,7 @@ public class SimulationReportRoomController {
   @GET
   @Path("/delete")
   @Operation(summary = "删除训练")
-  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId) {
-    return ResponseResult.success(roomService.delete(roomId));
+  public Response<Boolean> delete(@RestQuery(ROOM_ID) Integer roomId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(roomService.delete(roomId, token));
   }
 }

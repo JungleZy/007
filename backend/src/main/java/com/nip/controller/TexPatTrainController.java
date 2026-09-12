@@ -82,8 +82,8 @@ public class TexPatTrainController {
   @Path("/deleteById")
   @POST
   @Operation(summary = "删除训练")
-  public Response<Void> delete(TelexPatTrainVO vo) {
-    telexPatTrainService.deleteById(vo.getId());
+  public Response<Void> delete(TelexPatTrainVO vo, @RestHeader(TOKEN) String token) {
+    telexPatTrainService.deleteById(vo.getId(), token);
     return ResponseResult.success();
   }
 }

@@ -2,7 +2,6 @@ package com.nip.service;
 
 import cn.hutool.core.util.ObjectUtil;
 import com.google.gson.reflect.TypeToken;
-import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.GlobalMessageGeneratedUtil;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
@@ -80,6 +79,9 @@ public class PostTelegramTrainService {
    */
   private final Map<String, String> mixture = new HashMap<>();
   private final Map<String, String> sortNumber = new HashMap<>();
+
+  /** 属主判定的唯一口径（个人域 = 仅创建者）。 */
+  @Inject TrainWriteAccess trainWriteAccess;
 
   /**
    * 初始划 morse码和数字和字母的映射
@@ -949,6 +951,8 @@ public class PostTelegramTrainService {
   /**
    * 训练属主判定。不存在与无权是两种拒绝：前者 202（参数/目标问题），后者 207（身份成立但无权限），
    * 不再像旧实现那样都折叠成「训练不存在或无权访问」的 202。
+   *
+   * <p>本方法只负责取实体与「不存在 -> 202」，授权口径本身统一在 {@link TrainWriteAccess#requireTrainOwner}。
    */
   private PostTelegramTrainEntity owned(String id, String token, boolean lock) {
     UserEntity user = userService.getUserByToken(token);
@@ -956,9 +960,7 @@ public class PostTelegramTrainService {
     if (entity == null) {
       throw new IllegalArgumentException("未查询到训练");
     }
-    if (user == null || !Objects.equals(entity.getCreateUser(), user.getId())) {
-      throw new ForbiddenException("非创建者访问个人手键训练 " + id);
-    }
+    trainWriteAccess.requireTrainOwner(user == null ? null : user.getId(), entity.getCreateUser(), "个人手键训练 " + id);
     return entity;
   }
 
