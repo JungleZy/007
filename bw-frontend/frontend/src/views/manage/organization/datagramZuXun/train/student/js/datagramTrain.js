@@ -263,7 +263,6 @@ export default function (trainData,loading,emits) {
       if (trainData.value.status == 1) {
         trainData.value.process = 1;
         cutTimer.value = "begin"
-        // resetTrainInfo();
       }
     }
     startTrain()
@@ -276,14 +275,6 @@ export default function (trainData,loading,emits) {
     })
     sendMessage({topic: 'ready', id: userInfo.id})
   }
-  /**
-   * 重置训练
-   */
-  const resetTrainInfo = () => {
-    resetHandKeyZuXunTrain({
-      id: trainData.value.trainId
-    }).then(res => {});
-  };
 
 
   /**
