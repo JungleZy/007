@@ -5,12 +5,25 @@ import com.nip.dto.SimulationRouterRoomDto;
 import com.nip.dto.SimulationRouterRoomSimpDto;
 import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
 
 @ApplicationScoped
 public class SimulationRouterRoomDao extends BaseRepository<SimulationRouterRoomEntity, Integer> {
+
+  /** All page mutations acquire the parent row before any child rows. */
+  public SimulationRouterRoomEntity lockRoom(Integer roomId) {
+    if (roomId == null || roomId <= 0) {
+      throw new IllegalArgumentException("房间编号不正确");
+    }
+    SimulationRouterRoomEntity room = findById(roomId, LockModeType.PESSIMISTIC_WRITE);
+    if (room == null) {
+      throw new IllegalArgumentException("未查询到该房间");
+    }
+    return room;
+  }
 
   public List<SimulationRouterRoomDto> findAllByUserId(String userId) {
     return entityManager.createNamedQuery("find_simulation_router_room_dto", SimulationRouterRoomDto.class)

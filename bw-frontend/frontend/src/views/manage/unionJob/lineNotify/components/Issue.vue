@@ -3,6 +3,8 @@
     <div class="room_box" :style="{ width: roomValue }">
       <TrainLeft :trainData="trainData">
         <template v-slot:bottom>
+          <div role="status" v-if="connectionState !== 'open'">{{ connectionState === 'offline' ? '连接已断开，正在重连' : '正在连接训练服务' }}</div>
+          <div role="alert" v-if="recoveryError">{{ recoveryError }} <a-button size="small" @click="getApiRoomUserList">重试</a-button></div>
           <div class="title">参训时间</div>
           <div class="time_cont_box">
             <count-down class="width-100-per layout-center" color="#70c9ff" ref="trainTimeRef" style="height: 55px" />
@@ -145,7 +147,7 @@
     </template>
 
     <div class="trainCenter_box" v-if="activePutAway && trainData.stats == 2">
-      <TrainResult style="margin-left: 20px" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all"></TrainResult>
+      <TrainResult v-if="a" style="margin-left: 20px" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all" :details="details"></TrainResult>
     </div>
     <div class="room_box" :style="{ width: roomValue }">
       <TrainLeft :trainData="trainData">
@@ -276,6 +278,10 @@ const {
   handlePageTurn,
   a,
   all,
+  details,
+  recoveryError,
+  connectionState,
+  getApiRoomUserList,
   curr
 } = issue(trainData, trainTimeRef)
 </script>

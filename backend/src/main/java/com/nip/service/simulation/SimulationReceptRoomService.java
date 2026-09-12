@@ -47,6 +47,7 @@ public class SimulationReceptRoomService {
   private final CableFloorService cableFloorService;
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
+  @Inject SimulationRoomAccess roomAccess;
 
   @Inject
   public SimulationReceptRoomService(SimulationRouterRoomDao reportRoomDao,
@@ -90,6 +91,7 @@ public class SimulationReceptRoomService {
     roomEntity.setIsStartSign(param.getIsStartSign());
     roomEntity.setRoomType(SimulationRoomTypeEnum.RECEPT.getType());
     SimulationRouterRoomEntity room = reportRoomDao.save(roomEntity);
+    reportRoomDao.lockRoom(room.getId());
 
     // 保存房间报底
     SimulationRouterRoomContentEntity roomContentEntity = new SimulationRouterRoomContentEntity();
@@ -180,6 +182,7 @@ public class SimulationReceptRoomService {
    * @param roomId
    */
   public SimulationReportRoomVO getRoomDetail(Integer roomId, HttpServerRequest request) {
+    boolean teacher = roomAccess.requireMember(request, roomId);
     String token = request.getHeader(TOKEN);
     UserEntity userEntity = userService.getUserByToken(token);
 
@@ -192,7 +195,9 @@ public class SimulationReceptRoomService {
         String userId = simulationRouterRoomUserEntity.getUserId();
         SimulationReportRoomUserVO userVO = PojoUtils.convertOne(userDao.findUserEntityById(userId),
             SimulationReportRoomUserVO.class);
-        userVO.setContentValue(simulationRouterRoomUserEntity.getContentValue());
+        if (teacher || Objects.equals(userEntity.getId(), userId)) {
+          userVO.setContentValue(simulationRouterRoomUserEntity.getContentValue());
+        }
         userVO.setUserStatus(simulationRouterRoomUserEntity.getUserStatus());
         userVO.setExistPageNumber(
             pageValueDao.countByUserIdAndRoomId(simulationRouterRoomUserEntity.getUserId(), roomId));
@@ -213,6 +218,7 @@ public class SimulationReceptRoomService {
     });
     long existPageNumber = pageValueDao.countByUserIdAndRoomId(userEntity.getId(), roomId);
     if (simulationReportRoomVO != null) {
+      simulationReportRoomVO.setTeacher(teacher);
       simulationReportRoomVO.setReceiveUser(userEntities);
       simulationReportRoomVO.setExistPageNumber(existPageNumber);
       if (Objects.equals(roomMap.getIsCable(), 1)) {
@@ -230,6 +236,7 @@ public class SimulationReceptRoomService {
     lock.lock();
     try {
       deleted = roomDeletionTransaction.run(() -> {
+        reportRoomDao.lockRoom(roomId);
         pageValueDao.delete("roomId=?1", roomId);
         pageDao.delete("roomId=?1", roomId);
         roomUserDao.delete("roomId=?1", roomId);
@@ -252,7 +259,7 @@ public class SimulationReceptRoomService {
    * @param index          上次位置
    * @param train          训练对象
    */
-  public List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index,
+  private List<SimulationRouterRoomPageEntity> generateMessageBody(Integer generateNumber, Integer pageNumber, int index,
       SimulationRouterRoomContentEntity train) {
     return SimulationMessageGenerator.generateMessageBody(
         generateNumber, pageNumber, index, train, train.getRoomId(), pageDao::save);

@@ -3,6 +3,7 @@ package com.nip.dao.simulation;
 import com.nip.common.repository.BaseRepository;
 import com.nip.entity.simulation.router.SimulationRouterRoomPageEntity;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 
@@ -10,7 +11,9 @@ import java.util.List;
 public class SimulationRouterRoomPageDao extends BaseRepository<SimulationRouterRoomPageEntity, String> {
 
   public List<SimulationRouterRoomPageEntity> findByRoomIdAndPageNumberOrderBySort(Integer roomId, Integer pageNumber) {
-    return find("roomId = ?1 and pageNumber = ?2 order by sort", roomId, pageNumber).list();
+    // A locking read also observes commits newer than a caller's repeatable-read snapshot.
+    return find("roomId = ?1 and pageNumber = ?2 order by sort", roomId, pageNumber)
+        .withLock(LockModeType.PESSIMISTIC_WRITE).list();
   }
   public Integer findMaxPageNumber(Integer roomId) {
     return entityManager.createQuery(

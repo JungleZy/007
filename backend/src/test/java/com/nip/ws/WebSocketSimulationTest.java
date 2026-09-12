@@ -49,6 +49,7 @@ class WebSocketSimulationTest {
   SimulationRouterRoomUserDao roomUserDao;
   @Inject
   WebSocketSimulationService service;
+  @Inject com.nip.service.simulation.SimulationResultNotifier resultNotifier;
 
   @ClientEndpoint
   public static class Probe {
@@ -391,11 +392,8 @@ class WebSocketSimulationTest {
     }
   }
 
-  // Task 6.5(c)：REPORT 房里 channel 为 null 的成员不得阻断结果下发。
-  // 修复前 messageHandleReport 的 getChannel().compareTo(0) 在该成员上 NPE，
-  // 收报席的结果帧与随后的整房广播全部丢失。
   @Test
-  void nullChannelMemberDoesNotBlockReportRoomResultDelivery() {
+  void clientResultFrameCannotSubmitOrNotifyTeachers() {
     String senderId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
     SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
     room.setName("report-room-null-channel");
@@ -422,13 +420,55 @@ class WebSocketSimulationTest {
 
     try {
       String message = "{\"type\":\"" + TOPIC_RESULT.getType() + "\"}";
-      assertDoesNotThrow(() -> service.messageHandleReport(message, roomId, senderId),
-          "channel 为 null 的成员不得让结果上报抛异常");
+      service.messageHandleReport(message, roomId, senderId);
+      assertTrue(teacher.outbound().isEmpty(), "客户端结果帧不能冒充已提交通知");
+      assertEquals(0, roomUserDao.findByUserIdAndRoomId(senderId, roomId).getUserStatus().intValue(),
+          "只有成功的REST提交可以更新填报状态");
+    } finally {
+      SimulationGlobal.reportRoom.remove(roomId);
+    }
+  }
 
-      assertTrue(teacher.outbound().stream().anyMatch(m -> m.contains(senderId)),
-          "0 号频道（收报席）必须收到带填报人 id 的结果帧");
-      assertEquals(1, roomUserDao.findByUserIdAndRoomId(senderId, roomId).getUserStatus().intValue(),
-          "填报状态必须落库");
+  @Test
+  void committedResultReachesBothTeachersButRollbackDoesNotNotify() {
+    String firstId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    String secondId = Fixtures.user(userDao, UUID.randomUUID().toString()).getId();
+    SimulationRouterRoomEntity room = new SimulationRouterRoomEntity();
+    room.setName("committed-result");
+    room.setCreateUserId(firstId);
+    room.setRoomType(REPORT.getType());
+    room.setStats(2);
+    Integer roomId = roomDao.save(room).getId();
+    saveRoomUser(roomId, firstId, 0, 0);
+    saveRoomUser(roomId, secondId, 0, 0);
+    RecordingSession first = recordingSession("result-first");
+    RecordingSession second = recordingSession("result-second");
+    SimulationUserModel firstModel = new SimulationUserModel();
+    firstModel.setId(firstId);
+    SimulationUserModel secondModel = new SimulationUserModel();
+    secondModel.setId(secondId);
+    SimulationGlobal.reportRoom.put(roomId, List.of(
+        new SimulationSessionHolder(first.session(), firstModel),
+        new SimulationSessionHolder(second.session(), secondModel)));
+    try {
+      assertThrows(IllegalStateException.class, () -> io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() -> {
+        resultNotifier.publish(roomId, "answer-user", REPORT.getType());
+        assertTrue(first.outbound().isEmpty());
+        assertTrue(second.outbound().isEmpty());
+        throw new IllegalStateException("rollback");
+      }));
+      assertTrue(first.outbound().isEmpty());
+      assertTrue(second.outbound().isEmpty());
+      io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() -> {
+        resultNotifier.publish(roomId, "answer-user", REPORT.getType());
+        assertTrue(first.outbound().isEmpty());
+        assertTrue(second.outbound().isEmpty());
+      });
+      for (RecordingSession recipient : List.of(first, second)) {
+        assertEquals(1, recipient.outbound().size());
+        assertTrue(recipient.outbound().getFirst().contains("answer-user"));
+        assertTrue(recipient.outbound().getFirst().contains("roomId"));
+      }
     } finally {
       SimulationGlobal.reportRoom.remove(roomId);
     }

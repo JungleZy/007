@@ -15,7 +15,7 @@ public class SimulationRouterRoomPageVo {
 
 
   //@ApiModelProperty(value = "id")
-  private Integer id;
+  private String id;
 
   /**
    *训练id

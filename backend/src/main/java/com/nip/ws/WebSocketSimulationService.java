@@ -464,11 +464,8 @@ public class WebSocketSimulationService {
         }
       });
     } else if (TOPIC_RESULT.getType().equals(topic)) {
-      for (SimulationSessionHolder simulation : simulations) {
-        if (Objects.equals(simulation.userModel().getUserType(), 0)) {
-          sendMessage(simulation.session(), message, "", "");
-        }
-      }
+      // Submission state and notifications belong to the committed REST transaction.
+      return;
     }
   }
 
@@ -533,21 +530,8 @@ public class WebSocketSimulationService {
       }
       return;
     } else if (TOPIC_RESULT.getType().equals(type)) {
-      mesg.put(ID, userId);
-      //修改用户填报状态
-      SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(userId, roomId);
-      if (!Objects.isNull(roomUserEntity)) {
-        roomUserEntity.setUserStatus(1);
-        roomUserDao.save(roomUserEntity);
-        for (SimulationSessionHolder socketSimulation : socketSimulations) {
-          // channel 为 null 的连接（合成成员/DB 未配频道）只是不匹配，不得中断结果下发
-          if (Objects.equals(socketSimulation.userModel().getChannel(), 0)) {
-            WebSocketSimulationService.sendMessage(
-                socketSimulation.session(), JSONObject.toJSONString(mesg), "", "");
-            break;
-          }
-        }
-      }
+      // Client result frames cannot mutate state or duplicate REST notifications.
+      return;
     }
     for (SimulationSessionHolder socketSimulation : socketSimulations) {
       if (!Objects.equals(socketSimulation.userModel().getId(), userId)) {

@@ -31,6 +31,7 @@ import static com.nip.common.constants.BaseConstants.*;
 @Tag(name = "仿真训练-线路通报")
 public class SimulationRouterRoomController {
   private final SimulationRouterRoomService roomService;
+  @Inject com.nip.service.simulation.SimulationRoomAccess roomAccess;
 
   @Inject
   public SimulationRouterRoomController(SimulationRouterRoomService roomService) {
@@ -55,7 +56,8 @@ public class SimulationRouterRoomController {
   @GET
   @Path("/getRoomUserList/{roomId}")
   @Operation(summary = "查询房间人员配置")
-  public Response<SimulationRouterRoomUserVO> getRoomUserList(@PathParam(ROOM_ID) Integer roomId) {
+  public Response<SimulationRouterRoomUserVO> getRoomUserList(@PathParam(ROOM_ID) Integer roomId, HttpServerRequest request) {
+    roomAccess.requireMember(request, roomId);
     return ResponseResult.success(roomService.getRoomUserList(roomId));
   }
 
@@ -93,7 +95,8 @@ public class SimulationRouterRoomController {
   @Operation(summary = "查询页内容 (通用)")
   public Response<SimulationRouterRoomPageInfoVO> findPage(@RestQuery(ROOM_ID) Integer roomId,
       @RestQuery(PAGE_NUMBER) Integer pageNumber,
-      @RestQuery(USER_ID) String userId) {
+      @RestQuery(USER_ID) String userId, HttpServerRequest request) {
+    roomAccess.requireAnswer(request, roomId, userId);
     return ResponseResult.success(roomService.findPage(userId, roomId, pageNumber));
   }
 

@@ -9,6 +9,9 @@ import useMorse from '../../../common/mixin/useMorse'
 import operationMorseVoice from "../../../common/utils/voice/operationMorseVoice";
 import {PubSub} from "../../../common/utils/PubSub";
 import {findHeader} from "../../../common/api/ReceiveApi";
+import {calculateTiming} from '../../../common/utils/voice/MorseVoiceHighPerformance'
+import SocketConnection from '../../../common/ws/SocketConnection'
+import useSimulationRecovery from './useSimulationRecovery'
 
 export default function useBroadStudent() {
   let selfId = ref()
@@ -18,11 +21,9 @@ export default function useBroadStudent() {
   const route = useRoute()
   const { dots, morseCode, scatter } = useMorse()
   const frequency = ref(1000)
-  const dotTime = ref(80)
   const isRefresh = ref(false)//是否刷新
   const isFirst = ref(true) //是否第一次进入页面，播放音频
   const storage = ref({
-    prevCode:"",
     codeIndex:0,
     totalTime: 0,
     status: 0,
@@ -33,7 +34,37 @@ export default function useBroadStudent() {
   const scoreData = ref({})
   const header = ref("")
   const isheader = ref(false)
-  let socket
+  let socket = new SocketConnection()
+  let initialized = false
+  const { refresh, stop: stopRecovery, recoveryError, socketStatus, onState } = useSimulationRecovery(async () => {
+    if (!initialized) {
+      await findTrainDataInfo()
+      initialized = true
+    } else {
+      const response = await getRoomDetail({ roomId: Number(roomId) })
+      if (response.code !== 200) throw new Error(response.msg || '读取训练详情失败')
+      const data = response.data
+      trainData.value.receiveUser = data.receiveUser
+      trainData.value.status = data.stats
+      trainData.value.stats = data.stats
+      trainData.value.pag = Math.max(data.isCable == 1 ? Number(data.pageCount) : Math.ceil(data.bwCount / 100), Number(data.existPageNumber) || 0)
+      const user = data.receiveUser.find(item => item.id === selfId.value)
+      step.value = user?.userStatus == 1 ? 2 : 1
+      result.value = user || {}
+      if (data.stats == 2) {
+        storage.value.status = 0
+        clearInterval(trainTimer.value)
+        operation({type: 'stop'})
+      }
+    }
+    if (step.value == 2) {
+      trainData.value.currPag = Math.max(1, Math.min(trainData.value.currPag || 1, trainData.value.pag))
+      const page = trainData.value.currPag
+      const response = await findUserPageBaoWenInfo({ roomId: Number(roomId), userId: selfId.value, pageNumber: page })
+      if (response.code !== 200) throw new Error(response.msg || '读取提交答案失败')
+      if (trainData.value.currPag === page) allBaoWen.value = { [page]: response.data }
+    }
+  }, () => !initialized || trainData.value.status != 2 || step.value != 2)
   let isOnline = ref(false)
   let roomId
   const trainTimer = ref(null)
@@ -42,14 +73,11 @@ export default function useBroadStudent() {
     end: [0, 1, 0, 1, 0]
   })
   const allCode = [] //播报
-  let prevCode = null //上一个字符，包含空格、开始等符号
-  let codeIndex = 0 // 当前字符下标
-  const {operation} = operationMorseVoice()
-  setTimeout(()=>{
-    PubSub.subscribe('receiveProcessData',res=>{
-      if(res.status==="progress"&&prevCode!==res.key&&isheader.value===false){
-        prevCode = res.key
-        codeIndex++
+  let codeIndex = 0 // 已进入字符在原始allCode中的一基位置；恢复时重播该字符
+  const {operation, ensureReady} = operationMorseVoice()
+    const audioSubscription = PubSub.subscribe('receiveProcessData',res=>{
+      if(res.status === 'progress' && !isheader.value && Number.isInteger(res.sourceIndex)){
+        codeIndex = res.sourceIndex + 1
       }
       if (res.status==='finish') {
         if(isheader.value&&trainData.value.status < 2){
@@ -64,26 +92,26 @@ export default function useBroadStudent() {
         clearInterval(trainTimer.value)
       }
     })
-  },2000)
   onMounted(async () => {
     if (route.query.id && route.query.id != '') {
       roomId = route.query.id
       if (window.localStorage.getItem('broad' + roomId)) {
         storage.value = JSON.parse(window.localStorage.getItem('broad' + roomId))
         newUser.value = false
-        codeIndex = storage.value.codeIndex
-        prevCode = storage.value.prevCode
+        codeIndex = Number(storage.value.codeIndex) || 0
 
       }
-      await findTrainDataInfo()
+      await refresh()
+      login()
     }
   })
 
   onBeforeUnmount(() => {
-    PubSub.unsubscribe('receiveProcessData')
+    window.removeEventListener('beforeunload', beforeUnload)
+    stopRecovery()
+    PubSub.unsubscribe(audioSubscription)
     if (trainData.value.status == 1) {
       storage.value.visible = true
-      storage.value.prevCode = prevCode
       storage.value.codeIndex = codeIndex
       window.localStorage.setItem('broad' + roomId, JSON.stringify(storage.value))
     }
@@ -93,11 +121,13 @@ export default function useBroadStudent() {
       socket = null
     }
   })
-  window.onbeforeunload = () => {
+  const beforeUnload = () => {
+    stopRecovery()
     if (trainData.value.status == 1) {
       storage.value.visible = true
       storage.value.playCodeIndex = trainData.value.playCodeIndex
       storage.value.playPage = trainData.value.currPag
+      storage.value.codeIndex = codeIndex
       window.localStorage.setItem('broad' + roomId, JSON.stringify(storage.value))
     }
     clearInterval(trainTimer.value)
@@ -106,18 +136,22 @@ export default function useBroadStudent() {
       socket = null
     }
   }
+  window.addEventListener('beforeunload', beforeUnload)
 
   const login = () => {
-    if (socket) return false
-    socket = new WebSocket(`${window.wsUrl}/simulation/` + selfId.value + '/' + roomId)
-    socket.onopen = e => {}
-    socket.onerror = e => {}
-    socket.onclose = e => {
-      socket = null
-      // login()
-    }
-    socket.onmessage = e => {
-      let d = JSON.parse(JSON.parse(e.data).data)
+    if (!socket) return
+    socket.connect(`${window.wsUrl}/simulation/` + selfId.value + '/' + roomId, e => {
+      let d
+      try {
+        const envelope = JSON.parse(e.data)
+        if (envelope.code === -1) throw new Error(envelope.msg || '连接被拒绝')
+        d = typeof envelope.data === 'string' ? JSON.parse(envelope.data) : envelope.data
+        if (!d || typeof d !== 'object') throw new Error('训练通知格式无效')
+      } catch (error) {
+        recoveryError.value = error.message || '训练通知解析失败'
+        return
+      }
+      if (d.type === 'result') { refresh(); return }
       if (trainData.value.status < 2) {
         if (d.type == 1) {
           //开始
@@ -167,7 +201,7 @@ export default function useBroadStudent() {
           operation({type:'stop'})
         }
       }
-    }
+    }, refresh, onState)
   }
 
   const handleScoreData = res => {
@@ -200,48 +234,42 @@ export default function useBroadStudent() {
       })
       _res.push(JSON.stringify(arr))
     })
-    uploadUnionTrainResult({
-      userId: selfId.value,
+    return uploadUnionTrainResult({
       roomId: roomId,
       contentValue: _res
     }).then(res => {
-      step.value = 2
-      let data = {
-        type: 'result',
-        existPage: _res.length
-      }
-      socket.send(JSON.stringify(data))
-      findTrainBaoWenInfo(selfId.value, trainData.value['currPag'])
-      if (trainData.value['pag'] > 1 && trainData.value['currPag'] < trainData.value['pag']) {
-        setTimeout(() => {
-          findTrainBaoWenInfo(selfId.value, trainData.value['currPag'] + 1)
-        }, 500)
-      }
+      if (res.code !== 200) throw new Error(res.msg || '提交答案失败')
+      return refresh()
+    }).catch(error => {
+      recoveryError.value = error.message || '提交答案失败'
+      message.error(recoveryError.value)
     })
   }
 
   const playCodeInfo = (type) => {
+    if (!operation({type: 'ready'})) {
+      operation({type: 'message', data: {data: []}})
+      clearInterval(trainTimer.value)
+      storage.value.visible = true
+      return false
+    }
     isFirst.value = false
-    if(type==='continue'&&storage.value.codeIndex>0){
-      let newAllCode = JSON.parse(JSON.stringify(allCode));
-      let code
-      if(storage.value.codeIndex>0){
-        code = newAllCode.splice(storage.value.codeIndex-1,newAllCode.length)
-      }
-      operation({type:"message",data:{
-          numType:trainData.value.bwType == 1 ? 'short' : 'mix',
-          data:code
-        }})
+    if(type === 'continue' && codeIndex > 0){
+      isheader.value = false
+      const sourceOffset = codeIndex - 1
+      operation({type: 'message', data: {
+        numType: trainData.value.bwType == 1 ? 'short' : 'mix',
+        data: allCode.slice(sourceOffset),
+        sourceOffset
+      }})
     }else {
       if(isheader.value){
-        console.log("播放报头")
         operation({type:'message',data:{
             numType:'long',
             data:header.value
           }})
       }
       else {
-        console.log("播放报文")
         operation({type:"message",data:{
             numType:trainData.value.bwType == 1 ? 'short' : 'mix',
             data:allCode
@@ -261,58 +289,35 @@ export default function useBroadStudent() {
     status: 0
   })
   const findTrainDataInfo = () => {
-    getRoomDetail({
+    return getRoomDetail({
       roomId: Number(roomId)
-    }).then(res => {
+    }).then(async res => {
+      if (res.code !== 200) throw new Error(res.msg || '读取训练详情失败')
       if (res.code === 200) {
-        findHeader(route.query.id).then(res=>{
-          if(res.data!==null){
-            isheader.value = true
-            header.value = res.data.content
-            if(storage.value.codeIndex>0){
-              isheader.value = false
-            }
-          }
-        })
+        const headerResponse = await findHeader(route.query.id)
+        if (headerResponse.code !== 200) throw new Error(headerResponse.msg || '读取报头失败')
+        isheader.value = headerResponse.data != null && !(storage.value.codeIndex > 0)
+        header.value = headerResponse.data?.content || ''
         trainData.value = res.data
         trainData.value['status'] = trainData.value.stats
         if (trainData.value.status == 1) {
           storage.value.visible = true
           storage.value.status = trainData.value.playStatus
         }
-        trainData.value['pag'] = Math.ceil(trainData.value.bwCount / 100)
-        if (trainData.value.existPageNumber != null && trainData.value.existPageNumber > Math.ceil(trainData.value.bwCount / 100)) {
-          trainData.value['pag'] = trainData.value.existPageNumber
-        }
-        trainData.value['currPag'] = window.localStorage.getItem('broad' + roomId) ? storage.value.playPage : 1
+        trainData.value['pag'] = Math.max(res.data.isCable == 1 ? Number(res.data.pageCount) : Math.ceil(res.data.bwCount / 100), Number(res.data.existPageNumber) || 0)
+        trainData.value['currPag'] = res.data.stats == 2 ? 1 : (storage.value.playPage || 1)
         trainData.value['playCodeIndex'] = window.localStorage.getItem('broad' + roomId) ? storage.value.playCodeIndex : 0
         trainData.value['duration'] = 0
 
-        if (Number(trainData.value.mainSignal) < 40) {
-          lowSpeedTime(Number(trainData.value.mainSignal))
-        } else {
-          let type = trainData.value.bwType == 1 ? 'short' : trainData.value.bwType == 2 ? 'long' : trainData.value.bwType == 3 ? 'letter' : 'mix'
-          let cri = ((400 / (trainData.value.mainSignal*1)) * 60 * 1000) / dots[type]
-          setTimeout(()=>{
-            operation({type:'changeCriterion',data:cri*window.audioSpeedDeviation})
-          },1000)
-          // operation({type:'changeCriterion',data:countCriterion(Number(trainData.value.mainSignal))})
-        }
+        applyAudioTiming(Number(trainData.value.mainSignal))
 
-        findTrainBaoWenInfo(selfId.value, trainData.value['currPag'])
-        // if (trainData.value['pag'] > 1 && trainData.value['currPag'] < trainData.value['pag']) {
-        //   setTimeout(() => {
-        //     findTrainBaoWenInfo(selfId.value, trainData.value['currPag'] + 1)
-        //   }, 500)
-        // }
-        // handlePlayCodeData();//处理为页面数据；
+        allCode.length = 0
+        await findTrainBaoWenInfo(selfId.value, 1)
         trainData.value.receiveUser.forEach(item => {
           if (item.id == selfId.value) {
             if (item.userStatus == 1) {
               step.value = 2
               result.value = item
-            } else {
-              login()
             }
           }
         })
@@ -326,11 +331,12 @@ export default function useBroadStudent() {
    * @param pag
    */
   const findTrainBaoWenInfo = (userId, pag) => {
-    findUserPageBaoWenInfo({
+    return findUserPageBaoWenInfo({
       roomId: Number(route.query.id),
       userId: userId,
       pageNumber: pag
     }).then(res => {
+      if (res.code !== 200) throw new Error(res.msg || '读取报底失败')
       if (res.code === 200) {
         allBaoWen.value[pag + ''] = res.data
         res.data.pageVos.forEach((item,index)=>{
@@ -344,7 +350,7 @@ export default function useBroadStudent() {
         if(pag<trainData.value['pag']){
           allCode.push('/')
           allCode.push(' ')
-          findTrainBaoWenInfo(userId,pag+1)
+          return findTrainBaoWenInfo(userId,pag+1)
         }else {
           message.success({content:'报底加载完毕！',key:'noticeOk'})
           if(trainData.value.isStartSign===0){
@@ -374,38 +380,12 @@ export default function useBroadStudent() {
       }
       trainData.value.currPag--
     }
-    if (!allBaoWen.value[trainData.value.currPag + 1 + ''] && trainData.value.currPag < trainData.value.pag) {
-      findTrainBaoWenInfo(selfId.value, trainData.value.currPag + 1)
-    }
+    refresh()
   }
 
-  /**
-   * 计算码率的点标准时长
-   * @param rate
-   * @returns {number}
-   */
-  const countCriterion = rate => {
-    let criterion = 0
-    let type = trainData.value.bwType == 1 ? 'short' : trainData.value.bwType == 2 ? 'long' : trainData.value.bwType == 3 ? 'letter' : 'mix'
-    criterion = parseInt(((400 / rate) * 60 * 1000) / dots[type])
-    return criterion
-  }
-
-  const lowSpeedTime = rate => {
-    let type = trainData.value.bwType == 1 ? 'short' : trainData.value.bwType == 2 ? 'long' : trainData.value.bwType == 3 ? 'letter' : 'mix'
-    let ms = dotTime.value
-    let ml = ((400 / rate) * 60 * 1000) / dots[type]
-    let pr1 = (((ml - ms) * scatter[type].d) / scatter[type].l + ml * 3) / ml
-    let pr2 = (((ml - ms) * scatter[type].d) / scatter[type].w + ml * 3) / ml
-    let pr3 = (((ml - ms) * scatter[type].d) / scatter[type].g + ml * 5) / ml
-    operation({type:'changeRatio',data:{
-        dot: 1,
-        dash: Number(pr1.toFixed(2)),
-        gap: 1,
-        word: Number(pr2.toFixed(2)),
-        suite: Number(pr3.toFixed(2)),
-        leaf: Number(((pr3 / 5) * 7).toFixed(2))
-      }})
+  const applyAudioTiming = rate => {
+    const type = trainData.value.bwType == 1 ? 'short' : trainData.value.bwType == 2 ? 'long' : trainData.value.bwType == 3 ? 'letter' : 'mix'
+    operation({type: 'configure', data: {...calculateTiming({rate, type, lowRate: rate < 35}), frequency: frequency.value, volume: 1, model: true}})
   }
 
   const handlePlayCodeData = (pag, _data) => {
@@ -440,7 +420,8 @@ export default function useBroadStudent() {
    * @param codeIndex
    * @param currPag
    */
-  const againPlayCode = (type) => {
+  const againPlayCode = async (type) => {
+    if (!await ensureReady()) return
     storage.value.visible = false
     readyForTest()
     if (storage.value.status == 1) {
@@ -449,7 +430,6 @@ export default function useBroadStudent() {
       }, 1000)
       if(type===0){
         codeIndex = 0
-        prevCode = null
         playCodeInfo()
       }else {
         playCodeInfo('continue')
@@ -458,6 +438,8 @@ export default function useBroadStudent() {
   }
 
   return {
+    recoveryError,
+    socketStatus,
     handleScoreData,
     findTrainDataInfo,
     trainData,

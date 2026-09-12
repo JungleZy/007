@@ -116,6 +116,10 @@ export default function lineNotify(selectCable) {
       })
     } else {
       getRoomUserList(row.id).then(data => {
+        if (data.code != 200 || !data.data) {
+          message.error(data.msg || '读取训练房间失败')
+          return
+        }
         const sendList = data.data.sendUserList.map(item => item.id)
         const putAwayList = data.data.receiveUserList.map(item => item.id)
         let str = '/lineNotifyTrain'
@@ -135,8 +139,10 @@ export default function lineNotify(selectCable) {
               id: row.id
             }
           })
+        } else {
+          message.error('当前用户不在房间收发人员中，无法进入训练')
         }
-      })
+      }).catch(() => message.error('读取训练房间失败，请重试'))
     }
   }
 

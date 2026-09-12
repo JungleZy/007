@@ -35,7 +35,7 @@
           <img :src="addNext" class="img" @click="addResult()" />
         </div>
       </div>
-      <div class="btn oper max" @click="confirmResult()">上传结果</div>
+      <div class="btn oper max" :aria-disabled="submitting" @click="confirmResult()">{{ submitting ? '正在上传…' : '上传结果' }}</div>
     </div>
   </div>
 </template>
@@ -53,6 +53,7 @@ import saveIco from '../../../../assets/HJ/postTrain/btn-ico-save.png'
 import iconImage from "../../postJob/js/iconImage"
 const {thume,addNext} = iconImage()
 
+const props = defineProps({ submitting: Boolean })
 const emits = defineEmits(['result'])
 const trainResult = ref([])
 const trainResultIndex = ref(-1)
@@ -110,6 +111,7 @@ const addResult = () => {
 }
 
 const confirmResult = () => {
+  if (props.submitting) return
   if (emitResult.value.length == 0) {
     message.error('您还未填写您的抄报结果！')
     return false

@@ -1,7 +1,9 @@
 <template>
   <div class="w-full h-full content-mask-bg">
-    <div v-if="createId == selfId && createFlag" class="w-full h-full"><BroadTeacher></BroadTeacher></div>
-    <div v-if="createId != selfId && !createFlag" class="w-full h-full"><BroadStudent></BroadStudent></div>
+    <a-alert v-if="entryError" type="error" :message="entryError" show-icon />
+    <a-button v-if="entryError" @click="loadEntry">重新读取训练</a-button>
+    <div v-if="entryRole === 'teacher'" class="w-full h-full"><BroadTeacher /></div>
+    <div v-else-if="entryRole === 'student'" class="w-full h-full"><BroadStudent /></div>
   </div>
 </template>
 
@@ -13,35 +15,24 @@ export default {
 <script setup>
 import BroadTeacher from '../../../../components/BroadcastTeachTrain/BroadTeacher.vue'
 import BroadStudent from '../../../../components/BroadcastTeachTrain/BroadStudent.vue'
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { getRoomDetail } from '../../../../common/api/broaddcastTeacheingApi'
 const route = useRoute()
-
-import { PauseCircleFilled, PlayCircleFilled, StopFilled, CheckCircleFilled } from '@ant-design/icons-vue'
-// import useBroadcastTrain from './js/useBroadcastTrain'
-let createId = ref('')
-let selfId = ref('')
-let createFlag = ref(true)
-createId.value = route.query.createUserId
-
-selfId.value = JSON.parse(localStorage.getItem('userInfo')).id
-
-onMounted(() => {
-  createDo()
-})
-const createDo = () => {
-  if (selfId.value == createId.value) {
-    //是创建者
-    createFlag.value = true
-  } else {
-    createFlag.value = false
+const entryRole = ref(null)
+const entryError = ref('')
+const loadEntry = async () => {
+  entryError.value = ''
+  try {
+    const response = await getRoomDetail({ roomId: Number(route.query.id) })
+    if (response.code !== 200 || !response.data) throw new Error(response.msg || '无权查看该训练')
+    const room = response.data
+    entryRole.value = room.teacher === true ? 'teacher' : 'student'
+  } catch (error) {
+    entryError.value = error.message || '读取训练身份失败'
   }
 }
-/*const {
-    trainTimeRef,trainData,
-    cacheData,
-    openTrainInfo,closeTrainInfo,pageTurn
-  } = useBroadcastTrain();*/
+onMounted(loadEntry)
 </script>
 
 <style lang="less" scoped>

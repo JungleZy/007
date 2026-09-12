@@ -1,9 +1,10 @@
 package com.nip.service.simulation;
 
 import cn.hutool.core.util.ObjectUtil;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
 import com.nip.common.constants.SimulationRoomTypeEnum;
-import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.common.utils.SimulationMessageGenerator;
 import com.nip.dao.UserDao;
@@ -48,6 +49,8 @@ public class SimulationRouterRoomContentService {
   private final CableFloorService cableFloorService;
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
+  @Inject SimulationResultNotifier resultNotifier;
+  @Inject SimulationRoomAccess roomAccess;
 
   @Inject
   public SimulationRouterRoomContentService(
@@ -90,6 +93,7 @@ public class SimulationRouterRoomContentService {
     roomEntity.setStats(0);
     roomEntity.setRoomType(SimulationRoomTypeEnum.DISTURB.getType());
     SimulationRouterRoomEntity room = routerRoomDao.save(roomEntity);
+    routerRoomDao.lockRoom(room.getId());
 
     // 保存房间报底
     SimulationRouterRoomContentEntity roomContentEntity = new SimulationRouterRoomContentEntity();
@@ -151,8 +155,7 @@ public class SimulationRouterRoomContentService {
 
   @Transactional
   public Integer addStudent(HttpServerRequest request, SimulationDisturdDetailParam param) {
-    SimulationRouterRoomEntity byId = Optional.ofNullable(routerRoomDao.findById(param.getRoomId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该房间"));
+    SimulationRouterRoomEntity byId = routerRoomDao.lockRoom(param.getRoomId());
     UserEntity userEntity = userService.getUserByToken(request.getHeader(TOKEN));
     SimulationRouterRoomUserEntity user = roomUserDao.findByUserIdAndRoomId(userEntity.getId(), param.getRoomId());
     if (user == null) {
@@ -176,6 +179,7 @@ public class SimulationRouterRoomContentService {
   }
 
   public SimulationDisturdDetailVO findOne(HttpServerRequest request, Integer roomId) {
+    boolean teacher = roomAccess.requireMember(request, roomId);
     String token = request.getHeader(TOKEN);
     UserEntity userEntity = userService.getUserByToken(token);
 
@@ -186,6 +190,7 @@ public class SimulationRouterRoomContentService {
       SimulationRouterRoomContentMessageDto allByUserId = roomContentDao.findMessage(roomId);
       SimulationDisturdDetailVO simulationDisturdDetailVO = PojoUtils.convertOne(allByUserId, SimulationDisturdDetailVO.class);
       if (simulationDisturdDetailVO != null) {
+        simulationDisturdDetailVO.setTeacher(teacher);
         if (!Objects.isNull(roomUserEntity)) {
           simulationDisturdDetailVO.setContentValue(roomUserEntity.getContentValue());
         }
@@ -201,9 +206,12 @@ public class SimulationRouterRoomContentService {
   }
 
   public List<SimulationDisturdTrainVO> findTrainUser(HttpServerRequest request, Integer roomId) {
+    boolean teacher = roomAccess.requireMember(request, roomId);
+    String requester = userService.getUserByToken(request.getHeader(TOKEN)).getId();
     List<SimulationRouterRoomUserDto> tranUser = roomUserDao.findTranUser(roomId);
     List<SimulationDisturdTrainVO> ret = PojoUtils.convert(tranUser, SimulationDisturdTrainVO.class);
     ret.forEach(item -> {
+      if (!teacher && !Objects.equals(requester, item.getId())) item.setContentValue(null);
       long existPageNumber = pageValueDao.countByUserIdAndRoomId(item.getId(), roomId);
       item.setExistPageNumber(existPageNumber);
     });
@@ -211,18 +219,48 @@ public class SimulationRouterRoomContentService {
 
   }
 
-  @Transactional
+  @Transactional(rollbackOn = Exception.class)
   public SimulationDisturdDetailVO uploadResult(HttpServerRequest request, SimulationDisturdUploadResultVO detailVO) {
-    SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(detailVO.getUserId(),
-        detailVO.getRoomId());
-    if (!Objects.isNull(roomUserEntity)) {
-      // roomUserEntity.setContentValue(detailVO.getContentValue());
-      roomUserEntity.setUserStatus(1);
-      roomUserDao.save(roomUserEntity);
+    if (detailVO == null || detailVO.getContentValue() == null) {
+      throw new IllegalArgumentException("请提交完整答案数组");
     }
-    List<SimulationRouterRoomPageValueEntity> pageValueEntityList = getSimulationRouterRoomPageValueEntities(detailVO);
-    pageValueDao.save(pageValueEntityList);
-    return findOne(request, detailVO.getRoomId());
+    SimulationRouterRoomEntity room = routerRoomDao.lockRoom(detailVO.getRoomId());
+    UserEntity user = userService.getUserByToken(request.getHeader(TOKEN));
+    SimulationRouterRoomUserEntity roomUserEntity = roomUserDao.findByUserIdAndRoomId(user.getId(), room.getId());
+    if (roomUserEntity == null || !Objects.equals(roomUserEntity.getUserType(), 1)) {
+      throw new IllegalArgumentException("仅参训收报人员可提交答案");
+    }
+    if (!Objects.equals(room.getStats(), 1) && !Objects.equals(room.getStats(), 2)) {
+      throw new IllegalArgumentException("训练尚未开始，不能提交答案");
+    }
+    for (String value : detailVO.getContentValue()) {
+      if (value == null) {
+        throw new IllegalArgumentException("答案页不能为空，请用空数组表示空页");
+      }
+      JsonElement page;
+      try {
+        page = JsonParser.parseString(value);
+      } catch (JsonParseException e) {
+        throw new IllegalArgumentException("答案页必须是字符串数组", e);
+      }
+      if (!page.isJsonArray()) {
+        throw new IllegalArgumentException("答案页必须是字符串数组");
+      }
+      for (JsonElement group : page.getAsJsonArray()) {
+        if (!group.isJsonPrimitive() || !group.getAsJsonPrimitive().isString()) {
+          throw new IllegalArgumentException("答案页必须是字符串数组");
+        }
+      }
+    }
+    // A request replaces the whole answer, including pages omitted by a shorter retry.
+    pageValueDao.deleteByRoomIdAndUserId(room.getId(), user.getId());
+    List<SimulationRouterRoomPageValueEntity> pages = getSimulationRouterRoomPageValueEntities(detailVO, user.getId());
+    pageValueDao.save(pages);
+    pageValueDao.flush();
+    roomUserEntity.setUserStatus(1);
+    roomUserDao.saveAndFlush(roomUserEntity);
+    resultNotifier.publish(room.getId(), user.getId(), room.getRoomType());
+    return findOne(request, room.getId());
   }
 
   public boolean delete(Integer roomId) {
@@ -232,6 +270,7 @@ public class SimulationRouterRoomContentService {
     lock.lock();
     try {
       deleted = roomDeletionTransaction.run(() -> {
+        routerRoomDao.lockRoom(roomId);
         pageValueDao.delete("roomId=?1", roomId);
         pageDao.delete("roomId=?1", roomId);
         roomUserDao.delete("roomId=?1", roomId);
@@ -247,14 +286,14 @@ public class SimulationRouterRoomContentService {
   }
 
   private static List<SimulationRouterRoomPageValueEntity> getSimulationRouterRoomPageValueEntities(
-      SimulationDisturdUploadResultVO detailVO) {
-    List<SimulationRouterRoomPageValueEntity> pageValueEntityList = new ArrayList<>();
+      SimulationDisturdUploadResultVO detailVO, String userId) {
+    List<SimulationRouterRoomPageValueEntity> pageValueEntityList = new ArrayList<>(detailVO.getContentValue().size());
     for (int i = 0; i < detailVO.getContentValue().size(); i++) {
       String value = detailVO.getContentValue().get(i);
       SimulationRouterRoomPageValueEntity pageValueEntity = new SimulationRouterRoomPageValueEntity();
       pageValueEntity.setPageNumber(i + 1);
       pageValueEntity.setRoomId(detailVO.getRoomId());
-      pageValueEntity.setUserId(detailVO.getUserId());
+      pageValueEntity.setUserId(userId);
       pageValueEntity.setValue(value);
       pageValueEntityList.add(pageValueEntity);
     }

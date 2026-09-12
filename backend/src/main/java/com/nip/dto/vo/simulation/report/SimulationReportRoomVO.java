@@ -11,6 +11,7 @@ import java.util.List;
 //@ApiModel(value = "仿真训练 通播教学")
 @RegisterForReflection
 public class SimulationReportRoomVO {
+  private boolean teacher;
 
   //@ApiModelProperty(value = "id")
   private Integer id;

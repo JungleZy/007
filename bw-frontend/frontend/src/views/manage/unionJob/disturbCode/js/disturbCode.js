@@ -2,7 +2,7 @@ import {ref, onMounted} from 'vue'
 import moment from 'moment'
 import useMorse from '../../../../../common/mixin/useMorse.js'
 import {message} from 'ant-design-vue'
-import {addDisturbCodeTrain} from '../../../../../common/api/UnionApi.js'
+import {addDisturbCodeTrain, reportIntoTrainRoom} from '../../../../../common/api/UnionApi.js'
 import {useRouter} from 'vue-router'
 
 export default function disturbCode(selectCable) {
@@ -154,8 +154,16 @@ export default function disturbCode(selectCable) {
    * 进入训练房间
    * @param item
    */
-  const intoTrainRoom = item => {
-    router.push({path: drillPath.value, query: {id: item.id}})
+  const intoTrainRoom = async item => {
+    try {
+      if (item.createUserId != userInfo.value.id && item.stats < 2) {
+        const response = await reportIntoTrainRoom({roomId: Number(item.id)})
+        if (response?.code !== 200) throw new Error(response?.msg || response?.message || '加入训练失败')
+      }
+      router.push({path: drillPath.value, query: {id: item.id}})
+    } catch (error) {
+      message.error(error.message || '加入训练失败，请重试')
+    }
   }
 
   return {

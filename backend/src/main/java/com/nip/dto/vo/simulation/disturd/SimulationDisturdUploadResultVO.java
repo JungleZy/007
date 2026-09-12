@@ -15,9 +15,6 @@ import java.util.List;
 @RegisterForReflection
 public class SimulationDisturdUploadResultVO {
 
-  //@ApiModelProperty(value = "用户id",position = 1)
-  private String userId;
-
   //@ApiModelProperty(value = "房间id",position = 2)
   private Integer roomId;
 

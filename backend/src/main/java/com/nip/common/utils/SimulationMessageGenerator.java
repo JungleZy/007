@@ -217,7 +217,7 @@ public final class SimulationMessageGenerator {
                 int blockSize = Math.min(10, groupCount - base);
                 List<Integer> basePerm = buildDigitPermutation(isRandom, random);
                 for (int i = 0; i < blockSize; i++) {
-                    if (sort != 0 && sort % AVG_THRESHOLD == 0) {
+                    if (sort != 0 && sort % MESSAGES_PER_PAGE == 0) {
                         currentPage++;
                     }
                     StringBuilder body = new StringBuilder(GROUPS_PER_MESSAGE);

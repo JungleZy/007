@@ -1,6 +1,9 @@
 <template>
   <div class="w-full h-full content-mask-bg">
-    <div class="w-full h-full trainBoxs">
+    <div v-if="recoveryError || socketStatus === 'offline' || socketStatus === 'closed'" style="height: 40px; overflow: auto">
+      <a-alert show-icon :type="recoveryError ? 'error' : 'warning'" :message="recoveryError || '连接已断开，结果以服务器回读为准，恢复连接后自动刷新'" />
+    </div>
+    <div class="w-full h-full trainBoxs" :style="{ height: recoveryError || socketStatus === 'offline' || socketStatus === 'closed' ? 'calc(100% - 40px)' : '100%' }">
       <TrainLeft @StartTest="openTrainInfo" @endTest="closeTrainInfo" :trainData="trainData">
         <template v-slot:top>
           <div class="desc">
@@ -92,8 +95,8 @@
               </div>
             </div>
           </div>
-          <TrainResult class="patTelegraphBox" :result="result.res[result.curr + '']" :curr="result.curr" :all="result.existPage" @switchPage="modelPageTurn" v-if="check != null && result.user.userStatus == 1" />
-          <div class="layout-center h-full w-full" v-if="check != null && result.user.userStatus != 1" style="font-size: 40px">该人员尚未上传答案!</div>
+          <TrainResult class="patTelegraphBox" :result="result.res[result.curr + '']" :curr="result.curr" :all="result.existPage" @switchPage="modelPageTurn" v-if="check != null && result.user?.userStatus == 1" />
+          <div class="layout-center h-full w-full" v-if="check != null && result.user && result.user.userStatus != 1" style="font-size: 40px">该人员尚未上传答案!</div>
         </div>
       </div>
       <div class="playTipsBox" v-if="trainData.status == 1&&maskShow">
@@ -124,7 +127,7 @@ import TrainResult from '../../views/manage/unionJob/disturbCode/TrainResult.vue
 import useBroadTeacher from './js/useBroadTeacher'
 const fileUrl = ref(window.fileUrl)
 const countDown = ref(null)
-const { trainTimeRef, trainData,maskShow, openTrainInfo,continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, allBaoWen, modelPageTurn } = useBroadTeacher(countDown)
+const { trainTimeRef, trainData,maskShow, openTrainInfo,continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, allBaoWen, modelPageTurn, recoveryError, socketStatus } = useBroadTeacher(countDown)
 </script>
 
 <style lang="less" scoped>

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 //@ApiModel(value = "仿真训练 快报/干扰报")
 @RegisterForReflection
 public class SimulationDisturdDetailVO {
+    private boolean teacher;
     //@ApiModelProperty(value = "创建人id")
     private String id;
 

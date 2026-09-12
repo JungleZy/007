@@ -1,7 +1,8 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { getDisturbCodeTrainData, reportIntoTrainRoom, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
+import { getDisturbCodeTrainData, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
 import {wsUrl} from '../../../../../common/http/endpoint.js'
+import SocketConnection from '../../../../../common/ws/SocketConnection.js'
 import { useRoute } from 'vue-router'
 import Voice from '../../../../../common/utils/MorseVoice'
 import useMorse from '../../../../../common/mixin/useMorse'
@@ -19,6 +20,8 @@ export default function train() {
   const allBaoWen = ref({})
   const joinTrainUser = ref([])
   const WSConnect = ref(false)
+  const recoveryError = ref('')
+  const submittingResult = ref(false)
   const student = ref({
     road: '0',
     msg: null
@@ -129,7 +132,15 @@ export default function train() {
   let storeTimer = null
   let storefFlag = false
   let roomId = null
-  let ws = null
+  const ws = new SocketConnection()
+  let disposed = false
+  let recoveryTimer = null
+  let recoveryPromise = null
+  let recoveryPending = false
+  let initialized = false
+  let modalGeneration = 0
+  let pageGeneration = 0
+  const pageRequests = new Map()
   let voice1 = new Voice(),
     voice2 = new Voice(),
     voice3 = new Voice(),
@@ -138,15 +149,17 @@ export default function train() {
     voice6 = new Voice()
   const allCode = [] //播报
   const {operation} = operationMorseVoice()
-  PubSub.subscribe('receiveProcessData',res=>{
+  const audioSubscription = PubSub.subscribe('receiveProcessData',res=>{
     if(res.status==='finish'){
       message.success('播报已结束')
     }
   })
   onMounted(() => {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('beforeunload', beforeUnload)
     if (route.query.id && route.query.id !== '') {
       roomId = route.query.id
-      findTrainDataInfo()
+      recoverResults()
       if (window.localStorage.getItem('dispose' + roomId)) {
         storage.value = JSON.parse(window.localStorage.getItem('dispose' + roomId))
       }
@@ -154,9 +167,15 @@ export default function train() {
   })
 
   onBeforeUnmount(() => {
-    PubSub.unsubscribe('receiveProcessData')
+    disposed = true
+    clearTimeout(recoveryTimer)
+    clearTimeout(storeTimer)
+    clearInterval(trainTimer.value)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('beforeunload', beforeUnload)
+    PubSub.unsubscribe(audioSubscription)
     WSConnect.value = false
-    if (trainData.value.status == 1) {
+    if (trainData.value?.status == 1) {
       storage.value.totalTime = totalTime.value
       storage.value.playCodeIndex = trainData.value.playCodeIndex
       storage.value.playPage = trainData.value.currPag
@@ -176,10 +195,7 @@ export default function train() {
         clearInterval(trainTimer.value)
       }
     }
-    if (ws) {
-      ws.close()
-      ws = null
-    }
+    ws.close()
     disturbList.value.map(item => {
       if (item.gain != null) {
         item.source.stop(0)
@@ -190,9 +206,12 @@ export default function train() {
       item.xhr = null
     })
   })
-  window.onbeforeunload = function (event) {
+  const beforeUnload = () => {
+    disposed = true
+    clearTimeout(recoveryTimer)
+    clearTimeout(storeTimer)
     WSConnect.value = false
-    if (trainData.value.status == 1) {
+    if (trainData.value?.status == 1) {
       storage.value.totalTime = totalTime.value
       storage.value.playCodeIndex = trainData.value.playCodeIndex
       storage.value.playPage = trainData.value.currPag
@@ -212,29 +231,30 @@ export default function train() {
         clearInterval(trainTimer.value)
       }
     }
-    if (ws) {
-      ws.close()
-      ws = null
-    }
+    ws.close()
   }
   /**
    * 初始化websocket连接
    */
   const initWebSocket = () => {
-    if (ws) return false
-    ws = new WebSocket(wsUrl(`/simulation/${userInfo.value.id}/${route.query.id}`))
-    ws.onopen = e => {
-      WSConnect.value = true
-    }
-    ws.onclose = () => {
-      ws = null
-      // initWebSocket()
-    }
-    ws.onmessage = e => {
-      console.log(e)
-      let res = JSON.parse(e.data),
-        data = JSON.parse(res.data),
-        body
+    if (disposed || ws.active) return
+    ws.connect(wsUrl(`/simulation/${userInfo.value.id}/${roomId}`), e => {
+      if (disposed || !trainData.value) return
+      let data, body
+      try {
+        const envelope = JSON.parse(e.data)
+        data = typeof envelope.data === 'string' ? JSON.parse(envelope.data) : envelope.data || envelope
+      } catch (error) {
+        return
+      }
+      if (!data || typeof data !== 'object') return
+      if (data.roomId != null && String(data.roomId) !== String(roomId)) return
+      if (data.type === 'result' || data.topic === 'result') {
+        recoverResults()
+        return
+      }
+      if (!data.body || typeof data.body !== 'object') return
+      if (['1', '2', '3'].includes(String(data.body.type)) && (!data.body.dispose || typeof data.body.dispose !== 'object')) return
       if (trainData.value.creatUser) {
         // 老师收到推送
         switch (data.topic) {
@@ -265,19 +285,12 @@ export default function train() {
             })
             break
           }
-          case 'result': {
-            findTrainUserListInfo()
-            findTrainDataInfo()
+          case 'end': {
+            recoverResults()
             break
           }
         }
       } else {
-       // try {
-       //   res.data = JSON.parse(res.data)
-       //   data.body = JSON.parse(data.body)
-       // }catch (e) {
-       //
-       // }
         // 学生收到推送
         if (data.topic == 'online') {
           message.success('考官已回来')
@@ -287,16 +300,16 @@ export default function train() {
           examinerStatus.value = 'offline'
         } else {
           body = data.body
+          if (body.status == 2) {
+            recoverResults()
+            return
+          }
           if (body.status == 1) {
             trainData.value['status'] = body.status
+            clearInterval(trainTimer.value)
             trainTimer.value = setInterval(() => {
               totalTime.value++
             }, 1000)
-          }
-          if (body.status == 2) {
-            clearInterval(trainTimer.value)
-            window.localStorage.removeItem('dispose' + roomId)
-            location.reload()
           }
           if (body.type == '1') {
             // 主信号
@@ -485,72 +498,146 @@ export default function train() {
           }
         }
       }
+    }, () => recoverResults(), state => {
+      if (!disposed) WSConnect.value = state === 'open'
+    })
+  }
+
+  const resultData = response => {
+    if (response?.code !== 200 || response.data == null) {
+      throw new Error(response?.msg || response?.message || '训练结果读取失败，请重试')
     }
+    return response.data
+  }
+
+  const waitingForResults = () => !trainData.value || recoveryError.value || (
+    trainData.value.status == 2 && (trainData.value.creatUser
+      ? joinTrainUser.value.some(user => user.userStatus != 1)
+      : !userConfirmResult.value)
+  )
+
+  const scheduleRecovery = () => {
+    clearTimeout(recoveryTimer)
+    recoveryTimer = null
+    if (!disposed && !document.hidden && waitingForResults()) {
+      recoveryTimer = setTimeout(() => recoverResults(), 5000)
+    }
+  }
+
+  const onVisibilityChange = () => {
+    clearTimeout(recoveryTimer)
+    recoveryTimer = null
+    if (!document.hidden) recoverResults()
+  }
+
+  const recoverResults = () => {
+    if (disposed || !roomId) return Promise.resolve()
+    if (document.hidden) {
+      recoveryPending = true
+      return Promise.resolve()
+    }
+    recoveryPending = true
+    if (recoveryPromise) return recoveryPromise
+    clearTimeout(recoveryTimer)
+    recoveryPromise = (async () => {
+      try {
+        do {
+          recoveryPending = false
+          try {
+            await findTrainDataInfo()
+            if (!disposed) recoveryError.value = ''
+          } catch (error) {
+            if (!disposed) recoveryError.value = error.message || '训练结果读取失败，请重试'
+          }
+        } while (recoveryPending && !disposed && !document.hidden)
+      } finally {
+        recoveryPromise = null
+        scheduleRecovery()
+      }
+    })()
+    return recoveryPromise
   }
 
   /**
    * 获取训练房数据信息
    */
-  const findTrainDataInfo = () => {
-    getDisturbCodeTrainData({
-      roomId: Number(route.query.id)
-    }).then(res => {
-      if (res.code === 200) {
-        // res.data.content = JSON.parse(res.data.content);
-        res.data.mainSignal = JSON.parse(res.data.mainSignal)
-        res.data.interferenceSignal = JSON.parse(res.data.interferenceSignal)
-        if (res.data.setting && res.data.setting != '') {
-          res.data.setting = JSON.parse(res.data.setting)
-          cacheDispose.value.mainSignal = res.data.setting.mainSignal
-          cacheDispose.value.noiseDisturb = res.data.setting.noiseDisturb
-          cacheDispose.value.codeDisturb = res.data.setting.codeDisturb
-        }
-        trainData.value = res.data
-        trainData.value['status'] = trainData.value.stats
-        if(res.data.isCable===1){
-          trainData.value['pag'] = res.data.pageCount
-        }else {
-          trainData.value['pag'] = Math.ceil(trainData.value.bwCount / 100)
-        }
-        trainData.value['currPag'] = window.localStorage.getItem('dispose' + roomId) && trainData.value.stats == 1 ? storage.value.playPage : 1
-        trainData.value['creatUser'] = userInfo.value.id == res.data.id
-        trainData.value['playCodeIndex'] = window.localStorage.getItem('dispose' + roomId) && trainData.value.stats == 1 ? storage.value.playCodeIndex : 0
-        findTrainBaoWenInfo(userInfo.value.id, trainData.value['currPag'])
-        // if (trainData.value['pag'] > 1 && trainData.value['currPag'] < trainData.value['pag']) {
-        //   setTimeout(() => {
-        //     findTrainBaoWenInfo(userInfo.value.id, trainData.value['currPag'] + 1)
-        //   }, 500)
-        // }
-        if (trainData.value.creatUser == '1' && (trainData.value.existPageNumber == null || trainData.value.existPageNumber == 0)) {
-          if (trainData.value.status < 2) {
-            initWebSocket()
-          }
-          initDisposeInfo()
-          if (trainData.value.status == 1) {
-            totalTime.value = storage.value.totalTime ? storage.value.totalTime : 0
-            trainTime()
-            ban.value = false
-          }
-        } else {
-          if (res.data.existPageNumber != null && res.data.existPageNumber > Math.ceil(trainData.value.bwCount / 100)) {
-            trainData.value['pag'] = res.data.existPageNumber
-          }
-          if (trainData.value.status < 2) {
-            reportIntoTrainRoom({ roomId: Number(route.query.id) }).then(res => {
-              initWebSocket()
-            })
-          }
-          if (trainData.value.status == 1 && window.localStorage.getItem('dispose' + roomId)) {
-            playTips.value.visible = true
-          }
-        }
-        findTrainUserListInfo()
-        handlePlayCodeDisturbData()
-        if (trainData.value.stats < 2) {
-          getDisturbAudioSource()
-        }
+  const findTrainDataInfo = async () => {
+    const data = resultData(await getDisturbCodeTrainData({ roomId: Number(roomId) }))
+    if (disposed) return
+    const previous = trainData.value
+    const first = !initialized
+    const parseSetting = value => typeof value === 'string' ? JSON.parse(value) : value || {}
+    data.mainSignal = parseSetting(data.mainSignal)
+    data.interferenceSignal = parseSetting(data.interferenceSignal)
+    if (data.setting) {
+      const setting = parseSetting(data.setting)
+      cacheDispose.value = {
+        mainSignal: setting.mainSignal || {},
+        noiseDisturb: setting.noiseDisturb || {},
+        codeDisturb: setting.codeDisturb || {}
       }
-    })
+    }
+    data.status = data.stats
+    data.creatUser = data.teacher === true
+    data.pag = Math.max(1, Number(data.isCable) === 1 ? Number(data.pageCount) || 0 : Math.ceil(data.bwCount / 100), Number(data.existPageNumber) || 0)
+    data.currPag = Math.min(data.pag, Math.max(1, previous?.currPag || (data.status == 1 ? storage.value.playPage : 1)))
+    data.playCodeIndex = previous?.playCodeIndex || (data.status == 1 ? storage.value.playCodeIndex : 0)
+    data.content = previous?.content
+    trainData.value = data
+    initWebSocket()
+    await findTrainUserListInfo()
+    if (disposed || document.hidden) return
+    pageGeneration++
+    if (data.status == 2) {
+      clearInterval(trainTimer.value)
+      playTips.value.visible = false
+      ban.value = true
+      window.localStorage.removeItem('dispose' + roomId)
+      if (previous?.status == 1) {
+        operation({type:'stop'})
+        ;[voice1, voice2, voice3, voice4, voice5, voice6].forEach(voice => voice.clear())
+        disturbList.value.forEach(item => changeAudioPlay(item, false))
+      }
+      allBaoWen.value = {}
+    }
+    const pages = first && data.status < 2
+      ? Array.from({ length: data.pag }, (_, index) => index + 1)
+      : [data.currPag]
+    for (const page of pages) {
+      await findTrainBaoWenInfo(userInfo.value.id, page)
+      if (disposed || document.hidden) return
+    }
+    if (first && data.status < 2) {
+      allCode.length = 0
+      allCode.push('#', ' ')
+      for (let page = 1; page <= data.pag; page++) {
+        allBaoWen.value[page].pageVos.forEach(item => allCode.push(...item.key.split(''), ' '))
+        if (page < data.pag) allCode.push('/', ' ')
+      }
+      allCode.push('!')
+      handlePlayCodeDisturbData()
+      getDisturbAudioSource()
+      if (data.creatUser) {
+        initDisposeInfo()
+        if (data.status == 1) {
+          totalTime.value = storage.value.totalTime || 0
+          trainTime()
+          ban.value = false
+        }
+      } else if (data.status == 1 && window.localStorage.getItem('dispose' + roomId)) {
+        playTips.value.visible = true
+      }
+    }
+    initialized = true
+    if (trainResult.value.visible && trainResult.value.user) {
+      const selected = joinTrainUser.value.find(user => user.id == trainResult.value.user.id)
+      if (selected) trainResult.value.user = selected
+      trainResult.value.existPage = Math.max(data.pag, Number(trainResult.value.user.existPageNumber) || 0)
+      trainResult.value.curr = Math.min(trainResult.value.curr, trainResult.value.existPage)
+      modalGeneration++
+      trainResult.value.res = {}
+      await findUserTrainBaoWenInfo(trainResult.value.user.id, trainResult.value.curr)
+    }
   }
 
   /**
@@ -559,76 +646,44 @@ export default function train() {
    * @param pag
    */
   const findTrainBaoWenInfo = (userId, pag) => {
-    findUserPageBaoWenInfo({
-      roomId: Number(route.query.id),
-      userId: userId,
-      pageNumber: pag
-    }).then(res => {
-      if (res.code === 200) {
-        allBaoWen.value[pag + ''] = res.data
-        if (pag == trainData.value['currPag']) {
-          trainData.value.content = res.data.pageVos
-        }
-        res.data.pageVos.forEach(item=>{
-          allCode.push(...item.key.split(''))
-          allCode.push(' ')
-        })
-        if(pag<trainData.value['pag']){
-          allCode.push('/')
-          allCode.push(' ')
-          findTrainBaoWenInfo(userId,pag+1)
-        }else {
-          message.success({content:'报底加载完毕！',key:'noticeOk'})
-          allCode.unshift(' ')
-          allCode.unshift('#')
-          allCode.push('!')
-        }
-        // if (trainData.value.status < 2) {
-        //   handlePlayCodeData(pag, res.data)
-        // }
+    const generation = pageGeneration
+    const key = `${generation}:${userId}:${pag}`
+    if (pageRequests.has(key)) return pageRequests.get(key)
+    const request = (async () => {
+      try {
+        const response = await findUserPageBaoWenInfo({ roomId: Number(roomId), userId, pageNumber: pag })
+        if (disposed || generation !== pageGeneration) return
+        const data = resultData(response)
+        allBaoWen.value[pag] = data
+        if (pag == trainData.value.currPag) trainData.value.content = data.pageVos
+      } finally {
+        pageRequests.delete(key)
       }
-    })
+    })()
+    pageRequests.set(key, request)
+    return request
   }
 
   /**
    *获取参训人员列表信息
    */
-  const findTrainUserListInfo = () => {
-    getDisturbCodeTrainUserList({
-      roomId: Number(route.query.id)
-    }).then(res => {
-      if (res.code === 200) {
-        res.data.map(user => {
-          if (user.userStatus == 1) {
-            if (userInfo.value.id == user.id) {
-              userConfirmResult.value = true
-            }
-          }
-          if (userInfo.value.id == user.id) {
-            student.value.road = user.channel
-            if (cacheDispose.value.mainSignal[user.channel + ''] && cacheDispose.value.mainSignal[user.channel + ''] != null) {
-              student.value.msg = cacheDispose.value.mainSignal[user.channel + '']
-            } else {
-              student.value.msg = trainData.value.mainSignal[user.channel + '']
-            }
-            if (trainData.value.status == 2 && !trainData.value.creatUser) {
-              trainResult.value.user = user
-            }
-          }
-        })
-        if (!userConfirmResult.value && trainData.value.status == 2 && trainData.value.creatUser != '1') {
-          initWebSocket()
-        }
-        joinTrainUser.value = res.data
-        if (trainData.value.status == 2) {
-          nextTick(() => {
-            if (trainTimeRef.value) {
-              trainTimeRef.value.autoSetTimeAdd(trainData.value.totalTime)
-            }
-          })
-        }
-      }
-    })
+  const findTrainUserListInfo = async () => {
+    const users = resultData(await getDisturbCodeTrainUserList({ roomId: Number(roomId) }))
+    if (disposed) return
+    joinTrainUser.value = users
+    const self = users.find(user => user.id == userInfo.value.id)
+    userConfirmResult.value = self?.userStatus == 1
+    if (self) {
+      student.value.road = self.channel
+      student.value.msg = cacheDispose.value.mainSignal[self.channel] || trainData.value.mainSignal[self.channel]
+      trainData.value.pag = Math.max(trainData.value.pag, Number(self.existPageNumber) || 0)
+      if (trainData.value.status == 2 && !trainData.value.creatUser) trainResult.value.user = self
+    }
+    if (trainData.value.status == 2) {
+      nextTick(() => {
+        if (!disposed && trainTimeRef.value) trainTimeRef.value.autoSetTimeAdd(trainData.value.totalTime)
+      })
+    }
   }
 
   /**
@@ -886,23 +941,18 @@ export default function train() {
    * 切换分页
    * @param type
    */
-  const pageTurn = type => {
-    if (type == 'next') {
-      if (trainData.value.currPag == trainData.value.pag) {
-        return false
+  const pageTurn = async type => {
+    const page = trainData.value.currPag + (type === 'next' ? 1 : -1)
+    if (page < 1 || page > trainData.value.pag) return
+    trainData.value.currPag = page
+    trainData.value.content = allBaoWen.value[page]?.pageVos || []
+    if (!allBaoWen.value[page]) {
+      try {
+        await findTrainBaoWenInfo(userInfo.value.id, page)
+      } catch (error) {
+        if (!disposed) recoveryError.value = error.message
+        scheduleRecovery()
       }
-      trainData.value.currPag++
-    } else {
-      if (trainData.value.currPag == 1) {
-        return false
-      }
-      trainData.value.currPag--
-    }
-    if (allBaoWen.value[trainData.value.currPag + '']) {
-      trainData.value.content = allBaoWen.value[trainData.value.currPag + ''].pageVos
-    }
-    if (!allBaoWen.value[trainData.value.currPag + 1 + ''] && trainData.value.currPag < trainData.value.pag) {
-      findTrainBaoWenInfo(userInfo.value.id, trainData.value.currPag + 1)
     }
   }
 
@@ -911,6 +961,7 @@ export default function train() {
    * @param item
    */
   const selectRoadInfo = item => {
+    if (!ws.isOpen) return message.error('连接已断开，请等待重连后选择路报')
     student.value.road = item.type
     student.value.msg = item
     let obj = {
@@ -929,6 +980,7 @@ export default function train() {
    * @param body
    */
   const sendTrainDisposeInfo = (type, body) => {
+    if (!ws.isOpen) return message.error('连接已断开，请等待重连后操作')
     teacherStoreTrainDispose()
     if (trainData.value.status > 0) {
       let obj = {
@@ -945,6 +997,7 @@ export default function train() {
    * 开启训练
    */
   const openTrainInfo = () => {
+    if (!ws.isOpen) return message.error('连接已断开，无法开始训练')
     trainData.value.status = 1
     trainTime()
     sendTrainDisposeInfo('begin', { status: 1 })
@@ -960,6 +1013,7 @@ export default function train() {
    * 结束训练
    */
   const closeTrainInfo = () => {
+    if (!ws.isOpen) return message.error('连接已断开，无法结束训练')
     for (const key in trainData.value.mainSignal) {
       changeMainSignalStatus(trainData.value.mainSignal[key], 3)
     }
@@ -968,6 +1022,7 @@ export default function train() {
     clearInterval(trainTimer.value)
     sendTrainDisposeInfo('end', { status: 2, totalTime: totalTime.value })
     ban.value = true
+    scheduleRecovery()
   }
 
   /**
@@ -1078,56 +1133,38 @@ export default function train() {
   /**
    * 学生填写训练抄手结果
    */
-  const fillInTrainResult = res => {
-    let arr,
-      _res = []
-    res.map(pag => {
-      arr = []
-      pag.map(row => {
-        row.map(col => {
-          arr.push(col[0])
-        })
-      })
-      _res.push(JSON.stringify(arr))
-    })
-    uploadUnionTrainResult({
-      userId: userInfo.value.id,
-      roomId: route.query.id,
-      contentValue: _res
-    }).then(res => {
-      trainData.value.totalTime = res.data.totalTime
-      findTrainUserListInfo()
-      if (res.code == 200) {
-        sendTrainDisposeInfo('result', { id: userInfo.value.id })
-        userConfirmResult.value = true
-        findTrainBaoWenInfo(userInfo.value.id, 1)
-        if (_res.length > trainData.value['pag']) {
-          trainData.value['pag'] = _res.length
-        }
-        if (trainData.value['pag'] > 1 && trainData.value['currPag'] < trainData.value['pag']) {
-          setTimeout(() => {
-            findTrainBaoWenInfo(userInfo.value.id, 2)
-          }, 500)
-        }
-      }
-    })
+  const fillInTrainResult = async pages => {
+    if (submittingResult.value || userConfirmResult.value) return
+    submittingResult.value = true
+    try {
+      const contentValue = pages.map(page => JSON.stringify(page.flatMap(row => row.map(col => col[0]))))
+      resultData(await uploadUnionTrainResult({ roomId: Number(roomId), contentValue }))
+      if (disposed) return
+      // Committed state is recovered from REST, never written through WebSocket.
+      await recoverResults()
+    } catch (error) {
+      if (!disposed) recoveryError.value = error.message || '结果提交失败，请重试'
+    } finally {
+      submittingResult.value = false
+    }
   }
 
   /**
    * 查看训练抄收结果
    * @param user
    */
-  const seeTrainResult = user => {
+  const seeTrainResult = async user => {
+    modalGeneration++
     trainResult.value.user = user
     trainResult.value.curr = 1
     trainResult.value.res = {}
-    trainResult.value.existPage = trainData.value['pag']
-    if (user.existPageNumber > trainData.value['pag']) {
-      trainResult.value.existPage = user.existPageNumber
-    }
-    findUserTrainBaoWenInfo(user.id, 1)
-    if (trainResult.value.existPage > 1 && trainResult.value.curr < trainResult.value.existPage) {
-      findUserTrainBaoWenInfo(user.id, 2)
+    trainResult.value.existPage = Math.max(trainData.value.pag, Number(user.existPageNumber) || 0)
+    trainResult.value.visible = true
+    try {
+      await findUserTrainBaoWenInfo(user.id, 1)
+    } catch (error) {
+      if (!disposed) recoveryError.value = error.message
+      scheduleRecovery()
     }
   }
 
@@ -1136,39 +1173,28 @@ export default function train() {
    * @param userId
    * @param pag
    */
-  const findUserTrainBaoWenInfo = (userId, pag) => {
-    findUserPageBaoWenInfo({
-      roomId: Number(route.query.id),
-      userId: userId,
-      pageNumber: pag
-    }).then(res => {
-      if (res.code === 200) {
-        trainResult.value.res[pag + ''] = res.data
-        if (pag == 1) {
-          trainResult.value.visible = true
-        }
-      }
-    })
+  const findUserTrainBaoWenInfo = async (userId, pag) => {
+    const generation = modalGeneration
+    const response = await findUserPageBaoWenInfo({ roomId: Number(roomId), userId, pageNumber: pag })
+    if (disposed || generation !== modalGeneration || trainResult.value.user?.id != userId) return
+    trainResult.value.res[pag] = resultData(response)
   }
 
   /**
    * 弹窗切换分页
    * @param type
    */
-  const modelPageTurn = type => {
-    if (type == 'next') {
-      if (trainResult.value.curr == trainResult.value.existPage) {
-        return false
+  const modelPageTurn = async type => {
+    const page = trainResult.value.curr + (type === 'next' ? 1 : -1)
+    if (page < 1 || page > trainResult.value.existPage) return
+    trainResult.value.curr = page
+    if (!trainResult.value.res[page]) {
+      try {
+        await findUserTrainBaoWenInfo(trainResult.value.user.id, page)
+      } catch (error) {
+        if (!disposed) recoveryError.value = error.message
+        scheduleRecovery()
       }
-      trainResult.value.curr++
-    } else {
-      if (trainResult.value.curr == 1) {
-        return false
-      }
-      trainResult.value.curr--
-    }
-    if (!trainResult.value.res[trainResult.value.curr + 1 + ''] && trainResult.value.curr < trainResult.value.existPage) {
-      findUserTrainBaoWenInfo(trainResult.value.user.id, trainResult.value.curr + 1)
     }
   }
 
@@ -1242,6 +1268,9 @@ export default function train() {
   return {
     trainTimeRef,
     WSConnect,
+    recoveryError,
+    submittingResult,
+    recoverResults,
     trainData,
     disturbList,
     student,

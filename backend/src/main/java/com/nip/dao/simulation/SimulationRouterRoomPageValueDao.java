@@ -8,7 +8,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class SimulationRouterRoomPageValueDao extends BaseRepository<SimulationRouterRoomPageValueEntity, Integer> {
 
   public SimulationRouterRoomPageValueEntity findByRoomIdAndPageNumberAndUserId(Integer roomId, Integer pageNumber, String userId) {
-    return find("roomId = ?1 and pageNumber = ?2 and userId = ?3", roomId, pageNumber, userId).firstResult();
+    return find("roomId = ?1 and pageNumber = ?2 and userId = ?3", roomId, pageNumber, userId)
+        .singleResultOptional().orElse(null);
+  }
+
+  public void deleteByRoomIdAndUserId(Integer roomId, String userId) {
+    delete("roomId = ?1 and userId = ?2", roomId, userId);
   }
 
   /**

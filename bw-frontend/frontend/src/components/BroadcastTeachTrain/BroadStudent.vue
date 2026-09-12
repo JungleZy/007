@@ -1,6 +1,9 @@
 <template>
   <div class="w-full h-full content-mask-bg">
-    <div class="w-full h-full trainBoxs layout-center">
+    <div v-if="recoveryError || socketStatus === 'offline' || socketStatus === 'closed'" style="height: 40px; overflow: auto">
+      <a-alert show-icon :type="recoveryError ? 'error' : 'warning'" :message="recoveryError || '连接已断开，结果以服务器回读为准，恢复连接后自动刷新'" />
+    </div>
+    <div class="w-full h-full trainBoxs layout-center" :style="{ height: recoveryError || socketStatus === 'offline' || socketStatus === 'closed' ? 'calc(100% - 40px)' : '100%' }">
       <div class="item_group btn addButton" @click="readyForTest" v-if="trainData.status == 0 && !isOnline">点击准备</div>
       <div class="tipHead" v-if="trainData.status == 1 || trainData.status == 0">
         <strong class="layout-center" style="font-size: 20px">{{ trainData.name }}</strong>
@@ -73,7 +76,7 @@ import { partTimeFormatInfo } from '../../common/utils/Utils'
 import { ref } from 'vue'
 
 const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
-const { trainData, isOnline, readyForTest, fillInTrainResult, step, result, storage, newUser, againPlayCode, allBaoWen, pageTurn } = useBroadStudent()
+const { trainData, isOnline, readyForTest, fillInTrainResult, step, result, storage, newUser, againPlayCode, allBaoWen, pageTurn, recoveryError, socketStatus } = useBroadStudent()
 </script>
 <style lang="less" scoped>
   .HJJ{

@@ -16,6 +16,8 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @Accessors(chain = true)
 @Entity(name = "simulation_router_room_page_value") //对应的数据库表
+@Table(name = "simulation_router_room_page_value", uniqueConstraints = @UniqueConstraint(
+    name = "uk_simulation_value_room_user_page", columnNames = {"room_id", "user_id", "page_number"}))
 @Cacheable(value = false)
 public class SimulationRouterRoomPageValueEntity {
 
@@ -27,22 +29,26 @@ public class SimulationRouterRoomPageValueEntity {
   /**
    * 用户id
    */
+  @Column(nullable = false)
   private String userId;
 
   /**
    * 训练id
    */
+  @Column(nullable = false)
   private Integer roomId;
 
 
   /**
    * 页码
    */
+  @Column(nullable = false)
   private Integer pageNumber;
 
   /**
    * 填报内容
    */
+  @Column(columnDefinition = "longtext")
   private String value;
 
 }

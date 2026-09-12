@@ -3,6 +3,8 @@
     <div class="char_room" :style="{ left: roomValue }">
       <TrainLeft :trainData="{}">
         <template v-slot:bottom>
+          <div role="status" v-if="connectionState !== 'open'">{{ connectionState === 'offline' ? '连接已断开，正在重连' : '正在连接训练服务' }}</div>
+          <div role="alert" v-if="recoveryError">{{ recoveryError }} <a-button size="small" @click="getSimulationRouterRoomDetail">重试</a-button></div>
           <div class="time_cont_box" v-if="isShow && !isEnd">
 <!--            <count-down class="width-100-per layout-center" color="#e9deb2" ref="trainTimeRef" style="height: 55px" />-->
           </div>
@@ -39,10 +41,12 @@
       <img :src="receiveBg" alt="" />
     </div>
     <FillInResult v-if="isShow && !isEnd" @result="fillInTrainResult"></FillInResult>
-    <TrainResult style="margin-left: 20px" v-if="!isShow && !isEnd" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all" :details="details"></TrainResult>
+    <TrainResult style="margin-left: 20px" v-if="!isShow && !isEnd && a" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all" :details="details"></TrainResult>
     <div class="char_room" :style="{ left: roomValue }">
       <TrainLeft :trainData="{}">
         <template v-slot:bottom>
+          <div role="status" v-if="connectionState !== 'open'">{{ connectionState === 'offline' ? '连接已断开，正在重连' : '正在连接训练服务' }}</div>
+          <div role="alert" v-if="recoveryError">{{ recoveryError }} <a-button size="small" @click="getSimulationRouterRoomDetail">重试</a-button></div>
           <div class="change_channel" v-if="isEnd">
             <div class="title">切换频段</div>
             <div class="select_box">
@@ -85,12 +89,13 @@ export default {
 import { ref, onUnmounted, onMounted, nextTick } from 'vue'
 import { apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList, apiSimulationRouterSendFinish } from '../../../../../common/api/UserApi'
 import { wsUrl } from '../../../../../common/http/endpoint.js'
+import SocketConnection from '../../../../../common/ws/SocketConnection.js'
 import { message, Modal } from 'ant-design-vue'
 import FillInResult from '../../disturbCode/FillInResult.vue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { FileTextOutlined } from '@ant-design/icons-vue'
-import { getDisturbCodeTrainData, reportIntoTrainRoom, uploadUnionTrainResult, apiSimulationRouterFindPage } from '../../../../../common/api/UnionApi'
+import { uploadUnionTrainResult, apiSimulationRouterFindPage } from '../../../../../common/api/UnionApi'
 import { log } from '@antv/g2plot/lib/utils'
 import iconImage from "../../../postJob/js/iconImage";
 
@@ -116,6 +121,27 @@ const roomDetails = ref({ stats: 0 })
 const details = ref(null)
 const all = ref(0)
 const curr = ref(1)
+const recoveryError = ref('')
+const connectionState = ref('connecting')
+let disposed = false
+let recovering = false
+let recoveryPending = false
+let recoveryTimer = null
+let loaded = false
+const requireData = res => {
+  if (res?.code != 200 || !res.data) throw new Error(res?.msg || '训练结果读取失败，请重试')
+  return res.data
+}
+const scheduleRecovery = () => {
+  clearTimeout(recoveryTimer)
+  if (!disposed && !document.hidden && (!loaded || roomDetails.value.stats != 2 || pinUserState.value != 1 || recoveryError.value)) {
+    recoveryTimer = setTimeout(getSimulationRouterRoomDetail, 5000)
+  }
+}
+const handleVisibilityChange = () => {
+  clearTimeout(recoveryTimer)
+  if (!document.hidden) getSimulationRouterRoomDetail()
+}
 const disturbList = ref([
   {
     type: 1,
@@ -183,6 +209,7 @@ const disturbVolume = ref(60)
 // 训练用时
 const autoTime = ref(null)
 const trainTime = () => {
+  clearInterval(autoTime.value)
   autoTime.value = setInterval(() => {
     trainData.value++
     nextTick(() => {
@@ -194,21 +221,25 @@ const trainTime = () => {
 }
 
 const user = JSON.parse(localStorage.getItem('userInfo'))
-const handlePageTurn = val => {
-  if (val == 'prev') {
-    curr.value--
-  } else {
-    curr.value++
+let resultRequest = 0
+const loadResultPage = async page => {
+  const request = ++resultRequest
+  const data = requireData(await apiSimulationRouterFindPage({ pageNumber: page, roomId: Number(route.query.id), userId: user.id }))
+  if (disposed || request !== resultRequest) return
+  curr.value = page
+  a.value = data
+  isShow.value = false
+}
+const handlePageTurn = async direction => {
+  const page = curr.value + (direction == 'prev' ? -1 : 1)
+  if (page < 1 || page > all.value) return
+  try {
+    await loadResultPage(page)
+    recoveryError.value = ''
+  } catch (error) {
+    recoveryError.value = error.message
+    scheduleRecovery()
   }
-  apiSimulationRouterFindPage({
-    pageNumber: curr.value,
-    roomId: Number(route.query.id),
-    userId: user.id
-  }).then(res => {
-    if (res.code === 200) {
-      a.value = res.data
-    }
-  })
 }
 
 const getDisturbAudioSource = () => {
@@ -283,38 +314,28 @@ const changePin = val => {
   })
 }
 
-let ws = null
-const once = fn => {
-  let hasRun = false
-  return () => {
-    if (hasRun) {
-      hasRun = true
-      fn.call()
-    }
-  }
-}
+const ws = new SocketConnection()
 //初始化
 const init = () => {
   const userId = JSON.parse(localStorage.getItem('userInfo'))
   const roomId = route.query.id
-  if (pinUserState.value == 1) return
-  ws = new WebSocket(wsUrl(`/simulation/${userId.id}/${roomId}`))
-  ws.onopen = function onopen() {
-    putAwayUserList.value.forEach(item => {
-      if (item.id == pinUserId.value) {
-        item.socketStatus = 1
-      }
-    })
-  }
-  //预加载噪音
-  if (roomDetails.value.stats != 2) {
-    getDisturbAudioSource()
-  }
-
-  ws.onmessage = function messages(res) {
-    const data = JSON.parse(res.data)
-    const newData = JSON.parse(data.data)
-    if (data.code == -1) return
+  ws.connect(wsUrl(`/simulation/${userId.id}/${roomId}`), res => {
+    let newData
+    try {
+      const data = JSON.parse(res.data)
+      if (data.code == -1) return
+      newData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data
+      if (!newData || typeof newData !== 'object') return
+    } catch {
+      recoveryError.value = '收到无效训练消息，正在通过服务器恢复'
+      getSimulationRouterRoomDetail()
+      return
+    }
+    if (newData.topic == 'result' || newData.type == 'result') {
+      if (newData.roomId == null || String(newData.roomId) === String(roomId)) getSimulationRouterRoomDetail()
+      return
+    }
+    if (!newData.body && !['begin', 'end', 'over'].includes(newData.topic)) return
     if (newData.topic == 'begin') {
       trainTime()
       roomDetails.value.stats = 1
@@ -343,10 +364,9 @@ const init = () => {
       } else if (newData.body.type == 3) {
         trainTime()
       } else if (newData.body.type == 4) {
-        pinUserState.value = 1
         isEnd.value = false
         clearInterval(autoTime.value)
-        getApiRoomUserList()
+        getSimulationRouterRoomDetail()
       } else if (newData.body.type == 5) {
         disturbList.value.map(item => {
           if (item.type == newData.body._type) {
@@ -391,21 +411,12 @@ const init = () => {
       })
     }
     else if (newData.topic == 'over') {
-      getRoomUserList(route.query.id).then(res => {
-        if (res.code == 200) {
-          sendUserList.value = res.data.sendUserList
-          putAwayUserList.value = res.data.receiveUserList
-        }
-      })
+      getSimulationRouterRoomDetail()
     }
     else if (newData.topic == 'end') {
       isEnd.value = false
       clearInterval(autoTime.value)
-      apiSimulationRouterRoomDetail({
-        roomId: route.query.id
-      }).then(res => {
-        roomDetails.value = res.data
-      })
+      getSimulationRouterRoomDetail()
     }
     else if (newData.topic == 'change') {
       putAwayUserList.value.forEach(item => {
@@ -415,7 +426,7 @@ const init = () => {
         }
       })
     }
-  }
+  }, () => getSimulationRouterRoomDetail(), state => { connectionState.value = state })
 }
 
 /**
@@ -479,49 +490,49 @@ const getSimulationRouterRoomChannels = () => {
   })
 }
 
-const getSimulationRouterRoomDetail = () => {
-  apiSimulationRouterRoomDetail({
-    roomId: route.query.id
-  }).then(res => {
-    pinValue.value = res.data.currentUserChannel
-    pinUserId.value = res.data.currentUserId
-    roomDetails.value = res.data
-    getApiRoomUserList()
-    if (res.data.stats == 1 && trainTimeRef.value) {
-      if (res.data.totalTime && res.data.totalTime != '') {
-        trainData.value = parseInt(res.data.totalTime)
-      } else {
-        trainData.value = 0
-      }
-      trainTime()
-    } else if (res.data.stats == 2 && res.data.totalTime && res.data.totalTime > 0) {
-      nextTick(() => {
-        if (trainTimeRef.value) {
-          trainTimeRef.value.autoSetTimeAdd(res.data.totalTime)
-        }
-      })
+const getSimulationRouterRoomDetail = async () => {
+  if (disposed || document.hidden) return
+  if (recovering) {
+    recoveryPending = true
+    return
+  }
+  recovering = true
+  clearTimeout(recoveryTimer)
+  try {
+    const data = requireData(await apiSimulationRouterRoomDetail({ roomId: route.query.id }))
+    const roster = requireData(await getRoomUserList(route.query.id))
+    if (disposed) return
+    pinValue.value = data.currentUserChannel
+    pinUserId.value = data.currentUserId
+    roomDetails.value = data
+    details.value = data
+    sendUserList.value = roster.sendUserList || []
+    putAwayUserList.value = roster.receiveUserList || []
+    const receiver = putAwayUserList.value.find(item => item.id == pinUserId.value)
+    pinUserState.value = receiver?.status ?? data.currentUserStatus
+    if (data.stats == 2 || pinUserState.value == 1) isEnd.value = false
+    clearInterval(autoTime.value)
+    trainData.value = Number(data.totalTime || 0)
+    if (data.stats == 1 && isEnd.value) trainTime()
+    else nextTick(() => trainTimeRef.value?.autoSetTimeAdd(trainData.value))
+    if (pinUserState.value == 1) isShow.value = false
+    const expected = data.isCable == 1 ? Number(data.pageCount || 0) : Math.ceil(Number(data.bwCount || 0) / 100)
+    all.value = Math.max(expected, Number(receiver?.existPageNumber ?? data.existPageNumber ?? 0))
+    if (pinUserState.value == 1) await loadResultPage(Math.min(curr.value, Math.max(1, all.value)))
+    if (!loaded && data.stats != 2) getDisturbAudioSource()
+    loaded = true
+    recoveryError.value = ''
+  } catch (error) {
+    if (!disposed) recoveryError.value = error.message || '训练结果读取失败，请重试'
+  } finally {
+    recovering = false
+    if (recoveryPending && !disposed && !document.hidden) {
+      recoveryPending = false
+      getSimulationRouterRoomDetail()
+    } else {
+      scheduleRecovery()
     }
-  })
-}
-
-const getApiRoomUserList = () => {
-  getRoomUserList(route.query.id).then(res => {
-    if (res.code == 200) {
-      sendUserList.value = res.data.sendUserList
-      putAwayUserList.value = res.data.receiveUserList
-      putAwayUserList.value.forEach(item => {
-        if (item.id == pinUserId.value) {
-          pinUserState.value = item.status
-          if (item.status == 0 && roomDetails.value.stats == 2) {
-            isEnd.value = false
-          }
-        }
-      })
-      if (!ws) {
-        init()
-      }
-    }
-  })
+  }
 }
 
 const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
@@ -540,64 +551,30 @@ const fillInTrainResult = res => {
   })
 
   uploadUnionTrainResult({
-    userId: userInfo.value.id,
     roomId: route.query.id,
     contentValue: _res
   }).then(res => {
     if (res.code == 200) {
-      findTrainDataInfo()
-      putAwayUserList.value.forEach(item => {
-        if (item.id == pinUserId.value) {
-          item.status = 1
-        }
-      })
-      const obj = {
-        topic: 'over',
-        body: {
-          id: pinUserId.value,
-          value: '4'
-        }
-      }
-      ws.send(JSON.stringify(obj))
+      getSimulationRouterRoomDetail()
+    } else {
+      recoveryError.value = res.msg || '提交失败，请重试'
     }
-  })
+  }).catch(() => { recoveryError.value = '提交失败，请重试' })
 }
 
 const a = ref(null)
-//结束回显
-const findTrainDataInfo = () => {
-  getDisturbCodeTrainData({
-    roomId: Number(route.query.id)
-  }).then(res => {
-    let total = Math.ceil(res.data.bwCount / 100)
-    let num = total > res.data.existPageNumber ? total : res.data.existPageNumber
-    all.value = num
-    details.value = res.data
-  })
-  const userId = JSON.parse(localStorage.getItem('userInfo'))
-  apiSimulationRouterFindPage({
-    pageNumber: 1,
-    roomId: Number(route.query.id),
-    userId: userId.id
-  }).then(res => {
-    if (res.code === 200) {
-      isShow.value = false
-      a.value = res.data
-    }
-  })
-}
 onMounted(async () => {
+  init()
   getSimulationRouterRoomDetail()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
   getSimulationRouterRoomChannels()
   initVoice()
-  setTimeout(() => {
-    if (pinUserState.value) {
-      isEnd.value = false
-      findTrainDataInfo()
-    }
-  }, 500)
 })
 onUnmounted(() => {
+  disposed = true
+  clearTimeout(recoveryTimer)
+  clearInterval(autoTime.value)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   clearVoice()
   if (ws) {
     ws.close()

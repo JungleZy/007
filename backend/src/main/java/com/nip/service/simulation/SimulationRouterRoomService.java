@@ -60,6 +60,7 @@ public class SimulationRouterRoomService {
   private final CableFloorService cableFloorService;
   @Inject
   RoomDeletionTransaction roomDeletionTransaction;
+  @Inject SimulationRoomAccess roomAccess;
 
   @Inject
   public SimulationRouterRoomService(SimulationRouterRoomDao routerRoomDao,
@@ -111,6 +112,7 @@ public class SimulationRouterRoomService {
     roomEntity.setStats(0);
     roomEntity.setRoomType(SimulationRoomTypeEnum.ROUTER.getType());
     SimulationRouterRoomEntity room = routerRoomDao.save(roomEntity);
+    routerRoomDao.lockRoom(room.getId());
 
     //保存房间报底
     SimulationRouterRoomContentEntity roomContentEntity = new SimulationRouterRoomContentEntity();
@@ -130,8 +132,7 @@ public class SimulationRouterRoomService {
         generateNumber = bwCount;
       }
       int index = save.getBwType().compareTo(3) == 0 ? 65 : 0;
-      List<SimulationRouterRoomPageEntity> simulationRouterRoomPageEntities = generateMessageBody(generateNumber, 1, index, save);
-      pageDao.save(simulationRouterRoomPageEntities);
+      generateMessageBody(generateNumber, 1, index, save);
     } else {
       List<List<List<String>>> cableFloor = cableFloorService.findCableFloor(param.getCableId(), null, param.getStartPage());
       int totalPage = param.getBwCount() / 100;
@@ -269,6 +270,7 @@ public class SimulationRouterRoomService {
    * @throws Exception 如果未查询到房间信息，则抛出IllegalArgumentException异常
    */
   public SimulationRouterRoomVO getRoomDetail(HttpServerRequest request, Integer roomId) {
+    roomAccess.requireMember(request, roomId);
     String token = request.getHeader(TOKEN);
     UserEntity entity = userService.getUserByToken(token);
     SimulationRouterRoomEntity roomEntity = routerRoomDao.findByIdOptional(roomId)
@@ -349,6 +351,7 @@ public class SimulationRouterRoomService {
     lock.lock();
     try {
       deleted = roomDeletionTransaction.run(() -> {
+        routerRoomDao.lockRoom(roomId);
         pageValueDao.delete("roomId=?1", roomId);
         pageDao.delete("roomId=?1", roomId);
         roomUserDao.delete("roomId=?1", roomId);
@@ -364,7 +367,9 @@ public class SimulationRouterRoomService {
   }
 
 
+  @Transactional(rollbackOn = Exception.class)
   public SimulationRouterRoomPageInfoVO findPage(String userId, Integer roomId, Integer pageNumber) {
+    SimulationRouterRoomEntity room = routerRoomDao.lockRoom(roomId);
     SimulationRouterRoomContentEntity contentEntity = roomContentDao.findByRoomIdRouter(roomId);
     contentEntity = Optional.ofNullable(contentEntity).orElseThrow(() -> new IllegalArgumentException(STRING));
     if (pageNumber == null) {
@@ -388,7 +393,7 @@ public class SimulationRouterRoomService {
         }))
         .orElseGet(ArrayList::new);
 
-    if (pageEntity.isEmpty() && pageNumber <= totalPage) {
+    if (pageEntity.isEmpty() && pageNumber <= totalPage && Objects.equals(room.getIsCable(), 0)) {
       int generateNumber = 100;
       if (pageNumber.compareTo(totalPage) == 0) {
         generateNumber = totalNumber - ((pageNumber - 1) * 100);

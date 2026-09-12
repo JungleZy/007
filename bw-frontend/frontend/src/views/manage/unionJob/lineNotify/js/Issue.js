@@ -5,10 +5,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import { apiSimulationRouterRoomChannels, apiSimulationRouterRoomDetail, apiSimulationRouterSendFinish, getRoomUserList, apiSimulationRouterFindPage } from '../../../../../common/api/UserApi'
 import { wsUrl } from '../../../../../common/http/endpoint.js'
+import SocketConnection from '../../../../../common/ws/SocketConnection.js'
 
 export default function issue(trainData, trainTimeRef) {
   onMounted(() => {
+    init()
     getApiRoomUserList()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     const dom = document.getElementById('patValBoxRef')
     if (dom) {
       dom.addEventListener('mousewheel', e => {
@@ -28,9 +31,11 @@ export default function issue(trainData, trainTimeRef) {
     }
   })
   onUnmounted(() => {
-    if (ws) {
-      ws.close()
-    }
+    disposed = true
+    clearTimeout(recoveryTimer)
+    clearInterval(autoTime.value)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    ws.close()
   })
   const route = useRoute()
   const lssuedText = ref('')
@@ -56,31 +61,52 @@ export default function issue(trainData, trainTimeRef) {
   const all = ref(0)
   const curr = ref(1)
   const sendId = ref(null)
+  const details = ref(null)
+  const recoveryError = ref('')
+  const connectionState = ref('connecting')
+  const ws = new SocketConnection()
+  let disposed = false
+  let recovering = false
+  let recoveryPending = false
+  let recoveryTimer = null
+  let loaded = false
+  const waitingForResults = () => !loaded || trainData.value.stats != 2 || putAwayUserList.value.some(item => item.status != 1)
+  const scheduleRecovery = () => {
+    clearTimeout(recoveryTimer)
+    if (!disposed && !document.hidden && (waitingForResults() || recoveryError.value)) {
+      recoveryTimer = setTimeout(getApiRoomUserList, 5000)
+    }
+  }
+  const handleVisibilityChange = () => {
+    clearTimeout(recoveryTimer)
+    if (!document.hidden) getApiRoomUserList()
+  }
+  const requireData = res => {
+    if (res?.code != 200 || !res.data) throw new Error(res?.msg || '训练结果读取失败，请重试')
+    return res.data
+  }
 
   const activeSend = ref(null)
   const activePutAway = ref(false)
   const init = () => {
     const roomId = route.query.id
-    if (trainData.value.userStatus == 1) return //房间状态为1表示已完成
-    ws = new WebSocket(wsUrl(`/simulation/${userId.id}/${roomId}`))
-    ws.onopen = function onopen() {
-      sendUserList.value.forEach(item => {
-        if (item.id == trainData.value.trainId) {
-          item.socketStatus = 1
-          sendUserList.value.forEach(item => {
-            if (item.id == trainData.value.trainId) {
-              trainData.value.userSocketStatus = item.socketStatus
-              trainData.value.userStatus = item.status
-            }
-          })
-        }
-      })
-    }
-
-    ws.onmessage = function message(res) {
-      const data = JSON.parse(res.data)
-      const newData = JSON.parse(data.data)
-      if (data.code == -1) return
+    ws.connect(wsUrl(`/simulation/${userId.id}/${roomId}`), res => {
+      let newData
+      try {
+        const data = JSON.parse(res.data)
+        if (data.code == -1) return
+        newData = typeof data.data === 'string' ? JSON.parse(data.data) : data.data
+        if (!newData || typeof newData !== 'object') return
+      } catch {
+        recoveryError.value = '收到无效训练消息，正在通过服务器恢复'
+        getApiRoomUserList()
+        return
+      }
+      if (newData.topic == 'result' || newData.type == 'result') {
+        if (newData.roomId == null || String(newData.roomId) === String(roomId)) getApiRoomUserList()
+        return
+      }
+      if (!newData.body && !['begin', 'end', 'over'].includes(newData.topic)) return
       if (newData.topic == 'begin') {
         trainTime()
         trainData.value.stats = 1
@@ -99,21 +125,7 @@ export default function issue(trainData, trainTimeRef) {
         })
       }
       else if (newData.topic == 'over') {
-        getRoomUserList(route.query.id).then(res => {
-          if (res.code == 200) {
-            res.data.sendUserList.forEach(item => {
-              if (item.id == trainData.value.trainId) {
-                trainData.value.userSocketStatus = item.socketStatus
-                trainData.value.userStatus = item.status
-              }
-            })
-            res.data.receiveUserList.forEach(item => {
-              item.activeState = false
-            })
-            sendUserList.value = res.data.sendUserList
-            putAwayUserList.value = res.data.receiveUserList
-          }
-        })
+        getApiRoomUserList()
       }
       else if (newData.topic == 'online') {
         //上线
@@ -144,12 +156,8 @@ export default function issue(trainData, trainTimeRef) {
       }
       else if (newData.topic == 'end') {
         clearInterval(autoTime.value)
-        apiSimulationRouterRoomDetail({
-          roomId: route.query.id
-        }).then(res => {
-          trainData.value['stats'] = res.data.stats
-          trainData.value.currPatKeyIndex = -1
-        })
+        trainData.value.currPatKeyIndex = -1
+        getApiRoomUserList()
       }
       else if (newData.topic == 'play' && newData.body.type == 2) {
         sendLessudTextList.value.push(newData.body.value)
@@ -162,7 +170,9 @@ export default function issue(trainData, trainTimeRef) {
           }
         })
       }
-    }
+    }, () => getApiRoomUserList(), state => {
+      connectionState.value = state
+    })
   }
 
   //分页
@@ -211,24 +221,34 @@ export default function issue(trainData, trainTimeRef) {
     })
   }
 
-  const getApiRoomUserList = () => {
-    getRoomUserList(route.query.id).then(res => {
-      if (res.code == 200) {
-        res.data.sendUserList.forEach(item => {
-          if (item.id == trainData.value.trainId) {
-            trainData.value.userSocketStatus = item.socketStatus
-            trainData.value.userStatus = item.status
-          }
-        })
-        res.data.receiveUserList.forEach(item => {
-          item.activeState = false
-        })
-        sendUserList.value = res.data.sendUserList
-        putAwayUserList.value = res.data.receiveUserList
-        //查询房间详情
-        getRoomDetails()
+  const getApiRoomUserList = async () => {
+    if (disposed || document.hidden) return
+    if (recovering) {
+      recoveryPending = true
+      return
+    }
+    recovering = true
+    clearTimeout(recoveryTimer)
+    try {
+      const roster = requireData(await getRoomUserList(route.query.id))
+      if (disposed) return
+      sendUserList.value = roster.sendUserList || []
+      putAwayUserList.value = (roster.receiveUserList || []).map(item => ({ ...item, activeState: activePutAway.value && item.id == sendId.value }))
+      await getRoomDetails()
+      if (disposed) return
+      loaded = true
+      recoveryError.value = ''
+    } catch (error) {
+      if (!disposed) recoveryError.value = error.message || '训练结果读取失败，请重试'
+    } finally {
+      recovering = false
+      if (recoveryPending && !disposed && !document.hidden) {
+        recoveryPending = false
+        getApiRoomUserList()
+      } else {
+        scheduleRecovery()
       }
-    })
+    }
   }
 
   const changeDisturbInfo = item => {
@@ -284,77 +304,55 @@ export default function issue(trainData, trainTimeRef) {
     lssuedText.value = ''
   }
 
-  const getRoomDetails = () => {
-    apiSimulationRouterRoomDetail({
-      roomId: route.query.id
-    }).then(res => {
-      trainData.value.type = res.data.bwType
-      if (res.data.bwType == 2) {
-        trainData.value.codeSort = true
+  const getRoomDetails = async () => {
+    const data = requireData(await apiSimulationRouterRoomDetail({ roomId: route.query.id }))
+    if (disposed) return
+    details.value = data
+    trainData.value.type = data.bwType
+    trainData.value.codeSort = data.bwType == 2
+    trainData.value.userStatus = data.currentUserStatus
+    trainData.value.currentUserChannel = data.currentUserChannel
+    trainData.value.trainId = data.currentUserId
+    trainData.value.stats = data.stats
+    trainData.value.telegraph.allPage = data.isCable == 1 ? Number(data.pageCount || 0) : Math.ceil(Number(data.bwCount || 0) / 100)
+    trainData.value.totalTime = data.totalTime
+    clearInterval(autoTime.value)
+    trainData.value.duration = Number(data.totalTime || 0)
+    if (data.stats == 1) trainTime()
+    else nextTick(() => trainTimeRef.value?.autoSetTimeAdd(trainData.value.duration))
+    if (data.stats == 2 && route.query.roomState == 'createUser' && !activePutAway.value) {
+      const submitted = putAwayUserList.value.find(item => item.status == 1)
+      if (submitted) {
+        sendId.value = submitted.id
+        curr.value = 1
+        activePutAway.value = true
+        submitted.activeState = true
       }
-      trainData.value.userStatus = res.data.currentUserStatus
-      trainData.value.currentUserChannel = res.data.currentUserChannel
-      trainData.value.trainId = res.data.currentUserId
-      trainData.value['stats'] = res.data.stats
-      if(res.data.isCable===1){
-        trainData.value.telegraph.allPage = res.data.pageCount
-      }else {
-        trainData.value.telegraph.allPage = Math.ceil(res.data.bwCount / 100)
-      }
-
-      trainData.value.totalTime = res.data.totalTime
-      //判断是否是教员
-      let user
-      if (route.query.roomState == 'createUser') {
-        user = sendUserList.value[0].id
-      } else {
-        user = userId.id
-      }
-      apiSimulationRouterFindPage({
-        pageNumber: 1,
-        roomId: route.query.id,
-        userId: user
-      }).then(res => {
-        if (res.code == 200) {
-          trainData.value.telegraph.curr = res.data.pageVos
-        }
-      })
-      if (trainData.value.telegraph.allPage > 1) {
-        apiSimulationRouterFindPage({
-          pageNumber: 2,
-          roomId: route.query.id,
-          userId: user
-        }).then(res => {
-          if (res.code == 200) {
-            trainData.value.telegraph.nextCurr = res.data.pageVos
-          }
-        })
-      }
-
-      if (res.data.stats == 1 && trainTimeRef.value) {
-        if (res.data.totalTime && res.data.totalTime != '') {
-          trainData.value.duration = parseInt(res.data.totalTime)
-        } else {
-          trainData.value.duration = 0
-        }
-        trainTime()
-      } else if (res.data.stats == 2 && trainData.value.totalTime && trainData.value.totalTime > 0) {
-        nextTick(() => {
-          if (trainTimeRef.value) {
-            trainTimeRef.value.autoSetTimeAdd(trainData.value.totalTime)
-          }
-        })
-      }
-      if (!ws) {
-        init()
-      }
-    })
+    }
+    const selected = putAwayUserList.value.find(item => item.id == sendId.value)
+    if (activePutAway.value && selected?.status == 1) {
+      all.value = Math.max(trainData.value.telegraph.allPage, Number(selected.existPageNumber || 0))
+      await loadResultPage(Math.min(curr.value, Math.max(1, all.value)), selected.id)
+      return
+    }
+    const user = route.query.roomState == 'createUser' ? sendUserList.value[0]?.id : userId.id
+    if (!user) return
+    const page = Math.min(trainData.value.telegraph.prev, Math.max(1, trainData.value.telegraph.allPage))
+    const current = requireData(await apiSimulationRouterFindPage({ pageNumber: page, roomId: route.query.id, userId: user }))
+    if (disposed) return
+    trainData.value.telegraph.prev = page
+    trainData.value.telegraph.curr = current.pageVos
+    if (page < trainData.value.telegraph.allPage) {
+      const next = requireData(await apiSimulationRouterFindPage({ pageNumber: page + 1, roomId: route.query.id, userId: user }))
+      if (!disposed) trainData.value.telegraph.nextCurr = next.pageVos
+    }
   }
 
   // 训练用时
   const autoTime = ref(null)
   // const pageCodes = ref([])
   const trainTime = () => {
+    clearInterval(autoTime.value)
     autoTime.value = setInterval(() => {
       trainData.value.duration++
       nextTick(() => {
@@ -384,44 +382,33 @@ export default function issue(trainData, trainTimeRef) {
     ws.send(JSON.stringify(obj))
   }
 
-  const handlePageTurn = num => {
-    if (num == 'prev') {
-      curr.value--
-    } else {
-      curr.value++
-    }
-    apiSimulationRouterFindPage({
-      pageNumber: curr.value,
-      roomId: route.query.id,
-      userId: sendId.value
-    }).then(res => {
-      if (res.code == 200) {
-        a.value = res.data
-      }
-    })
+  let resultRequest = 0
+  const loadResultPage = async (page, selectedId) => {
+    const request = ++resultRequest
+    const data = requireData(await apiSimulationRouterFindPage({ pageNumber: page, roomId: route.query.id, userId: selectedId }))
+    if (disposed || request !== resultRequest || selectedId != sendId.value) return
+    curr.value = page
+    a.value = data
   }
-
-  const handleActivePutAway = (item, index) => {
-    putAwayUserList.value
-      .filter(a => a.id != item.id)
-      .forEach(b => {
-        b.activeState = false
-      })
+  const handlePageTurn = async direction => {
+    const page = curr.value + (direction == 'prev' ? -1 : 1)
+    if (page < 1 || page > all.value) return
+    try {
+      await loadResultPage(page, sendId.value)
+      recoveryError.value = ''
+    } catch (error) {
+      recoveryError.value = error.message
+      scheduleRecovery()
+    }
+  }
+  const handleActivePutAway = async item => {
+    if (route.query.roomState != 'createUser' || item.status != 1) return
     sendId.value = item.id
-    if (route.query.roomState != 'createUser') return
-    if (!item.status) return //判断是否训练完毕
-    apiSimulationRouterFindPage({
-      pageNumber: 1,
-      roomId: route.query.id,
-      userId: sendId.value
-    }).then(res => {
-      if (res.code == 200) {
-        a.value = res.data
-        item.activeState = !item.activeState
-        activePutAway.value = item.activeState
-        all.value = trainData.value.telegraph.allPage > item.existPageNumber ? trainData.value.telegraph.allPage : item.existPageNumber
-      }
-    })
+    curr.value = 1
+    a.value = null
+    activePutAway.value = true
+    putAwayUserList.value.forEach(user => { user.activeState = user.id == item.id })
+    await getApiRoomUserList()
   }
 
   //开始训练
@@ -476,11 +463,11 @@ export default function issue(trainData, trainTimeRef) {
         apiSimulationRouterSendFinish(fromData).then(res => {
           if (res.code == 200) {
             trainData.value.userStatus = res.data.currentUserStatus
-            setTimeout(() => {
-              getApiRoomUserList()
-            }, 500)
+            getApiRoomUserList()
+          } else {
+            recoveryError.value = res.msg || '结束训练失败，请重试'
           }
-        })
+        }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
       }
     })
   }
@@ -529,8 +516,10 @@ export default function issue(trainData, trainTimeRef) {
               if (res.code == 200) {
                 trainData.value.userStatus = res.data.currentUserStatus
                 getApiRoomUserList()
+              } else {
+                recoveryError.value = res.msg || '结束训练失败，请重试'
               }
-            })
+            }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
           }
         }
       }
@@ -596,6 +585,10 @@ export default function issue(trainData, trainTimeRef) {
     handlePageTurn,
     a,
     all,
+    details,
+    recoveryError,
+    connectionState,
+    getApiRoomUserList,
     curr
   }
 }

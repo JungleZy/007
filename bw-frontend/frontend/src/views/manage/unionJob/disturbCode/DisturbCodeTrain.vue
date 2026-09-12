@@ -1,5 +1,11 @@
 <template>
   <div class="w-full h-full content-mask-bg">
+    <div v-if="!WSConnect || recoveryError || submittingResult" role="status" style="position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 1100; padding: 10px 18px; color: #fff; background: #26394b; border-radius: 4px">
+      <span v-if="!WSConnect">连接已断开，正在重连。</span>
+      <span v-if="submittingResult">正在提交结果，请勿重复操作。</span>
+      <span v-if="recoveryError">{{ recoveryError }}</span>
+      <a-button v-if="recoveryError" size="small" @click="recoverResults">重新读取</a-button>
+    </div>
     <template v-if="trainData">
       <div class="w-full h-full trainBoxs" v-if="trainData.creatUser || (trainData.status == 2 && userConfirmResult)">
         <TrainLeft @startTest="openTrainInfo" @endTest="closeTrainInfo" :trainData="trainData">
@@ -246,7 +252,7 @@
             <img :src="text4" alt="" />
           </div>
         </div>
-        <FillInResult v-else @result="fillInTrainResult"></FillInResult>
+        <FillInResult v-else :submitting="submittingResult" @result="fillInTrainResult"></FillInResult>
         <div class="playTipsBox" v-if="playTips.visible">
           <div class="tipCard" style="top: calc(50% - 200px)">
             <div class="title" style="padding: 60px 40px 20px">欢迎回来【{{ userInfo.userName }}】</div>
@@ -303,6 +309,9 @@ const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
 const {
   trainTimeRef,
   WSConnect,
+  recoveryError,
+  submittingResult,
+  recoverResults,
   trainData,
   disturbList,
   student,

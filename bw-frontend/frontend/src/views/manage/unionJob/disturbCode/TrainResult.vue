@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full">
+  <div class="w-full h-full aligned-result">
     <div class="telegrapHead">
       <div>页码：【{{ props.curr }}/{{ props.all }}】<span style="padding-left: 20px" v-if="header">报头：{{header}}</span></div>
       <div class="title_name">{{ details?.name }}</div>
@@ -8,9 +8,16 @@
         <div :class="{ pag: true, disabled: props.curr == props.all }" @click="pageTurn('next')">下一页</div>
       </div>
     </div>
-    <div class="w-full" style="height: calc(100% - 40px)">
-      <div class="patTelegraph" style="height: 100%">
-        <div class="telegraph">
+    <div class="result-legend">上行报底 / 下行答案 · − 漏码（删除） · + 多码（插入） · → 替换<span v-if="alignment.extraPage"> · 超出报底</span></div>
+    <div v-if="!props.result?.pageVos && !props.result?.value" class="result-notice" role="status">正在加载本页结果…</div>
+    <div v-else-if="alignment.error" class="result-raw" role="alert">
+      <div>{{ alignment.error }}</div>
+      <div>报底：{{ props.result?.pageVos?.map(group => group.key).join(' ') || '无' }}</div>
+      <div>答案：{{ props.result?.value?.join(' ') || '无' }}</div>
+    </div>
+    <div v-else class="w-full result-scroll">
+      <div class="patTelegraph">
+        <div class="telegraph" style="height: auto">
           <div class="rowHead">
             <div class="key">1</div>
             <div class="key">2</div>
@@ -23,32 +30,23 @@
             <div class="key">9</div>
             <div class="key">10</div>
           </div>
-          <div class="keyBox" v-if="props.result.pageVos">
-            <template v-for="(key, index) in props.result.pageVos" :key="index">
-              <div class="key">
-                <div class="title">{{ key.key }}</div>
-                <div class="val">
-                  <div class="w-full nobr" v-if="props.result.value[index]" :title="props.result.value[index]">
-                    <strong v-for="(v, i) in props.result.value[index].split('')" :key="i" :style="{ color: key.key.split('')[i] != v ? '#d11d1d' : '#fff' }">{{ v }}</strong>
-                  </div>
-                  <div class="w-full" v-else>&#45;&#45;</div>
-                </div>
+          <div class="keyBox" style="height: auto; min-height: 0">
+            <div v-for="(group, index) in displayGroups" :key="index" class="key" style="height: 64px" :title="groupTitle(group)">
+              <div class="title" style="overflow: auto; justify-content: flex-start; padding: 0 4px">
+                <span v-if="group.type === 'insert'" class="result-insert">{{ alignment.extraPage ? '超出报底' : '多组' }}</span>
+                <span v-else>{{ group.expected || '—' }}</span>
+                <small v-if="group.type === 'delete'" class="result-delete">（漏组）</small>
               </div>
-            </template>
+              <div class="val" style="overflow: auto; justify-content: flex-start">
+                <span v-if="!group.characters.length">—</span>
+                <strong v-for="(character, charIndex) in group.characters" :key="charIndex" :class="'result-' + character.type" style="white-space: nowrap" :title="characterTitle(character)">{{ characterText(character) }}</strong>
+              </div>
+            </div>
           </div>
         </div>
         <div class="serial">
-          <div class="ser head"></div>
-          <div class="ser">10</div>
-          <div class="ser">20</div>
-          <div class="ser">30</div>
-          <div class="ser">40</div>
-          <div class="ser">50</div>
-          <div class="ser">60</div>
-          <div class="ser">70</div>
-          <div class="ser">80</div>
-          <div class="ser">90</div>
-          <div class="ser">100</div>
+          <div class="ser head" style="flex-grow: 0"></div>
+          <div v-for="row in Math.ceil(displayGroups.length / 10)" :key="row" class="ser" style="height: 64px; flex-grow: 0">{{ row * 10 }}</div>
         </div>
       </div>
     </div>
@@ -61,15 +59,15 @@
   }
 </script>
 <script setup>
-  import {onMounted,ref} from 'vue'
-  import { defineEmits, watch, defineProps } from 'vue'
+  import { onMounted, ref, computed, defineEmits, defineProps } from 'vue'
+  import { alignResultPage } from '../../../../common/utils/resultAlignment.js'
   import {findHeader} from "../../../../common/api/ReceiveApi.js";
   import {useRoute} from "vue-router"
   const route = useRoute();
   const props = defineProps({
     result: {
       type: Object,
-      default: {}
+      default: () => ({})
     },
     curr: {
       type: Number,
@@ -97,17 +95,24 @@
       }
     })
   })
-  watch(props, () => {
-    if (props.result.pageVos && props.result.pageVos.length < 100) {
-      for (let i = 0; i < 100; i++) {
-        if(props.result.pageVos[i]){
-
-        }else {
-          props.result.pageVos.push({ key: '--' })
-        }
-      }
+  const alignment = computed(() => {
+    try {
+      return alignResultPage(props.result)
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error
+      return { groups: [], extraPage: false, error: error.message }
     }
   })
+  const displayGroups = computed(() => {
+    const groups = alignment.value.groups.slice()
+    while (groups.length < 100 || groups.length % 10) {
+      groups.push({ type: 'empty', expected: '', actual: '', characters: [] })
+    }
+    return groups
+  })
+  const groupTitle = group => group.type === 'empty' ? '' : `报底组 ${group.expectedIndex === null ? '无' : group.expectedIndex + 1} / 答案组 ${group.actualIndex === null ? '无' : group.actualIndex + 1}`
+  const characterText = character => character.type === 'delete' ? `−${character.expected}` : character.type === 'insert' ? `+${character.actual}` : character.type === 'replace' ? `${character.expected}→${character.actual}` : character.actual
+  const characterTitle = character => character.type === 'delete' ? `漏字符：${character.expected}` : character.type === 'insert' ? `多字符：${character.actual}` : character.type === 'replace' ? `替换：${character.expected} → ${character.actual}` : '正确'
 
   const pageTurn = type => {
     if ((type == 'next' && props.curr == props.all) || (type == 'prev' && props.curr == 1)) return false
@@ -116,6 +121,17 @@
 </script>
 
 <style lang="less" scoped>
+  .aligned-result {
+    .result-legend { min-height: 28px; padding: 2px 16px; color: #ffcb7c; }
+    .result-notice, .result-raw { padding: 16px; overflow-wrap: anywhere; }
+    .result-scroll { height: calc(100% - 68px); overflow: auto; }
+    .patTelegraph .telegraph { height: auto; }
+    .patTelegraph .serial .ser.head { flex-grow: 0; }
+    .result-equal { color: #fff; }
+    .result-delete { color: #ffcb7c; }
+    .result-insert { color: #81d9ff; }
+    .result-replace { color: #ff8b8b; }
+  }
   .HJ,.HJJ{
     .telegrapHead {
       height: 40px;

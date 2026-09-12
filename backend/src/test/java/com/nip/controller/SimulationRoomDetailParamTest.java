@@ -39,6 +39,7 @@ class SimulationRoomDetailParamTest {
   SimulationRouterRoomDao roomDao;
   @Inject
   SimulationRouterRoomContentDao contentDao;
+  @Inject com.nip.dao.simulation.SimulationRouterRoomUserDao memberDao;
 
   private String userId;
 
@@ -102,6 +103,42 @@ class SimulationRoomDetailParamTest {
         .body("data.createUserId", equalTo(userId))
         .body("data.currentUserId", equalTo(userId))
         .body("data.content", equalTo("[]"));
+  }
+
+  @Test
+  void answerReadsRespectRoomMembershipAndRouterSenderIsNotTeacher() {
+    String senderToken = UUID.randomUUID().toString();
+    String receiverToken = UUID.randomUUID().toString();
+    String outsiderToken = UUID.randomUUID().toString();
+    UserEntity sender = Fixtures.user(userDao, senderToken, DEVICE);
+    UserEntity receiver = Fixtures.user(userDao, receiverToken, DEVICE);
+    Fixtures.user(userDao, outsiderToken, DEVICE);
+    for (int roomType : new int[]{0, 2}) {
+      Integer roomId = seedRoom("answer-access-" + UUID.randomUUID(), roomType);
+      for (UserEntity member : new UserEntity[]{sender, receiver}) {
+        var membership = new com.nip.entity.simulation.router.SimulationRouterRoomUserEntity();
+        membership.setRoomId(roomId);
+        membership.setUserId(member.getId());
+        membership.setUserType(member == sender ? 0 : 1);
+        membership.setChannel(member == sender ? 0 : 1);
+        memberDao.saveAndFlush(membership);
+      }
+      assertPageAccess(TOKEN, roomId, receiver.getId(), 200);
+      assertPageAccess(senderToken, roomId, receiver.getId(), roomType == 0 ? 202 : 200);
+      assertPageAccess(receiverToken, roomId, receiver.getId(), 200);
+      assertPageAccess(receiverToken, roomId, sender.getId(), 202);
+      assertPageAccess(outsiderToken, roomId, receiver.getId(), 202);
+      given().header("Origin", "http://localhost").header("token", outsiderToken).header("deviceId", DEVICE)
+          .queryParam("roomId", roomId).when().get("/api/simulation/report/getRoomDetail")
+          .then().statusCode(200).body("code", is(202));
+    }
+  }
+
+  private void assertPageAccess(String token, Integer roomId, String targetUserId, int code) {
+    given().header("Origin", "http://localhost").header("token", token).header("deviceId", DEVICE)
+        .queryParam("roomId", roomId).queryParam("userId", targetUserId).queryParam("pageNumber", 1)
+        .when().get("/api/simulation/router/findPage")
+        .then().statusCode(200).body("code", is(code));
   }
 
   private Integer seedRoom(String name, int roomType) {
