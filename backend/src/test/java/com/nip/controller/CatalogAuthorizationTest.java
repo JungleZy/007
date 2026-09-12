@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.security.SessionToken;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -25,7 +26,9 @@ class CatalogAuthorizationTest {
 
   @Test
   void ordinaryUserCannotMutateCableOrDeviceCatalogs() {
-    UserEntity actor = userDao.saveAndFlush(user());
+    String token = "catalog-token-" + UUID.randomUUID();
+    String device = "catalog-device-" + UUID.randomUUID();
+    UserEntity actor = userDao.saveAndFlush(user(token, device));
     RoleEntity role = new RoleEntity();
     role.setTitle("catalog-ordinary-" + UUID.randomUUID());
     role.setIsAdmin(1);
@@ -36,8 +39,6 @@ class CatalogAuthorizationTest {
     link.setRoleId(role.getId());
     userRoleDao.saveAndFlush(link);
 
-    String token = actor.getToken();
-    String device = actor.getDeviceId();
     given().contentType(ContentType.JSON).headers("token", token, "deviceId", device)
         .body("{}").post("/api/cable/save").then().statusCode(200).body("code", is(207));
     given().headers("token", token, "deviceId", device)
@@ -54,13 +55,14 @@ class CatalogAuthorizationTest {
         .body("{}").post("/api/device/addDeviceDescription").then().statusCode(200).body("code", is(207));
   }
 
-  private static UserEntity user() {
+  /** 库里落摘要（与 UserService.login 同口径）；用例用明文 token 当请求头凭据。 */
+  private static UserEntity user(String token, String deviceId) {
     UserEntity user = new UserEntity();
     user.setUserName("catalog-ordinary");
     user.setUserAccount("catalog-" + UUID.randomUUID());
     user.setIdCard("11010119900101" + String.format("%04d", UUID.randomUUID().hashCode() & 0xFFFF));
-    user.setToken("catalog-token-" + UUID.randomUUID());
-    user.setDeviceId("catalog-device-" + UUID.randomUUID());
+    user.setToken(SessionToken.hash(token));
+    user.setDeviceId(deviceId);
     return user;
   }
 }

@@ -34,7 +34,6 @@ class TheoryKnowledgeQuestionServiceTest {
     UserEntity u = new UserEntity();
     u.setUserName(name);
     u.setUserAccount(name + "-" + UUID.randomUUID());
-    u.setToken(UUID.randomUUID().toString());
     return userDao.save(u);
   }
 

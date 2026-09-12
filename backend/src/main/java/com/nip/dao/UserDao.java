@@ -1,6 +1,7 @@
 package com.nip.dao;
 
 import com.nip.common.repository.BaseRepository;
+import com.nip.common.security.SessionToken;
 import com.nip.dto.sql.FindUserByRoleIdDto;
 import com.nip.dto.sql.FindUserByStatusDescDto;
 import com.nip.entity.UserEntity;
@@ -41,9 +42,15 @@ public class UserDao extends BaseRepository<UserEntity, String> {
     ).count() > 0;
   }
 
+  /**
+   * 按令牌与设备号校验会话。
+   *
+   * <p>入参是令牌明文，{@code t_user.token} 存的是摘要，故先哈希再等值查。
+   */
   public boolean existsUserByTokenAndDeviceId(String token, String deviceId) {
     return
-        find("token = :token and deviceId = :deviceId", Parameters.with(TOKEN, token).and(DEVICE_ID, deviceId)).count()
+        find("token = :token and deviceId = :deviceId",
+            Parameters.with(TOKEN, SessionToken.hash(token)).and(DEVICE_ID, deviceId)).count()
             > 0;
   }
 
@@ -59,8 +66,13 @@ public class UserDao extends BaseRepository<UserEntity, String> {
     return find("status", status).list();
   }
 
+  /**
+   * 按令牌反查用户。
+   *
+   * <p>入参是令牌明文，{@code t_user.token} 存的是摘要，故先哈希再等值查。
+   */
   public UserEntity findUserEntityByToken(String token) {
-    return find(TOKEN, token).firstResult();
+    return find(TOKEN, SessionToken.hash(token)).firstResult();
   }
 
   public UserEntity findFirstByDeviceId(String deviceId) {

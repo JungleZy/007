@@ -1,6 +1,7 @@
 package com.nip.service;
 
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.security.SessionToken;
 import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
@@ -40,7 +41,7 @@ class PostTelegramTrainServiceTest {
 
   private PostTelegramTrainEntity train(String token, int groups) {
     PostTelegramTrainEntity entity = new PostTelegramTrainEntity();
-    entity.setCreateUser(userDao.find("token", token).firstResult().getId());
+    entity.setCreateUser(userDao.find("token", SessionToken.hash(token)).firstResult().getId());
     entity.setProtocolVersion(1).setAttempt(0).setFullScore(137).setScore("137")
         .setMessageNumber(groups).setStatus(1).setStartTime(LocalDateTime.now().minusMinutes(5))
         .setRuleContent(RULE).setType(0).setIsCable(0);

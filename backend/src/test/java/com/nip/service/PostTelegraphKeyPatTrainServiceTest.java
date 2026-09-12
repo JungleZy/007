@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.security.SessionToken;
 import com.nip.common.exception.ForbiddenException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dao.*;
@@ -257,7 +258,7 @@ class PostTelegraphKeyPatTrainServiceTest {
 
   private PostTelegraphKeyPatTrainEntity seed(String token, int groups) {
     PostTelegraphKeyPatTrainEntity train = new PostTelegraphKeyPatTrainEntity()
-        .setCreateUserId(userDao.find("token", token).firstResult().getId())
+        .setCreateUserId(userDao.find("token", SessionToken.hash(token)).firstResult().getId())
         .setProtocolVersion(1).setAttempt(0).setIsCable(0).setTotalNumber(groups).setMessageType(0)
         .setStatus(UNDERWAY.getStatus()).setBeginTime(LocalDateTime.now().minusMinutes(2))
         .setScore(new BigDecimal("100")).setFullScore(new BigDecimal("100")).setRuleContent(RULE);

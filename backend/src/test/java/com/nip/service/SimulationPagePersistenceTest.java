@@ -1,5 +1,6 @@
 package com.nip.service;
 
+import com.nip.common.security.SessionToken;
 import com.nip.dao.UserDao;
 import com.nip.dao.simulation.SimulationRouterRoomContentDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
@@ -51,7 +52,15 @@ class SimulationPagePersistenceTest {
 
   @AfterEach
   void removeRooms() {
-    createdRooms.forEach(content::delete);
+    // 清场直接走 DAO：delete 端点现在要求「建房人 ∪ 组训位 ∪ 管理员」授权（T2-3），
+    // 而 room() 造的房没有 createUserId，用业务方法清场等于让 teardown 依赖授权口径。
+    createdRooms.forEach(roomId -> QuarkusTransaction.requiringNew().run(() -> {
+      valueDao.delete("roomId", roomId);
+      pageDao.delete("roomId", roomId);
+      memberDao.delete("roomId", roomId);
+      contentDao.delete("roomId", roomId);
+      roomDao.deleteById(roomId);
+    }));
   }
 
   @Test
@@ -223,7 +232,8 @@ class SimulationPagePersistenceTest {
   }
 
   private String userId(String token) {
-    return userDao.find("token", token).singleResult().getId();
+    // t_user.token 存的是摘要（T3-1），按明文查不到人。
+    return userDao.find("token", SessionToken.hash(token)).singleResult().getId();
   }
 
   private static String token() {

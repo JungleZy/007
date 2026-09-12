@@ -5,9 +5,8 @@ import com.nip.common.constants.MessageConstants;
 import com.nip.common.constants.ResponseCode;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
-import com.nip.common.utils.AESUtil;
 import com.nip.common.security.PasswordHasher;
-import com.nip.common.utils.PojoUtils;
+import com.nip.common.security.SessionToken;
 import com.nip.common.utils.ToolUtil;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
@@ -376,6 +375,10 @@ public class UserService {
         list.add(entity);
         continue;
       }
+      // 会话凭据一律由服务端签发：客户端在导入体里捎带的 token/deviceId 不得落库，
+      // 否则导入方可以给任意新账号预置一枚自己知道的令牌，直接拿到该账号的会话。
+      entity.setToken(null);
+      entity.setDeviceId(null);
       entity.setPassword(passwordHasher.hash(entity.getPassword()));
       UserEntity save = userDao.save(entity);
       List<RoleEntity> allByIsDefault = roleDao.find("isDefault", 0).list();
@@ -457,8 +460,10 @@ public class UserService {
         userDao.save(user);
       }
 
-      String token = AESUtil.encrypt(userAccount + "-" + password + "-" + deviceId, AESUtil.UKDAI_AES_KEY);
-      user.setToken(token);
+      // 令牌是不透明随机串（与账号/口令/设备号无关）：明文只随本次登录响应回给登录者本人，
+      // 库里只落摘要，任何一次库导出或日志泄露都还原不出凭据。
+      String token = SessionToken.issue();
+      user.setToken(SessionToken.hash(token));
       user.setDeviceId(deviceId);
       if (!userDao.updateUser(user)) {
         return ResponseResult.error(ResponseCode.SYSTEM_ERROR, MessageConstants.DATA_EXCEPTION);
@@ -583,28 +588,52 @@ public class UserService {
   }
 
   /**
-   * 根据用户列表替换用户ID，并在不存在时保存用户信息
-   * 此方法用于处理用户同步时的用户ID分配问题如果用户不存在，会创建新用户并分配新ID；
-   * 如果用户已存在，则使用现有用户的ID此方法返回一个映射，用于记录原始用户ID与实际保存的用户ID之间的对应关系
+   * 按账号对齐离线导入包里的用户行，并返回「包内原始 id → 本库 id」的映射。
    *
-   * @param users 用户同步数据列表，包含需要同步的用户信息
-   * @return 返回一个映射，键为原始用户ID，值为实际保存的用户ID
+   * <p><b>字段白名单（SEC-05）</b>：导入包来自客户端，整包字段都不可信，因此新建账号
+   * <b>只</b>落 {@code userAccount}/{@code userName}/{@code userImg} 三项业务标识，其余一律服务端决定：
+   * <ul>
+   *   <li>{@code token}/{@code deviceId} 留 NULL —— 导入绝不产生可用会话凭证；</li>
+   *   <li>{@code password} 留 NULL（{@code t_user.password} 允许 NULL）。
+   *       {@code PasswordHasher.verify} 对 {@code stored == null} 恒不匹配，故该账号无法登录，
+   *       须管理员 {@link #resetPassword(String)} 后才可用；此处<b>不</b>生成随机口令或默认口令；</li>
+   *   <li>{@code status} 固定为 0（正常），与 {@code signin} 的新建口径一致 ——
+   *       不接受包内 {@code status}，否则客户端可借导入直接决定账号状态。</li>
+   * </ul>
+   * 注意这里不能再用 {@code PojoUtils.convertOne(item, UserEntity.class)} 按名整体拷贝：
+   * 那是「DTO 恰好没有凭据字段」的隐式安全，DTO 一加字段就静默回归。
+   *
+   * @param users 导入包里的用户行
+   * @return 键为包内原始 id，值为本库 id
    */
+  @Transactional
   public Map<String, String> replaceUserIdAndSaveIfNotExist(List<UserSyncDto> users) {
     Map<String, String> mp = new HashMap<>();
+    if (users == null) {
+      return mp;
+    }
     for (UserSyncDto item : users) {
       UserEntity byUserAccount = userDao.findByUserAccount(item.getUserAccount());
-      if (byUserAccount == null) {
-        item.setId(null);
-        UserEntity userEntity = PojoUtils.convertOne(item, UserEntity.class);
-        userDao.saveAndFlush(userEntity);
-        mp.put(item.getId(), userEntity.getId());
-      } else {
+      if (byUserAccount != null) {
         mp.put(item.getId(), byUserAccount.getId());
+        continue;
       }
+      // 原 id 必须在建号前取出：旧实现先 item.setId(null) 再 mp.put(item.getId(), ...)，
+      // 于是所有新建用户都挤在 key=null 的一格里，导入侧 userIdMap.get(原 id) 恒为 null ——
+      // 训练 createUser 与全部参训/报底行的 userId 被写成 null，导入整体失效。
+      String sourceId = item.getId();
+      UserEntity created = new UserEntity();
+      created.setUserAccount(item.getUserAccount());
+      created.setUserName(item.getUserName());
+      created.setUserImg(item.getUserImg());
+      created.setStatus(0);
+      setDefaultAvatarIfNull(created);
+      userDao.saveAndFlush(created);
+      mp.put(sourceId, created.getId());
     }
     return mp;
   }
+
   @Transactional
   public Boolean delete(String userId){
     userRoleDao.delete("userId",userId);

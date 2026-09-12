@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.security.SessionToken;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -75,8 +76,8 @@ class AdminAuthorizationTest {
     UserEntity victim = createUser("password-victim");
     actor.setPassword(MD5Util.encrypt("old-actor-password"));
     victim.setPassword(MD5Util.encrypt("victim-password"));
-    userDao.saveAndFlush(actor);
-    userDao.saveAndFlush(victim);
+    actor = resave(actor);
+    victim = resave(victim);
 
     given()
         .contentType(ContentType.JSON)
@@ -159,7 +160,7 @@ class AdminAuthorizationTest {
   void loginSeparatesCredentialsFromUserProfile() {
     UserEntity actor = createUser("login");
     actor.setStatus(0);
-    userDao.saveAndFlush(actor);
+    actor = resave(actor);
     attachRole(actor, 0);
     String device = "login-device-" + UUID.randomUUID();
     var session = given().contentType(ContentType.JSON)
@@ -187,9 +188,27 @@ class AdminAuthorizationTest {
     user.setUserName(prefix);
     user.setIdCard("11010119900101" + String.format("%04d", UUID.randomUUID().hashCode() & 0xFFFF));
     user.setPassword(MD5Util.encrypt("password"));
-    user.setToken(prefix + "-token-" + UUID.randomUUID());
+    String token = prefix + "-token-" + UUID.randomUUID();
+    // 库里只落摘要（与 UserService.login 同口径），返回对象保留明文供用例当请求头凭据
+    user.setToken(SessionToken.hash(token));
     user.setDeviceId(prefix + "-device-" + UUID.randomUUID());
-    return userDao.saveAndFlush(user);
+    UserEntity saved = userDao.saveAndFlush(user);
+    saved.setToken(token);
+    return saved;
+  }
+
+  /**
+   * 回写用户行。
+   *
+   * <p>{@link #createUser} 返回对象上的 token 是明文，直接 {@code saveAndFlush} 会把明文刷进
+   * {@code t_user.token}，之后鉴权按摘要就查不到人；故落库前换回摘要，返回对象仍带明文。
+   */
+  private UserEntity resave(UserEntity user) {
+    String token = user.getToken();
+    user.setToken(SessionToken.hash(token));
+    UserEntity saved = userDao.saveAndFlush(user);
+    saved.setToken(token);
+    return saved;
   }
 
   private void attachRole(UserEntity user, int isAdmin) {

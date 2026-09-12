@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.security.SessionToken;
 import com.nip.common.security.PasswordHasher;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
@@ -72,7 +73,8 @@ class PasswordMigrationTest {
 
     UserEntity unchanged = userDao.findById(user.getId());
     assertEquals(LEGACY_PASSWORD, unchanged.getPassword());
-    assertEquals(oldToken, unchanged.getToken());
+    // 库里存的是摘要：拿播种时的明文重新摘要比对，证明失败登录没有改写会话
+    assertEquals(SessionToken.hash(oldToken), unchanged.getToken());
     assertEquals(oldDevice, unchanged.getDeviceId());
 
     String device = "login-device-" + UUID.randomUUID();
@@ -137,9 +139,13 @@ class PasswordMigrationTest {
     user.setIdCard(idCard());
     user.setPassword(storedPassword);
     user.setStatus(0);
-    user.setToken("password-token-" + UUID.randomUUID());
+    String token = "password-token-" + UUID.randomUUID();
+    // 库里只落摘要（与 UserService.login 同口径），返回对象保留明文供用例当请求头凭据
+    user.setToken(SessionToken.hash(token));
     user.setDeviceId("password-device-" + UUID.randomUUID());
-    return userDao.saveAndFlush(user);
+    UserEntity saved = userDao.saveAndFlush(user);
+    saved.setToken(token);
+    return saved;
   }
 
   private RoleEntity createRole(int isAdmin, int isDefault) {

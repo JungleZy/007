@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.security.SessionToken;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
@@ -141,10 +142,16 @@ class UserDirectoryAuthorizationTest {
   }
 
   private UserEntity withContactDetails(UserEntity user) {
+    // Fixtures 返回的 token 是明文，回写这一行前必须换回摘要，否则会把明文刷进 t_user.token
+    // 让后续鉴权按摘要查不到人。
+    String token = user.getToken();
     user.setIdCard("11010119900101" + String.format("%04d", (UUID.randomUUID().hashCode() & 0x7FFFFFFF) % 10000));
     user.setPhone("139" + String.format("%08d", (UUID.randomUUID().hashCode() & 0x7FFFFFFF) % 100000000));
     user.setEmail(user.getUserAccount() + "@example.com");
-    return userDao.saveAndFlush(user);
+    user.setToken(SessionToken.hash(token));
+    UserEntity saved = userDao.saveAndFlush(user);
+    saved.setToken(token);
+    return saved;
   }
 
   private UserEntity student(String prefix) {
