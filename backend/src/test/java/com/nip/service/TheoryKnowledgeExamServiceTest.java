@@ -126,7 +126,7 @@ class TheoryKnowledgeExamServiceTest {
           new TypeToken<List<TestPaperQuestionDto>>() {});
       assertEquals(groups.get(index), decoded);
     }
-    service.teacherStartExam(examId, 2);
+    service.teacherStartExam(token, examId, 2);
     service.studentChangeExamState(token, examId, 2, null);
     String content = JSONUtils.toJson(answers);
     service.studentChangeExamState(token, examId, 3, content);

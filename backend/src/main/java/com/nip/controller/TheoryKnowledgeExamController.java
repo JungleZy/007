@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.TheoryKnowledgeExamDto;
@@ -43,6 +44,7 @@ public class TheoryKnowledgeExamController {
 
   @POST
   @Path("/savetheoryKnowledgeExam")
+  @RequireAdmin
   public Response<Void> saveTheoryKnowledgeExam(@RestHeader(TOKEN) String token, TheoryKnowledgeExamDto map) {
     return theoryKnowledgeExamService.saveTheoryKnowledgeExam(token, map);
   }
@@ -84,15 +86,16 @@ public class TheoryKnowledgeExamController {
   }
 
   /**
-   * 监考人修改考核状态（(开始传2，结束传3，阅卷完毕4））
+   * 考核状态：成员可入场（2），管理员可结束全场（3）或完成阅卷（4）。
    *
    * @param map
    * @return
    */
   @POST
   @Path("/teacherStartTheoryKnowledgeExam")
-  public Response<TheoryKnowledgeExamEntity> teacherStartTheoryKnowledgeExam(Map<String, String> map) {
-    return theoryKnowledgeExamService.teacherStartExam(map.get(EXAM_ID), Integer.parseInt(map.get(TYPE)));
+  public Response<TheoryKnowledgeExamEntity> teacherStartTheoryKnowledgeExam(@RestHeader(TOKEN) String token,
+      Map<String, String> map) {
+    return theoryKnowledgeExamService.teacherStartExam(token, map.get(EXAM_ID), Integer.parseInt(map.get(TYPE)));
   }
 
   /**
@@ -135,6 +138,7 @@ public class TheoryKnowledgeExamController {
   @POST
   @Path("/deleteTheoryKnowledgeExam")
   @Operation(summary = "删除理论测试")
+  @RequireAdmin
   public Response<Void> deleteTheoryKnowledgeExam(Map<String, String> map) {
     return theoryKnowledgeExamService.deleteTheoryKnowledgeExam(map.get(EXAM_ID));
   }

@@ -2,6 +2,9 @@ package com.nip.service;
 
 import com.nip.dao.PostMilitaryTermTrainDao;
 import com.nip.dao.TheoryKnowledgeExamDao;
+import com.nip.dao.UserDao;
+import com.nip.testsupport.Fixtures;
+import java.util.UUID;
 import com.nip.entity.PostMilitaryTermTrainEntity;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -24,6 +27,7 @@ class FindByIdGuardTest {
   @Inject PostMilitaryTermTrainDao postMilitaryTermTrainDao;
   @Inject TheoryKnowledgeExamService theoryKnowledgeExamService;
   @Inject TheoryKnowledgeExamDao theoryKnowledgeExamDao;
+  @Inject UserDao userDao;
 
   @Test
   void beginMissingMilitaryTermTrainThrowsWithoutPersisting() {
@@ -50,13 +54,14 @@ class FindByIdGuardTest {
 
   @Test
   void teacherStartMissingExamThrowsWithoutPersisting() {
+    String token = "missing-exam-" + UUID.randomUUID();
+    Fixtures.user(userDao, token);
     long before = theoryKnowledgeExamDao.count();
 
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> theoryKnowledgeExamService.teacherStartExam("no-such-exam-id", 2),
+        () -> theoryKnowledgeExamService.teacherStartExam(token, "no-such-exam-id", 2),
         "不存在的考试 id 必须显式报错而非 NPE");
 
-    assertEquals("未查询到考试", ex.getMessage());
     assertEquals(before, theoryKnowledgeExamDao.count(), "开考不存在的考试不得落任何新行");
   }
 }

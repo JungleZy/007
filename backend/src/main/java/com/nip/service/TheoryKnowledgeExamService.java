@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.DateTimeUtil;
@@ -57,17 +58,20 @@ public class TheoryKnowledgeExamService {
   private final TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao;
   private final TestPaperQuestionDao questionDao;
   private final UserDao userDao;
+  private final RoleDao roleDao;
 
   @Inject
   public TheoryKnowledgeExamService(TheoryKnowledgeExamDao theoryKnowledgeExamDao, UserService userService,
       TheoryKnowledgeExamTestPaperDao theoryKnowledgeExamTestPaperDao,
-      TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao, TestPaperQuestionDao questionDao, UserDao userDao) {
+      TheoryKnowledgeExamUserDao theoryKnowledgeExamUserDao, TestPaperQuestionDao questionDao, UserDao userDao,
+      RoleDao roleDao) {
     this.theoryKnowledgeExamDao = theoryKnowledgeExamDao;
     this.userService = userService;
     this.theoryKnowledgeExamTestPaperDao = theoryKnowledgeExamTestPaperDao;
     this.theoryKnowledgeExamUserDao = theoryKnowledgeExamUserDao;
     this.questionDao = questionDao;
     this.userDao = userDao;
+    this.roleDao = roleDao;
   }
 
   @Transactional
@@ -138,11 +142,25 @@ public class TheoryKnowledgeExamService {
   }
 
   @Transactional
-  public Response<TheoryKnowledgeExamEntity> teacherStartExam(String examId, int type) {
-    // Phase 7.4：不存在的考试 id 必须显式报错，否则下面 setStartTime/setState 直接 NPE 成 500
+  public Response<TheoryKnowledgeExamEntity> teacherStartExam(String token, String examId, int type) {
+    String actorId = userService.getUserByToken(token).getId();
     TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findById(examId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
+    boolean admin = roleDao.existsAdminRoleByUserId(actorId);
+    if (!admin && (type != 2
+        || theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, actorId) == null)) {
+      throw new ForbiddenException("无权修改该考试状态");
+    }
+    if (type < 2 || type > 4) {
+      throw new IllegalArgumentException("考试状态必须为2、3或4");
+    }
     if (type == 2) {
+      if (Objects.equals(entity.getState(), 2)) {
+        return ResponseResult.success(entity);
+      }
+      if (!Objects.equals(entity.getState(), 1)) {
+        throw new TerminalStateException("考试已结束，不能重新开始");
+      }
       entity.setStartTime(DateTimeUtil.now());
     } else if (type == 3) {
       entity.setEndTime(DateTimeUtil.now());
@@ -239,9 +257,20 @@ public class TheoryKnowledgeExamService {
   public TheoryKnowledgeExamEntity saveTheoryKnowledgeExamSelfTesting(String token, TheoryKnowledgeExamDto dto)
       throws Exception {
     UserEntity userEntity = userService.getUserByToken(token);
-    // 先保存这场考试
+    TheoryKnowledgeExamEntity existing = null;
+    if (StringUtils.isNotBlank(dto.getId())) {
+      existing = Optional.ofNullable(theoryKnowledgeExamDao.findById(dto.getId()))
+          .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
+      if (!Objects.equals(existing.getCreateUserId(), userEntity.getId())
+          && !roleDao.existsAdminRoleByUserId(userEntity.getId())) {
+        throw new ForbiddenException("无权修改他人的自测");
+      }
+    }
     TheoryKnowledgeExamEntity examEntity = PojoUtils.convertOne(dto, TheoryKnowledgeExamEntity.class);
-    examEntity.setCreateUserId(userEntity.getId());
+    examEntity.setId(existing == null ? null : existing.getId());
+    examEntity.setCreateUserId(existing == null ? userEntity.getId() : existing.getCreateUserId());
+    examEntity.setCreateTime(existing == null ? String.valueOf(System.currentTimeMillis()) : existing.getCreateTime());
+    examEntity.setStartTime(DateTimeUtil.now());
     // 状态设置成进行中
     examEntity.setState(2);
     TheoryKnowledgeExamEntity save = theoryKnowledgeExamDao.save(examEntity);
@@ -266,8 +295,8 @@ public class TheoryKnowledgeExamService {
     TheoryKnowledgeExamUserEntity examUser = new TheoryKnowledgeExamUserEntity();
     examUser.setState(2);
     examUser.setScore(0);
-    examUser.setUserId(userEntity.getId());
-    examUser.setStartTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    examUser.setUserId(save.getCreateUserId());
+    examUser.setStartTime(save.getStartTime());
     examUser.setExamId(save.getId());
     examUser.setIsSelfTesting(0);
     theoryKnowledgeExamUserDao.save(examUser);
