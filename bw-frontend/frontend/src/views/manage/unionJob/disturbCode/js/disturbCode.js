@@ -158,7 +158,7 @@ export default function disturbCode(selectCable) {
     try {
       if (item.createUserId != userInfo.value.id && item.stats < 2) {
         const response = await reportIntoTrainRoom({roomId: Number(item.id)})
-        if (response?.code !== 200) throw new Error(response?.msg || response?.message || '加入训练失败')
+        if (response?.code !== 200) throw new Error(response?.message || '加入训练失败')
       }
       router.push({path: drillPath.value, query: {id: item.id}})
     } catch (error) {

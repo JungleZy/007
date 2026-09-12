@@ -82,7 +82,7 @@ export default function issue(trainData, trainTimeRef) {
     if (!document.hidden) getApiRoomUserList()
   }
   const requireData = res => {
-    if (res?.code != 200 || !res.data) throw new Error(res?.msg || '训练结果读取失败，请重试')
+    if (res?.code != 200 || !res.data) throw new Error(res?.message || '训练结果读取失败，请重试')
     return res.data
   }
 
@@ -465,7 +465,7 @@ export default function issue(trainData, trainTimeRef) {
             trainData.value.userStatus = res.data.currentUserStatus
             getApiRoomUserList()
           } else {
-            recoveryError.value = res.msg || '结束训练失败，请重试'
+            recoveryError.value = res.message || '结束训练失败，请重试'
           }
         }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
       }
@@ -517,7 +517,7 @@ export default function issue(trainData, trainTimeRef) {
                 trainData.value.userStatus = res.data.currentUserStatus
                 getApiRoomUserList()
               } else {
-                recoveryError.value = res.msg || '结束训练失败，请重试'
+                recoveryError.value = res.message || '结束训练失败，请重试'
               }
             }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
           }

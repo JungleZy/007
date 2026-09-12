@@ -129,7 +129,7 @@ let recoveryPending = false
 let recoveryTimer = null
 let loaded = false
 const requireData = res => {
-  if (res?.code != 200 || !res.data) throw new Error(res?.msg || '训练结果读取失败，请重试')
+  if (res?.code != 200 || !res.data) throw new Error(res?.message || '训练结果读取失败，请重试')
   return res.data
 }
 const scheduleRecovery = () => {
@@ -557,7 +557,7 @@ const fillInTrainResult = res => {
     if (res.code == 200) {
       getSimulationRouterRoomDetail()
     } else {
-      recoveryError.value = res.msg || '提交失败，请重试'
+      recoveryError.value = res.message || '提交失败，请重试'
     }
   }).catch(() => { recoveryError.value = '提交失败，请重试' })
 }

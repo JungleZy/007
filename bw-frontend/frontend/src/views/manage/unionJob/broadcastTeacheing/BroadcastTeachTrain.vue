@@ -25,7 +25,7 @@ const loadEntry = async () => {
   entryError.value = ''
   try {
     const response = await getRoomDetail({ roomId: Number(route.query.id) })
-    if (response.code !== 200 || !response.data) throw new Error(response.msg || '无权查看该训练')
+    if (response.code !== 200 || !response.data) throw new Error(response.message || '无权查看该训练')
     const room = response.data
     entryRole.value = room.teacher === true ? 'teacher' : 'student'
   } catch (error) {

@@ -117,7 +117,7 @@ export default function lineNotify(selectCable) {
     } else {
       getRoomUserList(row.id).then(data => {
         if (data.code != 200 || !data.data) {
-          message.error(data.msg || '读取训练房间失败')
+          message.error(data.message || '读取训练房间失败')
           return
         }
         const sendList = data.data.sendUserList.map(item => item.id)

@@ -505,7 +505,7 @@ export default function train() {
 
   const resultData = response => {
     if (response?.code !== 200 || response.data == null) {
-      throw new Error(response?.msg || response?.message || '训练结果读取失败，请重试')
+      throw new Error(response?.message || '训练结果读取失败，请重试')
     }
     return response.data
   }
