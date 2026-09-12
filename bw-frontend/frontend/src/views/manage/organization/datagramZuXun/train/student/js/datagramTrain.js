@@ -39,7 +39,6 @@ export default function (trainData,loading,emits) {
   const cutTimer = ref(null)
   const receiveWebSocketMessage = (e) => {
     let data = JSON.parse(JSON.parse(e.data).data);
-    // console.log(data)
     if(data.topic == 'online'){
       message.success('教员已回来！')
     }else if (data.topic == 'offline') {
@@ -160,7 +159,6 @@ export default function (trainData,loading,emits) {
         res.data.messageVO.forEach((item)=>{
           item.value=[]
         })
-        console.log(page)
         trainData.value.telegraph[page-1] = res.data.messageVO.filter(item=>item.sort>-1);
       }
     })

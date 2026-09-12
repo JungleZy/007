@@ -308,7 +308,6 @@ const { selfId } = defineProps({
     default: ''
   }
 })
-console.log(selfId)
 const {
   scoreData,loading,patHairTrendBoxRef,trendLogKeyData,resolve,switchTelegram,seeCurrKeysHairTrend
 } = trainScore(showChart,selfId);

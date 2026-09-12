@@ -144,7 +144,6 @@ export default function () {
    */
   const receiveWebSocketMessage = (e) => {
     let data = JSON.parse(JSON.parse(e.data).data);
-    // console.log(data)
     if(data.topic == 'online'){
       trainData.value.userInfoList.forEach(item=>{
         if(item.userId == data.id && item.isFinish != 1){

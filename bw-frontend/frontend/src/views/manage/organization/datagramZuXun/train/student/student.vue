@@ -158,7 +158,6 @@
   import { PubSub } from '../../../../../../common/utils/PubSub.js'
   import { wsCode } from '../../../../../../common/ws/Ws.js'
   import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
-  import useControl from './js/useControl.js'
   import details from './js/datagramTrain.js'
   import Number from '../../../../../../components/number/Number.vue'
 
@@ -231,7 +230,6 @@
               }
             }
           })
-          // console.log(trainData.value)
           getPostTrainKeyInfo(1)
           if (trainData.value.pag > 1) {
             getPostTrainKeyInfo(2)
@@ -246,7 +244,6 @@
     }
   })
   onUnmounted(() => {
-    console.log(trainData.value);
     if (trainData.value.status === 1) {
       let obj = {
         patPage: trainData.floorNow,

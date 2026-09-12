@@ -184,7 +184,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
     logsPatStandardCode.value = [];
     finishPatLogs.value = [];
   }
-  let startTime = 0
   /**
    * 处理接收的电报code
    * @param val
@@ -206,7 +205,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
     if((Number(val) == 14||Number(val) == 41)&&cacheCode.length>0){
       time = capture.between(logsPatKeyTime.value, curr_t);
       k_v = codeOnKey[cacheCode.join('')] ?? '#'
-      console.log(k_v);
       cacheCode = []
       lastRow = trainData.value.patKeyVal[trainData.value.patKeyVal.length - 1];
       if (lastRow.length === 0) {
@@ -236,7 +234,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
       return false;
     }
     if (Number(val)===44&&trainData.value.process===1&&isPatF1.value) {
-      startTime = Date.now()
       logsPatKeyTime.value = curr_t;
       lastCharacterAt = curr_t
       trainData.value.patKeyVal.push([['开始']]);
@@ -529,7 +526,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
   const cutTimer = ref(null)
   const receiveWebSocketMessage = (e) => {
     let data = JSON.parse(JSON.parse(e.data).data);
-    // console.log(data)
     if(data.topic == 'online'){
       message.success('教员已回来！')
     }

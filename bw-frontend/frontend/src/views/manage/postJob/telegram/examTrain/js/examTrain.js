@@ -188,7 +188,6 @@ export default function () {
   const switchPage = num => {
     if ([1, 3].includes(trainData.value.status)) return
     if(pageloding){return }
-    console.log(num)
     if ((currPage.value <= 1 && num < 0) || (num > 0 && currPage.value >= allPage.value)) return false
     currPage.value += num
     if (num === 1) {
@@ -244,7 +243,6 @@ export default function () {
     if((Number(code) == 14||Number(code) == 41)&&cacheCode.length>0){
       time = capture.between(logsPatKeyTime.value, curr_t);
       k_v = codeOnKey[cacheCode.join('')] ?? '#'
-      console.log(k_v);
       cacheCode = []
       lastRow = patKeysLogs.value[patKeysLogs.value.length - 1];
       lastPatKey.value = patKeysLogs.value[patKeysLogs.value.length - 1];
@@ -383,7 +381,6 @@ export default function () {
             patKeyAssignmentInfo(lastKey, k_v, curr_t)
             clearTimeout(timer)
             timer = null
-            console.log(3333333333)
           }, pauseDuration.value)
         }
       }
@@ -394,7 +391,6 @@ export default function () {
       }
     }
     if (Number(code) === 43 && isPatF1.value) {
-      console.log(lastKey.length)
       if (isModify.value || currPageIndex.value == 0) {
         return false;
       } else {
@@ -484,7 +480,6 @@ export default function () {
         break
     }
     codes+=sendcode
-    // console.log(22222222)
     if(isPatF1.value){
       voiceCode({numType:'short',code:codes})
     }else {

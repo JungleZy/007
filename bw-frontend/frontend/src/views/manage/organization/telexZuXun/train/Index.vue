@@ -28,7 +28,6 @@
   })
 
   const changeStatus = () => {
-    console.log(2222222)
     activeZuXunPage.value = ZuXunStudentScore;
   }
 </script>

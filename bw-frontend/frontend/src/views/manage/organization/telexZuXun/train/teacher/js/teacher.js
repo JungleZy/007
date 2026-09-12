@@ -93,7 +93,6 @@ export default function () {
    */
   const receiveWebSocketMessage = (e) => {
     let data = JSON.parse(JSON.parse(e.data).data);
-    // console.log(data)
     if(data.topic == 'online'){
       trainData.value.userInfoList.forEach(item=>{
         if(item.userId == data.id && item.isFinish != 1){
@@ -227,7 +226,6 @@ export default function () {
 
   /** 查看学员成绩 */
   const seeStudentScore = (user) => {
-    console.log(user)
     if (trainData.value.status < 2) return false;
     activeUserId.value = (user.userId==activeUserId.value?null:user.userId)
     isFinish.value = user.isFinish
