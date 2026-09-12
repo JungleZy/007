@@ -58,6 +58,12 @@ if [[ ! -f "$ENTITY_SCHEMA" ]]; then
     echo "Copied entity schema from $EXPORTED"
   fi
 fi
+# 执行顺序 = 文件名字典序（T7-4：不改已执行脚本的文件名，只把演练数组排序，
+# 便于与运维按文件名记录的"已跑清单"逐行对齐）。
+# 已逐对核对：字典序与依赖顺序不冲突——加列脚本 2026-09-11-03-post-telex-capture-clock.sql
+# 天然排在建索引脚本 2026-09-12-02-post-telex-due-index.sql 之前；
+# 其余脚本作用于互不相交的表族（general_* / personal / simulation / theory），无先后依赖。
+# 下方 `index >= 3` 的重复执行断言依赖前三个非幂等脚本仍排在最前，排序后位置未变。
 MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-08-26-01-schema-sync.sql"
   "$PROJECT_ROOT/database/migrations/2026-08-26-02-engine-innodb.sql"
@@ -67,9 +73,10 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-11-01-group-net-scoring.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-01-simulation-page-uniqueness.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-03-personal-electronic-capture.sql"
-  "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-03-post-telex-capture-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-11-04-general-capture-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-02-post-telex-due-index.sql"
 )
 
 for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}"; do
@@ -231,6 +238,9 @@ rehearse() {
     assert_eq "[$label] exact unique key $identity_index" "$identity_columns" \
       "$(mysql_scalar "$cname" "select group_concat(column_name order by seq_in_index) from information_schema.statistics where table_schema=database() and table_name='$identity_table' and index_name='$identity_index' and non_unique=0 and sub_part is null")"
   done
+  # 到期扫描支撑索引：列序即 findDueIds 的 (等值, 范围)，错序会让 order by 回落 filesort。
+  assert_eq "[$label] exact due-scan index idx_post_telex_due" "status,deadline" \
+    "$(mysql_scalar "$cname" "select group_concat(column_name order by seq_in_index) from information_schema.statistics where table_schema=database() and table_name='t_post_telex_pat_train' and index_name='idx_post_telex_due'")"
   for legacy_table in general_ticker_pat general_key_pat t_post_telegram_train t_post_telegraph_key_pat_train t_post_telex_pat_train; do
     assert_eq "[$label] historical $legacy_table is not relabeled as new capture" "0" \
       "$(mysql_scalar "$cname" "select count(*) from $legacy_table where protocol_version<>0 or protocol_version is null")"
