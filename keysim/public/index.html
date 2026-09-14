@@ -22,9 +22,12 @@
     --sans:system-ui,-apple-system,"Segoe UI","Noto Sans SC","PingFang SC",sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{height:100%}
+  html{height:100%}
+  /* 一套刻度，全页只用这几档：
+     铭牌 17/mono · 分区标题 11/mono · 正文与控件 13/sans · 数据 12/mono · 附注 11.5/mono */
   body{
-    margin:0;background:var(--deck);color:var(--ink);font:14px/1.55 var(--sans);
+    margin:0;min-height:100%;display:flex;flex-direction:column;
+    background:var(--deck);color:var(--ink);font:13px/1.55 var(--sans);
     /* 机柜面板的细微竖向拉丝 */
     background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px);
   }
@@ -37,9 +40,9 @@
   }
   .plate{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:.42em;text-transform:uppercase}
   .plate b{color:var(--lamp);font-weight:600}
-  .sub{color:var(--ink-dim);font-size:12px;letter-spacing:.08em}
+  .sub{color:var(--ink-dim);font-size:11.5px;letter-spacing:.08em}
   .lamps{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
-  .lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
   .lamp i{
     width:9px;height:9px;border-radius:50%;background:var(--lamp-off);
     box-shadow:inset 0 0 2px rgba(0,0,0,.8);flex:none
@@ -66,9 +69,10 @@
   #tape{display:block;position:sticky;left:0;width:100%;height:96px}
   #tapeTrack{height:1px}
   .tape-meta{
-    display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
-    padding:6px 2px 0;font-family:var(--mono);font-size:11px;color:var(--ink-dim)
+    display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+    padding:7px 2px 0;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)
   }
+  .tape-meta select{height:24px;line-height:22px;font-size:11.5px;font-family:var(--mono);padding:0 4px}
   .tape-meta b{color:var(--ink);font-weight:500}
   .tape-empty{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -76,7 +80,11 @@
   }
 
   /* ---------- 面板分区 ---------- */
-  main{display:grid;grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);gap:14px;padding:14px 20px 20px;align-items:start}
+  main{
+    flex:1;display:grid;gap:14px;padding:14px 20px 20px;
+    grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);
+    grid-template-rows:auto minmax(200px,1fr);align-items:start
+  }
   section{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 14px 14px}
   /* 卡片间距一律由栅格 gap 负责：早先这里有过 section+section{margin-top}，
      在栅格里它会把第二张卡片整体压下 14px，两列顶边就对不齐了 */
@@ -85,7 +93,7 @@
     letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);
     padding-bottom:7px;border-bottom:1px solid var(--rule)
   }
-  .wide{grid-column:1/-1}
+  .wide{grid-column:1/-1;align-self:stretch;display:flex;flex-direction:column;min-height:0}
 
   /* ---------- 通道链 ---------- */
   .chain{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
@@ -95,7 +103,7 @@
   .link.live i{background:var(--live);box-shadow:0 0 6px rgba(111,195,164,.45)}
   .link.fault i{background:var(--fault)}
   .link .name{font-size:13px}
-  .link .name em{font-style:normal;color:var(--ink-dim);font-size:11px;margin-left:6px;font-family:var(--mono)}
+  .link .name em{font-style:normal;color:var(--ink-dim);font-size:11.5px;margin-left:6px;font-family:var(--sans)}
   .link .val{font-family:var(--mono);font-size:12px;color:var(--ink-dim);text-align:right;word-break:break-all}
   .link.on .val,.link.live .val{color:var(--ink)}
   .link.fault .val{color:var(--fault)}
@@ -103,39 +111,42 @@
   /* ---------- 控件 ---------- */
   .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
   .row+.row{margin-top:9px}
-  label{color:var(--ink-dim);font-size:12px}
+  label{color:var(--ink-dim);font-size:13px;font-family:var(--sans)}
   .field{display:inline-flex;align-items:center;gap:6px}
-  input,select,textarea,button{
-    font:inherit;color:var(--ink);background:var(--deck);
-    border:1px solid var(--rule);border-radius:2px;padding:6px 9px
+  input,select,button{
+    height:32px;padding:0 10px;color:var(--ink);background:var(--deck);
+    border:1px solid var(--rule);border-radius:2px;
+    font-family:var(--sans);font-size:13px;line-height:30px
   }
-  input[type=number]{width:82px;font-family:var(--mono)}
-  input[type=checkbox]{width:13px;height:13px;accent-color:var(--lamp);padding:0}
-  select{padding-right:6px}
+  input[type=number]{width:84px;font-family:var(--mono);font-size:12.5px}
+  input[type=checkbox]{width:13px;height:13px;padding:0;accent-color:var(--lamp);vertical-align:middle}
+  select{padding-right:4px}
+  textarea{
+    color:var(--ink);background:var(--deck);border:1px solid var(--rule);border-radius:2px;padding:8px 10px
+  }
   textarea{
     width:100%;min-height:74px;resize:vertical;
     font-family:var(--mono);font-size:15px;letter-spacing:.22em;line-height:1.7
   }
+  @media (max-width:1000px){ main{grid-template-rows:auto auto minmax(160px,1fr)} }
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
     outline:2px solid var(--lamp);outline-offset:1px
   }
-  button{cursor:pointer;letter-spacing:.02em}
+  button{cursor:pointer;white-space:nowrap}
   button:hover:not(:disabled){border-color:var(--lamp);color:var(--lamp)}
   button:disabled{opacity:.38;cursor:not-allowed}
-  button.key{
-    font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;
-    background:var(--panel-2);border-color:#4a5558;padding:8px 16px
-  }
+  /* 主操作与次操作同高同字号，只有配色不同 */
+  button.key{background:var(--panel-2);border-color:#4a5558;padding:0 16px;letter-spacing:.06em}
   button.key.go{border-color:var(--lamp);color:var(--lamp);background:rgba(229,161,60,.09)}
   button.key.go:hover:not(:disabled){background:rgba(229,161,60,.16)}
   button.key.halt{border-color:#7a3a30;color:#f0a595}
   button.key.halt:hover:not(:disabled){border-color:var(--fault);color:var(--fault)}
   .grow{flex:1;min-width:120px}
-  .note{color:var(--ink-dim);font-size:12px;font-family:var(--mono);margin:8px 0 0;word-break:break-all}
+  .note{color:var(--ink-dim);font-size:11.5px;font-family:var(--mono);margin:8px 0 0;word-break:break-all;line-height:1.6}
   .note.warn{color:var(--lamp)}
   .note.ok{color:var(--live)}
   .hidden{display:none!important}
-  .inline{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .inline{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
   .inline.warn{color:var(--lamp)}
   .inline.ok{color:var(--live)}
   details.more{margin-top:9px}
@@ -152,14 +163,14 @@
   /* ---------- 读数 ---------- */
   .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:12px}
   .cell{background:var(--deck);padding:8px 10px}
-  .cell span{display:block;font-size:11px;color:var(--ink-dim);letter-spacing:.1em}
+  .cell span{display:block;font-size:11.5px;color:var(--ink-dim);letter-spacing:.08em}
   .cell b{display:block;font-family:var(--mono);font-size:15px;font-weight:500;margin-top:2px}
 
   /* ---------- 日志 ---------- */
-  .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex:none}
   .logbar .spacer{flex:1}
   #log{
-    height:190px;overflow:auto;background:var(--tape);border:1px solid var(--rule);
+    flex:1;min-height:120px;overflow:auto;background:var(--tape);border:1px solid var(--rule);
     padding:8px 10px;font-family:var(--mono);font-size:12px;
     box-shadow:inset 0 2px 10px rgba(0,0,0,.5)
   }
@@ -220,7 +231,7 @@
     <div class="row">
       <div class="field">
         <label for="alphabet">字母表</label>
-        <select id="alphabet">
+        <select id="alphabet" title="报文取哪张电码表">
           <option value="letter">字码 A-Z</option>
           <option value="short">数码短码 0-9</option>
           <option value="long">数码长码 0-9</option>
@@ -240,9 +251,9 @@
     <div class="row">
       <div class="field">
         <label for="key">键型</label>
-        <select id="key">
-          <option value="hand">手键（按压时长定点划）</option>
-          <option value="electron">电子键（双手组合键）</option>
+        <select id="key" title="手键：按压时长定点划；电子键：双手组合键送已成形的点划组">
+          <option value="hand">手键</option>
+          <option value="electron">电子键</option>
         </select>
       </div>
       <div class="field">
@@ -278,10 +289,10 @@
         <div class="row">
           <div class="field">
             <label for="tail">收尾</label>
-            <select id="tail">
-              <option value="turn">手键翻页符（提交本页）</option>
-              <option value="end">结束符 / F3+回车</option>
-              <option value="page">电子键句号（提交本页）</option>
+            <select id="tail" title="翻页符 / 句号都会提交本页；结束符是整训结束；只留静默则靠客户端 800ms 超时">
+              <option value="turn">手键翻页符</option>
+              <option value="end">结束符</option>
+              <option value="page">电子键句号</option>
               <option value="none">只留静默</option>
             </select>
           </div>
@@ -308,20 +319,20 @@
       <span class="inline" id="portNote"></span>
     </div>
     <div class="chain">
-      <div class="link" id="linkKernel">
-        <i></i><span class="name">内核级设备<em>浏览器可选</em></span><span class="val" id="vKernel">--</span>
+      <div class="link" id="linkKernel" title="内核里真实存在的 USB 串口，浏览器的串口选择框能看到它">
+        <i></i><span class="name">内核级设备<em>浏览器手选</em></span><span class="val" id="vKernel">--</span>
       </div>
-      <div class="link" id="linkAlias">
-        <i></i><span class="name">桌面壳下拉<em>/dev/ttyUSBn</em></span><span class="val" id="vAlias">--</span>
+      <div class="link" id="linkAlias" title="桌面壳的串口下拉只匹配 /dev/ttyUSBn（nativeSerialPort.js:45）">
+        <i></i><span class="name">桌面壳下拉<em>只认 ttyUSBn</em></span><span class="val" id="vAlias">--</span>
       </div>
-      <div class="link" id="linkDevice">
+      <div class="link" id="linkDevice" title="/dev/pts/N：pyserial、minicom、cat 等按路径开串口的程序可用">
         <i></i><span class="name">PTY 设备<em>按路径打开</em></span><span class="val" id="vDevice">--</span>
       </div>
-      <div class="link" id="linkBridge">
-        <i></i><span class="name">桌面桥接<em>18765</em></span><span class="val" id="vBridge">--</span>
+      <div class="link" id="linkBridge" title="MessageWebSocket.js:159 只在 Electron 里连这条；桌面模式没有别的通路">
+        <i></i><span class="name">桌面桥接<em>桌面模式唯一通路</em></span><span class="val" id="vBridge">--</span>
       </div>
-      <div class="link" id="linkInject">
-        <i></i><span class="name">浏览器注入<em>/ws/serial</em></span><span class="val" id="vInject">--</span>
+      <div class="link" id="linkInject" title="Web Serial 的 requestPort() 必须用户手势，脚本点不了选择框">
+        <i></i><span class="name">浏览器注入<em>免手点选择框</em></span><span class="val" id="vInject">--</span>
       </div>
     </div>
     <p class="note warn hidden" id="actionHint">--</p>
@@ -681,9 +692,10 @@ const applyState = raw => {
     setDisabled('btnUnlink', !device.systemLinked, '当前未接入')
   }
 
-  setText('channelDoc', windows
-    ? 'com0com 成对 COM 口：浏览器与桌面程序都能直接选中另一端。PTY 是 Linux 专属，本平台没有。桌面桥接 18765：桌面模式下被测应用自己连过来，业务操作只需要这条。浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。'
-    : '内核级设备是唯一能被浏览器串口选择框看到的通道，桌面壳下拉则认 /dev/ttyUSBn 别名。PTY /dev/pts/N 是真字符设备，pyserial、minicom、cat 都能读，但内核不把它注册成 udev tty，浏览器选择框看不到。桌面桥接 18765：桌面模式下被测应用自己连过来，业务操作只需要这条。浏览器注入：免去手点串口选择框。')
+  setText('channelDoc', (windows
+    ? '⓿ com0com 成对 COM 口：浏览器串口选择框与按口名打开的程序都能用。① PTY 是类 Unix 专属，本平台没有。'
+    : '⓿ 内核级设备：唯一能被浏览器串口选择框看到的口；桌面壳的下拉只匹配 /dev/ttyUSBn，所以内核设备会额外挂一个别名。① PTY /dev/pts/N 是真字符设备，pyserial、minicom、cat 都能读，但内核不把它注册成 udev tty，浏览器选择框看不到它。')
+    + ' ② 桌面桥接与 ③ 浏览器注入并不重复，它们服务互斥的两种模式：被测前端在 Electron 里只连 ws://localhost:18765/echo（MessageWebSocket.js:159），根本不碰串口——桌面壳的 linkPort 只把选中的口名存进本地库，electron/ 里没有任何地方读串口数据；在浏览器里则只走 navigator.serial（同文件 :107），而 Web Serial 的 requestPort() 必须由用户手势触发，脚本点不了那个选择框，所以无人值守跑测试要靠注入。')
 
   // 被测页面
   const browserBroken = browser.available === false
