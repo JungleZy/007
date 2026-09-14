@@ -70,9 +70,7 @@ public class TickerPatUtils {
 
       // 安全解析JSON，添加空值检查
       List<List<Map<String, Object>>> patLogs = null;
-      // 逐符时长是客户端单调时钟差值（小数毫秒），上传侧校验口径即 Double
-      // （GeneralTickerPatService.measurePage）；按 Integer 解会让整页结算被判 JSON 损坏。
-      List<List<Double>> moresTime = null;
+      List<List<Integer>> moresTime = null;
       List<List<Integer>> moresValue = null;
 
       try {
@@ -170,7 +168,7 @@ public class TickerPatUtils {
               patLog = patLogs.get(index + z);
             }
             newPatLogs.add(patLog != null ? patLog : new ArrayList<>());
-            List<Double> time = null;
+            List<Integer> time = null;
             if (moresTime != null && index + z < moresTime.size()) {
               time = moresTime.get(index + z);
             }
@@ -201,7 +199,7 @@ public class TickerPatUtils {
                 patLog = patLogs.get(first + 1 + z);
               }
               newPatLogs.add(patLog != null ? patLog : new ArrayList<>());
-              List<Double> time = null;
+              List<Integer> time = null;
               if (moresTime != null && first + 1 + z < moresTime.size()) {
                 time = moresTime.get(first + 1 + z);
               }
@@ -235,7 +233,7 @@ public class TickerPatUtils {
                 patLog = patLogs.get(index + z);
               }
               newPatLogs.add(patLog != null ? patLog : new ArrayList<>());
-              List<Double> time = null;
+              List<Integer> time = null;
               if (moresTime != null && index + z < moresTime.size()) {
                 time = moresTime.get(index + z);
               }
@@ -292,7 +290,7 @@ public class TickerPatUtils {
     int n = messageBody.size();
     List<List<String>> pkLists = new ArrayList<>(n);
     List<List<List<Map<String, Object>>>> logsLists = new ArrayList<>(n);
-    List<List<List<Double>>> timesLists = new ArrayList<>(n);
+    List<List<List<Integer>>> timesLists = new ArrayList<>(n);
     List<List<List<Integer>>> valuesLists = new ArrayList<>(n);
     for (int i = 0; i < n; i++) {
       PostTelegramTrainContentAddParam item = messageBody.get(i);
@@ -319,7 +317,7 @@ public class TickerPatUtils {
         }
       }
       List<List<Map<String, Object>>> logs = null;
-      List<List<Double>> times = null;
+      List<List<Integer>> times = null;
       List<List<Integer>> values = null;
       try {
         logs = JSONUtils.fromJson(item.getPatLogs(), new TypeToken<>() {
@@ -375,7 +373,7 @@ public class TickerPatUtils {
         curLen = curPk != null ? curPk.size() : 0;
         List<String> nextPk = pkLists.get(j);
         List<List<Map<String, Object>>> nextLogs = logsLists.get(j);
-        List<List<Double>> nextTimes = timesLists.get(j);
+        List<List<Integer>> nextTimes = timesLists.get(j);
         List<List<Integer>> nextValues = valuesLists.get(j);
         boolean nextEmpty = nextLogs == null || nextLogs.isEmpty();
         int nextLen = nextPk != null ? nextPk.size() : 0;
@@ -413,7 +411,7 @@ public class TickerPatUtils {
         }
         if (curNumCount + nextNumCount <= 4) {
           List<List<Map<String, Object>>> curLogs = logsLists.get(i);
-          List<List<Double>> curTimes = timesLists.get(i);
+          List<List<Integer>> curTimes = timesLists.get(i);
           List<List<Integer>> curValues = valuesLists.get(i);
           if (curLogs == null)
             curLogs = new ArrayList<>();
@@ -473,7 +471,7 @@ public class TickerPatUtils {
     for (int i = 0; i < n; i++) {
       int size = pkLists.get(i) != null ? pkLists.get(i).size() : 0;
       List<List<Map<String, Object>>> ls = logsLists.get(i) != null ? logsLists.get(i) : new ArrayList<>();
-      List<List<Double>> ts = timesLists.get(i) != null ? timesLists.get(i) : new ArrayList<>();
+      List<List<Integer>> ts = timesLists.get(i) != null ? timesLists.get(i) : new ArrayList<>();
       List<List<Integer>> vs = valuesLists.get(i) != null ? valuesLists.get(i) : new ArrayList<>();
       while (ls.size() < size) {
         ls.add(new ArrayList<>());
@@ -602,8 +600,7 @@ public class TickerPatUtils {
           continue;
         }
         int pkey = log.getKey();
-        // 扣分阈值与统计都是整毫秒口径，这里就地取整，不改下游语义
-        int value = (int) Math.round(log.getValue());
+        int value = log.getValue();
         // 点
         if (pkey == 0) {
           if (value < dotMin) {

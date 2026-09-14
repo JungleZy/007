@@ -1,0 +1,17 @@
+{
+  "name": "keysim",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "手键/电子键拍发模拟器：按真实节拍生成帧时间轴，供自动化测试在四个层次注入",
+  "bin": {
+    "keysim": "./src/cli.mjs"
+  },
+  "scripts": {
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./test/hooks.mjs --test test/*.test.mjs",
+    "e2e": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./test/hooks.mjs --test --test-timeout=900000 e2e/*.e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}
