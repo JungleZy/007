@@ -78,13 +78,15 @@ impl VirtualSerial {
         (self.sink)(json!({"type": "state", "state": self.state()}));
     }
 
-    /// 设备通道（PTY）在 state 里的形态；Windows 上如实报告"本平台不提供"
-    fn device_state(&self) -> Value {
+    /// 设备通道（PTY）在 state 里的形态；Windows 上如实报告"本平台不提供"。
+    /// `link_needed`：内核后端已经给出桌面别名时，"接入系统串口列表"这一步就是多余的。
+    fn device_state(&self, link_needed: bool) -> Value {
         #[cfg(unix)]
         {
             let device = self.device.lock();
             json!({
                 "supported": true,
+                "linkNeeded": link_needed && device.is_some(),
                 "path": device.as_ref().map(|item| item.path.clone()),
                 "links": device.as_ref().map(|item| item.links.iter().map(|link| link.display().to_string()).collect::<Vec<_>>()).unwrap_or_default(),
                 "warnings": device.as_ref().map(|item| item.warnings.clone()).unwrap_or_default(),
@@ -99,6 +101,7 @@ impl VirtualSerial {
         {
             json!({
                 "supported": false,
+                "linkNeeded": false,
                 "path": Value::Null,
                 "links": [],
                 "warnings": [],
@@ -137,7 +140,7 @@ impl VirtualSerial {
                 "reasons": self.kernel_reasons.lock().clone(),
                 "backends": kernel::probe_all().iter().map(|verdict| verdict.to_json()).collect::<Vec<_>>()
             },
-            "device": self.device_state(),
+            "device": self.device_state(kernel.as_ref().and_then(|item| item.desktop_alias.as_ref()).is_none()),
             "replay": match replay.as_ref() {
                 Some(state) => json!({"running": true, "sent": state.sent, "total": state.total, "key": state.key, "text": state.text}),
                 None => json!({"running": false, "sent": 0, "total": 0})

@@ -63,31 +63,27 @@
       <button id="btnOpen" class="primary">开启虚拟串口</button>
       <button id="btnClose" class="danger">关闭虚拟串口</button>
     </div>
-    <table style="margin-bottom:10px">
-      <tr><td>⓿ 内核级虚拟串口</td><td id="kernelState">--</td></tr>
-      <tr><td>被测程序应选</td><td id="kernelSelectable">--</td></tr>
-      <tr><td>当前用户能否打开</td><td id="kernelOpenable">--</td></tr>
+    <table style="margin-bottom:8px">
+      <tr><td>⓿ 内核级虚拟串口</td><td id="kernelSelectable">--</td></tr>
       <tr id="rowKernelAlias"><td>桌面壳串口下拉</td><td id="kernelAlias">--</td></tr>
       <tr><td>① PTY 设备</td><td id="devPath">--</td></tr>
-      <tr id="rowDevLinks"><td>设备链接</td><td id="devLinks">--</td></tr>
       <tr><td>② 桌面桥接</td><td id="bridgeUrl">--</td></tr>
-      <tr><td>桌面桥接客户端</td><td id="bridgeCount">0 个客户端</td></tr>
       <tr><td>③ 浏览器注入</td><td id="injectCount">0 个页面</td></tr>
     </table>
-    <p class="hint" id="kernelHint">⓿ 只有内核级后端能让浏览器的串口选择框与桌面串口列表直接选到这个口；不可用时这里会说明缺什么。</p>
-    <p class="hint t-warn hidden" id="kernelFixHint">--</p>
-    <p class="hint" id="devHint">① 开启后是系统里真实存在的字符设备，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流。</p>
+    <p class="hint t-warn hidden" id="actionHint">--</p>
     <div class="row" id="rowHelper">
       <button id="btnInstallHelper">安装 root 助手（一次）</button>
-      <span class="hint" id="helperState">装完点「开启虚拟串口」就能得到 /dev/ttyACM*，浏览器与桌面都能直接选</span>
+      <span class="hint" id="helperState">--</span>
     </div>
     <div class="row" id="rowLink">
       <button id="btnLink">接入系统串口列表</button>
       <button id="btnUnlink">移出列表</button>
-      <span class="hint" id="linkState">未接入</span>
+      <span class="hint" id="linkState">--</span>
     </div>
-    <p class="hint" id="linkHint">桌面壳的串口下拉只认 <code>/dev/ttyUSBn</code>（nativeSerialPort.js:45）。上面这个按钮会直接建链接，非 root 时弹一次系统授权框；桌面模式的业务操作其实只需要②，不用管这一步。</p>
-    <p class="hint hidden" id="linkCmdHint">--</p>
+    <details class="more">
+      <summary>四条通道怎么选</summary>
+      <p class="hint" id="channelDoc">--</p>
+    </details>
 
     <h2 style="margin-top:18px">被测页面</h2>
     <div class="row">
@@ -98,11 +94,14 @@
       <button id="btnClosePage">关闭页面</button>
       <span class="hint" id="pageState">未打开</span>
     </div>
-    <p class="hint">这条路不用去页面控制台粘任何东西：keysim 自己拉起浏览器，在页面脚本执行之前就把 <code>navigator.serial</code> 换成本机虚拟串口。若要手动注入，用下面这行。</p>
-    <div class="row">
-      <input id="injectSnippet" class="grow" readonly/>
-      <button id="btnCopy">复制</button>
-    </div>
+    <p class="hint" id="pageHint">--</p>
+    <details class="more">
+      <summary>手动注入代码</summary>
+      <div class="row">
+        <input id="injectSnippet" class="grow" readonly/>
+        <button id="btnCopy">复制</button>
+      </div>
+    </details>
 
     <h2 style="margin-top:18px">报文</h2>
     <div class="row">
@@ -117,8 +116,7 @@
       <input id="groups" type="number" min="1" max="100" value="4"/>
       <button id="btnRandom">随机生成</button>
     </div>
-    <textarea id="message" spellcheck="false" placeholder="每组 4 个字符，组间空格分隔，例如 ABCD EFGH"></textarea>
-    <p class="hint" id="messageHint">也可以直接手输报文；发送前会按字母表校验。</p>
+    <textarea id="message" spellcheck="false" placeholder="手输或随机生成；每组 4 个字符，组间空格分隔，例如 ABCD EFGH"></textarea>
   </section>
 
   <section>
@@ -248,117 +246,83 @@ const applyState = raw => {
   setText('bridgeClients', bridgeClients)
   setText('injectClients', injectClients)
 
-  // ⓿ 内核级虚拟串口：唯一能被浏览器串口选择框看到的通道
+  // ⓿ 内核级：唯一能被浏览器串口选择框看到的通道
   const selectable = kernel.selectable || ''
   const openable = kernel.selectableOpenable
-  const kernelOn = !!kernel.id && !!selectable
+  const kernelOn = Boolean(kernel.id) && Boolean(selectable)
+  const openTag = openable === true ? ' · 可打开'
+    : openable === false ? ' · 当前用户打不开'
+    : windows ? ' · 能否打开未知（COM 口独占，不试探）' : ''
   $('kernelDot').classList.toggle('on', kernelOn && openable !== false)
   $('kernelChip').classList.toggle('t-warn', kernelOn && openable === false)
   setText('kernelChipText', kernelOn ? ('内核 ' + selectable) : '内核级未启用')
-  setText('kernelState', kernel.title || kernel.id || '未启用')
-  setText('kernelSelectable', selectable || '未启用（没有内核级口可选）')
-  if (!kernelOn) setText('kernelOpenable', '内核级未启用')
-  else if (openable === true) setText('kernelOpenable', '可打开', 'ok')
-  else if (openable === false) setText('kernelOpenable', '设备在但当前用户打不开', 'warn')
-  else setText('kernelOpenable', windows ? '未知（COM 口独占打开，不试探）' : '未知（尚未探测）')
+  setText('kernelSelectable', kernelOn ? (selectable + openTag) : '未启用', kernelOn ? (openable === false ? 'warn' : 'ok') : 'warn')
+  const kernelCell = $('kernelSelectable')
+  if (kernelCell) kernelCell.title = kernel.title || ''
 
+  // 桌面壳串口下拉只认 /dev/ttyUSBn，所以内核设备要额外挂一个别名
   setShown('rowKernelAlias', !windows)
   if (!windows) {
-    if (kernel.desktopAlias) setText('kernelAlias', kernel.desktopAlias + '（桌面壳串口下拉选这个）', 'ok')
-    else if (kernelOn) setText('kernelAlias', '无别名：桌面壳串口下拉看不到内核设备', 'warn')
-    else setText('kernelAlias', '内核级未启用，桌面壳串口下拉看不到', 'warn')
+    if (kernel.desktopAlias) setText('kernelAlias', kernel.desktopAlias, 'ok')
+    else setText('kernelAlias', kernelOn ? '无别名，下拉看不到' : '未启用', 'warn')
   }
 
-  const backends = Array.isArray(kernel.backends) ? kernel.backends : []
-  const reasons = Array.isArray(kernel.reasons) ? kernel.reasons.filter(Boolean) : []
-  if (kernelOn) {
-    setText('kernelHint', '⓿ 当前内核级后端：' + (kernel.title || kernel.id) + '。只有这条通道能让浏览器的串口选择框与桌面串口列表直接选到这个口。')
-  } else if (backends.length) {
-    const lines = backends.map(entry => {
-      const item = entry || {}
-      return (item.title || item.id || '后端') + '：' + (item.available ? '可用' : (item.reason || '不可用'))
-        + (item.install ? '（' + item.install + '）' : '')
-    })
-    setText('kernelHint', '⓿ 本机没有启用的内核级后端：' + lines.join('；'))
-  } else if (reasons.length) {
-    setText('kernelHint', '⓿ 本机没有可用的内核级后端：' + reasons.join('；'))
-  } else if (windows) {
-    setText('kernelHint', '⓿ 内核级虚拟串口未启用：Windows 上装一次 com0com 生成成对 COM 口，被测程序选另一端（例如 COM91）即可。')
-  } else {
-    setText('kernelHint', '⓿ 只有内核级后端能让浏览器的串口选择框与桌面串口列表直接选到这个口；不可用时这里会说明缺什么。')
-  }
-
-  // 需要动手补的前置条件（Linux 专属：都靠一次 root 助手安装解决）
-  const fixes = []
-  if (!windows && kernelOn && openable === false) {
-    fixes.push('内核设备在，但当前用户打不开 ' + selectable + '：执行一次 ' + helperCommand + '（补 udev 规则与用户组）')
-  }
-  if (!windows && !kernel.desktopAlias) {
-    fixes.push('桌面壳串口下拉看不到内核设备：缺 /dev/ttyUSBn 别名，执行一次 ' + helperCommand)
-  }
-  setShown('kernelFixHint', fixes.length > 0)
-  setText('kernelFixHint', fixes.length ? fixes.join('　·　') : '--')
-
-  // ① PTY 设备（仅 Linux / 类 Unix）
+  // ① PTY 设备
   const ptySupported = !windows && device.supported !== false
-  setShown('rowDevLinks', ptySupported)
-  if (windows) {
-    setText('devPath', '本平台不提供（Windows 用 com0com 即可）')
-    setText('devHint', device.reason
-      ? ('① ' + device.reason)
-      : '① PTY 设备是 Linux / 类 Unix 专属通道；Windows 上装一次 com0com 生成成对 COM 口就够了，被测程序直接选另一端的 COM 口。')
-  } else if (!ptySupported) {
-    setText('devPath', '本平台不提供 PTY 通道' + (device.reason ? '：' + device.reason : ''), 'warn')
-    setText('devHint', '① 本机没有 PTY 设备通道' + (device.reason ? '：' + device.reason : '') + '；桌面桥接与浏览器注入两条通道仍可用。')
+  if (!ptySupported) {
+    setText('devPath', windows ? '本平台不提供（用 com0com）' : '本平台不提供')
   } else {
-    setText('devPath', device.path || (device.available === false ? '不可用' : '未开启'))
-    const links = Array.isArray(device.links) ? device.links.filter(Boolean) : []
-    setText('devLinks', links.length ? links.join(' , ') : '未建链接')
-    if (device.available === false && device.reason) {
-      setText('devHint', '① 本机不能创建 PTY 虚拟串口设备：' + device.reason + '（桌面桥接与浏览器注入两条通道仍可用）')
-    } else {
-      setText('devHint', '① 开启后是系统里真实存在的字符设备 /dev/pts/N，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流；但内核不把 PTY 注册成 udev tty 设备，Chromium 的 Web Serial 按 udev tty 枚举，所以浏览器的串口选择框看不到它。')
-    }
+    setText('devPath', device.path || (device.available === false ? ('不可用：' + (device.reason || '未知原因')) : '未开启'))
   }
+  const devCell = $('devPath')
+  const links = Array.isArray(device.links) ? device.links.filter(Boolean) : []
   const warnings = Array.isArray(device.warnings) ? device.warnings.filter(Boolean) : []
-  const devHintNode = $('devHint')
-  if (devHintNode) devHintNode.title = warnings.length ? warnings.join(' | ') : ''
+  if (devCell) devCell.title = links.concat(warnings).join(' | ')
 
   // ② 桌面桥接 / ③ 浏览器注入
-  setText('bridgeUrl', state.bridgeUrl || ('ws://127.0.0.1:' + (state.bridgePort || 18765) + '/echo'))
-  setText('bridgeCount', bridgeClients + ' 个客户端')
+  setText('bridgeUrl', (state.bridgeUrl || ('ws://127.0.0.1:' + (state.bridgePort || 18765) + '/echo'))
+    + ' · ' + bridgeClients + ' 个客户端')
   setText('injectCount', injectClients + ' 个页面')
 
-  // root 助手：只有 Linux 需要，Windows 上整行隐藏
-  const helperNeeded = !windows && helper.required !== false
-  setShown('rowHelper', helperNeeded)
-  if (!helperNeeded) {
-    setDisabled('btnInstallHelper', true)
-    setText('helperState', '本平台不需要 root 助手')
-  } else if (helper.installed === true) {
-    setDisabled('btnInstallHelper', true)
-    setText('helperState', '已安装', 'ok')
-  } else {
-    setDisabled('btnInstallHelper', false)
-    setText('helperState', '未安装，点左边按钮自动装；或手动执行一次：' + helperCommand, 'warn')
+  // 唯一的"要你动手"提示行：没事就不出现
+  const fixes = []
+  if (!windows && kernelOn && openable === false) fixes.push('内核设备打不开，执行一次：' + helperCommand)
+  if (!windows && kernelOn && !kernel.desktopAlias) fixes.push('桌面下拉缺 /dev/ttyUSBn 别名，执行一次：' + helperCommand)
+  if (!kernelOn) {
+    const backends = Array.isArray(kernel.backends) ? kernel.backends : []
+    const blocked = backends.filter(item => item && !item.available)
+    if (windows) fixes.push('内核级未启用：装一次 com0com 即可得到可被直接选中的 COM 口')
+    else if (blocked.length) fixes.push('内核级未启用：' + (blocked[0].install || blocked[0].reason || '缺前置条件'))
+    else fixes.push('内核级未启用：浏览器串口选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」')
   }
+  setShown('actionHint', fixes.length > 0)
+  setText('actionHint', fixes.length ? fixes.join('　·　') : '--')
 
-  // 接入系统串口列表：靠 PTY 建 /dev/ttyUSBn 链接，Windows 上整块隐藏
-  setShown('rowLink', ptySupported)
-  setShown('linkHint', ptySupported)
-  if (ptySupported) {
-    setText('linkState', device.systemLinked
-      ? ('已接入 ' + device.systemLinked)
-      : ('未接入' + (device.systemLink ? '（目标 ' + device.systemLink + '）' : '')))
+  // root 助手：只有 Linux 需要
+  const helperNeeded = !windows && helper.required !== false
+  setShown('rowHelper', helperNeeded && helper.installed !== true)
+  setDisabled('btnInstallHelper', !helperNeeded || helper.installed === true)
+  setText('helperState', helper.installed === true ? '已安装' : '装一次即可，之后不再输密码', helper.installed === true ? 'ok' : null)
+
+  // 接入系统串口列表：只在"内核别名不存在而 PTY 存在"时才有意义
+  const linkNeeded = ptySupported && device.linkNeeded !== false && !kernel.desktopAlias
+  setShown('rowLink', linkNeeded)
+  if (linkNeeded) {
+    const linkNode = $('linkState')
+    if (linkNode) linkNode.dataset.target = device.systemLink || '/dev/ttyUSB0'
+    setText('linkState', device.systemLinked ? ('已接入 ' + device.systemLinked)
+      : ('把 PTY 挂成 ' + (device.systemLink || '/dev/ttyUSB0') + '，桌面壳下拉才看得到（需一次系统授权）'))
     setDisabled('btnLink', !device.path)
     setDisabled('btnUnlink', !device.systemLinked)
-    setShown('linkCmdHint', !!device.systemLinkHint)
-    setText('linkCmdHint', device.systemLinkHint ? ('手动等效命令：' + device.systemLinkHint) : '--')
   } else {
     setDisabled('btnLink', true)
     setDisabled('btnUnlink', true)
-    setShown('linkCmdHint', false)
   }
+
+  // 折叠里的通道说明：按平台给一份，不占正文
+  setText('channelDoc', windows
+    ? '⓿ com0com 成对 COM 口：浏览器串口选择框与桌面程序都能直接选中另一端。① PTY 是 Linux 专属，本平台没有。② 桌面桥接 ws://127.0.0.1:18765/echo：桌面模式下被测应用自己连过来，业务操作只需要这条。③ 浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。'
+    : '⓿ 内核级设备（USB/IP 等）是唯一能被浏览器串口选择框看到的通道，桌面壳下拉则认 /dev/ttyUSBn 别名。① PTY /dev/pts/N 是真字符设备，任何按路径开串口的程序（pyserial、minicom、cat）都能读，但内核不把它注册成 udev tty，所以浏览器选择框看不到。② 桌面桥接 ws://127.0.0.1:18765/echo：桌面模式下被测应用自己连过来，业务操作只需要这条。③ 浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。')
 
   // 被测页面（浏览器注入）
   const browserBroken = browser.available === false
@@ -368,6 +332,9 @@ const applyState = raw => {
     browserBroken ? 'warn' : null)
   setDisabled('btnOpenPage', browserBroken)
   setDisabled('btnClosePage', !browser.open)
+  setText('pageHint', kernelOn
+    ? ('浏览器里也可以手动选 ' + selectable + '（要点一次串口选择框）；用这个按钮则免去手点，适合自动化。')
+    : '浏览器串口选择框看不到 PTY，Web 模式必须用这个按钮（keysim 会在页面脚本执行前替换 navigator.serial）。')
 
   // 拍发状态
   setDisabled('btnOpen', open)
@@ -440,14 +407,27 @@ $('btnInstallHelper').onclick = async () => {
   if (result.state) applyState(result.state)
   await refresh()
 }
+// 反馈必须落在按钮旁边：日志面板在页面最下面，点完看不见就像没反应
+const linkFeedback = (result, success) => {
+  if (result.ok) {
+    setText('linkState', success, 'ok')
+    log(success, 'ok')
+  } else {
+    const reason = result.error || '操作失败'
+    const hint = result.hint ? ('；手动执行：' + result.hint) : ''
+    setText('linkState', reason + hint, 'warn')
+    log(reason + hint, 'warn')
+  }
+  if (result.state) applyState(result.state)
+}
 $('btnLink').onclick = async () => {
-  const result = await api('/api/device/link', {})
-  if (!result.ok) return log(result.error + (result.hint ? '；可手动执行 ' + result.hint : ''), 'warn')
-  applyState(result.state)
+  setText('linkState', '正在接入…')
+  const target = ($('linkState').dataset.target) || '/dev/ttyUSB0'
+  linkFeedback(await api('/api/device/link', {}), '已接入系统串口列表 ' + target)
 }
 $('btnUnlink').onclick = async () => {
-  const result = await api('/api/device/link', {remove: true})
-  if (result.state) applyState(result.state)
+  setText('linkState', '正在移出…')
+  linkFeedback(await api('/api/device/link', {remove: true}), '已移出系统串口列表')
 }
 $('btnOpenPage').onclick = async () => {
   const url = $('targetUrl').value.trim()
