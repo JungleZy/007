@@ -138,7 +138,7 @@
     color:var(--ink);background:var(--deck);border:1px solid var(--rule);border-radius:2px;padding:8px 10px
   }
   textarea{
-    width:100%;min-height:66px;resize:vertical;
+    width:100%;min-height:92px;resize:vertical;
     font-family:var(--mono);font-size:15px;letter-spacing:.22em;line-height:1.7
   }
   @media (max-width:1000px){ main{grid-template-rows:auto auto minmax(140px,1fr)} }
@@ -182,6 +182,8 @@
   /* ---------- 日志 ---------- */
   .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex:none}
   .logbar .spacer{flex:1}
+  /* 任何要挂虚拟滚动条的滚动容器都放进 .scrollhost 里（它只负责定位） */
+  .scrollhost{position:relative;flex:1;min-width:0;display:flex}
   .logwrap{position:relative;flex:1;min-height:104px;display:flex;min-width:0}
   /* min-height:0 不能省：flex 项的自动最小尺寸等于内容高度，
      少了它日志一多就会把卡片逐级顶大（外壳定高只解决另一半）。 */
@@ -264,7 +266,12 @@
       </div>
       <button id="btnRandom">随机生成</button>
     </div>
-    <div class="row"><textarea id="message" spellcheck="false" placeholder="ABCD EFGH　—　四字一组，组间空格"></textarea></div>
+    <div class="row">
+      <div class="scrollhost" id="msgWrap">
+        <textarea id="message" class="noscroll" spellcheck="false" placeholder="ABCD EFGH　—　四字一组，组间空格"></textarea>
+        <div class="vbar y" id="msgBar"><i></i></div>
+      </div>
+    </div>
     <p class="note" id="msgNote"></p>
 
     <h2 style="margin-top:12px">拍发</h2>
@@ -413,6 +420,7 @@ const $ = id => document.getElementById(id)
 let syncTapeBar = null
 let syncLogBar = null
 let syncStageBar = null
+let syncMsgBar = null
 // GET 只有 /api/state；其余一律 POST，默认带空 body。
 const api = async (path, body = {}, method = 'POST') => {
   const response = await fetch(path, method === 'GET' ? {} : {
@@ -873,6 +881,7 @@ $('btnRandom').onclick = async () => {
   const result = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
   if (!result.ok) return log(result.error, 'error')
   $('message').value = result.text
+  if (syncMsgBar) syncMsgBar()
   await runPreview()
 }
 $('btnSend').onclick = async () => {
@@ -938,6 +947,10 @@ document.addEventListener('keydown', event => {
 
 syncLogBar = attachScrollbar($('log'), $('logBar'), 'y')
 syncStageBar = attachScrollbar(document.querySelector('main'), $('stageBar'), 'y')
+syncMsgBar = attachScrollbar($('message'), $('msgBar'), 'y')
+// 报文框的内容与高度都会变（打字、随机生成、拖动右下角缩放），三种都要重算滑块
+$('message').addEventListener('input', () => syncMsgBar())
+new ResizeObserver(() => syncMsgBar()).observe($('message'))
 $('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
 drawTape()
 ;(async () => {
@@ -948,6 +961,7 @@ drawTape()
     // 首屏纸带不该是空白：先给一页样例报文，改掉即可
     const sample = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
     if (sample.ok) $('message').value = sample.text
+    if (syncMsgBar) syncMsgBar()
   }
   await runPreview()
 })()
