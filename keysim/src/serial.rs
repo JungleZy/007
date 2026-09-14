@@ -394,6 +394,7 @@ impl VirtualSerial {
             let mut next_milestone = 0usize;
             // 通道写失败只报一次，避免一页刷几千条
             let mut kernel_failed = false;
+            #[cfg(unix)]
             let mut device_failed = false;
             let total = items.len();
             while index < total {
