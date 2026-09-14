@@ -43,8 +43,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
   --multi-page          非单页训练：按\"翻页后 codeGap 夹到 60ms\"校验可行性
-  --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔）
-  --fault-every <n>     故障注入间隔：每 n 个字触发一次（默认 25，整页分布）
+  --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
   --sink <名>           frames（默认）| bytes | bridge | payload
   --chunk <名>          bytes 分包：exact（默认）|split|merge|random
   --window <ms>         分包窗口（默认 20）
@@ -137,8 +136,7 @@ fn params_of(args: &Args, key: &str) -> Result<Value, String> {
         "style": args.text("style").unwrap_or("machine"),
         "preamble": !args.has("no-preamble"),
         "singlePage": !args.has("multi-page"),
-        "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default(),
-        "faultEvery": args.number("fault-every").unwrap_or(faults::DEFAULT_EVERY)
+        "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default()
     });
     if let Some(rate) = args.number("rate") {
         params["rate"] = json!(rate);

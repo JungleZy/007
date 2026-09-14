@@ -46,9 +46,11 @@ fn sort_events(timeline: &mut Timeline) {
         .sort_by(|left, right| left.at.partial_cmp(&right.at).unwrap_or(std::cmp::Ordering::Equal));
 }
 
-/// 默认注入间隔：每 25 个字触发一次（一页 400 字约 16 次）。
-/// 早先每种故障只在页首注入一次，100 组的页面等于没注入 —— 那是个缺陷，不是口径。
-pub const DEFAULT_EVERY: f64 = 25.0;
+/// 注入密度的随机区间：每个字 1%～8% 的概率触发。
+///
+/// 不给用户"每 N 字一次"这种旋钮：真实故障不按固定节拍来，密度本身也该是随机的。
+/// 密度由种子导出，所以同一个种子仍然复现同一页故障——这是测试工具的底线。
+const DENSITY_RANGE: (f64, f64) = (0.01, 0.08);
 
 /// 一次注入的锚点：正文里的某个字
 struct Anchor {
@@ -57,11 +59,11 @@ struct Anchor {
     leading_gap: f64,
 }
 
-/// 按"每 every 个字一次"的概率在整页上抽锚点。
-/// 同种子同结果；at least one 保证：页面再短也至少注入一次，否则勾了没反应更像 bug。
-fn anchors(timeline: &Timeline, seed: u32, every: f64, salt: u32) -> Vec<Anchor> {
+/// 在整页上随机抽锚点：先由种子摇出这一页的密度，再逐字掷骰。
+/// 同种子同结果；至少注入一次，否则勾了没反应更像 bug。
+fn anchors(timeline: &Timeline, seed: u32, salt: u32) -> Vec<Anchor> {
     let mut rng = Rng::new(seed.wrapping_mul(2_654_435_761).wrapping_add(salt));
-    let probability = if every.is_finite() && every >= 1.0 { 1.0 / every } else { 1.0 };
+    let probability = DENSITY_RANGE.0 + rng.next_f64() * (DENSITY_RANGE.1 - DENSITY_RANGE.0);
     let body: Vec<Anchor> = timeline
         .body_chars()
         .map(|item| Anchor {
@@ -107,8 +109,8 @@ fn anchors(timeline: &Timeline, seed: u32, every: f64, salt: u32) -> Vec<Anchor>
 }
 
 /// 重复按下（无抬起）：客户端应忽略它，用真正那次按下计时
-fn dup_down(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
-    let picks = anchors(timeline, seed, every, 11);
+fn dup_down(timeline: &mut Timeline, seed: u32) -> usize {
+    let picks = anchors(timeline, seed, 11);
     let mut added = Vec::new();
     for anchor in &picks {
         // 落在这个字前面的间隔里，且不早于上一个字
@@ -122,8 +124,8 @@ fn dup_down(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
 }
 
 /// 缺抬起：丢掉这个字的第一次抬起，客户端要在下一次新按下时自恢复
-fn missing_up(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
-    let picks = anchors(timeline, seed, every, 23);
+fn missing_up(timeline: &mut Timeline, seed: u32) -> usize {
+    let picks = anchors(timeline, seed, 23);
     let mut doomed: Vec<usize> = Vec::new();
     for anchor in &picks {
         let found = timeline.events.iter().position(|event| {
@@ -143,8 +145,8 @@ fn missing_up(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
 }
 
 /// ≤10ms 抖动按压：必须被丢弃且不污染基准（useTraffic.js:64 的 duration <= 10）
-fn micro_press(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
-    let picks = anchors(timeline, seed, every, 37);
+fn micro_press(timeline: &mut Timeline, seed: u32) -> usize {
+    let picks = anchors(timeline, seed, 37);
     let mut added = Vec::new();
     for anchor in &picks {
         // 塞在这个字之前的间隔中段，不与真实按压重叠
@@ -160,8 +162,8 @@ fn micro_press(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
 }
 
 /// 未知字节：既非 1/2 也不在 CODES 里，客户端应告警跳过而不静默丢帧（WebSerial.js:86-89）
-fn unknown_byte(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
-    let picks = anchors(timeline, seed, every, 53);
+fn unknown_byte(timeline: &mut Timeline, seed: u32) -> usize {
+    let picks = anchors(timeline, seed, 53);
     let mut added = Vec::new();
     for anchor in &picks {
         added.push(Event { at: (anchor.started_at - 1.0).max(0.0), kind: Kind::Code(7), fault: Some("unknown-byte") });
@@ -174,14 +176,14 @@ fn unknown_byte(timeline: &mut Timeline, seed: u32, every: f64) -> usize {
 
 /// 逐项注入，返回每种故障实际注入了几次（0 次也要如实报出来：
 /// 例如电子键没有按下/抬起，重复按下与缺抬起在它上面本就不适用）
-pub fn apply(timeline: &mut Timeline, faults: &[Fault], seed: u32, every: f64) -> Vec<(Fault, usize)> {
+pub fn apply(timeline: &mut Timeline, faults: &[Fault], seed: u32) -> Vec<(Fault, usize)> {
     let mut report = Vec::new();
     for fault in faults {
         let count = match fault {
-            Fault::DupDown => dup_down(timeline, seed, every),
-            Fault::MissingUp => missing_up(timeline, seed, every),
-            Fault::MicroPress => micro_press(timeline, seed, every),
-            Fault::UnknownByte => unknown_byte(timeline, seed, every),
+            Fault::DupDown => dup_down(timeline, seed),
+            Fault::MissingUp => missing_up(timeline, seed),
+            Fault::MicroPress => micro_press(timeline, seed),
+            Fault::UnknownByte => unknown_byte(timeline, seed),
         };
         report.push((*fault, count));
     }
@@ -285,7 +287,7 @@ mod injection_tests {
         let text = (0..25).map(|_| "ABCD").collect::<Vec<_>>().join(" ");
         let mut timeline = page(&text);
         let span = timeline.duration();
-        let report = apply(&mut timeline, &[Fault::MicroPress], 7, DEFAULT_EVERY);
+        let report = apply(&mut timeline, &[Fault::MicroPress], 7);
         let count = report[0].1;
         assert!(count >= 2, "100 字一页至少该注入两次，实际 {count}");
 
@@ -302,9 +304,24 @@ mod injection_tests {
         let long = (0..50).map(|_| "ABCD").collect::<Vec<_>>().join(" ");
         let mut first = page(&short);
         let mut second = page(&long);
-        let few = apply(&mut first, &[Fault::UnknownByte], 3, DEFAULT_EVERY)[0].1;
-        let many = apply(&mut second, &[Fault::UnknownByte], 3, DEFAULT_EVERY)[0].1;
+        let few = apply(&mut first, &[Fault::UnknownByte], 3)[0].1;
+        let many = apply(&mut second, &[Fault::UnknownByte], 3)[0].1;
         assert!(many > few, "长页注入次数（{many}）应多于短页（{few}）");
+    }
+
+    #[test]
+    /// 密度本身也是随机的：换种子，注入次数应当跟着变（不是每页都同一个数）
+    fn density_varies_between_pages() {
+        let text = (0..25).map(|_| "ABCD").collect::<Vec<_>>().join(" ");
+        let counts: Vec<usize> = (1..=8u32)
+            .map(|seed| {
+                let mut timeline = page(&text);
+                apply(&mut timeline, &[Fault::MicroPress], seed)[0].1
+            })
+            .collect();
+        let unique: std::collections::BTreeSet<usize> = counts.iter().copied().collect();
+        assert!(unique.len() >= 3, "八个种子只摇出 {:?} 这几个次数，密度没有随机性", unique);
+        assert!(counts.iter().all(|count| *count >= 1), "每一页都该至少注入一次：{counts:?}");
     }
 
     #[test]
@@ -314,9 +331,9 @@ mod injection_tests {
         let mut first = page(&text);
         let mut again = page(&text);
         let mut other = page(&text);
-        apply(&mut first, &[Fault::MicroPress], 11, DEFAULT_EVERY);
-        apply(&mut again, &[Fault::MicroPress], 11, DEFAULT_EVERY);
-        apply(&mut other, &[Fault::MicroPress], 12, DEFAULT_EVERY);
+        apply(&mut first, &[Fault::MicroPress], 11);
+        apply(&mut again, &[Fault::MicroPress], 11);
+        apply(&mut other, &[Fault::MicroPress], 12);
         assert_eq!(micro_positions(&first), micro_positions(&again));
         assert_ne!(micro_positions(&first), micro_positions(&other));
     }
@@ -329,7 +346,7 @@ mod injection_tests {
         let downs = timeline.events.iter().filter(|event| event.kind == Kind::Down).count();
         let ups = timeline.events.iter().filter(|event| event.kind == Kind::Up).count();
         assert_eq!(downs, ups, "注入前按下与抬起应当配平");
-        let removed = apply(&mut timeline, &[Fault::MissingUp], 5, DEFAULT_EVERY)[0].1;
+        let removed = apply(&mut timeline, &[Fault::MissingUp], 5)[0].1;
         assert!(removed >= 2, "应当删掉多次抬起，实际 {removed}");
         let ups_after = timeline.events.iter().filter(|event| event.kind == Kind::Up).count();
         assert_eq!(ups - ups_after, removed);
@@ -343,7 +360,7 @@ mod injection_tests {
             ..Default::default()
         })
         .unwrap();
-        let report = apply(&mut timeline, &[Fault::DupDown, Fault::MissingUp, Fault::UnknownByte], 7, DEFAULT_EVERY);
+        let report = apply(&mut timeline, &[Fault::DupDown, Fault::MissingUp, Fault::UnknownByte], 7);
         let counts: Vec<(Fault, usize)> = report;
         assert_eq!(counts[1].1, 0, "电子键上缺抬起应为 0 次");
         assert!(counts[2].1 >= 1, "未知字节在电子键上仍然适用");

@@ -341,7 +341,6 @@
         </div>
         <div class="row">
           <label>故障</label>
-          <div class="field"><label for="faultEvery">每</label><input id="faultEvery" type="number" min="1" max="400" value="25"/><span class="inline">字一次</span></div>
           <label class="field"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
           <label class="field"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
           <label class="field"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
@@ -508,7 +507,6 @@ const params = () => ({
   tail: $('tail').value,
   style: $('style').value,
   faults: faults(),
-  faultEvery: Number($('faultEvery').value) || 25,
   speed: Number($('speed').value) || 1
 })
 
@@ -762,7 +760,7 @@ const runPreview = async () => {
   // 故障注入：勾了却 0 次也要看得见（例如电子键没有按下/抬起）
   const injected = Array.isArray(result.faults) ? result.faults : []
   setNote('faultNote', injected.length
-    ? ('本页注入 ' + injected.map(item => item.name + ' ×' + item.count).join(' · '))
+    ? ('本页随机注入 ' + injected.map(item => item.name + ' ×' + item.count).join(' · ') + '（次数与位置由种子决定）')
     : '', injected.some(item => item.count === 0) ? 'warn' : null)
   applyState(lastState)
 }
@@ -918,7 +916,7 @@ for (const [id, name] of Object.entries(labels)) {
 for (const box of document.querySelectorAll('.fault')) {
   box.addEventListener('change', () => log('故障注入 ' + box.parentElement.textContent.trim() + (box.checked ? ' 已开' : ' 已关'), box.checked ? 'warn' : 'info'))
 }
-for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage', 'faultEvery']) {
+for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
   const node = $(id)
   if (!node) continue
   // textarea 与文本/数字 input 都要听 input：只听 change 的话失焦才刷新，边打字纸带不动

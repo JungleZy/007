@@ -102,8 +102,7 @@ pub fn build_timeline_with_faults(params: &Value) -> Result<(Timeline, Vec<(faul
         keying::electron_timeline(&electron_options(params)?)?
     };
     let seed = number(params, "seed", 1.0) as u32;
-    let every = number(params, "faultEvery", faults::DEFAULT_EVERY).max(1.0);
-    let report = faults::apply(&mut timeline, &parse_faults(params)?, seed, every);
+    let report = faults::apply(&mut timeline, &parse_faults(params)?, seed);
     Ok((timeline, report))
 }
 
