@@ -9,7 +9,7 @@
  * 两条通道由同一个调度器驱动，保证"同一次拍发"在桌面与 Web 两种模式下节拍一致。
  */
 import {startBridge} from './sinks/bridge.mjs'
-import {DEFAULT_LINKS, openDevice, probeDevice, SYSTEM_LINK} from './providers/device.mjs'
+import {DEFAULT_LINKS, linkIntoSystem, openDevice, probeDevice, probeElevation, SYSTEM_LINK, unlinkFromSystem} from './providers/device.mjs'
 import {toBridgeMessages} from './sinks/frames.mjs'
 import {toByteStream} from './sinks/bytes.mjs'
 
@@ -18,6 +18,8 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
   let bridge = null
   let device = null
   let deviceProbe = null
+  let systemLinked = null
+  let elevation = null
   let replay = null
 
   const emit = (type, payload = {}) => onEvent({type, at: Date.now(), ...payload})
@@ -31,6 +33,8 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
       available: deviceProbe ? deviceProbe.available : null,
       reason: deviceProbe ? deviceProbe.reason : null,
       systemLink: SYSTEM_LINK,
+      systemLinked,
+      elevation,
       systemLinkHint: device ? device.systemLinkHint() : null
     },
     bridgePort: bridge ? bridge.port : bridgePort,
@@ -56,12 +60,35 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     },
     async probe() {
       deviceProbe = await probeDevice()
-      return deviceProbe
+      elevation = await probeElevation()
+      return {device: deviceProbe, elevation}
+    },
+    /** 把设备接进系统串口列表：root 直接建链接，否则弹一次系统授权框。 */
+    async linkSystem(target = SYSTEM_LINK) {
+      if (!device) return {ok: false, error: '虚拟串口未开启'}
+      const result = await linkIntoSystem(device.path, target)
+      systemLinked = result.ok ? result.target : null
+      emit('log', {
+        level: result.ok ? 'ok' : 'warn',
+        message: result.ok
+          ? `已接入系统串口列表：${result.target} → ${device.path}${result.elevated ? '（经系统授权）' : ''}`
+          : `接入系统串口列表失败：${result.error}${result.hint ? `；可手动执行 ${result.hint}` : ''}`
+      })
+      emit('state', {state: state()})
+      return result
+    },
+    async unlinkSystem(target = SYSTEM_LINK) {
+      const result = await unlinkFromSystem(device ? device.path : null, target)
+      if (result.ok) systemLinked = null
+      emit('log', {level: result.ok ? 'ok' : 'warn', message: result.ok ? `已移出系统串口列表：${target}` : `移出失败：${result.error}`})
+      emit('state', {state: state()})
+      return result
     },
     async open() {
       if (bridge) return state()
       // 真设备优先：开出来就是系统里的一个字符设备，任何串口客户端都能打开
       deviceProbe = await probeDevice()
+      elevation = await probeElevation()
       if (deviceProbe.available) {
         try {
           device = await openDevice({
@@ -94,6 +121,8 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     },
     async close() {
       await this.stop()
+      if (systemLinked) await unlinkFromSystem(device ? device.path : null, systemLinked).catch(() => {})
+      systemLinked = null
       if (device) {
         await device.close()
         device = null

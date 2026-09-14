@@ -66,10 +66,22 @@
     </table>
     <p class="hint" id="devHint">① 开启后是系统里真实存在的字符设备，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流。</p>
     <div class="row">
-      <input id="devLinkCmd" class="grow" readonly placeholder="开启后这里给出让桌面串口列表看到它的命令"/>
-      <button id="btnCopyLink">复制</button>
+      <button id="btnLink">接入系统串口列表</button>
+      <button id="btnUnlink">移出列表</button>
+      <span class="hint" id="linkState">未接入</span>
     </div>
-    <p class="hint">桌面壳的串口下拉只认 <code>/dev/ttyUSBn</code>（nativeSerialPort.js:42-45），执行上面这条命令后即可在列表里选到本设备。Chromium 的 Web Serial 按 udev 枚举，看不到 PTY，Web 模式请用下面的注入。</p>
+    <p class="hint">桌面壳的串口下拉只认 <code>/dev/ttyUSBn</code>（nativeSerialPort.js:42-45）。上面这个按钮会直接建链接，非 root 时弹一次系统授权框；桌面模式的业务操作其实只需要②，不用管这一步。</p>
+
+    <h2 style="margin-top:18px">被测页面</h2>
+    <div class="row">
+      <input id="targetUrl" class="grow" placeholder="http://127.0.0.1:8080/#/preview/... 训练页地址"/>
+    </div>
+    <div class="row">
+      <button id="btnOpenPage" class="primary">打开并预置虚拟串口</button>
+      <button id="btnClosePage">关闭页面</button>
+      <span class="hint" id="pageState">未打开</span>
+    </div>
+    <p class="hint">这条路不用去页面控制台粘任何东西：keysim 自己拉起浏览器，在页面脚本执行之前就把 <code>navigator.serial</code> 换成本机虚拟串口。若要手动注入，用下面这行。</p>
     <div class="row">
       <input id="injectSnippet" class="grow" readonly/>
       <button id="btnCopy">复制</button>
@@ -191,7 +203,15 @@ const applyState = state => {
   $('devPath').textContent = device.path || (device.available === false ? '不可用' : '未开启')
   $('devLinks').textContent = (device.links && device.links.length) ? device.links.join(' , ') : '--'
   $('injectCount').textContent = state.injectClients + ' 个页面'
-  $('devLinkCmd').value = device.systemLinkHint || ''
+  $('linkState').textContent = device.systemLinked ? ('已接入 ' + device.systemLinked)
+    : (device.elevation && device.elevation.available === false ? '未接入（' + device.elevation.reason + '）' : '未接入')
+  $('btnLink').disabled = !device.path
+  $('btnUnlink').disabled = !device.systemLinked
+  const browser = state.browser || {}
+  $('pageState').textContent = browser.open ? ('已打开 ' + browser.url)
+    : (browser.available === false ? ('不可用：' + browser.reason) : '未打开')
+  $('btnOpenPage').disabled = browser.available === false
+  $('btnClosePage').disabled = !browser.open
   if (device.available === false && device.reason) $('devHint').textContent = '① 本机不能创建虚拟串口设备：' + device.reason + '（桥接与注入两条通道仍可用）'
   if (device.warnings && device.warnings.length) $('devHint').title = device.warnings.join(' | ')
   $('btnOpen').disabled = state.open
@@ -253,10 +273,25 @@ $('btnStop').onclick = async () => {
   const result = await api('/api/stop')
   if (result.ok) applyState(result.state)
 }
-$('btnCopyLink').onclick = async () => {
-  if (!$('devLinkCmd').value) return log('还没有设备，先开启虚拟串口', 'warn')
-  try { await navigator.clipboard.writeText($('devLinkCmd').value); log('命令已复制', 'ok') }
-  catch { log('剪贴板不可用，请手动复制', 'warn') }
+$('btnLink').onclick = async () => {
+  const result = await api('/api/device/link', {})
+  if (!result.ok) return log(result.error + (result.hint ? '；可手动执行 ' + result.hint : ''), 'warn')
+  applyState(result.state)
+}
+$('btnUnlink').onclick = async () => {
+  const result = await api('/api/device/link', {remove: true})
+  if (result.state) applyState(result.state)
+}
+$('btnOpenPage').onclick = async () => {
+  const url = $('targetUrl').value.trim()
+  if (!url) return log('先填被测页面地址', 'warn')
+  const result = await api('/api/browser/open', {url})
+  if (!result.ok) return log(result.error, 'error')
+  await refresh()
+}
+$('btnClosePage').onclick = async () => {
+  await api('/api/browser/close', {})
+  await refresh()
 }
 $('btnCopy').onclick = async () => {
   try {
@@ -266,9 +301,13 @@ $('btnCopy').onclick = async () => {
 }
 
 $('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
-api('/api/state', {}, 'GET').then(result => {
+const refresh = async () => {
+  const result = await api('/api/state', {}, 'GET')
   applyState(result.state)
-  log('控制台就绪：' + location.origin, 'ok')
+  return result.state
+}
+refresh().then(state => {
+  log('控制台就绪：' + location.origin + (state.open ? '，虚拟串口已自动开启' : ''), 'ok')
 })
 </script>
 </body>

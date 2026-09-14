@@ -38,6 +38,7 @@ bytes 选项    --chunk exact|split|merge|random  --window <ms>
 bridge 选项   --port <n>  --speed <倍数>  --hold（回放后继续驻留）
 serve 选项    --http <n> 控制台端口（默认 18700）  --port <n> 桥接端口（默认 18765）
               --link <路径> 额外的设备符号链接，可重复；如 --link /dev/ttyUSB0（需 root）
+              --no-autostart 启动时不自动开串口   --open <url> 顺手拉起被测页面并预置虚拟串口
 报文可用 --random <组数> 现生成，省掉 --text
 payload 选项  --train-id <n>  --page <n>  --attempt <n>  --server-elapsed <ms>  --scale <0..1>
 `
@@ -64,6 +65,8 @@ const {values, positionals} = parseArgs({
     hold: {type: 'boolean'},
     http: {type: 'string'},
     link: {type: 'string', multiple: true},
+    autostart: {type: 'boolean', default: true},
+    open: {type: 'string'},
     random: {type: 'string'},
     'train-id': {type: 'string'},
     page: {type: 'string'},
@@ -112,8 +115,12 @@ if (command === 'serve') {
   const server = await startServer({
     port: number(values.http, 18700),
     bridgePort: number(values.port, 18765),
-    deviceLinks: values.link && values.link.length ? values.link : undefined
+    deviceLinks: values.link && values.link.length ? values.link : undefined,
+    autoStart: values.autostart !== false,
+    openUrl: values.open ?? null
   })
+  const device = server.serial.state().device
+  if (device.path) process.stderr.write(`虚拟串口设备：${device.path}${device.links.length ? ' → ' + device.links.join(' , ') : ''}\n`)
   process.stderr.write(`控制台已启动：${server.url}（Ctrl-C 退出）\n`)
   process.on('SIGINT', async () => { await server.close(); process.exit(0) })
 } else if (command === 'bridge') {

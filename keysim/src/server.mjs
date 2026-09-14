@@ -8,6 +8,7 @@ import {createHash} from 'node:crypto'
 import {extname, join, normalize} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {createVirtualSerial} from './serial.mjs'
+import {browserState, closeBrowser, openBrowser, probeBrowser} from './providers/browser.mjs'
 import {createParser} from './sinks/bridge.mjs'
 import {electronKeyPlan, electronKeyTimeline} from './electronkey.mjs'
 import {handKeyPlan, handKeyTimeline} from './handkey.mjs'
@@ -69,7 +70,7 @@ export function buildTimeline(options = {}) {
   }), spec)
 }
 
-export function startServer({port = 18700, host = '127.0.0.1', bridgePort = 18765, deviceLinks} = {}) {
+export function startServer({port = 18700, host = '127.0.0.1', bridgePort = 18765, deviceLinks, autoStart = false, openUrl = null} = {}) {
   const listeners = new Set()
   const broadcast = event => {
     const payload = `data: ${JSON.stringify(event)}\n\n`
@@ -78,7 +79,26 @@ export function startServer({port = 18700, host = '127.0.0.1', bridgePort = 1876
   const serial = createVirtualSerial({bridgePort, deviceLinks, onEvent: broadcast})
 
   const routes = {
-    'GET /api/state': async () => ({ok: true, state: serial.state(), alphabets: ALPHABETS, faults: Object.keys(TIMELINE_FAULTS)}),
+    'GET /api/state': async () => ({
+      ok: true,
+      state: {...serial.state(), browser: {...browserState(), ...(await probeBrowser())}},
+      alphabets: ALPHABETS,
+      faults: Object.keys(TIMELINE_FAULTS)
+    }),
+    'POST /api/device/link': async body => {
+      const result = body.remove ? await serial.unlinkSystem(body.target) : await serial.linkSystem(body.target)
+      return {...result, state: serial.state()}
+    },
+    'POST /api/browser/open': async body => {
+      const state = await openBrowser({url: body.url, origin: `http://${host}:${server.address().port}`, headless: body.headless === true})
+      broadcast({type: 'log', level: 'ok', message: `已打开被测页面并预置虚拟串口：${state.url}`, at: Date.now()})
+      return {ok: true, browser: state}
+    },
+    'POST /api/browser/close': async () => {
+      const state = await closeBrowser()
+      broadcast({type: 'log', level: 'warn', message: '被测页面已关闭', at: Date.now()})
+      return {ok: true, browser: state}
+    },
     'POST /api/device/probe': async () => ({ok: true, probe: await serial.probe(), state: serial.state()}),
     'POST /api/port': async body => {
       const state = body.open === false ? await serial.close() : await serial.open()
@@ -184,16 +204,33 @@ export function startServer({port = 18700, host = '127.0.0.1', bridgePort = 1876
 
   return new Promise((resolve, reject) => {
     server.once('error', reject)
-    server.listen(port, host, () => resolve({
+    server.listen(port, host, async () => {
+      if (autoStart) {
+        try {
+          await serial.open()
+        } catch (error) {
+          broadcast({type: 'log', level: 'error', message: `自动开启虚拟串口失败：${error.message}`, at: Date.now()})
+        }
+      }
+      if (openUrl) {
+        try {
+          await openBrowser({url: openUrl, origin: `http://${host}:${server.address().port}`})
+        } catch (error) {
+          broadcast({type: 'log', level: 'warn', message: `自动打开被测页面失败：${error.message}`, at: Date.now()})
+        }
+      }
+      resolve({
       url: `http://${host}:${server.address().port}`,
       port: server.address().port,
       serial,
       close: async () => {
+        await closeBrowser()
         await serial.close()
         for (const response of listeners) response.end()
         listeners.clear()
         return new Promise(done => server.close(done))
       }
-    }))
+      })
+    })
   })
 }

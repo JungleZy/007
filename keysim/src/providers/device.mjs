@@ -13,7 +13,7 @@
  *   Web 模式仍走 keysim 的注入通道。
  */
 import {spawn} from 'node:child_process'
-import {access, constants} from 'node:fs/promises'
+import {access, constants, lstat, symlink, unlink} from 'node:fs/promises'
 import {fileURLToPath} from 'node:url'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
@@ -23,6 +23,70 @@ const HELPER = fileURLToPath(new URL('../../bin/ptybridge.py', import.meta.url))
 export const DEFAULT_LINKS = [join(homedir(), '.keysim', 'ttyKEYSIM0')]
 /** 桌面壳只认这个名字形态，见上文能力边界。 */
 export const SYSTEM_LINK = '/dev/ttyUSB0'
+
+const run = (command, args, {timeout = 60000} = {}) => new Promise(resolve => {
+  const child = spawn(command, args, {stdio: ['ignore', 'pipe', 'pipe']})
+  let stderr = ''
+  const timer = setTimeout(() => { child.kill('SIGTERM'); resolve({ok: false, error: `${command} 超时`}) }, timeout)
+  child.stderr.on('data', chunk => { stderr += chunk })
+  child.on('error', error => { clearTimeout(timer); resolve({ok: false, error: error.message}) })
+  child.on('close', code => { clearTimeout(timer); resolve({ok: code === 0, error: code === 0 ? null : (stderr.trim() || `${command} 退出码 ${code}`)}) })
+})
+
+const hasGraphicalSession = () => Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY)
+
+/** 有没有可用的图形提权通道（与桌面壳授权串口的做法一致：pkexec）。 */
+export async function probeElevation() {
+  if (process.getuid && process.getuid() === 0) return {available: true, kind: 'root', reason: null}
+  const which = await run('sh', ['-c', 'command -v pkexec'], {timeout: 3000})
+  if (!which.ok) return {available: false, kind: null, reason: '没有 pkexec，无法弹出系统授权框'}
+  if (!hasGraphicalSession()) return {available: false, kind: 'pkexec', reason: '当前没有图形会话（DISPLAY/WAYLAND_DISPLAY 为空），pkexec 无法弹框'}
+  return {available: true, kind: 'pkexec', reason: null}
+}
+
+/**
+ * 把设备接进系统串口列表：在 /dev 下建一个 ttyUSBn 符号链接。
+ * 先直接建（root 时即成），否则走 pkexec 弹一次系统授权框——不需要用户去复制命令。
+ */
+export async function linkIntoSystem(devicePath, target = SYSTEM_LINK) {
+  if (!devicePath) return {ok: false, error: '虚拟串口设备未开启'}
+  try {
+    await lstat(target).then(() => unlink(target)).catch(() => {})
+    await symlink(devicePath, target)
+    return {ok: true, target, elevated: false}
+  } catch (error) {
+    if (error.code !== 'EACCES' && error.code !== 'EPERM' && error.code !== 'EROFS') {
+      return {ok: false, error: `${target}：${error.message}`}
+    }
+  }
+  const elevation = await probeElevation()
+  if (!elevation.available) {
+    return {ok: false, error: elevation.reason, hint: `sudo ln -sfn ${devicePath} ${target}`}
+  }
+  const result = await run('pkexec', ['ln', '-sfn', devicePath, target])
+  if (!result.ok) return {ok: false, error: `系统授权未通过：${result.error}`, hint: `sudo ln -sfn ${devicePath} ${target}`}
+  return {ok: true, target, elevated: true}
+}
+
+/** 移除系统串口列表里的链接（只删指向本设备的那个，不碰真实硬件）。 */
+export async function unlinkFromSystem(devicePath, target = SYSTEM_LINK) {
+  try {
+    const info = await lstat(target)
+    if (!info.isSymbolicLink()) return {ok: false, error: `${target} 不是符号链接，拒绝删除`}
+  } catch {
+    return {ok: true, target, removed: false}
+  }
+  try {
+    await unlink(target)
+    return {ok: true, target, removed: true}
+  } catch (error) {
+    if (error.code !== 'EACCES' && error.code !== 'EPERM') return {ok: false, error: error.message}
+  }
+  const elevation = await probeElevation()
+  if (!elevation.available) return {ok: false, error: elevation.reason}
+  const result = await run('pkexec', ['rm', '-f', target])
+  return result.ok ? {ok: true, target, removed: true, elevated: true} : {ok: false, error: result.error}
+}
 
 /** 探测本机是否具备创建虚拟串口设备的条件。 */
 export async function probeDevice() {
