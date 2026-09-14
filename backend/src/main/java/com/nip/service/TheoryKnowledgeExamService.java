@@ -259,11 +259,17 @@ public class TheoryKnowledgeExamService {
     UserEntity userEntity = userService.getUserByToken(token);
     TheoryKnowledgeExamEntity existing = null;
     if (StringUtils.isNotBlank(dto.getId())) {
-      existing = Optional.ofNullable(theoryKnowledgeExamDao.findById(dto.getId()))
+      existing = theoryKnowledgeExamDao.findByIdOptional(dto.getId(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
           .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
       if (!Objects.equals(existing.getCreateUserId(), userEntity.getId())
           && !roleDao.existsAdminRoleByUserId(userEntity.getId())) {
         throw new ForbiddenException("无权修改他人的自测");
+      }
+      List<TheoryKnowledgeExamUserEntity> existingUsers = theoryKnowledgeExamUserDao.find("examId", dto.getId())
+          .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).list();
+      if (Objects.equals(existing.getState(), 3) || Objects.equals(existing.getState(), 4)
+          || existingUsers.stream().anyMatch(row -> Objects.equals(row.getState(), 4) || row.getEndTime() != null)) {
+        throw new TerminalStateException("考试已结束，不能重建自测");
       }
     }
     TheoryKnowledgeExamEntity examEntity = PojoUtils.convertOne(dto, TheoryKnowledgeExamEntity.class);

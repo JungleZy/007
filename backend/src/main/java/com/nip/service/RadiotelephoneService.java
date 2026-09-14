@@ -214,7 +214,7 @@ public class RadiotelephoneService {
     return stored + elapsed;
   }
 
-  /** Historical rows can contain non-numeric totalTime; preserve them by treating them as zero. */
+  /** Malformed historical totals cannot be safely reconciled; never discard them by resetting to zero. */
   private int parseTotalTime(String totalTime) {
     if (totalTime == null || totalTime.isBlank()) {
       return 0;
@@ -222,8 +222,7 @@ public class RadiotelephoneService {
     try {
       return Math.max(0, Integer.parseInt(totalTime));
     } catch (NumberFormatException exception) {
-      log.warn("话报训练累计时长不是数字，按 0 计算:{}", totalTime);
-      return 0;
+      throw new TerminalStateException("历史累计时长损坏，不能继续结算");
     }
   }
 }

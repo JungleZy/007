@@ -108,7 +108,7 @@ class TrainBoundaryGuardTest {
   }
 
   @Test
-  void radiotelephoneFinishTreatsNonNumericHistoricalTotalAsZero() {
+  void radiotelephoneFinishRejectsMalformedHistoricalTotalWithoutDiscardingIt() {
     String token = UUID.randomUUID().toString();
     UserEntity user = Fixtures.user(userDao, token);
     RadiotelephoneEntity dirty = new RadiotelephoneEntity();
@@ -125,11 +125,10 @@ class TrainBoundaryGuardTest {
     finishRequest.setType(0);
     finishRequest.setSessionId(begun.getSessionId());
 
-    RadiotelephoneVO finished = assertDoesNotThrow(
-        () -> radiotelephoneService.finish(finishRequest, token),
-        "累计时长是脏数据时结算不得抛 NumberFormatException");
-
-    assertEquals("0", finished.getTotalTime(), "非数字累计时长按 0 起算");
-    assertEquals(3, finished.getTotalCount().intValue(), "训练次数必须照常累加");
+    assertThrows(com.nip.common.exception.TerminalStateException.class,
+        () -> radiotelephoneService.finish(finishRequest, token));
+    RadiotelephoneEntity persisted = radiotelephoneDao.findByUserIdAndType(user.getId(), 0);
+    assertEquals("--", persisted.getTotalTime());
+    assertEquals(2, persisted.getTotalCount());
   }
 }

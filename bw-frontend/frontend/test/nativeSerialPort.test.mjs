@@ -7,14 +7,14 @@ import {describe, test} from 'node:test'
 const require = createRequire(import.meta.url)
 const modulePath = require.resolve('../../electron/serial/nativeSerialPort.js')
 
-function serialFixture(t, {devices = ['ttyUSB0', 'ttyACM1'], canonical, characterDevice = true, failure} = {}) {
+function serialFixture(t, {devices = ['ttyUSB0', 'ttyACM1'], canonical, characterDevice = true, failure, failAt = 1} = {}) {
   const commands = []
   t.mock.method(fs, 'readdirSync', () => devices)
   t.mock.method(fs, 'realpathSync', path => canonical ?? path)
   t.mock.method(fs, 'statSync', () => ({isCharacterDevice: () => characterDevice}))
   t.mock.method(childProcess, 'execFileSync', (command, args) => {
     commands.push([command, ...args])
-    if (failure) throw failure
+    if (failure && commands.length === failAt) throw failure
   })
   delete require.cache[modulePath]
   const serial = require(modulePath)
@@ -86,6 +86,15 @@ describe('Linux serial authorization', {skip: process.platform !== 'linux'}, () 
     assert.equal(result.ok, false)
     assert.deepEqual(result.granted, [])
     assert.deepEqual(commands, [])
+  })
+
+  test('reports devices already authorized when a later command fails', t => {
+    const {serial} = serialFixture(t, {failure: new Error('second device denied'), failAt: 3})
+    const result = serial.grantAccess(['/dev/ttyUSB0', '/dev/ttyACM1'], 'operator')
+    assert.equal(result.ok, false)
+    assert.equal(result.groupUpdated, true)
+    assert.deepEqual(result.granted, ['/dev/ttyUSB0'])
+    assert.match(result.message, /ttyUSB0.*second device denied/)
   })
 
   test('returns authorization cancellation as a failure without granting devices', t => {

@@ -94,35 +94,47 @@ class NativeSerialPort {
 		if (!/^\w+$/.test(user || '')) {
 			return {ok: false, message: '无效用户名格式，无法授权'};
 		}
-		const requested = Array.isArray(ports) ? ports : [ports];
-		try {
-			if (!requested.length) {
-				return {ok: false, message: '请选择需要授权的串口设备', granted: []};
-			}
-			const devices = new Set(readdirSync('/dev'));
-			const targets = requested.map(port => {
-				const path = typeof port === 'string' ? port : port?.path;
-				if (typeof path !== 'string' || !/^\/dev\/tty(?:USB|ACM)\d+$/.test(path)
-					|| posix.normalize(path) !== path || !devices.has(posix.basename(path))) {
-					throw new Error('无效串口设备路径');
-				}
-				const canonical = realpathSync(path);
-				if (canonical !== path || !statSync(canonical).isCharacterDevice()) {
-					throw new Error('无效串口设备路径');
-				}
-				return canonical;
-			});
-			execFileSync('pkexec', ['usermod', '-a', '-G', 'dialout', user]);
-			targets.forEach(path => {
-				execFileSync('pkexec', ['chmod', '666', path]);
-			});
-			return {
-				ok: true,
-				message: `已将用户 ${user} 加入 dialout 组${targets.length ? `，并放开 ${targets.join('、')} 的读写权限` : ''}`,
-				granted: targets
-			};
-		} catch (error) {
-			return {ok: false, message: `授权失败：${error.message}`, granted: []};
+    const requested = Array.isArray(ports) ? ports : [ports];
+    const granted = [];
+    let groupUpdated = false;
+    try {
+      if (!requested.length) {
+        return {ok: false, message: '请选择需要授权的串口设备', granted: []};
+      }
+      const devices = new Set(readdirSync('/dev'));
+      const targets = requested.map(port => {
+        const path = typeof port === 'string' ? port : port?.path;
+        if (typeof path !== 'string' || !/^\/dev\/tty(?:USB|ACM)\d+$/.test(path)
+          || posix.normalize(path) !== path || !devices.has(posix.basename(path))) {
+          throw new Error('无效串口设备路径');
+        }
+        const canonical = realpathSync(path);
+        if (canonical !== path || !statSync(canonical).isCharacterDevice()) {
+          throw new Error('无效串口设备路径');
+        }
+        return canonical;
+      });
+      execFileSync('pkexec', ['usermod', '-a', '-G', 'dialout', user]);
+      groupUpdated = true;
+      targets.forEach(path => {
+        execFileSync('pkexec', ['chmod', '666', path]);
+        granted.push(path);
+      });
+      return {
+        ok: true,
+        message: `已将用户 ${user} 加入 dialout 组${targets.length ? `，并放开 ${targets.join('、')} 的读写权限` : ''}`,
+        granted,
+        groupUpdated
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: groupUpdated
+          ? `用户组已更新${granted.length ? `，已授权 ${granted.join('、')}` : ''}，后续授权失败：${error.message}`
+          : `授权失败：${error.message}`,
+        granted,
+        groupUpdated
+      };
 		}
 	}
 }

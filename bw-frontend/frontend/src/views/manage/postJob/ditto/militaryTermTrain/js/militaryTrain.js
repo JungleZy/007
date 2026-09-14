@@ -63,13 +63,16 @@ export default function militaryTrain() {
         message.error(res.message || '加载训练失败');
         return;
       }
-      const data = res.data || {};
+      const data = res.data;
+      if (!data || typeof data !== 'object' || !data.id || !Array.isArray(data.testPaperList)) {
+        message.error('训练数据无效，请重新加载');
+        return;
+      }
       Object.assign(militaryData.value, data);
       const duration = data.duration || 0;
       resDuration.value = partTimeFormatInfo(duration * 1000, 'number').replace(/：/g, ':');
       getGradeTypeList({type: 1}, militaryData.value.accuracy);
-      const papers = Array.isArray(data.testPaperList) ? data.testPaperList : [];
-      papers.forEach(function (item, index) {
+      data.testPaperList.forEach(function (item, index) {
         if (currAnswer.value < 0 && item.userAnswer === null) {
           currAnswer.value = index;
           changeAnimate();
@@ -82,9 +85,7 @@ export default function militaryTrain() {
       }
       if (data.status === 2) {
         showResultModal.value = true;
-        if (trainTimeRef.value) {
-          trainTimeRef.value.autoSetTimeAdd(duration);
-        }
+        if (trainTimeRef.value) trainTimeRef.value.autoSetTimeAdd(duration);
       }
     });
   }

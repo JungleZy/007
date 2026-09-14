@@ -185,6 +185,24 @@ class TheoryExamLifecycleAuthorizationTest {
   }
 
   @Test
+  void completedSelfTestCannotBeRebuiltByOwnerOrAdmin() {
+    UserEntity owner = user();
+    UserEntity admin = user();
+    admin(admin);
+    TheoryKnowledgeExamEntity exam = exam(owner, 4);
+    TheoryKnowledgeExamUserEntity answer = member(exam, owner, 0, 4);
+    TheoryKnowledgeExamTestPaperEntity paper = snapshot(exam);
+    TheoryKnowledgeExamDto request = selfTestRequest(owner);
+    request.setId(exam.getId());
+
+    saveSelfTest(owner, request, 208);
+    saveSelfTest(admin, request, 208);
+    assertEquals(4, examDao.findById(exam.getId()).getState());
+    assertEquals("original answer", examUserDao.findById(answer.getId()).getContent());
+    assertEquals("original paper", paperDao.findById(paper.getId()).getName());
+  }
+
+  @Test
   void ownerAndAdminCanUpdateSelfTestWithoutTransferringOwnership() {
     UserEntity owner = user();
     UserEntity admin = user();
