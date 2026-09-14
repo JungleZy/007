@@ -143,7 +143,7 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
 
 2026-09-12 修复阶段的**历史/中间执行记录**：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
 要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
-数据库业务可用。当前最终 JVM 基线是 **441 测试 / 94 suite**，前端为 **30/30 + build**，迁移为17脚本双快照；Windows/ARM64 native、可信证书、桌面 native 凭据和真实硬件仍待外部验收。
+数据库业务可用。当前最终 JVM 基线是 **442 测试 / 102 suite**，前端为 **31/31 + build**，迁移为17脚本双快照；Windows/ARM64 native、可信证书、桌面 native 凭据和真实硬件仍待外部验收。
 
 ## 5. 发布后验证
 

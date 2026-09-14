@@ -6,9 +6,9 @@
 
 ### 最终证据摘要
 
-- 后端 `JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`：**441 测试 / 94 suite，0 失败 0 错误 0 跳过**（最终 rerun 2026-09-14）。
-- 前端完整测试 **30/30**，`npm run build` 成功；release manifest 契约 **5/5**。
-- 当前 `backend/database/migrations/` 共 **17 个脚本**；其中 16 个 schema 脚本由 rehearsal 执行，菜单路径脚本为数据迁移并按 runbook 单独执行。current/base 双快照、实体 schema 差分、重复执行断言全部通过，证据见 `backend/database/rehearsal/2026-09-14-current-state/`。
+- 后端 `JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`：**442 测试 / 102 suite，0 失败 0 错误 0 跳过**（最终 rerun 2026-09-14）。
+- 前端完整测试 **31/31**，`npm run build` 成功；release manifest 契约 **5/5**。
+- 当前 `backend/database/migrations/` 共 **17 个脚本**；其中 16 个 schema 脚本由 rehearsal 执行，菜单路径脚本为数据迁移并按 runbook 单独执行。current/base 双快照、实体 schema 差分、重复执行断言全部通过，证据见 `backend/database/rehearsal/2026-09-14-current-state-final2/`。
 - 隔离 `%prod` fast-jar 已验证普通用户 `code:207`、管理员 `code:200`；真实浏览器完成授权、登录、仪表盘和英语训练页；生产快照中 100% 正确率曾触发 SQL1264，迁移 06 后重试保存为 `status=2, accuracy=100`。
 - 真实 REST 核验覆盖登录不透明 token、用户目录 207/200、速率配置 207/200、Masthead 属主 200/外人 207、英语训练服务端结算；真实浏览器截图已确认仪表盘可见。
 
@@ -94,17 +94,12 @@
 
 ### 文档/交付漂移
 
-- `backend/README.md:8` 仍为 316/74；权威当前基线为 401/94。
-- `AGENTS.md:52` 仍为 58/45，当前 DAO 统计为 55/42。
-- `docs/README.md:39` 仍写 review HEAD 为 `0efbdf1`。
-- `docs/guides/2026-09-12-release-runbook.md:144` 仍为 392 测试；该数字应注明为历史 native 记录，不能机械改成当前 native 证据。
-- `docs/reviews/2026-09-12-full-project-review.md:228,285,351,481` 分别存在 WebSocket 数量和 `webSecurity` 结论漂移。
-- `.github/workflows/build-quarkus-native.yml:64-68` 只执行题库测试，不执行完整前端测试脚本。
-- `bw-frontend/package.json:3` 为 3.1.0，而 `backend/pom.xml:7`、`bw-frontend/frontend/package.json:2` 为 1.1.0；release gate 会拒绝任意不一致 tag。
+- 本轮旧文档/计数漂移均已回写；详细历史取证保留在上一轮评审与 runbook，不作为当前开放项。
+- CI 已改为执行完整前端测试；三方版本已统一为3.1.1，release gate fixture 保留历史漂移回归并不代表当前仓库状态。
 
 ## 4. 运行验证边界
 
-本轮把仓内可执行路径跑到最终基线：441/94 后端、30/30 前端、17 脚本双快照 rehearsal、隔离 prod REST/浏览器 smoke。未运行的 Windows/ARM64 native CI、桌面 native 后端凭据 provisioning、真实硬件、可信证书链、客户现场和发布签收仍是外部前置；GitHub Actions 需在本次提交推送后继续观察。
+- 本轮把仓内可执行路径跑到最终基线：442/102 后端、31/31 前端、17脚本双快照 rehearsal、隔离 prod REST/浏览器 smoke。未运行的 Windows/ARM64 native CI、桌面 native 后端凭据 provisioning、真实硬件、可信证书链、客户现场和发布签收仍是外部前置；GitHub Actions 需在本次提交推送后继续观察。
 
 ## 5. 交付结论
 

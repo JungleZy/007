@@ -3,7 +3,8 @@
 -- 还原：停写后恢复备份；不能把已有100%或微秒时间缩回旧类型。
 SET @entering_accuracy_ddl=(SELECT IF(EXISTS(
   SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE()
-    AND table_name='t_post_entering_exercise' AND column_name='accuracy' AND data_type='double'
+    AND table_name='t_post_entering_exercise' AND column_name='accuracy'
+    AND data_type='double' AND numeric_precision >= 15
 ), 'DO 0', 'ALTER TABLE `t_post_entering_exercise` MODIFY COLUMN `accuracy` DOUBLE NULL'));
 PREPARE entering_accuracy_statement FROM @entering_accuracy_ddl;
 EXECUTE entering_accuracy_statement;

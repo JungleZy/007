@@ -26,7 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前最终基线 **441 测试 / 94 suite 全绿**（`./mvnw -B clean verify`，2026-09-14）；新增测试只增不减。
+- 当前最终基线 **442 测试 / 102 suite 全绿**（`./mvnw -B clean verify`，2026-09-14）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 
@@ -63,7 +63,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 ## 文档与权威来源
 
 - 当前项目评审以最新复核 `docs/reviews/2026-09-12-current-state-review.md` 为当前状态入口；上一轮全项目评审是历史执行证据，当前仓内整改已闭合，可信证书、Windows/ARM64、真实硬件和客户现场仍为外部前置。
-- 当前复核整改规格与计划：`docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。最终本地验证为441/94、30/30、17迁移双快照；GitHub Actions需推送后观察。
+- 当前复核整改规格与计划：`docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。最终本地验证为442/102、31/31、17迁移双快照；GitHub Actions需推送后观察。
 - `docs/reviews/2026-09-08-full-project-review.md` 已降为历史证据；**跨栈问题的详细取证仍以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**，汇总结论以当前全项目评审为准。更早的后端评审、审计和分片位于 `docs/reviews/archive/`，仅用于追溯。跨栈整改规格为 `docs/specs/2026-09-08-joint-fix-spec.md`，客户报障整改计划为 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付未完成）。
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。

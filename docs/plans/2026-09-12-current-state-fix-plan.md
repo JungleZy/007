@@ -51,16 +51,16 @@
 ## W3：桌面、CI、迁移与交付文档
 
 - [x] 串口 grantAccess 只接受真实枚举 `/dev/ttyUSBn`/`/dev/ttyACMn` 字符设备，拒绝穿越/符号链接/注入，前端专项测试通过。
-- [x] 前端 CI 改执行完整 `npm run test`；本地 `30/30 + build`；release contract `5/5`。
+- [x] 前端 CI 改执行完整 `npm run test`；本地 `31/31 + build`；release contract `5/5`。
 - [x] 桌面、前端、后端版本统一为 `3.1.1`；已有 v1.1.0 tag 不重用，不创建新 tag。
 - [x] 迁移脚本共 17 个：16 个 schema 脚本进入 rehearsal，`2026-09-12-03-menu-telex-component-path.sql` 为独立数据迁移；current/base 双快照通过，实体差分为空。
 - [x] 删除数据报不可达 reset 死函数；当前 review、spec、runbook 和入口文档已同步。
 
 ## W4：最终验证与外部前置
 
-- [x] `cd backend && JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`：441/94 全绿。
-- [x] `cd bw-frontend/frontend && npm run test && npm run build`：30/30 全绿、build 成功。
-- [x] `cd backend && REHEARSAL_OUT_NAME=2026-09-14-current-state ./scripts/rehearse-migrations.sh`：current/base 全绿。
+- [x] `cd backend && JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`：442/102 全绿。
+- [x] `cd bw-frontend/frontend && npm run test && npm run build`：31/31 全绿、build 成功。
+- [x] `cd backend && REHEARSAL_OUT_NAME=2026-09-14-current-state-final2 ./scripts/rehearse-migrations.sh`：current/base 全绿。
 - [x] 隔离 `%prod` fast-jar：普通用户目录 207、管理员目录 200、登录 token 43 字符；浏览器登录、dashboard、英语训练页可见。
 - [x] release manifest contract 5/5；版本一致性 gate 已锁定。
 - [ ] Windows/ARM64 native CI、真实 Electron `--dir` 对应本次最终 commit、桌面 native DB 凭据 provisioning、可信证书、真实硬件、客户现场和发布负责人签收：外部前置。
@@ -70,9 +70,9 @@
 
 | 项 | 最终结果 | 证据 |
 |---|---|---|
-| 后端 | 441 tests / 94 suite 全绿 | Maven 输出 artifact |
-| 前端 | 30/30 + build | npm 输出 artifact |
-| 迁移 | 17 files，16 schema + 1 data；双快照通过 | `backend/database/rehearsal/2026-09-14-current-state/` |
+| 后端 | 442 tests / 102 suite 全绿 | Maven 输出 artifact |
+| 前端 | 31/31 + build | npm 输出 artifact |
+| 迁移 | 17 files，16 schema + 1 data；双快照通过 | `backend/database/rehearsal/2026-09-14-current-state-final2/` |
 | REST/浏览器 | 207/200、登录、dashboard、English、accuracy=100 | 隔离 prod + browser smoke |
 | release contracts | 5/5 | `bw-frontend/scripts/test/artifact-manifest.test.mjs` |
 | GitHub Actions | 待 push 后观察 | 不提前宣称 |

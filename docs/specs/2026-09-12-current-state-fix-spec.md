@@ -39,15 +39,15 @@
 
 ### S6：交付与文档门禁（P2/P3）
 
-- [x] 前端 CI/本地执行完整 `npm run test`，当前本地证据 30/30 + build。
+- [x] 前端 CI/本地执行完整 `npm run test`，当前本地证据 31/31 + build。
 - [x] 当前修复已同步综合电子键权威指标、报话持久化服务器时钟、军语完整性、Masthead owner authorization、English 类型/余量/时钟/schema；迁移 04/05/06 已加入 `backend/database/migrations/`。
 - [x] 更新 backend README、AGENTS、docs README、release runbook 和当前 review 的数字/HEAD/WS/webSecurity 描述；历史 native 测试记录保留。
 - [x] 运行态已验证项与外部前置分列；不把 `webSecurity:false`、Windows/ARM64、桌面后端 DB 环境写成已闭环。
 
 ## 3. 验收（已验证项）
 
-- [x] 后端最终全量 `clean verify`：441 测试 / 94 suite，0 失败 0 错误 0 跳过。
-- [x] 前端 30/30 + build；隔离 prod fast-jar 普通用户 207、管理员 200；真实浏览器登录/仪表盘/英文页。
+- [x] 后端最终全量 `clean verify`：442 测试 / 102 suite，0 失败 0 错误 0 跳过。
+- [x] 前端 31/31 + build；隔离 prod fast-jar 普通用户 207、管理员 200；真实浏览器登录/仪表盘/英文页。
 - [x] migration rehearsal：17 个脚本（16 schema + 1 data）双快照通过；migration06 后 status=2、accuracy=100。
 - [x] 其余行为验收有源码、专项回归或隔离 runtime 证据；外部前置按 §4 保留。
 
