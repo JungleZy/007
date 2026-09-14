@@ -4,12 +4,13 @@ import com.nip.dao.PostMilitaryTermTrainDao;
 import com.nip.dao.TheoryKnowledgeExamDao;
 import com.nip.dao.UserDao;
 import com.nip.testsupport.Fixtures;
-import java.util.UUID;
 import com.nip.entity.PostMilitaryTermTrainEntity;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,10 +32,12 @@ class FindByIdGuardTest {
 
   @Test
   void beginMissingMilitaryTermTrainThrowsWithoutPersisting() {
+    String token = "missing-military-" + UUID.randomUUID();
+    Fixtures.user(userDao, token);
     long before = postMilitaryTermTrainDao.count();
 
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> postMilitaryTermTrainService.begin("no-such-military-term-train"),
+        () -> postMilitaryTermTrainService.begin("no-such-military-term-train", token),
         "不存在的训练 id 必须显式报错而非 NPE");
 
     assertEquals("未查询到该训练", ex.getMessage());
@@ -43,10 +46,14 @@ class FindByIdGuardTest {
 
   @Test
   void beginExistingMilitaryTermTrainStillStarts() {
-    PostMilitaryTermTrainEntity seeded = postMilitaryTermTrainDao.saveAndFlush(
-        new PostMilitaryTermTrainEntity());
+    String token = "existing-military-" + UUID.randomUUID();
+    var user = Fixtures.user(userDao, token);
+    PostMilitaryTermTrainEntity seeded = new PostMilitaryTermTrainEntity();
+    seeded.setUserId(user.getId());
+    seeded.setStatus(0);
+    seeded = postMilitaryTermTrainDao.saveAndFlush(seeded);
 
-    postMilitaryTermTrainService.begin(seeded.getId());
+    postMilitaryTermTrainService.begin(seeded.getId(), token);
 
     assertEquals(Integer.valueOf(1), postMilitaryTermTrainDao.findById(seeded.getId()).getStatus(),
         "存在的训练必须照常置为进行中，守卫不得误伤正常路径");
@@ -58,7 +65,7 @@ class FindByIdGuardTest {
     Fixtures.user(userDao, token);
     long before = theoryKnowledgeExamDao.count();
 
-    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+    assertThrows(IllegalArgumentException.class,
         () -> theoryKnowledgeExamService.teacherStartExam(token, "no-such-exam-id", 2),
         "不存在的考试 id 必须显式报错而非 NPE");
 
