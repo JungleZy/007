@@ -166,10 +166,13 @@ impl Console {
                     let head: Vec<String> = chunks.iter().take(12).map(|chunk| sinks::hex(&chunk.bytes)).collect();
                     // 纸带用：按下/抬起的时刻对，页面据此把点划画出来。
                     // 手键是 Down/Up 成对，电子键是单字节码（画成等宽刻点）。
+                    // 纸带按 1ms=1px 等比绘制，长报文靠滚动看，所以上限放宽；
+                    // 真被截断时告诉页面，让它画出截断标记而不是默默少画。
+                    const MARK_LIMIT: usize = 40000;
                     let marks: Vec<Value> = timeline
                         .events
                         .iter()
-                        .take(4000)
+                        .take(MARK_LIMIT)
                         .map(|event| {
                             let kind = match event.kind {
                                 crate::timeline::Kind::Down => 0,
@@ -187,6 +190,7 @@ impl Console {
                             "chars": timeline.body_chars().count(),
                             "plan": plan,
                             "marks": marks,
+                            "marksTruncated": timeline.events.len() > MARK_LIMIT,
                             "head": head
                         }),
                         Err(error) => json!({"ok": false, "error": error}),

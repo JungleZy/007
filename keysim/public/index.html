@@ -49,13 +49,22 @@
   .lamp.fault i{background:var(--fault);box-shadow:0 0 7px rgba(215,106,85,.6)}
   .lamp.on b,.lamp.live b{color:var(--ink)}
 
-  /* ---------- 纸带：本页主角 ---------- */
+  /* ---------- 纸带：本页主角 ----------
+     按 1ms=1px 等比走纸，长报文横向滚动。canvas 只画"看得见的那一窗"
+     （Chrome 的 canvas 宽度上限约 32767px，长页面等比铺开必然超），
+     滚动长度由 .tape-track 提供，canvas 用 sticky 钉在视窗左侧。 */
   #tapeWrap{padding:14px 20px 0}
   .tape{
     position:relative;background:var(--tape);border:1px solid var(--rule);border-radius:3px;
-    box-shadow:inset 0 2px 12px rgba(0,0,0,.55)
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.55);overflow-x:auto;overflow-y:hidden;
+    scrollbar-color:#4a5558 var(--tape)
   }
-  #tape{display:block;width:100%;height:96px}
+  .tape::-webkit-scrollbar{height:9px}
+  .tape::-webkit-scrollbar-track{background:var(--tape)}
+  .tape::-webkit-scrollbar-thumb{background:#43504f;border-radius:5px}
+  .tape::-webkit-scrollbar-thumb:hover{background:#566665}
+  #tape{display:block;position:sticky;left:0;width:100%;height:96px}
+  #tapeTrack{height:1px}
   .tape-meta{
     display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
     padding:6px 2px 0;font-family:var(--mono);font-size:11px;color:var(--ink-dim)
@@ -180,8 +189,9 @@
 </header>
 
 <div id="tapeWrap">
-  <div class="tape">
-    <canvas id="tape" width="1200" height="96"></canvas>
+  <div class="tape" id="tapeView">
+    <canvas id="tape" height="96"></canvas>
+    <div id="tapeTrack"></div>
     <div class="tape-empty" id="tapeEmpty">输入报文即生成纸带</div>
   </div>
   <div class="tape-meta">
@@ -190,6 +200,14 @@
     <span>字 <b id="mChars">--</b></span>
     <span>点/划/符内 <b id="mPlan">--</b></span>
     <span>字隔/组隔 <b id="mGap">--</b></span>
+    <span class="field">走纸
+      <select id="tapeZoom" style="padding:2px 4px;font-size:11px">
+        <option value="4">4px/ms</option>
+        <option value="1" selected>1px/ms</option>
+        <option value="0.25">1px/4ms</option>
+        <option value="0.05">1px/20ms</option>
+      </select>
+    </span>
     <span id="mProgress"></span>
   </div>
 </div>
@@ -419,81 +437,128 @@ const params = () => ({
 
 // ================= 纸带 =================
 // 手键：按下→抬起画成墨块（点短划长），间隔留白。电子键：单字节码画成等宽刻点。
-// 这是页面的主角，所以它同时承担"预览"与"进度"两件事：播放头就是进度条。
-const tape = {canvas: $('tape'), marks: [], duration: 0, key: 'hand', playhead: null}
+// 按走纸倍率等比铺开（默认 1px = 1ms），长报文横向滚动，不再把整页挤进一屏。
+// canvas 只画当前可见的那一窗（Chrome 的 canvas 宽度上限约 32767px，
+// 400 字的一页等比铺开就有 30 万 px），滚动长度由 #tapeTrack 撑出来。
+const tape = {
+  canvas: $('tape'), view: $('tapeView'), track: $('tapeTrack'),
+  marks: [], duration: 0, key: 'hand', playhead: null, truncated: false,
+  pxPerMs: 1, follow: true
+}
+const tapeWidth = () => Math.max(tape.view.clientWidth, Math.ceil(tape.duration * tape.pxPerMs) + 20)
+
 const drawTape = () => {
   const canvas = tape.canvas
   const ratio = window.devicePixelRatio || 1
-  const width = canvas.clientWidth || 1200
+  const width = tape.view.clientWidth || 1200
   const height = 96
-  if (canvas.width !== Math.round(width * ratio)) {
+  if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
     canvas.width = Math.round(width * ratio)
     canvas.height = Math.round(height * ratio)
   }
+  tape.track.style.width = tapeWidth() + 'px'
+
   const pen = canvas.getContext('2d')
   pen.setTransform(ratio, 0, 0, ratio, 0, 0)
   pen.clearRect(0, 0, width, height)
 
   const pad = 10
   const base = height - 26
-  const span = tape.duration || 1
-  const scale = (width - pad * 2) / span
+  const scale = tape.pxPerMs
+  const offset = tape.view.scrollLeft            // 这一窗从哪一毫秒开始
+  const msAt = x => (x - pad + offset) / scale
+  const xOf = ms => pad + ms * scale - offset
 
-  // 走纸刻度：每秒一格
+  // 走纸刻度：按倍率挑一个整齐的间隔，标签不挤在一起
+  const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 30000, 60000]
+  const step = steps.find(value => value * scale >= 60) || steps[steps.length - 1]
+  const from = Math.max(0, Math.floor(msAt(0) / step) * step)
+  const to = msAt(width)
   pen.strokeStyle = 'rgba(231,227,215,.10)'
   pen.fillStyle = '#5d6a6d'
   pen.font = '10px ui-monospace, monospace'
   pen.lineWidth = 1
-  for (let second = 0; second * 1000 <= span; second++) {
-    const x = pad + second * 1000 * scale
+  for (let ms = from; ms <= to; ms += step) {
+    const x = xOf(ms)
     pen.beginPath(); pen.moveTo(x, 14); pen.lineTo(x, base + 6); pen.stroke()
-    if (second % 2 === 0) pen.fillText(second + 's', x + 3, base + 18)
+    pen.fillText(ms >= 1000 ? (ms / 1000).toFixed(ms % 1000 ? 1 : 0) + 's' : ms + 'ms', x + 3, base + 18)
   }
-  // 基线
   pen.strokeStyle = 'rgba(231,227,215,.22)'
-  pen.beginPath(); pen.moveTo(pad, base); pen.lineTo(width - pad, base); pen.stroke()
+  pen.beginPath(); pen.moveTo(0, base); pen.lineTo(width, base); pen.stroke()
 
   if (!tape.marks.length) { setShown('tapeEmpty', true); return }
   setShown('tapeEmpty', false)
 
   const top = 22
   const tall = base - top
+  const leftMs = msAt(-40)
+  const rightMs = msAt(width + 40)
   pen.fillStyle = '#e5a13c'
   if (tape.key === 'electron') {
     for (const [at] of tape.marks) {
-      const x = pad + at * scale
-      pen.fillRect(x, top + tall * 0.25, Math.max(1.5, 2), tall * 0.75)
+      if (at < leftMs || at > rightMs) continue
+      pen.fillRect(xOf(at), top + tall * 0.25, 2, tall * 0.75)
     }
   } else {
     let down = null
     for (const [at, kind] of tape.marks) {
-      if (kind === 0) down = at
-      else if (kind === 1 && down !== null) {
-        const x = pad + down * scale
-        const w = Math.max(1.2, (at - down) * scale)
-        pen.fillRect(x, top, w, tall)
-        down = null
+      if (kind === 0) { down = at; continue }
+      if (kind !== 1 || down === null) continue
+      if (at >= leftMs && down <= rightMs) {
+        pen.fillRect(xOf(down), top, Math.max(1.2, (at - down) * scale), tall)
       }
+      down = null
     }
-    if (down !== null) { // 缺抬起（故障注入）：画成断口
+    if (down !== null && down <= rightMs) {   // 缺抬起（故障注入）：画成红色断口
       pen.fillStyle = '#d76a55'
-      pen.fillRect(pad + down * scale, top, 2, tall)
+      pen.fillRect(xOf(down), top, 2, tall)
     }
   }
 
+  if (tape.truncated) {
+    pen.fillStyle = '#d76a55'
+    pen.fillText('帧数超出纸带上限，后段未绘', Math.max(pad, width - 190), 12)
+  }
+
   if (tape.playhead !== null) {
-    const x = pad + Math.min(span, tape.playhead) * scale
-    pen.fillStyle = 'rgba(111,195,164,.16)'
-    pen.fillRect(pad, top - 6, Math.max(0, x - pad), tall + 12)
+    const x = xOf(Math.min(tape.duration, tape.playhead))
+    pen.fillStyle = 'rgba(111,195,164,.14)'
+    pen.fillRect(0, top - 6, Math.max(0, x), tall + 12)
     pen.strokeStyle = '#6fc3a4'
     pen.lineWidth = 1.5
     pen.beginPath(); pen.moveTo(x, top - 8); pen.lineTo(x, base + 4); pen.stroke()
   }
 }
+
+/// 拍发时让播放头跟着走；用户自己拖过滚动条就不再抢方向盘
+const followPlayhead = () => {
+  if (!tape.follow || tape.playhead === null) return
+  const x = 10 + tape.playhead * tape.pxPerMs
+  const view = tape.view
+  if (x < view.scrollLeft + 40 || x > view.scrollLeft + view.clientWidth - 60) {
+    view.scrollLeft = Math.max(0, x - view.clientWidth * 0.4)
+  }
+}
 window.addEventListener('resize', drawTape)
+tape.view.addEventListener('scroll', drawTape, {passive: true})
+// 纸带上滚轮直接走纸：横向内容用竖向滚轮看最顺手
+tape.view.addEventListener('wheel', event => {
+  if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+  event.preventDefault()
+  tape.follow = false
+  tape.view.scrollLeft += event.deltaY
+}, {passive: false})
+$('tapeZoom').addEventListener('change', () => {
+  const anchor = (tape.view.scrollLeft + tape.view.clientWidth / 2 - 10) / tape.pxPerMs
+  tape.pxPerMs = Number($('tapeZoom').value) || 1
+  tape.track.style.width = tapeWidth() + 'px'
+  tape.view.scrollLeft = Math.max(0, anchor * tape.pxPerMs - tape.view.clientWidth / 2 + 10)
+  drawTape()
+})
 
 const clearTape = note => {
-  tape.marks = []; tape.duration = 0; tape.playhead = null
+  tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false
+  tape.track.style.width = '1px'
   drawTape()
   for (const id of ['mDuration', 'mEvents', 'mChars', 'mPlan', 'mGap']) setText(id, null)
   setNote('mProgress', note || '')
@@ -517,7 +582,10 @@ const runPreview = async () => {
   tape.marks = Array.isArray(result.marks) ? result.marks : []
   tape.duration = Number(result.duration) || 0
   tape.key = $('key').value
+  tape.truncated = result.marksTruncated === true
   tape.playhead = null
+  tape.follow = true
+  tape.view.scrollLeft = 0
   drawTape()
   const plan = result.plan || {}
   const ms = value => Math.round(Number(value) || 0) + 'ms'
@@ -632,6 +700,7 @@ const applyState = raw => {
   const sent = Number(replay.sent) || 0
   if (running && total > 0) {
     tape.playhead = tape.duration * (sent / total)
+    followPlayhead()
     drawTape()
     setNote('mProgress', sent + ' / ' + total + ' 帧')
   } else if (!running && tape.playhead !== null && sent === 0) {
@@ -650,8 +719,9 @@ events.onmessage = message => {
     const sent = Number(event.sent) || 0
     if (total > 0) {
       tape.playhead = tape.duration * (sent / total)
+      followPlayhead()
       drawTape()
-      setText('mProgress', sent + ' / ' + total + ' 帧')
+      setNote('mProgress', sent + ' / ' + total + ' 帧')
     }
   }
 }
@@ -689,6 +759,7 @@ $('btnRandom').onclick = async () => {
   await runPreview()
 }
 $('btnSend').onclick = async () => {
+  tape.follow = true
   const result = await api('/api/send', params())
   if (!result.ok) return log(result.error, 'error')
   applyState(result.state)
