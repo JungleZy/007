@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.MilitaryTermDataDto;
@@ -39,6 +40,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/saveAll")
   @Operation(summary = "添加数据-后端开发用")
+  @RequireAdmin
   public Response<Void> saveAll(String string) {
     militaryTermDataService.saveAll(string);
     return ResponseResult.success();
@@ -47,6 +49,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/save")
   @Operation(summary = "新增")
+  @RequireAdmin
   public Response<MilitaryTermDataVO> save(MilitaryTermDataDto dto) {
     return ResponseResult.success(militaryTermDataService.save(dto));
   }
@@ -54,6 +57,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除(只传入ID)")
+  @RequireAdmin
   public Response<Void> delete(MilitaryTermDataVO vo) {
     militaryTermDataService.delete(vo);
     return ResponseResult.success();
@@ -69,6 +73,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/update")
   @Operation(summary = "修改")
+  @RequireAdmin
   public Response<MilitaryTermDataVO> update(MilitaryTermDataVO vo) {
     return ResponseResult.success(militaryTermDataService.update(vo));
   }
@@ -76,6 +81,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/move")
   @Operation(summary = "移动")
+  @RequireAdmin
   public Response<Void> move(MilitaryTermDataMoveDto dataMoveDto) {
     militaryTermDataService.move(dataMoveDto);
     return ResponseResult.success();
@@ -84,6 +90,7 @@ public class MilitaryTermDataController {
   @POST
   @Path("/saveBatch")
   @Operation(summary = "批量保存军语密语-代替之前文件导入")
+  @RequireAdmin
   public Response<List<MilitaryTermDataVO>> saveBatch(List<MilitaryTermDto> params) {
     return ResponseResult.success(militaryTermDataService.saveBatch(params));
   }

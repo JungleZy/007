@@ -12,8 +12,10 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestQuery;
 
+import static com.nip.common.constants.BaseConstants.TOKEN;
 import static com.nip.common.constants.BaseConstants.TRAIN_ID;
 
 @JWT
@@ -31,14 +33,14 @@ public class MastheadController {
   @POST
   @Path("/save")
   @Operation(summary = "保存报头")
-  public Response<MastheadEntity> save(MastheadEntity entity) {
-    return ResponseResult.success(mastheadService.save(entity));
+  public Response<MastheadEntity> save(@RestHeader(TOKEN) String token, MastheadEntity entity) {
+    return ResponseResult.success(mastheadService.save(token, entity));
   }
 
   @GET
   @Path("/findByTrainId")
   @Operation(summary = "查询报头")
-  public Response<MastheadEntity> findByTrainId(@RestQuery(TRAIN_ID) String trainId) {
-    return ResponseResult.success(mastheadService.findByTrainId(trainId));
+  public Response<MastheadEntity> findByTrainId(@RestHeader(TOKEN) String token, @RestQuery(TRAIN_ID) String trainId) {
+    return ResponseResult.success(mastheadService.findByTrainId(token, trainId));
   }
 }

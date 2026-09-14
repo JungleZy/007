@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.TickerTapeTrainSettingVO;
@@ -42,6 +43,7 @@ public class TickerTapeTrainSettingController {
   @Path("/addOrUpdate")
   @POST
   @Operation(summary = "添加或修改速率配置")
+  @RequireAdmin
   public Response<TickerTapeTrainSettingAddParam> addOrUpdate(TickerTapeTrainSettingAddParam param) {
     return ResponseResult.success(settingService.addOrUpdate(param));
   }

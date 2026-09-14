@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.PostEnteringExerciseWordStockDto;
@@ -41,6 +42,7 @@ public class PostEnteringExerciseWordStockController {
   @POST
   @Path("/add")
   @Operation(summary = "添加文章")
+  @RequireAdmin
   public Response<PostEnteringExerciseWordStockDto> add(PostEnteringExerciseWordStockDto vo,
                                                         @RestHeader(TOKEN) String token) throws Exception {
     return ResponseResult.success(wordStockService.add(vo, token));
@@ -65,6 +67,7 @@ public class PostEnteringExerciseWordStockController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除文章(只传入id)")
+  @RequireAdmin
   public Response<Void> delete(PostEnteringExerciseWordStockDto vo) {
     wordStockService.delete(vo.getId());
     return ResponseResult.success();

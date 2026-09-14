@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.entity.KeyPointsEntity;
@@ -36,6 +37,7 @@ public class KeyPointsController {
   @POST
   @Path("/saveKeyPoints")
   @Operation(summary = "保存要点讲解")
+  @RequireAdmin
   public Response<KeyPointsEntity> saveKeyPoints(KeyPointsEntity entity) {
     return ResponseResult.success(keyPointsService.saveKeyPoints(entity));
   }

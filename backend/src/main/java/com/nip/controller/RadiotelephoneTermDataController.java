@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.PostRadiotelephoneTermDataDto;
@@ -43,6 +44,7 @@ public class RadiotelephoneTermDataController {
   @POST
   @Path("/save")
   @Operation(summary = "添加数据")
+  @RequireAdmin
   public Response<PostRadiotelephoneTermDataVO> save(PostRadiotelephoneTermDataVO vo) {
     return ResponseResult.success(dataService.add(vo));
   }
@@ -50,6 +52,7 @@ public class RadiotelephoneTermDataController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除数据(只传入ID)")
+  @RequireAdmin
   public Response<Void> delete(PostRadiotelephoneTermDataVO vo) {
     dataService.delete(vo);
     return ResponseResult.success();
@@ -58,6 +61,7 @@ public class RadiotelephoneTermDataController {
   @POST
   @Path("/update")
   @Operation(summary = "修改记录")
+  @RequireAdmin
   public Response<PostRadiotelephoneTermDataVO> update(PostRadiotelephoneTermDataVO vo) {
     return ResponseResult.success(dataService.update(vo));
   }

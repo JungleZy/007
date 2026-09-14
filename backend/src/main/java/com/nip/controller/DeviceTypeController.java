@@ -1,6 +1,7 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.DeviceTypeVO;
@@ -39,6 +40,7 @@ public class DeviceTypeController {
   @POST
   @Path(value = "save")
   @Operation(summary = "添加/修改类型")
+  @RequireAdmin
   public Response<DeviceTypeVO> save(@RestHeader(TOKEN) String token, DeviceTypeUpdateParam param) throws Exception {
     return ResponseResult.success(typeService.save(param, token));
   }
@@ -53,6 +55,7 @@ public class DeviceTypeController {
   @POST
   @Path(value = "delete")
   @Operation(summary = "删除设备")
+  @RequireAdmin
   public Response<Void> delete(DeviceTypeUpdateParam param) {
     typeService.delete(param);
     return ResponseResult.success();
