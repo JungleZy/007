@@ -93,7 +93,8 @@ fn udev_text(user: &str) -> String {
     format!(
         "# keysim 虚拟串口（USB/IP + CDC-ACM）：只认自家 VID:PID，交给 {user}\n\
          SUBSYSTEM==\"tty\", ATTRS{{idVendor}}==\"1209\", ATTRS{{idProduct}}==\"5253\", \
-         OWNER=\"{user}\", MODE=\"0660\", TAG+=\"uaccess\"\n"
+         OWNER=\"{user}\", MODE=\"0660\", TAG+=\"uaccess\", SYMLINK+=\"{alias}\"\n",
+        alias = crate::attachd::DESKTOP_ALIAS
     )
 }
 
@@ -261,6 +262,8 @@ mod tests {
         assert!(rule.contains(r#"ATTRS{idProduct}=="5253""#), "{rule}");
         assert!(rule.contains(r#"OWNER="zhang""#), "{rule}");
         assert!(rule.contains(r#"SUBSYSTEM=="tty""#), "{rule}");
+        // 桌面壳只认 /dev/ttyUSBn（nativeSerialPort.js:45），规则必须顺手建别名
+        assert!(rule.contains(r#"SYMLINK+="ttyUSB90""#), "{rule}");
         // 不允许出现无条件放权：没有 idVendor 限定的 MODE=0666 之类
         assert!(!rule.contains("0666"), "不该把设备开成全局可写：{rule}");
     }

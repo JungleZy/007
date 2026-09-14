@@ -72,6 +72,8 @@ pub struct Started {
     pub writer: Writer,
     /// 被测程序应选的设备
     pub selectable: String,
+    /// 桌面壳串口下拉能看到的别名（它只认 /dev/ttyUSBn）
+    pub desktop_alias: Option<String>,
     pub vhci_port: Option<u64>,
 }
 
@@ -240,11 +242,22 @@ fn start_usbip(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, String
                     crate::install::install_command()
                 )),
             }
+            // 桌面壳只列 /dev/ttyUSBn，给它一个别名，否则下拉里根本看不到
+            let aliased = attachd::ask(json!({"op": "symlink", "device": name}));
+            let desktop_alias = aliased["alias"].as_str().map(str::to_string);
+            match &desktop_alias {
+                Some(alias) => log(format!("桌面串口列表可见：{alias} → {path}")),
+                None => log(format!(
+                    "未能建立桌面别名（桌面壳只认 /dev/ttyUSBn）：{}",
+                    aliased["error"].as_str().unwrap_or("未知原因")
+                )),
+            }
             return Ok(Started {
                 id: "linux-usbip",
                 title: USBIP_TITLE,
                 writer: Writer::Emulator(emulator),
                 selectable: path,
+                desktop_alias,
                 vhci_port,
             });
         }
@@ -309,6 +322,7 @@ fn start_gadget() -> Result<Started, String> {
                 title: "USB gadget（dummy_hcd + g_serial）",
                 writer: Writer::Device(file),
                 selectable: GADGET_DEVICE.into(),
+                desktop_alias: None,
                 vhci_port: None,
             });
         }
@@ -356,6 +370,7 @@ fn start_tty0tty() -> Result<Started, String> {
         title: "tty0tty（成对虚拟串口 /dev/tnt0 <-> /dev/tnt1）",
         writer: Writer::Device(file),
         selectable: TTY0TTY_THEIRS.into(),
+        desktop_alias: None,
         vhci_port: None,
     })
 }
@@ -410,6 +425,7 @@ fn start_com0com() -> Result<Started, String> {
         title: "com0com（成对虚拟 COM 口）",
         writer: Writer::Device(file),
         selectable: "COM91".into(),
+        desktop_alias: None,
         vhci_port: None,
     })
 }
@@ -443,6 +459,9 @@ pub fn start(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, Vec<Stri
 }
 
 pub fn stop(started: &Started) {
+    if started.desktop_alias.is_some() {
+        let _ = attachd::ask(json!({"op": "symlink", "remove": true}));
+    }
     if let Some(port) = started.vhci_port {
         let _ = attachd::ask(json!({"op": "detach", "vhciPort": port}));
     }

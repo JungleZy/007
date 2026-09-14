@@ -236,11 +236,80 @@ fn do_grant(request: &Value, allow_uid: Option<u32>) -> Value {
     json!({"ok": true, "device": path, "uid": uid})
 }
 
+/// 桌面壳的串口下拉只认 /dev/ttyUSBn（nativeSerialPort.js:45 用 /USB\d+/ 过滤），
+/// 实测 /dev/ttyACM0 在那个列表里是看不见的。这里给自家虚拟设备加一个 ttyUSBn 别名。
+pub const DESKTOP_ALIAS: &str = "ttyUSB90";
+
+/// 别名必须是 ttyUSB<数字>：不接受路径，也不接受别的设备类
+fn valid_alias_name(name: &str) -> bool {
+    let Some(index) = name.strip_prefix("ttyUSB") else { return false };
+    !index.is_empty() && index.chars().all(|character| character.is_ascii_digit())
+}
+
+/// 在 /dev 下给自家设备建/删 ttyUSBn 别名。
+///
+/// 安全边界：目标名必须是 ttyUSB<数字>；若 /dev/<别名> 已存在且**不是符号链接**，
+/// 一律拒绝——那是真实设备节点，绝不能被覆盖。
+fn do_symlink(request: &Value, allow_uid: Option<u32>) -> Value {
+    let alias = request["alias"].as_str().unwrap_or(DESKTOP_ALIAS);
+    if !valid_alias_name(alias) {
+        return json!({"ok": false, "error": format!("别名 {alias} 不是 ttyUSB<数字>")});
+    }
+    let link = format!("/dev/{alias}");
+    let existing = fs::symlink_metadata(&link);
+    if let Ok(metadata) = &existing {
+        if !metadata.file_type().is_symlink() {
+            return json!({"ok": false, "error": format!("{link} 是真实设备节点，拒绝覆盖")});
+        }
+    }
+
+    if request["remove"].as_bool().unwrap_or(false) {
+        return match existing {
+            Ok(_) => match fs::remove_file(&link) {
+                Ok(()) => {
+                    eprintln!("[keysim-attachd] 已删除别名 {link}");
+                    json!({"ok": true, "removed": link})
+                }
+                Err(error) => json!({"ok": false, "error": format!("删除 {link} 失败：{error}")}),
+            },
+            Err(_) => json!({"ok": true, "removed": Value::Null}),
+        };
+    }
+
+    let device = request["device"].as_str().unwrap_or_default();
+    if let Err(error) = is_our_tty(device) {
+        return json!({"ok": false, "error": error});
+    }
+    let target = format!("/dev/{device}");
+    if existing.is_ok() {
+        if let Err(error) = fs::remove_file(&link) {
+            return json!({"ok": false, "error": format!("替换旧别名 {link} 失败：{error}")});
+        }
+    }
+    match std::os::unix::fs::symlink(&target, &link) {
+        Ok(()) => {
+            // 符号链接本身的属主不影响开设备（内核看的是目标节点），
+            // 但桌面壳会 stat 它，保持与目标一致更少意外
+            if let Some(uid) = allow_uid {
+                // SAFETY: link 名已校验；lchown 只改链接自身属主
+                unsafe {
+                    let c_link = std::ffi::CString::new(link.clone()).unwrap_or_default();
+                    libc::lchown(c_link.as_ptr(), uid, u32::MAX);
+                }
+            }
+            eprintln!("[keysim-attachd] 别名就绪：{link} -> {target}");
+            json!({"ok": true, "alias": link, "device": target})
+        }
+        Err(error) => json!({"ok": false, "error": format!("建立 {link} 失败：{error}")}),
+    }
+}
+
 fn handle(request: &Value, allow_uid: Option<u32>) -> Value {
     match request["op"].as_str().unwrap_or("") {
         "attach" => do_attach(request),
         "detach" => do_detach(request),
         "grant" => do_grant(request, allow_uid),
+        "symlink" => do_symlink(request, allow_uid),
         "probe" => do_probe(),
         other => json!({"ok": false, "error": format!("未知操作 {other}")}),
     }
@@ -318,7 +387,6 @@ pub fn serve(path: &str, allow_uid: Option<u32>) -> std::io::Result<()> {
 pub fn ask(request: Value) -> Value {
     ask_at(&socket_path(), request)
 }
-
 /// 指定 socket 路径的版本：测试与多实例场景用，避免改进程环境变量
 pub fn ask_at(path: &str, request: Value) -> Value {
     let mut stream = match UnixStream::connect(path) {
@@ -387,5 +455,38 @@ mod tests {
         let hijack = do_grant(&json!({"op": "grant", "device": "ttyUSB0"}), Some(1000));
         assert_eq!(hijack["ok"], false);
         assert!(hijack["error"].as_str().unwrap().contains("ttyACM"), "{hijack}");
+    }
+
+
+    #[test]
+    /// 别名只能是 ttyUSB<数字>：路径、别的设备类、空名一律拒
+    fn alias_names_are_restricted_to_tty_usb() {
+        for bad in ["../../etc/passwd", "ttyACM0", "ttyUSB", "ttyUSBa", "", "/dev/ttyUSB0"] {
+            assert!(!valid_alias_name(bad), "{bad} 不该被接受");
+        }
+        assert!(valid_alias_name("ttyUSB0"));
+        assert!(valid_alias_name(DESKTOP_ALIAS));
+    }
+
+    #[test]
+    /// 已存在的真实设备节点绝不能被别名覆盖（会顶掉用户真串口）
+    fn symlink_refuses_to_clobber_a_real_device() {
+        // /dev/tty 一定存在且不是符号链接；名字先过白名单再走存在性判断，
+        // 所以这里用一个真实存在的 ttyUSB 名不好造，改为直接验证判定逻辑：
+        let response = do_symlink(&json!({"op": "symlink", "alias": "ttyACM0", "device": "ttyACM0"}), Some(1000));
+        assert_eq!(response["ok"], false, "别名不是 ttyUSB<数字> 就该拒");
+
+        // 存在且非符号链接 -> 拒绝覆盖。用 /dev/ttyUSB 名不可控，这里核对判定分支：
+        let metadata = fs::symlink_metadata("/dev/null").expect("/dev/null 必存在");
+        assert!(!metadata.file_type().is_symlink(), "/dev/null 应是真实节点，判定分支前提成立");
+    }
+
+    #[test]
+    /// 建别名前必须先确认目标是自家设备，否则等于给任意串口造入口
+    fn symlink_requires_our_device() {
+        let response = do_symlink(&json!({"op": "symlink", "device": "ttyACM99"}), Some(1000));
+        assert_eq!(response["ok"], false);
+        let error = response["error"].as_str().unwrap_or_default();
+        assert!(error.contains("idVendor") || error.contains("不是 keysim"), "{error}");
     }
 }

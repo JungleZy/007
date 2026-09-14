@@ -86,6 +86,7 @@ impl VirtualSerial {
                 "title": kernel.as_ref().map(|item| item.title),
                 "selectable": kernel.as_ref().map(|item| item.selectable.clone()),
                 "selectableOpenable": kernel.as_ref().map(|item| kernel::readable_and_writable(&item.selectable)),
+                "desktopAlias": kernel.as_ref().and_then(|item| item.desktop_alias.clone()),
                 "reasons": self.kernel_reasons.lock().clone(),
                 "backends": kernel::probe_all().iter().map(|verdict| verdict.to_json()).collect::<Vec<_>>()
             },

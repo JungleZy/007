@@ -315,7 +315,13 @@ fn run_serve(args: &Args) -> Result<(), String> {
         println!("虚拟串口设备：{path}");
     }
     if let Some(selectable) = state["kernel"]["selectable"].as_str() {
-        println!("被测程序请选：{selectable}（浏览器串口选择框与桌面串口列表都能看到）");
+        println!(
+            "被测程序请选：{selectable}（浏览器串口选择框可见{}）",
+            match state["kernel"]["desktopAlias"].as_str() {
+                Some(alias) => format!("；桌面串口列表见 {alias}"),
+                None => "；桌面串口列表只认 /dev/ttyUSBn，见日志".to_string(),
+            }
+        );
     }
     println!("桌面桥接：{}", state["bridgeUrl"].as_str().unwrap_or_default());
     if let Some(url) = args.text("open") {
