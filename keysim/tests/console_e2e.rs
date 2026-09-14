@@ -108,6 +108,9 @@ impl Client {
 }
 
 fn start_console() -> std::sync::Arc<console::Console> {
+    // 测试不碰内核级后端：它会往内核挂 USB 设备、重指 /dev/ttyUSBn 别名，
+    // 跑一遍就把开发机上正在用的实例搅乱（实测把常驻控制台搞挂过）。
+    std::env::set_var("KEYSIM_NO_KERNEL", "1");
     console::serve(console::Options { http: 0, bridge: 0, autostart: true, links: Vec::new() })
         .expect("控制台应能起在随机端口")
 }

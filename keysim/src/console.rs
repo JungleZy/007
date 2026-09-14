@@ -542,6 +542,9 @@ mod tests {
     /// doctor 必须对每个后端都给结论
     fn doctor_covers_every_backend() {
         let report = doctor();
+        if kernel::disabled_by_env() {
+            return;
+        }
         let expected: &[&str] = if cfg!(target_os = "linux") {
             &["linux-usbip", "linux-gadget", "linux-tty0tty", "pty", "bridge"]
         } else {

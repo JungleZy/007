@@ -458,9 +458,28 @@ fn start_com0com() -> Result<Started, String> {
     })
 }
 
+/// 停用内核级后端的开关。
+///
+/// 内核级后端会真的往内核挂 USB 设备、改 /dev 下的别名，是**机器级副作用**：
+/// 自动化测试里跑一遍，就会把开发机上正在用的那个实例的设备与别名搅乱。
+/// 所以测试进程一律设 KEYSIM_NO_KERNEL=1，只用 PTY + 桥接 + 注入三条通道。
+pub fn disabled_by_env() -> bool {
+    std::env::var("KEYSIM_NO_KERNEL").map(|value| value != "0").unwrap_or(false)
+}
+
 /// 逐个探测，顺序即优先级；只列本平台真的可能提供的后端，
 /// 不再把三条 Linux 路径摆在 Windows 面前说"仅 Linux"
 pub fn probe_all() -> Vec<Verdict> {
+    if disabled_by_env() {
+        return vec![Verdict {
+            id: "disabled",
+            title: "内核级后端已停用（KEYSIM_NO_KERNEL）",
+            selectable: String::new(),
+            available: false,
+            reason: Some("已按 KEYSIM_NO_KERNEL 停用：避免测试往内核挂设备、动 /dev 别名".into()),
+            install: None,
+        }];
+    }
     #[cfg(target_os = "linux")]
     {
         vec![probe_usbip(), probe_gadget(), probe_tty0tty()]
@@ -477,6 +496,9 @@ pub fn probe_all() -> Vec<Verdict> {
 
 /// 启动第一个可用的后端；都不可用则返回每条的原因
 pub fn start(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, Vec<String>> {
+    if disabled_by_env() {
+        return Err(vec!["内核级后端已按 KEYSIM_NO_KERNEL 停用".to_string()]);
+    }
     // log 只有 USB/IP 后端会用到（它要把模拟器事件转出来）
     #[cfg(not(target_os = "linux"))]
     let _ = &log;
@@ -531,7 +553,8 @@ mod tests {
     /// 四个后端都必须给出明确结论；不可用要有原因，缺前置要给可执行装法
     fn every_backend_reports_a_verdict() {
         let verdicts = probe_all();
-        assert_eq!(verdicts.len(), if cfg!(target_os = "linux") { 3 } else { 1 }, "本平台的后端清单数量不对");
+        let expected = if disabled_by_env() { 1 } else if cfg!(target_os = "linux") { 3 } else { 1 };
+        assert_eq!(verdicts.len(), expected, "本平台的后端清单数量不对");
         for verdict in verdicts {
             assert!(!verdict.selectable.is_empty(), "{} 没说被测程序该选哪个口", verdict.id);
             if !verdict.available {
