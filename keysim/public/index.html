@@ -78,7 +78,8 @@
   /* ---------- 面板分区 ---------- */
   main{display:grid;grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);gap:14px;padding:14px 20px 20px;align-items:start}
   section{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 14px 14px}
-  section+section{margin-top:14px}
+  /* 卡片间距一律由栅格 gap 负责：早先这里有过 section+section{margin-top}，
+     在栅格里它会把第二张卡片整体压下 14px，两列顶边就对不齐了 */
   h2{
     margin:0 0 10px;font-family:var(--mono);font-size:11px;font-weight:600;
     letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);
@@ -249,6 +250,13 @@
         <span class="inline" id="rateUnit">字符/分</span>
       </div>
       <div class="field">
+        <label for="style">手感</label>
+        <select id="style">
+          <option value="human">真人手感</option>
+          <option value="machine">机械等长</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="speed">倍速</label>
         <input id="speed" type="number" min="0.1" max="50" step="0.5" value="1"/>
       </div>
@@ -262,7 +270,7 @@
       <summary>节拍与故障</summary>
       <div class="body">
         <div class="row">
-          <div class="field"><label for="jitter">抖动</label><input id="jitter" type="number" min="0" max="0.5" step="0.05" value="0"/></div>
+          <div class="field"><label for="jitter">抖动</label><input id="jitter" type="number" min="0" max="0.19" step="0.01" value="0"/><span class="inline">真人风格留 0 即 ±12%</span></div>
           <div class="field"><label for="seed">种子</label><input id="seed" type="number" min="1" value="1"/></div>
           <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
         </div>
@@ -431,6 +439,7 @@ const params = () => ({
   preamble: $('preamble').checked,
   singlePage: $('singlePage').checked,
   tail: $('tail').value,
+  style: $('style').value,
   faults: faults(),
   speed: Number($('speed').value) || 1
 })
@@ -735,7 +744,7 @@ $('key').onchange = () => {
   $('tail').value = hand ? 'turn' : 'page'
   previewSoon()
 }
-for (const id of ['message', 'alphabet', 'rate', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
+for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
   const node = $(id)
   if (!node) continue
   // textarea 与文本/数字 input 都要听 input：只听 change 的话失焦才刷新，边打字纸带不动
@@ -825,6 +834,11 @@ drawTape()
   const result = await api('/api/state', {}, 'GET')
   applyState((result && result.state) || {})
   log('控制台就绪 ' + location.origin + (lastState.open ? '，虚拟串口已自动开启' : ''), 'ok')
+  if (!$('message').value.trim()) {
+    // 首屏纸带不该是空白：先给一页样例报文，改掉即可
+    const sample = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
+    if (sample.ok) $('message').value = sample.text
+  }
   await runPreview()
 })()
 </script>

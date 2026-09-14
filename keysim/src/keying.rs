@@ -11,7 +11,7 @@
 //! 所以整页只有最后一个字可能付这 800ms。
 
 use crate::morse::{self, Ratio, Timing};
-use crate::timeline::{check_hand_plan, Builder, Timeline};
+use crate::timeline::{check_hand_plan, Builder, Slot, Style, Timeline};
 
 /// 页尾单笔字的提交超时，取值同 handKeyTrain.js:39 的 pauseDuration
 pub const PAUSE_DURATION: f64 = 800.0;
@@ -31,6 +31,8 @@ pub struct HandOptions {
     /// 单页训练不经历"翻页后 codeGap 夹到 60ms"，可用更高码率
     pub single_page: bool,
     pub low_rate: bool,
+    /// "machine" 机械等长 | "human" 真人手感
+    pub style: String,
 }
 
 impl Default for HandOptions {
@@ -47,6 +49,7 @@ impl Default for HandOptions {
             tail: "turn".into(),
             single_page: true,
             low_rate: false,
+            style: "machine".into(),
         }
     }
 }
@@ -64,6 +67,8 @@ pub struct ElectronOptions {
     pub preamble: bool,
     /// "page" 句号提交本页 | "end" F3+回车 | "none"
     pub tail: String,
+    /// "machine" 机械等长 | "human" 真人手感
+    pub style: String,
 }
 
 impl Default for ElectronOptions {
@@ -78,6 +83,7 @@ impl Default for ElectronOptions {
             seed: 1,
             preamble: true,
             tail: "page".into(),
+            style: "machine".into(),
         }
     }
 }
@@ -119,9 +125,21 @@ pub fn validate(text: &str, alphabet: &str) -> Result<Vec<String>, String> {
     Ok(groups)
 }
 
+/// 风格与有效抖动信封只在这里算一次：真人手感在没指定抖动时用 ±12%，
+/// 之后所有可行性校验都按这个信封做，不另开一套判定。
+fn resolve_style(name: &str, jitter: f64) -> Result<(Style, f64), String> {
+    let style = Style::parse(name).ok_or_else(|| format!("未知拍发风格 {name}（可选 machine / human）"))?;
+    let envelope = match (style, jitter > 0.0) {
+        (Style::Human, false) => Style::HUMAN_DEFAULT_JITTER,
+        _ => jitter,
+    };
+    Ok((style, envelope))
+}
+
 pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
+    let (_, envelope) = resolve_style(&options.style, options.jitter)?;
     let plan = morse::timing(options.rate, &options.unit, &options.alphabet, Ratio::default(), options.low_rate)?;
-    check_hand_plan(&plan, options.skew, options.jitter, !options.single_page)?;
+    check_hand_plan(&plan, options.skew, envelope, !options.single_page)?;
     Ok(plan)
 }
 
@@ -129,13 +147,14 @@ pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
 pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
     let groups = validate(&options.text, &options.alphabet)?;
     let plan = hand_plan(options)?;
-    let mut builder = Builder::new("hand", plan, options.jitter, options.seed);
+    let (style, envelope) = resolve_style(&options.style, options.jitter)?;
+    let mut builder = Builder::styled("hand", plan, envelope, options.seed, style);
     let mut leading_gap: Option<f64> = None;
 
     if options.preamble {
-        emit_hand_char(&mut builder, &plan, "开始", morse::CONTROL_START, None, true, &mut leading_gap);
+        emit_hand_char(&mut builder, "开始", morse::CONTROL_START, None, true, &mut leading_gap);
         // 开始符校验在第 5 次抬起即触发，但正文首字仍要一个组间隔把它与开始符分开
-        leading_gap = Some(builder.wait(plan.group));
+        leading_gap = Some(builder.wait_slot(Slot::Group));
     }
 
     let group_count = groups.len();
@@ -145,7 +164,6 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
             let elements = morse::elements_of(&options.alphabet, *character)?;
             emit_hand_char(
                 &mut builder,
-                &plan,
                 &character.to_string(),
                 elements,
                 Some(group_index),
@@ -153,11 +171,11 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
                 &mut leading_gap,
             );
             if char_index + 1 < characters.len() {
-                leading_gap = Some(builder.wait(plan.word));
+                leading_gap = Some(builder.wait_slot(Slot::Word));
             }
         }
         if group_index + 1 < group_count {
-            leading_gap = Some(builder.wait(plan.group));
+            leading_gap = Some(builder.wait_slot(Slot::Group));
         }
     }
 
@@ -165,15 +183,15 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
         "turn" => {
             leading_gap = Some(builder.wait(plan.group));
             for (index, elements) in morse::CONTROL_TURN.iter().enumerate() {
-                emit_hand_char(&mut builder, &plan, "翻页", elements, None, true, &mut leading_gap);
+                emit_hand_char(&mut builder, "翻页", elements, None, true, &mut leading_gap);
                 if index + 1 < morse::CONTROL_TURN.len() {
-                    leading_gap = Some(builder.wait(plan.word));
+                    leading_gap = Some(builder.wait_slot(Slot::Word));
                 }
             }
         }
         "end" => {
-            leading_gap = Some(builder.wait(plan.group));
-            emit_hand_char(&mut builder, &plan, "结束", morse::CONTROL_END, None, true, &mut leading_gap);
+            leading_gap = Some(builder.wait_slot(Slot::Group));
+            emit_hand_char(&mut builder, "结束", morse::CONTROL_END, None, true, &mut leading_gap);
         }
         _ => {}
     }
@@ -185,7 +203,6 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
 
 fn emit_hand_char(
     builder: &mut Builder,
-    plan: &Timing,
     value: &str,
     elements: &str,
     group: Option<usize>,
@@ -199,10 +216,10 @@ fn emit_hand_char(
     let symbols: Vec<char> = elements.chars().collect();
     for (index, element) in symbols.iter().enumerate() {
         let dash = *element == '1';
-        durations.push(builder.press(if dash { plan.dash } else { plan.dot }));
+        durations.push(builder.press_element(dash));
         codes.push(if dash { 1 } else { 0 });
         if index + 1 < symbols.len() {
-            gaps.push(builder.wait(plan.gap));
+            gaps.push(builder.wait_slot(Slot::Gap));
         }
     }
     let mut item = builder.char_at(value, started_at);
@@ -285,12 +302,13 @@ pub fn electron_timeline(options: &ElectronOptions) -> Result<Timeline, String> 
         group: per_group,
         page: per_group,
     };
-    let mut builder = Builder::new("electron", plan, options.jitter, options.seed);
+    let (style, envelope) = resolve_style(&options.style, options.jitter)?;
+    let mut builder = Builder::styled("electron", plan, envelope, options.seed, style);
     let mut mode: Option<u8> = None;
 
     let press = |builder: &mut Builder, code: u8| {
         builder.code(code);
-        builder.wait(options.stroke_gap);
+        builder.wait_slot(Slot::Gap);
     };
 
     if options.preamble {

@@ -39,6 +39,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
   --seed <n>            随机种子（默认 1）
   --skew <n>            评分规则偏移量，手键可行性校验用（默认 51）
+  --style <名>          machine 机械等长（默认）| human 真人手感（默认 ±12% 信封）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
   --multi-page          非单页训练：按\"翻页后 codeGap 夹到 60ms\"校验可行性
@@ -132,6 +133,7 @@ fn params_of(args: &Args, key: &str) -> Result<Value, String> {
         "jitter": args.number("jitter").unwrap_or(0.0),
         "seed": args.number("seed").unwrap_or(1.0),
         "skew": args.number("skew").unwrap_or(51.0),
+        "style": args.text("style").unwrap_or("machine"),
         "preamble": !args.has("no-preamble"),
         "singlePage": !args.has("multi-page"),
         "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default()
