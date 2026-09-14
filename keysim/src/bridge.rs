@@ -78,9 +78,22 @@ impl Bridge {
 
 pub type Log = Arc<dyn Fn(String) + Send + Sync>;
 
-/// 起桥接；port 传 0 由系统分配
+/// 起桥接；port 传 0 由系统分配。
+///
+/// 对"地址被占用"重试几轮：重启时旧进程可能还占着 18765，直接失败会让
+/// 自动开串口整条链路放弃（界面上表现为"串口未开启"），而它其实马上就能用。
 pub fn start(port: u16, path: &str, announce_status: bool, log: Log) -> std::io::Result<Arc<Bridge>> {
-    let listener = TcpListener::bind(("127.0.0.1", port))?;
+    let mut bound = TcpListener::bind(("127.0.0.1", port));
+    for _ in 0..20 {
+        match &bound {
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                bound = TcpListener::bind(("127.0.0.1", port));
+            }
+            _ => break,
+        }
+    }
+    let listener = bound?;
     let bound = listener.local_addr()?.port();
     let bridge = Arc::new(Bridge {
         port: bound,
