@@ -28,6 +28,10 @@ pub type Sink = Arc<dyn Fn(Value) + Send + Sync>;
 struct Replay {
     sent: usize,
     total: usize,
+    /// 已发出的最后一帧在时间轴上的毫秒数。
+    /// 播放头必须用它定位：帧在时间上并不等距（按压几十毫秒、组间隔几百毫秒），
+    /// 按 sent/total 线性插值画出来的进度条只会等步长走，和报文对不上。
+    at: f64,
     key: String,
     text: String,
     cancel: Arc<AtomicBool>,
@@ -144,8 +148,11 @@ impl VirtualSerial {
             },
             "device": self.device_state(kernel.as_ref().and_then(|item| item.desktop_alias.as_ref()).is_none()),
             "replay": match replay.as_ref() {
-                Some(state) => json!({"running": true, "sent": state.sent, "total": state.total, "key": state.key, "text": state.text}),
-                None => json!({"running": false, "sent": 0, "total": 0})
+                Some(state) => json!({
+                    "running": true, "sent": state.sent, "total": state.total,
+                    "at": state.at, "key": state.key, "text": state.text
+                }),
+                None => json!({"running": false, "sent": 0, "total": 0, "at": 0.0})
             }
         })
     }
@@ -343,6 +350,7 @@ impl VirtualSerial {
         *self.replay.lock() = Some(Replay {
             sent: 0,
             total: frames.len(),
+            at: 0.0,
             key: timeline.key.to_string(),
             text: text.to_string(),
             cancel: Arc::clone(&cancel),
@@ -390,6 +398,7 @@ impl VirtualSerial {
             .collect();
         thread::spawn(move || {
             let started = Instant::now();
+            let mut last_report = Instant::now();
             let mut index = 0usize;
             let mut next_milestone = 0usize;
             // 通道写失败只报一次，避免一页刷几千条
@@ -440,9 +449,12 @@ impl VirtualSerial {
                 index += 1;
                 if let Some(state) = manager.replay.lock().as_mut() {
                     state.sent = index;
+                    state.at = *at;
                 }
-                if index % 20 == 0 || index == total {
-                    (manager.sink)(json!({"type": "progress", "sent": index, "total": total}));
+                // 按时间节流上报（约 7 次/秒）：既让播放头走得顺，又不会一帧一条
+                if index == total || last_report.elapsed() >= Duration::from_millis(140) {
+                    last_report = Instant::now();
+                    (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": at}));
                 }
                 // 走过一组就报一行：组号、这组的报文、到此为止的实测码率
                 while next_milestone < milestones.len() && *at >= milestones[next_milestone].0 {
@@ -484,7 +496,8 @@ impl VirtualSerial {
                     ),
                 );
             }
-            (manager.sink)(json!({"type": "progress", "sent": index, "total": total}));
+            let ended_at = items.get(index.saturating_sub(1)).map(|item| item.0).unwrap_or(0.0);
+            (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at}));
             manager.announce();
         });
         Ok(self.state())
