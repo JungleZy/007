@@ -45,4 +45,6 @@ public class TelexPatTrainDto {
   private String createUserId;
   private String createTime = new Date().getTime() + "";
   private String content;
+  /** Number of additional source groups requested by the client. */
+  private Integer extendBy;
 }

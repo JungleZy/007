@@ -45,6 +45,15 @@
 - handkey/electron `startTrainUser` 统一显式 query；加最小前端契约测试确保 `trainId/attempt` 在 query 中。
 - 移除 `saveBaseTrain` controller 吞异常；坏数值输入映射为既有参数错误信封，不产生未诊断 500。
 - 删除或替换综合手键/电子键脆弱死代码，但不得把清理当作授权修复。
+### S6：非核心后端与桌面边界（P1/P2）
+
+- `EquipmentDevice` 共享主数据写端点必须 `@RequireAdmin`。
+- `EquipmentTrain` 详情/既有 id 更新必须按 token owner 判定；`EnteringExercise` 个人训练 begin/finish/pause/goTo/getById 同样 strict owner。
+- Electron activate 必须调用真实 `this.createWindow()`；PreviewHJ linkPort 必须按 IPC 实际返回值区分成功/失败。
+
+### S7：基础/科式收报（P1）
+
+- basic/Koch 不再把客户端 `validTime` 直接写成统计权威；必须使用服务端训练/会话时钟，暂停不计时，结束幂等，UI 传回服务端 id 并正确处理失败。
 
 ## 3. 验收标准
 
@@ -54,6 +63,9 @@
 - 有采集时间轴的成绩/时钟篡改不能改变结果，经典旧域完成采集协议迁移后同样必须服务端重算；重复提交不重复计分，终态返回 208。
 - legacy PAUSE fixture 可创建后续综合电子键训练，且旧记录不会被错误结算；reset 后手键统计返回有效信封，真实平均用时与原始时间轴一致；新建通知只在事务成功提交后可见。
 - handkey/electron GET startTrain 只发送 query、不发送 body；三类主要训练的开始、采集、提交、结束、结果查看和网络失败/207/208 页面状态可观察。
+- 非核心授权：`equipmentDevice/add|delete|update|addKeyPoints` 普通用户 207、管理员 200；`equipmentTrain/add`（既有 id）与 `detail` 外人 207 且数据库无副作用，属主 update/detail 按正常契约成功；`enteringExercise/begin|finish|pause|goTo` 外人 207 且数据库无副作用，属主按正常生命周期成功并产生预期唯一状态变化，`getById` 仅读。
+- basic/Koch 服务端时钟拒绝客户端时长篡改，暂停/恢复不重复累计，正常结束和重试的 200/208 可观察。
+- 桌面：无窗口时 activate 实际重建窗口且无 ReferenceError；linkPort 返回端口串时持久化并关闭选择器，空值/异常不进入成功状态并显示失败。
 - 受影响后端专项测试、前端完整 test/build、迁移/现有回归和最终 GitHub Actions 全部通过。
 
 ## 4. 非目标

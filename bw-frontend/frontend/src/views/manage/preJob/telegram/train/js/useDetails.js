@@ -493,9 +493,9 @@ export default function (trainData, patStandard, loading, title, handleBaoWenKey
         title.value = '本次练习正在进行，当前总耗时'
         initTrainTimeInfo()
       } else {
-        message.error(res.message)
+        message.error(res.message || `开始训练失败（${res.code}）`)
       }
-    })
+    }).catch(() => message.error('开始训练失败：网络异常'))
   }
 
   /**
@@ -508,12 +508,18 @@ export default function (trainData, patStandard, loading, title, handleBaoWenKey
     loading.value = true
     trainData.value.status = 2
     pauseTelegramTrain(result).then(res => {
+      loading.value = false
       if (res.code === 200) {
         trainData.value.status = res.data.status
         PubSub.publish('callback_handKeyTrainPage', true)
       } else {
-        message.error(res.message)
+        trainData.value.status = 1
+        message.error(res.message || `暂停训练失败（${res.code}）`)
       }
+    }).catch(() => {
+      loading.value = false
+      trainData.value.status = 1
+      message.error('暂停训练失败：网络异常')
     })
   }
 
@@ -529,17 +535,12 @@ export default function (trainData, patStandard, loading, title, handleBaoWenKey
       loading.value = false
       if (res.code === 200) {
         trainData.value.status = 3
-        if (go === 'go') {
-          PubSub.publish('callback_handKeyTrainPage', true)
-        } else {
-          // localStorage.setItem('handKeyTrainMode', 'classicMode');
-          location.reload()
-        }
-      } else {
-        message.error(res.message)
-      }
-    })
+        if (go === 'go') PubSub.publish('callback_handKeyTrainPage', true)
+        else location.reload()
+      } else message.error(res.message || `结束训练失败（${res.code}）`)
+    }).catch(() => message.error('结束训练失败：网络异常'))
   }
+
 
   /**
    * 切换报底

@@ -1,6 +1,7 @@
 package com.nip.common.utils;
 
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonParser;
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.vo.PostTelegramTrainResolverVO;
@@ -14,11 +15,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +58,72 @@ class TickerPatUtilsCharacterizationTest {
     List<String> patKeys;
     List<PostTelegramTrainContentAddParam> userContents;
     List<PostTelegramTrainFinishInfoDto> standards;
+  }
+
+  private static class ResolverResult {
+    final PostTelegramTrainResolverVO resolver;
+    final PostTelegramTrainScoreVO score;
+
+    ResolverResult(PostTelegramTrainResolverVO resolver, PostTelegramTrainScoreVO score) {
+      this.resolver = resolver;
+      this.score = score;
+    }
+  }
+
+  private static ResolverResult resolve(String caseFile) {
+    ResolverCase c = JSONUtils.fromJson(resource(caseFile), new TypeToken<>() {
+    });
+    PostTelegramTrainScoreVO score = new PostTelegramTrainScoreVO();
+    return new ResolverResult(TickerPatUtils.resolverMessage(c.patKeys, score, rule(), c.userContents), score);
+  }
+
+  private static List<List<Double>> numericRows(String encoded) {
+    List<List<Double>> result = new ArrayList<>();
+    for (var element : JsonParser.parseString(encoded).getAsJsonArray()) {
+      String row = element.isJsonPrimitive() ? element.getAsString() : element.toString();
+      result.add(JSONUtils.fromJson(row, new TypeToken<>() {
+      }));
+    }
+    return result;
+  }
+
+  private static List<List<Integer>> valueRows(String encoded) {
+    List<List<Integer>> result = new ArrayList<>();
+    for (var element : JsonParser.parseString(encoded).getAsJsonArray()) {
+      String row = element.isJsonPrimitive() ? element.getAsString() : element.toString();
+      result.add(JSONUtils.fromJson(row, new TypeToken<>() {
+      }));
+    }
+    return result;
+  }
+
+  private static List<List<PostTelegramTrainFinishInfoDto.PatLogs>> eventRows(String encoded) {
+    List<List<PostTelegramTrainFinishInfoDto.PatLogs>> result = new ArrayList<>();
+    for (var element : JsonParser.parseString(encoded).getAsJsonArray()) {
+      var row = element.isJsonPrimitive() ? JsonParser.parseString(element.getAsString()) : element;
+      if (row.getAsJsonArray().size() > 0 && row.getAsJsonArray().get(0).isJsonArray()) {
+        result.addAll(JSONUtils.fromJson(row.toString(), new TypeToken<List<List<PostTelegramTrainFinishInfoDto.PatLogs>>>() {
+        }));
+      } else {
+        result.add(JSONUtils.fromJson(row.toString(), new TypeToken<List<PostTelegramTrainFinishInfoDto.PatLogs>>() {
+        }));
+      }
+    }
+    return result;
+  }
+
+  private static void assertAligned(ResolverResult result) {
+    PostTelegramTrainResolverVO vo = result.resolver;
+    assertEquals(vo.getResolverMessage().size(), vo.getResolverPatLogs().size());
+    assertEquals(vo.getResolverMessage().size(), vo.getResolverMoresTime().size());
+    assertEquals(vo.getResolverMessage().size(), vo.getResolverMoresValue().size());
+    for (int i = 0; i < vo.getResolverMessage().size(); i++) {
+      List<List<PostTelegramTrainFinishInfoDto.PatLogs>> logs = eventRows(vo.getResolverPatLogs().get(i));
+      List<List<Double>> times = numericRows(vo.getResolverMoresTime().get(i));
+      List<List<Integer>> values = valueRows(vo.getResolverMoresValue().get(i));
+      assertEquals(logs.size(), times.size(), "log/time alignment at " + i);
+      assertEquals(logs.size(), values.size(), "log/value alignment at " + i);
+    }
   }
 
   private static String resource(String name) {
@@ -132,12 +201,26 @@ class TickerPatUtilsCharacterizationTest {
 
   @Test
   void resolverMessageGluedGroups() {
-    assertSnapshot("resolver-glued", runResolver("resolver-case-glued.json"));
+    ResolverResult result = resolve("resolver-case-glued.json");
+    PostTelegramTrainResolverVO vo = result.resolver;
+    assertIterableEquals(List.of("3729", "7201", "U3YU", "U3YU"), vo.getResolverMessage());
+    assertEquals(4, result.score.getGroupScore());
+    assertEquals(List.of(List.of(1d), List.of(2d), List.of(3d), List.of(4d),
+        List.of(5d), List.of(6d), List.of(7d), List.of(8d), List.of(11d), List.of(12d),
+        List.of(13d), List.of(14d), List.of(15d), List.of(16d), List.of(17d), List.of(18d)),
+        vo.getResolverMoresTime().stream().flatMap(row -> numericRows(row).stream()).toList());
+    assertAligned(result);
   }
 
   @Test
   void resolverMessageQuestionMarkCorrections() {
-    assertSnapshot("resolver-question-marks", runResolver("resolver-case-question-marks.json"));
+    ResolverResult result = resolve("resolver-case-question-marks.json");
+    PostTelegramTrainResolverVO vo = result.resolver;
+    assertIterableEquals(List.of("3729", "?", "7201", "201"), vo.getResolverMessage());
+    assertEquals(3, result.score.getAlterErrorScore());
+    assertEquals(List.of(List.of(10d), List.of(91d), List.of(20d), List.of(42d), List.of(43d), List.of(44d)),
+        vo.getResolverMoresTime().stream().flatMap(row -> numericRows(row).stream()).toList());
+    assertAligned(result);
   }
 
   @Test

@@ -58,4 +58,10 @@ public class TelexPatTrainEntity {
   private String createUserId;
   private String createTime = String.valueOf(new Date().getTime());
   private String content;
+  /** Version of the server-side capture protocol. */
+  private Integer protocolVersion = 1;
+  /** Epoch milliseconds at which the current active interval began. */
+  private Long activeSince;
+  /** Milliseconds accumulated across completed active intervals. */
+  private Long accumulatedActiveMillis = 0L;
 }

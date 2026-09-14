@@ -22,6 +22,10 @@ import static com.nip.common.constants.BaseConstants.USER_ID;
  */
 @ApplicationScoped
 public class TickerTapeTrainDao extends BaseRepository<TickerTapeTrainEntity, String> {
+  public TickerTapeTrainEntity findForUpdate(String id) {
+    return find("id = ?1", id).withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).firstResult();
+  }
+
   /**
    * 开始训练
    *

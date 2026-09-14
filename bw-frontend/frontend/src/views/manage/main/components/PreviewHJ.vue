@@ -588,12 +588,21 @@
   }
   //连接串口
   const linkPort = (portName)=>{
-    const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,portName)
-    console.log(data)
-    if(data&&data.code&&data.code==200){
-      localStorage.setItem('serial',portName)
-      messageWebSocket('reset')
-      serialShow.value = false
+    if (!ipc.value) return
+    try {
+      const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,portName)
+      console.log(data)
+      // linkPort uses sendSync and returns the selected port string; failures return ''.
+      if (data) {
+        localStorage.setItem('serial',data)
+        messageWebSocket('reset')
+        serialShow.value = false
+      } else {
+        message.error('串口连接失败')
+      }
+    } catch (error) {
+      console.error('连接串口失败:', error)
+      message.error('串口连接失败')
     }
   }
 

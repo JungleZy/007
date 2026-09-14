@@ -4,6 +4,10 @@ import com.nip.dao.TelegramTrainDao;
 import com.nip.dto.TelegramTrainDto;
 import com.nip.entity.TelegramTrainEntity;
 import com.nip.dao.TelegramTrainSettingDao;
+import com.nip.dao.UserDao;
+import com.nip.entity.UserEntity;
+import com.nip.testsupport.Fixtures;
+import java.util.UUID;
 import com.nip.entity.TelegramTrainSettingEntity;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -23,14 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class TelegramTrainSettingTest {
   @Inject TelegramTrainService service;
   @Inject TelegramTrainSettingDao dao;
+  @Inject UserDao userDao;
   @Inject TelegramTrainDao trainDao;
 
   @Test
   @TestTransaction
   void startingAgainPreservesSavedMillisecondBoundaries() {
+    UserEntity owner = Fixtures.user(userDao, "telegram-setting-" + UUID.randomUUID());
     TelegramTrainEntity train = new TelegramTrainEntity();
-    train.setType(0);
-    train.setStatus(0);
+    train.setCreateUserId(owner.getId());
+    train.setProtocolVersion(1);
+    train.setAccumulatedActiveMillis(0L);
     trainDao.saveAndFlush(train);
     TelegramTrainEntity settings = new TelegramTrainEntity();
     settings.setId(train.getId());
@@ -44,13 +51,13 @@ class TelegramTrainSettingTest {
     settings.setBigIntervalMaxMs(500);
     TelegramTrainDto request = new TelegramTrainDto();
     request.setTrain(settings);
-    service.controlTelegramTrain(0, request);
+    service.controlTelegramTrain(0, request, owner.getToken());
     trainDao.flush();
     trainDao.getEntityManager().clear();
     TelegramTrainEntity loaded = trainDao.findById(train.getId());
     assertEquals(List.of(40, 80, 81, 250, 80, 330, 330, 500), boundaries(loaded));
     request.setTrain(loaded);
-    service.controlTelegramTrain(0, request);
+    service.controlTelegramTrain(0, request, owner.getToken());
     trainDao.flush();
     trainDao.getEntityManager().clear();
     assertEquals(List.of(40, 80, 81, 250, 80, 330, 330, 500), boundaries(trainDao.findById(train.getId())));

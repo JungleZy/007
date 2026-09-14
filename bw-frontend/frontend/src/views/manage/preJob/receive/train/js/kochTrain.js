@@ -1,6 +1,5 @@
 import { onMounted, onUnmounted, ref, watch, onBeforeUnmount, createVNode } from 'vue'
-import { saveReceiveBasicTrain } from '../../../../../../common/api/TelegramApi'
-import { findPrevReceiveTrainInfo, getPreKochStageArray, updatePreKochStageArray } from '../../../../../../common/api/ReceiveApi'
+import { createBaseReceiveSession, startReceiveTrain, pauseReceiveTrain, endReceiveTrain, discardBaseReceiveSession, findPrevReceiveTrainInfo, getPreKochStageArray, updatePreKochStageArray } from '../../../../../../common/api/ReceiveApi'
 import { Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
@@ -119,6 +118,34 @@ export default function kochTrain(wpmTOmm) {
   let activeIndex = -1
   let playbackGeneration = 0
   const displayTimers = new Set()
+  const baseSessionId = ref(null)
+  let baseSessionStarted = false
+  let disposed = false
+  const baseSessionReady = findPrevReceiveTrainInfo({ type: 22 }).then(prev => {
+    if (prev.code === 200 && prev.data) {
+      stage.value = prev.data.schedule || 1
+      ring.value = prev.data.mark || '1'
+    }
+    return createBaseReceiveSession(22)
+  }).then(res => {
+    if (res.code !== 200 || !res.data?.id) throw new Error(res.message || '无法创建科式收报会话')
+    baseSessionId.value = res.data.id
+    return res
+  }).catch(error => {
+    Modal.error({content: error.message || '无法创建科式收报会话'})
+    return null
+  })
+  const finalizeBaseSession = async () => {
+    const res = await baseSessionReady
+    if (!res?.data?.id) return
+    if (!baseSessionStarted) {
+      const discarded = await discardBaseReceiveSession({id: res.data.id})
+      if (discarded.code !== 200) throw new Error(discarded.message || '科式收报会话清理失败')
+      return
+    }
+    const end = await endReceiveTrain({id: res.data.id, mark: ring.value, schedule: stage.value})
+    if (end.code !== 200) throw new Error(end.message || '科式收报会话结束失败')
+  }
   const {operation, ensureReady} = operationMorseVoice()
   const audioSubscription = PubSub.subscribe('receiveProcessData', res => {
     if (!voicePlaying.value) return
@@ -132,28 +159,16 @@ export default function kochTrain(wpmTOmm) {
   })
   onMounted(() => {
     for (let i = 0; i < 14; i++) {
-      wpms.value.push({
-        label: 15 + i * 5,
-        value: 15 + i * 5
-      })
-      wpms2.value.push({
-        label: 40 + i * 10,
-        value: 40 + i * 10
-      })
+      wpms.value.push({label: 15 + i * 5, value: 15 + i * 5})
+      wpms2.value.push({label: 40 + i * 10, value: 40 + i * 10})
     }
     getStageAll()
-    findPrevReceiveTrainInfo({ type: 22 }).then(res => {
-      if (res.code === 200) {
-        if (res.data) {
-          stage.value = res.data.schedule ? res.data.schedule : 1
-          ring.value = res.data.mark ? res.data.mark : '1'
-        }
-      }
-    })
   })
   onBeforeUnmount(() => {
+    disposed = true
+    playbackGeneration++
     if (voicePlaying.value) stopTrain()
-    else playbackGeneration++
+    finalizeBaseSession().catch(error => Modal.error({content: error.message || '科式收报会话结束失败'}))
   })
   onUnmounted(() => {
     PubSub.unsubscribe(audioSubscription);
@@ -209,7 +224,21 @@ export default function kochTrain(wpmTOmm) {
   }
   const startTrain = async () => {
     const generation = ++playbackGeneration
-    if (!await ensureReady() || generation !== playbackGeneration) return
+    if (disposed || !await ensureReady()) return
+    try {
+      const ready = await baseSessionReady
+      if (disposed || !ready) return
+      if (!baseSessionId.value) throw new Error('科式收报会话不可用')
+      if (!baseSessionStarted) {
+        const res = await startReceiveTrain({id: baseSessionId.value})
+        if (res.code !== 200) throw new Error(res.message || '科式收报会话启动失败')
+        baseSessionStarted = true
+      }
+    } catch (error) {
+      Modal.error({content: error.message || '科式收报会话启动失败'})
+      return
+    }
+    if (disposed || generation !== playbackGeneration) return
     voicePlaying.value = true
     validTime.value = [0, 0, 0, 5, 0, 0]
     showTextTime.value = displayDelay.value
@@ -232,7 +261,7 @@ export default function kochTrain(wpmTOmm) {
       }, 1000)
     }
   }
-  const stopTrain = () => {
+  const stopTrain = async () => {
     playbackGeneration++
     voicePlaying.value = false
     clearInterval(trainTimer.value)
@@ -242,15 +271,16 @@ export default function kochTrain(wpmTOmm) {
     displayTimers.clear()
     if (noiseAudio) closeNoise()
     operation({type:'stop'})
+    if (baseSessionId.value && baseSessionStarted) {
+      const res = await pauseReceiveTrain({id: baseSessionId.value, mark: ring.value, schedule: stage.value})
+      if (res.code !== 200) {
+        Modal.error({content: res.message || '科式收报会话暂停失败'})
+        return
+      }
+    }
     showTextTime.value = 0
     startNumber.value.old = startNumber.value.new
     elapsed.value = [...cacheElapsed.value]
-    saveReceiveBasicTrain({
-      type: 22,
-      validTime: validTimeNumber.value.toString(),
-      schedule: stage.value,
-      mark: ring.value
-    }).then()
   }
   const nextTrain = () => {
     Modal.confirm({

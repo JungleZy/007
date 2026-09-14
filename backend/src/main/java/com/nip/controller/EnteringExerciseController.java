@@ -58,36 +58,32 @@ public class EnteringExerciseController {
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<Object> begin(EnteringExerciseUpdateParam param) {
-    try {
-      enteringExerciseService.begin(param);
-      return ResponseResult.success();
-    } catch (Exception e) {
-      return ResponseResult.error(e.getMessage());
-    }
+  public Response<Object> begin(@RestHeader(TOKEN) String token, EnteringExerciseUpdateParam param) {
+    enteringExerciseService.begin(param, token);
+    return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<Void> finish(EnteringExerciseFinishParam param) {
-    enteringExerciseService.finish(param);
+  public Response<Void> finish(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
+    enteringExerciseService.finish(param, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/pause")
   @Operation(summary = "暂停训练")
-  public Response<Void> pause(EnteringExerciseFinishParam param) {
-    enteringExerciseService.pause(param);
+  public Response<Void> pause(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
+    enteringExerciseService.pause(param, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/goTo")
   @Operation(summary = "继续训练")
-  public Response<Void> goTo(EnteringExerciseUpdateParam param) {
-    enteringExerciseService.goTo(param);
+  public Response<Void> goTo(@RestHeader(TOKEN) String token, EnteringExerciseUpdateParam param) {
+    enteringExerciseService.goTo(param, token);
     return ResponseResult.success();
   }
 
@@ -101,8 +97,8 @@ public class EnteringExerciseController {
   @POST
   @Path("/getById")
   @Operation(summary = "根据Id查询训练")
-  public Response<EnteringExerciseVO> getById(EnteringExerciseUpdateParam param) {
-    return ResponseResult.success(enteringExerciseService.getById(param.getId()));
+  public Response<EnteringExerciseVO> getById(@RestHeader(TOKEN) String token, EnteringExerciseUpdateParam param) {
+    return ResponseResult.success(enteringExerciseService.getById(param.getId(), token));
   }
 
   @POST

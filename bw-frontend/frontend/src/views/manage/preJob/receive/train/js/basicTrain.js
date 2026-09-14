@@ -4,7 +4,7 @@ import { message } from 'ant-design-vue'
 import { PubSub } from '../../../../../../common/utils/PubSub'
 import { deepClone } from '../../../../../../common/utils/Utils.js'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import { saveReceiveBasicTrain } from '../../../../../../common/api/TelegramApi'
+import { createBaseReceiveSession, startReceiveTrain, pauseReceiveTrain, endReceiveTrain, discardBaseReceiveSession } from '../../../../../../common/api/ReceiveApi.js'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
 import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 export default function telegramList(wpmTOmm) {
@@ -104,6 +104,39 @@ export default function telegramList(wpmTOmm) {
   let loopData = null
   let playbackGeneration = 0
   const {operation, ensureReady} = operationMorseVoice()
+  const baseSessionId = ref(null)
+  let baseSessionStarted = false
+  let disposed = false
+  const baseSessionReady = createBaseReceiveSession(21).then(res => {
+    if (res.code !== 200 || !res.data?.id) throw new Error(res.message || '无法创建收报会话')
+    baseSessionId.value = res.data.id
+    return res
+  }).catch(error => {
+    message.error(error.message || '无法创建收报会话')
+    return null
+  })
+  const finalizeBaseSession = async () => {
+    const res = await baseSessionReady
+    if (!res?.data?.id) return
+    if (!baseSessionStarted) {
+      const discarded = await discardBaseReceiveSession({id: res.data.id})
+      if (discarded.code !== 200) throw new Error(discarded.message || '收报会话清理失败')
+      return
+    }
+    const end = await endReceiveTrain({id: res.data.id, mark: '0', schedule: 0})
+    if (end.code !== 200) throw new Error(end.message || '收报会话结束失败')
+  }
+  const startBaseSession = async () => {
+    await baseSessionReady
+    if (disposed) return false
+    if (!baseSessionId.value) throw new Error('收报会话不可用')
+    if (!baseSessionStarted) {
+      const res = await startReceiveTrain({id: baseSessionId.value})
+      if (res.code !== 200) throw new Error(res.message || '收报会话启动失败')
+      baseSessionStarted = true
+    }
+    return true
+  }
   onMounted(() => {
     initTrainTiming()
     changeCode(0)
@@ -133,6 +166,10 @@ export default function telegramList(wpmTOmm) {
     }
   })
 
+  watch([speedRate, wpmTOmm, () => keyArray.value.switchCode], () => {
+    const type = keyArray.value.switchCode === 1 ? 'short' : keyArray.value.switchCode === 2 ? 'letter' : 'long'
+    operation({type: 'configure', data: calculateTiming({rate: speedRate.value, unit: wpmTOmm.value ? 'characters' : 'wpm', type})})
+  }, {immediate: true})
   watch(frequency, () => {
     operation({type:'changeFrequency',data:parseFloat(frequency.value)})
   },{immediate:true})
@@ -146,14 +183,9 @@ export default function telegramList(wpmTOmm) {
       }
     })
   })
-  watch([speedRate, wpmTOmm, () => keyArray.value.switchCode], () => {
-    operation({type: 'configure', data: calculateTiming({rate: speedRate.value, unit: wpmTOmm.value ? 'characters' : 'wpm', type: keyArray.value.switchCode == 2 ? 'letter' : keyArray.value.switchCode == 1 ? 'short' : 'long'})})
-  }, {immediate: true})
   onBeforeUnmount(() => {
-    saveReceiveBasicTrain({
-      type: 21,
-      validTime: validTimeNumber.value.toString()
-    }).then()
+    disposed = true
+    finalizeBaseSession().catch(error => message.error(error.message || '收报会话结束失败'))
   })
   onUnmounted(() => {
     clearInterval(trainTimer.value)
@@ -161,32 +193,28 @@ export default function telegramList(wpmTOmm) {
     PubSub.unsubscribe(audioSubscription)
     operation({type:'stop'})
     disturbList.value.map(item => {
-      if (item.ctx) {
-        changeAudioPlay(item, false)
-      }
+      if (item.ctx) changeAudioPlay(item, false)
     })
   })
 
-  /**
-   * 播报
-   */
   const playVoice = async (key, i,type=false) => {
     const generation = playbackGeneration
-    if (!await ensureReady() || generation !== playbackGeneration) return
+    if (disposed || !await ensureReady()) return
+    try {
+      if (!await startBaseSession()) return
+    } catch (error) {
+      message.error(error.message || '收报会话启动失败')
+      return
+    }
+    if (disposed || generation !== playbackGeneration) return
     loopData = [key, i]
     let code
-    if(Array.isArray(key)){
-      code = key
-    }else {
-      code = (key+"").split('')
-    }
-    if(type!=='播报'){
-      currKeyIndex.value = i
-    }
+    if(Array.isArray(key)) code = key
+    else code = (key+"").split('')
+    if(type!=='播报') currKeyIndex.value = i
     operation({type:'message',data:{
-        numType: keyArray.value.switchCode==1?'short':'long',
-        data: code
-      }})
+      numType: keyArray.value.switchCode==1?'short':'long', data: code
+    }})
   }
   /**
    * 处理训练用时
@@ -359,24 +387,25 @@ export default function telegramList(wpmTOmm) {
       anime({ targets: ['.short'], duration: 100, left: short.value ? 51 : 0 })
       keyArray.value.list = []
       for (let key in morseCode.mix) {
-        if (short.value && morseCode.short[key]) {
-          keyArray.value.list.push(deepClone(morseCode.short[key]))
-        } else {
-          keyArray.value.list.push(deepClone(morseCode.mix[key]))
-        }
+        if (short.value && morseCode.short[key]) keyArray.value.list.push(deepClone(morseCode.short[key]))
+        else keyArray.value.list.push(deepClone(morseCode.mix[key]))
       }
     }
   }
 
-  /**
-   * 停止练习
-   */
-  const stopTrain = () => {
+  const stopTrain = async () => {
     playbackGeneration++
     clearTimeout(waitTimer.value)
     waitTimer.value = null
     loopData = null
     operation({type:'stop'})
+    if (baseSessionId.value && baseSessionStarted) {
+      const res = await pauseReceiveTrain({id: baseSessionId.value, mark: '0', schedule: 0})
+      if (res.code !== 200) {
+        message.error(res.message || '收报会话暂停失败')
+        return
+      }
+    }
     playType.value = null
     currKeyIndex.value = null
     keyArray.value.index = 0

@@ -55,8 +55,9 @@ public class EquipmentTrainController {
   @POST
   @Path("/detail")
   @Operation(summary = "详情")
-  public Response<EquipmentTrainVO> detail(@RequestBody Map<String, String> param) {
-    return ResponseResult.success(service.detail(param));
+  public Response<EquipmentTrainVO> detail(@RequestBody Map<String, String> param,
+                                           @RestHeader(value = TOKEN) String token) {
+    return ResponseResult.success(service.detail(param, token));
   }
 
 }

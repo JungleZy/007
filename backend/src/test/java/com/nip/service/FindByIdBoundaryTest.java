@@ -1,6 +1,10 @@
 package com.nip.service;
 
 import com.nip.dao.EnteringExerciseDao;
+import com.nip.dao.UserDao;
+import com.nip.testsupport.Fixtures;
+import com.nip.entity.UserEntity;
+import java.util.UUID;
 import com.nip.dto.vo.EquipmentDeviceVo;
 import com.nip.dto.vo.param.EnteringExerciseFinishParam;
 
@@ -24,16 +28,18 @@ class FindByIdBoundaryTest {
 
   @Inject EnteringExerciseService enteringExerciseService;
   @Inject EnteringExerciseDao enteringExerciseDao;
+  @Inject UserDao userDao;
   @Inject RoleService roleService;
   @Inject EquipmentDeviceService equipmentDeviceService;
 
   @Test
   void finishOnMissingExerciseThrowsAndPersistsNothing() {
+    UserEntity user = Fixtures.user(userDao, "missing-exercise-" + UUID.randomUUID());
     long before = enteringExerciseDao.count();
     EnteringExerciseFinishParam param = new EnteringExerciseFinishParam();
     param.setId("no-such-exercise-id");
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> enteringExerciseService.finish(param), "不存在的训练 id 必须显式报错");
+        () -> enteringExerciseService.finish(param, user.getToken()), "不存在的训练 id 必须显式报错");
     assertEquals("未查询到该训练", ex.getMessage());
     assertEquals(before, enteringExerciseDao.count(), "不存在的 id 不得落任何新行");
   }

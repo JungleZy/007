@@ -84,6 +84,14 @@ public class TickerTapeTrainEntity implements Serializable {
    * 0:未开始 1:进行中 2：暂停 3：结束
    */
   private Integer status;
+  /** Monotonic schema/version for the persisted active clock. */
+  private Integer protocolVersion;
+
+  /** Wall-clock instant when the current active segment began. */
+  private LocalDateTime activeSince;
+
+  /** Accumulated active duration across completed segments. */
+  private Long accumulatedActiveMillis;
 
   /**
    * 创建人id

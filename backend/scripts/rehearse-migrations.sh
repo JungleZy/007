@@ -81,8 +81,10 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-12-04-comprehensive-key-authority.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-05-radio-study-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-06-entering-accuracy-capacity.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-14-01-classic-telegram-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-14-02-classic-telex-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-14-03-classic-receive-clock.sql"
 )
-
 for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2

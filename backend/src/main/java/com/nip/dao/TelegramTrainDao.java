@@ -18,6 +18,10 @@ import static com.nip.common.utils.ToolUtil.assembleData;
  */
 @ApplicationScoped
 public class TelegramTrainDao extends BaseRepository<TelegramTrainEntity, String> {
+  /** Load a train under a database row lock for lifecycle transitions. */
+  public TelegramTrainEntity findByIdForUpdate(String id) {
+    return find("id", id).withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).firstResult();
+  }
 
   public List<TelegramTrainEntity> findAllByCreateUserIdOrderByCreateTimeDesc(String userId) {
     return find("createUserId = ?1 order by createTime desc", userId).list();

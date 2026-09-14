@@ -1008,7 +1008,7 @@ public class PostTelegramTrainService {
     for (PostTelegramTrainContentAddParam group : body) {
       if (group == null) throw new IllegalArgumentException("拍发组不能为空");
       List<String> keys = JSONUtils.fromJson(group.getPatKeys(), new TypeToken<List<String>>() {});
-      List<List<Integer>> times = JSONUtils.fromJson(group.getMoresTime(), new TypeToken<List<List<Integer>>>() {});
+      List<List<Double>> times = JSONUtils.fromJson(group.getMoresTime(), new TypeToken<List<List<Double>>>() {});
       List<List<Integer>> values = JSONUtils.fromJson(group.getMoresValue(), new TypeToken<List<List<Integer>>>() {});
       List<List<PostTelegramTrainFinishInfoDto.PatLogs>> logs = JSONUtils.fromJson(group.getPatLogs(), new TypeToken<List<List<PostTelegramTrainFinishInfoDto.PatLogs>>>() {});
       if (keys == null || times == null || values == null || logs == null || keys.size() != logs.size() || keys.size() != times.size() || keys.size() != values.size()) {
@@ -1017,7 +1017,7 @@ public class PostTelegramTrainService {
       for (int i = 0; i < keys.size(); i++) {
         String key = keys.get(i);
         if (key == null || times.get(i) == null || values.get(i) == null || times.get(i).size() != values.get(i).size()
-            || times.get(i).stream().anyMatch(time -> time == null || time < 0)
+            || times.get(i).stream().anyMatch(time -> time == null || !Double.isFinite(time) || time < 0)
             || values.get(i).stream().anyMatch(value -> value == null || (value != 0 && value != 1))) {
           throw new IllegalArgumentException("拍发码值或时长记录无效");
         }
@@ -1025,9 +1025,11 @@ public class PostTelegramTrainService {
         if (events == null) throw new IllegalArgumentException("拍发事件记录不能为空");
         int symbol = 0;
         for (PostTelegramTrainFinishInfoDto.PatLogs event : events) {
-          if (event == null || event.getKey() == null || event.getKey() < 0 || event.getKey() > 4 || event.getValue() == null || event.getValue() < 0) throw new IllegalArgumentException("拍发事件类型或时长无效");
+          if (event == null || event.getKey() == null || event.getKey() < 0 || event.getKey() > 4 || event.getValue() == null
+              || !Double.isFinite(event.getValue()) || event.getValue() < 0) throw new IllegalArgumentException("拍发事件类型或时长无效");
           if (event.getKey() < 2) {
-            if (symbol >= values.get(i).size() || !Objects.equals(event.getKey(), values.get(i).get(symbol)) || !Objects.equals(event.getValue(), times.get(i).get(symbol))) throw new IllegalArgumentException("拍发事件与码值时长不一致");
+            if (symbol >= values.get(i).size() || !Objects.equals(event.getKey(), values.get(i).get(symbol))
+                || Double.compare(event.getValue(), times.get(i).get(symbol)) != 0) throw new IllegalArgumentException("拍发事件与码值时长不一致");
             symbol++;
           }
         }

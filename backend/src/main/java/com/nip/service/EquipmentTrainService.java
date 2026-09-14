@@ -18,11 +18,13 @@ import java.util.Map;
 public class EquipmentTrainService {
   private final EquipmentTrainDao dao;
   private final UserService userService;
+  private final TrainWriteAccess trainWriteAccess;
 
   @Inject
-  public EquipmentTrainService(EquipmentTrainDao dao, UserService userService) {
+  public EquipmentTrainService(EquipmentTrainDao dao, UserService userService, TrainWriteAccess trainWriteAccess) {
     this.dao = dao;
     this.userService = userService;
+    this.trainWriteAccess = trainWriteAccess;
   }
 
   @Transactional
@@ -40,6 +42,7 @@ public class EquipmentTrainService {
     } else {
       EquipmentTrainEntity trainEntity = dao.findByIdOptional(dto.getId())
           .orElseThrow(() -> new IllegalArgumentException("未查询到训练计划"));
+      trainWriteAccess.requireTrainOwner(entity.getId(), trainEntity.getUserId(), "装备训练 " + dto.getId());
       trainEntity.setTrainStatus(dto.getTrainStatus());
       trainEntity.setContent(dto.getContent());
       return trainEntity.getId();
@@ -52,10 +55,13 @@ public class EquipmentTrainService {
     return PojoUtils.convert(allByUserId, EquipmentTrainVO.class);
   }
 
-  public EquipmentTrainVO detail(Map<String, String> param) {
+  public EquipmentTrainVO detail(Map<String, String> param, String token) {
     String id = param.get("id");
     Assert.notNull(id, "请传入ID");
-    EquipmentTrainEntity entity = dao.findByIdOptional(id).orElse(new EquipmentTrainEntity());
+    UserEntity actor = userService.getUserByToken(token);
+    EquipmentTrainEntity entity = dao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练计划"));
+    trainWriteAccess.requireTrainOwner(actor.getId(), entity.getUserId(), "装备训练 " + id);
     return PojoUtils.convertOne(entity, EquipmentTrainVO.class);
   }
 }

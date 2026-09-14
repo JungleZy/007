@@ -54,4 +54,12 @@ public class TelegramTrainEntity {
   private String createUserId; // 创建用户的ID
   private String createTime = new Date().getTime() + ""; // 创建时间，默认为当前时间戳
   private String nowFloorId; // 当前正在编辑的Id
+  /** Protocol for server-authoritative active-time and raw-content metrics. */
+  @Column(nullable = false)
+  private Integer protocolVersion = 0;
+  /** Epoch milliseconds at which the current active segment began; null while paused. */
+  private Long activeSince;
+  /** Accumulated active milliseconds before the current segment. */
+  @Column(nullable = false)
+  private Long accumulatedActiveMillis = 0L;
 }

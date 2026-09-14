@@ -39,6 +39,9 @@ export const getTelegramTrain = (data) => {
     data
   })
 };
+export const createBaseReceiveSession = (type) => {
+  return axios({method: "post", url: "/api/tickerTapeTrain/baseSession", data: {type}})
+}
 
 export const startReceiveTrain = (data) => {
   return axios({
@@ -71,6 +74,9 @@ export const endReceiveTrain = (data) => {
     data
   })
 };
+export const discardBaseReceiveSession = (data) => {
+  return axios({method: "post", url: "/api/tickerTapeTrain/discardBaseSession", data})
+}
 
 export const getPostReceiveSetting = (data) => {
   return axios({

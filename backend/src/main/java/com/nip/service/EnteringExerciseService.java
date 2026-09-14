@@ -40,13 +40,15 @@ public class EnteringExerciseService {
   private final EnteringExerciseDao exerciseDao;
   private final EnteringStatisticalDao statisticalDao;
   private final EnteringExerciseWordStockService wordStockService;
+  private final TrainWriteAccess trainWriteAccess;
 
   @Inject
-  public EnteringExerciseService(EnteringExerciseDao exerciseDao, EnteringStatisticalDao statisticalDao, UserService userService, EnteringExerciseWordStockService wordStockService) {
+  public EnteringExerciseService(EnteringExerciseDao exerciseDao, EnteringStatisticalDao statisticalDao, UserService userService, EnteringExerciseWordStockService wordStockService, TrainWriteAccess trainWriteAccess) {
     this.exerciseDao = exerciseDao;
     this.statisticalDao = statisticalDao;
     this.userService = userService;
     this.wordStockService = wordStockService;
+    this.trainWriteAccess = trainWriteAccess;
   }
 
   @Transactional
@@ -95,36 +97,40 @@ public class EnteringExerciseService {
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public void begin(EnteringExerciseUpdateParam param) {
-    exerciseDao.begin(param.getId(), EnteringExerciseStatusEnum.UNDERWAY.getStatus());
+  public void begin(EnteringExerciseUpdateParam param, String token) {
+    EnteringExerciseEntity entity = owned(param.getId(), token);
+    exerciseDao.begin(entity.getId(), EnteringExerciseStatusEnum.UNDERWAY.getStatus());
   }
 
   @Transactional
-  public void finish(EnteringExerciseFinishParam param) {
-    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(param.getId())
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+  public void finish(EnteringExerciseFinishParam param, String token) {
+    EnteringExerciseEntity entity = owned(param.getId(), token);
     entity.setStatus(EnteringExerciseStatusEnum.FINISH.getStatus());
     entity.setEndTime(LocalDateTime.now());
     EnteringExerciseEntity save = exerciseDao.save(entity);
     finishStatistical(save);
   }
 
-  public EnteringExerciseVO getById(String id) {
-    // Phase 7.4：不存在的 id 原先返回一个全空 VO 空壳，改为显式报错
-    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(id)
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
-    return PojoUtils.convertOne(entity, EnteringExerciseVO.class);
+  public EnteringExerciseVO getById(String id, String token) {
+    return PojoUtils.convertOne(owned(id, token), EnteringExerciseVO.class);
   }
 
-  public void goTo(EnteringExerciseUpdateParam param) {
-    exerciseDao.goTo(param.getId(), EnteringExerciseStatusEnum.UNDERWAY.getStatus());
+  public void goTo(EnteringExerciseUpdateParam param, String token) {
+    EnteringExerciseEntity entity = owned(param.getId(), token);
+    exerciseDao.goTo(entity.getId(), EnteringExerciseStatusEnum.UNDERWAY.getStatus());
   }
 
-  public void pause(EnteringExerciseFinishParam param) {
-    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(param.getId())
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+  public void pause(EnteringExerciseFinishParam param, String token) {
+    EnteringExerciseEntity entity = owned(param.getId(), token);
     entity.setStatus(EnteringExerciseStatusEnum.PAUSE.getStatus());
     exerciseDao.save(entity);
+  }
+  private EnteringExerciseEntity owned(String id, String token) {
+    UserEntity actor = userService.getUserByToken(token);
+    EnteringExerciseEntity entity = exerciseDao.findByIdOptional(id)
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(actor.getId(), entity.getCreateUserId(), "汉字录入训练 " + id);
+    return entity;
   }
 
   @Transactional

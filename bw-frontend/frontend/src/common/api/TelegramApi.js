@@ -316,13 +316,6 @@ export const findPrevHandKeyTrainInfo = data => {
   })
 }
 
-export const saveReceiveBasicTrain = data => {
-  return axios({
-    method: 'post',
-    url: '/api/tickerTapeTrain/saveBaseTrain',
-    data
-  })
-}
 
 export const findPinYinTrainTotal = data => {
   return axios({

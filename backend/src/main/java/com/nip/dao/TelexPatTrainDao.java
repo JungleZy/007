@@ -18,6 +18,14 @@ import static com.nip.common.constants.BaseConstants.USER_ID;
  */
 @ApplicationScoped
 public class TelexPatTrainDao extends BaseRepository<TelexPatTrainEntity, String> {
+  /** Acquire the train row lock before validating a lifecycle mutation. */
+  @Transactional
+  public TelexPatTrainEntity findForUpdate(String id) {
+    return entityManager.createQuery("from t_telex_pat_train where id = :id", TelexPatTrainEntity.class)
+        .setParameter("id", id)
+        .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+        .getResultStream().findFirst().orElse(null);
+  }
 
   public List<TelexPatTrainEntity> findAllByCreateUserId(String id) {
     return find("createUserId", id).list();

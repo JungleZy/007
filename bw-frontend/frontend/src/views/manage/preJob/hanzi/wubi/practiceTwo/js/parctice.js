@@ -4,6 +4,7 @@ import { getById, begin, hanziFinish, hanziPause, goTo } from '../../../../../..
 import { PubSub } from '../../../../../../../common/utils/PubSub.js'
 import { Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+
 import Homophone from '../../../../../../../common/utils/Homophone'
   
 import fontBank from '../../../../../../../common/utils/fontBank'
@@ -51,6 +52,10 @@ export default function parctice(countDown) {
   const init = () => {
     computationTime2(0)
     getById({ id: route.query.id }).then(res => {
+      if (res?.code !== 200 || !res.data) {
+        Modal.error({ content: res?.message || '获取训练详情失败' })
+        return
+      }
       trainData.value.duration = res.data.duration
       trainData.value.accuracy = parseInt(res.data.accuracy)
       trainData.value.speed = res.data.speed
@@ -132,7 +137,7 @@ export default function parctice(countDown) {
       }
       message.value = fonts
       activeMessage.value = fonts[0]
-    })
+    }).catch(error => Modal.error({ content: error?.message || '网络连接失败，请检查网络' }))
     window.addEventListener('keydown', keyCodeDown)
   }
   //统计正确，错误，码率
@@ -178,15 +183,19 @@ export default function parctice(countDown) {
   //保存训练类容
   const saveTest = () => {
     hanziFinish(garde()).then(res => {
+      if (res?.code !== 200) {
+        Modal.error({ content: res?.message || '结束训练失败' })
+        return
+      }
       clearInterval(autoTime.value)
       trainData.value.status = 2
-    })
+    }).catch(error => Modal.error({ content: error?.message || '网络连接失败，请检查网络' }))
   }
   //暂停训练
   const stopTest = () => {
     hanziPause(garde()).then(res => {
-      // PubSub.publish('callback_closehanziPage', true);
-    })
+      if (res?.code !== 200) Modal.error({ content: res?.message || '暂停训练失败' })
+    }).catch(error => Modal.error({ content: error?.message || '网络连接失败，请检查网络' }))
   }
   // 训练用时
   const trainTime = () => {
@@ -202,8 +211,16 @@ export default function parctice(countDown) {
   const keyCodeDown = v => {
     if (isFirst == 0) {
       begin({ id: route.query.id }).then(r => {
+        if (r?.code !== 200) {
+          Modal.error({ content: r?.message || '开始训练失败' })
+          isFirst = 0
+          return
+        }
         trainData.value.status = 1
         trainTime()
+      }).catch(error => {
+        Modal.error({ content: error?.message || '网络连接失败，请检查网络' })
+        isFirst = 0
       })
       isFirst = 1
     }

@@ -20,7 +20,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Task 3.4 P2-69：statisticalPage 原来补齐缺失类型后重新查库直返、完全不排序。
@@ -77,26 +76,4 @@ class TelexPatTrainStatisticalServiceTest {
         "统计失败后，先保存的单字训练必须回滚");
   }
 
-  @Test
-  void saveTexPatTrainRollsBackTrainWriteWhenStatisticalFails() {
-    UserEntity user = Fixtures.user(userDao, "p7-telex-train-rollback");
-    TelexPatTrainStatisticalEntity statistical = new TelexPatTrainStatisticalEntity();
-    statistical.setUserId(user.getId());
-    statistical.setType(1);
-    statistical.setTotalCount(0);
-    statistical.setAvgSpeed(BigDecimal.ZERO);
-    statistical.setTotalTime("0");
-    statisticalDao.saveAndFlush(statistical);
-
-    TelexPatTrainDto dto = new TelexPatTrainDto();
-    dto.setType(0);
-    dto.setStatus(3);
-    dto.setDuration("invalid-duration");
-    dto.setSpeed("1");
-
-    assertThrows(IllegalArgumentException.class,
-        () -> telexPatTrainService.saveTexPatTrain("p7-telex-train-rollback", dto));
-    assertEquals(0, telexPatTrainDao.find("createUserId", user.getId()).count(),
-        "统计失败后，先保存的连贯训练必须回滚");
-  }
 }

@@ -71,7 +71,6 @@ export default {
 import { ref, onMounted, nextTick, onUnmounted, onBeforeUnmount } from 'vue'
 import { message } from 'ant-design-vue'
 import Paho from '../../../../common/mqtt/paho-mqtt'
-import { useRoute, useRouter } from 'vue-router'
 import table from './js/table'
 import equipment_171 from './js/171'
 import equipment_125W_400W from './js/125W_400W'
@@ -208,11 +207,10 @@ onMounted(() => {
   })
   // 43.89 400W   43.138 125W   43.89 134A    185  / 113  173
   getDetails({ id: route.query.id }).then(res => {
-    //订阅主题
-    f = '0000020001/' + res.data.deviceId + '/0001/0008'
-    s = res.data.deviceId + '/0000020001/0001/0008'
-    trainData.value = res.data
-    formData.value = JSON.parse(res.data.content)
+    if (res?.code !== 200 || !res.data) {
+      message.error(res?.message || '获取训练详情失败')
+      return
+    }
     trainData.value.trainStatus = res.data.trainStatus
     if (res.data.trainType == 0) {
       tableData.value = llwjData

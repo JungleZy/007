@@ -24,9 +24,9 @@ class Index {
 		app.whenReady().then(() => {
 			this.createWindow()
 
-			app.on('activate', function () {
-				if (BrowserWindow.getAllWindows().length === 0) createWindow()
-			})
+      app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
+      })
 		})
 		app.on('will-quit', () => {
 			// 关闭所有子进程

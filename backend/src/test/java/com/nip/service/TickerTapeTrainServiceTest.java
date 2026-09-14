@@ -95,8 +95,10 @@ class TickerTapeTrainServiceTest {
   void getByIdForMissingTrainReportsBusinessErrorInsteadOfDereferencingNull() {
     // Task 7.4：getById 原来直接把 findById 的 null 交给 convertOne，
     // 回调里 e.getCodeMessageBody() 解引用 null → 500。
+    String token = "p74-missing-get-" + UUID.randomUUID();
+    Fixtures.user(userDao, token, token);
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> service.getById("p74-missing-" + UUID.randomUUID()),
+        () -> service.getById("p74-missing-" + UUID.randomUUID(), token),
         "训练不存在时必须显式报错，不得裸解引用 findById 的 null");
     assertEquals("未查询到训练", ex.getMessage());
   }
@@ -104,10 +106,12 @@ class TickerTapeTrainServiceTest {
   @Test
   void checkStatusRejectsMissingTrainWithoutWeakeningFinishedSemantics() {
     // 记录不存在：checkStatus 原来裸 entity.getStatus() → NPE 500
+    String missingToken = "p74-missing-pause-" + UUID.randomUUID();
+    Fixtures.user(userDao, missingToken, missingToken);
     TickerTapeTrainUpdateParam missing = new TickerTapeTrainUpdateParam();
     missing.setId("p74-missing-" + UUID.randomUUID());
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-        () -> service.pause(missing), "训练不存在必须显式报错");
+        () -> service.pause(missing, missingToken), "训练不存在必须显式报错");
     assertEquals("未查询到训练", ex.getMessage());
 
     // 记录存在且已结束：必须是业务终态拒绝（TerminalStateException → 208），
@@ -120,7 +124,7 @@ class TickerTapeTrainServiceTest {
     TickerTapeTrainUpdateParam param = new TickerTapeTrainUpdateParam();
     param.setId(finished.getId());
     assertThrows(TerminalStateException.class,
-        () -> service.pause(param), "已结束训练必须抛业务终态拒绝，而不是参数错误");
+        () -> service.pause(param, user.getToken()), "已结束训练必须抛业务终态拒绝，而不是参数错误");
   }
 
   private TickerTapeTrainEntity seedTrain(String userId, int type, String name, LocalDateTime createTime) {

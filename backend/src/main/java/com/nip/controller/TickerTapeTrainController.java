@@ -100,14 +100,22 @@ public class TickerTapeTrainController {
   @Path("/saveBaseTrain")
   @Operation(summary = "添加基础训练/科式训练")
   public Response<Void> saveBaseTrain(TickerTapeBaseTrainAddParam param, @RestHeader(TOKEN) String token) {
-    try {
-      trainService.saveBaseTrain(param, token);
-      return ResponseResult.success();
-    } catch (Exception e) {
-      return ResponseResult.error();
-    }
+    trainService.saveBaseTrain(param, token);
+    return ResponseResult.success();
   }
-
+  @POST
+  @Path("/baseSession")
+  @Operation(summary = "创建基础/科式收报会话")
+  public Response<TickerTapeTrainVo> createBaseSession(TickerTapeBaseTrainAddParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.createBaseSession(param.getType(), token));
+  }
+  @POST
+  @Path("/discardBaseSession")
+  @Operation(summary = "放弃未开始的基础/科式收报会话")
+  public Response<Void> discardBaseSession(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    trainService.discardBaseSession(param.getId(), token);
+    return ResponseResult.success();
+  }
   @POST
   @Path("/statisticalPage")
   @Operation(summary = "统计页面")

@@ -129,14 +129,21 @@ class TelegramTrainServiceTest {
 
   @Test
   void saveFloorContentUpdatesMoresValueAndTime() {
+    TelegramTrainEntity train = new TelegramTrainEntity();
+    train.setCreateUserId(userDao.findUserEntityByToken(PAT_TOKEN).getId());
+    trainDao.saveAndFlush(train);
+    TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
+    floor.setTrainId(train.getId());
+    floor.setSort(0);
+    floor = floorDao.saveAndFlush(floor);
     TelegramTrainFloorContentEntity e = new TelegramTrainFloorContentEntity();
-    e.setFloorId("p52-floor");
+    e.setFloorId(floor.getId());
     e.setSort(0);
     e.setMoresKey("k");
     e = contentDao.save(e);
 
     Response<Void> resp = service.saveFloorContent(
-        Map.of("id", e.getId(), "moresValue", "[\"A\"]", "moresTime", "[123]"));
+        Map.of("id", e.getId(), "moresValue", "[\"A\"]", "moresTime", "[123]"), PAT_TOKEN);
 
     assertEquals(ResponseCode.SUCCESS.getCode(), resp.getCode(), "更新必须成功而不是被吞成 error");
     TelegramTrainFloorContentEntity reloaded = contentDao.findById(e.getId());
@@ -147,15 +154,22 @@ class TelegramTrainServiceTest {
 
   @Test
   void saveFloorContentDefaultsEmptyMoresTimeToEmptyJsonArray() {
+    TelegramTrainEntity train = new TelegramTrainEntity();
+    train.setCreateUserId(userDao.findUserEntityByToken(PAT_TOKEN).getId());
+    trainDao.saveAndFlush(train);
+    TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
+    floor.setTrainId(train.getId());
+    floor.setSort(0);
+    floor = floorDao.saveAndFlush(floor);
     TelegramTrainFloorContentEntity e = new TelegramTrainFloorContentEntity();
-    e.setFloorId("p52-floor2");
+    e.setFloorId(floor.getId());
     e.setSort(0);
     e.setMoresKey("k");
     e.setMoresTime("[9]");
     e = contentDao.save(e);
 
     Response<Void> resp = service.saveFloorContent(
-        Map.of("id", e.getId(), "moresValue", "[\"B\"]", "moresTime", ""));
+        Map.of("id", e.getId(), "moresValue", "[\"B\"]", "moresTime", ""), PAT_TOKEN);
 
     assertEquals(ResponseCode.SUCCESS.getCode(), resp.getCode());
     TelegramTrainFloorContentEntity reloaded = contentDao.findById(e.getId());

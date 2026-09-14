@@ -54,12 +54,20 @@ export default function telexTrain(countDown) {
   const nowTime = ref({})
   const init = () => {
     findTexPatTrainById({ id: route.query.id }).then(res => {
+      if (!res || res.code !== 200 || !res.data || !res.data.content) {
+        Modal.error({ content: res && (res.code === 202 || res.code === 207 || res.code === 208) ? '训练已失效或已结束' : '训练加载失败，请重试' })
+        return
+      }
       const data = res.data
       data.speed = Number(data.speed)
       data.errorNumber = Number(data.errorNumber)
-      message.value = JSON.parse(data.content)
+      try { message.value = JSON.parse(data.content) } catch (e) {
+        Modal.error({ content: '训练报文无效，请重试' })
+        return
+      }
       activeIndex.value = message.value.findIndex(item => item.isFocus == false)
-      activeMessage.value = message.value[activeIndex.value]
+      if (activeIndex.value < 0) activeIndex.value = message.value.length ? message.value.length - 1 : 0
+      activeMessage.value = message.value[activeIndex.value] || { text: '', value: '' }
       trainData.value = data
       trainData.value.duration = 0
       trainData.value.numbs = 0
@@ -67,12 +75,8 @@ export default function telexTrain(countDown) {
         const correctn = trainData.value.accuracy / (trainData.value.accuracy + trainData.value.errorNumber)
         correct.value = Number((correctn * 100).toFixed(2))
       }
-      // countDown.value.autoSetTimeAdd(trainData.value.duration)
       computationTime2(trainData.value.duration)
-      // if((trainData.value.errorNumber>0||trainData.value.accuracy>0)&&trainData.value.duration>0){
-      //   trainData.value.speed = Number(((trainData.value.errorNumber+trainData.value.accuracy)/(trainData.value.duration/60)).toFixed(2))
-      // }
-    })
+    }).catch(() => Modal.error({ content: '训练加载失败，请重试' }))
   }
   const onkeydown = () => {
     if (isFirst == 0) {
@@ -90,15 +94,17 @@ export default function telexTrain(countDown) {
   //保存训练类容
   const saveTest = status => {
     clearInterval(autoTime.value)
-    trainData.value.content = JSON.stringify(message.value)
-    trainData.value.status = status
-    trainData.value.speed = (trainData.value.speed * 4).toString()
-    trainData.value.accuracy = correct.value
-    saveTexPatTrain(trainData.value).then(res => {
-      if (status === 3 && res.code === 200) {
-        PubSub.publish('callback_closeTelexTrainPage', true)
+    const extendBy = status === 1 && Array.isArray(message.value) && message.value.length > 0 && message.value.every(item => item.isFocus === true) ? 100 : 0
+    const payload = { ...trainData.value, content: JSON.stringify(message.value || []), status, extendBy, speed: (trainData.value.speed * 4).toString(), accuracy: correct.value }
+    saveTexPatTrain(payload).then(res => {
+      if (!res || res.code !== 200) {
+        Modal.error({ content: res && (res.code === 202 || res.code === 207 || res.code === 208) ? '训练状态已变化，请重新进入' : '训练保存失败，请重试' })
+        return
       }
-    })
+      trainData.value = { ...trainData.value, ...res.data }
+      if (res.data && res.data.content) message.value = JSON.parse(res.data.content)
+      if (status === 3) PubSub.publish('callback_closeTelexTrainPage', true)
+    }).catch(() => Modal.error({ content: '训练保存失败，请重试' }))
   }
   // 训练用时
   const trainTime = () => {
@@ -177,20 +183,6 @@ export default function telexTrain(countDown) {
         activeIndex.value++
         activeMessage.value = message.value[activeIndex.value]
       }
-    }
-    if (activeIndex.value === trainData.value.totalNumber - 1) {
-      trainData.value.totalNumber += 100
-      if (trainData.value.type === 0) {
-        generateMessage(numberKey, 10)
-      } else if (trainData.value.type === 1) {
-        generateMessage(letterKey, 26)
-      } else {
-        let arr = [...numberKey, ...letterKey]
-        generateMessage(arr, 36)
-      }
-      nextTick(()=>{
-        scrol[0].scrollTop += 200
-      })
     }
   }
   const generateMessage = (keyboard, num) => {
@@ -285,12 +277,14 @@ export default function telexTrain(countDown) {
   }
   //开始训练
   const beginTrain = () => {
-    saveTest(1)
-    trainData.value.status = 1
-    trainTime()
-    nextTick(() => {
-      document.querySelectorAll('.editDiv')[activeIndex.value].focus()
-      document.querySelectorAll('.isfocusInput')[0].focus()
+    saveTest(1).then(ok => {
+      if (!ok) return
+      trainData.value.status = 1
+      trainTime()
+      nextTick(() => {
+        document.querySelectorAll('.editDiv')[activeIndex.value]?.focus()
+        document.querySelectorAll('.isfocusInput')[0]?.focus()
+      })
     })
   }
   //结束训练

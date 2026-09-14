@@ -1,5 +1,6 @@
 package com.nip.controller;
 
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.interceptor.JWT;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
@@ -39,6 +40,7 @@ public class EquipmentDeviceController {
   @POST
   @Path("/add")
   @Operation(summary = "添加设备")
+  @RequireAdmin
   public Response<Void> add(@RequestBody EquipmentDeviceDto dto) {
     deviceService.addDevice(dto);
     return ResponseResult.success();
@@ -47,6 +49,7 @@ public class EquipmentDeviceController {
   @POST
   @Path("/delete")
   @Operation(summary = "删除设备")
+  @RequireAdmin
   public Response<Void> delete(@RequestBody EquipmentDeviceVo vo) {
     deviceService.deleteDevice(vo);
     return ResponseResult.success();
@@ -62,6 +65,7 @@ public class EquipmentDeviceController {
   @POST
   @Path("/update")
   @Operation(summary = "更新设备")
+  @RequireAdmin
   public Response<Void> update(@RequestBody EquipmentDeviceVo vo) {
     deviceService.update(vo);
     return ResponseResult.success();
@@ -70,6 +74,7 @@ public class EquipmentDeviceController {
   @POST
   @Path("/addKeyPoints")
   @Operation(summary = "添加、修改、删除、要点讲解")
+  @RequireAdmin
   public Response<Void> addKeyPoints(@RequestBody EquipmentDeviceKeyPointsDto dto) {
     deviceService.saveKeyPoints(dto);
     return ResponseResult.success();

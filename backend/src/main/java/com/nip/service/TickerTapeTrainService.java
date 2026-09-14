@@ -62,6 +62,7 @@ public class TickerTapeTrainService {
     UserEntity userEntity = userService.getUserByToken(token);
     String codeMessage = JSONUtils.toJson(param.getCodeMessageBody());
     TickerTapeTrainEntity entity = BeanUtil.toBean(param, TickerTapeTrainEntity.class);
+    entity.setId(null);
     entity.setUserId(userEntity.getId());
     //状体设为未开始
     entity.setStatus(TickerTapeTrainStatusEnum.NOT_STARTED.getCode());
@@ -69,6 +70,8 @@ public class TickerTapeTrainService {
     entity.setSchedule(0);
     //有效时长
     entity.setValidTime("0");
+    entity.setProtocolVersion(1);
+    entity.setAccumulatedActiveMillis(0L);
     //语音播放初始位置
     entity.setMark("0,0");
     entity.setCreateTime(LocalDateTime.now());
@@ -116,47 +119,86 @@ public class TickerTapeTrainService {
     });
   }
 
+  @Transactional
   public void begin(String id, String token) {
-    checkStatus(owned(id, token));
-    tickerTapeTrainDao.begin(id);
+    TickerTapeTrainEntity entity = ownedForUpdate(id, token);
+    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) return;
+    if (entity.getStartTime() == null) entity.setStartTime(LocalDateTime.now());
+    if (!Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.UNDERWAY.getCode())) {
+      entity.setActiveSince(LocalDateTime.now());
+      entity.setStatus(TickerTapeTrainStatusEnum.UNDERWAY.getCode());
+    }
   }
 
   TickerTapeTrainVo getById(String id) {
-    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id)).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     return PojoUtils.convertOne(entity, TickerTapeTrainVo.class);
   }
-  void pause(TickerTapeTrainUpdateParam param) {
-    checkStatus(Optional.ofNullable(tickerTapeTrainDao.findById(param.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练")));
-    tickerTapeTrainDao.pause(param.getId(), param.getValidTime(), param.getMark(), param.getSchedule());
+
+  @Transactional
+  public void pause(TickerTapeTrainUpdateParam p, String token) {
+    TickerTapeTrainEntity e = ownedForUpdate(p.getId(), token);
+    if (Objects.equals(e.getStatus(), 3)) throw new TerminalStateException("训练已结束");
+    if (Objects.equals(e.getStatus(), 2)) return;
+    accrue(e); e.setValidTime(seconds(e)); e.setMark(p.getMark()); e.setSchedule(p.getSchedule());
+    e.setStatus(2); e.setActiveSince(null); tickerTapeTrainDao.save(e);
   }
-  public void pause(TickerTapeTrainUpdateParam updateParam, String token) {
-    TickerTapeTrainEntity entity = owned(updateParam.getId(), token);
-    checkStatus(entity);
-    tickerTapeTrainDao.pause(updateParam.getId(), String.valueOf(elapsedSeconds(entity)), updateParam.getMark(), updateParam.getSchedule());
-  }
-  public void finish(TickerTapeTrainUpdateParam updateParam, String token) {
-    TickerTapeTrainEntity entity = owned(updateParam.getId(), token);
-    checkStatus(entity);
-    tickerTapeTrainDao.finish(updateParam.getId(), String.valueOf(elapsedSeconds(entity)), updateParam.getMark(), updateParam.getSchedule());
-    TickerTapeTrainEntity saved = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    finishStatistical(saved);
+
+  @Transactional
+  public void finish(TickerTapeTrainUpdateParam p, String token) {
+    TickerTapeTrainEntity e = ownedForUpdate(p.getId(), token);
+    if (Objects.equals(e.getStatus(), 3)) throw new TerminalStateException("训练已结束");
+    accrue(e); e.setValidTime(seconds(e)); e.setMark(p.getMark()); e.setSchedule(p.getSchedule());
+    e.setStatus(3); e.setEndTime(LocalDateTime.now()); e.setActiveSince(null); tickerTapeTrainDao.save(e);
+    UserEntity owner = userService.getUserByToken(token);
+    if (e.getType() == 21 || e.getType() == 22) saveStatistical(owner, e); else finishStatistical(e);
   }
 
 
   @Transactional
-  public void saveBaseTrain(TickerTapeBaseTrainAddParam param, String token) {
-    UserEntity userEntity = userService.getUserByToken(token);
-    TickerTapeTrainEntity entity = PojoUtils.convertOne(param, TickerTapeTrainEntity.class);
-    entity.setStatus(TickerTapeTrainStatusEnum.FINISH.getCode());
-    entity.setUserId(userEntity.getId());
-    entity.setCreateTime(LocalDateTime.now());
-    saveEntity(entity);
-    saveStatistical(userEntity, entity);
+  public TickerTapeTrainVo createBaseSession(Integer type, String token) {
+    UserEntity owner = userService.getUserByToken(token);
+    if (type == null || (type != 21 && type != 22)) {
+      throw new IllegalArgumentException("基础训练类型无效");
+    }
+    TickerTapeTrainEntity entity = new TickerTapeTrainEntity();
+    entity.setUserId(owner.getId());
+    entity.setType(type);
+    entity.setStatus(TickerTapeTrainStatusEnum.NOT_STARTED.getCode());
+    entity.setProtocolVersion(1);
+    entity.setActiveSince(null);
+    entity.setAccumulatedActiveMillis(0L);
+    entity.setValidTime("0");
+    entity.setMark("0");
+    entity.setSchedule(0);
+    return PojoUtils.convertOne(tickerTapeTrainDao.save(entity), TickerTapeTrainVo.class);
   }
-
+  @Transactional
+  public void saveBaseTrain(TickerTapeBaseTrainAddParam param, String token) {
+    if (param == null || param.getId() == null || param.getId().isBlank()) {
+      throw new IllegalArgumentException("收报会话编号不能为空");
+    }
+    UserEntity owner = userService.getUserByToken(token);
+    TickerTapeTrainEntity entity = ownedForUpdate(param.getId(), token);
+    if (!Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
+      accrue(entity);
+      entity.setValidTime(seconds(entity));
+      entity.setMark(param.getMark());
+      entity.setSchedule(param.getSchedule());
+      entity.setStatus(TickerTapeTrainStatusEnum.FINISH.getCode());
+      entity.setEndTime(LocalDateTime.now());
+      entity.setActiveSince(null);
+      tickerTapeTrainDao.save(entity);
+      saveStatistical(owner, entity);
+    }
+  }
+  @Transactional
+  public void discardBaseSession(String id, String token) {
+    TickerTapeTrainEntity entity = ownedForUpdate(id, token);
+    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.NOT_STARTED.getCode())) {
+      tickerTapeTrainDao.deleteById(id);
+    }
+  }
   @Transactional
   public void saveEntity(TickerTapeTrainEntity entity) {
     tickerTapeTrainDao.save(entity);
@@ -231,27 +273,24 @@ public class TickerTapeTrainService {
     if (!Objects.equals(entity.getUserId(), user.getId())) throw new ForbiddenException("无权访问他人训练");
     return entity;
   }
-  public void goOn(String id, String token) {
-    TickerTapeTrainEntity entity = owned(id, token);
-    checkStatus(entity);
-    tickerTapeTrainDao.goOn(id);
+
+  private TickerTapeTrainEntity ownedForUpdate(String id, String token) {
+    UserEntity user = userService.getUserByToken(token);
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findForUpdate(id)).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    if (!Objects.equals(entity.getUserId(), user.getId())) throw new ForbiddenException("无权访问他人训练");
+    return entity;
   }
 
-  private void checkStatus(TickerTapeTrainEntity entity) {
-    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
-      throw new TerminalStateException("训练已结束");
-    }
+  public void goOn(String id, String token) { begin(id, token); }
+
+  private void accrue(TickerTapeTrainEntity e) {
+    long total = e.getAccumulatedActiveMillis() == null ? 0L : e.getAccumulatedActiveMillis();
+    if (e.getActiveSince() != null) total += Math.max(0L, java.time.Duration.between(e.getActiveSince(), LocalDateTime.now()).toMillis());
+    e.setAccumulatedActiveMillis(total);
   }
 
-  private long elapsedSeconds(TickerTapeTrainEntity entity) {
-    long accumulated = 0;
-    try {
-      accumulated = entity.getValidTime() == null ? 0 : Long.parseLong(entity.getValidTime());
-    } catch (NumberFormatException ignored) {
-      throw new IllegalStateException("训练累计用时损坏");
-    }
-    if (entity.getStartTime() == null) return accumulated;
-    return accumulated + Math.max(0, java.time.Duration.between(entity.getStartTime(), LocalDateTime.now()).toSeconds());
+  private String seconds(TickerTapeTrainEntity e) {
+    return String.valueOf((e.getAccumulatedActiveMillis() == null ? 0L : e.getAccumulatedActiveMillis()) / 1000L);
   }
 
   @Transactional

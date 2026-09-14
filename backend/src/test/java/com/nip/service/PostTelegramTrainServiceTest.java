@@ -228,4 +228,12 @@ class PostTelegramTrainServiceTest {
     invalid.setMoresTime("[[-1]]");
     assertThrows(IllegalArgumentException.class, () -> PostTelegramTrainService.countCharacters(List.of(invalid)));
   }
+
+  @Test
+  void countCharactersAcceptsFractionalMillisecondsWhenEventMatches() {
+    PostTelegramTrainContentAddParam fractional = group(List.of("X"));
+    fractional.setMoresTime("[[100.25]]");
+    fractional.setPatLogs("[[{\"key\":2,\"value\":100.25},{\"key\":0,\"value\":100.25}]]");
+    assertEquals(1, PostTelegramTrainService.countCharacters(List.of(fractional)));
+  }
 }
