@@ -323,8 +323,31 @@ impl Default for Options {
     }
 }
 
+/// 监听控制台端口。
+///
+/// 重启时旧进程可能还没完全退干净，直接 bind 会拿到 EADDRINUSE 然后整个进程退出
+/// （被 systemd/hub 这类管理器重启时就表现为"起来就挂"）。所以对"地址被占用"重试几轮，
+/// 其他错误立即上报。
+fn listen(port: u16) -> std::io::Result<TcpListener> {
+    let mut last = None;
+    for attempt in 0..20 {
+        match TcpListener::bind(("127.0.0.1", port)) {
+            Ok(listener) => return Ok(listener),
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                if attempt == 0 {
+                    eprintln!("[keysim] 端口 {port} 仍被占用，等待旧进程退出…");
+                }
+                last = Some(error);
+                thread::sleep(std::time::Duration::from_millis(150));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last.unwrap_or_else(|| std::io::Error::new(std::io::ErrorKind::AddrInUse, "端口一直被占用")))
+}
+
 pub fn serve(options: Options) -> std::io::Result<Arc<Console>> {
-    let listener = TcpListener::bind(("127.0.0.1", options.http))?;
+    let listener = listen(options.http)?;
     let bound = listener.local_addr()?.port();
     let events: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
 
