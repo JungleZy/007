@@ -457,7 +457,11 @@ fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timel
     Ok(builder.build(&options.alphabet, groups))
 }
 
-/// 随机报文：按字母表取字符、按组切分
+/// 电报纸一行排 10 组：随机报文按这个宽度换行，报文框里一眼能数清组数。
+/// 换行只是排版，validate/split_groups 用 split_whitespace，换行与空格等价。
+pub const GROUPS_PER_LINE: usize = 10;
+
+/// 随机报文：按字母表取字符、按组切分，每 10 组换一行
 pub fn random_message(alphabet: &str, groups: usize, group_size: usize, seed: Option<u32>) -> Result<String, String> {
     let characters = morse::characters(alphabet)?;
     let mut rng = crate::timeline::Rng::new(seed.unwrap_or_else(|| {
@@ -466,15 +470,16 @@ pub fn random_message(alphabet: &str, groups: usize, group_size: usize, seed: Op
             .map(|value| value.subsec_nanos() ^ value.as_secs() as u32)
             .unwrap_or(1)
     }));
-    let mut out = Vec::with_capacity(groups);
-    for _ in 0..groups.max(1) {
-        let mut group = String::with_capacity(group_size);
-        for _ in 0..group_size.max(1) {
-            group.push(rng.pick(&characters));
+    let mut out = String::new();
+    for index in 0..groups.max(1) {
+        if index > 0 {
+            out.push(if index % GROUPS_PER_LINE == 0 { '\n' } else { ' ' });
         }
-        out.push(group);
+        for _ in 0..group_size.max(1) {
+            out.push(rng.pick(&characters));
+        }
     }
-    Ok(out.join(" "))
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -540,6 +545,26 @@ mod tests {
         for item in timeline.body_chars() {
             assert_eq!(item.keys.len(), 1, "{} 应是 F1 单键直出", item.value);
         }
+    }
+
+    #[test]
+    /// 随机报文按电报纸宽度换行：每行最多 10 组，且换行不影响分组解析
+    fn random_message_wraps_at_ten_groups() {
+        let text = random_message("letter", 100, 4, Some(7)).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 10, "100 组应排成 10 行");
+        for line in &lines {
+            let count = line.split_whitespace().count();
+            assert!(count <= GROUPS_PER_LINE, "一行 {count} 组，超过 {GROUPS_PER_LINE}");
+        }
+        // 换行与空格等价：解析出的组数与字数不受排版影响
+        let groups = validate(&text, "letter").unwrap();
+        assert_eq!(groups.len(), 100);
+        assert!(groups.iter().all(|group| group.chars().count() == 4));
+
+        // 不足一行时不换行
+        let short = random_message("letter", 4, 4, Some(7)).unwrap();
+        assert_eq!(short.lines().count(), 1);
     }
 
     #[test]
