@@ -584,7 +584,37 @@ const attachScrollbar = (view, bar, axis) => {
 const tape = {
   canvas: $('tape'), view: $('tapeView'), track: $('tapeTrack'),
   marks: [], duration: 0, key: 'hand', playhead: null, truncated: false,
-  pxPerMs: 1, follow: true
+  pxPerMs: 1, follow: true,
+  // 播放头插值：服务端约 7 次/秒报"已发到第几毫秒"，两次之间按倍速自己推进，
+  // 这样播放头是 60fps 连续走的，而不是一秒跳七下
+  play: null, raf: 0
+}
+const smooth = matchMedia('(prefers-reduced-motion: reduce)').matches === false
+const stopPlayhead = () => {
+  if (tape.raf) cancelAnimationFrame(tape.raf)
+  tape.raf = 0
+  tape.play = null
+}
+const animatePlayhead = () => {
+  tape.raf = 0
+  if (!tape.play) return
+  const {at, since, speed} = tape.play
+  const advanced = at + (performance.now() - since) * speed
+  tape.playhead = Math.min(tape.duration, Math.max(at, advanced))
+  followPlayhead()
+  drawTape()
+  if (tape.play) tape.raf = requestAnimationFrame(animatePlayhead)
+}
+/// 收到一次进度上报：校准锚点，然后交给 rAF 连续推进
+const markPlayhead = (at, speed) => {
+  tape.play = {at, since: performance.now(), speed: Number.isFinite(speed) && speed > 0 ? speed : 1}
+  tape.playhead = at
+  if (smooth) {
+    if (!tape.raf) tape.raf = requestAnimationFrame(animatePlayhead)
+  } else {
+    followPlayhead()
+    drawTape()
+  }
 }
 const tapeWidth = () => Math.max(tape.view.clientWidth, Math.ceil(tape.duration * tape.pxPerMs) + 20)
 
@@ -677,17 +707,20 @@ const syncFollowButton = () => {
   setShown('btnFollow', tape.playhead !== null && !tape.follow)
 }
 
-/// 拍发时让播放头跟着走；用户自己拖过纸带就不再抢方向盘
+/// 拍发时让播放头跟着走：过了视窗中线就把它钉在中间，纸带连续走。
+/// 原来是"快撞右边缘才跳一屏"，那一下最不顺。用户自己拖过纸带就不再抢方向盘。
 const followPlayhead = () => {
   syncFollowButton()
   if (!tape.follow || tape.playhead === null) return
-  const x = 10 + tape.playhead * tape.pxPerMs
   const view = tape.view
-  if (x < view.scrollLeft + 40 || x > view.scrollLeft + view.clientWidth - 60) {
-    view.scrollLeft = Math.max(0, x - view.clientWidth * 0.4)
-  }
+  const x = 10 + tape.playhead * tape.pxPerMs
+  const half = view.clientWidth / 2
+  const limit = Math.max(0, tapeWidth() - view.clientWidth)
+  const desired = Math.max(0, Math.min(limit, x - half))
+  // 起头半屏内不动（播放头还没到中线），到中线之后纸带才开始走
+  if (Math.abs(view.scrollLeft - desired) > 0.5) view.scrollLeft = desired
 }
-syncTapeBar = attachScrollbar(tape.view, $('tapeBar'), 'x')
+
 window.addEventListener('resize', drawTape)
 tape.view.addEventListener('scroll', drawTape, {passive: true})
 // 左键按住拖动走纸：横向长内容最自然的操作，滚轮与滚动条照旧可用
@@ -735,6 +768,7 @@ $('tapeZoom').addEventListener('change', () => {
 })
 
 const clearTape = note => {
+  stopPlayhead()
   tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false
   tape.track.style.width = '1px'
   drawTape()
@@ -761,6 +795,7 @@ const runPreview = async () => {
   tape.duration = Number(result.duration) || 0
   tape.key = $('key').value
   tape.truncated = result.marksTruncated === true
+  stopPlayhead()
   tape.playhead = null
   tape.follow = true
   tape.view.scrollLeft = 0
@@ -884,15 +919,16 @@ const applyState = raw => {
   const total = Number(replay.total) || 0
   const sent = Number(replay.sent) || 0
   if (running && total > 0) {
-    // 位置用服务端报的"已发到时间轴第几毫秒"，不再按帧数线性插值
-    tape.playhead = Number.isFinite(replay.at) && replay.at > 0 ? replay.at : tape.duration * (sent / total)
-    followPlayhead()
-    drawTape()
-    setNote('mProgress', sent + ' / ' + total + ' 帧 · ' + (tape.playhead / 1000).toFixed(1) + 's')
-  } else if (!running && tape.playhead !== null && sent === 0) {
-    tape.playhead = null
-    syncFollowButton()
-    drawTape()
+    const at = Number.isFinite(replay.at) && replay.at > 0 ? replay.at : tape.duration * (sent / total)
+    markPlayhead(at, replay.speed)
+    setNote('mProgress', sent + ' / ' + total + ' 帧 · ' + (at / 1000).toFixed(1) + 's')
+  } else if (!running) {
+    stopPlayhead()
+    if (tape.playhead !== null && sent === 0) {
+      tape.playhead = null
+      syncFollowButton()
+      drawTape()
+    }
   }
 }
 
@@ -905,10 +941,12 @@ events.onmessage = message => {
     const total = Number(event.total) || 0
     const sent = Number(event.sent) || 0
     if (total > 0) {
-      tape.playhead = Number.isFinite(event.at) && event.at > 0 ? event.at : tape.duration * (sent / total)
-      followPlayhead()
-      drawTape()
-      setNote('mProgress', sent + ' / ' + total + ' 帧 · ' + (tape.playhead / 1000).toFixed(1) + 's')
+      const at = Number.isFinite(event.at) && event.at > 0 ? event.at : tape.duration * (sent / total)
+      if (sent >= total) stopPlayhead()
+      else markPlayhead(at, event.speed)
+      tape.playhead = at
+      if (!tape.raf) { followPlayhead(); drawTape() }
+      setNote('mProgress', sent + ' / ' + total + ' 帧 · ' + (at / 1000).toFixed(1) + 's')
     }
   }
 }

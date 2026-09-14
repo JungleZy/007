@@ -28,6 +28,8 @@ pub type Sink = Arc<dyn Fn(Value) + Send + Sync>;
 struct Replay {
     sent: usize,
     total: usize,
+    /// 回放倍速：页面用它在两次上报之间本地插值，播放头才能 60fps 地走
+    speed: f64,
     /// 已发出的最后一帧在时间轴上的毫秒数。
     /// 播放头必须用它定位：帧在时间上并不等距（按压几十毫秒、组间隔几百毫秒），
     /// 按 sent/total 线性插值画出来的进度条只会等步长走，和报文对不上。
@@ -150,9 +152,9 @@ impl VirtualSerial {
             "replay": match replay.as_ref() {
                 Some(state) => json!({
                     "running": true, "sent": state.sent, "total": state.total,
-                    "at": state.at, "key": state.key, "text": state.text
+                    "at": state.at, "speed": state.speed, "key": state.key, "text": state.text
                 }),
-                None => json!({"running": false, "sent": 0, "total": 0, "at": 0.0})
+                None => json!({"running": false, "sent": 0, "total": 0, "at": 0.0, "speed": 1.0})
             }
         })
     }
@@ -350,6 +352,7 @@ impl VirtualSerial {
         *self.replay.lock() = Some(Replay {
             sent: 0,
             total: frames.len(),
+            speed,
             at: 0.0,
             key: timeline.key.to_string(),
             text: text.to_string(),
@@ -454,7 +457,7 @@ impl VirtualSerial {
                 // 按时间节流上报（约 7 次/秒）：既让播放头走得顺，又不会一帧一条
                 if index == total || last_report.elapsed() >= Duration::from_millis(140) {
                     last_report = Instant::now();
-                    (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": at}));
+                    (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": at, "speed": speed}));
                 }
                 // 走过一组就报一行：组号、这组的报文、到此为止的实测码率
                 while next_milestone < milestones.len() && *at >= milestones[next_milestone].0 {
@@ -497,7 +500,7 @@ impl VirtualSerial {
                 );
             }
             let ended_at = items.get(index.saturating_sub(1)).map(|item| item.0).unwrap_or(0.0);
-            (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at}));
+            (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at, "speed": speed}));
             manager.announce();
         });
         Ok(self.state())
