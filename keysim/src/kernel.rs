@@ -178,6 +178,15 @@ fn probe_usbip() -> Verdict {
     Verdict { id: "linux-usbip", title: USBIP_TITLE, selectable, available: true, reason: None, install: None }
 }
 
+/// 被测程序能不能真的打开这个设备节点（不是"存在"，是"可读可写"）
+pub fn readable_and_writable(path: &str) -> bool {
+    // SAFETY: access 只查权限，不打开文件
+    unsafe {
+        let Ok(c_path) = std::ffi::CString::new(path) else { return false };
+        libc::access(c_path.as_ptr(), libc::R_OK | libc::W_OK) == 0
+    }
+}
+
 fn existing_acm() -> Vec<String> {
     fs::read_dir("/dev")
         .map(|entries| {
@@ -218,11 +227,24 @@ fn start_usbip(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, String
     for _ in 0..40 {
         let now = existing_acm();
         if let Some(name) = now.iter().find(|name| !before.contains(name)) {
+            let path = format!("/dev/{name}");
+            // 内核默认把 /dev/ttyACM* 给 root:dialout 0660。被测程序（浏览器、桌面壳）
+            // 通常不在 dialout 组里，不认领就是"设备在但打不开"。
+            let granted = attachd::ask(json!({"op": "grant", "device": name}));
+            match (granted["ok"] == true, readable_and_writable(&path)) {
+                (_, true) => log(format!("虚拟串口可直接打开：{path}")),
+                (true, false) => log(format!("已认领 {path}，但当前进程仍打不开它（属主已改，稍后重试或重开设备）")),
+                (false, false) => log(format!(
+                    "{path} 已出现但当前用户打不开（内核默认 root:dialout）：{}。重新执行一次 {} 可装上 udev 规则永久解决",
+                    granted["error"].as_str().unwrap_or("认领失败"),
+                    crate::install::install_command()
+                )),
+            }
             return Ok(Started {
                 id: "linux-usbip",
                 title: USBIP_TITLE,
                 writer: Writer::Emulator(emulator),
-                selectable: format!("/dev/{name}"),
+                selectable: path,
                 vhci_port,
             });
         }

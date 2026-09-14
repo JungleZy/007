@@ -8,6 +8,7 @@ use std::process::Command;
 use serde_json::{json, Value};
 
 const UNIT_PATH: &str = "/etc/systemd/system/keysim-attachd.service";
+const UDEV_PATH: &str = "/etc/udev/rules.d/70-keysim-virtual-serial.rules";
 
 fn self_path() -> String {
     std::env::current_exe()
@@ -69,6 +70,17 @@ fn target_user() -> (String, u32) {
     (name, uid)
 }
 
+/// udev 规则只匹配 keysim 自己的虚拟设备（VID:PID = 1209:5253），
+/// 把节点属主设成安装者。这样不必把用户塞进 dialout 组，
+/// 也不会影响任何真实串口的权限。
+fn udev_text(user: &str) -> String {
+    format!(
+        "# keysim 虚拟串口（USB/IP + CDC-ACM）：只认自家 VID:PID，交给 {user}\n\
+         SUBSYSTEM==\"tty\", ATTRS{{idVendor}}==\"1209\", ATTRS{{idProduct}}==\"5253\", \
+         OWNER=\"{user}\", MODE=\"0660\", TAG+=\"uaccess\"\n"
+    )
+}
+
 fn unit_text(executable: &str, uid: u32) -> String {
     format!(
         "[Unit]\n\
@@ -103,11 +115,21 @@ pub fn write_unit_as_root() -> Result<Value, String> {
             ));
         }
     }
+    // udev 规则：让以后每次挂载出来的节点直接归安装者，不用再认领
+    let udev = std::fs::write(UDEV_PATH, udev_text(&user))
+        .map_err(|error| format!("写 {UDEV_PATH} 失败：{error}"));
+    if udev.is_ok() {
+        let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+        let _ = Command::new("udevadm")
+            .args(["trigger", "--subsystem-match=tty", "--action=change"])
+            .output();
+    }
     // 未装 vhci-hcd 时这一步失败不致命：attach 时还会再试一次
     let _ = Command::new("modprobe").arg("vhci-hcd").output();
     Ok(json!({
         "ok": true,
         "unit": UNIT_PATH,
+        "udev": if udev.is_ok() { Value::from(UDEV_PATH) } else { Value::Null },
         "binary": executable,
         "socket": crate::attachd::DEFAULT_SOCKET,
         "user": user,
@@ -180,7 +202,11 @@ pub fn uninstall_as_root() -> Result<Value, String> {
     let _ = Command::new("systemctl").args(["disable", "--now", "keysim-attachd.service"]).output();
     std::fs::remove_file(UNIT_PATH).map_err(|error| format!("删除 {UNIT_PATH} 失败：{error}"))?;
     let _ = Command::new("systemctl").arg("daemon-reload").output();
-    Ok(json!({"ok": true, "removed": UNIT_PATH}))
+    let udev_removed = std::fs::remove_file(UDEV_PATH).is_ok();
+    if udev_removed {
+        let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+    }
+    Ok(json!({"ok": true, "removed": UNIT_PATH, "udevRemoved": udev_removed}))
 }
 
 #[cfg(test)]
@@ -203,6 +229,18 @@ mod tests {
         assert!(is_build_artifact("/home/u/007/keysim/target/debug/keysim"));
         assert!(!is_build_artifact(INSTALL_PATH));
         assert!(!is_build_artifact("/opt/keysim/keysim"));
+    }
+
+    #[test]
+    /// udev 规则必须只匹配 keysim 自家虚拟设备，且不碰真实串口的权限
+    fn udev_rule_is_scoped_to_our_virtual_device() {
+        let rule = udev_text("zhang");
+        assert!(rule.contains(r#"ATTRS{idVendor}=="1209""#), "{rule}");
+        assert!(rule.contains(r#"ATTRS{idProduct}=="5253""#), "{rule}");
+        assert!(rule.contains(r#"OWNER="zhang""#), "{rule}");
+        assert!(rule.contains(r#"SUBSYSTEM=="tty""#), "{rule}");
+        // 不允许出现无条件放权：没有 idVendor 限定的 MODE=0666 之类
+        assert!(!rule.contains("0666"), "不该把设备开成全局可写：{rule}");
     }
 
     #[test]

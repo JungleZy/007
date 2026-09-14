@@ -178,10 +178,69 @@ fn do_probe() -> Value {
     })
 }
 
-fn handle(request: &Value) -> Value {
+/// 只认自家虚拟设备的 VID/PID（usbip.rs 的 VENDOR_ID / PRODUCT_ID）
+const OUR_VENDOR: &str = "1209";
+const OUR_PRODUCT: &str = "5253";
+
+/// 设备名必须是 ttyACM<数字>：不接受路径、不接受别的设备类
+fn valid_tty_name(name: &str) -> bool {
+    let Some(index) = name.strip_prefix("ttyACM") else { return false };
+    !index.is_empty() && index.chars().all(|character| character.is_ascii_digit())
+}
+
+/// 认领校验：该 tty 的 USB 父设备必须就是 keysim 造的那台，
+/// 否则 grant 就变成了"任意串口提权"
+fn is_our_tty(name: &str) -> Result<(), String> {
+    if !valid_tty_name(name) {
+        return Err(format!("设备名 {name} 不是 ttyACM<数字>"));
+    }
+    let base = format!("/sys/class/tty/{name}/device/..");
+    let read = |field: &str| {
+        fs::read_to_string(format!("{base}/{field}"))
+            .map(|value| value.trim().to_string())
+            .map_err(|error| format!("读 {field} 失败：{error}"))
+    };
+    let vendor = read("idVendor")?;
+    let product = read("idProduct")?;
+    if vendor == OUR_VENDOR && product == OUR_PRODUCT {
+        Ok(())
+    } else {
+        Err(format!("{name} 的 USB 标识是 {vendor}:{product}，不是 keysim 的虚拟设备"))
+    }
+}
+
+/// 把自家虚拟串口的设备节点交给调用方 uid：
+/// 内核默认把 /dev/ttyACM* 给 root:dialout 0660，不在 dialout 组的用户
+/// （包括浏览器与桌面程序）打不开它。这里只 chown keysim 自己造的那一台。
+fn do_grant(request: &Value, allow_uid: Option<u32>) -> Value {
+    let name = request["device"].as_str().unwrap_or_default();
+    if let Err(error) = is_our_tty(name) {
+        return json!({"ok": false, "error": error});
+    }
+    let Some(uid) = allow_uid else {
+        return json!({"ok": false, "error": "助手未配置 --uid，不知道该把设备交给谁"});
+    };
+    let path = format!("/dev/{name}");
+    // SAFETY: path 已校验为自家虚拟设备的节点名；chown 只改属主，gid 传 u32::MAX 表示不变
+    let changed = unsafe {
+        let c_path = std::ffi::CString::new(path.clone()).unwrap_or_default();
+        libc::chown(c_path.as_ptr(), uid, u32::MAX)
+    };
+    if changed != 0 {
+        return json!({"ok": false, "error": format!("chown {path} 失败：{}", std::io::Error::last_os_error())});
+    }
+    if let Err(error) = fs::set_permissions(&path, <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o660)) {
+        return json!({"ok": false, "error": format!("chmod {path} 失败：{error}")});
+    }
+    eprintln!("[keysim-attachd] grant 成功：{path} 交给 uid {uid}");
+    json!({"ok": true, "device": path, "uid": uid})
+}
+
+fn handle(request: &Value, allow_uid: Option<u32>) -> Value {
     match request["op"].as_str().unwrap_or("") {
         "attach" => do_attach(request),
         "detach" => do_detach(request),
+        "grant" => do_grant(request, allow_uid),
         "probe" => do_probe(),
         other => json!({"ok": false, "error": format!("未知操作 {other}")}),
     }
@@ -243,7 +302,7 @@ pub fn serve(path: &str, allow_uid: Option<u32>) -> std::io::Result<()> {
                 let mut line = String::new();
                 match BufReader::new(stream.try_clone()?).read_line(&mut line) {
                     Ok(_) => match serde_json::from_str::<Value>(line.trim()) {
-                        Ok(request) => handle(&request),
+                        Ok(request) => handle(&request, allow_uid),
                         Err(error) => json!({"ok": false, "error": format!("请求不是合法 JSON：{error}")}),
                     },
                     Err(error) => json!({"ok": false, "error": format!("读取请求失败：{error}")}),
@@ -302,8 +361,31 @@ mod tests {
     #[test]
     /// 未知操作不panic，按错误返回
     fn unknown_operation_is_rejected() {
-        let response = handle(&json!({"op": "nope"}));
+        let response = handle(&json!({"op": "nope"}), None);
         assert_eq!(response["ok"], false);
         assert!(response["error"].as_str().unwrap().contains("未知操作"));
+    }
+
+    #[test]
+    /// grant 只认 ttyACM<数字>：路径穿越、别的设备类、空名一律拒
+    fn grant_only_accepts_our_device_names() {
+        for bad in ["../../dev/sda", "ttyUSB0", "ttyACM", "ttyACM0x", "", "/dev/ttyACM0"] {
+            assert!(!valid_tty_name(bad), "{bad} 不该被接受");
+        }
+        assert!(valid_tty_name("ttyACM0"));
+        assert!(valid_tty_name("ttyACM12"));
+    }
+
+    #[test]
+    /// 即便名字合法，USB 标识不是 keysim 的也必须拒——否则 grant 成了任意串口提权
+    fn grant_refuses_devices_that_are_not_ours() {
+        let response = do_grant(&json!({"op": "grant", "device": "ttyACM99"}), Some(1000));
+        assert_eq!(response["ok"], false);
+        let error = response["error"].as_str().unwrap_or_default();
+        assert!(error.contains("idVendor") || error.contains("不是 keysim"), "{error}");
+
+        let hijack = do_grant(&json!({"op": "grant", "device": "ttyUSB0"}), Some(1000));
+        assert_eq!(hijack["ok"], false);
+        assert!(hijack["error"].as_str().unwrap().contains("ttyACM"), "{hijack}");
     }
 }
