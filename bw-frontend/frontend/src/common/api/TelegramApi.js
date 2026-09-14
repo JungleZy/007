@@ -389,12 +389,14 @@ export const getPreTermTrainTotal = data => {
 }
 
 export const savePreTermTrainTotal = data => {
-  return axios({
-    method: 'post',
-    url: '/api/radiotelephone/finish',
-    data
-  })
+  return axios({ method: 'post', url: '/api/radiotelephone/finish', data })
 }
+
+export const beginPreTermTrain = data => axios({ method: 'post', url: '/api/radiotelephone/begin', data })
+
+export const pausePreTermTrain = data => axios({ method: 'post', url: '/api/radiotelephone/pause', data })
+
+export const resumePreTermTrain = data => axios({ method: 'post', url: '/api/radiotelephone/resume', data })
 
 export const getTermListData = data => {
   return axios({

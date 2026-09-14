@@ -76,16 +76,17 @@ export default {
 }
 </script>
 <script setup>
-import {onBeforeUnmount, onMounted, ref,nextTick} from 'vue'
+import {onBeforeUnmount, onMounted, ref, nextTick} from 'vue'
 import {useRouter} from 'vue-router'
 import {createFromIconfontCN} from "@ant-design/icons-vue";
+import {message} from 'ant-design-vue'
 import {getMilitaryAll} from "../../../../../common/api/MilitaryTermApi";
-import {getPreTermTrainTotal,savePreTermTrainTotal} from "../../../../../common/api/TelegramApi";
+import {beginPreTermTrain, savePreTermTrainTotal} from "../../../../../common/api/TelegramApi";
 
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 });
-const searchStr = ref('')//
+const searchStr = ref('')
 const militaryTerm = ref([])
 const militaryTermSearch = ref([])
 const twoMilitaryTerm = ref([])
@@ -95,26 +96,105 @@ const selectedOneKey = ref(0)
 const selectedTwoKey = ref(0)
 const selectedTwoIndex = ref(0)
 const militaryTermIndex = ref(0)
-const totalTime = ref(0)
-let timer = null
 const tipIsShow = ref(true)
-const router = useRouter();
-const drillPath = ref('');
-const userRole = ref(JSON.parse(localStorage.getItem('userRole')));
-const fs = ref(JSON.parse(localStorage.getItem('fs')));
-router.getRoutes().forEach(r => {
-  if (r.name === 'MilitaryDeploy') {
-    drillPath.value = r.path;
+const router = useRouter()
+const drillPath = ref('')
+const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
+const fs = ref(JSON.parse(localStorage.getItem('fs')))
+const sessionId = ref(null)
+let beginPromise = null
+let finishPromise = null
+let unmounted = false
+
+router.getRoutes().forEach(route => {
+  if (route.name === 'MilitaryDeploy') {
+    drillPath.value = route.path
   }
-});
+})
+
+function responseMessage(response, fallback) {
+  if (response && response.message) {
+    return response.message
+  }
+  if (response && response.description) {
+    return response.description
+  }
+  return fallback
+}
+
+function requireSuccessful(response, fallback) {
+  if (!response || response.code !== 200) {
+    throw new Error(responseMessage(response, fallback))
+  }
+  return response
+}
+
+function showLifecycleError(error, fallback) {
+  let text = fallback
+  if (error && error.response && error.response.data) {
+    text = responseMessage(error.response.data, fallback)
+  } else if (error && error.message) {
+    text = error.message
+  }
+  message.error(text)
+}
+
+function beginSession() {
+  if (sessionId.value) {
+    return Promise.resolve(sessionId.value)
+  }
+  if (beginPromise) {
+    return beginPromise
+  }
+  beginPromise = beginPreTermTrain({type: 1})
+    .then(response => {
+      const successful = requireSuccessful(response, '开始训练失败')
+      const id = successful.data && successful.data.sessionId
+      if (!id) {
+        throw new Error('开始训练未返回有效会话')
+      }
+      sessionId.value = id
+      return id
+    })
+    .catch(error => {
+      beginPromise = null
+      throw error
+    })
+  return beginPromise
+}
+
+function finishSession() {
+  if (finishPromise) {
+    return finishPromise
+  }
+  finishPromise = beginSession()
+    .then(id => savePreTermTrainTotal({type: 1, sessionId: id}))
+    .then(response => {
+      requireSuccessful(response, '结束训练失败')
+      sessionId.value = null
+      beginPromise = null
+      return true
+    })
+    .catch(error => {
+      if (!unmounted) {
+        showLifecycleError(error, '结束训练失败')
+      }
+      return false
+    })
+    .finally(() => {
+      finishPromise = null
+    })
+  return finishPromise
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
-  getPreTermTrainTotal({type:1}).then(res=>{
-    timer= setInterval(()=>{
-      totalTime.value++
-    },1000)
-  })
   init()
+  beginSession().catch(error => {
+    if (!unmounted) {
+      showLifecycleError(error, '开始训练失败')
+    }
+  })
 })
 const init = ()=>{
   getMilitaryAll().then(res=>{
@@ -231,9 +311,11 @@ const onKeyDown = (v) => {
   }
 }
 onBeforeUnmount(() => {
-  savePreTermTrainTotal({type:1,totalTime:totalTime.value*1000}).then();
-  clearInterval(timer)
-  window.removeEventListener("keydown", onKeyDown)
+  unmounted = true
+  window.removeEventListener('keydown', onKeyDown)
+  if (sessionId.value || beginPromise) {
+    finishSession()
+  }
 })
 const jumpDeploy = () => {
   router.push({path: drillPath.value})

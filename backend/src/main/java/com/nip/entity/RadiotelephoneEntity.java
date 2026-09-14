@@ -1,51 +1,58 @@
 package com.nip.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Cacheable;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * @Author: wushilin
- * @Data: 2022-06-22 09:09
- * @Description:
- */
+import java.time.Instant;
+
+/** Historical aggregate and persisted server-side clock for pre-job radio study. */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity(name = "t_radiotelephone_train")
-// (user_id, type) 是业务唯一键：listPage/finish 在读路径懒建统计行，没有这条唯一约束时
-// 两个并发首调会各插一行，统计页重复显示该 type，且后续结算只累加 firstResult() 命中的那行。
-// 配套迁移：backend/database/migrations/2026-09-08-01-unique-lazy-create.sql
 @Table(name = "t_radiotelephone_train", uniqueConstraints =
     @UniqueConstraint(name = "uk_radiotelephone_train_user_type", columnNames = {"user_id", "type"}))
-@Cacheable(value = false)
+@Cacheable(false)
 public class RadiotelephoneEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   private String id;
 
-
-  /**
-   * 用户id
-   */
+  /** 用户 id. */
   private String userId;
 
-
-  /**
-   * 0 通报用语 1 军语密语
-   */
+  /** 0 通报用语，1 军语密语. */
   private Integer type;
 
-  /**
-   * 总时长
-   */
+  /** Historical cumulative active seconds, retained as the existing string column. */
   private String totalTime;
 
-  /**
-   * 训练次数
-   */
+  /** Historical number of completed sessions. */
   private Integer totalCount;
 
+  /** Active session id; null when there is no session in progress. */
+  @Column(name = "active_session_id", length = 64)
+  private String activeSessionId;
+
+  /** Start of the currently running active interval; null while paused. */
+  @Column(name = "session_started_at", columnDefinition = "datetime(6)")
+  private Instant sessionStartedAt;
+
+  /** Milliseconds accumulated before the current active interval. */
+  @Column(name = "active_millis")
+  private Long activeMillis;
+
+  /** Last finalized session id, used as a replay marker. */
+  @Column(name = "finalized_session_id", length = 64)
+  private String finalizedSessionId;
 }

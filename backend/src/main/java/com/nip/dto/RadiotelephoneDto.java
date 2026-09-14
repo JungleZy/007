@@ -19,11 +19,8 @@ public class RadiotelephoneDto {
   @Schema(name = "0 通报用语 1 军语密语")
   private Integer type;
 
-  /**
-   * 总时长
-   */
-  @Schema(name = "总时长")
-  private Integer totalTime;
-
+  /** Server-issued study identity returned by begin and echoed by lifecycle calls. */
+  @Schema(name = "server-issued study session id")
+  private String sessionId;
 }
 

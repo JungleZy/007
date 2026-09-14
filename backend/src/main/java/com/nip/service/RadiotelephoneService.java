@@ -1,111 +1,227 @@
 package com.nip.service;
 
-import com.nip.common.repository.IdempotentWrite;
+import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.RadiotelephoneDao;
+import com.nip.dao.UserDao;
 import com.nip.dto.RadiotelephoneDto;
 import com.nip.dto.vo.RadiotelephoneVO;
 import com.nip.entity.RadiotelephoneEntity;
 import com.nip.entity.UserEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 /**
- * @Author: wushilin
- * @Data: 2022-06-22 09:33
- * @Description:
+ * Persists the pre-job radio study clock and its historical aggregate.
+ *
+ * <p>The user row is the serialization point.  It exists before a radio aggregate
+ * does, so locking it makes first-use creation and every later state transition
+ * one transaction without a detached-row or nested-transaction retry path.</p>
  */
 @ApplicationScoped
 @Slf4j
 public class RadiotelephoneService {
 
   private final UserService userService;
+  private final UserDao userDao;
   private final RadiotelephoneDao radiotelephoneDao;
-  private final IdempotentWrite idempotentWrite;
 
   @Inject
-  public RadiotelephoneService(UserService userService, RadiotelephoneDao radiotelephoneDao,
-                               IdempotentWrite idempotentWrite) {
+  public RadiotelephoneService(UserService userService, UserDao userDao,
+                               RadiotelephoneDao radiotelephoneDao) {
     this.userService = userService;
+    this.userDao = userDao;
     this.radiotelephoneDao = radiotelephoneDao;
-    this.idempotentWrite = idempotentWrite;
   }
 
-  @Transactional
+  @Transactional(rollbackOn = Exception.class)
   public List<RadiotelephoneVO> listPage(String token, RadiotelephoneDto dto) {
-    // DATA-03：走 userService.getUserByToken，token 失效时抛 UnauthorizedException（200+code203），不再裸解引用 NPE
-    UserEntity userEntity = userService.getUserByToken(token);
-    List<RadiotelephoneEntity> entityList = radiotelephoneDao.findAllByUserId(userEntity.getId());
-    RadiotelephoneEntity byUserIdAndType = radiotelephoneDao.findByUserIdAndType(userEntity.getId(), dto.getType());
-    if (byUserIdAndType == null) {
-      // 读路径懒建：并发首调只能落 1 行（唯一键 uk_radiotelephone_train_user_type），撞键的一方复用对方那行
-      entityList.add(accumulate(userEntity.getId(), dto.getType(), 0, 0));
+    UserEntity user = authenticatedUserWithLock(token);
+    if (dto != null) {
+      validate(dto);
+      findOrCreateLocked(user.getId(), dto.getType());
     }
-    List<RadiotelephoneVO> convert = PojoUtils.convert(entityList, RadiotelephoneVO.class);
-    convert.sort(Comparator.comparingInt(RadiotelephoneVO::getType));
-    return convert;
+    return radiotelephoneDao.find("userId", user.getId()).withLock(LockModeType.PESSIMISTIC_WRITE)
+        .list().stream().map(row -> view(row, row.getActiveSessionId()))
+        .sorted(Comparator.comparing(RadiotelephoneVO::getType)).toList();
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public RadiotelephoneVO begin(RadiotelephoneDto dto, String token) {
+    validate(dto);
+    UserEntity user = authenticatedUserWithLock(token);
+    RadiotelephoneEntity row = findOrCreateLocked(user.getId(), dto.getType());
+
+    // Begin is deliberately idempotent.  A browser retry must not replace the
+    // session or its start time, including while the session is paused.
+    if (row.getActiveSessionId() == null) {
+      row.setActiveSessionId(UUID.randomUUID().toString());
+      row.setSessionStartedAt(Instant.now());
+      if (row.getActiveMillis() == null) {
+        row.setActiveMillis(0L);
+      }
+      radiotelephoneDao.saveAndFlush(row);
+    }
+    return view(row, row.getActiveSessionId());
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public RadiotelephoneVO pause(RadiotelephoneDto dto, String token) {
+    validate(dto);
+    String sessionId = requiredSessionId(dto);
+    UserEntity user = authenticatedUserWithLock(token);
+    RadiotelephoneEntity row = existingLocked(user.getId(), dto.getType(), sessionId);
+    requireActiveSession(row, sessionId, user.getId());
+
+    if (row.getSessionStartedAt() != null) {
+      row.setActiveMillis(addElapsed(row.getActiveMillis(), row.getSessionStartedAt(), Instant.now()));
+      row.setSessionStartedAt(null);
+      radiotelephoneDao.saveAndFlush(row);
+    }
+    return view(row, sessionId);
+  }
+
+  @Transactional(rollbackOn = Exception.class)
+  public RadiotelephoneVO resume(RadiotelephoneDto dto, String token) {
+    validate(dto);
+    String sessionId = requiredSessionId(dto);
+    UserEntity user = authenticatedUserWithLock(token);
+    RadiotelephoneEntity row = existingLocked(user.getId(), dto.getType(), sessionId);
+    requireActiveSession(row, sessionId, user.getId());
+
+    // Resuming an already running session is also idempotent: never reset the
+    // authoritative start time on duplicate clicks or request retries.
+    if (row.getSessionStartedAt() == null) {
+      row.setSessionStartedAt(Instant.now());
+      radiotelephoneDao.saveAndFlush(row);
+    }
+    return view(row, sessionId);
   }
 
   @Transactional(rollbackOn = Exception.class)
   public RadiotelephoneVO finish(RadiotelephoneDto dto, String token) {
-    UserEntity userEntity = userService.getUserByToken(token);
-    int increment = dto.getTotalTime() == null ? 0 : dto.getTotalTime();
-    // 前端可以不经 listPage 直接结算：与 listPage 同口径走同一条幂等懒建路径，避免裸解引用 NPE
-    RadiotelephoneEntity save = accumulate(userEntity.getId(), dto.getType(), 1, increment);
-    return PojoUtils.convertOne(save, RadiotelephoneVO.class);
+    validate(dto);
+    String sessionId = requiredSessionId(dto);
+    UserEntity user = authenticatedUserWithLock(token);
+    RadiotelephoneEntity row = existingLocked(user.getId(), dto.getType(), sessionId);
+
+    // The last finalized session is retained solely as an idempotency marker.
+    // A delayed browser request therefore cannot increment a newer session.
+    if (sessionId.equals(row.getFinalizedSessionId())) {
+      return view(row, sessionId);
+    }
+    requireActiveSession(row, sessionId, user.getId());
+
+    long elapsedMillis = addElapsed(row.getActiveMillis(), row.getSessionStartedAt(), Instant.now());
+    long elapsedSeconds = Math.min(Integer.MAX_VALUE, elapsedMillis / 1_000L);
+    int priorCount = row.getTotalCount() == null ? 0 : row.getTotalCount();
+    row.setTotalCount(Math.addExact(priorCount, 1));
+    row.setTotalTime(String.valueOf((long) parseTotalTime(row.getTotalTime()) + elapsedSeconds));
+    row.setFinalizedSessionId(sessionId);
+    row.setActiveSessionId(null);
+    row.setSessionStartedAt(null);
+    row.setActiveMillis(null);
+    return view(radiotelephoneDao.saveAndFlush(row), sessionId);
   }
 
-  /**
-   * 幂等懒建 + 累加 (user_id, type) 唯一行：查不到就建，查到就在其上累加。
-   *
-   * <p>整段读-改-写放在独立事务里执行（{@link IdempotentWrite#inNewTransaction}）。撞唯一键说明
-   * 并发方刚插了同一行：只回滚那个独立事务，换新事务原样重跑一次，新快照能读到对方那行，
-   * 于是走更新分支而不是再插一行。约束冲突之外的异常原样抛出，不吞。
-   */
-  private RadiotelephoneEntity accumulate(String userId, Integer type, int countDelta, int timeDelta) {
-    // 两列都可空，而 MySQL 唯一索引允许多个 NULL 行 —— 懒建前必须挡住空键，否则唯一约束形同虚设
-    if (userId == null || userId.isBlank()) {
-      throw new IllegalArgumentException("话报训练统计缺少用户标识");
+  private UserEntity authenticatedUserWithLock(String token) {
+    UserEntity authenticated = userService.getUserByToken(token);
+    UserEntity locked = userDao.find("id", authenticated.getId())
+        .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();
+    if (locked == null) {
+      throw new IllegalArgumentException("用户不存在");
     }
-    if (type == null) {
-      throw new IllegalArgumentException("话报训练统计缺少训练类型");
+    return locked;
+  }
+
+  private RadiotelephoneEntity findOrCreateLocked(String userId, Integer type) {
+    RadiotelephoneEntity row = radiotelephoneDao.findByUserIdAndTypeForUpdate(userId, type);
+    if (row != null) {
+      return row;
     }
-    try {
-      return idempotentWrite.inNewTransaction(() -> applyDelta(userId, type, countDelta, timeDelta));
-    } catch (RuntimeException e) {
-      if (!IdempotentWrite.isConstraintConflict(e)) {
-        throw e;
-      }
-      log.info("话报训练统计行并发懒建撞唯一键，复用已存在行:userId={},type={}", userId, type);
-      return idempotentWrite.inNewTransaction(() -> applyDelta(userId, type, countDelta, timeDelta));
+
+    RadiotelephoneEntity created = new RadiotelephoneEntity();
+    created.setUserId(userId);
+    created.setType(type);
+    created.setTotalCount(0);
+    created.setTotalTime("0");
+    return radiotelephoneDao.saveAndFlush(created);
+  }
+
+  private RadiotelephoneEntity existingLocked(String userId, Integer type, String sessionId) {
+    RadiotelephoneEntity row = radiotelephoneDao.findByUserIdAndTypeForUpdate(userId, type);
+    if (row == null) {
+      rejectForeignSession(sessionId, userId);
+      throw new TerminalStateException("训练会话已失效");
+    }
+    return row;
+  }
+
+  private void rejectForeignSession(String sessionId, String userId) {
+    RadiotelephoneEntity foreign = radiotelephoneDao.findByActiveSessionId(sessionId);
+    if (foreign != null && !userId.equals(foreign.getUserId())) {
+      throw new ForbiddenException("话报训练会话不属于当前用户");
     }
   }
 
-  private RadiotelephoneEntity applyDelta(String userId, Integer type, int countDelta, int timeDelta) {
-    RadiotelephoneEntity entity = radiotelephoneDao.findByUserIdAndType(userId, type);
-    if (entity == null) {
-      entity = new RadiotelephoneEntity();
-      entity.setUserId(userId);
-      entity.setType(type);
-      entity.setTotalCount(0);
-      entity.setTotalTime("0");
+  private void validate(RadiotelephoneDto dto) {
+    if (dto == null || dto.getType() == null) {
+      throw new IllegalArgumentException("话报训练参数无效");
     }
-    entity.setTotalCount((entity.getTotalCount() == null ? 0 : entity.getTotalCount()) + countDelta);
-    entity.setTotalTime(String.valueOf(parseTotalTime(entity.getTotalTime()) + timeDelta));
-    // 必须 flush：唯一键冲突要在独立事务内部抛出，才能被上面的重试逻辑接住
-    return radiotelephoneDao.saveAndFlush(entity);
   }
 
-  /** 历史数据里 totalTime 是字符串列，非数字视为 0，不让脏数据把结算打成 500 */
+  private String requiredSessionId(RadiotelephoneDto dto) {
+    String sessionId = dto.getSessionId();
+    if (sessionId == null || sessionId.isBlank()) {
+      throw new IllegalArgumentException("话报训练缺少训练会话");
+    }
+    return sessionId.trim();
+  }
+
+  private void requireActiveSession(RadiotelephoneEntity row, String sessionId, String userId) {
+    if (sessionId.equals(row.getActiveSessionId())) {
+      return;
+    }
+    rejectForeignSession(sessionId, userId);
+    throw new TerminalStateException("训练会话已失效");
+  }
+
+  private RadiotelephoneVO view(RadiotelephoneEntity row, String sessionId) {
+    RadiotelephoneVO result = PojoUtils.convertOne(row, RadiotelephoneVO.class);
+    result.setSessionId(sessionId);
+    return result;
+  }
+
+  private long addElapsed(Long storedMillis, Instant startedAt, Instant now) {
+    long stored = storedMillis == null ? 0L : Math.max(0L, storedMillis);
+    if (startedAt == null) {
+      return stored;
+    }
+    long elapsed = Math.max(0L, Duration.between(startedAt, now).toMillis());
+    if (Long.MAX_VALUE - stored < elapsed) {
+      return Long.MAX_VALUE;
+    }
+    return stored + elapsed;
+  }
+
+  /** Historical rows can contain non-numeric totalTime; preserve them by treating them as zero. */
   private int parseTotalTime(String totalTime) {
+    if (totalTime == null || totalTime.isBlank()) {
+      return 0;
+    }
     try {
-      return Integer.parseInt(totalTime);
-    } catch (NumberFormatException e) {
+      return Math.max(0, Integer.parseInt(totalTime));
+    } catch (NumberFormatException exception) {
       log.warn("话报训练累计时长不是数字，按 0 计算:{}", totalTime);
       return 0;
     }

@@ -29,20 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Task 6.3 读路径懒建的并发守卫。
- *
- * <p>两条读路径在查不到记录时会在读请求里补建一行：
- * {@code POST /radiotelephone/listPage}（及同口径的 {@code finish}）懒建
- * {@code t_radiotelephone_train} 的 (user_id, type) 行；{@code GET /comprehensive/getUserInfo}
- * 懒建 {@code t_theory_knowledge_test_fallible} 的 user_id 行。缺唯一约束时两个并发首调各插一行，
- * 之后 DAO 的 {@code firstResult()} 只命中其中一行，另一行成孤儿 → 计数割裂。
- *
- * <p>怎么让「双方都查不到」成为确定事件而不是抢跑概率：每个线程先自己开一个事务并读一次
- * （既断言此刻确实没有行，又固定住 MySQL REPEATABLE READ 的一致性读快照），两个线程都读完
- * 才在栅栏处放行去调被测方法 —— 被测方法的 {@code @Transactional} 是 REQUIRED，会加入线程
- * 自己这个已经固定了快照的事务，于是双方必然都走到懒建分支。
- */
+/** Concurrency guards for read-path lazy creation and persisted radio sessions. */
 @QuarkusTest
 class ReadPathLazyCreateConcurrencyTest {
 
@@ -58,42 +45,57 @@ class ReadPathLazyCreateConcurrencyTest {
   void concurrentListPageFirstCallsCreateExactlyOneStatisticsRow() throws Exception {
     String token = UUID.randomUUID().toString();
     UserEntity user = Fixtures.user(userDao, token);
-    CyclicBarrier bothMissedTheRow = new CyclicBarrier(2);
+    CyclicBarrier ready = new CyclicBarrier(2);
 
-    List<List<RadiotelephoneVO>> results = race(() -> QuarkusTransaction.requiringNew().call(() -> {
-      assertNull(radiotelephoneDao.findByUserIdAndType(user.getId(), TYPE), "用例前置：该用户该类型不得已有统计行");
-      bothMissedTheRow.await(30, TimeUnit.SECONDS);
-      return radiotelephoneService.listPage(token, dto(TYPE, null));
-    }));
+    List<List<RadiotelephoneVO>> results = race(() -> {
+      ready.await(30, TimeUnit.SECONDS);
+      return radiotelephoneService.listPage(token, dto(TYPE));
+    });
 
     List<RadiotelephoneEntity> rows = radiotelephoneDao.findAllByUserId(user.getId());
-    assertEquals(1, rows.size(), "两个并发首调只能懒建出 1 行统计记录，多出来的那行会让统计页重复显示并成为孤儿");
+    assertEquals(1, rows.size(), "两个并发首调只能懒建出 1 行统计记录");
     for (List<RadiotelephoneVO> result : results) {
       assertEquals(1, result.stream().filter(vo -> vo.getType() == TYPE).count(),
           "每个调用都必须拿到该类型恰好一行");
-      RadiotelephoneVO vo = result.getFirst();
+      RadiotelephoneVO vo = result.stream().filter(item -> item.getType() == TYPE).findFirst().orElseThrow();
       assertEquals(0, vo.getTotalCount().intValue(), "懒建出来的统计行训练次数是 0");
       assertEquals("0", vo.getTotalTime(), "懒建出来的统计行累计时长是 0");
     }
   }
 
   @Test
-  void concurrentFinishAccumulatesOntoTheSameRow() throws Exception {
+  void concurrentBeginReturnsOnePersistedSession() throws Exception {
     String token = UUID.randomUUID().toString();
     UserEntity user = Fixtures.user(userDao, token);
-    CyclicBarrier bothMissedTheRow = new CyclicBarrier(2);
+    CyclicBarrier ready = new CyclicBarrier(2);
 
-    race(() -> QuarkusTransaction.requiringNew().call(() -> {
-      assertNull(radiotelephoneDao.findByUserIdAndType(user.getId(), TYPE), "用例前置：该用户该类型不得已有统计行");
-      bothMissedTheRow.await(30, TimeUnit.SECONDS);
-      return radiotelephoneService.finish(dto(TYPE, 30), token);
-    }));
+    List<RadiotelephoneVO> results = race(() -> {
+      ready.await(30, TimeUnit.SECONDS);
+      return radiotelephoneService.begin(dto(TYPE), token);
+    });
 
-    List<RadiotelephoneEntity> rows = radiotelephoneDao.findAllByUserId(user.getId());
-    assertEquals(1, rows.size(), "两个并发首次结算只能落 1 行统计记录");
-    RadiotelephoneEntity persisted = rows.getFirst();
-    assertEquals(2, persisted.getTotalCount().intValue(), "两次结算必须都累加到同一行上，否则计数割裂");
-    assertEquals("60", persisted.getTotalTime(), "两次结算的时长必须都累加到同一行上");
+    assertNotNull(results.get(0).getSessionId());
+    assertEquals(results.get(0).getSessionId(), results.get(1).getSessionId(),
+        "重复 begin 必须复用同一服务端会话");
+    assertEquals(1, radiotelephoneDao.findAllByUserId(user.getId()).size());
+    assertEquals(0, radiotelephoneDao.findByUserIdAndType(user.getId(), TYPE).getTotalCount().intValue());
+  }
+
+  @Test
+  void concurrentFinishReplayAccumulatesOnce() throws Exception {
+    String token = UUID.randomUUID().toString();
+    UserEntity user = Fixtures.user(userDao, token);
+    String sessionId = radiotelephoneService.begin(dto(TYPE), token).getSessionId();
+    CyclicBarrier ready = new CyclicBarrier(2);
+
+    race(() -> {
+      ready.await(30, TimeUnit.SECONDS);
+      return radiotelephoneService.finish(dto(TYPE, sessionId), token);
+    });
+
+    RadiotelephoneEntity persisted = radiotelephoneDao.findByUserIdAndType(user.getId(), TYPE);
+    assertEquals(1, persisted.getTotalCount().intValue(), "同一会话并发结算只能记 1 次");
+    assertEquals("0", persisted.getTotalTime(), "测试立即结束时服务端累计时长应为 0 秒");
   }
 
   @Test
@@ -113,7 +115,7 @@ class ReadPathLazyCreateConcurrencyTest {
         .call(() -> testFallibleDao.find("userId", user.getId()).count());
     assertEquals(1L, rows, "两个并发 GET 只能缓存出 1 行易错题记录");
     for (ComprehensiveVO result : results) {
-      assertNotNull(result.getErrorTopic(), "读接口本身必须正常返回，不得因为幂等改造吞掉结果");
+      assertNotNull(result.getErrorTopic(), "读接口本身必须正常返回");
     }
     assertNotNull(testFallibleDao.findByUserId(user.getId()).getContent(), "缓存行的内容不得为空");
   }
@@ -123,19 +125,22 @@ class ReadPathLazyCreateConcurrencyTest {
     String token = UUID.randomUUID().toString();
     Fixtures.user(userDao, token);
 
-    // MySQL 唯一索引允许多个 NULL 行：放过空键等于让唯一约束形同虚设，所以必须挡在写入之前
-    assertThrows(IllegalArgumentException.class, () -> radiotelephoneService.finish(dto(null, 30), token),
+    assertThrows(IllegalArgumentException.class, () -> radiotelephoneService.finish(dto(null), token),
         "训练类型为空时不得懒建出 type 为 NULL 的统计行");
   }
 
-  private RadiotelephoneDto dto(Integer type, Integer totalTime) {
+  private RadiotelephoneDto dto(Integer type, String sessionId) {
     RadiotelephoneDto dto = new RadiotelephoneDto();
     dto.setType(type);
-    dto.setTotalTime(totalTime);
+    dto.setSessionId(sessionId);
     return dto;
   }
 
-  /** 两个线程同时跑同一段逻辑，返回两边的结果 */
+  private RadiotelephoneDto dto(Integer type) {
+    return dto(type, null);
+  }
+
+  /** Runs the same operation on two threads and returns both results. */
   private <T> List<T> race(Callable<T> attempt) throws Exception {
     FutureTask<T> first = new FutureTask<>(attempt);
     FutureTask<T> second = new FutureTask<>(attempt);
@@ -151,7 +156,7 @@ class ReadPathLazyCreateConcurrencyTest {
     }
   }
 
-  /** ComprehensiveService 只从请求里取 token 头，用动态代理喂一个即可（先例见 WebSocketDeleteOpenAtomicityTest 的 Session 代理） */
+  /** ComprehensiveService reads only the token header, so a dynamic proxy is sufficient. */
   private HttpServerRequest requestWithToken(String token) {
     return (HttpServerRequest) Proxy.newProxyInstance(
         HttpServerRequest.class.getClassLoader(),

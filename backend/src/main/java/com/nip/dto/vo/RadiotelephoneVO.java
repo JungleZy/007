@@ -37,4 +37,8 @@ public class RadiotelephoneVO {
   @Schema(name = "训练次数")
   private Integer totalCount;
 
+  /** Server-issued session id for begin/pause/resume/finish lifecycle calls. */
+  @Schema(name = "server-issued study session id")
+  private String sessionId;
+
 }

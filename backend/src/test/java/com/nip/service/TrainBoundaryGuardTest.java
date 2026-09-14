@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Phase 6 边界守卫：
@@ -77,25 +78,37 @@ class TrainBoundaryGuardTest {
   }
 
   @Test
-  void radiotelephoneFinishWithoutListPageLazyCreatesRecord() {
+  void radiotelephoneBeginLazilyCreatesRecord() {
     String token = UUID.randomUUID().toString();
     UserEntity user = Fixtures.user(userDao, token);
-    RadiotelephoneDto dto = new RadiotelephoneDto();
-    dto.setType(1);
-    dto.setTotalTime(30);
+    RadiotelephoneDto request = new RadiotelephoneDto();
+    request.setType(1);
 
-    RadiotelephoneVO vo = assertDoesNotThrow(() -> radiotelephoneService.finish(dto, token),
-        "未经 listPage 懒建就结算不得 NPE");
+    RadiotelephoneVO begun = radiotelephoneService.begin(request, token);
 
-    assertEquals(1, vo.getTotalCount().intValue(), "首次结算必须记 1 次");
-    assertEquals("30", vo.getTotalTime(), "首次结算的累计时长必须是本次时长");
+    assertNotNull(begun.getSessionId(), "开始训练必须返回服务端会话标识");
     RadiotelephoneEntity persisted = radiotelephoneDao.findByUserIdAndType(user.getId(), 1);
-    assertNotNull(persisted, "结算必须落库该类型的话报训练记录");
-    assertEquals("30", persisted.getTotalTime());
+    assertNotNull(persisted, "开始训练必须懒建该用户该类型的统计行");
+    assertEquals(0, persisted.getTotalCount().intValue());
+    assertEquals("0", persisted.getTotalTime());
   }
 
   @Test
-  void radiotelephoneFinishTreatsNonNumericTotalTimeAsZero() {
+  void radiotelephoneFinishWithoutBeginRejectsMissingSession() {
+    String token = UUID.randomUUID().toString();
+    UserEntity user = Fixtures.user(userDao, token);
+    RadiotelephoneDto request = new RadiotelephoneDto();
+    request.setType(1);
+
+    assertThrows(IllegalArgumentException.class,
+        () -> radiotelephoneService.finish(request, token),
+        "未开始训练不得结算");
+    assertNull(radiotelephoneDao.findByUserIdAndType(user.getId(), 1),
+        "缺少会话的结算请求不得创建统计行");
+  }
+
+  @Test
+  void radiotelephoneFinishTreatsNonNumericHistoricalTotalAsZero() {
     String token = UUID.randomUUID().toString();
     UserEntity user = Fixtures.user(userDao, token);
     RadiotelephoneEntity dirty = new RadiotelephoneEntity();
@@ -103,16 +116,20 @@ class TrainBoundaryGuardTest {
     dirty.setType(0);
     dirty.setTotalCount(2);
     dirty.setTotalTime("--");
-    radiotelephoneDao.save(dirty);
+    radiotelephoneDao.saveAndFlush(dirty);
 
-    RadiotelephoneDto dto = new RadiotelephoneDto();
-    dto.setType(0);
-    dto.setTotalTime(15);
+    RadiotelephoneDto beginRequest = new RadiotelephoneDto();
+    beginRequest.setType(0);
+    RadiotelephoneVO begun = radiotelephoneService.begin(beginRequest, token);
+    RadiotelephoneDto finishRequest = new RadiotelephoneDto();
+    finishRequest.setType(0);
+    finishRequest.setSessionId(begun.getSessionId());
 
-    RadiotelephoneVO vo = assertDoesNotThrow(() -> radiotelephoneService.finish(dto, token),
+    RadiotelephoneVO finished = assertDoesNotThrow(
+        () -> radiotelephoneService.finish(finishRequest, token),
         "累计时长是脏数据时结算不得抛 NumberFormatException");
 
-    assertEquals("15", vo.getTotalTime(), "非数字累计时长按 0 起算");
-    assertEquals(3, vo.getTotalCount().intValue(), "训练次数必须照常累加");
+    assertEquals("0", finished.getTotalTime(), "非数字累计时长按 0 起算");
+    assertEquals(3, finished.getTotalCount().intValue(), "训练次数必须照常累加");
   }
 }

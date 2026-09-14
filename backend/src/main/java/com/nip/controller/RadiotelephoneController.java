@@ -44,9 +44,30 @@ public class RadiotelephoneController {
   }
 
   @POST
+  @Path("/begin")
+  @Operation(summary = "开始训练并返回服务端会话标识")
+  public Response<RadiotelephoneVO> begin(RadiotelephoneDto dto, @RestHeader(TOKEN) String token) throws Exception {
+    return ResponseResult.success(radiotelephoneService.begin(dto, token));
+  }
+
+  @POST
   @Path("/finish")
   @Operation(summary = "结束训练")
   public Response<RadiotelephoneVO> finish(RadiotelephoneDto dto, @RestHeader(TOKEN) String token) throws Exception {
     return ResponseResult.success(radiotelephoneService.finish(dto, token));
+  }
+
+  @POST
+  @Path("/pause")
+  @Operation(summary = "暂停训练")
+  public Response<RadiotelephoneVO> pause(RadiotelephoneDto dto, @RestHeader(TOKEN) String token) throws Exception {
+    return ResponseResult.success(radiotelephoneService.pause(dto, token));
+  }
+
+  @POST
+  @Path("/resume")
+  @Operation(summary = "继续训练")
+  public Response<RadiotelephoneVO> resume(RadiotelephoneDto dto, @RestHeader(TOKEN) String token) throws Exception {
+    return ResponseResult.success(radiotelephoneService.resume(dto, token));
   }
 }

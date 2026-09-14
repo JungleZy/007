@@ -1,9 +1,9 @@
-import { ref, onMounted, onUnmounted, watch, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import Voice from '../../../../../../common/utils/MorseVoice.js'
 import { keyCode } from './termData.js'
-import { savePreTermTrainTotal, getTermListData } from '../../../../../../common/api/TelegramApi.js'
+import { savePreTermTrainTotal, beginPreTermTrain, pausePreTermTrain, resumePreTermTrain, getTermListData } from '../../../../../../common/api/TelegramApi.js'
 import useMorse from '../../../../../../common/mixin/useMorse'
 
 export default function termTrain(wpmTOmm) {
@@ -26,7 +26,69 @@ export default function termTrain(wpmTOmm) {
   const validTimes = ref([0, 0, 0, 0, 0, 0])
   const termTimer = ref(null)
   const totalime = ref(0)
-  const wpms = ref([])
+  let sessionId = null
+  let beginPromise = null
+  let finishPromise = null
+  let lifecycle = Promise.resolve()
+  let unmounted = false
+  let startRequested = false
+  function queueLifecycle(action) {
+    const queued = lifecycle.then(action, action)
+    lifecycle = queued.catch(() => undefined)
+    return queued
+  }
+
+  function responseMessage(response, fallback) {
+    if (response && response.message) {
+      return response.message
+    }
+    if (response && response.description) {
+      return response.description
+    }
+    return fallback
+  }
+
+  function requireSuccessful(response, fallback) {
+    if (!response || response.code !== 200) {
+      throw new Error(responseMessage(response, fallback))
+    }
+    return response
+  }
+
+  function beginSession() {
+    if (sessionId) {
+      return Promise.resolve(sessionId)
+    }
+    if (beginPromise) {
+      return beginPromise
+    }
+    beginPromise = beginPreTermTrain({ type: 0 })
+      .then(response => {
+        const successful = requireSuccessful(response, '开始训练失败')
+        const id = successful.data && successful.data.sessionId
+        if (!id) {
+          throw new Error('开始训练未返回有效会话')
+        }
+        sessionId = id
+        return id
+      })
+      .catch(error => {
+        beginPromise = null
+        throw error
+      })
+    return beginPromise
+  }
+
+  function showLifecycleError(error, fallback) {
+    let text = fallback
+    if (error && error.response && error.response.data) {
+      text = responseMessage(error.response.data, fallback)
+    } else if (error && error.message) {
+      text = error.message
+    }
+    message.error(text)
+  }
+
   const noises = ref([
     { label: '关', value: 0 },
     { label: '一', value: 0.2 },
@@ -170,15 +232,16 @@ export default function termTrain(wpmTOmm) {
   watch(volume, () => {
     voice.changeVolume(volume.value * 100)
   })
-
   onBeforeUnmount(() => {
+    unmounted = true
     disturbList.value.map(item => {
       if (item.play) {
         item.prevPlay = item.play
         changeAudioPlay(item, false)
       }
     })
-    if (trainData.value.status === 1 || trainData.value.status === 2) {
+    const needsFinish = startRequested || beginPromise || trainData.value.status === 1 || trainData.value.status === 2
+    if (needsFinish) {
       voice.clear()
       endTrain()
     }
@@ -239,6 +302,73 @@ export default function termTrain(wpmTOmm) {
     validTimes.value = t.split('').map(num => parseInt(num))
   }
 
+  function startSession() {
+    if (unmounted || trainData.value.status !== 0 || startRequested) {
+      return
+    }
+    startRequested = true
+    queueLifecycle(async () => {
+      try {
+        await beginSession()
+      } catch (error) {
+        startRequested = false
+        if (!unmounted) {
+          showLifecycleError(error, '开始训练失败')
+        }
+        return
+      }
+      startRequested = false
+      if (unmounted || trainData.value.status !== 0) {
+        return
+      }
+      trainData.value.status = 1
+      startTrain()
+    })
+  }
+
+  function pauseSession() {
+    if (unmounted || trainData.value.status !== 1 || !sessionId) {
+      if (!unmounted && trainData.value.status === 1) {
+        message.error('训练会话尚未准备好')
+      }
+      return
+    }
+    queueLifecycle(async () => {
+      try {
+        const response = await pausePreTermTrain({ type: 0, sessionId })
+        requireSuccessful(response, '暂停训练失败')
+        clearInterval(termTimer.value)
+        voice.clear()
+        trainData.value.status = 2
+      } catch (error) {
+        if (!unmounted) {
+          showLifecycleError(error, '暂停训练失败')
+        }
+      }
+    })
+  }
+
+  function resumeSession() {
+    if (unmounted || trainData.value.status !== 2 || !sessionId) {
+      if (!unmounted && trainData.value.status === 2) {
+        message.error('训练会话尚未准备好')
+      }
+      return
+    }
+    queueLifecycle(async () => {
+      try {
+        const response = await resumePreTermTrain({ type: 0, sessionId })
+        requireSuccessful(response, '继续训练失败')
+        trainData.value.status = 1
+        startTrain()
+      } catch (error) {
+        if (!unmounted) {
+          showLifecycleError(error, '继续训练失败')
+        }
+      }
+    })
+  }
+
   /**
    * 处理练习进程
    * @param type
@@ -246,19 +376,15 @@ export default function termTrain(wpmTOmm) {
   const handleTrain = type => {
     switch (type) {
       case 0:
-        trainData.value.status = 1
-        startTrain()
+        startSession()
         break
       case 1:
-        trainData.value.status = 2
+        pauseSession()
         break
       case 2:
-        trainData.value.status = 1
-        keyTransCode()
+        resumeSession()
         break
       case 3:
-        trainData.value.status = 3
-        voice.clear()
         endTrain()
         break
       case 4:
@@ -293,10 +419,10 @@ export default function termTrain(wpmTOmm) {
   const startTrain = () => {
     disturbList.value.map(item => {
       if (item.prevPlay) {
-        // item.play = item.prevPlay
         changeAudioPlay(item, true)
       }
     })
+    clearInterval(termTimer.value)
     termTimer.value = setInterval(() => {
       totalime.value += 1000
       handleValidTime(totalime.value)
@@ -388,25 +514,50 @@ export default function termTrain(wpmTOmm) {
   /**
    * 结束练习
    */
-  const endTrain = () => {
+  function endTrain() {
     clearInterval(termTimer.value)
-    savePreTermTrainTotal({ type: 0, totalTime: totalime.value }).then(res => {
-      if (res.code === 200) {
-        trainData.value.status = 0
-        if (trainData.value.sort == 0) {
-          trainData.value.playIndex = 0
-        } else {
-          trainData.value.playIndex = trainData.value.playTerm.length - 1
+    voice.clear()
+    if (finishPromise) {
+      return finishPromise
+    }
+
+    finishPromise = queueLifecycle(async () => {
+      const previousStatus = trainData.value.status
+      try {
+        const id = await beginSession()
+        if (!id) {
+          throw new Error('结束训练缺少有效会话')
         }
-        disturbList.value.map(item => {
-          item.mute = false
-          if (item.play) {
-            // item.prevPlay = item.play
-            changeAudioPlay(item, false)
-          }
-        })
+        const response = await savePreTermTrainTotal({ type: 0, sessionId: id })
+        requireSuccessful(response, '结束训练失败')
+        sessionId = null
+        beginPromise = null
+        totalime.value = 0
+        handleValidTime(0)
+        if (!unmounted) {
+          trainData.value.status = 0
+          trainData.value.playIndex = trainData.value.sort === 0
+            ? 0
+            : trainData.value.playTerm.length - 1
+          disturbList.value.map(item => {
+            item.mute = false
+            if (item.play) {
+              changeAudioPlay(item, false)
+            }
+          })
+        }
+        return true
+      } catch (error) {
+        if (!unmounted) {
+          trainData.value.status = previousStatus
+          showLifecycleError(error, '结束训练失败')
+        }
+        return false
+      } finally {
+        finishPromise = null
       }
     })
+    return finishPromise
   }
 
   /**
@@ -423,8 +574,14 @@ export default function termTrain(wpmTOmm) {
       item.xhr.open('GET', fileUrl.value + item.url, true)
       item.xhr.responseType = 'arraybuffer'
       item.xhr.onload = () => {
+        if (!item.play || !item.ctx) {
+          return
+        }
         item.volume = item.playVolume
         item.ctx.decodeAudioData(item.xhr.response, buffer => {
+          if (!item.play || !item.ctx) {
+            return
+          }
           item.source = item.ctx.createBufferSource()
           item.source.buffer = buffer
           item.source.loop = true
@@ -436,14 +593,26 @@ export default function termTrain(wpmTOmm) {
           item.loading = false
         })
       }
+      item.xhr.onerror = () => {
+        item.loading = false
+      }
       item.xhr.send()
     } else {
       item.volume = 0
-      item.source.stop(0)
+      if (item.xhr) {
+        item.xhr.abort()
+      }
+      if (item.source) {
+        item.source.stop(0)
+      }
+      if (item.ctx) {
+        item.ctx.close()
+      }
       item.ctx = null
       item.xhr = null
       item.source = null
       item.gain = null
+      item.loading = false
     }
   }
 

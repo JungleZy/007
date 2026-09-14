@@ -68,9 +68,9 @@ onMounted(() => {
     let hour, min, sec
     if (res.code === 200) {
       res.data.forEach(item => {
-        hour = Math.floor((item.totalTime / 1000 / 60 / 60) % 24)
-        min = Math.floor((item.totalTime / 1000 / 60) % 60)
-        sec = Math.floor((item.totalTime / 1000) % 60)
+        hour = Math.floor(item.totalTime / 60 / 60)
+        min = Math.floor((item.totalTime / 60) % 60)
+        sec = Math.floor(item.totalTime % 60)
         item.totalTime = (hour >= 10 ? hour : '0' + hour) + '：' + (min >= 10 ? min : '0' + min) + '：' + (sec >= 10 ? sec : '0' + sec)
       })
       totalList.value = res.data
