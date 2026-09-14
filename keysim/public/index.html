@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>keysim · 手键/电子键虚拟串口台</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --ok:#3fb950; --warn:#d29922; --err:#f85149; --accent:#58a6ff; --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans SC",sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.5px}
+  header .sub{color:var(--muted);font-size:12px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--err)}
+  .dot.on{background:var(--ok)}
+  main{display:grid;grid-template-columns:minmax(420px,1fr) minmax(420px,1fr);gap:16px;padding:16px;align-items:start}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  section h2{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.6px;text-transform:uppercase}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  label{color:var(--muted);font-size:12px;min-width:64px}
+  input,select,textarea,button{background:#0d1117;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit}
+  input[type=number]{width:96px;font-family:var(--mono)}
+  input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent)}
+  textarea{width:100%;min-height:92px;font-family:var(--mono);letter-spacing:1px;resize:vertical}
+  button{cursor:pointer;border-color:#3d444d}
+  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#1f6feb22;border-color:#1f6feb;color:#cfe4ff}
+  button.danger{border-color:#8b2d24;color:#ffb3ab}
+  .grow{flex:1}
+  .hint{color:var(--muted);font-size:12px;margin:6px 0 0;font-family:var(--mono);word-break:break-all}
+  .bar{height:6px;background:#0d1117;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s linear}
+  #log{height:280px;overflow:auto;background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:12px}
+  #log div{white-space:pre-wrap;word-break:break-all;padding:1px 0}
+  .l-ok{color:var(--ok)} .l-warn{color:var(--warn)} .l-error{color:var(--err)} .l-recv{color:var(--accent)} .l-info{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  td{padding:3px 0;color:var(--muted)} td+td{color:var(--text);text-align:right}
+</style>
+</head>
+<body>
+<header>
+  <h1>keysim</h1>
+  <span class="sub">手键 / 电子键拍发模拟器 · 虚拟串口台</span>
+  <span class="chip"><i class="dot" id="portDot"></i><span id="portText">串口未开启</span></span>
+  <span class="chip">桌面桥接 <b id="bridgeClients">0</b></span>
+  <span class="chip">浏览器注入 <b id="injectClients">0</b></span>
+</header>
+
+<main>
+  <section>
+    <h2>虚拟串口</h2>
+    <div class="row">
+      <button id="btnOpen" class="primary">开启虚拟串口</button>
+      <button id="btnClose" class="danger">关闭虚拟串口</button>
+    </div>
+    <table style="margin-bottom:10px">
+      <tr><td>① 系统串口设备</td><td id="devPath">--</td></tr>
+      <tr><td>设备链接</td><td id="devLinks">--</td></tr>
+      <tr><td>② 桌面桥接</td><td id="bridgeUrl">ws://127.0.0.1:18765/echo</td></tr>
+      <tr><td>③ 浏览器注入</td><td id="injectCount">0 个页面</td></tr>
+    </table>
+    <p class="hint" id="devHint">① 开启后是系统里真实存在的字符设备，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流。</p>
+    <div class="row">
+      <input id="devLinkCmd" class="grow" readonly placeholder="开启后这里给出让桌面串口列表看到它的命令"/>
+      <button id="btnCopyLink">复制</button>
+    </div>
+    <p class="hint">桌面壳的串口下拉只认 <code>/dev/ttyUSBn</code>（nativeSerialPort.js:42-45），执行上面这条命令后即可在列表里选到本设备。Chromium 的 Web Serial 按 udev 枚举，看不到 PTY，Web 模式请用下面的注入。</p>
+    <div class="row">
+      <input id="injectSnippet" class="grow" readonly/>
+      <button id="btnCopy">复制</button>
+    </div>
+
+    <h2 style="margin-top:18px">报文</h2>
+    <div class="row">
+      <label>字母表</label>
+      <select id="alphabet">
+        <option value="letter">字码 letter（A-Z）</option>
+        <option value="short">数码短码 short（0-9）</option>
+        <option value="long">数码长码 long（0-9）</option>
+        <option value="mix">混合 mix（A-Z 0-9）</option>
+      </select>
+      <label>组数</label>
+      <input id="groups" type="number" min="1" max="100" value="4"/>
+      <button id="btnRandom">随机生成</button>
+    </div>
+    <textarea id="message" spellcheck="false" placeholder="每组 4 个字符，组间空格分隔，例如 ABCD EFGH"></textarea>
+    <p class="hint" id="messageHint">也可以直接手输报文；发送前会按字母表校验。</p>
+  </section>
+
+  <section>
+    <h2>拍发参数</h2>
+    <div class="row">
+      <label>键型</label>
+      <select id="key">
+        <option value="hand">手键（按压时长定点划）</option>
+        <option value="electron">电子键（双手组合键）</option>
+      </select>
+      <label id="rateLabel">码率</label>
+      <input id="rate" type="number" min="1" max="400" value="70"/>
+      <span class="hint" id="rateUnit">字符/分</span>
+    </div>
+    <div class="row">
+      <label>抖动</label>
+      <input id="jitter" type="number" min="0" max="0.5" step="0.05" value="0"/>
+      <label>种子</label>
+      <input id="seed" type="number" min="1" value="1"/>
+      <label>规则偏移</label>
+      <input id="skew" type="number" min="1" max="99" value="51"/>
+    </div>
+    <div class="row">
+      <label>收尾</label>
+      <select id="tail">
+        <option value="turn">手键翻页符（提交本页）</option>
+        <option value="end">结束符 / F3+回车</option>
+        <option value="page">电子键句号（提交本页）</option>
+        <option value="none">只留静默</option>
+      </select>
+      <label style="min-width:auto"><input type="checkbox" id="preamble" checked/> 发开始符</label>
+      <label style="min-width:auto"><input type="checkbox" id="singlePage" checked/> 单页</label>
+    </div>
+    <div class="row">
+      <label>故障</label>
+      <label style="min-width:auto"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
+      <label style="min-width:auto"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
+      <label style="min-width:auto"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
+      <label style="min-width:auto"><input type="checkbox" class="fault" value="unknownByte"/> 未知字节</label>
+    </div>
+    <div class="row">
+      <button id="btnPreview">预览节拍</button>
+      <button id="btnSend" class="primary">开始拍发</button>
+      <button id="btnStop" class="danger">停止</button>
+    </div>
+    <div class="bar"><i id="progress"></i></div>
+    <table id="stats">
+      <tr><td>时长</td><td id="stDuration">--</td></tr>
+      <tr><td>帧数</td><td id="stEvents">--</td></tr>
+      <tr><td>点 / 划 / 符内间隔</td><td id="stPlan">--</td></tr>
+      <tr><td>字间隔 / 组间隔</td><td id="stGap">--</td></tr>
+    </table>
+  </section>
+
+  <section style="grid-column:1/-1">
+    <h2>日志</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id)
+// GET 只有 /api/state；其余接口一律 POST，所以默认带一个空 body 走 POST。
+const api = async (path, body = {}, method = 'POST') => {
+  const response = await fetch(path, method === 'GET' ? {} : {
+    method, headers: {'content-type': 'application/json'}, body: JSON.stringify(body)
+  })
+  return response.json()
+}
+const log = (message, level = 'info') => {
+  const line = document.createElement('div')
+  line.className = 'l-' + level
+  line.textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false}) + ' ' + message
+  $('log').append(line)
+  $('log').scrollTop = $('log').scrollHeight
+}
+const faults = () => [...document.querySelectorAll('.fault:checked')].map(box => box.value)
+const params = () => ({
+  key: $('key').value,
+  text: $('message').value.trim(),
+  alphabet: $('alphabet').value,
+  rate: Number($('rate').value),
+  jitter: Number($('jitter').value),
+  seed: Number($('seed').value),
+  skew: Number($('skew').value),
+  preamble: $('preamble').checked,
+  singlePage: $('singlePage').checked,
+  tail: $('tail').value,
+  faults: faults()
+})
+
+const applyState = state => {
+  $('portDot').classList.toggle('on', state.open)
+  $('portText').textContent = state.open ? '串口已开启 :' + state.bridgePort : '串口未开启'
+  $('bridgeClients').textContent = state.bridgeClients
+  $('injectClients').textContent = state.injectClients
+  $('bridgeUrl').textContent = state.bridgeUrl
+  const device = state.device || {}
+  $('devPath').textContent = device.path || (device.available === false ? '不可用' : '未开启')
+  $('devLinks').textContent = (device.links && device.links.length) ? device.links.join(' , ') : '--'
+  $('injectCount').textContent = state.injectClients + ' 个页面'
+  $('devLinkCmd').value = device.systemLinkHint || ''
+  if (device.available === false && device.reason) $('devHint').textContent = '① 本机不能创建虚拟串口设备：' + device.reason + '（桥接与注入两条通道仍可用）'
+  if (device.warnings && device.warnings.length) $('devHint').title = device.warnings.join(' | ')
+  $('btnOpen').disabled = state.open
+  $('btnClose').disabled = !state.open
+  $('btnSend').disabled = !state.open || state.replay.running
+  $('btnStop').disabled = !state.replay.running
+  if (state.replay.total) {
+    $('progress').style.width = Math.round(state.replay.sent / state.replay.total * 100) + '%'
+  }
+}
+
+const events = new EventSource('/api/events')
+events.onmessage = message => {
+  const event = JSON.parse(message.data)
+  if (event.type === 'state') applyState(event.state)
+  else if (event.type === 'log') log(event.message, event.level)
+  else if (event.type === 'progress') $('progress').style.width = Math.round(event.sent / event.total * 100) + '%'
+}
+events.onerror = () => log('事件流断开，正在重连…', 'warn')
+
+$('key').onchange = () => {
+  const hand = $('key').value === 'hand'
+  $('rateUnit').textContent = hand ? '字符/分' : '组/分'
+  $('rate').value = hand ? 70 : 20
+  $('tail').value = hand ? 'turn' : 'page'
+}
+$('btnOpen').onclick = async () => {
+  const result = await api('/api/port', {open: true})
+  if (result.ok) applyState(result.state); else log(result.error, 'error')
+}
+$('btnClose').onclick = async () => {
+  const result = await api('/api/port', {open: false})
+  if (result.ok) applyState(result.state); else log(result.error, 'error')
+}
+$('btnRandom').onclick = async () => {
+  const result = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
+  if (!result.ok) return log(result.error, 'error')
+  $('message').value = result.text
+  log('已生成随机报文：' + result.text, 'ok')
+}
+$('btnPreview').onclick = async () => {
+  const result = await api('/api/preview', params())
+  if (!result.ok) return log(result.error, 'error')
+  $('stDuration').textContent = (result.duration / 1000).toFixed(2) + ' s'
+  $('stEvents').textContent = result.events + ' 帧 / ' + result.chars + ' 字'
+  const plan = result.plan || {}
+  $('stPlan').textContent = plan.dot
+    ? [plan.dot, plan.dash, plan.gap].map(value => Math.round(value) + 'ms').join(' / ')
+    : (plan.perChar ? Math.round(plan.perChar) + 'ms/字' : '--')
+  $('stGap').textContent = plan.word ? Math.round(plan.word) + 'ms / ' + Math.round(plan.group) + 'ms' : '--'
+  log('前 12 个串口读：' + result.head.join(' | '), 'recv')
+}
+$('btnSend').onclick = async () => {
+  const result = await api('/api/send', params())
+  if (!result.ok) return log(result.error, 'error')
+  applyState(result.state)
+}
+$('btnStop').onclick = async () => {
+  const result = await api('/api/stop')
+  if (result.ok) applyState(result.state)
+}
+$('btnCopyLink').onclick = async () => {
+  if (!$('devLinkCmd').value) return log('还没有设备，先开启虚拟串口', 'warn')
+  try { await navigator.clipboard.writeText($('devLinkCmd').value); log('命令已复制', 'ok') }
+  catch { log('剪贴板不可用，请手动复制', 'warn') }
+}
+$('btnCopy').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('injectSnippet').value)
+    log('注入代码已复制', 'ok')
+  } catch { log('剪贴板不可用，请手动复制输入框内容', 'warn') }
+}
+
+$('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
+api('/api/state', {}, 'GET').then(result => {
+  applyState(result.state)
+  log('控制台就绪：' + location.origin, 'ok')
+})
+</script>
+</body>
+</html>
