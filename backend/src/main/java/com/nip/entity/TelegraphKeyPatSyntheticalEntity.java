@@ -67,10 +67,17 @@ public class TelegraphKeyPatSyntheticalEntity {
   /**
    * 报文内容
    */
+  @Column(columnDefinition = "longtext")
   private String content;
 
   /**
    * 训练报文 0数码 1字码 2混合码
    */
   private Integer messageType;
+  /** Server-authoritative active-time protocol state. */
+  private LocalDateTime startedAt;
+  private Long accumulatedActiveMillis;
+  private Integer protocolVersion;
+  @Column(columnDefinition = "longtext")
+  private String sourceContent;
 }

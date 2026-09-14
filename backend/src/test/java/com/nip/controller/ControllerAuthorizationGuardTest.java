@@ -193,7 +193,12 @@ class ControllerAuthorizationGuardTest {
         .setSpeed("0")
         .setDuration("0")
         .setAccuracy(0.0)
-        .setErrorNumber(0);
+        .setErrorNumber(0)
+        .setProtocolVersion(1)
+        .setAccumulatedActiveMillis(0L)
+        .setStartedAt(java.time.LocalDateTime.now().minusSeconds(60))
+        .setSourceContent("[{\"text\":\"1234\",\"value\":\"\",\"isFocus\":false}]")
+        .setContent("[{\"text\":\"1234\",\"value\":\"\",\"isFocus\":false}]");
     syntheticalDao.saveAndFlush(train);
 
     given()
@@ -215,7 +220,7 @@ class ControllerAuthorizationGuardTest {
         .contentType(ContentType.JSON)
         .header("token", owner.getToken())
         .header("deviceId", owner.getDeviceId())
-        .body(Map.of("id", train.getId(), "totalNumber", 100, "speed", "30", "duration", "60"))
+        .body(Map.of("id", train.getId(), "content", "[{\"text\":\"1234\",\"value\":\"1234\",\"isFocus\":true}]"))
         .when()
         .post("/api/telegraphKeyPatTrainSynthetical/finish")
         .then()

@@ -214,7 +214,6 @@ const addExamComplexTrain = () => {
   let title = '综合练习-' + moment().format('YYMMDDhhmmss')
   addExamComplexTrainInfo({
     title: title,
-    totalNumber: trainData.value.count,
     content: JSON.stringify(floorContent.value),
     messageType: trainData.value.bwType
   }).then(res => {

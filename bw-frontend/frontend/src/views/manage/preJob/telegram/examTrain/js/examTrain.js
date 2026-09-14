@@ -64,7 +64,7 @@ export default function telexTrain() {
             data.duration = Number(data.duration)
             data.accuracy = data.accuracy ? Number(data.accuracy) : 0
             messageData.value = JSON.parse(data.content)
-            activeIndex.value = messageData.value.findIndex(item => !item.isFocus)
+            activeIndex.value = Math.max(0, messageData.value.findIndex(item => !item.isFocus))
             activeMessage.value = messageData.value[activeIndex.value]
             trainData.value = data
             queryType.value = data.messageType
@@ -148,7 +148,8 @@ export default function telexTrain() {
     if (!wsOnline.value || !devOnline.value) { message.error('报训设备未连接'); return false }
     if (!await audioOperation({type: 'init'})) return false
     return submission.run(async request => {
-      await request(config => beginExamTrainInfo({id: route.query.id}, config))
+      const response = await request(config => beginExamTrainInfo({id: route.query.id}, config))
+      if (response?.data?.duration != null) trainData.value.duration = Number(response.data.duration)
       trainData.value.status = 1
       trainTime()
       nextTick(() => document.getElementsByTagName('input')[activeIndex.value]?.focus())
@@ -161,11 +162,10 @@ export default function telexTrain() {
   const stopExamTrain = () => {
     clearInterval(autoTime.value)
     flushPendingCode()
-    const payload = {id: route.query.id, duration: Number(trainData.value.duration) * 1000,
-      errorNumber: trainData.value.errorNumber, accuracy: trainData.value.accuracy,
-      speed: trainData.value.speed, content: JSON.stringify(messageData.value)}
+    const payload = {id: route.query.id, content: JSON.stringify(messageData.value)}
     return submission.run(async request => {
-      await request(config => stopExamTrainInfo(payload, config))
+      const response = await request(config => stopExamTrainInfo(payload, config))
+      if (response?.data) Object.assign(trainData.value, response.data, {duration: Number(response.data.duration || 0)})
       trainData.value.status = 2
       PubSub.publish('callback_closeExamTrainPage', true)
     })
@@ -175,7 +175,8 @@ export default function telexTrain() {
    * 继续练习
    */
   const goToExamTrain = () => submission.run(async request => {
-    await request(config => goTopExamTrainInfo({id: route.query.id}, config))
+    const response = await request(config => goTopExamTrainInfo({id: route.query.id}, config))
+    if (response?.data?.duration != null) trainData.value.duration = Number(response.data.duration)
     trainData.value.status = 1
     trainTime()
   })
@@ -186,34 +187,10 @@ export default function telexTrain() {
   const endExamTrain = () => {
     clearInterval(autoTime.value)
     flushPendingCode()
-    trainData.value.errorNumber = 0
-    trainData.value.accuracy = 0
-    correct.value = 0
-    messageData.value.forEach(lineMessage => {
-      if (lineMessage.text !== lineMessage.value && lineMessage.isFocus) {
-        trainData.value.errorNumber++
-      }
-      if (lineMessage.text === lineMessage.value && lineMessage.isFocus) {
-        correct.value++
-      }
-    })
-    if (correct.value > 0 || trainData.value.errorNumber > 0) {
-      trainData.value.accuracy = Number(((correct.value / (correct.value + trainData.value.errorNumber)) * 100).toFixed(2))
-    } else {
-      trainData.value.accuracy = 0
-    }
-    // isfocus.value = false;
-    const payload = {
-      id: route.query.id,
-      duration: Number(trainData.value.duration) * 1000,
-      errorNumber: trainData.value.errorNumber,
-      accuracy: trainData.value.accuracy,
-      speed: trainData.value.speed,
-      totalNumber: trainData.value.totalNumber,
-      content: JSON.stringify(messageData.value)
-    }
+    const payload = {id: route.query.id, content: JSON.stringify(messageData.value)}
     return submission.run(async request => {
-      await request(config => endExamTrainInfo(payload, config))
+      const response = await request(config => endExamTrainInfo(payload, config))
+      if (response?.data) Object.assign(trainData.value, response.data, {duration: Number(response.data.duration || 0)})
       trainData.value.status = 3
       PubSub.publish('callback_closeExamTrainPage', true)
     })

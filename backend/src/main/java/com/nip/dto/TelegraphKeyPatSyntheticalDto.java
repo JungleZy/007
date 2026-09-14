@@ -29,51 +29,11 @@ public class TelegraphKeyPatSyntheticalDto {
   @Schema(title = "标题")
   private String title;
 
-  /**
-   *  0 未开始 1 进行中 2 暂停 3 完成
-   */
-  @Schema(title = "0 未开始 1 进行中 2 暂停 3 完成")
-  private Integer status;
-
-  /**
-   * 时长
-   */
-  @Schema(title = "时长")
-  private String duration;
-
-  /**
-   * // 全报文数量
-   */
-  @Schema(title = "全报文数量")
-  private Integer totalNumber;
-
-  @Schema(title = "训练报文 0数码 1字码 2混合码 ")
+  @Schema(title = "训练报文 0数码 1字码 2混合码")
   private Integer messageType;
 
-  /**
-   * // 错误数量
-   */
-  @Schema(title = "错误数量")
-  private Integer errorNumber;
-
-  /**
-   *正确率
-   */
-  @Schema(title = "正确率")
-  private Double accuracy;
-
-  /**
-   *速率
-   */
-  @Schema(title = "速率")
-  private String speed;
-
-
-
-
-  /**
-   * 报文内容
-   */
-  @Schema(title = "报文内容")
+  /** Client source/answer snapshot. Aggregate metrics are server-derived. */
+  @Schema(title = "报文内容与答案行")
   private String content;
+
 }
