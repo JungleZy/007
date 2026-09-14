@@ -6,7 +6,8 @@
 //! - linux-usbip   ：用户态模拟 USB CDC-ACM（usbip.rs），经 vhci_hcd 挂上总线 -> /dev/ttyACM*
 //! - linux-gadget  ：dummy_hcd + g_serial -> /dev/ttyGS0
 //! - linux-tty0tty ：成对 /dev/tnt0 <-> /dev/tnt1
-//! - windows-com0com：成对 COM 口（CNCA90 <-> COM91）
+//! - windows-com0com：成对 COM 口（CNCA90 <-> COM91）。Windows 上这是唯一路径，
+//!   也是最省事的一条：装一次 com0com 驱动，浏览器与桌面程序都能直接选到 COM91
 //!
 //! 不可用时绝不假装成功：逐项给出原因与"装了什么就能用"。
 
@@ -18,7 +19,9 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
+#[cfg(target_os = "linux")]
 use crate::attachd;
+#[cfg(target_os = "linux")]
 use crate::usbip;
 
 #[derive(Debug, Clone)]
@@ -47,7 +50,10 @@ impl Verdict {
 
 /// 我们写入的那一端
 pub enum Writer {
+    /// 真实设备节点（gadget / tty0tty / com0com）
     Device(fs::File),
+    /// 用户态 USB 设备模拟器（仅 Linux 的 USB/IP 路径）
+    #[cfg(target_os = "linux")]
     Emulator(usbip::Emulator),
 }
 
@@ -58,6 +64,7 @@ impl Writer {
                 file.write_all(bytes)?;
                 file.flush()
             }
+            #[cfg(target_os = "linux")]
             Writer::Emulator(emulator) => {
                 emulator.write(bytes);
                 Ok(())
@@ -77,6 +84,7 @@ pub struct Started {
     pub vhci_port: Option<u64>,
 }
 
+#[cfg(target_os = "linux")]
 fn has_module(name: &str) -> bool {
     Command::new("modinfo")
         .arg(name)
@@ -85,17 +93,20 @@ fn has_module(name: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(target_os = "linux")]
 fn module_loaded(name: &str) -> bool {
     fs::read_to_string("/proc/modules")
         .map(|text| text.lines().any(|line| line.starts_with(&format!("{name} "))))
         .unwrap_or(false)
 }
 
+#[cfg(unix)]
 fn is_root() -> bool {
     // SAFETY: geteuid 无副作用
     (unsafe { libc::geteuid() }) == 0
 }
 
+#[cfg(target_os = "linux")]
 fn is_wsl() -> bool {
     fs::read_to_string("/proc/version")
         .map(|text| {
@@ -105,10 +116,12 @@ fn is_wsl() -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(unix)]
 fn graphical_session() -> bool {
     std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok()
 }
 
+#[cfg(unix)]
 fn have_pkexec() -> bool {
     Command::new("sh")
         .args(["-c", "command -v pkexec"])
@@ -117,7 +130,8 @@ fn have_pkexec() -> bool {
         .unwrap_or(false)
 }
 
-/// 提权通道：root 直跑；否则 pkexec 弹一次系统授权框
+/// 提权通道：root 直跑；否则 pkexec 弹一次系统授权框（仅类 Unix）
+#[cfg(unix)]
 pub fn elevation() -> Result<Option<&'static str>, String> {
     if is_root() {
         return Ok(None);
@@ -128,6 +142,7 @@ pub fn elevation() -> Result<Option<&'static str>, String> {
     Err("需要 root 或可弹框的 pkexec".into())
 }
 
+#[cfg(unix)]
 fn run_privileged(program: &str, args: &[&str]) -> Result<(), String> {
     let prefix = elevation()?;
     let output = match prefix {
@@ -148,13 +163,12 @@ fn run_privileged(program: &str, args: &[&str]) -> Result<(), String> {
 
 // ------------------------------------------------------------------ USB/IP
 
+#[cfg(target_os = "linux")]
 const USBIP_TITLE: &str = "USB/IP + vhci_hcd（用户态模拟 USB 串口，内核当真设备）";
 
+#[cfg(target_os = "linux")]
 fn probe_usbip() -> Verdict {
     let selectable = "/dev/ttyACM*".to_string();
-    if !cfg!(target_os = "linux") {
-        return Verdict { id: "linux-usbip", title: USBIP_TITLE, selectable, available: false, reason: Some("仅 Linux".into()), install: None };
-    }
     let missing: Vec<&str> = ["vhci-hcd", "cdc-acm"].into_iter().filter(|name| !has_module(name)).collect();
     if !missing.is_empty() {
         return Verdict {
@@ -180,15 +194,27 @@ fn probe_usbip() -> Verdict {
     Verdict { id: "linux-usbip", title: USBIP_TITLE, selectable, available: true, reason: None, install: None }
 }
 
-/// 被测程序能不能真的打开这个设备节点（不是"存在"，是"可读可写"）
-pub fn readable_and_writable(path: &str) -> bool {
-    // SAFETY: access 只查权限，不打开文件
-    unsafe {
-        let Ok(c_path) = std::ffi::CString::new(path) else { return false };
-        libc::access(c_path.as_ptr(), libc::R_OK | libc::W_OK) == 0
+/// 被测程序能不能真的打开这个设备节点（不是"存在"，是"可读可写"）。
+///
+/// 返回 None = 本平台无法在不打开设备的前提下判断：Windows 的 COM 口是独占打开，
+/// 试开一次会把正在用它的程序挤掉，所以不猜。
+pub fn openable(path: &str) -> Option<bool> {
+    #[cfg(unix)]
+    {
+        // SAFETY: access 只查权限，不打开文件
+        unsafe {
+            let Ok(c_path) = std::ffi::CString::new(path) else { return Some(false) };
+            Some(libc::access(c_path.as_ptr(), libc::R_OK | libc::W_OK) == 0)
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        None
     }
 }
 
+#[cfg(target_os = "linux")]
 fn existing_acm() -> Vec<String> {
     fs::read_dir("/dev")
         .map(|entries| {
@@ -201,6 +227,7 @@ fn existing_acm() -> Vec<String> {
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "linux")]
 fn start_usbip(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, String> {
     let before = existing_acm();
     let sink_log = Arc::clone(&log);
@@ -233,7 +260,7 @@ fn start_usbip(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, String
             // 内核默认把 /dev/ttyACM* 给 root:dialout 0660。被测程序（浏览器、桌面壳）
             // 通常不在 dialout 组里，不认领就是"设备在但打不开"。
             let granted = attachd::ask(json!({"op": "grant", "device": name}));
-            match (granted["ok"] == true, readable_and_writable(&path)) {
+            match (granted["ok"] == true, openable(&path) == Some(true)) {
                 (_, true) => log(format!("虚拟串口可直接打开：{path}")),
                 (true, false) => log(format!("已认领 {path}，但当前进程仍打不开它（属主已改，稍后重试或重开设备）")),
                 (false, false) => log(format!(
@@ -271,16 +298,17 @@ fn start_usbip(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, String
 
 // ------------------------------------------------------------------ gadget / tty0tty / com0com
 
+#[cfg(target_os = "linux")]
 const GADGET_DEVICE: &str = "/dev/ttyGS0";
+#[cfg(target_os = "linux")]
 const TTY0TTY_OURS: &str = "/dev/tnt0";
+#[cfg(target_os = "linux")]
 const TTY0TTY_THEIRS: &str = "/dev/tnt1";
 
+#[cfg(target_os = "linux")]
 fn probe_gadget() -> Verdict {
     let title = "USB gadget（dummy_hcd + g_serial）";
     let selectable = GADGET_DEVICE.to_string();
-    if !cfg!(target_os = "linux") {
-        return Verdict { id: "linux-gadget", title, selectable, available: false, reason: Some("仅 Linux".into()), install: None };
-    }
     let missing: Vec<&str> = ["dummy_hcd", "g_serial"].into_iter().filter(|name| !has_module(name)).collect();
     if !missing.is_empty() {
         let install = if is_wsl() {
@@ -303,6 +331,7 @@ fn probe_gadget() -> Verdict {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn start_gadget() -> Result<Started, String> {
     for module in ["dummy_hcd", "g_serial"] {
         if module_loaded(module) {
@@ -331,12 +360,10 @@ fn start_gadget() -> Result<Started, String> {
     Err(format!("模块已加载但没出现 {GADGET_DEVICE}"))
 }
 
+#[cfg(target_os = "linux")]
 fn probe_tty0tty() -> Verdict {
     let title = "tty0tty（成对虚拟串口 /dev/tnt0 <-> /dev/tnt1）";
     let selectable = TTY0TTY_THEIRS.to_string();
-    if !cfg!(target_os = "linux") {
-        return Verdict { id: "linux-tty0tty", title, selectable, available: false, reason: Some("仅 Linux".into()), install: None };
-    }
     if !has_module("tty0tty") {
         return Verdict {
             id: "linux-tty0tty",
@@ -356,6 +383,7 @@ fn probe_tty0tty() -> Verdict {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn start_tty0tty() -> Result<Started, String> {
     if !Path::new(TTY0TTY_OURS).exists() {
         run_privileged("modprobe", &["tty0tty"]).map_err(|error| format!("加载 tty0tty 失败：{error}"))?;
@@ -375,6 +403,7 @@ fn start_tty0tty() -> Result<Started, String> {
     })
 }
 
+#[cfg(windows)]
 fn com0com_setupc() -> Option<String> {
     for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
         if let Ok(base) = std::env::var(variable) {
@@ -387,12 +416,10 @@ fn com0com_setupc() -> Option<String> {
     None
 }
 
+#[cfg(windows)]
 fn probe_com0com() -> Verdict {
     let title = "com0com（成对虚拟 COM 口）";
     let selectable = "COM91".to_string();
-    if !cfg!(target_os = "windows") {
-        return Verdict { id: "windows-com0com", title, selectable, available: false, reason: Some("仅 Windows".into()), install: None };
-    }
     match com0com_setupc() {
         Some(_) => Verdict { id: "windows-com0com", title, selectable, available: true, reason: None, install: None },
         None => Verdict {
@@ -406,6 +433,7 @@ fn probe_com0com() -> Verdict {
     }
 }
 
+#[cfg(windows)]
 fn start_com0com() -> Result<Started, String> {
     let tool = com0com_setupc().ok_or("未检测到 com0com")?;
     let output = Command::new(&tool)
@@ -430,13 +458,28 @@ fn start_com0com() -> Result<Started, String> {
     })
 }
 
-/// 逐个探测，顺序即优先级
+/// 逐个探测，顺序即优先级；只列本平台真的可能提供的后端，
+/// 不再把三条 Linux 路径摆在 Windows 面前说"仅 Linux"
 pub fn probe_all() -> Vec<Verdict> {
-    vec![probe_usbip(), probe_gadget(), probe_tty0tty(), probe_com0com()]
+    #[cfg(target_os = "linux")]
+    {
+        vec![probe_usbip(), probe_gadget(), probe_tty0tty()]
+    }
+    #[cfg(windows)]
+    {
+        vec![probe_com0com()]
+    }
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        Vec::new()
+    }
 }
 
 /// 启动第一个可用的后端；都不可用则返回每条的原因
 pub fn start(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, Vec<String>> {
+    // log 只有 USB/IP 后端会用到（它要把模拟器事件转出来）
+    #[cfg(not(target_os = "linux"))]
+    let _ = &log;
     let mut reasons = Vec::new();
     for verdict in probe_all() {
         if !verdict.available {
@@ -444,9 +487,13 @@ pub fn start(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, Vec<Stri
             continue;
         }
         let started = match verdict.id {
+            #[cfg(target_os = "linux")]
             "linux-usbip" => start_usbip(Arc::clone(&log)),
+            #[cfg(target_os = "linux")]
             "linux-gadget" => start_gadget(),
+            #[cfg(target_os = "linux")]
             "linux-tty0tty" => start_tty0tty(),
+            #[cfg(windows)]
             "windows-com0com" => start_com0com(),
             other => Err(format!("未知后端 {other}")),
         };
@@ -459,12 +506,16 @@ pub fn start(log: Arc<dyn Fn(String) + Send + Sync>) -> Result<Started, Vec<Stri
 }
 
 pub fn stop(started: &Started) {
-    if started.desktop_alias.is_some() {
-        let _ = attachd::ask(json!({"op": "symlink", "remove": true}));
+    #[cfg(target_os = "linux")]
+    {
+        if started.desktop_alias.is_some() {
+            let _ = attachd::ask(json!({"op": "symlink", "remove": true}));
+        }
+        if let Some(port) = started.vhci_port {
+            let _ = attachd::ask(json!({"op": "detach", "vhciPort": port}));
+        }
     }
-    if let Some(port) = started.vhci_port {
-        let _ = attachd::ask(json!({"op": "detach", "vhciPort": port}));
-    }
+    #[cfg(windows)]
     if started.id == "windows-com0com" {
         if let Some(tool) = com0com_setupc() {
             let _ = Command::new(tool).args(["remove", "0"]).output();
@@ -480,7 +531,7 @@ mod tests {
     /// 四个后端都必须给出明确结论；不可用要有原因，缺前置要给可执行装法
     fn every_backend_reports_a_verdict() {
         let verdicts = probe_all();
-        assert_eq!(verdicts.len(), 4);
+        assert_eq!(verdicts.len(), if cfg!(target_os = "linux") { 3 } else { 1 }, "本平台的后端清单数量不对");
         for verdict in verdicts {
             assert!(!verdict.selectable.is_empty(), "{} 没说被测程序该选哪个口", verdict.id);
             if !verdict.available {

@@ -1,7 +1,8 @@
 //! 虚拟串口总管：一个开关，若干条真实链路，同一份时间轴同时下发。
 //!
 //! ⓿ 内核级设备（usbip/gadget/tty0tty/com0com）：浏览器选择框与桌面串口列表都能直接选中
-//! ① PTY 设备：任何按路径打开串口的程序可用（浏览器选择框看不到 PTY）
+//! ① PTY 设备（仅类 Unix）：任何按路径打开串口的程序可用（浏览器选择框看不到 PTY）；
+//!    Windows 上没有这条，那边的 ⓿ 就是 com0com 给的真实 COM 口
 //! ② 桌面桥接 18765：桌面模式下被测应用自己连过来，线上跑帧级 JSON
 //! ③ 浏览器注入 /ws/serial：页面里的虚拟 navigator.serial 连回来，线上跑串口字节
 
@@ -16,6 +17,7 @@ use serde_json::{json, Value};
 
 use crate::bridge::{self, Bridge};
 use crate::kernel::{self, Started};
+#[cfg(unix)]
 use crate::pty::{self, Pty};
 use crate::sinks;
 use crate::timeline::Timeline;
@@ -32,9 +34,11 @@ struct Replay {
 
 pub struct VirtualSerial {
     bridge_port: u16,
+    #[cfg(unix)]
     device_links: Vec<PathBuf>,
     sink: Sink,
     bridge: Mutex<Option<Arc<Bridge>>>,
+    #[cfg(unix)]
     device: Mutex<Option<Pty>>,
     kernel: Mutex<Option<Started>>,
     kernel_reasons: Mutex<Vec<String>>,
@@ -43,15 +47,20 @@ pub struct VirtualSerial {
     replay: Mutex<Option<Replay>>,
 }
 
+/// 桌面壳只认 /dev/ttyUSBn（nativeSerialPort.js:45），这是手动接入时用的名字
 pub const SYSTEM_LINK: &str = "/dev/ttyUSB0";
 
 impl VirtualSerial {
     pub fn new(bridge_port: u16, device_links: Vec<PathBuf>, sink: Sink) -> Arc<Self> {
+        #[cfg(not(unix))]
+        let _ = device_links;
         Arc::new(VirtualSerial {
             bridge_port,
+            #[cfg(unix)]
             device_links,
             sink,
             bridge: Mutex::new(None),
+            #[cfg(unix)]
             device: Mutex::new(None),
             kernel: Mutex::new(None),
             kernel_reasons: Mutex::new(Vec::new()),
@@ -69,12 +78,50 @@ impl VirtualSerial {
         (self.sink)(json!({"type": "state", "state": self.state()}));
     }
 
+    /// 设备通道（PTY）在 state 里的形态；Windows 上如实报告"本平台不提供"
+    fn device_state(&self) -> Value {
+        #[cfg(unix)]
+        {
+            let device = self.device.lock();
+            json!({
+                "supported": true,
+                "path": device.as_ref().map(|item| item.path.clone()),
+                "links": device.as_ref().map(|item| item.links.iter().map(|link| link.display().to_string()).collect::<Vec<_>>()).unwrap_or_default(),
+                "warnings": device.as_ref().map(|item| item.warnings.clone()).unwrap_or_default(),
+                "available": pty::probe().is_ok(),
+                "reason": pty::probe().err(),
+                "systemLink": SYSTEM_LINK,
+                "systemLinked": self.system_link.lock().clone(),
+                "systemLinkHint": device.as_ref().map(|item| item.system_link_hint(SYSTEM_LINK))
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            json!({
+                "supported": false,
+                "path": Value::Null,
+                "links": [],
+                "warnings": [],
+                "available": false,
+                "reason": "本平台不提供 PTY 设备通道：com0com 已经给出可直接选中的 COM 口",
+                "systemLink": Value::Null,
+                "systemLinked": Value::Null,
+                "systemLinkHint": Value::Null
+            })
+        }
+    }
+
     pub fn state(&self) -> Value {
         let bridge = self.bridge.lock();
-        let device = self.device.lock();
         let kernel = self.kernel.lock();
         let replay = self.replay.lock();
         json!({
+            "platform": crate::PLATFORM,
+            "helper": {
+                "required": crate::HELPER_REQUIRED,
+                "installed": crate::install::helper_installed(),
+                "command": crate::install::install_command()
+            },
             "open": bridge.is_some(),
             "bridgePort": bridge.as_ref().map(|item| item.port).unwrap_or(self.bridge_port),
             "bridgeUrl": bridge.as_ref().map(|item| item.url())
@@ -85,21 +132,12 @@ impl VirtualSerial {
                 "id": kernel.as_ref().map(|item| item.id),
                 "title": kernel.as_ref().map(|item| item.title),
                 "selectable": kernel.as_ref().map(|item| item.selectable.clone()),
-                "selectableOpenable": kernel.as_ref().map(|item| kernel::readable_and_writable(&item.selectable)),
+                "selectableOpenable": kernel.as_ref().and_then(|item| kernel::openable(&item.selectable)),
                 "desktopAlias": kernel.as_ref().and_then(|item| item.desktop_alias.clone()),
                 "reasons": self.kernel_reasons.lock().clone(),
                 "backends": kernel::probe_all().iter().map(|verdict| verdict.to_json()).collect::<Vec<_>>()
             },
-            "device": {
-                "path": device.as_ref().map(|item| item.path.clone()),
-                "links": device.as_ref().map(|item| item.links.iter().map(|link| link.display().to_string()).collect::<Vec<_>>()).unwrap_or_default(),
-                "warnings": device.as_ref().map(|item| item.warnings.clone()).unwrap_or_default(),
-                "available": pty::probe().is_ok(),
-                "reason": pty::probe().err(),
-                "systemLink": SYSTEM_LINK,
-                "systemLinked": self.system_link.lock().clone(),
-                "systemLinkHint": device.as_ref().map(|item| item.system_link_hint(SYSTEM_LINK))
-            },
+            "device": self.device_state(),
             "replay": match replay.as_ref() {
                 Some(state) => json!({"running": true, "sent": state.sent, "total": state.total, "key": state.key, "text": state.text}),
                 None => json!({"running": false, "sent": 0, "total": 0})
@@ -138,14 +176,20 @@ impl VirtualSerial {
                 self.log(
                     "info",
                     format!(
-                        "没有可用的内核级后端（{}），使用 PTY 设备；浏览器选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」",
-                        reasons.join("；")
+                        "没有可用的内核级后端（{}）；{}",
+                        reasons.join("；"),
+                        if crate::DEVICE_CHANNEL_SUPPORTED {
+                            "改用 PTY 设备：浏览器选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」"
+                        } else {
+                            "本平台请先安装 com0com；桥接与浏览器注入两条通道仍可用"
+                        }
                     ),
                 );
                 *self.kernel_reasons.lock() = reasons;
             }
         }
 
+        #[cfg(unix)]
         match Pty::open(&self.device_links) {
             Ok(device) => {
                 let sink = Arc::clone(&self.sink);
@@ -193,6 +237,7 @@ impl VirtualSerial {
             kernel::stop(&started);
             self.log("warn", "内核级虚拟串口已移除");
         }
+        #[cfg(unix)]
         if self.device.lock().take().is_some() {
             self.log("warn", "虚拟串口设备已移除");
         }
@@ -208,6 +253,7 @@ impl VirtualSerial {
     }
 
     /// 把设备接进系统串口列表（桌面壳只认 /dev/ttyUSBn）
+    #[cfg(unix)]
     pub fn link_system(&self, target: &str) -> Value {
         let device = self.device.lock();
         let Some(device) = device.as_ref() else {
@@ -250,6 +296,7 @@ impl VirtualSerial {
         }
     }
 
+    #[cfg(unix)]
     pub fn unlink_system(&self, target: &str) -> Value {
         match std::fs::remove_file(target) {
             Ok(()) => {
@@ -260,6 +307,17 @@ impl VirtualSerial {
             }
             Err(error) => json!({"ok": false, "error": error.to_string()}),
         }
+    }
+
+    /// Windows 上没有"接进列表"这一步：com0com 直接给出 COM 口名
+    #[cfg(not(unix))]
+    pub fn link_system(&self, _target: &str) -> Value {
+        json!({"ok": false, "error": "本平台无需接入：com0com 的 COM 口本身就在系统串口列表里"})
+    }
+
+    #[cfg(not(unix))]
+    pub fn unlink_system(&self, _target: &str) -> Value {
+        json!({"ok": false, "error": "本平台无需接入，也就无需移出"})
     }
 
     /// 按时间轴向所有通道同时回放；speed>1 整体加速
@@ -322,6 +380,7 @@ impl VirtualSerial {
                 if let Some(started) = manager.kernel.lock().as_mut() {
                     let _ = started.writer.write(bytes);
                 }
+                #[cfg(unix)]
                 if let Some(device) = manager.device.lock().as_ref() {
                     let _ = device.write(bytes);
                 }

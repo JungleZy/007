@@ -7,7 +7,9 @@
 //! 后端 GeneralTickerPatService.java / GeneralKeyPatService.java），
 //! tests/ 下的对表测试会逐项核对，任何一侧改动导致漂移即测试失败。
 
-use keysim::{attachd, console, faults, install, keying, pty, rest, serial, sinks, BRIDGE_PORT, CONSOLE_PORT};
+#[cfg(unix)]
+use keysim::attachd;
+use keysim::{console, faults, install, keying, rest, serial, sinks, BRIDGE_PORT, CONSOLE_PORT};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -26,8 +28,8 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   keysim bridge   [--port 18765] [--speed 1]      只起桌面桥接并回放
   keysim upload   --user <账号> --password <密码>   打真实后端：取页 → startTrain → uploadResult → finish
                   --train-id <n> [--page 1] [--attempt 1] [--base http://localhost:18001/api]
-  keysim install-helper / uninstall-helper        装/卸 root 助手（USB/IP 挂载，装一次即可）
-  keysim attachd  --socket <路径> --uid <n>        root 助手本体（由 systemd 拉起）
+  keysim install-helper / uninstall-helper        装/卸 root 助手（Linux 用；Windows 装 com0com 即可）
+  keysim attachd  --socket <路径> --uid <n>        root 助手本体（由 systemd 拉起，仅 Linux）
 
 通用选项
   --key hand|electron   键型（hand/electron 子命令已隐含）
@@ -305,7 +307,7 @@ fn run_serve(args: &Args) -> Result<(), String> {
         http: args.number("http").unwrap_or(CONSOLE_PORT as f64) as u16,
         bridge: args.number("port").unwrap_or(BRIDGE_PORT as f64) as u16,
         autostart: !args.has("no-autostart"),
-        links: if args.links.is_empty() { pty::default_links() } else { args.links.clone() },
+        links: if args.links.is_empty() { keysim::default_device_links() } else { args.links.clone() },
     };
     let console = console::serve(options).map_err(|error| format!("控制台端口 {} 无法监听：{error}", args.number("http").unwrap_or(CONSOLE_PORT as f64)))?;
     let origin = format!("http://127.0.0.1:{}", console.port);
@@ -377,6 +379,7 @@ fn main() {
         "uninstall-helper" => install::uninstall_as_root().map(|result| {
             println!("已卸载：{}", result["removed"].as_str().unwrap_or_default());
         }),
+        #[cfg(unix)]
         "attachd" => {
             let socket = args.text("socket").unwrap_or(attachd::DEFAULT_SOCKET).to_string();
             let uid = args.number("uid").map(|value| value as u32);

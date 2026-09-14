@@ -14,6 +14,7 @@ use crate::browser;
 use crate::faults::{self, Chunking, Fault};
 use crate::keying::{self, ElectronOptions, HandOptions};
 use crate::kernel;
+#[cfg(unix)]
 use crate::pty;
 use crate::serial::{VirtualSerial, SYSTEM_LINK};
 use crate::sinks;
@@ -260,7 +261,7 @@ impl Default for Options {
             http: crate::CONSOLE_PORT,
             bridge: crate::BRIDGE_PORT,
             autostart: true,
-            links: pty::default_links(),
+            links: crate::default_device_links(),
         }
     }
 }
@@ -393,7 +394,7 @@ fn serve_one(console: Arc<Console>, mut stream: TcpStream) {
 /// doctor：把本机能力矩阵打成人读文本（不可用必须给原因与装法）
 pub fn doctor() -> String {
     let mut lines = Vec::new();
-    lines.push("keysim doctor —— 虚拟串口能力矩阵".to_string());
+    lines.push(format!("keysim doctor —— 虚拟串口能力矩阵（平台：{}）", crate::PLATFORM));
     lines.push(String::new());
     lines.push("| 后端 | 可用 | 被测程序应选 | 说明 |".into());
     lines.push("|---|---|---|---|".into());
@@ -412,11 +413,16 @@ pub fn doctor() -> String {
                 .unwrap_or_else(|| "就绪".into())
         ));
     }
-    let pty_state = match pty::probe() {
-        Ok(()) => "可用 | /dev/pts/N | 任何按路径打开串口的程序可用；浏览器选择框看不到 PTY".to_string(),
-        Err(reason) => format!("不可用 | /dev/pts/N | {reason}"),
-    };
-    lines.push(format!("| pty | {pty_state} |"));
+    #[cfg(unix)]
+    {
+        let pty_state = match pty::probe() {
+            Ok(()) => "可用 | /dev/pts/N | 任何按路径打开串口的程序可用；浏览器选择框看不到 PTY".to_string(),
+            Err(reason) => format!("不可用 | /dev/pts/N | {reason}"),
+        };
+        lines.push(format!("| pty | {pty_state} |"));
+    }
+    #[cfg(not(unix))]
+    lines.push("| pty | 不适用 | - | 本平台没有 PTY；com0com 已提供真实 COM 口 |".to_string());
     lines.push(format!(
         "| browser-inject | {} | 页面内虚拟 navigator.serial | 由 keysim 拉起浏览器并在页面脚本前注入 |",
         match browser::probe() {
@@ -426,6 +432,16 @@ pub fn doctor() -> String {
     ));
     lines.push(format!("| bridge | 可用 | ws://127.0.0.1:{}/echo | 桌面模式下被测应用主动连过来 |", crate::BRIDGE_PORT));
     lines.push(String::new());
+    lines.push(format!(
+        "root 助手：{}",
+        if !crate::HELPER_REQUIRED {
+            "本平台不需要".to_string()
+        } else if crate::install::helper_installed() {
+            "已安装".to_string()
+        } else {
+            format!("未安装 —— 执行 {}", crate::install::install_command())
+        }
+    ));
     lines.push(format!("故障注入：{}", Fault::all().join(" / ")));
     lines.push(format!(
         "分包模式：{}",
@@ -469,7 +485,12 @@ mod tests {
     /// doctor 必须对每个后端都给结论
     fn doctor_covers_every_backend() {
         let report = doctor();
-        for id in ["linux-usbip", "linux-gadget", "linux-tty0tty", "windows-com0com", "pty", "bridge"] {
+        let expected: &[&str] = if cfg!(target_os = "linux") {
+            &["linux-usbip", "linux-gadget", "linux-tty0tty", "pty", "bridge"]
+        } else {
+            &["windows-com0com", "bridge"]
+        };
+        for id in expected {
             assert!(report.contains(id), "doctor 少了 {id}：\n{report}");
         }
     }

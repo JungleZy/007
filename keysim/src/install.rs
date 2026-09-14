@@ -1,14 +1,24 @@
-//! 装一次 root 助手：把自己注册成 systemd 服务（`keysim attachd`）。
+//! 一次性安装。
 //!
+//! Linux：把自己注册成 systemd 服务（`keysim attachd`）并装一条 udev 规则。
 //! 之后网页上点「开启虚拟串口」不再需要密码——特权只留在助手里，
-//! 且助手只做 vhci_hcd 的 attach/detach（attachd.rs 说明了攻击面）。
+//! 且助手只做 vhci_hcd 的 attach/detach 与自家设备的认领（attachd.rs 说明了攻击面）。
+//!
+//! Windows：不需要 root 助手。虚拟串口由 com0com 驱动提供，装一次 com0com 即可，
+//! keysim 只调它的 setupc.exe 建/删端口对（kernel.rs）。
 
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
 use serde_json::{json, Value};
 
+#[cfg(target_os = "linux")]
 const UNIT_PATH: &str = "/etc/systemd/system/keysim-attachd.service";
+#[cfg(target_os = "linux")]
 const UDEV_PATH: &str = "/etc/udev/rules.d/70-keysim-virtual-serial.rules";
+
+/// com0com 官方下载页：Windows 上的"装一次"就是装它
+pub const COM0COM_URL: &str = "https://sourceforge.net/projects/com0com/";
 
 fn self_path() -> String {
     std::env::current_exe()
@@ -18,10 +28,13 @@ fn self_path() -> String {
 
 /// 安装后的稳定路径：单元文件绝不能指向 cargo 的构建目录，
 /// 否则一次 `cargo clean`（或换分支重建）就让 root 服务指向不存在的文件。
+#[cfg(target_os = "linux")]
 const INSTALL_PATH: &str = "/usr/local/bin/keysim";
 
+#[cfg(target_os = "linux")]
 fn is_build_artifact(path: &str) -> bool {
-    path.contains("/target/release/") || path.contains("/target/debug/")
+    let normalized = path.replace('\\', "/");
+    normalized.contains("/target/release/") || normalized.contains("/target/debug/")
 }
 
 /// 原子替换可执行文件：先写同目录的临时文件，再 rename 覆盖。
@@ -36,12 +49,29 @@ pub fn replace_executable(source: &str, target: &str) -> Result<(), String> {
     // 临时文件必须与目标同目录：跨文件系统 rename 会失败
     let staging = format!("{target}.new-{}", std::process::id());
     std::fs::copy(source, &staging).map_err(|error| format!("写 {staging} 失败：{error}"))?;
-    let result = std::fs::set_permissions(
+    // Windows 的 rename 不覆盖已存在的目标，而运行中的 exe 也不能删：
+    // 先把旧文件改名让开（这在 Windows 上是允许的），进程退出后再清理。
+    #[cfg(windows)]
+    if std::path::Path::new(target).exists() {
+        let retired = format!("{target}.old-{}", std::process::id());
+        let _ = std::fs::remove_file(&retired);
+        if let Err(error) = std::fs::rename(target, &retired) {
+            let _ = std::fs::remove_file(&staging);
+            return Err(format!("让开旧文件 {target} 失败：{error}"));
+        }
+    }
+    // 可执行位只有类 Unix 需要显式设置；Windows 的可执行性由扩展名与 ACL 决定
+    #[cfg(unix)]
+    let prepared = std::fs::set_permissions(
         &staging,
         <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
     )
-    .map_err(|error| format!("设置 {staging} 权限失败：{error}"))
-    .and_then(|()| std::fs::rename(&staging, target).map_err(|error| format!("替换 {target} 失败：{error}")));
+    .map_err(|error| format!("设置 {staging} 权限失败：{error}"));
+    #[cfg(not(unix))]
+    let prepared: Result<(), String> = Ok(());
+
+    let result = prepared
+        .and_then(|()| std::fs::rename(&staging, target).map_err(|error| format!("替换 {target} 失败：{error}")));
     if result.is_err() {
         let _ = std::fs::remove_file(&staging);
     }
@@ -49,6 +79,7 @@ pub fn replace_executable(source: &str, target: &str) -> Result<(), String> {
 }
 
 /// 从构建目录安装时，先把自己复制到 INSTALL_PATH，再让单元指向它
+#[cfg(target_os = "linux")]
 fn stable_executable() -> Result<String, String> {
     let current = self_path();
     if !is_build_artifact(&current) {
@@ -60,9 +91,28 @@ fn stable_executable() -> Result<String, String> {
 
 /// 给用户的可复制命令：一律用绝对路径，别假设 keysim 在 PATH 里
 pub fn install_command() -> String {
-    format!("sudo {} install-helper", self_path())
+    if cfg!(target_os = "linux") {
+        format!("sudo {} install-helper", self_path())
+    } else if cfg!(windows) {
+        format!("安装 com0com（{COM0COM_URL}）后无需其他步骤")
+    } else {
+        format!("{} install-helper", self_path())
+    }
 }
 
+/// 助手是否已装好（Windows 恒为"不需要"，因此也恒为未安装）
+pub fn helper_installed() -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        crate::attachd::ask(json!({"op": "probe"}))["ok"] == true
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        false
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn target_user() -> (String, u32) {
     let name = std::env::var("SUDO_USER")
         .or_else(|_| std::env::var("PKEXEC_UID").map(|_| String::new()))
@@ -89,6 +139,7 @@ fn target_user() -> (String, u32) {
 /// udev 规则只匹配 keysim 自己的虚拟设备（VID:PID = 1209:5253），
 /// 把节点属主设成安装者。这样不必把用户塞进 dialout 组，
 /// 也不会影响任何真实串口的权限。
+#[cfg(target_os = "linux")]
 fn udev_text(user: &str) -> String {
     format!(
         "# keysim 虚拟串口（USB/IP + CDC-ACM）：只认自家 VID:PID，交给 {user}\n\
@@ -98,6 +149,7 @@ fn udev_text(user: &str) -> String {
     )
 }
 
+#[cfg(target_os = "linux")]
 fn unit_text(executable: &str, uid: u32) -> String {
     format!(
         "[Unit]\n\
@@ -115,6 +167,7 @@ fn unit_text(executable: &str, uid: u32) -> String {
 }
 
 /// root 下真正落地安装
+#[cfg(target_os = "linux")]
 pub fn write_unit_as_root() -> Result<Value, String> {
     let executable = stable_executable()?;
     let (user, uid) = target_user();
@@ -179,7 +232,8 @@ pub fn route(is_root: bool, has_pkexec: bool, graphical: bool) -> Route {
     }
 }
 
-/// 网页/CLI 调用：root 直装；有 pkexec 则弹框装；否则把命令交给用户
+/// 网页/CLI 调用：Linux 上装 systemd 服务 + udev 规则
+#[cfg(target_os = "linux")]
 pub fn install_helper() -> Value {
     // SAFETY: geteuid 无副作用
     let is_root = (unsafe { libc::geteuid() }) == 0;
@@ -220,7 +274,19 @@ pub fn install_helper() -> Value {
     }
 }
 
+/// Windows 与其他平台：没有 root 助手这一层，虚拟串口由 com0com 驱动提供
+#[cfg(not(target_os = "linux"))]
+pub fn install_helper() -> Value {
+    json!({
+        "ok": false,
+        "required": false,
+        "error": format!("本平台不需要 root 助手：安装 com0com（{COM0COM_URL}）即可获得可被浏览器与桌面程序直接选中的 COM 口"),
+        "command": install_command()
+    })
+}
+
 /// 卸掉助手（root）
+#[cfg(target_os = "linux")]
 pub fn uninstall_as_root() -> Result<Value, String> {
     let _ = Command::new("systemctl").args(["disable", "--now", "keysim-attachd.service"]).output();
     std::fs::remove_file(UNIT_PATH).map_err(|error| format!("删除 {UNIT_PATH} 失败：{error}"))?;
@@ -232,12 +298,18 @@ pub fn uninstall_as_root() -> Result<Value, String> {
     Ok(json!({"ok": true, "removed": UNIT_PATH, "udevRemoved": udev_removed}))
 }
 
+#[cfg(not(target_os = "linux"))]
+pub fn uninstall_as_root() -> Result<Value, String> {
+    Err(format!("本平台没有 root 助手可卸：虚拟串口由 com0com 提供（{COM0COM_URL}）"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     /// 单元文件必须指向当前可执行文件的 attachd 子命令与固定 socket，否则装完连不上
+    #[cfg(target_os = "linux")]
     fn unit_points_at_this_binary() {
         let text = unit_text("/opt/keysim", 1000);
         assert!(text.contains("ExecStart=/opt/keysim attachd --socket /run/keysim/keysim-attachd.sock --uid 1000"), "{text}");
@@ -247,6 +319,7 @@ mod tests {
     #[test]
     /// 从 cargo 构建目录安装时必须改指向 /usr/local/bin/keysim：
     /// 指向 target/ 的单元会在 cargo clean 后失效
+    #[cfg(target_os = "linux")]
     fn build_artifacts_are_not_referenced_by_the_unit() {
         assert!(is_build_artifact("/home/u/007/keysim/target/release/keysim"));
         assert!(is_build_artifact("/home/u/007/keysim/target/debug/keysim"));
@@ -256,6 +329,7 @@ mod tests {
 
     #[test]
     /// udev 规则必须只匹配 keysim 自家虚拟设备，且不碰真实串口的权限
+    #[cfg(target_os = "linux")]
     fn udev_rule_is_scoped_to_our_virtual_device() {
         let rule = udev_text("zhang");
         assert!(rule.contains(r#"ATTRS{idVendor}=="1209""#), "{rule}");
