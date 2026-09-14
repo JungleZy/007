@@ -1,0 +1,476 @@
+//! 控制台：内嵌网页 + HTTP API + SSE + 浏览器注入通道，全在一个进程里。
+//!
+//! 网页与注入脚本都编进二进制（include_str!），所以交付物就是一个可执行文件。
+
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use std::thread;
+
+use parking_lot::Mutex;
+use serde_json::{json, Value};
+
+use crate::browser;
+use crate::faults::{self, Chunking, Fault};
+use crate::keying::{self, ElectronOptions, HandOptions};
+use crate::kernel;
+use crate::pty;
+use crate::serial::{VirtualSerial, SYSTEM_LINK};
+use crate::sinks;
+use crate::timeline::Timeline;
+use crate::ws;
+
+const INDEX_HTML: &str = include_str!("../public/index.html");
+const INJECT_JS: &str = include_str!("../public/inject.js");
+
+pub struct Console {
+    pub port: u16,
+    pub serial: Arc<VirtualSerial>,
+    events: Arc<Mutex<Vec<TcpStream>>>,
+    browser: Mutex<Option<browser::Browser>>,
+}
+
+fn plan_json(params: &Value) -> Result<Value, String> {
+    if params["key"].as_str().unwrap_or("hand") == "hand" {
+        let plan = keying::hand_plan(&hand_options(params)?)?;
+        Ok(json!({"dot": plan.dot, "dash": plan.dash, "gap": plan.gap, "word": plan.word, "group": plan.group}))
+    } else {
+        let options = electron_options(params)?;
+        let per_char = 60000.0 / (options.rate * options.group_size as f64);
+        Ok(json!({"perChar": per_char, "word": per_char, "group": per_char * options.group_size as f64}))
+    }
+}
+
+fn number(params: &Value, key: &str, fallback: f64) -> f64 {
+    params[key].as_f64().filter(|value| value.is_finite()).unwrap_or(fallback)
+}
+
+fn text_of(params: &Value, key: &str, fallback: &str) -> String {
+    params[key].as_str().unwrap_or(fallback).to_string()
+}
+
+fn hand_options(params: &Value) -> Result<HandOptions, String> {
+    let defaults = HandOptions::default();
+    Ok(HandOptions {
+        text: text_of(params, "text", ""),
+        alphabet: text_of(params, "alphabet", &defaults.alphabet),
+        rate: number(params, "rate", defaults.rate),
+        unit: text_of(params, "unit", &defaults.unit),
+        skew: number(params, "skew", defaults.skew),
+        jitter: number(params, "jitter", 0.0),
+        seed: number(params, "seed", 1.0) as u32,
+        preamble: params["preamble"].as_bool().unwrap_or(true),
+        tail: text_of(params, "tail", &defaults.tail),
+        single_page: params["singlePage"].as_bool().unwrap_or(true),
+        low_rate: params["lowRate"].as_bool().unwrap_or(false),
+    })
+}
+
+fn electron_options(params: &Value) -> Result<ElectronOptions, String> {
+    let defaults = ElectronOptions::default();
+    Ok(ElectronOptions {
+        text: text_of(params, "text", ""),
+        alphabet: text_of(params, "alphabet", &defaults.alphabet),
+        rate: number(params, "rate", defaults.rate),
+        stroke_gap: number(params, "strokeGap", defaults.stroke_gap),
+        group_size: number(params, "groupSize", 4.0) as usize,
+        jitter: number(params, "jitter", 0.0),
+        seed: number(params, "seed", 1.0) as u32,
+        preamble: params["preamble"].as_bool().unwrap_or(true),
+        tail: text_of(params, "tail", &defaults.tail),
+    })
+}
+
+fn parse_faults(params: &Value) -> Result<Vec<Fault>, String> {
+    let mut parsed = Vec::new();
+    for item in params["faults"].as_array().cloned().unwrap_or_default() {
+        let name = item.as_str().unwrap_or_default();
+        parsed.push(Fault::parse(name).ok_or_else(|| format!("未知故障 {name}（可选：{}）", faults::Fault::all().join(" / ")))?);
+    }
+    Ok(parsed)
+}
+
+/// 按请求参数造时间轴；故障注入在这里统一落地
+pub fn build_timeline(params: &Value) -> Result<Timeline, String> {
+    let mut timeline = if params["key"].as_str().unwrap_or("hand") == "hand" {
+        keying::hand_timeline(&hand_options(params)?)?
+    } else {
+        keying::electron_timeline(&electron_options(params)?)?
+    };
+    faults::apply(&mut timeline, &parse_faults(params)?);
+    Ok(timeline)
+}
+
+impl Console {
+    fn broadcast(&self, event: &Value) {
+        let payload = format!("data: {event}\n\n");
+        let mut clients = self.events.lock();
+        clients.retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
+    }
+
+    fn state(&self) -> Value {
+        let mut state = self.serial.state();
+        let browser = self.browser.lock();
+        state["browser"] = match browser.as_ref() {
+            Some(session) => json!({"open": true, "url": session.url.clone(), "available": true}),
+            None => match browser::probe() {
+                Ok(path) => json!({"open": false, "available": true, "executable": path}),
+                Err(reason) => json!({"open": false, "available": false, "reason": reason}),
+            },
+        };
+        state
+    }
+
+    fn log(&self, level: &str, message: impl Into<String>) {
+        self.broadcast(&json!({"type": "log", "level": level, "message": message.into()}));
+    }
+
+    fn handle(self: &Arc<Self>, path: &str, body: &Value) -> Value {
+        match path {
+            "/api/state" => json!({"ok": true, "state": self.state()}),
+            "/api/port" => {
+                if body["open"].as_bool().unwrap_or(true) {
+                    match self.serial.open() {
+                        Ok(_) => json!({"ok": true, "state": self.state()}),
+                        Err(error) => json!({"ok": false, "error": error}),
+                    }
+                } else {
+                    self.serial.close();
+                    json!({"ok": true, "state": self.state()})
+                }
+            }
+            "/api/message/random" => {
+                let alphabet = text_of(body, "alphabet", "letter");
+                let groups = number(body, "groups", 4.0) as usize;
+                let size = number(body, "groupSize", 4.0) as usize;
+                let seed = body["seed"].as_u64().map(|value| value as u32);
+                match keying::random_message(&alphabet, groups, size, seed) {
+                    Ok(text) => json!({"ok": true, "text": text}),
+                    Err(error) => json!({"ok": false, "error": error}),
+                }
+            }
+            "/api/preview" => match build_timeline(body) {
+                Ok(timeline) => {
+                    let chunks = sinks::to_bytes(&timeline);
+                    let head: Vec<String> = chunks.iter().take(12).map(|chunk| sinks::hex(&chunk.bytes)).collect();
+                    match plan_json(body) {
+                        Ok(plan) => json!({
+                            "ok": true,
+                            "duration": timeline.duration(),
+                            "events": timeline.events.len(),
+                            "chars": timeline.body_chars().count(),
+                            "plan": plan,
+                            "head": head
+                        }),
+                        Err(error) => json!({"ok": false, "error": error}),
+                    }
+                }
+                Err(error) => json!({"ok": false, "error": error}),
+            },
+            "/api/send" => match build_timeline(body) {
+                Ok(timeline) => {
+                    let speed = number(body, "speed", 1.0).max(0.05);
+                    let text = text_of(body, "text", "");
+                    match self.serial.send(&timeline, speed, &text) {
+                        Ok(state) => json!({"ok": true, "state": state}),
+                        Err(error) => json!({"ok": false, "error": error}),
+                    }
+                }
+                Err(error) => json!({"ok": false, "error": error}),
+            },
+            "/api/stop" => {
+                let stopped = self.serial.stop();
+                json!({"ok": true, "stopped": stopped, "state": self.state()})
+            }
+            "/api/device/link" => {
+                let target = text_of(body, "target", SYSTEM_LINK);
+                let mut result = if body["remove"].as_bool().unwrap_or(false) {
+                    self.serial.unlink_system(&target)
+                } else {
+                    self.serial.link_system(&target)
+                };
+                result["state"] = self.state();
+                result
+            }
+            "/api/helper/install" => {
+                let mut result = crate::install::install_helper();
+                if result["ok"] == true {
+                    self.log("ok", "root 助手已安装：点「开启虚拟串口」即可得到 /dev/ttyACM*");
+                } else if let Some(command) = result["command"].as_str() {
+                    self.log("warn", format!("需要手动执行一次：{command}"));
+                }
+                result["state"] = self.state();
+                result
+            }
+            "/api/browser/open" => {
+                let url = text_of(body, "url", "");
+                if url.is_empty() {
+                    return json!({"ok": false, "error": "缺少页面地址"});
+                }
+                match self.open_page(&url) {
+                    Ok(()) => json!({"ok": true, "state": self.state()}),
+                    Err(error) => json!({"ok": false, "error": error}),
+                }
+            }
+            "/api/browser/close" => {
+                if let Some(session) = self.browser.lock().take() {
+                    session.close();
+                    self.log("warn", "被测页面已关闭");
+                }
+                json!({"ok": true, "state": self.state()})
+            }
+            other => json!({"ok": false, "error": format!("未知接口 {other}")}),
+        }
+    }
+}
+
+impl Console {
+    /// 拉起浏览器打开被测页面，并在页面脚本执行前注入虚拟串口
+    pub fn open_page(&self, url: &str) -> Result<(), String> {
+        let origin = format!("http://127.0.0.1:{}", self.port);
+        let script = INJECT_JS.replace("http://127.0.0.1:18700", &origin);
+        let session = browser::open(url, &script)?;
+        self.log("ok", format!("已打开被测页面并预置虚拟串口：{url}"));
+        *self.browser.lock() = Some(session);
+        Ok(())
+    }
+}
+
+fn respond(stream: &mut TcpStream, status: &str, content_type: &str, body: &[u8]) {
+    let head = format!(
+        "HTTP/1.1 {status}\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\naccess-control-allow-origin: *\r\nconnection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(body);
+}
+
+/// 控制台启动参数
+pub struct Options {
+    pub http: u16,
+    pub bridge: u16,
+    /// 首屏即可用：起来就开虚拟串口
+    pub autostart: bool,
+    pub links: Vec<std::path::PathBuf>,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Options {
+            http: crate::CONSOLE_PORT,
+            bridge: crate::BRIDGE_PORT,
+            autostart: true,
+            links: pty::default_links(),
+        }
+    }
+}
+
+pub fn serve(options: Options) -> std::io::Result<Arc<Console>> {
+    let listener = TcpListener::bind(("127.0.0.1", options.http))?;
+    let bound = listener.local_addr()?.port();
+    let events: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
+
+    let sink_events = Arc::clone(&events);
+    let serial = VirtualSerial::new(
+        options.bridge,
+        options.links.clone(),
+        Arc::new(move |event: Value| {
+            let payload = format!("data: {event}\n\n");
+            let mut clients = sink_events.lock();
+            clients.retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
+        }),
+    );
+
+    let console = Arc::new(Console {
+        port: bound,
+        serial: Arc::clone(&serial),
+        events: Arc::clone(&events),
+        browser: Mutex::new(None),
+    });
+
+    if options.autostart {
+        if let Err(error) = serial.open() {
+            eprintln!("[keysim] 自动开启虚拟串口失败：{error}");
+        }
+    }
+
+    let accept_console = Arc::clone(&console);
+    thread::spawn(move || {
+        for incoming in listener.incoming() {
+            let Ok(stream) = incoming else { continue };
+            let console = Arc::clone(&accept_console);
+            thread::spawn(move || serve_one(console, stream));
+        }
+    });
+    Ok(console)
+}
+
+fn serve_one(console: Arc<Console>, mut stream: TcpStream) {
+    let _ = stream.set_nodelay(true);
+    let mut reader = BufReader::new(match stream.try_clone() {
+        Ok(clone) => clone,
+        Err(_) => return,
+    });
+    let mut request_line = String::new();
+    if reader.read_line(&mut request_line).is_err() {
+        return;
+    }
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or("GET").to_string();
+    let target = parts.next().unwrap_or("/").to_string();
+    let path = target.split('?').next().unwrap_or("/").to_string();
+
+    let mut headers = String::new();
+    loop {
+        let mut line = String::new();
+        match reader.read_line(&mut line) {
+            Ok(0) => break,
+            Ok(_) => {
+                if line == "\r\n" || line == "\n" {
+                    break;
+                }
+                headers.push_str(&line);
+            }
+            Err(_) => return,
+        }
+    }
+    let lowered = headers.to_ascii_lowercase();
+
+    // WebSocket：浏览器注入通道
+    if lowered.contains("upgrade: websocket") {
+        let Some(key) = ws::header_value(&headers, "sec-websocket-key") else { return };
+        if path != "/ws/serial" {
+            let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\n\r\n");
+            return;
+        }
+        if ws::write_handshake(&mut stream, &key).is_err() {
+            return;
+        }
+        console.serial.attach_inject(stream);
+        return;
+    }
+
+    if path == "/api/events" {
+        let head = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ncache-control: no-cache\r\nconnection: keep-alive\r\naccess-control-allow-origin: *\r\n\r\n";
+        if stream.write_all(head.as_bytes()).is_err() {
+            return;
+        }
+        let initial = format!("data: {}\n\n", json!({"type": "state", "state": console.state()}));
+        let _ = stream.write_all(initial.as_bytes());
+        console.events.lock().push(stream);
+        return;
+    }
+
+    let length: usize = ws::header_value(&headers, "content-length")
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+    let mut body = vec![0u8; length];
+    if length > 0 && reader.read_exact(&mut body).is_err() {
+        return;
+    }
+
+    match (method.as_str(), path.as_str()) {
+        ("GET", "/") | ("GET", "/index.html") => respond(&mut stream, "200 OK", "text/html; charset=utf-8", INDEX_HTML.as_bytes()),
+        ("GET", "/inject.js") => {
+            let origin = format!("http://127.0.0.1:{}", console.port);
+            let script = INJECT_JS.replace("http://127.0.0.1:18700", &origin);
+            respond(&mut stream, "200 OK", "application/javascript; charset=utf-8", script.as_bytes());
+        }
+        ("OPTIONS", _) => respond(&mut stream, "204 No Content", "text/plain", b""),
+        (_, path) if path.starts_with("/api/") => {
+            let parsed: Value = if body.is_empty() {
+                json!({})
+            } else {
+                serde_json::from_slice(&body).unwrap_or_else(|_| json!({}))
+            };
+            let result = console.handle(path, &parsed);
+            respond(&mut stream, "200 OK", "application/json; charset=utf-8", result.to_string().as_bytes());
+        }
+        _ => respond(&mut stream, "404 Not Found", "text/plain; charset=utf-8", b"not found"),
+    }
+}
+
+/// doctor：把本机能力矩阵打成人读文本（不可用必须给原因与装法）
+pub fn doctor() -> String {
+    let mut lines = Vec::new();
+    lines.push("keysim doctor —— 虚拟串口能力矩阵".to_string());
+    lines.push(String::new());
+    lines.push("| 后端 | 可用 | 被测程序应选 | 说明 |".into());
+    lines.push("|---|---|---|---|".into());
+    for verdict in kernel::probe_all() {
+        lines.push(format!(
+            "| {} | {} | {} | {} |",
+            verdict.id,
+            if verdict.available { "可用" } else { "不可用" },
+            verdict.selectable,
+            verdict
+                .reason
+                .map(|reason| match verdict.install {
+                    Some(install) => format!("{reason}；装法：{install}"),
+                    None => reason,
+                })
+                .unwrap_or_else(|| "就绪".into())
+        ));
+    }
+    let pty_state = match pty::probe() {
+        Ok(()) => "可用 | /dev/pts/N | 任何按路径打开串口的程序可用；浏览器选择框看不到 PTY".to_string(),
+        Err(reason) => format!("不可用 | /dev/pts/N | {reason}"),
+    };
+    lines.push(format!("| pty | {pty_state} |"));
+    lines.push(format!(
+        "| browser-inject | {} | 页面内虚拟 navigator.serial | 由 keysim 拉起浏览器并在页面脚本前注入 |",
+        match browser::probe() {
+            Ok(path) => format!("可用（{path}）"),
+            Err(reason) => format!("不可用（{reason}）"),
+        }
+    ));
+    lines.push(format!("| bridge | 可用 | ws://127.0.0.1:{}/echo | 桌面模式下被测应用主动连过来 |", crate::BRIDGE_PORT));
+    lines.push(String::new());
+    lines.push(format!("故障注入：{}", Fault::all().join(" / ")));
+    lines.push(format!(
+        "分包模式：{}",
+        ["exact", "split", "merge", "random"]
+            .into_iter()
+            .filter(|name| Chunking::parse(name).is_some())
+            .collect::<Vec<_>>()
+            .join(" / ")
+    ));
+    lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// 内嵌资源必须真的编进二进制（交付物只有一个文件）
+    fn assets_are_embedded() {
+        assert!(INDEX_HTML.contains("keysim"), "网页没编进二进制");
+        assert!(INJECT_JS.contains("navigator"), "注入脚本没编进二进制");
+    }
+
+    #[test]
+    /// 未知接口不 panic，按错误返回
+    fn unknown_api_is_rejected() {
+        let console = serve(Options { http: 0, autostart: false, ..Options::default() }).expect("控制台应能起在随机端口");
+        let result = console.handle("/api/nope", &json!({}));
+        assert_eq!(result["ok"], false);
+    }
+
+    #[test]
+    /// 故障名非法要报错并列出可选值，而不是静默忽略
+    fn unknown_fault_is_reported() {
+        let error = build_timeline(&json!({"key": "hand", "text": "ABCD", "faults": ["nope"]}))
+            .expect_err("非法故障名必须报错");
+        assert!(error.contains("nope") && error.contains("dupDown"), "{error}");
+    }
+
+    #[test]
+    /// doctor 必须对每个后端都给结论
+    fn doctor_covers_every_backend() {
+        let report = doctor();
+        for id in ["linux-usbip", "linux-gadget", "linux-tty0tty", "windows-com0com", "pty", "bridge"] {
+            assert!(report.contains(id), "doctor 少了 {id}：\n{report}");
+        }
+    }
+}

@@ -1,0 +1,26 @@
+[package]
+name = "keysim"
+version = "1.0.0"
+edition = "2021"
+description = "手键/电子键拍发模拟器与虚拟串口台：单个 Rust 可执行文件，网页控制台内嵌"
+
+[lib]
+name = "keysim"
+path = "src/lib.rs"
+
+[[bin]]
+name = "keysim"
+path = "src/main.rs"
+
+[dependencies]
+# 锁一律 parking_lot：lock() 直接给 guard，没有中毒错误分支要 unwrap
+parking_lot = "0.12"
+# PTY（posix_openpt/grantpt/unlockpt/ptsname）与 termios
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 2
+panic = "abort"
+strip = true
