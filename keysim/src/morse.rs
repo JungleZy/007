@@ -183,6 +183,13 @@ pub struct Timing {
     pub page: f64,
 }
 
+impl Timing {
+    /// 按倍率缩放基准时长，比例不变。用于按"实测码率"口径反算节拍。
+    pub fn scaled(&self, factor: f64) -> Timing {
+        build(self.criterion * factor, self.ratio)
+    }
+}
+
 /// 由码率推出基准时长，公式与 calculateTiming 一致。
 /// unit: "characters" | "groups" | "wpm"；low_rate 对应低速模式（点划钉在 35 字符/分，只拉长间隔）。
 pub fn timing(rate: f64, unit: &str, alphabet_name: &str, ratio: Ratio, low_rate: bool) -> Result<Timing, String> {

@@ -16,6 +16,12 @@ use std::path::PathBuf;
 
 use keysim::{faults, keying, morse, sinks};
 
+fn repo(path: &str) -> String {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let full = root.join(path);
+    std::fs::read_to_string(&full).unwrap_or_else(|error| panic!("读不到仓内源文件 {}：{error}", full.display()))
+}
+
 fn frontend(path: &str) -> String {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let full = root.join("bw-frontend/frontend/src").join(path);
@@ -221,4 +227,53 @@ fn control_symbols_match_hand_key_train() {
     assert_eq!(morse::CONTROL_START, "10001");
     assert_eq!(morse::CONTROL_END, "01010");
     assert_eq!(keying::PAUSE_DURATION, 800.0);
+}
+
+#[test]
+/// 码率口径必须与仓内三处实现一致：客户端显示、服务端结算、服务端单位换算。
+/// 任何一处改了公式（比如换成 1200/rate 或不再四舍五入），这里立刻失败。
+fn rate_formula_matches_client_and_server() {
+    // 客户端：字符数 × 60000 / 采集区间（handKeyTrain.js:142）
+    let client = frontend("views/manage/organization/handkeyZuXun/train/student/js/handKeyTrain.js");
+    assert!(
+        client.contains("patNumber.value * 60000 / elapsed"),
+        "客户端码率公式变了，keysim 的 measured_rate 需同步"
+    );
+
+    // 服务端：ScoreMath.rate(count, totalTimeMillis)，分子 60000，四舍五入到整数
+    let math = repo("backend/src/main/java/com/nip/common/utils/ScoreMath.java");
+    assert!(math.contains("MILLIS_PER_MINUTE"), "ScoreMath 不再用分钟毫秒常量");
+    assert!(math.contains("RoundingMode.HALF_UP"), "服务端码率不再四舍五入");
+    assert!(
+        math.contains("divide(new BigDecimal(totalTimeMillis), 0, RoundingMode.HALF_UP)"),
+        "服务端码率的除法口径变了"
+    );
+
+    // 单位换算：字/分 ×1，组/分 ×4
+    let unit = repo("backend/src/main/java/com/nip/dto/score/TrainingRateUnit.java");
+    assert!(unit.contains("CHARACTERS_PER_MINUTE(1)"), "字/分的换算系数变了");
+    assert!(unit.contains("FOUR_CHARACTER_GROUPS_PER_MINUTE(4)"), "组/分的换算系数变了");
+
+    // keysim 自己：同样的公式，同样的分母系数
+    let plan = keying::HandOptions { text: "ABCD EFGH".into(), rate: 70.0, ..Default::default() };
+    let timeline = keying::hand_timeline(&plan).expect("时间轴应能生成");
+    let window = keying::capture_window(&timeline);
+    let characters = timeline.body_chars().count() as f64;
+    let expected = characters * 60000.0 / window;
+    assert!((keying::measured_rate(&timeline, 1.0) - expected).abs() < 1e-9);
+    assert!((keying::measured_rate(&timeline, 4.0) - expected / 4.0).abs() < 1e-9);
+}
+
+#[test]
+/// 客户端的每页基准重算：字间隔 = codeGap×3、组间隔 = codeGap×5（patStandard.js 写死）。
+/// keysim 的比例表必须给出同样的关系，否则翻页后客户端再也编译不出字码。
+fn page_standard_ratios_match_pat_standard_js() {
+    let source = frontend("views/manage/organization/handkeyZuXun/train/student/js/patStandard.js");
+    assert!(source.contains("codeGap * 3"), "字间隔不再是 codeGap×3");
+    assert!(source.contains("codeGap * 5"), "组间隔不再是 codeGap×5");
+    assert!(source.contains("codeGap = 60"), "codeGap 的 60ms 下限没了");
+
+    let ratio = morse::Ratio::default();
+    assert_eq!(ratio.word / ratio.gap, 3.0, "字间隔/符内间隔应为 3");
+    assert_eq!(ratio.suite / ratio.gap, 5.0, "组间隔/符内间隔应为 5");
 }

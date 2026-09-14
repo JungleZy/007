@@ -196,7 +196,8 @@
     <div class="tape-empty" id="tapeEmpty">输入报文即生成纸带</div>
   </div>
   <div class="tape-meta">
-    <span>时长 <b id="mDuration">--</b></span>
+    <span>实测码率 <b id="mRate">--</b></span>
+    <span>采集区间 <b id="mWindow">--</b></span>
     <span>帧 <b id="mEvents">--</b></span>
     <span>字 <b id="mChars">--</b></span>
     <span>点/划/符内 <b id="mPlan">--</b></span>
@@ -569,7 +570,7 @@ const clearTape = note => {
   tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false
   tape.track.style.width = '1px'
   drawTape()
-  for (const id of ['mDuration', 'mEvents', 'mChars', 'mPlan', 'mGap']) setText(id, null)
+  for (const id of ['mRate', 'mWindow', 'mEvents', 'mChars', 'mPlan', 'mGap']) setText(id, null)
   setNote('mProgress', note || '')
 }
 
@@ -598,7 +599,8 @@ const runPreview = async () => {
   drawTape()
   const plan = result.plan || {}
   const ms = value => Math.round(Number(value) || 0) + 'ms'
-  setText('mDuration', (tape.duration / 1000).toFixed(2) + ' s')
+  setText('mRate', result.rate === undefined ? null : (result.rate.toFixed(1) + ' ' + (result.rateUnit || '')))
+  setText('mWindow', result.captureWindow === undefined ? null : ((result.captureWindow / 1000).toFixed(2) + ' s'))
   setText('mEvents', result.events)
   setText('mChars', result.chars)
   setText('mPlan', plan.dot ? [plan.dot, plan.dash, plan.gap].map(ms).join(' / ') : (plan.perChar ? ms(plan.perChar) + '/字' : '--'))

@@ -136,6 +136,58 @@ fn resolve_style(name: &str, jitter: f64) -> Result<(Style, f64), String> {
     Ok((style, envelope))
 }
 
+/// 采集区间：首个正文字按下 → 时间轴末尾。
+/// 与 sinks::capture_intervals 同一口径，也就是客户端 useTrainingCapture 真正计时的那段。
+pub fn capture_window(timeline: &Timeline) -> f64 {
+    match timeline.body_chars().next() {
+        Some(first) => (timeline.duration() - first.started_at).max(0.0),
+        None => 0.0,
+    }
+}
+
+/// 实测码率：字符数 × 60000 / 采集区间毫秒。
+///
+/// 这是**客户端与服务端唯一认的口径**，三处实现一致：
+/// - 客户端 handKeyTrain.js:142 `patNumber * 60000 / elapsed`；
+/// - 服务端 ScoreMath.rate(count, totalTimeMillis)（四舍五入到整数）；
+/// - 服务端 TrainingRateUnit：字/分 分母×1，组/分 分母×4。
+///
+/// 注意它与音频播报模块 calculateTiming 的定标口径不是一回事：那条公式按 400 字校准页
+/// 平均，得到的是"名义"码率；报文一变、加上开始符与收尾静默，实测值就会偏。
+/// 所以拍发的节拍必须按这条反算（calibrate 负责），否则服务端算出来的分数对不上。
+pub fn measured_rate(timeline: &Timeline, characters_per_unit: f64) -> f64 {
+    let window = capture_window(timeline);
+    let characters = timeline.body_chars().count() as f64;
+    if characters <= 0.0 || window <= 0.0 {
+        return 0.0;
+    }
+    characters * 60000.0 / (window * characters_per_unit)
+}
+
+/// 把节拍按实测码率反算到目标值。
+///
+/// 整条时间轴的时长与 criterion 成正比（钳制与固定静默除外），所以按测得值等比收放，
+/// 几轮就收敛；抖动是同种子可复现的，所以结果稳定。
+fn calibrate<F>(target: f64, characters_per_unit: f64, build: F) -> Result<Timeline, String>
+where
+    F: Fn(f64) -> Result<Timeline, String>,
+{
+    let mut factor = 1.0;
+    let mut timeline = build(factor)?;
+    for _ in 0..8 {
+        let actual = measured_rate(&timeline, characters_per_unit);
+        if actual <= 0.0 {
+            return Ok(timeline);
+        }
+        if (actual / target - 1.0).abs() < 0.001 {
+            return Ok(timeline);
+        }
+        factor *= actual / target;
+        timeline = build(factor)?;
+    }
+    Ok(timeline)
+}
+
 pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
     let (_, envelope) = resolve_style(&options.style, options.jitter)?;
     let plan = morse::timing(options.rate, &options.unit, &options.alphabet, Ratio::default(), options.low_rate)?;
@@ -143,10 +195,23 @@ pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
     Ok(plan)
 }
 
-/// 手键时间轴：开始符校准 + 正文 + 收尾符 + 末字静默
+/// 手键时间轴：开始符校准 + 正文 + 收尾符 + 末字静默。
+/// 节拍按实测码率口径反算（wpm 单位除外，那是节拍约定而不是实测口径）。
 pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
+    let nominal = hand_plan(options)?;
+    if options.unit == "wpm" {
+        return build_hand_timeline(options, nominal);
+    }
+    let per_unit = if options.unit == "groups" { 4.0 } else { 1.0 };
+    let timeline = calibrate(options.rate, per_unit, |factor| build_hand_timeline(options, nominal.scaled(factor)))?;
+    // 定标后的节拍仍须过客户端硬边界（点 > 10ms、划 > 点两倍、翻页后能成字）
+    let (_, envelope) = resolve_style(&options.style, options.jitter)?;
+    check_hand_plan(&timeline.plan, options.skew, envelope, !options.single_page)?;
+    Ok(timeline)
+}
+
+fn build_hand_timeline(options: &HandOptions, plan: Timing) -> Result<Timeline, String> {
     let groups = validate(&options.text, &options.alphabet)?;
-    let plan = hand_plan(options)?;
     let (style, envelope) = resolve_style(&options.style, options.jitter)?;
     let mut builder = Builder::styled("hand", plan, envelope, options.seed, style);
     let mut leading_gap: Option<f64> = None;
@@ -278,17 +343,24 @@ fn direct_key(character: char) -> Option<u8> {
 }
 
 /// 电子键时间轴：F1 开始键 → 正文（字母走 F2 组合、数码走 F1 直出）→ 收尾
+/// 电子键时间轴。码率单位是组/分，实测口径同服务端 FOUR_CHARACTER_GROUPS_PER_MINUTE
+/// （字符数 × 60000 / 采集区间 / 4），所以这里也按实测值反算。
+/// 定标只收放"每字槽位"，不动 stroke_gap —— 那是手在键盘上移动的物理时间。
 pub fn electron_timeline(options: &ElectronOptions) -> Result<Timeline, String> {
+    calibrate(options.rate, 4.0, |factor| build_electron_timeline(options, options.rate / factor))
+}
+
+fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timeline, String> {
     let groups = validate(&options.text, &options.alphabet)?;
     if !(options.rate.is_finite() && options.rate > 0.0) {
         return Err("码率必须大于零".into());
     }
-    let per_group = 60000.0 / options.rate;
+    let per_group = 60000.0 / rate;
     let per_char = per_group / options.group_size as f64;
     if per_char <= options.stroke_gap * 2.0 {
         return Err(format!(
             "码率 {} 组/分 只给每字 {:.1}ms，装不下两笔（每笔间隔 {}ms）",
-            options.rate, per_char, options.stroke_gap
+            rate, per_char, options.stroke_gap
         ));
     }
     // 电子键不按点划时长判定，这里只借 Timing 携带节拍参数
@@ -467,6 +539,47 @@ mod tests {
         for item in timeline.body_chars() {
             assert_eq!(item.keys.len(), 1, "{} 应是 F1 单键直出", item.value);
         }
+    }
+
+    #[test]
+    /// 码率必须按客户端/服务端的实测口径落地：字符数 × 60000 / 采集区间。
+    /// 报文内容一变（EEEE TTTT 全是单笔字），名义定标会偏出几十个百分点，
+    /// 所以这里逐一核对实测值，而不是核对 criterion。
+    fn hand_rate_matches_the_measured_formula() {
+        for rate in [40.0, 70.0, 100.0, 140.0] {
+            for text in ["ABCD EFGH", "HELL OWOR LDXX", "EEEE TTTT", "ABCD EFGH IJKL MNOP QRST"] {
+                for style in ["machine", "human"] {
+                    let options = HandOptions { text: text.into(), rate, style: style.into(), ..Default::default() };
+                    let timeline = hand_timeline(&options).expect("时间轴应能生成");
+                    let actual = measured_rate(&timeline, 1.0);
+                    assert!(
+                        (actual / rate - 1.0).abs() < 0.005,
+                        "{style} {text} 目标 {rate} 字/分，实测 {actual}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    /// 电子键按组/分，分母要多除一个 4（服务端 TrainingRateUnit 的口径）
+    fn electron_rate_matches_the_measured_formula() {
+        for rate in [12.0, 20.0, 30.0] {
+            let options = ElectronOptions { text: "ABCD EFGH IJKL".into(), rate, ..Default::default() };
+            let timeline = electron_timeline(&options).expect("时间轴应能生成");
+            let actual = measured_rate(&timeline, 4.0);
+            assert!((actual / rate - 1.0).abs() < 0.005, "目标 {rate} 组/分，实测 {actual}");
+        }
+    }
+
+    #[test]
+    /// 采集区间的起点是首个正文字按下，不含开始符——与 sinks::capture_intervals 同口径
+    fn capture_window_starts_at_the_first_body_character() {
+        let options = HandOptions { text: "ABCD".into(), preamble: true, ..Default::default() };
+        let timeline = hand_timeline(&options).unwrap();
+        let first = timeline.body_chars().next().unwrap().started_at;
+        assert!(first > 0.0, "开始符应当落在采集区间之前");
+        assert!((capture_window(&timeline) - (timeline.duration() - first)).abs() < 1e-9);
     }
 
     #[test]

@@ -31,14 +31,14 @@ pub struct Console {
     browser: Mutex<Option<browser::Browser>>,
 }
 
-fn plan_json(params: &Value) -> Result<Value, String> {
-    if params["key"].as_str().unwrap_or("hand") == "hand" {
-        let plan = keying::hand_plan(&hand_options(params)?)?;
-        Ok(json!({"dot": plan.dot, "dash": plan.dash, "gap": plan.gap, "word": plan.word, "group": plan.group}))
+/// 读数取自**实际生成的时间轴**，不是名义参数：节拍会按实测码率口径反算，
+/// 拿名义值显示会和客户端/服务端算出来的对不上。
+fn plan_json(timeline: &Timeline) -> Value {
+    let plan = timeline.plan;
+    if timeline.key == "hand" {
+        json!({"dot": plan.dot, "dash": plan.dash, "gap": plan.gap, "word": plan.word, "group": plan.group})
     } else {
-        let options = electron_options(params)?;
-        let per_char = 60000.0 / (options.rate * options.group_size as f64);
-        Ok(json!({"perChar": per_char, "word": per_char, "group": per_char * options.group_size as f64}))
+        json!({"perChar": plan.word, "word": plan.word, "group": plan.group, "strokeGap": plan.gap})
     }
 }
 
@@ -184,19 +184,21 @@ impl Console {
                             json!([(event.at * 1000.0).round() / 1000.0, kind])
                         })
                         .collect();
-                    match plan_json(body) {
-                        Ok(plan) => json!({
-                            "ok": true,
-                            "duration": timeline.duration(),
-                            "events": timeline.events.len(),
-                            "chars": timeline.body_chars().count(),
-                            "plan": plan,
-                            "marks": marks,
-                            "marksTruncated": timeline.events.len() > MARK_LIMIT,
-                            "head": head
-                        }),
-                        Err(error) => json!({"ok": false, "error": error}),
-                    }
+                    // 码率一律按客户端/服务端的实测口径报（字符×60000/采集区间，组/分再除 4）
+                    let per_unit = if timeline.key == "hand" { 1.0 } else { 4.0 };
+                    json!({
+                        "ok": true,
+                        "duration": timeline.duration(),
+                        "events": timeline.events.len(),
+                        "chars": timeline.body_chars().count(),
+                        "plan": plan_json(&timeline),
+                        "rate": (keying::measured_rate(&timeline, per_unit) * 100.0).round() / 100.0,
+                        "rateUnit": if timeline.key == "hand" { "字/分" } else { "组/分" },
+                        "captureWindow": (keying::capture_window(&timeline) * 1000.0).round() / 1000.0,
+                        "marks": marks,
+                        "marksTruncated": timeline.events.len() > MARK_LIMIT,
+                        "head": head
+                    })
                 }
                 Err(error) => json!({"ok": false, "error": error}),
             },
