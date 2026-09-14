@@ -24,21 +24,37 @@ fn is_build_artifact(path: &str) -> bool {
     path.contains("/target/release/") || path.contains("/target/debug/")
 }
 
+/// 原子替换可执行文件：先写同目录的临时文件，再 rename 覆盖。
+///
+/// 不能直接 fs::copy 到目标：升级时目标正被 systemd 跑着，写它会得到
+/// ETXTBSY（Text file busy）。rename 只换目录项，老 inode 由正在运行的
+/// 进程继续持有，重启服务后才真正释放。
+pub fn replace_executable(source: &str, target: &str) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(target).parent() {
+        std::fs::create_dir_all(parent).map_err(|error| format!("创建 {} 失败：{error}", parent.display()))?;
+    }
+    // 临时文件必须与目标同目录：跨文件系统 rename 会失败
+    let staging = format!("{target}.new-{}", std::process::id());
+    std::fs::copy(source, &staging).map_err(|error| format!("写 {staging} 失败：{error}"))?;
+    let result = std::fs::set_permissions(
+        &staging,
+        <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+    )
+    .map_err(|error| format!("设置 {staging} 权限失败：{error}"))
+    .and_then(|()| std::fs::rename(&staging, target).map_err(|error| format!("替换 {target} 失败：{error}")));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&staging);
+    }
+    result
+}
+
 /// 从构建目录安装时，先把自己复制到 INSTALL_PATH，再让单元指向它
 fn stable_executable() -> Result<String, String> {
     let current = self_path();
     if !is_build_artifact(&current) {
         return Ok(current);
     }
-    if let Some(parent) = std::path::Path::new(INSTALL_PATH).parent() {
-        std::fs::create_dir_all(parent).map_err(|error| format!("创建 {} 失败：{error}", parent.display()))?;
-    }
-    std::fs::copy(&current, INSTALL_PATH).map_err(|error| format!("复制到 {INSTALL_PATH} 失败：{error}"))?;
-    std::fs::set_permissions(
-        INSTALL_PATH,
-        <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
-    )
-    .map_err(|error| format!("设置 {INSTALL_PATH} 权限失败：{error}"))?;
+    replace_executable(&current, INSTALL_PATH)?;
     Ok(INSTALL_PATH.to_string())
 }
 
@@ -102,7 +118,13 @@ pub fn write_unit_as_root() -> Result<Value, String> {
     let executable = stable_executable()?;
     let (user, uid) = target_user();
     std::fs::write(UNIT_PATH, unit_text(&executable, uid)).map_err(|error| format!("写 {UNIT_PATH} 失败：{error}"))?;
-    for args in [vec!["daemon-reload"], vec!["enable", "--now", "keysim-attachd.service"]] {
+    // restart 而非 enable --now：重装时服务往往已在跑，enable --now 不会换掉旧进程，
+    // 那样新装的 helper 代码（如 grant 操作）根本不会生效。
+    for args in [
+        vec!["daemon-reload"],
+        vec!["enable", "keysim-attachd.service"],
+        vec!["restart", "keysim-attachd.service"],
+    ] {
         let output = Command::new("systemctl")
             .args(&args)
             .output()
