@@ -60,6 +60,9 @@
      （Chrome 的 canvas 宽度上限约 32767px，长页面等比铺开必然超），
      滚动长度由 .tape-track 提供，canvas 用 sticky 钉在视窗左侧。 */
   #tapeWrap{padding:12px 12px 0}
+  /* 滚动条与空态提示必须挂在**非滚动**的这一层：
+     绝对定位的子元素若挂在滚动容器里，会随内容一起滚走（滚一下就看不见了）。 */
+  .tapehost{position:relative}
   .tape{
     position:relative;background:var(--tape);border:1px solid var(--rule);border-radius:3px;
     box-shadow:inset 0 2px 12px rgba(0,0,0,.55);overflow-x:auto;overflow-y:hidden
@@ -221,9 +224,11 @@
 </header>
 
 <div id="tapeWrap">
-  <div class="tape noscroll" id="tapeView">
-    <canvas id="tape" height="84"></canvas>
-    <div id="tapeTrack"></div>
+  <div class="tapehost">
+    <div class="tape noscroll" id="tapeView">
+      <canvas id="tape" height="84"></canvas>
+      <div id="tapeTrack"></div>
+    </div>
     <div class="tape-empty" id="tapeEmpty">输入报文即生成纸带</div>
     <div class="vbar x" id="tapeBar"><i></i></div>
   </div>
