@@ -52,6 +52,7 @@ async function elevator() {
   return {ok: false, reason: isRoot() ? null : '需要 root 或可弹框的 pkexec 才能加载内核模块'}
 }
 
+const VHCI_ATTACH = '/sys/devices/platform/vhci_hcd.0/attach'
 const GADGET_DEVICE = '/dev/ttyGS0'
 const TTY0TTY_PAIR = ['/dev/tnt0', '/dev/tnt1']
 
@@ -176,7 +177,47 @@ const com0com = {
   }
 }
 
-export const BACKENDS = [gadget, tty0tty, com0com]
+/**
+ * USB/IP：用户态程序（Rust/Python 都行）模拟一个 USB CDC-ACM 设备，
+ * 通过 vhci_hcd 挂进本机 USB 总线 —— 内核会真的多出一个 USB 串口
+ * （/dev/ttyACM0，有完整 udev 记录），浏览器选择框与桌面串口列表都能直接选中。
+ *
+ * 这是"纯用户态可实现"的唯一一条真设备路径：设备逻辑在用户态，但把它挂上总线
+ * （modprobe + 往 vhci_hcd 的 attach 写 sockfd）是特权操作，任何语言都绕不开一次 root。
+ * 因此本后端只做探测与前置说明；设备模拟器尚未实现（见 doctor 输出）。
+ */
+const usbip = {
+  id: 'linux-usbip',
+  title: 'USB/IP + vhci_hcd（用户态模拟 USB 串口，内核当真设备）',
+  ours: '(用户态模拟器持有 USB 端点)',
+  theirs: '/dev/ttyACM0',
+  implemented: false,
+  async probe() {
+    if (platform() !== 'linux') return {available: false, reason: '仅 Linux'}
+    const [vhci, acm] = await Promise.all([hasModule('vhci-hcd'), hasModule('cdc-acm')])
+    const missing = [!vhci && 'vhci-hcd', !acm && 'cdc-acm'].filter(Boolean)
+    if (missing.length) {
+      return {available: false, reason: `内核未提供 ${missing.join(' / ')} 模块`, install: '安装内核附加模块包后重试'}
+    }
+    const loaded = await moduleLoaded('vhci_hcd')
+    const attachable = await exists(VHCI_ATTACH)
+    const elevation = await elevator()
+    const prerequisites = []
+    if (!loaded || !attachable) prerequisites.push('sudo modprobe vhci-hcd')
+    if (!isRoot()) prerequisites.push('把 keysim 的挂载步骤交给 root（一次性 systemd 服务或 sudo 运行）——写 vhci_hcd 的 attach 必须 root')
+    return {
+      available: false,
+      reason: '设备模拟器尚未实现；内核前置已具备' + (prerequisites.length ? '，还需：' + prerequisites.join('；') : ''),
+      install: `内核模块齐全（vhci-hcd + cdc-acm），rustc/cargo ${await (async () => (await run('sh', ['-c', 'command -v cargo'], {timeout: 3000})).ok ? '已装' : '未装')()}；实现后可得 ${'/dev/ttyACM0'}，浏览器与桌面都能直接选中${elevation.ok ? '' : '（当前无 root/pkexec，需先解决提权）'}`
+    }
+  },
+  async start() {
+    return {ok: false, error: 'USB/IP 设备模拟器尚未实现，不做假成功'}
+  },
+  async stop() { return {ok: true} }
+}
+
+export const BACKENDS = [gadget, tty0tty, usbip, com0com]
 
 /**
  * 逐个探测内核级后端。返回顺序即优先级：能用的排前面。
