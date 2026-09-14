@@ -208,9 +208,11 @@ mod tests {
         reader.read_exact(&mut buffer).expect("从设备读回");
         assert_eq!(buffer, [1, 0, 2, 0, 0]);
 
-        let path = pty.path.clone();
         drop(pty);
         assert!(fs::metadata(&link).is_err(), "关闭后符号链接应消失");
-        assert!(fs::File::open(&path).is_err(), "关闭后设备节点应回收");
+        // 主端一关，已持有从端的程序必须立刻感知（读到 EIO），不能继续傻等。
+        // 这里刻意不去重开 /dev/pts/N 断言"打不开"——内核会立刻回收并复用该号，
+        // 并行跑的其他测试可能刚好占上，那种断言是在测内核而且必然偶发。
+        assert!(reader.read_exact(&mut buffer).is_err(), "关闭后从端仍可读，说明主端没真的关掉");
     }
 }

@@ -257,12 +257,16 @@ pub fn serve(path: &str, allow_uid: Option<u32>) -> std::io::Result<()> {
 
 /// 客户端：向助手要一次操作
 pub fn ask(request: Value) -> Value {
-    let path = socket_path();
-    let mut stream = match UnixStream::connect(&path) {
+    ask_at(&socket_path(), request)
+}
+
+/// 指定 socket 路径的版本：测试与多实例场景用，避免改进程环境变量
+pub fn ask_at(path: &str, request: Value) -> Value {
+    let mut stream = match UnixStream::connect(path) {
         Ok(stream) => stream,
         Err(error) => {
             let reason = if error.kind() == std::io::ErrorKind::NotFound {
-                format!("root 助手未安装（{path}）：先执行一次 sudo keysim install-helper")
+                format!("root 助手未安装（{path}）：先执行一次 {}", crate::install::install_command())
             } else {
                 format!("root 助手连接失败：{error}")
             };
@@ -289,12 +293,10 @@ mod tests {
     #[test]
     /// 未装助手时必须给出明确原因与装法，而不是静默失败
     fn missing_helper_reports_how_to_install() {
-        std::env::set_var("KEYSIM_ATTACHD_SOCKET", "/tmp/keysim-nonexistent.sock");
-        let response = ask(json!({"op": "probe"}));
+        let response = ask_at("/tmp/keysim-nonexistent-helper.sock", json!({"op": "probe"}));
         assert_eq!(response["ok"], false);
         let error = response["error"].as_str().unwrap_or_default();
         assert!(error.contains("未安装") && error.contains("install-helper"), "{error}");
-        std::env::remove_var("KEYSIM_ATTACHD_SOCKET");
     }
 
     #[test]

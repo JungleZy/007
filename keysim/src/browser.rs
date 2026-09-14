@@ -146,12 +146,16 @@ fn devtools_endpoint(child: &mut Child) -> Result<String, String> {
 
 /// 打开页面并预置虚拟串口；无图形会话时自动 headless
 pub fn open(url: &str, inject_script: &str) -> Result<Browser, String> {
-    let executable = probe()?;
+    launch(&probe()?, url, inject_script)
+}
+
+/// 指定浏览器可执行文件的版本：测试与显式指定场景用，不碰进程环境变量
+pub fn launch(executable: &str, url: &str, inject_script: &str) -> Result<Browser, String> {
     let headless = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
     let profile = std::env::temp_dir().join(format!("keysim-profile-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&profile);
 
-    let mut command = Command::new(&executable);
+    let mut command = Command::new(executable);
     command
         .arg("--remote-debugging-port=0")
         .arg(format!("--user-data-dir={}", profile.display()))
@@ -220,9 +224,8 @@ mod tests {
     #[test]
     /// 指定不存在的可执行文件时，open 必须报错而不是挂住
     fn open_with_bad_executable_fails_fast() {
-        std::env::set_var("KEYSIM_BROWSER", "/nonexistent/keysim-browser");
-        let error = open("http://127.0.0.1:1/", "1").expect_err("不存在的浏览器必须报错");
+        let error = launch("/nonexistent/keysim-browser", "http://127.0.0.1:1/", "1")
+            .expect_err("不存在的浏览器必须报错");
         assert!(error.contains("启动浏览器失败"), "{error}");
-        std::env::remove_var("KEYSIM_BROWSER");
     }
 }

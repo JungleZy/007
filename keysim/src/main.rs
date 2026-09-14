@@ -355,7 +355,11 @@ fn main() {
         "upload" => run_upload(&args),
         "install-helper" => match install::install_helper() {
             result if result["ok"] == true => {
-                println!("root 助手已安装：{}", result["socket"].as_str().unwrap_or_default());
+                println!(
+                    "root 助手已安装：{}\n可执行文件：{}\n现在回网页点「开启虚拟串口」即可（不再需要密码）",
+                    result["socket"].as_str().unwrap_or_default(),
+                    result["binary"].as_str().unwrap_or_default()
+                );
                 Ok(())
             }
             result => Err(format!(

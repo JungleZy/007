@@ -172,7 +172,7 @@ fn probe_usbip() -> Verdict {
             selectable,
             available: false,
             reason: helper["error"].as_str().map(str::to_string),
-            install: Some("装一次 root 助手：sudo keysim install-helper（之后网页上点开启即可，不再输密码）".into()),
+            install: Some(format!("装一次 root 助手：{}（之后网页上点开启即可，不再输密码）", crate::install::install_command())),
         };
     }
     Verdict { id: "linux-usbip", title: USBIP_TITLE, selectable, available: true, reason: None, install: None }
