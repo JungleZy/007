@@ -872,7 +872,20 @@ $('key').onchange = () => {
   setText('rateUnit', hand ? '字符/分' : '组/分')
   $('rate').value = hand ? 120 : 30
   $('tail').value = hand ? 'turn' : 'page'
+  log('键型切到' + (hand ? '手键：120 字符/分，收尾用翻页符' : '电子键：30 组/分，收尾用句号'), 'info')
   previewSoon()
+}
+// 显式改参数记一行；打字不记，否则一行一条刷屏
+const labels = {alphabet: '字母表', rate: '码率', style: '手感', tail: '收尾', jitter: '抖动', seed: '种子', skew: '规则偏移', speed: '倍速'}
+for (const [id, name] of Object.entries(labels)) {
+  const node = $(id)
+  if (node) node.addEventListener('change', () => {
+    const shown = node.tagName === 'SELECT' ? node.options[node.selectedIndex].textContent.trim() : node.value
+    log(name + ' 改为 ' + shown, 'info')
+  })
+}
+for (const box of document.querySelectorAll('.fault')) {
+  box.addEventListener('change', () => log('故障注入 ' + box.parentElement.textContent.trim() + (box.checked ? ' 已开' : ' 已关'), box.checked ? 'warn' : 'info'))
 }
 for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
   const node = $(id)
@@ -896,6 +909,8 @@ $('btnRandom').onclick = async () => {
   if (!result.ok) return log(result.error, 'error')
   $('message').value = result.text
   if (syncMsgBar) syncMsgBar()
+  const groups = result.text.trim().split(/\s+/).length
+  log('已生成随机报文：' + groups + ' 组 / ' + result.text.replace(/\s+/g, '').length + ' 字', 'ok')
   await runPreview()
 }
 $('btnSend').onclick = async () => {

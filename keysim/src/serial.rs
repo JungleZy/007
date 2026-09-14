@@ -17,6 +17,7 @@ use serde_json::{json, Value};
 
 use crate::bridge::{self, Bridge};
 use crate::kernel::{self, Started};
+use crate::keying;
 #[cfg(unix)]
 use crate::pty::{self, Pty};
 use crate::sinks;
@@ -346,13 +347,37 @@ impl VirtualSerial {
             text: text.to_string(),
             cancel: Arc::clone(&cancel),
         });
+        // 组边界：用来在拍发过程中按组报进度。客户端/服务端的码率口径是
+        // 字符数×60000/采集区间，所以这里顺便报"到这一组为止的实测码率"，
+        // 跑长页时不用等结束就能看出快了还是慢了。
+        let per_unit = if timeline.key == "hand" { 1.0 } else { 4.0 };
+        let unit_name = if timeline.key == "hand" { "字/分" } else { "组/分" };
+        let origin = timeline.body_chars().next().map(|item| item.started_at).unwrap_or(0.0);
+        let mut milestones: Vec<(f64, usize, String, usize)> = Vec::new();
+        let mut counted = 0usize;
+        for (group_index, group) in timeline.groups.iter().enumerate() {
+            let chars: Vec<&crate::timeline::Char> =
+                timeline.body_chars().filter(|item| item.group == Some(group_index)).collect();
+            let Some(last) = chars.last() else { continue };
+            counted += chars.len();
+            milestones.push((last.ended_at, group_index + 1, group.clone(), counted));
+        }
+        let groups_total = milestones.len();
+        let target_rate = keying::measured_rate(timeline, per_unit);
+
         self.log(
             "ok",
             format!(
-                "开始拍发：{} {} 帧，约 {:.1}s",
+                "开始拍发：{}·{} · {} 组 {} 字 · {:.1} {} · {} 帧 · 采集区间 {:.2}s{}",
                 if timeline.key == "hand" { "手键" } else { "电子键" },
+                if timeline.jitter > 0.0 { format!("真人手感 ±{:.0}%", timeline.jitter * 100.0) } else { "机械等长".to_string() },
+                groups_total,
+                counted,
+                target_rate,
+                unit_name,
                 frames.len(),
-                timeline.duration() / 1000.0 / speed
+                (timeline.duration() - origin) / 1000.0,
+                if speed == 1.0 { String::new() } else { format!(" · {speed}× 倍速") }
             ),
         );
         self.announce();
@@ -366,6 +391,10 @@ impl VirtualSerial {
         thread::spawn(move || {
             let started = Instant::now();
             let mut index = 0usize;
+            let mut next_milestone = 0usize;
+            // 通道写失败只报一次，避免一页刷几千条
+            let mut kernel_failed = false;
+            let mut device_failed = false;
             let total = items.len();
             while index < total {
                 if cancel.load(Ordering::SeqCst) {
@@ -377,21 +406,35 @@ impl VirtualSerial {
                     thread::sleep(Duration::from_micros(((due - elapsed) * 1000.0).min(50_000.0) as u64));
                     continue;
                 }
-                let (_, text, bytes) = &items[index];
+                let (at, text, bytes) = &items[index];
                 if let Some(bridge) = manager.bridge.lock().as_ref() {
                     bridge.broadcast(text);
                 }
                 if let Some(started) = manager.kernel.lock().as_mut() {
-                    let _ = started.writer.write(bytes);
+                    if let Err(error) = started.writer.write(bytes) {
+                        if !kernel_failed {
+                            kernel_failed = true;
+                            manager.log("error", format!("内核级设备写入失败，该通道本次拍发已失联：{error}"));
+                        }
+                    }
                 }
                 #[cfg(unix)]
                 if let Some(device) = manager.device.lock().as_ref() {
-                    let _ = device.write(bytes);
+                    if let Err(error) = device.write(bytes) {
+                        if !device_failed {
+                            device_failed = true;
+                            manager.log("error", format!("PTY 设备写入失败，该通道本次拍发已失联：{error}"));
+                        }
+                    }
                 }
                 {
                     let frame = crate::ws::encode(crate::ws::OP_BINARY, bytes);
                     let mut clients = manager.inject.lock();
+                    let before = clients.len();
                     clients.retain_mut(|client| std::io::Write::write_all(client, &frame).is_ok());
+                    if clients.len() < before {
+                        manager.log("warn", format!("{} 个注入页面在拍发中断开", before - clients.len()));
+                    }
                 }
                 index += 1;
                 if let Some(state) = manager.replay.lock().as_mut() {
@@ -400,17 +443,46 @@ impl VirtualSerial {
                 if index % 20 == 0 || index == total {
                     (manager.sink)(json!({"type": "progress", "sent": index, "total": total}));
                 }
+                // 走过一组就报一行：组号、这组的报文、到此为止的实测码率
+                while next_milestone < milestones.len() && *at >= milestones[next_milestone].0 {
+                    let (mark_at, number, group, chars_done) = &milestones[next_milestone];
+                    let window = (mark_at - origin).max(1.0);
+                    let rate = *chars_done as f64 * 60000.0 / (window * per_unit);
+                    manager.log(
+                        "info",
+                        format!(
+                            // 叫"至此均速"而不是"实测码率"：结算口径的采集区间含收尾符与末字静默，
+                            // 中途这个数必然偏高，最后一行才是服务端会算出来的那个值
+                            "第 {number}/{groups_total} 组 {group} 已发 · {chars_done} 字 · {:.1}s · 至此均速 {rate:.1} {unit_name}",
+                            window / 1000.0
+                        ),
+                    );
+                    next_milestone += 1;
+                }
             }
             let aborted = index < total;
+            let wall = started.elapsed().as_secs_f64();
             *manager.replay.lock() = None;
-            manager.log(
-                if aborted { "warn" } else { "ok" },
-                if aborted {
-                    format!("拍发已中止，已发 {index} 帧")
-                } else {
-                    format!("拍发完成，共 {index} 帧")
-                },
-            );
+            if aborted {
+                manager.log(
+                    "warn",
+                    format!(
+                        "拍发已中止：第 {}/{groups_total} 组，{index}/{total} 帧，已过 {wall:.1}s",
+                        next_milestone.max(1).min(groups_total.max(1)),
+                        ),
+                );
+            } else {
+                let sent_chars = milestones.last().map(|item| item.3).unwrap_or(0);
+                let window = (items.last().map(|item| item.0).unwrap_or(0.0) - origin).max(1.0);
+                let rate = sent_chars as f64 * 60000.0 / (window * per_unit);
+                manager.log(
+                    "ok",
+                    format!(
+                        "拍发完成：{groups_total} 组 {sent_chars} 字 · {index} 帧 · 墙上时间 {wall:.1}s · 实测 {rate:.1} {unit_name}（目标 {target_rate:.1}，偏 {:+.2}%）",
+                        (rate / target_rate.max(0.001) - 1.0) * 100.0
+                    ),
+                );
+            }
             (manager.sink)(json!({"type": "progress", "sent": index, "total": total}));
             manager.announce();
         });
