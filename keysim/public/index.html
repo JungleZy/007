@@ -3,183 +3,349 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>keysim · 手键/电子键虚拟串口台</title>
+<title>keysim · 手键 / 电子键拍发台</title>
 <style>
+  /* 值机台：钢灰面板 + 信号灯琥珀 + 纸带。颜色只有这几支，别再加。 */
   :root{
-    --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
-    --ok:#3fb950; --warn:#d29922; --err:#f85149; --accent:#58a6ff; --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Consolas,monospace;
+    --deck:#14191a;        /* 机柜内凹 */
+    --panel:#1e2527;       /* 面板钢面 */
+    --panel-2:#252d30;     /* 面板高光区 */
+    --rule:#333d40;        /* 刻线 */
+    --ink:#e7e3d7;         /* 面板刻字 */
+    --ink-dim:#8b9598;     /* 次级刻字 */
+    --lamp:#e5a13c;        /* 信号灯：工作中 */
+    --lamp-off:#4a4038;    /* 信号灯：熄灭 */
+    --live:#6fc3a4;        /* 就绪 / 通路 */
+    --fault:#d76a55;       /* 故障 */
+    --tape:#0f1314;        /* 纸带底 */
+    --mono:ui-monospace,"JetBrains Mono","SFMono-Regular",Consolas,"Noto Sans Mono CJK SC",monospace;
+    --sans:system-ui,-apple-system,"Segoe UI","Noto Sans SC","PingFang SC",sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans SC",sans-serif}
-  header{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-  header h1{margin:0;font-size:16px;font-weight:600;letter-spacing:.5px}
-  header .sub{color:var(--muted);font-size:12px}
-  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-family:var(--mono);font-size:12px}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--err)}
-  .dot.on{background:var(--ok)}
-  main{display:grid;grid-template-columns:minmax(420px,1fr) minmax(420px,1fr);gap:16px;padding:16px;align-items:start}
-  section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
-  section h2{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.6px;text-transform:uppercase}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-  label{color:var(--muted);font-size:12px;min-width:64px}
-  input,select,textarea,button{background:#0d1117;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit}
-  input[type=number]{width:96px;font-family:var(--mono)}
-  input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent)}
-  textarea{width:100%;min-height:92px;font-family:var(--mono);letter-spacing:1px;resize:vertical}
-  button{cursor:pointer;border-color:#3d444d}
-  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-  button:disabled{opacity:.45;cursor:not-allowed}
-  button.primary{background:#1f6feb22;border-color:#1f6feb;color:#cfe4ff}
-  button.danger{border-color:#8b2d24;color:#ffb3ab}
-  .grow{flex:1}
-  .hint{color:var(--muted);font-size:12px;margin:6px 0 0;font-family:var(--mono);word-break:break-all}
-  .bar{height:6px;background:#0d1117;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s linear}
-  #log{height:280px;overflow:auto;background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:12px}
-  #log div{white-space:pre-wrap;word-break:break-all;padding:1px 0}
-  .l-ok{color:var(--ok)} .l-warn{color:var(--warn)} .l-error{color:var(--err)} .l-recv{color:var(--accent)} .l-info{color:var(--muted)}
-  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
-  td{padding:3px 0;color:var(--muted)} td+td{color:var(--text);text-align:right}
-  .hidden{display:none !important}
-  .t-warn,td+td.t-warn{color:var(--warn)}
-  .t-ok,td+td.t-ok{color:var(--ok)}
-  .chip.t-warn{border-color:var(--warn);color:var(--warn)}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--deck);color:var(--ink);font:14px/1.55 var(--sans);
+    /* 机柜面板的细微竖向拉丝 */
+    background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px);
+  }
+
+  /* ---------- 面板铭牌 ---------- */
+  header{
+    display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;
+    padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--rule);
+    box-shadow:inset 0 -1px 0 rgba(0,0,0,.4);
+  }
+  .plate{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:.42em;text-transform:uppercase}
+  .plate b{color:var(--lamp);font-weight:600}
+  .sub{color:var(--ink-dim);font-size:12px;letter-spacing:.08em}
+  .lamps{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
+  .lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .lamp i{
+    width:9px;height:9px;border-radius:50%;background:var(--lamp-off);
+    box-shadow:inset 0 0 2px rgba(0,0,0,.8);flex:none
+  }
+  .lamp.on i{background:var(--lamp);box-shadow:0 0 7px rgba(229,161,60,.65)}
+  .lamp.live i{background:var(--live);box-shadow:0 0 7px rgba(111,195,164,.5)}
+  .lamp.fault i{background:var(--fault);box-shadow:0 0 7px rgba(215,106,85,.6)}
+  .lamp.on b,.lamp.live b{color:var(--ink)}
+
+  /* ---------- 纸带：本页主角 ---------- */
+  #tapeWrap{padding:14px 20px 0}
+  .tape{
+    position:relative;background:var(--tape);border:1px solid var(--rule);border-radius:3px;
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.55)
+  }
+  #tape{display:block;width:100%;height:96px}
+  .tape-meta{
+    display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;
+    padding:6px 2px 0;font-family:var(--mono);font-size:11px;color:var(--ink-dim)
+  }
+  .tape-meta b{color:var(--ink);font-weight:500}
+  .tape-empty{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:12px;color:var(--ink-dim);letter-spacing:.12em
+  }
+
+  /* ---------- 面板分区 ---------- */
+  main{display:grid;grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);gap:14px;padding:14px 20px 20px;align-items:start}
+  section{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 14px 14px}
+  section+section{margin-top:14px}
+  h2{
+    margin:0 0 10px;font-family:var(--mono);font-size:11px;font-weight:600;
+    letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);
+    padding-bottom:7px;border-bottom:1px solid var(--rule)
+  }
+  .wide{grid-column:1/-1}
+
+  /* ---------- 通道链 ---------- */
+  .chain{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+  .link{display:grid;grid-template-columns:16px 1fr auto;gap:10px;align-items:center;padding:7px 10px;background:var(--panel-2)}
+  .link i{width:8px;height:8px;border-radius:50%;background:var(--lamp-off);justify-self:center}
+  .link.on i{background:var(--lamp);box-shadow:0 0 6px rgba(229,161,60,.6)}
+  .link.live i{background:var(--live);box-shadow:0 0 6px rgba(111,195,164,.45)}
+  .link.fault i{background:var(--fault)}
+  .link .name{font-size:13px}
+  .link .name em{font-style:normal;color:var(--ink-dim);font-size:11px;margin-left:6px;font-family:var(--mono)}
+  .link .val{font-family:var(--mono);font-size:12px;color:var(--ink-dim);text-align:right;word-break:break-all}
+  .link.on .val,.link.live .val{color:var(--ink)}
+  .link.fault .val{color:var(--fault)}
+
+  /* ---------- 控件 ---------- */
+  .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .row+.row{margin-top:9px}
+  label{color:var(--ink-dim);font-size:12px}
+  .field{display:inline-flex;align-items:center;gap:6px}
+  input,select,textarea,button{
+    font:inherit;color:var(--ink);background:var(--deck);
+    border:1px solid var(--rule);border-radius:2px;padding:6px 9px
+  }
+  input[type=number]{width:82px;font-family:var(--mono)}
+  input[type=checkbox]{width:13px;height:13px;accent-color:var(--lamp);padding:0}
+  select{padding-right:6px}
+  textarea{
+    width:100%;min-height:74px;resize:vertical;
+    font-family:var(--mono);font-size:15px;letter-spacing:.22em;line-height:1.7
+  }
+  input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
+    outline:2px solid var(--lamp);outline-offset:1px
+  }
+  button{cursor:pointer;letter-spacing:.02em}
+  button:hover:not(:disabled){border-color:var(--lamp);color:var(--lamp)}
+  button:disabled{opacity:.38;cursor:not-allowed}
+  button.key{
+    font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;
+    background:var(--panel-2);border-color:#4a5558;padding:8px 16px
+  }
+  button.key.go{border-color:var(--lamp);color:var(--lamp);background:rgba(229,161,60,.09)}
+  button.key.go:hover:not(:disabled){background:rgba(229,161,60,.16)}
+  button.key.halt{border-color:#7a3a30;color:#f0a595}
+  button.key.halt:hover:not(:disabled){border-color:var(--fault);color:var(--fault)}
+  .grow{flex:1;min-width:120px}
+  .note{color:var(--ink-dim);font-size:12px;font-family:var(--mono);margin:8px 0 0;word-break:break-all}
+  .note.warn{color:var(--lamp)}
+  .note.ok{color:var(--live)}
+  .hidden{display:none!important}
+  .inline{font-family:var(--mono);font-size:12px;color:var(--ink-dim)}
+  .inline.warn{color:var(--lamp)}
+  .inline.ok{color:var(--live)}
+  details.more{margin-top:9px}
+  details.more>summary{
+    cursor:pointer;color:var(--ink-dim);font-family:var(--mono);font-size:11px;
+    letter-spacing:.14em;text-transform:uppercase;list-style:none
+  }
+  details.more>summary::-webkit-details-marker{display:none}
+  details.more>summary::before{content:"+ ";color:var(--lamp)}
+  details.more[open]>summary::before{content:"− "}
+  details.more[open]>summary{color:var(--ink)}
+  details.more .body{padding:9px 0 2px}
+
+  /* ---------- 读数 ---------- */
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:12px}
+  .cell{background:var(--deck);padding:8px 10px}
+  .cell span{display:block;font-size:11px;color:var(--ink-dim);letter-spacing:.1em}
+  .cell b{display:block;font-family:var(--mono);font-size:15px;font-weight:500;margin-top:2px}
+
+  /* ---------- 日志 ---------- */
+  .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .logbar .spacer{flex:1}
+  #log{
+    height:190px;overflow:auto;background:var(--tape);border:1px solid var(--rule);
+    padding:8px 10px;font-family:var(--mono);font-size:12px;
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.5)
+  }
+  #log div{white-space:pre-wrap;word-break:break-all;padding:1px 0;display:flex;gap:9px}
+  #log time{color:#5d6a6d;flex:none}
+  .l-ok{color:var(--live)} .l-warn{color:var(--lamp)} .l-error{color:var(--fault)}
+  .l-recv{color:#7fb6cf} .l-info{color:var(--ink-dim)}
+
+  @media (max-width:1000px){
+    main{grid-template-columns:1fr}
+    .lamps{margin-left:0;width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>keysim</h1>
-  <span class="sub">手键 / 电子键拍发模拟器 · 虚拟串口台</span>
-  <span class="chip"><i class="dot" id="portDot"></i><span id="portText">串口未开启</span></span>
-  <span class="chip" id="kernelChip"><i class="dot" id="kernelDot"></i><span id="kernelChipText">内核级未启用</span></span>
-  <span class="chip">桌面桥接 <b id="bridgeClients">0</b></span>
-  <span class="chip">浏览器注入 <b id="injectClients">0</b></span>
+  <span class="plate">key<b>sim</b></span>
+  <span class="sub">手键 / 电子键拍发台</span>
+  <div class="lamps">
+    <span class="lamp" id="lampPort"><i></i><b>串口未开启</b></span>
+    <span class="lamp" id="lampKernel"><i></i><b>内核级未启用</b></span>
+    <span class="lamp" id="lampBridge"><i></i><b>桥接 0</b></span>
+    <span class="lamp" id="lampInject"><i></i><b>注入 0</b></span>
+  </div>
 </header>
+
+<div id="tapeWrap">
+  <div class="tape">
+    <canvas id="tape" width="1200" height="96"></canvas>
+    <div class="tape-empty" id="tapeEmpty">输入报文即生成纸带</div>
+  </div>
+  <div class="tape-meta">
+    <span>时长 <b id="mDuration">--</b></span>
+    <span>帧 <b id="mEvents">--</b></span>
+    <span>字 <b id="mChars">--</b></span>
+    <span>点/划/符内 <b id="mPlan">--</b></span>
+    <span>字隔/组隔 <b id="mGap">--</b></span>
+    <span id="mProgress"></span>
+  </div>
+</div>
 
 <main>
   <section>
-    <h2>虚拟串口</h2>
+    <h2>报文</h2>
     <div class="row">
-      <button id="btnOpen" class="primary">开启虚拟串口</button>
-      <button id="btnClose" class="danger">关闭虚拟串口</button>
-    </div>
-    <table style="margin-bottom:8px">
-      <tr><td>⓿ 内核级虚拟串口</td><td id="kernelSelectable">--</td></tr>
-      <tr id="rowKernelAlias"><td>桌面壳串口下拉</td><td id="kernelAlias">--</td></tr>
-      <tr><td>① PTY 设备</td><td id="devPath">--</td></tr>
-      <tr><td>② 桌面桥接</td><td id="bridgeUrl">--</td></tr>
-      <tr><td>③ 浏览器注入</td><td id="injectCount">0 个页面</td></tr>
-    </table>
-    <p class="hint t-warn hidden" id="actionHint">--</p>
-    <div class="row" id="rowHelper">
-      <button id="btnInstallHelper">安装 root 助手（一次）</button>
-      <span class="hint" id="helperState">--</span>
-    </div>
-    <div class="row" id="rowLink">
-      <button id="btnLink">接入系统串口列表</button>
-      <button id="btnUnlink">移出列表</button>
-      <span class="hint" id="linkState">--</span>
-    </div>
-    <details class="more">
-      <summary>四条通道怎么选</summary>
-      <p class="hint" id="channelDoc">--</p>
-    </details>
-
-    <h2 style="margin-top:18px">被测页面</h2>
-    <div class="row">
-      <input id="targetUrl" class="grow" placeholder="http://127.0.0.1:8080/#/preview/... 训练页地址"/>
-    </div>
-    <div class="row">
-      <button id="btnOpenPage" class="primary">打开并预置虚拟串口</button>
-      <button id="btnClosePage">关闭页面</button>
-      <span class="hint" id="pageState">未打开</span>
-    </div>
-    <p class="hint" id="pageHint">--</p>
-    <details class="more" id="rowManualInject">
-      <summary>手动注入代码（用你自己那个已登录的浏览器时才需要）</summary>
-      <div class="row">
-        <input id="injectSnippet" class="grow" readonly/>
-        <button id="btnCopy">复制</button>
+      <div class="field">
+        <label for="alphabet">字母表</label>
+        <select id="alphabet">
+          <option value="letter">字码 A-Z</option>
+          <option value="short">数码短码 0-9</option>
+          <option value="long">数码长码 0-9</option>
+          <option value="mix">混合 A-Z 0-9</option>
+        </select>
       </div>
-    </details>
-
-    <h2 style="margin-top:18px">报文</h2>
-    <div class="row">
-      <label>字母表</label>
-      <select id="alphabet">
-        <option value="letter">字码 letter（A-Z）</option>
-        <option value="short">数码短码 short（0-9）</option>
-        <option value="long">数码长码 long（0-9）</option>
-        <option value="mix">混合 mix（A-Z 0-9）</option>
-      </select>
-      <label>组数</label>
-      <input id="groups" type="number" min="1" max="100" value="4"/>
+      <div class="field">
+        <label for="groups">组数</label>
+        <input id="groups" type="number" min="1" max="100" value="4"/>
+      </div>
       <button id="btnRandom">随机生成</button>
     </div>
-    <textarea id="message" spellcheck="false" placeholder="手输或随机生成；每组 4 个字符，组间空格分隔，例如 ABCD EFGH"></textarea>
+    <div class="row"><textarea id="message" spellcheck="false" placeholder="ABCD EFGH　—　四字一组，组间空格"></textarea></div>
+    <p class="note" id="msgNote"></p>
+
+    <h2 style="margin-top:16px">拍发</h2>
+    <div class="row">
+      <div class="field">
+        <label for="key">键型</label>
+        <select id="key">
+          <option value="hand">手键（按压时长定点划）</option>
+          <option value="electron">电子键（双手组合键）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="rate">码率</label>
+        <input id="rate" type="number" min="1" max="400" value="70"/>
+        <span class="inline" id="rateUnit">字符/分</span>
+      </div>
+      <div class="field">
+        <label for="speed">倍速</label>
+        <input id="speed" type="number" min="0.1" max="50" step="0.5" value="1"/>
+      </div>
+    </div>
+    <div class="row">
+      <button id="btnSend" class="key go">开始拍发</button>
+      <button id="btnStop" class="key halt">停止</button>
+      <span class="inline" id="sendNote"></span>
+    </div>
+    <details class="more">
+      <summary>节拍与故障</summary>
+      <div class="body">
+        <div class="row">
+          <div class="field"><label for="jitter">抖动</label><input id="jitter" type="number" min="0" max="0.5" step="0.05" value="0"/></div>
+          <div class="field"><label for="seed">种子</label><input id="seed" type="number" min="1" value="1"/></div>
+          <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="tail">收尾</label>
+            <select id="tail">
+              <option value="turn">手键翻页符（提交本页）</option>
+              <option value="end">结束符 / F3+回车</option>
+              <option value="page">电子键句号（提交本页）</option>
+              <option value="none">只留静默</option>
+            </select>
+          </div>
+          <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
+          <label class="field"><input type="checkbox" id="singlePage" checked/> 单页</label>
+        </div>
+        <div class="row">
+          <label>故障</label>
+          <label class="field"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
+          <label class="field"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
+          <label class="field"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
+          <label class="field"><input type="checkbox" class="fault" value="unknownByte"/> 未知字节</label>
+        </div>
+        <p class="note">抖动须 ≤ 规则偏移/100，且划的最短仍要超过点的最长两倍，否则客户端试机不过。</p>
+      </div>
+    </details>
   </section>
 
   <section>
-    <h2>拍发参数</h2>
-    <div class="row">
-      <label>键型</label>
-      <select id="key">
-        <option value="hand">手键（按压时长定点划）</option>
-        <option value="electron">电子键（双手组合键）</option>
-      </select>
-      <label id="rateLabel">码率</label>
-      <input id="rate" type="number" min="1" max="400" value="70"/>
-      <span class="hint" id="rateUnit">字符/分</span>
+    <h2>信号通道</h2>
+    <div class="row" style="margin-bottom:11px">
+      <button id="btnOpen" class="key">开启虚拟串口</button>
+      <button id="btnClose" class="key">关闭</button>
+      <span class="inline" id="portNote"></span>
     </div>
-    <div class="row">
-      <label>抖动</label>
-      <input id="jitter" type="number" min="0" max="0.5" step="0.05" value="0"/>
-      <label>种子</label>
-      <input id="seed" type="number" min="1" value="1"/>
-      <label>规则偏移</label>
-      <input id="skew" type="number" min="1" max="99" value="51"/>
+    <div class="chain">
+      <div class="link" id="linkKernel">
+        <i></i><span class="name">内核级设备<em>浏览器可选</em></span><span class="val" id="vKernel">--</span>
+      </div>
+      <div class="link" id="linkAlias">
+        <i></i><span class="name">桌面壳下拉<em>/dev/ttyUSBn</em></span><span class="val" id="vAlias">--</span>
+      </div>
+      <div class="link" id="linkDevice">
+        <i></i><span class="name">PTY 设备<em>按路径打开</em></span><span class="val" id="vDevice">--</span>
+      </div>
+      <div class="link" id="linkBridge">
+        <i></i><span class="name">桌面桥接<em>18765</em></span><span class="val" id="vBridge">--</span>
+      </div>
+      <div class="link" id="linkInject">
+        <i></i><span class="name">浏览器注入<em>/ws/serial</em></span><span class="val" id="vInject">--</span>
+      </div>
     </div>
-    <div class="row">
-      <label>收尾</label>
-      <select id="tail">
-        <option value="turn">手键翻页符（提交本页）</option>
-        <option value="end">结束符 / F3+回车</option>
-        <option value="page">电子键句号（提交本页）</option>
-        <option value="none">只留静默</option>
-      </select>
-      <label style="min-width:auto"><input type="checkbox" id="preamble" checked/> 发开始符</label>
-      <label style="min-width:auto"><input type="checkbox" id="singlePage" checked/> 单页</label>
+    <p class="note warn hidden" id="actionHint">--</p>
+    <div class="row" id="rowHelper" style="margin-top:10px">
+      <button id="btnInstallHelper">安装 root 助手</button>
+      <span class="inline" id="helperState">装一次即可，之后不再输密码</span>
     </div>
-    <div class="row">
-      <label>故障</label>
-      <label style="min-width:auto"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
-      <label style="min-width:auto"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
-      <label style="min-width:auto"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
-      <label style="min-width:auto"><input type="checkbox" class="fault" value="unknownByte"/> 未知字节</label>
+    <div class="row" id="rowLink" style="margin-top:10px">
+      <button id="btnLink">接入系统串口列表</button>
+      <button id="btnUnlink">移出</button>
+      <span class="inline" id="linkState">--</span>
     </div>
+    <details class="more">
+      <summary>通道怎么选</summary>
+      <div class="body"><p class="note" id="channelDoc" style="margin:0">--</p></div>
+    </details>
+
+    <h2 style="margin-top:16px">被测页面</h2>
     <div class="row">
-      <button id="btnPreview">预览节拍</button>
-      <button id="btnSend" class="primary">开始拍发</button>
-      <button id="btnStop" class="danger">停止</button>
+      <input id="targetUrl" class="grow" placeholder="http://127.0.0.1:8080/#/... 训练页地址"/>
+      <button id="btnOpenPage" class="key">打开</button>
+      <button id="btnClosePage">关闭页面</button>
     </div>
-    <div class="bar"><i id="progress"></i></div>
-    <table id="stats">
-      <tr><td>时长</td><td id="stDuration">--</td></tr>
-      <tr><td>帧数</td><td id="stEvents">--</td></tr>
-      <tr><td>点 / 划 / 符内间隔</td><td id="stPlan">--</td></tr>
-      <tr><td>字间隔 / 组间隔</td><td id="stGap">--</td></tr>
-    </table>
+    <p class="note" id="pageHint">--</p>
+    <details class="more" id="rowManualInject">
+      <summary>手动注入代码</summary>
+      <div class="body">
+        <div class="row">
+          <input id="injectSnippet" class="grow" readonly/>
+          <button id="btnCopy">复制</button>
+        </div>
+        <p class="note" style="margin-top:8px">粘进你自己那个已登录浏览器的控制台；keysim 拉起的浏览器不需要这一步。</p>
+      </div>
+    </details>
   </section>
 
-  <section style="grid-column:1/-1">
-    <h2>日志</h2>
+  <section class="wide">
+    <div class="logbar">
+      <h2 style="margin:0;border:0;padding:0">日志</h2>
+      <span class="spacer"></span>
+      <label class="field"><input type="checkbox" id="autoScroll" checked/> 自动滚动</label>
+      <button id="btnCopyLog">复制</button>
+      <button id="btnClearLog">清空</button>
+    </div>
     <div id="log"></div>
   </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id)
-// GET 只有 /api/state；其余接口一律 POST，所以默认带一个空 body 走 POST。
+// GET 只有 /api/state；其余一律 POST，默认带空 body。
 const api = async (path, body = {}, method = 'POST') => {
   const response = await fetch(path, method === 'GET' ? {} : {
     method, headers: {'content-type': 'application/json'}, body: JSON.stringify(body)
@@ -189,9 +355,51 @@ const api = async (path, body = {}, method = 'POST') => {
 const log = (message, level = 'info') => {
   const line = document.createElement('div')
   line.className = 'l-' + level
-  line.textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false}) + ' ' + message
-  $('log').append(line)
-  $('log').scrollTop = $('log').scrollHeight
+  const stamp = document.createElement('time')
+  stamp.textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false})
+  const text = document.createElement('span')
+  text.textContent = message
+  line.append(stamp, text)
+  const box = $('log')
+  box.append(line)
+  while (box.childElementCount > 500) box.firstElementChild.remove()
+  if ($('autoScroll').checked) box.scrollTop = box.scrollHeight
+}
+
+const setText = (id, value, tone) => {
+  const node = $(id)
+  if (!node) return
+  node.textContent = (value === undefined || value === null || value === '') ? '--' : String(value)
+  node.classList.toggle('warn', tone === 'warn')
+  node.classList.toggle('ok', tone === 'ok')
+}
+// 读数缺失显示 --，提示语缺失就该是空白：两件事分开，别让 -- 冒出来当提示
+const setNote = (id, value, tone) => {
+  const node = $(id)
+  if (!node) return
+  node.textContent = value || ''
+  node.classList.toggle('warn', tone === 'warn')
+  node.classList.toggle('ok', tone === 'ok')
+}
+const setShown = (id, shown) => { const node = $(id); if (node) node.classList.toggle('hidden', !shown) }
+const setDisabled = (id, disabled, why) => {
+  const node = $(id)
+  if (!node) return
+  node.disabled = Boolean(disabled)
+  node.title = disabled && why ? why : ''
+}
+const setLamp = (id, tone, label) => {
+  const node = $(id)
+  if (!node) return
+  node.classList.remove('on', 'live', 'fault')
+  if (tone) node.classList.add(tone)
+  const text = node.querySelector('b')
+  if (text && label !== undefined) text.textContent = label
+}
+const setLink = (id, tone, value, valueId) => {
+  const node = $(id)
+  if (node) { node.classList.remove('on', 'live', 'fault'); if (tone) node.classList.add(tone) }
+  setText(valueId, value)
 }
 const faults = () => [...document.querySelectorAll('.fault:checked')].map(box => box.value)
 const params = () => ({
@@ -205,29 +413,127 @@ const params = () => ({
   preamble: $('preamble').checked,
   singlePage: $('singlePage').checked,
   tail: $('tail').value,
-  faults: faults()
+  faults: faults(),
+  speed: Number($('speed').value) || 1
 })
 
-// ==== state-render:begin ====
-// 所有 DOM 写入都走这三个小工具：单点兜底，字段缺失 / 为 null 时统一显示 --，不会漏出 undefined。
-const setText = (id, value, tone) => {
-  const node = $(id)
-  if (!node) return
-  node.textContent = (value === undefined || value === null || value === '') ? '--' : String(value)
-  node.classList.toggle('t-warn', tone === 'warn')
-  node.classList.toggle('t-ok', tone === 'ok')
+// ================= 纸带 =================
+// 手键：按下→抬起画成墨块（点短划长），间隔留白。电子键：单字节码画成等宽刻点。
+// 这是页面的主角，所以它同时承担"预览"与"进度"两件事：播放头就是进度条。
+const tape = {canvas: $('tape'), marks: [], duration: 0, key: 'hand', playhead: null}
+const drawTape = () => {
+  const canvas = tape.canvas
+  const ratio = window.devicePixelRatio || 1
+  const width = canvas.clientWidth || 1200
+  const height = 96
+  if (canvas.width !== Math.round(width * ratio)) {
+    canvas.width = Math.round(width * ratio)
+    canvas.height = Math.round(height * ratio)
+  }
+  const pen = canvas.getContext('2d')
+  pen.setTransform(ratio, 0, 0, ratio, 0, 0)
+  pen.clearRect(0, 0, width, height)
+
+  const pad = 10
+  const base = height - 26
+  const span = tape.duration || 1
+  const scale = (width - pad * 2) / span
+
+  // 走纸刻度：每秒一格
+  pen.strokeStyle = 'rgba(231,227,215,.10)'
+  pen.fillStyle = '#5d6a6d'
+  pen.font = '10px ui-monospace, monospace'
+  pen.lineWidth = 1
+  for (let second = 0; second * 1000 <= span; second++) {
+    const x = pad + second * 1000 * scale
+    pen.beginPath(); pen.moveTo(x, 14); pen.lineTo(x, base + 6); pen.stroke()
+    if (second % 2 === 0) pen.fillText(second + 's', x + 3, base + 18)
+  }
+  // 基线
+  pen.strokeStyle = 'rgba(231,227,215,.22)'
+  pen.beginPath(); pen.moveTo(pad, base); pen.lineTo(width - pad, base); pen.stroke()
+
+  if (!tape.marks.length) { setShown('tapeEmpty', true); return }
+  setShown('tapeEmpty', false)
+
+  const top = 22
+  const tall = base - top
+  pen.fillStyle = '#e5a13c'
+  if (tape.key === 'electron') {
+    for (const [at] of tape.marks) {
+      const x = pad + at * scale
+      pen.fillRect(x, top + tall * 0.25, Math.max(1.5, 2), tall * 0.75)
+    }
+  } else {
+    let down = null
+    for (const [at, kind] of tape.marks) {
+      if (kind === 0) down = at
+      else if (kind === 1 && down !== null) {
+        const x = pad + down * scale
+        const w = Math.max(1.2, (at - down) * scale)
+        pen.fillRect(x, top, w, tall)
+        down = null
+      }
+    }
+    if (down !== null) { // 缺抬起（故障注入）：画成断口
+      pen.fillStyle = '#d76a55'
+      pen.fillRect(pad + down * scale, top, 2, tall)
+    }
+  }
+
+  if (tape.playhead !== null) {
+    const x = pad + Math.min(span, tape.playhead) * scale
+    pen.fillStyle = 'rgba(111,195,164,.16)'
+    pen.fillRect(pad, top - 6, Math.max(0, x - pad), tall + 12)
+    pen.strokeStyle = '#6fc3a4'
+    pen.lineWidth = 1.5
+    pen.beginPath(); pen.moveTo(x, top - 8); pen.lineTo(x, base + 4); pen.stroke()
+  }
 }
-const setShown = (id, shown) => {
-  const node = $(id)
-  if (node) node.classList.toggle('hidden', !shown)
-}
-const setDisabled = (id, disabled) => {
-  const node = $(id)
-  if (node) node.disabled = !!disabled
+window.addEventListener('resize', drawTape)
+
+const clearTape = note => {
+  tape.marks = []; tape.duration = 0; tape.playhead = null
+  drawTape()
+  for (const id of ['mDuration', 'mEvents', 'mChars', 'mPlan', 'mGap']) setText(id, null)
+  setNote('mProgress', note || '')
 }
 
+let previewTimer = null
+const previewSoon = () => {
+  clearTimeout(previewTimer)
+  previewTimer = setTimeout(runPreview, 260)
+}
+const runPreview = async () => {
+  const text = $('message').value.trim()
+  if (!text) { clearTape(''); setNote('msgNote', '输入或随机生成一页报文'); setDisabled('btnSend', true, '报文为空'); return }
+  const result = await api('/api/preview', params())
+  if (!result.ok) {
+    clearTape('')
+    setNote('msgNote', result.error, 'warn')
+    setDisabled('btnSend', true, result.error)
+    return
+  }
+  tape.marks = Array.isArray(result.marks) ? result.marks : []
+  tape.duration = Number(result.duration) || 0
+  tape.key = $('key').value
+  tape.playhead = null
+  drawTape()
+  const plan = result.plan || {}
+  const ms = value => Math.round(Number(value) || 0) + 'ms'
+  setText('mDuration', (tape.duration / 1000).toFixed(2) + ' s')
+  setText('mEvents', result.events)
+  setText('mChars', result.chars)
+  setText('mPlan', plan.dot ? [plan.dot, plan.dash, plan.gap].map(ms).join(' / ') : (plan.perChar ? ms(plan.perChar) + '/字' : '--'))
+  setText('mGap', plan.word ? ms(plan.word) + ' / ' + ms(plan.group) : '--')
+  setNote('msgNote', '')
+  applyState(lastState)
+}
+
+// ================= 状态 =================
+let lastState = {}
 const applyState = raw => {
-  const state = raw || {}
+  const state = lastState = raw || {}
   const kernel = state.kernel || {}
   const device = state.device || {}
   const helper = state.helper || {}
@@ -239,116 +545,100 @@ const applyState = raw => {
   const bridgeClients = Number(state.bridgeClients) || 0
   const injectClients = Number(state.injectClients) || 0
   const helperCommand = helper.command || 'sudo keysim install-helper'
-
-  // 顶部状态区
-  $('portDot').classList.toggle('on', open)
-  setText('portText', open ? ('串口已开启 :' + (state.bridgePort || '--')) : '串口未开启')
-  setText('bridgeClients', bridgeClients)
-  setText('injectClients', injectClients)
-
-  // ⓿ 内核级：唯一能被浏览器串口选择框看到的通道
   const selectable = kernel.selectable || ''
   const openable = kernel.selectableOpenable
   const kernelOn = Boolean(kernel.id) && Boolean(selectable)
-  const openTag = openable === true ? ' · 可打开'
-    : openable === false ? ' · 当前用户打不开'
-    : windows ? ' · 能否打开未知（COM 口独占，不试探）' : ''
-  $('kernelDot').classList.toggle('on', kernelOn && openable !== false)
-  $('kernelChip').classList.toggle('t-warn', kernelOn && openable === false)
-  setText('kernelChipText', kernelOn ? ('内核 ' + selectable) : '内核级未启用')
-  setText('kernelSelectable', kernelOn ? (selectable + openTag) : '未启用', kernelOn ? (openable === false ? 'warn' : 'ok') : 'warn')
-  const kernelCell = $('kernelSelectable')
-  if (kernelCell) kernelCell.title = kernel.title || ''
+  const ptyOn = !windows && device.supported !== false && Boolean(device.path)
 
-  // 桌面壳串口下拉只认 /dev/ttyUSBn，所以内核设备要额外挂一个别名
-  setShown('rowKernelAlias', !windows)
-  if (!windows) {
-    if (kernel.desktopAlias) setText('kernelAlias', kernel.desktopAlias, 'ok')
-    else setText('kernelAlias', kernelOn ? '无别名，下拉看不到' : '未启用', 'warn')
-  }
+  // 铭牌信号灯
+  setLamp('lampPort', open ? 'on' : null, open ? ('串口已开启 :' + (state.bridgePort || '--')) : '串口未开启')
+  setLamp('lampKernel', kernelOn ? (openable === false ? 'fault' : 'live') : null, kernelOn ? ('内核 ' + selectable) : '内核级未启用')
+  setLamp('lampBridge', bridgeClients ? 'on' : null, '桥接 ' + bridgeClients)
+  setLamp('lampInject', injectClients ? 'on' : null, '注入 ' + injectClients)
 
-  // ① PTY 设备
-  const ptySupported = !windows && device.supported !== false
-  if (!ptySupported) {
-    setText('devPath', windows ? '本平台不提供（用 com0com）' : '本平台不提供')
-  } else {
-    setText('devPath', device.path || (device.available === false ? ('不可用：' + (device.reason || '未知原因')) : '未开启'))
-  }
-  const devCell = $('devPath')
+  // 通道链
+  setLink('linkKernel', kernelOn ? (openable === false ? 'fault' : 'live') : null,
+    kernelOn ? (selectable + (openable === true ? ' · 可打开' : openable === false ? ' · 打不开' : windows ? ' · 独占，不试探' : '')) : '未启用', 'vKernel')
+  setShown('linkAlias', !windows)
+  if (!windows) setLink('linkAlias', kernel.desktopAlias ? 'live' : (kernelOn ? 'fault' : null), kernel.desktopAlias || (kernelOn ? '无别名，下拉看不到' : '未启用'), 'vAlias')
+  setShown('linkDevice', !windows)
+  if (!windows) setLink('linkDevice', ptyOn ? 'live' : null,
+    device.path || (device.supported === false ? '本平台不提供' : device.available === false ? ('不可用：' + (device.reason || '未知')) : '未开启'), 'vDevice')
+  setLink('linkBridge', open ? (bridgeClients ? 'on' : 'live') : null,
+    (state.bridgeUrl || '--') + (bridgeClients ? ('　' + bridgeClients + ' 个客户端') : ''), 'vBridge')
+  setLink('linkInject', injectClients ? 'on' : null, injectClients ? (injectClients + ' 个页面') : '无页面接入', 'vInject')
+
+  const deviceNode = $('vDevice')
   const links = Array.isArray(device.links) ? device.links.filter(Boolean) : []
   const warnings = Array.isArray(device.warnings) ? device.warnings.filter(Boolean) : []
-  if (devCell) devCell.title = links.concat(warnings).join(' | ')
+  if (deviceNode) deviceNode.title = links.concat(warnings).join(' | ')
 
-  // ② 桌面桥接 / ③ 浏览器注入
-  setText('bridgeUrl', (state.bridgeUrl || ('ws://127.0.0.1:' + (state.bridgePort || 18765) + '/echo'))
-    + ' · ' + bridgeClients + ' 个客户端')
-  setText('injectCount', injectClients + ' 个页面')
-
-  // 唯一的"要你动手"提示行：没事就不出现
+  // 只在真的要动手时出现
   const fixes = []
   if (!windows && kernelOn && openable === false) fixes.push('内核设备打不开，执行一次：' + helperCommand)
   if (!windows && kernelOn && !kernel.desktopAlias) fixes.push('桌面下拉缺 /dev/ttyUSBn 别名，执行一次：' + helperCommand)
   if (!kernelOn) {
-    const backends = Array.isArray(kernel.backends) ? kernel.backends : []
-    const blocked = backends.filter(item => item && !item.available)
+    const blocked = (Array.isArray(kernel.backends) ? kernel.backends : []).filter(item => item && !item.available)
     if (windows) fixes.push('内核级未启用：装一次 com0com 即可得到可被直接选中的 COM 口')
     else if (blocked.length) fixes.push('内核级未启用：' + (blocked[0].install || blocked[0].reason || '缺前置条件'))
-    else fixes.push('内核级未启用：浏览器串口选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」')
+    else fixes.push('内核级未启用：浏览器串口选择框看不到 PTY，Web 模式请用「打开」按钮')
   }
   setShown('actionHint', fixes.length > 0)
   setText('actionHint', fixes.length ? fixes.join('　·　') : '--')
 
-  // root 助手：只有 Linux 需要
   const helperNeeded = !windows && helper.required !== false
   setShown('rowHelper', helperNeeded && helper.installed !== true)
-  setDisabled('btnInstallHelper', !helperNeeded || helper.installed === true)
+  setDisabled('btnInstallHelper', !helperNeeded || helper.installed === true, '本平台不需要 root 助手')
   setText('helperState', helper.installed === true ? '已安装' : '装一次即可，之后不再输密码', helper.installed === true ? 'ok' : null)
 
-  // 接入系统串口列表：只在"内核别名不存在而 PTY 存在"时才有意义
-  const linkNeeded = ptySupported && device.linkNeeded !== false && !kernel.desktopAlias
+  const linkNeeded = !windows && device.supported !== false && device.linkNeeded !== false && !kernel.desktopAlias
   setShown('rowLink', linkNeeded)
   if (linkNeeded) {
-    const linkNode = $('linkState')
-    if (linkNode) linkNode.dataset.target = device.systemLink || '/dev/ttyUSB0'
+    const node = $('linkState')
+    if (node) node.dataset.target = device.systemLink || '/dev/ttyUSB0'
     setText('linkState', device.systemLinked ? ('已接入 ' + device.systemLinked)
       : ('把 PTY 挂成 ' + (device.systemLink || '/dev/ttyUSB0') + '，桌面壳下拉才看得到（需一次系统授权）'))
-    setDisabled('btnLink', !device.path)
-    setDisabled('btnUnlink', !device.systemLinked)
-  } else {
-    setDisabled('btnLink', true)
-    setDisabled('btnUnlink', true)
+    setDisabled('btnLink', !device.path, '虚拟串口未开启')
+    setDisabled('btnUnlink', !device.systemLinked, '当前未接入')
   }
 
-  // 折叠里的通道说明：按平台给一份，不占正文
   setText('channelDoc', windows
-    ? '⓿ com0com 成对 COM 口：浏览器串口选择框与桌面程序都能直接选中另一端。① PTY 是 Linux 专属，本平台没有。② 桌面桥接 ws://127.0.0.1:18765/echo：桌面模式下被测应用自己连过来，业务操作只需要这条。③ 浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。'
-    : '⓿ 内核级设备（USB/IP 等）是唯一能被浏览器串口选择框看到的通道，桌面壳下拉则认 /dev/ttyUSBn 别名。① PTY /dev/pts/N 是真字符设备，任何按路径开串口的程序（pyserial、minicom、cat）都能读，但内核不把它注册成 udev tty，所以浏览器选择框看不到。② 桌面桥接 ws://127.0.0.1:18765/echo：桌面模式下被测应用自己连过来，业务操作只需要这条。③ 浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。')
+    ? 'com0com 成对 COM 口：浏览器与桌面程序都能直接选中另一端。PTY 是 Linux 专属，本平台没有。桌面桥接 18765：桌面模式下被测应用自己连过来，业务操作只需要这条。浏览器注入：keysim 拉起浏览器并在页面脚本前替换 navigator.serial，免去手点串口选择框。'
+    : '内核级设备是唯一能被浏览器串口选择框看到的通道，桌面壳下拉则认 /dev/ttyUSBn 别名。PTY /dev/pts/N 是真字符设备，pyserial、minicom、cat 都能读，但内核不把它注册成 udev tty，浏览器选择框看不到。桌面桥接 18765：桌面模式下被测应用自己连过来，业务操作只需要这条。浏览器注入：免去手点串口选择框。')
 
-  // 被测页面（浏览器注入）
+  // 被测页面
   const browserBroken = browser.available === false
-  setText('pageState', browser.open
-    ? ('已打开 ' + (browser.url || '被测页面'))
-    : (browserBroken ? ('不可用：' + (browser.reason || '本机没找到可用的 Chromium / Chrome')) : '未打开'),
-    browserBroken ? 'warn' : null)
-  setDisabled('btnOpenPage', browserBroken)
-  setDisabled('btnClosePage', !browser.open)
-  // 手动注入只在"内核级不可用"或"要用你自己已登录的浏览器"时才有意义
   setShown('rowManualInject', !kernelOn)
-  setText('pageHint', kernelOn
-    ? ('浏览器里也可以手动选 ' + selectable + '（要点一次串口选择框）；用这个按钮则免去手点，适合自动化。登录态留在 '
-        + (browser.profile || '~/.keysim/browser-profile') + '，只需登录一次。')
-    : '浏览器串口选择框看不到 PTY，Web 模式必须用这个按钮（keysim 会在页面脚本执行前替换 navigator.serial）。')
+  setText('pageHint', browserBroken
+    ? ('打不开浏览器：' + (browser.reason || '本机没找到 Chromium / Chrome') + '；可用 KEYSIM_BROWSER 指定可执行文件')
+    : browser.open ? ('已打开 ' + (browser.url || '被测页面') + '，串口已预置')
+    : kernelOn ? ('也可以在浏览器里手动选 ' + selectable + '；用「打开」则免去手点，适合自动化。登录态留在 ' + (browser.profile || '~/.keysim/browser-profile') + '，只需登录一次。')
+    : '浏览器串口选择框看不到 PTY，Web 模式必须用「打开」（keysim 会在页面脚本执行前替换 navigator.serial）。',
+    browserBroken ? 'warn' : null)
+  setDisabled('btnOpenPage', browserBroken, browser.reason || '')
+  setDisabled('btnClosePage', !browser.open, '没有已打开的页面')
 
-  // 拍发状态
-  setDisabled('btnOpen', open)
-  setDisabled('btnClose', !open)
-  setDisabled('btnSend', !open || running)
-  setDisabled('btnStop', !running)
+  // 开关与拍发
+  setNote('portNote', open ? '四条通道已就绪' : '开启后才能拍发', open ? 'ok' : null)
+  setDisabled('btnOpen', open, '已开启')
+  setDisabled('btnClose', !open, '未开启')
+  $('btnOpen').classList.toggle('go', !open)
+  const ready = open && !running && tape.marks.length > 0
+  setDisabled('btnSend', !ready, !open ? '先开启虚拟串口' : running ? '正在拍发' : '先输入报文')
+  setDisabled('btnStop', !running, '当前没有拍发')
+  setNote('sendNote', running ? '拍发中，Esc 停止' : (open ? 'Ctrl+Enter 开始拍发' : ''))
+
   const total = Number(replay.total) || 0
   const sent = Number(replay.sent) || 0
-  $('progress').style.width = (total > 0 ? Math.min(100, Math.round(sent / total * 100)) : 0) + '%'
+  if (running && total > 0) {
+    tape.playhead = tape.duration * (sent / total)
+    drawTape()
+    setNote('mProgress', sent + ' / ' + total + ' 帧')
+  } else if (!running && tape.playhead !== null && sent === 0) {
+    tape.playhead = null
+    drawTape()
+  }
 }
-// ==== state-render:end ====
 
 const events = new EventSource('/api/events')
 events.onmessage = message => {
@@ -357,17 +647,33 @@ events.onmessage = message => {
   else if (event.type === 'log') log(event.message, event.level)
   else if (event.type === 'progress') {
     const total = Number(event.total) || 0
-    $('progress').style.width = (total > 0 ? Math.min(100, Math.round((Number(event.sent) || 0) / total * 100)) : 0) + '%'
+    const sent = Number(event.sent) || 0
+    if (total > 0) {
+      tape.playhead = tape.duration * (sent / total)
+      drawTape()
+      setText('mProgress', sent + ' / ' + total + ' 帧')
+    }
   }
 }
-events.onerror = () => log('事件流断开，正在重连…', 'warn')
+events.onerror = () => log('事件流断开，正在重连', 'warn')
 
+// ================= 操作 =================
 $('key').onchange = () => {
   const hand = $('key').value === 'hand'
-  $('rateUnit').textContent = hand ? '字符/分' : '组/分'
+  setText('rateUnit', hand ? '字符/分' : '组/分')
   $('rate').value = hand ? 70 : 20
   $('tail').value = hand ? 'turn' : 'page'
+  previewSoon()
 }
+for (const id of ['message', 'alphabet', 'rate', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
+  const node = $(id)
+  if (!node) continue
+  // textarea 与文本/数字 input 都要听 input：只听 change 的话失焦才刷新，边打字纸带不动
+  const typed = node.tagName === 'TEXTAREA' || (node.tagName === 'INPUT' && node.type !== 'checkbox')
+  node.addEventListener(typed ? 'input' : 'change', previewSoon)
+}
+for (const box of document.querySelectorAll('.fault')) box.addEventListener('change', previewSoon)
+
 $('btnOpen').onclick = async () => {
   const result = await api('/api/port', {open: true})
   if (result.ok) applyState(result.state); else log(result.error, 'error')
@@ -380,19 +686,7 @@ $('btnRandom').onclick = async () => {
   const result = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
   if (!result.ok) return log(result.error, 'error')
   $('message').value = result.text
-  log('已生成随机报文：' + result.text, 'ok')
-}
-$('btnPreview').onclick = async () => {
-  const result = await api('/api/preview', params())
-  if (!result.ok) return log(result.error, 'error')
-  $('stDuration').textContent = (result.duration / 1000).toFixed(2) + ' s'
-  $('stEvents').textContent = result.events + ' 帧 / ' + result.chars + ' 字'
-  const plan = result.plan || {}
-  $('stPlan').textContent = plan.dot
-    ? [plan.dot, plan.dash, plan.gap].map(value => Math.round(value) + 'ms').join(' / ')
-    : (plan.perChar ? Math.round(plan.perChar) + 'ms/字' : '--')
-  $('stGap').textContent = plan.word ? Math.round(plan.word) + 'ms / ' + Math.round(plan.group) + 'ms' : '--'
-  log('前 12 个串口读：' + result.head.join(' | '), 'recv')
+  await runPreview()
 }
 $('btnSend').onclick = async () => {
   const result = await api('/api/send', params())
@@ -404,32 +698,27 @@ $('btnStop').onclick = async () => {
   if (result.ok) applyState(result.state)
 }
 $('btnInstallHelper').onclick = async () => {
-  log('正在安装 root 助手…', 'info')
+  log('正在安装 root 助手', 'info')
   const result = await api('/api/helper/install', {})
   if (!result.ok && result.command) log('请手动执行一次：' + result.command, 'warn')
   if (result.state) applyState(result.state)
-  await refresh()
 }
-// 反馈必须落在按钮旁边：日志面板在页面最下面，点完看不见就像没反应
 const linkFeedback = (result, success) => {
-  if (result.ok) {
-    setText('linkState', success, 'ok')
-    log(success, 'ok')
-  } else {
-    const reason = result.error || '操作失败'
-    const hint = result.hint ? ('；手动执行：' + result.hint) : ''
-    setText('linkState', reason + hint, 'warn')
-    log(reason + hint, 'warn')
+  if (result.ok) { setText('linkState', success, 'ok'); log(success, 'ok') }
+  else {
+    const reason = (result.error || '操作失败') + (result.hint ? ('；手动执行：' + result.hint) : '')
+    setText('linkState', reason, 'warn')
+    log(reason, 'warn')
   }
   if (result.state) applyState(result.state)
 }
 $('btnLink').onclick = async () => {
-  setText('linkState', '正在接入…')
   const target = ($('linkState').dataset.target) || '/dev/ttyUSB0'
+  setNote('linkState', '正在接入')
   linkFeedback(await api('/api/device/link', {}), '已接入系统串口列表 ' + target)
 }
 $('btnUnlink').onclick = async () => {
-  setText('linkState', '正在移出…')
+  setNote('linkState', '正在移出')
   linkFeedback(await api('/api/device/link', {remove: true}), '已移出系统串口列表')
 }
 $('btnOpenPage').onclick = async () => {
@@ -437,29 +726,36 @@ $('btnOpenPage').onclick = async () => {
   if (!url) return log('先填被测页面地址', 'warn')
   const result = await api('/api/browser/open', {url})
   if (!result.ok) return log(result.error, 'error')
-  await refresh()
+  applyState(result.state)
 }
 $('btnClosePage').onclick = async () => {
-  await api('/api/browser/close', {})
-  await refresh()
+  const result = await api('/api/browser/close', {})
+  if (result.state) applyState(result.state)
 }
 $('btnCopy').onclick = async () => {
-  try {
-    await navigator.clipboard.writeText($('injectSnippet').value)
-    log('注入代码已复制', 'ok')
-  } catch { log('剪贴板不可用，请手动复制输入框内容', 'warn') }
+  try { await navigator.clipboard.writeText($('injectSnippet').value); log('注入代码已复制', 'ok') }
+  catch { log('剪贴板不可用，请手动复制输入框内容', 'warn') }
 }
+$('btnCopyLog').onclick = async () => {
+  const text = [...$('log').children].map(line => line.textContent).join('\n')
+  try { await navigator.clipboard.writeText(text); log('日志已复制', 'ok') }
+  catch { log('剪贴板不可用', 'warn') }
+}
+$('btnClearLog').onclick = () => { $('log').replaceChildren() }
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !$('btnStop').disabled) { event.preventDefault(); $('btnStop').click() }
+  else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !$('btnSend').disabled) { event.preventDefault(); $('btnSend').click() }
+})
 
 $('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
-const refresh = async () => {
+drawTape()
+;(async () => {
   const result = await api('/api/state', {}, 'GET')
-  const state = (result && result.state) || {}
-  applyState(state)
-  return state
-}
-refresh().then(state => {
-  log('控制台就绪：' + location.origin + (state.open ? '，虚拟串口已自动开启' : ''), 'ok')
-})
+  applyState((result && result.state) || {})
+  log('控制台就绪 ' + location.origin + (lastState.open ? '，虚拟串口已自动开启' : ''), 'ok')
+  await runPreview()
+})()
 </script>
 </body>
 </html>

@@ -164,6 +164,21 @@ impl Console {
                 Ok(timeline) => {
                     let chunks = sinks::to_bytes(&timeline);
                     let head: Vec<String> = chunks.iter().take(12).map(|chunk| sinks::hex(&chunk.bytes)).collect();
+                    // 纸带用：按下/抬起的时刻对，页面据此把点划画出来。
+                    // 手键是 Down/Up 成对，电子键是单字节码（画成等宽刻点）。
+                    let marks: Vec<Value> = timeline
+                        .events
+                        .iter()
+                        .take(4000)
+                        .map(|event| {
+                            let kind = match event.kind {
+                                crate::timeline::Kind::Down => 0,
+                                crate::timeline::Kind::Up => 1,
+                                crate::timeline::Kind::Code(_) => 2,
+                            };
+                            json!([(event.at * 1000.0).round() / 1000.0, kind])
+                        })
+                        .collect();
                     match plan_json(body) {
                         Ok(plan) => json!({
                             "ok": true,
@@ -171,6 +186,7 @@ impl Console {
                             "events": timeline.events.len(),
                             "chars": timeline.body_chars().count(),
                             "plan": plan,
+                            "marks": marks,
                             "head": head
                         }),
                         Err(error) => json!({"ok": false, "error": error}),
