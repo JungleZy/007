@@ -35,7 +35,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --key hand|electron   键型（hand/electron 子命令已隐含）
   --text <报文>         组间空格分隔；也可用 --random <组数> 现生成
   --alphabet <名>       letter | short | long | mix（默认 letter）
-  --rate <n>            手键 字符/分（默认 70），电子键 组/分（默认 20）
+  --rate <n>            手键 字符/分（默认 120），电子键 组/分（默认 30，等价 120 字/分）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
   --seed <n>            随机种子（默认 1）
   --skew <n>            评分规则偏移量，手键可行性校验用（默认 51）

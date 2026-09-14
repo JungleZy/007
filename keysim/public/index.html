@@ -25,8 +25,10 @@
   html{height:100%}
   /* 一套刻度，全页只用这几档：
      铭牌 17/mono · 分区标题 11/mono · 正文与控件 13/sans · 数据 12/mono · 附注 11.5/mono */
+  /* 应用外壳：body 定高且不滚，主区内部滚动。
+     这样栅格里的 1fr 有确定的参照高度，日志再多也不会把整页顶大。 */
   body{
-    margin:0;min-height:100%;display:flex;flex-direction:column;
+    margin:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;
     background:var(--deck);color:var(--ink);font:13px/1.55 var(--sans);
     /* 机柜面板的细微竖向拉丝 */
     background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.012) 0 1px,transparent 1px 3px);
@@ -60,13 +62,19 @@
   #tapeWrap{padding:12px 12px 0}
   .tape{
     position:relative;background:var(--tape);border:1px solid var(--rule);border-radius:3px;
-    box-shadow:inset 0 2px 12px rgba(0,0,0,.55);overflow-x:auto;overflow-y:hidden;
-    scrollbar-color:#4a5558 var(--tape)
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.55);overflow-x:auto;overflow-y:hidden
   }
-  .tape::-webkit-scrollbar{height:9px}
-  .tape::-webkit-scrollbar-track{background:var(--tape)}
-  .tape::-webkit-scrollbar-thumb{background:#43504f;border-radius:5px}
-  .tape::-webkit-scrollbar-thumb:hover{background:#566665}
+  /* 原生滚动条一律隐藏，改用下面的虚拟滚动条：占位为 0，样式与面板一致 */
+  .noscroll{scrollbar-width:none;-ms-overflow-style:none}
+  .noscroll::-webkit-scrollbar{width:0;height:0}
+  .vbar{position:absolute;background:rgba(231,227,215,.05);border-radius:3px;opacity:0;transition:opacity .12s;z-index:3}
+  .vbar.x{left:6px;right:6px;bottom:3px;height:6px}
+  .vbar.y{top:4px;bottom:4px;right:3px;width:6px}
+  .vbar.live{opacity:1}
+  .vbar i{position:absolute;background:#4f5d5c;border-radius:3px;transition:background .12s}
+  .vbar.x i{top:0;height:100%;min-width:24px}
+  .vbar.y i{left:0;width:100%;min-height:24px}
+  .vbar i:hover,.vbar i.drag{background:var(--lamp)}
   #tape{display:block;position:sticky;left:0;width:100%;height:84px}
   #tapeTrack{height:1px}
   .tape-meta{
@@ -81,8 +89,12 @@
   }
 
   /* ---------- 面板分区 ---------- */
+  /* 舞台层：main 在它内部滚动。main 有了确定高度，栅格的 1fr 才有参照，
+     日志再多也只在自己的框里滚，不会把卡片与页面逐级顶大。 */
+  .stage{position:relative;flex:1;min-height:0;min-width:0;display:flex}
   main{
-    flex:1;display:grid;gap:12px;padding:12px 12px 12px;
+    flex:1;min-height:0;min-width:0;overflow:auto;
+    display:grid;gap:12px;padding:12px;
     grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);
     grid-template-rows:auto minmax(168px,1fr);align-items:start
   }
@@ -170,8 +182,11 @@
   /* ---------- 日志 ---------- */
   .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex:none}
   .logbar .spacer{flex:1}
+  .logwrap{position:relative;flex:1;min-height:104px;display:flex;min-width:0}
+  /* min-height:0 不能省：flex 项的自动最小尺寸等于内容高度，
+     少了它日志一多就会把卡片逐级顶大（外壳定高只解决另一半）。 */
   #log{
-    flex:1;min-height:104px;overflow:auto;background:var(--tape);border:1px solid var(--rule);
+    flex:1;min-height:0;overflow:auto;background:var(--tape);border:1px solid var(--rule);
     padding:8px 10px;font-family:var(--mono);font-size:12px;
     box-shadow:inset 0 2px 10px rgba(0,0,0,.5)
   }
@@ -204,10 +219,11 @@
 </header>
 
 <div id="tapeWrap">
-  <div class="tape" id="tapeView">
+  <div class="tape noscroll" id="tapeView">
     <canvas id="tape" height="84"></canvas>
     <div id="tapeTrack"></div>
     <div class="tape-empty" id="tapeEmpty">输入报文即生成纸带</div>
+    <div class="vbar x" id="tapeBar"><i></i></div>
   </div>
   <div class="tape-meta">
     <span>实测码率 <b id="mRate">--</b></span>
@@ -228,7 +244,8 @@
   </div>
 </div>
 
-<main>
+<div class="stage">
+<main class="noscroll">
   <section>
     <h2>报文</h2>
     <div class="row">
@@ -243,7 +260,7 @@
       </div>
       <div class="field">
         <label for="groups">组数</label>
-        <input id="groups" type="number" min="1" max="100" value="4"/>
+        <input id="groups" type="number" min="1" max="200" value="100"/>
       </div>
       <button id="btnRandom">随机生成</button>
     </div>
@@ -261,7 +278,7 @@
       </div>
       <div class="field">
         <label for="rate">码率</label>
-        <input id="rate" type="number" min="1" max="400" value="70"/>
+        <input id="rate" type="number" min="1" max="400" value="120"/>
         <span class="inline" id="rateUnit">字符/分</span>
       </div>
       <div class="field">
@@ -380,12 +397,22 @@
       <button id="btnCopyLog">复制</button>
       <button id="btnClearLog">清空</button>
     </div>
-    <div id="log"></div>
+    <div class="logwrap">
+      <div id="log" class="noscroll"></div>
+      <div class="vbar y" id="logBar"><i></i></div>
+    </div>
   </section>
 </main>
+  <div class="vbar y" id="stageBar"><i></i></div>
+</div>
 
 <script>
 const $ = id => document.getElementById(id)
+// 两条虚拟滚动条的同步函数：先声明后赋值。
+// 不能写成 const + typeof 守卫——const 在 TDZ 里连 typeof 都会抛 ReferenceError。
+let syncTapeBar = null
+let syncLogBar = null
+let syncStageBar = null
 // GET 只有 /api/state；其余一律 POST，默认带空 body。
 const api = async (path, body = {}, method = 'POST') => {
   const response = await fetch(path, method === 'GET' ? {} : {
@@ -405,6 +432,8 @@ const log = (message, level = 'info') => {
   box.append(line)
   while (box.childElementCount > 500) box.firstElementChild.remove()
   if ($('autoScroll').checked) box.scrollTop = box.scrollHeight
+  if (syncLogBar) syncLogBar()
+  if (syncStageBar) syncStageBar()
 }
 
 const setText = (id, value, tone) => {
@@ -459,6 +488,66 @@ const params = () => ({
   speed: Number($('speed').value) || 1
 })
 
+// ================= 虚拟滚动条 =================
+// 原生滚动条在两条轴上都要占位、配色也和面板对不上；这里用覆盖式的自绘滚动条：
+// 滚动仍然由浏览器做（容器照常 overflow:auto），我们只画位置、接管拖拽。
+const attachScrollbar = (view, bar, axis) => {
+  const thumb = bar.querySelector('i')
+  const horizontal = axis === 'x'
+  const size = () => horizontal
+    ? {inner: view.clientWidth, outer: view.scrollWidth, at: view.scrollLeft, rail: bar.clientWidth}
+    : {inner: view.clientHeight, outer: view.scrollHeight, at: view.scrollTop, rail: bar.clientHeight}
+  const sync = () => {
+    const {inner, outer, at, rail} = size()
+    const scrollable = outer - inner > 1
+    bar.classList.toggle('live', scrollable)
+    if (!scrollable) return
+    const length = Math.max(24, Math.round(rail * inner / outer))
+    const span = rail - length
+    const offset = span <= 0 ? 0 : Math.round(span * at / (outer - inner))
+    if (horizontal) { thumb.style.width = length + 'px'; thumb.style.left = offset + 'px' }
+    else { thumb.style.height = length + 'px'; thumb.style.top = offset + 'px' }
+  }
+  let dragFrom = null
+  thumb.addEventListener('pointerdown', event => {
+    event.preventDefault()
+    const {inner, outer, at, rail} = size()
+    dragFrom = {pointer: horizontal ? event.clientX : event.clientY, at, inner, outer, rail}
+    thumb.classList.add('drag')
+    thumb.setPointerCapture(event.pointerId)
+  })
+  thumb.addEventListener('pointermove', event => {
+    if (!dragFrom) return
+    const {inner, outer, rail} = dragFrom
+    const length = Math.max(24, rail * inner / outer)
+    const span = rail - length
+    if (span <= 0) return
+    const moved = (horizontal ? event.clientX : event.clientY) - dragFrom.pointer
+    const next = dragFrom.at + moved * (outer - inner) / span
+    if (horizontal) view.scrollLeft = next; else view.scrollTop = next
+  })
+  const release = event => {
+    if (!dragFrom) return
+    dragFrom = null
+    thumb.classList.remove('drag')
+    if (event.pointerId !== undefined && thumb.hasPointerCapture(event.pointerId)) thumb.releasePointerCapture(event.pointerId)
+  }
+  thumb.addEventListener('pointerup', release)
+  thumb.addEventListener('pointercancel', release)
+  // 点空白处翻一屏
+  bar.addEventListener('pointerdown', event => {
+    if (event.target === thumb) return
+    const rect = bar.getBoundingClientRect()
+    const {inner} = size()
+    const forward = horizontal ? event.clientX - rect.left > thumb.offsetLeft : event.clientY - rect.top > thumb.offsetTop
+    const step = inner * 0.9 * (forward ? 1 : -1)
+    if (horizontal) view.scrollLeft += step; else view.scrollTop += step
+  })
+  view.addEventListener('scroll', sync, {passive: true})
+  window.addEventListener('resize', sync)
+  return sync
+}
+
 // ================= 纸带 =================
 // 手键：按下→抬起画成墨块（点短划长），间隔留白。电子键：单字节码画成等宽刻点。
 // 按走纸倍率等比铺开（默认 1px = 1ms），长报文横向滚动，不再把整页挤进一屏。
@@ -481,6 +570,7 @@ const drawTape = () => {
     canvas.height = Math.round(height * ratio)
   }
   tape.track.style.width = tapeWidth() + 'px'
+  if (syncTapeBar) syncTapeBar()
 
   const pen = canvas.getContext('2d')
   pen.setTransform(ratio, 0, 0, ratio, 0, 0)
@@ -563,6 +653,7 @@ const followPlayhead = () => {
     view.scrollLeft = Math.max(0, x - view.clientWidth * 0.4)
   }
 }
+syncTapeBar = attachScrollbar(tape.view, $('tapeBar'), 'x')
 window.addEventListener('resize', drawTape)
 tape.view.addEventListener('scroll', drawTape, {passive: true})
 // 纸带上滚轮直接走纸：横向内容用竖向滚轮看最顺手
@@ -757,7 +848,7 @@ events.onerror = () => log('事件流断开，正在重连', 'warn')
 $('key').onchange = () => {
   const hand = $('key').value === 'hand'
   setText('rateUnit', hand ? '字符/分' : '组/分')
-  $('rate').value = hand ? 70 : 20
+  $('rate').value = hand ? 120 : 30
   $('tail').value = hand ? 'turn' : 'page'
   previewSoon()
 }
@@ -838,13 +929,15 @@ $('btnCopyLog').onclick = async () => {
   try { await navigator.clipboard.writeText(text); log('日志已复制', 'ok') }
   catch { log('剪贴板不可用', 'warn') }
 }
-$('btnClearLog').onclick = () => { $('log').replaceChildren() }
+$('btnClearLog').onclick = () => { $('log').replaceChildren(); if (syncLogBar) syncLogBar() }
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !$('btnStop').disabled) { event.preventDefault(); $('btnStop').click() }
   else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !$('btnSend').disabled) { event.preventDefault(); $('btnSend').click() }
 })
 
+syncLogBar = attachScrollbar($('log'), $('logBar'), 'y')
+syncStageBar = attachScrollbar(document.querySelector('main'), $('stageBar'), 'y')
 $('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
 drawTape()
 ;(async () => {

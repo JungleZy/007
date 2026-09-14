@@ -40,7 +40,7 @@ impl Default for HandOptions {
         HandOptions {
             text: String::new(),
             alphabet: "letter".into(),
-            rate: 70.0,
+            rate: 120.0,
             unit: "characters".into(),
             skew: 51.0,
             jitter: 0.0,
@@ -76,7 +76,8 @@ impl Default for ElectronOptions {
         ElectronOptions {
             text: String::new(),
             alphabet: "letter".into(),
-            rate: 20.0,
+            // 30 组/分 == 120 字/分，与手键默认同速
+            rate: 30.0,
             stroke_gap: 30.0,
             group_size: 4,
             jitter: 0.0,
