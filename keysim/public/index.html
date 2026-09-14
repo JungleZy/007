@@ -70,10 +70,17 @@
   /* 原生滚动条一律隐藏，改用下面的虚拟滚动条：占位为 0，样式与面板一致 */
   .noscroll{scrollbar-width:none;-ms-overflow-style:none}
   .noscroll::-webkit-scrollbar{width:0;height:0}
-  .vbar{position:absolute;background:rgba(231,227,215,.05);border-radius:3px;opacity:0;transition:opacity .12s;z-index:3}
+  /* 虚拟滚动条：① 不占布局（绝对定位的覆盖层，原生条已隐藏）；
+     ② 鼠标不在滚动区域内就不显示。.live 只表示"这里能滚"，显不显示由 hover 决定；
+     拖拽中即使指针移出区域也要留着，否则拖到一半条就没了。 */
+  .vbar{position:absolute;background:rgba(231,227,215,.05);border-radius:3px;opacity:0;transition:opacity .12s;z-index:3;pointer-events:none}
   .vbar.x{left:6px;right:6px;bottom:3px;height:6px}
   .vbar.y{top:4px;bottom:4px;right:3px;width:6px}
-  .vbar.live{opacity:1}
+  .tapehost:hover>.vbar.live,
+  .scrollhost:hover>.vbar.live,
+  .logwrap:hover>.vbar.live,
+  .stage:hover>.vbar.live,
+  .vbar.live.drag{opacity:1;pointer-events:auto}
   .vbar i{position:absolute;background:#4f5d5c;border-radius:3px;transition:background .12s}
   .vbar.x i{top:0;height:100%;min-width:24px}
   .vbar.y i{left:0;width:100%;min-height:24px}
@@ -527,6 +534,7 @@ const attachScrollbar = (view, bar, axis) => {
     const {inner, outer, at, rail} = size()
     dragFrom = {pointer: horizontal ? event.clientX : event.clientY, at, inner, outer, rail}
     thumb.classList.add('drag')
+    bar.classList.add('drag')
     thumb.setPointerCapture(event.pointerId)
   })
   thumb.addEventListener('pointermove', event => {
@@ -543,6 +551,7 @@ const attachScrollbar = (view, bar, axis) => {
     if (!dragFrom) return
     dragFrom = null
     thumb.classList.remove('drag')
+    bar.classList.remove('drag')
     if (event.pointerId !== undefined && thumb.hasPointerCapture(event.pointerId)) thumb.releasePointerCapture(event.pointerId)
   }
   thumb.addEventListener('pointerup', release)
