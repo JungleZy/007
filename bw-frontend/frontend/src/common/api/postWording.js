@@ -28,11 +28,11 @@ export const wordinngBegin = (data) => {
     data
   })
 };
-export const wordinngFinish = (data) => {
+export const wordinngFinish = ({ id, content }) => {
   return axios({
     method: "post",
     url: "/api/postRadiotelephoneTrain/finish",
-    data
+    data: { id, content }
   })
 };
 

@@ -63,16 +63,16 @@ public class PostEnteringExerciseController {
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<Void> begin(PostEnteringExerciseUpdateParam param) {
-    enteringExerciseService.begin(param);
+  public Response<Void> begin(PostEnteringExerciseUpdateParam param, @RestHeader(TOKEN) String token) {
+    enteringExerciseService.begin(param, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<Void> finish(PostEnteringExerciseFinishParam param) {
-    enteringExerciseService.finish(param);
+  public Response<Void> finish(PostEnteringExerciseFinishParam param, @RestHeader(TOKEN) String token) {
+    enteringExerciseService.finish(param, token);
     return ResponseResult.success();
   }
 
@@ -87,8 +87,8 @@ public class PostEnteringExerciseController {
   @POST
   @Path("/getById")
   @Operation(summary = "根据Id查询训练")
-  public Response<PostEnteringExerciseVO> getById(PostEnteringExerciseUpdateParam param) {
-    return ResponseResult.success(enteringExerciseService.getById(param.getId()));
+  public Response<PostEnteringExerciseVO> getById(PostEnteringExerciseUpdateParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(enteringExerciseService.getById(param.getId(), token));
   }
   @GET
   @Path(value = "delete")

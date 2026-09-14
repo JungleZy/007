@@ -3,7 +3,7 @@ import { wordinngDetails, wordinngBegin, wordinngFinish } from '../../../../../.
 import { useRouter, useRoute } from 'vue-router'
 import MorseVoice from '../../../../../../common/utils/MorseVoice'
 import { PubSub } from '../../../../../../common/utils/PubSub'
-import { Modal } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
 import { apiPostTrainGlobalRuleType } from '../../../../../../common/api/postWording'
@@ -121,12 +121,16 @@ export default function wordingTrain(countDown) {
   ])
   const init = () => {
     wordinngDetails({ id: route.query.id }).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '加载训练失败')
+        return
+      }
       const data = JSON.parse(res.data.content)
       trainData.value.data = []
       trainData.value.type = res.data.type
       trainData.value.trainType = res.data.trainType
       trainData.value.title = res.data.name
-      // trainData.value.status = res.data.status
+      trainData.value.status = res.data.status
       trainData.value.number = res.data.number
       trainData.value.passNumber = res.data.passNumber
       trainData.value.errorNumber = res.data.errorNumber
@@ -146,6 +150,7 @@ export default function wordingTrain(countDown) {
           trainData.value.data.push(v)
         }
       }
+      if (res.data.status === 1) startTimer()
       //改变播放码率
       morseVoice.changeCriterion(parseInt(((400 / res.data.speed) * 60 * 1000) / dots['mix']))
       //过滤干扰项
@@ -162,6 +167,10 @@ export default function wordingTrain(countDown) {
   const getGradeTypeList = (data, number) => {
     const num = number ?? 0
     apiPostTrainGlobalRuleType(data).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '加载评分规则失败')
+        return
+      }
       const list = res.data ?? []
       gradeTypeList.value = list
         .map(item => {
@@ -178,13 +187,23 @@ export default function wordingTrain(countDown) {
     })
   }
 
+  const startTimer = () => {
+    clearInterval(cutDown.value)
+    cutDown.value = setInterval(() => {
+      trainData.value.duration++
+      countDown.value.autoSetTimeAdd(trainData.value.duration)
+    }, 1000)
+  }
+
   //开始训练
   const start = () => {
-    window.addEventListener('keydown', keyDown)
-    window.onbeforeunload = function (e) {
-      e.returnValue = false
-    }
     wordinngBegin({ id: route.query.id }).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '开始训练失败')
+        return
+      }
+      window.addEventListener('keydown', keyDown)
+      window.onbeforeunload = e => { e.returnValue = false }
       trainData.value.status = 1
       //第一个卡片输入框获取焦点
       nextTick(() => {
@@ -198,10 +217,7 @@ export default function wordingTrain(countDown) {
           }
         }
       })
-      cutDown.valueOf = setInterval(() => {
-        trainData.value.duration++
-        countDown.value.autoSetTimeAdd(trainData.value.duration)
-      }, 1000)
+      startTimer()
       if (trainData.value.trainType == 0) {
         palyAudio()
       }
@@ -239,52 +255,18 @@ export default function wordingTrain(countDown) {
   }
   //结束训练
   const finish = go => {
-    let errorNumber = 0
-    let passNumber = 0
-    trainData.value.data.forEach(item => {
-      switch (trainData.value.trainType) {
-        case 0:
-          if (item.key == item.answer.key.trim() && item.value.trim() == item.answer.value) {
-            passNumber++
-            item.trueOrfalse = true
-          } else {
-            errorNumber++
-            item.trueOrfalse = false
-          }
-          break
-        case 1:
-          if (trainData.value.type == 0 && item.key.trim() == item.answer.key.trim()) {
-            passNumber++
-            item.trueOrfalse = true
-          } else if (trainData.value.type == 1 && item.value.trim() == item.answer.value.trim()) {
-            passNumber++
-            item.trueOrfalse = true
-          } else {
-            errorNumber++
-            item.trueOrfalse = false
-          }
-          break
-      }
-    })
-    let accuracy = passNumber > 0 ? ((passNumber / (passNumber + errorNumber)) * 100).toFixed(2) : ''
-    let score = passNumber > 0 ? ((passNumber / trainData.value.number) * 100).toFixed(1) : 0
-
     const data = {
       content: JSON.stringify(trainData.value.data),
-      id: route.query.id,
-      score: Number(score),
-      errorNumber,
-      accuracy,
-      passNumber
+      id: route.query.id
     }
-    trainData.value.errorNumber = errorNumber
-    trainData.value.accuracy = accuracy
-    trainData.value.passNumber = passNumber
-    trainData.value.score = score
     wordinngFinish(data).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '保存训练失败')
+        return
+      }
       showResultModal.value = true
       morseVoice.clear()
-      clearInterval(cutDown.valueOf)
+      clearInterval(cutDown.value)
       clearTimeout(time)
       init()
       trainData.value.status = 2
@@ -374,7 +356,7 @@ export default function wordingTrain(countDown) {
   onUnmounted(() => {
     morseVoice.clear()
     clearTimeout(time)
-    clearInterval(cutDown.valueOf)
+    clearInterval(cutDown.value)
     window.removeEventListener('keydown', keyDown)
     PubSub.unsubscribe('send_wordingTrainPage')
   })

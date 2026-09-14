@@ -76,24 +76,24 @@ public class PostRadiotelephoneTrainController {
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<Void> begin(PostRadiotelephoneVO vo) {
-    service.begin(vo);
+  public Response<Void> begin(PostRadiotelephoneVO vo, @RestHeader(TOKEN) String token) {
+    service.begin(vo, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "结束训练")
-  public Response<Void> finish(PostRadiotelephoneVO vo) {
-    service.finish(vo);
+  public Response<Void> finish(PostRadiotelephoneVO vo, @RestHeader(TOKEN) String token) {
+    service.finish(vo, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/details")
   @Operation(summary = "详情")
-  public Response<PostRadiotelephoneVO> details(PostRadiotelephoneVO vo) {
-    return ResponseResult.success(service.details(vo));
+  public Response<PostRadiotelephoneVO> details(PostRadiotelephoneVO vo, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(service.details(vo, token));
   }
   @GET
   @Path(value = "delete")

@@ -2,7 +2,7 @@ import { onUnmounted, onMounted, ref, onBeforeUnmount, createVNode, nextTick, wa
 import { useRoute, useRouter } from 'vue-router'
 import { getById, begin, hanziFinish } from '../../../../../../../common/api/postHanZi'
 import { PubSub } from '../../../../../../../common/utils/PubSub.js'
-import { Modal } from 'ant-design-vue'
+import { Modal, message as notification } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import Homophone from '../../../../../../../common/utils/Homophone'
   
@@ -46,6 +46,10 @@ export default function parctice(countDown) {
   const gradeTypeList = ref([])
   const init = () => {
     getById({ id: route.query.id }).then(res => {
+      if (res.code !== 200) {
+        notification.error(res.message || '加载训练失败')
+        return
+      }
       trainData.value.duration = res.data.duration
       trainData.value.accuracy = parseInt(res.data.accuracy)
       trainData.value.speed = res.data.speed
@@ -133,6 +137,10 @@ export default function parctice(countDown) {
   const getGradeTypeList = number => {
     const num = number ?? 0
     apiPostTrainGlobalRuleType({ type: 2 }).then(res => {
+      if (res.code !== 200) {
+        notification.error(res.message || '加载评分规则失败')
+        return
+      }
       const list = res.data ?? []
       gradeTypeList.value = list
         .map(item => {
@@ -150,51 +158,17 @@ export default function parctice(countDown) {
   }
 
   //组装保存数据
-  const garde = () => {
-    let correctNum = 0
-    let errorNum = 0
-    let valueLen = 0
-    if (trainData.value.type === 3) {
-      message.value.forEach(item => {
-        valueLen += item.value.length
-        if (item.value === item.font) {
-          correctNum++
-        } else if (item.value !== item.font) {
-          errorNum++
-        }
-      })
-    } else if (trainData.value.type === 4) {
-      message.value.forEach(item => {
-        valueLen = valueLen + item.value.length
-        const arr = item.font.split('')
-        const valueArr = item.value.split('')
-        for (let i in arr) {
-          if (arr[i] === valueArr[i]) {
-            correctNum++
-          } else {
-            errorNum++
-          }
-        }
-      })
-    }
-    const data = {
-      id: route.query.id,
-      duration: trainData.value.duration,
-      accuracy: Number(((correctNum / (correctNum + errorNum)) * 100).toFixed(2)),
-      speed: Number((valueLen / (trainData.value.duration / 60)).toFixed(2)),
-      correctNum: correctNum,
-      errorNum: errorNum,
-      content: JSON.stringify(message.value)
-    }
-    trainData.value.accuracy = Number(data.accuracy)
-    trainData.value.speed = Number(data.speed)
-    trainData.value.correctNum = data.correctNum
-    trainData.value.errorNum = data.errorNum
-    return data
-  }
+  const garde = () => ({
+    id: route.query.id,
+    content: JSON.stringify(message.value)
+  })
   //保存训练类容
   const saveTest = () => {
     hanziFinish(garde()).then(res => {
+      if (res.code !== 200) {
+        notification.error(res.message || '保存训练失败')
+        return
+      }
       clearInterval(autoTime.value)
       isfocus.value = false
       trainData.value.status = 2
@@ -246,6 +220,10 @@ export default function parctice(countDown) {
   }
   const beginTrain = () => {
     begin({ id: route.query.id }).then(r => {
+      if (r.code !== 200) {
+        notification.error(r.message || '开始训练失败')
+        return
+      }
       trainData.value.status = 1
       if (trainData.value.type === 3) {
         message.value[0].isFocus = true

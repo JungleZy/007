@@ -87,7 +87,7 @@ export default {
       let errorNum = 0
       let valueLen = 0
       message.value.forEach(item => {
-        valueLen = valueLen + item.value.length
+        valueLen += Math.min(item.font.split(' ').length, item.value.split(' ').filter(Boolean).length)
         const arr = item.font.split(' ')
         const valueArr = item.value.split(' ')
         if (item.value === '') {
@@ -101,8 +101,8 @@ export default {
           }
         }
       })
-      trainData.value.accuracy = ((correctNum / (correctNum + errorNum)) * 100).toFixed(2)
-      trainData.value.speed = (valueLen / (trainData.value.duration / 60)).toFixed(2)
+      trainData.value.accuracy = correctNum + errorNum ? ((correctNum / (correctNum + errorNum)) * 100).toFixed(2) : '0.00'
+      trainData.value.speed = (valueLen * 60 / Math.max(1, trainData.value.duration)).toFixed(2)
       trainData.value.correctNum = correctNum
       trainData.value.errorNum = errorNum
     }
@@ -112,7 +112,7 @@ export default {
       let errorNum = 0
       let valueLen = 0
       message.value.forEach(item => {
-        valueLen = valueLen + item.value.length
+        valueLen += Math.min(item.font.split(' ').length, item.value.split(' ').filter(Boolean).length)
         const arr = item.font.split(' ')
         const valueArr = item.value.split(' ')
         if (item.value === '') {
@@ -126,8 +126,8 @@ export default {
           }
         }
       })
-      trainData.value.accuracy = ((correctNum / (correctNum + errorNum)) * 100).toFixed(2)
-      trainData.value.speed = (valueLen / (trainData.value.duration / 60)).toFixed(2)
+      trainData.value.accuracy = correctNum + errorNum ? ((correctNum / (correctNum + errorNum)) * 100).toFixed(2) : '0.00'
+      trainData.value.speed = (valueLen * 60 / Math.max(1, trainData.value.duration)).toFixed(2)
       trainData.value.correctNum = correctNum
       trainData.value.errorNum = errorNum
     }

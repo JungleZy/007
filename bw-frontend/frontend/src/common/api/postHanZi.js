@@ -28,11 +28,11 @@ export const begin = (data) => {
     data
   })
 };
-export const hanziFinish = (data) => {
+export const hanziFinish = ({ id, content }) => {
   return axios({
     method: "post",
     url: "/api/postEnteringExercise/finish",
-    data
+    data: { id, content }
   })
 };
 export const addPostArticle = (data) => {
