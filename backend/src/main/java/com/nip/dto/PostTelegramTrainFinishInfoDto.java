@@ -50,7 +50,8 @@ public class PostTelegramTrainFinishInfoDto {
     private Integer key;
 
     // @ApiModelProperty(value = "时长",position = 3)
-    private Integer value;
+    // 时长是客户端单调时钟差值，带小数毫秒；按 Integer 解会让整页结算被判 JSON 损坏。
+    private Double value;
 
   }
 }
