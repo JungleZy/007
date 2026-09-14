@@ -44,19 +44,30 @@ pub fn probe() -> Result<String, String> {
     Err("未找到 Chromium/Chrome；装一个或用 KEYSIM_BROWSER 指定可执行文件".into())
 }
 
+/// 浏览器 profile 固定在一个目录里，**不随进程退出删除**。
+///
+/// 之前用 `temp_dir()/keysim-profile-<pid>` 并在关闭时删掉，于是每次「打开并预置
+/// 虚拟串口」都是全新 profile：被测系统要登录，就得重新登录一次。固定下来之后
+/// 登录态、localStorage、已授权的串口都留在里面，第二次打开直接可用。
+pub fn profile_dir() -> PathBuf {
+    match std::env::var("HOME") {
+        Ok(home) if !home.is_empty() => PathBuf::from(home).join(".keysim").join("browser-profile"),
+        _ => std::env::temp_dir().join("keysim-browser-profile"),
+    }
+}
+
 #[derive(Debug)]
 pub struct Browser {
     pub url: String,
     pub headless: bool,
     child: Child,
-    profile: PathBuf,
 }
 
 impl Browser {
+    /// 只关浏览器进程，profile 留着——下次打开还是同一个登录态
     pub fn close(mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
-        let _ = std::fs::remove_dir_all(&self.profile);
     }
 }
 
@@ -152,7 +163,7 @@ pub fn open(url: &str, inject_script: &str) -> Result<Browser, String> {
 /// 指定浏览器可执行文件的版本：测试与显式指定场景用，不碰进程环境变量
 pub fn launch(executable: &str, url: &str, inject_script: &str) -> Result<Browser, String> {
     let headless = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
-    let profile = std::env::temp_dir().join(format!("keysim-profile-{}", std::process::id()));
+    let profile = profile_dir();
     let _ = std::fs::create_dir_all(&profile);
 
     let mut command = Command::new(executable);
@@ -199,10 +210,9 @@ pub fn launch(executable: &str, url: &str, inject_script: &str) -> Result<Browse
     })();
 
     match result {
-        Ok(()) => Ok(Browser { url: url.to_string(), headless, child, profile }),
+        Ok(()) => Ok(Browser { url: url.to_string(), headless, child }),
         Err(error) => {
             let _ = child.kill();
-            let _ = std::fs::remove_dir_all(&profile);
             Err(error)
         }
     }
@@ -219,6 +229,17 @@ mod tests {
             Ok(path) => assert!(!path.is_empty()),
             Err(reason) => assert!(reason.contains("KEYSIM_BROWSER"), "{reason}"),
         }
+    }
+
+    #[test]
+    /// profile 必须稳定且与进程无关：带 pid 或放在临时目录会让登录态每次丢失
+    fn profile_is_stable_and_not_per_process() {
+        let first = profile_dir();
+        let second = profile_dir();
+        assert_eq!(first, second, "两次取到的 profile 目录必须一致");
+        let text = first.display().to_string();
+        assert!(!text.contains(&std::process::id().to_string()), "profile 路径不能含 pid：{text}");
+        assert!(text.contains("keysim"), "profile 应落在 keysim 自己的目录下：{text}");
     }
 
     #[test]

@@ -113,9 +113,19 @@ impl Console {
         let mut state = self.serial.state();
         let browser = self.browser.lock();
         state["browser"] = match browser.as_ref() {
-            Some(session) => json!({"open": true, "url": session.url.clone(), "available": true}),
+            Some(session) => json!({
+                "open": true,
+                "url": session.url.clone(),
+                "available": true,
+                "profile": browser::profile_dir().display().to_string()
+            }),
             None => match browser::probe() {
-                Ok(path) => json!({"open": false, "available": true, "executable": path}),
+                Ok(path) => json!({
+                    "open": false,
+                    "available": true,
+                    "executable": path,
+                    "profile": browser::profile_dir().display().to_string()
+                }),
                 Err(reason) => json!({"open": false, "available": false, "reason": reason}),
             },
         };

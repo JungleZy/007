@@ -95,8 +95,8 @@
       <span class="hint" id="pageState">未打开</span>
     </div>
     <p class="hint" id="pageHint">--</p>
-    <details class="more">
-      <summary>手动注入代码</summary>
+    <details class="more" id="rowManualInject">
+      <summary>手动注入代码（用你自己那个已登录的浏览器时才需要）</summary>
       <div class="row">
         <input id="injectSnippet" class="grow" readonly/>
         <button id="btnCopy">复制</button>
@@ -332,8 +332,11 @@ const applyState = raw => {
     browserBroken ? 'warn' : null)
   setDisabled('btnOpenPage', browserBroken)
   setDisabled('btnClosePage', !browser.open)
+  // 手动注入只在"内核级不可用"或"要用你自己已登录的浏览器"时才有意义
+  setShown('rowManualInject', !kernelOn)
   setText('pageHint', kernelOn
-    ? ('浏览器里也可以手动选 ' + selectable + '（要点一次串口选择框）；用这个按钮则免去手点，适合自动化。')
+    ? ('浏览器里也可以手动选 ' + selectable + '（要点一次串口选择框）；用这个按钮则免去手点，适合自动化。登录态留在 '
+        + (browser.profile || '~/.keysim/browser-profile') + '，只需登录一次。')
     : '浏览器串口选择框看不到 PTY，Web 模式必须用这个按钮（keysim 会在页面脚本执行前替换 navigator.serial）。')
 
   // 拍发状态

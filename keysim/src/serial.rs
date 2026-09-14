@@ -99,6 +99,7 @@ impl VirtualSerial {
         }
         #[cfg(not(unix))]
         {
+            let _ = link_needed;
             json!({
                 "supported": false,
                 "linkNeeded": false,
