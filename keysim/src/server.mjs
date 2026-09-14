@@ -9,6 +9,7 @@ import {extname, join, normalize} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {createVirtualSerial} from './serial.mjs'
 import {browserState, closeBrowser, openBrowser, probeBrowser} from './providers/browser.mjs'
+import {installHelper} from './providers/usbip.mjs'
 import {createParser} from './sinks/bridge.mjs'
 import {electronKeyPlan, electronKeyTimeline} from './electronkey.mjs'
 import {handKeyPlan, handKeyTimeline} from './handkey.mjs'
@@ -98,6 +99,16 @@ export function startServer({port = 18700, host = '127.0.0.1', bridgePort = 1876
       const state = await closeBrowser()
       broadcast({type: 'log', level: 'warn', message: '被测页面已关闭', at: Date.now()})
       return {ok: true, browser: state}
+    },
+    'POST /api/helper/install': async () => {
+      const result = await installHelper()
+      broadcast({
+        type: 'log',
+        level: result.ok ? 'ok' : 'warn',
+        message: result.ok ? 'root 助手已安装，现在开启虚拟串口即可挂真设备' : `安装 root 助手失败：${result.error}${result.command ? `；请手动执行一次：${result.command}` : ''}`,
+        at: Date.now()
+      })
+      return {...result, state: serial.state()}
     },
     'POST /api/device/probe': async () => ({ok: true, probe: await serial.probe(), state: serial.state()}),
     'POST /api/port': async body => {

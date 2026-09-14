@@ -20,6 +20,7 @@
 import {access, constants, readdir} from 'node:fs/promises'
 import {spawn} from 'node:child_process'
 import {platform, release} from 'node:os'
+import {INSTALLER, probeUsbip, startUsbipDevice} from './usbip.mjs'
 
 const run = (command, args, {timeout = 20000} = {}) => new Promise(resolve => {
   const child = spawn(command, args, {stdio: ['ignore', 'pipe', 'pipe']})
@@ -178,20 +179,19 @@ const com0com = {
 }
 
 /**
- * USB/IP：用户态程序（Rust/Python 都行）模拟一个 USB CDC-ACM 设备，
- * 通过 vhci_hcd 挂进本机 USB 总线 —— 内核会真的多出一个 USB 串口
- * （/dev/ttyACM0，有完整 udev 记录），浏览器选择框与桌面串口列表都能直接选中。
+ * USB/IP：用户态程序（rust/keysim-usbip）模拟一个 USB CDC-ACM 设备，
+ * 经 vhci_hcd 挂进本机 USB 总线 —— 内核会真的多出一个 USB 串口
+ * （/dev/ttyACM*，有完整 udev 记录），浏览器选择框与桌面串口列表都能直接选中。
  *
- * 这是"纯用户态可实现"的唯一一条真设备路径：设备逻辑在用户态，但把它挂上总线
- * （modprobe + 往 vhci_hcd 的 attach 写 sockfd）是特权操作，任何语言都绕不开一次 root。
- * 因此本后端只做探测与前置说明；设备模拟器尚未实现（见 doctor 输出）。
+ * 设备逻辑跑在普通用户权限；只有"挂上总线"（modprobe + 写 vhci_hcd 的 attach）
+ * 是特权操作，交给装一次的 root 助手（bin/install-root-helper.sh）。
+ * 任何语言都绕不开这一次 root —— 它是"向内核注册设备"。
  */
 const usbip = {
   id: 'linux-usbip',
   title: 'USB/IP + vhci_hcd（用户态模拟 USB 串口，内核当真设备）',
-  ours: '(用户态模拟器持有 USB 端点)',
-  theirs: '/dev/ttyACM0',
-  implemented: false,
+  ours: '(模拟器持有 USB 端点)',
+  theirs: '/dev/ttyACM*',
   async probe() {
     if (platform() !== 'linux') return {available: false, reason: '仅 Linux'}
     const [vhci, acm] = await Promise.all([hasModule('vhci-hcd'), hasModule('cdc-acm')])
@@ -199,22 +199,34 @@ const usbip = {
     if (missing.length) {
       return {available: false, reason: `内核未提供 ${missing.join(' / ')} 模块`, install: '安装内核附加模块包后重试'}
     }
-    const loaded = await moduleLoaded('vhci_hcd')
-    const attachable = await exists(VHCI_ATTACH)
-    const elevation = await elevator()
-    const prerequisites = []
-    if (!loaded || !attachable) prerequisites.push('sudo modprobe vhci-hcd')
-    if (!isRoot()) prerequisites.push('把 keysim 的挂载步骤交给 root（一次性 systemd 服务或 sudo 运行）——写 vhci_hcd 的 attach 必须 root')
-    return {
-      available: false,
-      reason: '设备模拟器尚未实现；内核前置已具备' + (prerequisites.length ? '，还需：' + prerequisites.join('；') : ''),
-      install: `内核模块齐全（vhci-hcd + cdc-acm），rustc/cargo ${await (async () => (await run('sh', ['-c', 'command -v cargo'], {timeout: 3000})).ok ? '已装' : '未装')()}；实现后可得 ${'/dev/ttyACM0'}，浏览器与桌面都能直接选中${elevation.ok ? '' : '（当前无 root/pkexec，需先解决提权）'}`
+    const state = await probeUsbip()
+    if (!state.helper.ok) {
+      return {
+        available: false,
+        reason: state.helper.error,
+        install: `装一次 root 助手：sudo ${INSTALLER}（之后网页上点开启即可，不再输密码）`
+      }
     }
+    if (!state.helper.moduleLoaded) return {available: false, reason: 'vhci-hcd 未加载（助手会在 attach 时自动 modprobe）'}
+    if (!state.binaryBuilt && !state.cargo) {
+      return {available: false, reason: '缺少 keysim-usbip 可执行文件且没有 cargo 可编译'}
+    }
+    return {available: true, reason: null}
   },
   async start() {
-    return {ok: false, error: 'USB/IP 设备模拟器尚未实现，不做假成功'}
+    const device = await startUsbipDevice()
+    if (!device.ok) {
+      return {ok: false, error: device.error + (device.needsHelper ? `；装一次 root 助手：sudo ${INSTALLER}` : '')}
+    }
+    usbip.handle = device
+    return {ok: true, ours: device, theirs: device.device}
   },
-  async stop() { return {ok: true} }
+  async stop() {
+    if (!usbip.handle) return {ok: true}
+    await usbip.handle.close()
+    usbip.handle = null
+    return {ok: true}
+  }
 }
 
 export const BACKENDS = [gadget, tty0tty, usbip, com0com]

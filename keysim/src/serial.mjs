@@ -106,7 +106,9 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
       if (started.id) {
         kernel = started
         try {
-          kernelHandle = await openFile(started.ours, 'r+')
+          // 内核后端交回来的可能是设备路径（gadget/tty0tty/com0com），
+          // 也可能是自带 write 的句柄（USB/IP 模拟器）
+          kernelHandle = typeof started.ours === 'string' ? await openFile(started.ours, 'r+') : started.ours
           emit('log', {level: 'ok', message: `内核级虚拟串口已就绪（${started.title}）：被测程序请选 ${started.theirs}`})
         } catch (error) {
           kernelHandle = null
@@ -153,7 +155,10 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     },
     async close() {
       await this.stop()
-      if (kernelHandle) { await kernelHandle.close().catch(() => {}); kernelHandle = null }
+      if (kernelHandle) {
+        if (typeof kernelHandle.close === 'function') await Promise.resolve(kernelHandle.close()).catch(() => {})
+        kernelHandle = null
+      }
       if (kernel) {
         const result = await kernel.stop().catch(error => ({ok: false, error: error.message}))
         emit('log', {level: result.ok ? 'warn' : 'warn', message: result.ok ? '内核级虚拟串口已移除' : `移除内核级虚拟串口失败：${result.error}`})
@@ -209,7 +214,7 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
           while (replay.sent < items.length && items[replay.sent].at / speed <= elapsed + 1) {
             const item = items[replay.sent++]
             bridge.broadcast(item.text)
-            if (kernelHandle) kernelHandle.write(Buffer.from(item.bytes)).catch(() => {})
+            if (kernelHandle) Promise.resolve(kernelHandle.write(Buffer.from(item.bytes))).catch(() => {})
             if (device) device.write(item.bytes)
             for (const socket of injectClients) if (socket.writable) socket.write(binaryFrame(item.bytes))
           }

@@ -69,6 +69,10 @@
     <p class="hint" id="kernelHint">⓿ 只有内核级后端能让浏览器的串口选择框与桌面串口列表"直接选到"这个口；不可用时下面会说明缺什么。</p>
     <p class="hint" id="devHint">① 开启后是系统里真实存在的字符设备，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流。</p>
     <div class="row">
+      <button id="btnInstallHelper">安装 root 助手（一次）</button>
+      <span class="hint">装完点「开启虚拟串口」就能得到 /dev/ttyACM*，浏览器与桌面都能直接选</span>
+    </div>
+    <div class="row">
       <button id="btnLink">接入系统串口列表</button>
       <button id="btnUnlink">移出列表</button>
       <span class="hint" id="linkState">未接入</span>
@@ -282,6 +286,13 @@ $('btnSend').onclick = async () => {
 $('btnStop').onclick = async () => {
   const result = await api('/api/stop')
   if (result.ok) applyState(result.state)
+}
+$('btnInstallHelper').onclick = async () => {
+  log('正在安装 root 助手…', 'info')
+  const result = await api('/api/helper/install', {})
+  if (!result.ok && result.command) log('请手动执行一次：' + result.command, 'warn')
+  if (result.state) applyState(result.state)
+  await refresh()
 }
 $('btnLink').onclick = async () => {
   const result = await api('/api/device/link', {})

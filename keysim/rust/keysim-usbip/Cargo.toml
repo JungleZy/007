@@ -1,0 +1,13 @@
+[package]
+name = "keysim-usbip"
+version = "0.1.0"
+edition = "2021"
+description = "用户态 USB CDC-ACM 设备模拟器：经 vhci_hcd 挂进本机 USB 总线，内核当成真串口"
+
+[dependencies]
+# 锁一律 parking_lot：lock() 直接给 guard，没有中毒错误分支要 unwrap
+parking_lot = "0.12"
+
+[profile.release]
+opt-level = 1
+panic = "abort"
