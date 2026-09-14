@@ -64,8 +64,8 @@ public class TelegramTrainController {
    */
   @Path("/getById")
   @POST
-  public Response<TelegramTrainDto> getById(Map<String, String> map) {
-    return telegramTrainService.getById(map.get(TRAIN_ID));
+  public Response<TelegramTrainDto> getById(Map<String, String> map, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.getById(map.get(TRAIN_ID), token);
   }
 
   /**
@@ -76,8 +76,8 @@ public class TelegramTrainController {
    */
   @Path("/getFloorContentByFloorId")
   @POST
-  public Response<Map<String, List<TelegramTrainFloorContentEntity>>> getFloorContentByFloorId(List<String> ids) {
-    return telegramTrainService.getFloorContentByFloorId(ids);
+  public Response<Map<String, List<TelegramTrainFloorContentEntity>>> getFloorContentByFloorId(List<String> ids, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.getFloorContentByFloorId(ids, token);
   }
 
   /**
@@ -107,8 +107,8 @@ public class TelegramTrainController {
    */
   @Path("/saveFloorContent")
   @POST
-  public Response<Void> saveFloorContent(Map<String, String> map) {
-    return telegramTrainService.saveFloorContent(map);
+  public Response<Void> saveFloorContent(Map<String, String> map, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.saveFloorContent(map, token);
   }
 
   /**
@@ -119,8 +119,8 @@ public class TelegramTrainController {
    */
   @Path("/startTelegramTrain")
   @POST
-  public Response<TelegramTrainEntity> startTelegramTrain(TelegramTrainDto trainDto) {
-    return telegramTrainService.controlTelegramTrain(0, trainDto);
+  public Response<TelegramTrainEntity> startTelegramTrain(TelegramTrainDto trainDto, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.controlTelegramTrain(0, trainDto, token);
   }
 
   /**
@@ -131,8 +131,8 @@ public class TelegramTrainController {
    */
   @Path("/pauseTelegramTrain")
   @POST
-  public Response<TelegramTrainEntity> pauseTelegramTrain(TelegramTrainDto trainDto) {
-    return telegramTrainService.controlTelegramTrain(1, trainDto);
+  public Response<TelegramTrainEntity> pauseTelegramTrain(TelegramTrainDto trainDto, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.controlTelegramTrain(1, trainDto, token);
   }
 
   /**
@@ -143,8 +143,8 @@ public class TelegramTrainController {
    */
   @Path("/endTelegramTrain")
   @POST
-  public Response<TelegramTrainEntity> endTelegramTrain(TelegramTrainDto trainDto) {
-    return telegramTrainService.controlTelegramTrain(2, trainDto);
+  public Response<TelegramTrainEntity> endTelegramTrain(TelegramTrainDto trainDto, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.controlTelegramTrain(2, trainDto, token);
   }
 
   /**
@@ -168,8 +168,8 @@ public class TelegramTrainController {
    */
   @Path("/getTelegramTrainLog")
   @POST
-  public Response<List<TelegramTrainLogEntity>> saveTelegramTrain(TelegramTrainEntity train) {
-    return telegramTrainService.getTelegramTrainLogByTelegramTrainId(train.getId());
+  public Response<List<TelegramTrainLogEntity>> saveTelegramTrain(TelegramTrainEntity train, @RestHeader(TOKEN) String token) {
+    return telegramTrainService.getTelegramTrainLogByTelegramTrainId(train.getId(), token);
   }
 
   @Path("/getSetting")
@@ -180,6 +180,7 @@ public class TelegramTrainController {
 
   @Path("/saveSetting")
   @POST
+  @com.nip.common.interceptor.RequireAdmin
   public Response<List<TelegramTrainSettingEntity>> saveSetting(List<TelegramTrainSettingEntity> list) {
     return telegramTrainService.saveSetting(list);
   }

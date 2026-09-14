@@ -58,28 +58,22 @@ public class GeneralKeyPatController {
   @POST
   @Path("findPage")
   @Operation(summary = "按页查询报底")
-  public Response<GeneralKeyPatPageDto> findPage(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.findMessageBody(param));
+  public Response<GeneralKeyPatPageDto> findPage(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.findMessageBody(param, token));
   }
 
   @POST
   @Path("detail")
   @Operation(summary = "查询训练详情")
-  public Response<GeneralKeyPatTrainVO> detail(@RequestBody GeneralKeyPatPageParamDto param) {
-    try {
-      return ResponseResult.success(patTrainService.detail(param));
-    } catch (IllegalArgumentException | IllegalStateException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+  public Response<GeneralKeyPatTrainVO> detail(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.detail(param, token));
   }
 
   @POST
   @Path("patDetail")
   @Operation(summary = "查询训练详情")
-  public Response<GeneralKeyPatUserInfoVO> patDetail(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.patDetail(param));
+  public Response<GeneralKeyPatUserInfoVO> patDetail(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.patDetail(param, token));
   }
 
   @POST
@@ -118,15 +112,15 @@ public class GeneralKeyPatController {
   @POST
   @Path("/getPatValue")
   @Operation(summary = "获取指定用户拍发的报文")
-  public Response<List<GeneralKeyPatTrainUserValueVO>> getPatValue(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.getPatValue(param));
+  public Response<List<GeneralKeyPatTrainUserValueVO>> getPatValue(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.getPatValue(param, token));
   }
 
   @POST
   @Path("statistics")
   @Operation(summary = "统计信息")
-  public Response<GeneralKeyPatTrainStatisticVO> statistic(@RequestBody GeneralKeyPatPageParamDto param) {
-    return ResponseResult.success(patTrainService.statistic(param.getTrainId()));
+  public Response<GeneralKeyPatTrainStatisticVO> statistic(@RequestBody GeneralKeyPatPageParamDto param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.statistic(param.getTrainId(), token));
   }
 
   /**
@@ -135,12 +129,6 @@ public class GeneralKeyPatController {
    * @param
    * @return
    */
-  @POST
-  @Path("getScore")
-  @Operation(summary = "获取成绩")
-  public Response<List<BigDecimal>> score() {
-    return ResponseResult.success(patTrainService.score());
-  }
 
   @GET
   @Path("getTrainInfo")

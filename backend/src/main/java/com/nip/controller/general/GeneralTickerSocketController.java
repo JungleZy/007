@@ -35,9 +35,9 @@ public class GeneralTickerSocketController {
   @GET
   @Path("getByTrainIdAndUserId")
   @Operation(summary = "查询人员信息根据用户id和训练id")
-  @RequestPass
-  public Response<GeneralPatTrainUserDto> getByTrainIdAndUserId(@RestQuery(TRAIN_ID) Integer trainId, @RestQuery(USER_ID) String userId) {
-    return ResponseResult.success(trainService.getByTrainIdAndUserId(trainId, userId));
+  public Response<GeneralPatTrainUserDto> getByTrainIdAndUserId(@RestQuery(TRAIN_ID) Integer trainId,
+      @RestQuery(USER_ID) String userId, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.getByTrainIdAndUserId(trainId, userId, token));
   }
 
   @POST

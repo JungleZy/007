@@ -1,6 +1,7 @@
 package com.nip.service;
 
 
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.constants.PostTelexPatTrainStatusEnum;
 import com.nip.common.response.Response;
@@ -68,9 +69,9 @@ public class TelexPatTrainService {
       TelexPatTrainEntity telexPatTrainEntity = PojoUtils.convertOne(dto, TelexPatTrainEntity.class);
       if (telexPatTrainEntity != null && telexPatTrainEntity.getId() != null) {
         TelexPatTrainEntity byId = telexPatTrainDao.findById(telexPatTrainEntity.getId());
-        if (byId == null) {
-          return ResponseResult.success();
-        }
+        if (byId == null) throw new IllegalArgumentException("未查询到训练");
+        trainWriteAccess.requireTrainOwner(userEntity.getId(), byId.getCreateUserId(), "数据报训练");
+        telexPatTrainEntity = PojoUtils.convertOne(dto, TelexPatTrainEntity.class);
       }
       telexPatTrainEntity.setCreateUserId(userEntity.getId());
       if (dto.getStatus().compareTo(NOT_STARTED.getStatus()) == 0) {
@@ -91,7 +92,9 @@ public class TelexPatTrainService {
         statisticalService.statistical(userEntity.getId(), dto.getType() + 1, save);
       }
       return ResponseResult.success(save);
-    } catch (UnauthorizedException e) {
+    } catch (UnauthorizedException | ForbiddenException e) {
+      throw e;
+    } catch (IllegalArgumentException | IllegalStateException e) {
       throw e;
     } catch (Exception e) {
       try {
@@ -116,12 +119,12 @@ public class TelexPatTrainService {
     }
   }
 
-  public Response<TelexPatTrainEntity> findTexPatTrainById(String id) {
-    try {
-      return ResponseResult.success(telexPatTrainDao.findById(id));
-    } catch (Exception e) {
-      return ResponseResult.error();
-    }
+  public Response<TelexPatTrainEntity> findTexPatTrainById(String id, String token) {
+    UserEntity user = userService.getUserByToken(token);
+    TelexPatTrainEntity entity = telexPatTrainDao.findById(id);
+    if (entity == null) throw new IllegalArgumentException("未查询到训练");
+    trainWriteAccess.requireTrainOwner(user.getId(), entity.getCreateUserId(), "数据报训练");
+    return ResponseResult.success(entity);
   }
 
   /**

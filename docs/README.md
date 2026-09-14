@@ -3,6 +3,7 @@
 全仓文字文档统一存放在 `docs/`。评审资料采用“当前入口 + 历史归档”结构：
 
 - `docs/reviews/2026-09-12-current-state-review.md`：**最新的当前状态复核/收口入口**。复核确认上一轮 48 条评审只是历史基线（当前开放项以本复核为准），当前尚不满足“全项目修复完成”；新增整改规格与计划见 `docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。
+- `docs/reviews/2026-09-14-core-training-review.md`：**核心训练专项复核**，聚焦手键拍发、电子键拍发、收报/报话闭环；整改规格与计划见 `docs/specs/2026-09-14-core-training-fix-spec.md`、`docs/plans/2026-09-14-core-training-fix-plan.md`。
 - `docs/reviews/2026-09-10-customer-issue-analysis.md`：客户报障 12 条的根因分析与取证，是本轮整改的事实基础。
 - `docs/reviews/2026-09-08-full-project-review.md`：上一轮全项目评审，**降为历史证据**（其 216 测试基线等数字已过期，勿作为当前状态依据）。
 - `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：跨栈契约的详细历史证据，供修改跨栈接口前查阅。
@@ -18,6 +19,8 @@
 | 目的 | 入口 |
 |---|---|
 | 了解当前全项目状态 | [`reviews/2026-09-12-current-state-review.md`](reviews/2026-09-12-current-state-review.md) |
+| 核心训练专项复核 | [`reviews/2026-09-14-core-training-review.md`](reviews/2026-09-14-core-training-review.md) |
+| 核心训练整改规格 / 计划 | [`specs/2026-09-14-core-training-fix-spec.md`](specs/2026-09-14-core-training-fix-spec.md) + [`plans/2026-09-14-core-training-fix-plan.md`](plans/2026-09-14-core-training-fix-plan.md) |
 | **发布上一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
 | 承接当前复核整改任务 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |

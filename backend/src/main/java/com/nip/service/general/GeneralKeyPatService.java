@@ -52,6 +52,7 @@ import com.nip.dto.general.GeneralKeyPatUserInfoVO;
 import com.nip.dto.general.GeneralKeyPatUserSyncDto;
 import com.nip.dto.general.GeneralKeyPatUserValueSyncDto;
 import com.nip.dto.general.GeneralPatTrainUserDto;
+import com.nip.dto.general.GeneralPatTrainUserModelDto;
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.UserSyncDto;
 import com.nip.dto.general.statistic.GeneralKeyPatTrainErrorCollect;
@@ -343,7 +344,9 @@ public class GeneralKeyPatService {
   /**
    * 查询指定tarinId的报底
    */
-  public GeneralKeyPatPageDto findMessageBody(GeneralKeyPatPageParamDto param) {
+  public GeneralKeyPatPageDto findMessageBody(GeneralKeyPatPageParamDto param, String token) {
+    GeneralKeyPatEntity train = Optional.ofNullable(trainDao.findById(param.getTrainId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireMember(train, token);
     // 查询出该训练对应页码的报底
     final List<GeneralKeyPatPageEntity> trainPageList = trainPageDao
         .findByPageNumberAndTrainIdOrderBySort(param.getPageNumber(), param.getTrainId());
@@ -387,7 +390,9 @@ public class GeneralKeyPatService {
    * 查询训练详情
    * param trainId
    */
-  public GeneralKeyPatTrainVO detail(GeneralKeyPatPageParamDto param) {
+  public GeneralKeyPatTrainVO detail(GeneralKeyPatPageParamDto param, String token) {
+    GeneralKeyPatEntity accessTrain = Optional.ofNullable(trainDao.findById(param.getTrainId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireMember(accessTrain, token);
     try {
       // 查询该训练信息
       GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
@@ -751,7 +756,7 @@ public class GeneralKeyPatService {
         ret.setMoreGroup(new ArrayList<>());
       }
       return ret;
-    } catch (IllegalArgumentException | IllegalStateException e) {
+    } catch (ForbiddenException | IllegalArgumentException | IllegalStateException e) {
       throw e;
     } catch (Exception e) {
       log.error("获取训练页面失败，训练ID: {}, 页码: {}", trainId, pageNumber, e);
@@ -765,9 +770,11 @@ public class GeneralKeyPatService {
    * @param param
    * @return
    */
-  public List<GeneralKeyPatTrainUserValueVO> getPatValue(GeneralKeyPatPageParamDto param) {
+  public List<GeneralKeyPatTrainUserValueVO> getPatValue(GeneralKeyPatPageParamDto param, String token) {
+    GeneralKeyPatEntity train = Optional.ofNullable(trainDao.findById(param.getTrainId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    String target = requireReadableTarget(train, param.getUserId(), token);
     List<GeneralKeyPatUserValueEntity> patUserValueEntities = userValueDao
-        .findByPageNumberAndTrainIdAndUserId(param.getPageNumber(), param.getTrainId(), param.getUserId());
+        .findByPageNumberAndTrainIdAndUserId(param.getPageNumber(), param.getTrainId(), target);
     return PojoUtils.convert(patUserValueEntities, GeneralKeyPatTrainUserValueVO.class);
   }
 
@@ -777,7 +784,9 @@ public class GeneralKeyPatService {
    * @param trainId
    * @return
    */
-  public GeneralKeyPatTrainStatisticVO statistic(Integer trainId) {
+  public GeneralKeyPatTrainStatisticVO statistic(Integer trainId, String token) {
+    GeneralKeyPatEntity train = Optional.ofNullable(trainDao.findById(trainId)).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireMember(train, token);
     // role-0,学员
     List<GeneralKeyPatUserEntity> trainUserEntities = trainUserDao.findByTrainIdAndRole(trainId, 0);
     return statisticsScoreAndDotLineGapRate(trainUserEntities);
@@ -1013,17 +1022,23 @@ public class GeneralKeyPatService {
    *
    * @return
    */
+  public void requireRosterAccess(Integer trainId, String token) {
+    GeneralKeyPatEntity train = Optional.ofNullable(trainDao.findById(trainId)).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireMember(train, token);
+  }
+
   public List<GeneralPatTrainUserDto> findUserInfo(Integer trainId) {
-    GeneralKeyPatTrainController gGeneralKeyPatTrainController = new GeneralKeyPatTrainController();
-    Response<List<GeneralPatTrainUserDto>> oneLine = gGeneralKeyPatTrainController.getOneLine(trainId);
-    return oneLine.getData();
+    GeneralPatTrainRoomUserDto trainRoomUser = WebSocketGeneralKeyPatService.ROOM.get(trainId);
+    if (trainRoomUser == null) return new ArrayList<>();
+    List<GeneralPatTrainUserModelDto> joinUser = new ArrayList<>(trainRoomUser.getJoinUser());
+    if (trainRoomUser.getGroupUser() != null) joinUser.add(trainRoomUser.getGroupUser());
+    return PojoUtils.convert(joinUser, GeneralPatTrainUserDto.class);
   }
 
-  public List<BigDecimal> score() {
-    return trainUserDao.score();
-  }
 
-  public GeneralKeyPatUserInfoVO patDetail(GeneralKeyPatPageParamDto param) {
+  public GeneralKeyPatUserInfoVO patDetail(GeneralKeyPatPageParamDto param, String token) {
+    GeneralKeyPatEntity accessTrain = Optional.ofNullable(trainDao.findById(param.getTrainId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    requireReadableTarget(accessTrain, param.getUserId(), token);
     // 查询该训练信息
     GeneralKeyPatEntity keyPatEntity = Optional.ofNullable(trainDao.findById(param.getTrainId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
@@ -1279,10 +1294,23 @@ public class GeneralKeyPatService {
     GeneralKeyPatUserEntity actorMember = trainUserDao.findByUserIdAndTrainId(actor, train.getId());
     if (!Objects.equals(actor, target) && !Objects.equals(train.getCreateUser(), actor)
         && (actorMember == null || !Objects.equals(actorMember.getRole(), 1))) {
-      throw new IllegalArgumentException("无权读取该学员的拍发记录");
+      throw new ForbiddenException("无权读取他人拍发记录，电子键组训 " + train.getId());
     }
     return Optional.ofNullable(trainUserDao.findByUserIdAndTrainId(target, train.getId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到参训记录"));
+  }
+
+  private String requireMember(GeneralKeyPatEntity train, String token) {
+    String actor = userService.getUserByToken(token).getId();
+    if (trainUserDao.findByUserIdAndTrainId(actor, train.getId()) == null && !trainWriteAccess.manages(actor, train.getCreateUser(), () -> false)) throw new ForbiddenException("非参训人员读取电子键组训 " + train.getId());
+    return actor;
+  }
+
+  private String requireReadableTarget(GeneralKeyPatEntity train, String requestedUser, String token) {
+    String actor = userService.getUserByToken(token).getId();
+    String target = CharSequenceUtil.isBlank(requestedUser) ? actor : requestedUser;
+    if (!Objects.equals(actor, target) && !trainWriteAccess.manages(actor, train.getCreateUser(), () -> organizer(train.getId(), actor))) throw new ForbiddenException("无权读取他人拍发记录，电子键组训 " + train.getId());
+    return target;
   }
 
   private long elapsedMillis(LocalDateTime startedAt) {

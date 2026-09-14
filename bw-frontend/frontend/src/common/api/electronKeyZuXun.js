@@ -69,7 +69,8 @@ export const resetHandKeyZuXunStatistics = (data) => {
   })
 }
 export const startTrainUser = ({trainId, attempt}, config) => {
-  return axios({method: 'get', url: '/api/generalKeyPat/startTrain', data: {trainId, attempt}, config})
+  const query = `?trainId=${encodeURIComponent(trainId)}&attempt=${encodeURIComponent(attempt)}`
+  return axios({method: 'get', url: `/api/generalKeyPat/startTrain${query}`, config})
 }
 export const deleteTrain = (data) => {
   return axios({

@@ -61,8 +61,8 @@ public class TexPatTrainController {
 //  }
   @Path("/findTexPatTrainById")
   @POST
-  public Response<TelexPatTrainEntity> findTexPatTrainById(Map<String, String> dto) {
-    return telexPatTrainService.findTexPatTrainById(dto.get(ID));
+  public Response<TelexPatTrainEntity> findTexPatTrainById(Map<String, String> dto, @RestHeader(TOKEN) String token) {
+    return telexPatTrainService.findTexPatTrainById(dto.get(ID), token);
   }
 
   @Path("/statisticalPage")

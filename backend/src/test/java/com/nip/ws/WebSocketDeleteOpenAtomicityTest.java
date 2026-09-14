@@ -359,6 +359,7 @@ class WebSocketDeleteOpenAtomicityTest {
     }
   }
 
+  @jakarta.enterprise.inject.Vetoed
   private static final class BlockingTickerService extends GeneralTickerPatService {
     private final ValidationBarrier barrier;
 

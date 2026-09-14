@@ -69,8 +69,9 @@ public class GeneralTickerPatController {
   @POST
   @Path("detail")
   @Operation(summary = "查询训练详情")
-  public Response<GeneralTickerPatTrainVO> detail(@RequestBody GeneralTickerPatTrainQueryParam param) {
-    return ResponseResult.success(patTrainService.detail(param));
+  public Response<GeneralTickerPatTrainVO> detail(@RequestBody GeneralTickerPatTrainQueryParam param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.detail(param, token));
   }
 
   @POST
@@ -102,8 +103,9 @@ public class GeneralTickerPatController {
   @POST
   @Path("statistics")
   @Operation(summary = "统计信息")
-  public Response<GeneralTickerPatTrainStatisticVO> statistic(@RequestBody GeneralTickerPatTrainResetParam param) {
-    return ResponseResult.success(patTrainService.statistic(param));
+  public Response<GeneralTickerPatTrainStatisticVO> statistic(@RequestBody GeneralTickerPatTrainResetParam param,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(patTrainService.statistic(param, token));
   }
 
   @GET

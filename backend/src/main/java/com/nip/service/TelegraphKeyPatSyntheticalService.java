@@ -99,10 +99,15 @@ public class TelegraphKeyPatSyntheticalService {
     TelegraphKeyPatSyntheticalEntity last = syntheticalDao.find("createUserId=?1 order by createTime desc,id desc", user.getId())
         .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();
     if (last != null && Objects.equals(last.getStatus(), PAUSE.getStatus())) {
-      requireProtocol(last);
-      last.setStatus(FINISH.getStatus());
-      syntheticalDao.flush();
-      finishStatistical(last);
+      if (Objects.equals(last.getProtocolVersion(), 1) && last.getSourceContent() != null && last.getAccumulatedActiveMillis() != null) {
+        last.setStatus(FINISH.getStatus());
+        syntheticalDao.flush();
+        finishStatistical(last);
+      } else {
+        // Legacy paused rows have no authoritative capture timeline; supersede without recomputing history.
+        last.setStatus(FINISH.getStatus());
+        syntheticalDao.flush();
+      }
     } else if (last != null && Objects.equals(last.getStatus(), NOT_STARTED.getStatus())) {
       syntheticalDao.delete(last);
     }

@@ -63,6 +63,9 @@ public class TelegraphKeyPatTrainService {
     }
     TelegraphKeyPatTrainEntity entity = Optional.ofNullable(patTrainDao.findById(dto.getId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    if (!StringUtils.equals(entity.getCreateUserId(), userEntity.getId())) {
+      throw new com.nip.common.exception.ForbiddenException("无权修改他人电子键训练");
+    }
     entity.setTotalTime(dto.getTotalTime())
         .setTotalNum(dto.getTotalNum())
         .setTotalError(dto.getTotalError());

@@ -2,6 +2,7 @@ package com.nip.service;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.google.gson.reflect.TypeToken;
+import com.nip.common.exception.ForbiddenException;
 import com.nip.common.PageInfo;
 import com.nip.common.exception.TerminalStateException;
 import com.nip.common.constants.TickerTapeTrainStatisticalTypeEnum;
@@ -107,46 +108,44 @@ public class TickerTapeTrainService {
     return new PageInfo<>(totalPages, totalNumber, (page.getPage()), page.getRows(), convert);
   }
 
-  public TickerTapeTrainVo getById(String id) {
-    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-
+  public TickerTapeTrainVo getById(String id, String token) {
+    TickerTapeTrainEntity entity = owned(id, token);
     return PojoUtils.convertOne(entity, TickerTapeTrainVo.class, (e, v) -> {
-      List<Map<String, Object>> maps = JSONUtils.fromJson(e.getCodeMessageBody(),
-          new TypeToken<>() {
-          });
+      List<Map<String, Object>> maps = JSONUtils.fromJson(e.getCodeMessageBody(), new TypeToken<>() {});
       v.setCodeMessageBody(maps);
     });
   }
 
-  @Transactional
-  public void begin(String id) {
-    checkStatus(id);
+  public void begin(String id, String token) {
+    checkStatus(owned(id, token));
     tickerTapeTrainDao.begin(id);
   }
 
-  @Transactional
-  public void pause(TickerTapeTrainUpdateParam updateParam) {
-    checkStatus(updateParam.getId());
-    tickerTapeTrainDao.pause(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(),
-        updateParam.getSchedule()
-    );
+  TickerTapeTrainVo getById(String id) {
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    return PojoUtils.convertOne(entity, TickerTapeTrainVo.class);
+  }
+  void pause(TickerTapeTrainUpdateParam param) {
+    checkStatus(Optional.ofNullable(tickerTapeTrainDao.findById(param.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练")));
+    tickerTapeTrainDao.pause(param.getId(), param.getValidTime(), param.getMark(), param.getSchedule());
+  }
+  public void pause(TickerTapeTrainUpdateParam updateParam, String token) {
+    checkStatus(owned(updateParam.getId(), token));
+    tickerTapeTrainDao.pause(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(), updateParam.getSchedule());
   }
 
-  @Transactional
-  public void goOn(String id) {
-    checkStatus(id);
+  public void goOn(String id, String token) {
+    checkStatus(owned(id, token));
     tickerTapeTrainDao.goOn(id);
   }
 
-  @Transactional
-  public void finish(TickerTapeTrainUpdateParam updateParam) {
-    checkStatus(updateParam.getId());
-    tickerTapeTrainDao.finish(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(),
-        updateParam.getSchedule()
-    );
-    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+  public void finish(TickerTapeTrainUpdateParam updateParam, String token) {
+    TickerTapeTrainEntity owned = owned(updateParam.getId(), token);
+    checkStatus(owned);
+    tickerTapeTrainDao.finish(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(), updateParam.getSchedule());
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
     finishStatistical(entity);
   }
 
@@ -229,13 +228,15 @@ public class TickerTapeTrainService {
     return PojoUtils.convertOne(entity, TickerTapeTrainVo.class);
   }
 
-  private void checkStatus(String id) {
-    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    // 记录存在但 status 列为空时不得拆箱 NPE；已结束是业务终态（重试无意义）→ 208
-    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
-      throw new TerminalStateException("训练已结束");
-    }
+  private TickerTapeTrainEntity owned(String id, String token) {
+    UserEntity user = userService.getUserByToken(token);
+    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id)).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    if (!Objects.equals(entity.getUserId(), user.getId())) throw new ForbiddenException("无权访问他人训练");
+    return entity;
+  }
+
+  private void checkStatus(TickerTapeTrainEntity entity) {
+    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) throw new TerminalStateException("训练已结束");
   }
 
   @Transactional

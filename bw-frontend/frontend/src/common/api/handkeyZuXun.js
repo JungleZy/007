@@ -48,7 +48,8 @@ export const resetHandKeyZuXunTrain = (data, config) => { return axios({method: 
 url: "/api/generalTickerPatTrain/reset",
 data, config}) }
 export const startTrainUser = ({trainId, attempt}, config) => {
-  return axios({method: 'get', url: '/api/generalTickerPatTrain/startTrain', data: {trainId, attempt}, config})
+  const query = `?trainId=${encodeURIComponent(trainId)}&attempt=${encodeURIComponent(attempt)}`
+  return axios({method: 'get', url: `/api/generalTickerPatTrain/startTrain${query}`, config})
 }
 export const deleteTrain = (data) => {
   return axios({

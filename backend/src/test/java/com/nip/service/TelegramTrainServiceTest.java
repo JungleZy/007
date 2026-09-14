@@ -7,10 +7,12 @@ import com.nip.dao.TelegramTrainFloorDao;
 import com.nip.entity.TelegramTrainFloorContentEntity;
 import com.nip.entity.TelegramTrainFloorEntity;
 import com.nip.dao.TelegramTrainStatisticalDao;
+import com.nip.dao.TelegramTrainDao;
 import com.nip.dao.UserDao;
 import com.nip.dto.vo.TelegramTrainStatisticalVO;
 import com.nip.entity.TelegramTrainStatisticalEntity;
 import com.nip.entity.UserEntity;
+import com.nip.entity.TelegramTrainEntity;
 import com.nip.testsupport.Fixtures;
 
 
@@ -47,6 +49,7 @@ class TelegramTrainServiceTest {
   @Inject TelegramTrainStatisticalDao statisticalDao;
   @Inject UserDao userDao;
   @Inject TelegramTrainFloorDao floorDao;
+  @Inject TelegramTrainDao trainDao;
 
   private static final String PAT_TOKEN = "telegram-floor-page-" + UUID.randomUUID();
   private static final String PAT_DEVICE = "telegram-floor-dev-" + UUID.randomUUID();
@@ -84,12 +87,16 @@ class TelegramTrainServiceTest {
   /** 缺页守卫不得误伤正常路径：报底存在时仍是 200。 */
   @Test
   void existingFloorPageStillSucceeds() {
-    String trainId = "telegram-floor-train-" + UUID.randomUUID();
+    TelegramTrainEntity train = new TelegramTrainEntity();
+    train.setCreateUserId(userDao.findUserEntityByToken(PAT_TOKEN).getId());
+    train.setType(0);
+    train.setStatus(0);
+    trainDao.saveAndFlush(train);
+    String trainId = train.getId();
     TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
     floor.setTrainId(trainId);
     floor.setSort(3);
     floorDao.saveAndFlush(floor);
-
     given()
         .contentType(ContentType.JSON)
         .header("token", PAT_TOKEN)

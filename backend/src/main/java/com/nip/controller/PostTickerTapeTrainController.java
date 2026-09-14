@@ -62,46 +62,47 @@ public class PostTickerTapeTrainController {
   @POST
   @Path("/getById")
   @Operation(summary = "根据id获取训练")
-  public Response<PostTickerTapeTrainVo> getById(TickerTapeTrainQueryParam param) {
-    return ResponseResult.success(trainService.getById(param.getId()));
+  public Response<PostTickerTapeTrainVo> getById(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.getById(param.getId(), token));
   }
 
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<Void> begin(TickerTapeTrainQueryParam param) {
-    trainService.begin(param.getId());
+  public Response<Void> begin(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    trainService.begin(param.getId(), token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "结束")
-  public Response<Void> finish(PostTickerTapeTrainUpdateParam updateParam) {
-    trainService.finish(updateParam);
+  public Response<Void> finish(PostTickerTapeTrainUpdateParam updateParam, @RestHeader(TOKEN) String token) {
+    trainService.finish(updateParam, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/reset")
   @Operation(summary = "重置")
-  public Response<Void> reset(TickerTapeTrainQueryParam param) {
-    trainService.reset(param.getId());
+  public Response<Void> reset(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    trainService.reset(param.getId(), token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/upLoadResult")
   @Operation(summary = "上传结果")
-  public Response<PostTickerTapeTrainVo> uploadResult(PostTickerTapeTrainUploadResultParam param) {
-    return ResponseResult.success(trainService.uploadResult(param));
+  public Response<PostTickerTapeTrainVo> uploadResult(PostTickerTapeTrainUploadResultParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.uploadResult(param, token));
   }
 
   @GET
   @Path(value = "findPage")
   @Operation(summary = "查询页")
-  public Response<PostTickerTapeTrainPageValueVO> findPage(@RestQuery(TRAIN_ID) String trainId, @RestQuery(PAGE_NUMBER) Integer pageNumber) {
-    return ResponseResult.success(trainService.findPage(trainId, pageNumber));
+  public Response<PostTickerTapeTrainPageValueVO> findPage(@RestQuery(TRAIN_ID) String trainId, @RestQuery(PAGE_NUMBER) Integer pageNumber,
+      @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.findPage(trainId, pageNumber, token));
   }
   @GET
   @Path(value = "delete")

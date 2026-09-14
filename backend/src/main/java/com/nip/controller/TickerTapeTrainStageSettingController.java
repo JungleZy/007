@@ -1,9 +1,10 @@
 package com.nip.controller;
 
 import com.nip.common.interceptor.JWT;
-import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.dto.vo.TickerTapeTrainStageSettingVO;
+import com.nip.common.response.Response;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.service.TickerTapeTrainStageSettingService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,6 +34,7 @@ public class TickerTapeTrainStageSettingController {
   @POST
   @Path(value = "add")
   @Operation(summary = "添加/修改配置")
+  @RequireAdmin
   public Response<TickerTapeTrainStageSettingVO> add(TickerTapeTrainStageSettingVO vo) {
     return ResponseResult.success(stageSettingService.add(vo));
   }

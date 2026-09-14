@@ -693,4 +693,37 @@ public class PostTickerTapeTrainService {
     }
     return -1;
   }
+  private PostTickerTapeTrainEntity ownedTrain(String id, String token, boolean requireActive) {
+    PostTickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException(BaseConstants.TRAINING_NOT_FOUND));
+    String actor = userService.getUserByToken(token).getId();
+    trainWriteAccess.requireTrainOwner(actor, entity.getUserId(), "岗位收报训练 " + id);
+    return entity;
+  }
+  @Transactional
+  public PostTickerTapeTrainVo getById(String id, String token) { ownedTrain(id, token, false); return getById(id); }
+  @Transactional
+  public void begin(String id, String token) { ownedTrain(id, token, false); begin(id); }
+  @Transactional
+  public void finish(PostTickerTapeTrainUpdateParam param, String token) { ownedTrain(param.getId(), token, false); finish(param); }
+  @Transactional
+  public void reset(String id, String token) {
+    ownedTrain(id, token, true);
+    valueDao.delete("trainId = ?1", id);
+    reset(id);
+  }
+  @Transactional
+  public PostTickerTapeTrainVo uploadResult(PostTickerTapeTrainUploadResultParam param, String token) {
+    PostTickerTapeTrainEntity entity = ownedTrain(param.getId(), token, true);
+    if (Objects.equals(entity.getStatus(), HAS_SCORE.getCode())
+        || !valueDao.findByTrainId(param.getId()).isEmpty()) {
+      throw new TerminalStateException("训练已结束");
+    }
+    return uploadResult(param);
+  }
+  @Transactional
+  public PostTickerTapeTrainPageValueVO findPage(String trainId, Integer pageNumber, String token) {
+    ownedTrain(trainId, token, false);
+    return findPage(trainId, pageNumber);
+  }
 }

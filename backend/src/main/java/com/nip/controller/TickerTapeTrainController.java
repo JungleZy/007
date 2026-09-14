@@ -60,39 +60,39 @@ public class TickerTapeTrainController {
   @POST
   @Path("/getById")
   @Operation(summary = "根据id获取训练")
-  public Response<TickerTapeTrainVo> getById(TickerTapeTrainQueryParam param) {
-    return ResponseResult.success(trainService.getById(param.getId()));
+  public Response<TickerTapeTrainVo> getById(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    return ResponseResult.success(trainService.getById(param.getId(), token));
   }
 
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练")
-  public Response<Void> begin(TickerTapeTrainQueryParam param) {
-    trainService.begin(param.getId());
+  public Response<Void> begin(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    trainService.begin(param.getId(), token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/pause")
   @Operation(summary = "暂停")
-  public Response<Void> pause(TickerTapeTrainUpdateParam updateParam) {
-    trainService.pause(updateParam);
+  public Response<Void> pause(TickerTapeTrainUpdateParam updateParam, @RestHeader(TOKEN) String token) {
+    trainService.pause(updateParam, token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/goOn")
   @Operation(summary = "继续")
-  public Response<Void> goOn(TickerTapeTrainQueryParam param) {
-    trainService.goOn(param.getId());
+  public Response<Void> goOn(TickerTapeTrainQueryParam param, @RestHeader(TOKEN) String token) {
+    trainService.goOn(param.getId(), token);
     return ResponseResult.success();
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "结束")
-  public Response<Void> finish(TickerTapeTrainUpdateParam updateParam) {
-    trainService.finish(updateParam);
+  public Response<Void> finish(TickerTapeTrainUpdateParam updateParam, @RestHeader(TOKEN) String token) {
+    trainService.finish(updateParam, token);
     return ResponseResult.success();
   }
 
