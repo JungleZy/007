@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.PostMilitaryTermTrainStatusEnum;
 import com.nip.common.exception.NIPException;
 import com.nip.common.exception.UnauthorizedException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.dao.MilitaryTermDataDao;
@@ -19,6 +20,7 @@ import com.nip.entity.PostMilitaryTermTrainTestPaperEntity;
 import com.nip.entity.UserEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -427,108 +429,168 @@ public class PostMilitaryTermTrainService {
             .toList()));
   }
 
-  public PostMilitaryTermTrainVO details(PostMilitaryTermTrainVO vo) {
-    // Phase 7.4：不存在的训练 id 必须显式报错，避免 convertOne(null) / setStatus 空指针
-    PostMilitaryTermTrainEntity entity = Optional.ofNullable(termTrainDao.findById(vo.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
-    //查询试卷内容
-    List<PostMilitaryTermTrainTestPaperEntity> testPaperEntities = testPaperDao.findAllByTrainId(vo.getId());
-
-    return PojoUtils.convertOne(entity, PostMilitaryTermTrainVO.class, (e, v) -> {
-      v.setTestPaperList(testPaperEntities);
-      List<String> militaryTermDataIds = JSONUtils.fromJson(e.getTypes(), new TypeToken<>() {
-      });
-      List<MilitaryTermDataEntity> militaryTermDataEntities = dataDao.findAllByIdIn(militaryTermDataIds);
-      List<String> names = militaryTermDataEntities.stream().map(MilitaryTermDataEntity::getKey).toList();
-      v.setTypes(names);
+  public PostMilitaryTermTrainVO details(PostMilitaryTermTrainVO vo, String token) {
+    PostMilitaryTermTrainEntity entity = ownedTrain(vo.getId(), token, false);
+    boolean completed = Objects.equals(entity.getStatus(), PostMilitaryTermTrainStatusEnum.FINISH.getStatus());
+    List<PostMilitaryTermTrainTestPaperEntity> papers = testPaperDao.findAllByTrainId(entity.getId()).stream()
+        .map(paper -> paperForView(paper, completed))
+        .toList();
+    return PojoUtils.convertOne(entity, PostMilitaryTermTrainVO.class, (source, view) -> {
+      view.setTestPaperList(papers);
+      List<String> ids = JSONUtils.fromJson(source.getTypes(), new TypeToken<>() {});
+      view.setTypes(dataDao.findAllByIdIn(ids).stream().map(MilitaryTermDataEntity::getKey).toList());
     });
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public PostMilitaryTermTrainVO begin(String id) {
-    PostMilitaryTermTrainEntity termTrainEntity = Optional.ofNullable(termTrainDao.findById(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
-    termTrainEntity.setStatus(PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus());
-    termTrainEntity.setStartTime(LocalDateTime.now());
-    return PojoUtils.convertOne(termTrainEntity, PostMilitaryTermTrainVO.class);
+  public PostMilitaryTermTrainVO begin(String id, String token) {
+    PostMilitaryTermTrainEntity entity = ownedTrain(id, token, true);
+    if (Objects.equals(entity.getStatus(), PostMilitaryTermTrainStatusEnum.FINISH.getStatus())) {
+      throw new TerminalStateException("训练已完成，不能重新开始");
+    }
+    if (Objects.equals(entity.getStatus(), PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus())) {
+      return PojoUtils.convertOne(entity, PostMilitaryTermTrainVO.class);
+    }
+    if (!Objects.equals(entity.getStatus(), PostMilitaryTermTrainStatusEnum.NOT_STARTED.getStatus())) {
+      throw new IllegalArgumentException("训练状态无效");
+    }
+    entity.setStatus(PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus());
+    entity.setStartTime(LocalDateTime.now());
+    return PojoUtils.convertOne(entity, PostMilitaryTermTrainVO.class);
   }
 
   @Transactional(rollbackOn = Exception.class)
-  public PostMilitaryTermTrainVO finish(PostMilitaryTermTrainFinishDto dto) {
-    PostMilitaryTermTrainEntity termTrainEntity = Optional.ofNullable(termTrainDao.findById(dto.getId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+  public PostMilitaryTermTrainVO finish(PostMilitaryTermTrainFinishDto dto, String token) {
+    if (dto == null) {
+      throw new IllegalArgumentException("训练参数不能为空");
+    }
+    PostMilitaryTermTrainEntity train = ownedTrain(dto.getId(), token, true);
+    // 训练锁等待后，题目也用当前读，确保并发交卷能看到已提交答案。
+    List<PostMilitaryTermTrainTestPaperEntity> papers = testPaperDao.find("trainId", train.getId())
+        .withLock(LockModeType.PESSIMISTIC_WRITE)
+        .list();
+    Map<String, PostMilitaryTermTrainTestPaperEntity> paperById = papers.stream()
+        .collect(Collectors.toMap(PostMilitaryTermTrainTestPaperEntity::getId, paper -> paper));
+    List<PostMilitaryTermTrainTestPaperEntity> submitted = Optional.ofNullable(dto.getTestPaperList()).orElse(List.of());
+    Map<String, Map<String, String>> optionsByPaperId = validateSubmission(submitted, paperById);
 
-    //状态设置成完成
-    termTrainEntity.setStatus(PostMilitaryTermTrainStatusEnum.FINISH.getStatus());
-    termTrainEntity.setEndTime(LocalDateTime.now());
-
-    //查询出数据库中的考试题目
-    Map<String, List<PostMilitaryTermTrainTestPaperEntity>> testPaperMap = testPaperDao.findAllByTrainId(
-        termTrainEntity.getId()).stream().collect(Collectors.groupingBy(PostMilitaryTermTrainTestPaperEntity::getId));
-    //用户提交答案
-    List<PostMilitaryTermTrainTestPaperEntity> userTestPaperList = dto.getTestPaperList();
-
-    int correctNum = 0;
-    int errorNum = 0;
-    int totalNum = 0;
-
-    //设置正确答案,并统计正确错误个数
-    for (PostMilitaryTermTrainTestPaperEntity testPaperEntity : userTestPaperList) {
-      List<PostMilitaryTermTrainTestPaperEntity> entityList = testPaperMap.get(testPaperEntity.getId());
-      if (entityList != null && !entityList.isEmpty()) {
-        PostMilitaryTermTrainTestPaperEntity entity = entityList.getFirst();
-        String userAnswer = testPaperEntity.getUserAnswer();
-        entity.setUserAnswer(userAnswer);
-        //统计已做题
-        if (userAnswer != null) {
-          totalNum++;
-          //拿到答案字符串进行比对
-          Map<String, String> map = JSONUtils.fromJson(entity.getOption(), new TypeToken<>() {
-          });
-          String userAnswerStr = map.get(userAnswer);
-          String correctAnswerStr = map.get(entity.getCorrectAnswer());
-          //判断答案是否正确
-          if (Objects.equals(userAnswerStr, correctAnswerStr)) {
-            correctNum++;
-            // 当4个答案都是正确的时候，随便选择一个都是正确的，所以将选择的答案设置成正确答案
-            entity.setCorrectAnswer(userAnswer);
-          } else {
-            errorNum++;
-          }
-        }
+    if (Objects.equals(train.getStatus(), PostMilitaryTermTrainStatusEnum.FINISH.getStatus())) {
+      if (sameAnswers(submitted, paperById)) {
+        return PojoUtils.convertOne(train, PostMilitaryTermTrainVO.class);
       }
-      assert entityList != null;
-      testPaperDao.save(entityList);
+      throw new TerminalStateException("训练已完成，不能修改结果");
+    }
+    if (Objects.equals(train.getStatus(), PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus())
+        && train.getStartTime() == null) {
+      throw new TerminalStateException("训练开始时间缺失，不能完成");
+    }
+    if (!Objects.equals(train.getStatus(), PostMilitaryTermTrainStatusEnum.UNDERWAY.getStatus())) {
+      throw new IllegalArgumentException("训练尚未开始");
     }
 
-    BigDecimal accuracy = new BigDecimal("0");
-    BigDecimal score = new BigDecimal("0");
-    if (totalNum > 0) {
-      //计算正确率 correctNum / totalNum * 100
-      accuracy = new BigDecimal(correctNum).divide(new BigDecimal(totalNum), 2, RoundingMode.HALF_UP)
-          .multiply(new BigDecimal(100));
-
-      //计算得分 correctNum / testPaperMap.size() *100 保留1位小数
-      score = new BigDecimal(correctNum).divide(new BigDecimal(testPaperMap.size()), 3, RoundingMode.HALF_UP)
-          .multiply(new BigDecimal(100));
+    int correct = 0;
+    int answered = 0;
+    for (PostMilitaryTermTrainTestPaperEntity answer : submitted) {
+      PostMilitaryTermTrainTestPaperEntity paper = paperById.get(answer.getId());
+      paper.setUserAnswer(answer.getUserAnswer());
+      if (answer.getUserAnswer() == null) {
+        continue;
+      }
+      answered++;
+      Map<String, String> options = optionsByPaperId.get(answer.getId());
+      String userValue = options.get(answer.getUserAnswer());
+      String correctValue = options.get(paper.getCorrectAnswer());
+      if (Objects.equals(userValue, correctValue)) {
+        correct++;
+      }
     }
-    termTrainEntity.setAccuracy(accuracy);
-    termTrainEntity.setScore(score);
-    termTrainEntity.setErrorNumber(errorNum);
-    termTrainEntity.setCorrectNumber(correctNum);
 
-    //训练时长
-    long start = termTrainEntity.getStartTime().toEpochSecond(ZoneOffset.of("+8"));
-    long end = termTrainEntity.getEndTime().toEpochSecond(ZoneOffset.of("+8"));
-    termTrainEntity.setDuration((int) (end - start));
+    train.setStatus(PostMilitaryTermTrainStatusEnum.FINISH.getStatus());
+    train.setEndTime(LocalDateTime.now());
+    train.setCorrectNumber(correct);
+    train.setErrorNumber(answered - correct);
+    train.setAccuracy(answered == 0
+        ? BigDecimal.ZERO
+        : new BigDecimal(correct).divide(new BigDecimal(answered), 2, RoundingMode.HALF_UP)
+            .multiply(new BigDecimal(100)));
+    train.setScore(papers.isEmpty()
+        ? BigDecimal.ZERO
+        : new BigDecimal(correct).divide(new BigDecimal(papers.size()), 3, RoundingMode.HALF_UP)
+            .multiply(new BigDecimal(100)));
+    train.setDuration((int) (train.getEndTime().toEpochSecond(ZoneOffset.of("+8"))
+        - train.getStartTime().toEpochSecond(ZoneOffset.of("+8"))));
+    testPaperDao.save(papers);
+    return PojoUtils.convertOne(termTrainDao.save(train), PostMilitaryTermTrainVO.class);
+  }
 
-    //保存考题
-    List<PostMilitaryTermTrainTestPaperEntity> testPaperEntityList = testPaperMap.values().stream()
-        .flatMap(List::stream).toList();
-    testPaperDao.save(testPaperEntityList);
-    PostMilitaryTermTrainEntity save = termTrainDao.save(termTrainEntity);
+  private PostMilitaryTermTrainEntity ownedTrain(String id, String token, boolean lock) {
+    UserEntity user = userService.getUserByToken(token);
+    if (id == null || id.isBlank()) {
+      throw new IllegalArgumentException("训练ID不能为空");
+    }
+    PostMilitaryTermTrainEntity entity = (lock
+        ? termTrainDao.findByIdOptional(id, LockModeType.PESSIMISTIC_WRITE)
+        : termTrainDao.findByIdOptional(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到该训练"));
+    trainWriteAccess.requireTrainOwner(user.getId(), entity.getUserId(), "个人军语训练 " + id);
+    return entity;
+  }
 
-    return PojoUtils.convertOne(save, PostMilitaryTermTrainVO.class);
+  private Map<String, Map<String, String>> validateSubmission(
+      List<PostMilitaryTermTrainTestPaperEntity> submitted,
+      Map<String, PostMilitaryTermTrainTestPaperEntity> paperById) {
+    Set<String> ids = new HashSet<>();
+    Map<String, Map<String, String>> optionsByPaperId = new HashMap<>();
+    for (PostMilitaryTermTrainTestPaperEntity answer : submitted) {
+      if (answer == null || answer.getId() == null || answer.getId().isBlank()
+          || !ids.add(answer.getId()) || !paperById.containsKey(answer.getId())) {
+        throw new IllegalArgumentException("提交的题目无效或重复");
+      }
+      if (answer.getUserAnswer() == null) {
+        continue;
+      }
+      PostMilitaryTermTrainTestPaperEntity paper = paperById.get(answer.getId());
+      Map<String, String> options = parseOptions(paper);
+      String correctAnswer = paper.getCorrectAnswer();
+      if (correctAnswer == null || !options.containsKey(correctAnswer) || options.get(correctAnswer) == null
+          || !options.containsKey(answer.getUserAnswer()) || options.get(answer.getUserAnswer()) == null) {
+        throw new IllegalArgumentException("提交的答案无效");
+      }
+      optionsByPaperId.put(answer.getId(), options);
+    }
+    return optionsByPaperId;
+  }
+
+  private Map<String, String> parseOptions(PostMilitaryTermTrainTestPaperEntity paper) {
+    Map<String, String> options;
+    try {
+      options = JSONUtils.fromJson(paper.getOption(), new TypeToken<>() {});
+    } catch (RuntimeException exception) {
+      throw new IllegalArgumentException("题目选项无效", exception);
+    }
+    if (options == null || options.isEmpty()) {
+      throw new IllegalArgumentException("题目选项无效");
+    }
+    return options;
+  }
+
+  private boolean sameAnswers(List<PostMilitaryTermTrainTestPaperEntity> submitted,
+                              Map<String, PostMilitaryTermTrainTestPaperEntity> paperById) {
+    Map<String, String> submittedAnswers = new HashMap<>();
+    for (PostMilitaryTermTrainTestPaperEntity answer : submitted) {
+      submittedAnswers.put(answer.getId(), answer.getUserAnswer());
+    }
+    return paperById.entrySet().stream().allMatch(entry -> Objects.equals(
+        entry.getValue().getUserAnswer(), submittedAnswers.get(entry.getKey())));
+  }
+
+  private PostMilitaryTermTrainTestPaperEntity paperForView(
+      PostMilitaryTermTrainTestPaperEntity source, boolean completed) {
+    return PojoUtils.convertOne(source, PostMilitaryTermTrainTestPaperEntity.class, (original, copy) -> {
+      if (!completed) {
+        copy.setCorrectAnswer(null);
+      }
+    });
   }
 
   /**

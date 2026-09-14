@@ -44,7 +44,8 @@ public class PostMilitaryTermTrainController {
   @POST
   @Path("/add")
   @Operation(summary = "新增训练")
-  public Response<PostMilitaryTermTrainVO> add(PostMilitaryTermTrainAddDto dto, @RestHeader(BaseConstants.TOKEN) String token) {
+  public Response<PostMilitaryTermTrainVO> add(PostMilitaryTermTrainAddDto dto,
+                                               @RestHeader(BaseConstants.TOKEN) String token) {
     return ResponseResult.success(postMilitaryTermTrainService.add(dto, token));
   }
 
@@ -59,22 +60,25 @@ public class PostMilitaryTermTrainController {
   @POST
   @Path("/details")
   @Operation(summary = "详情（只传入Id）")
-  public Response<PostMilitaryTermTrainVO> details(PostMilitaryTermTrainVO vo) {
-    return ResponseResult.success(postMilitaryTermTrainService.details(vo));
+  public Response<PostMilitaryTermTrainVO> details(PostMilitaryTermTrainVO vo,
+                                                   @RestHeader(BaseConstants.TOKEN) String token) {
+    return ResponseResult.success(postMilitaryTermTrainService.details(vo, token));
   }
 
   @POST
   @Path("/begin")
   @Operation(summary = "开始训练（只传入ID）")
-  public Response<PostMilitaryTermTrainVO> begin(PostMilitaryTermTrainVO vo) {
-    return ResponseResult.success(postMilitaryTermTrainService.begin(vo.getId()));
+  public Response<PostMilitaryTermTrainVO> begin(PostMilitaryTermTrainVO vo,
+                                                 @RestHeader(BaseConstants.TOKEN) String token) {
+    return ResponseResult.success(postMilitaryTermTrainService.begin(vo.getId(), token));
   }
 
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<PostMilitaryTermTrainVO> finish(PostMilitaryTermTrainFinishDto dto) {
-    return ResponseResult.success(postMilitaryTermTrainService.finish(dto));
+  public Response<PostMilitaryTermTrainVO> finish(PostMilitaryTermTrainFinishDto dto,
+                                                  @RestHeader(BaseConstants.TOKEN) String token) {
+    return ResponseResult.success(postMilitaryTermTrainService.finish(dto, token));
   }
   @GET
   @Path(value = "delete")

@@ -1,13 +1,15 @@
-import {ref, onMounted, onUnmounted, watch, createVNode} from "vue";
-import {useRoute} from "vue-router"
-import {ExclamationCircleOutlined} from "@ant-design/icons-vue";
-import {message, Modal} from "ant-design-vue";
-import {getPostMilitaryTrainDetails, beginPostMilitaryTrain, finishPostMilitaryTrain} from "../../../../../../common/api/MilitaryTermApi.js";
-import {partTimeFormatInfo} from "../../../../../../common/utils/Utils";
-import {PubSub} from "../../../../../../common/utils/PubSub";
+import {ref, onMounted, onUnmounted, createVNode} from 'vue';
+import {useRoute} from 'vue-router';
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue';
+import {message, Modal} from 'ant-design-vue';
 import {
-  apiPostTrainGlobalRuleType
-} from '../../../../../../common/api/postWording'
+  getPostMilitaryTrainDetails,
+  beginPostMilitaryTrain,
+  finishPostMilitaryTrain
+} from '../../../../../../common/api/MilitaryTermApi.js';
+import {partTimeFormatInfo} from '../../../../../../common/utils/Utils.js';
+import {PubSub} from '../../../../../../common/utils/PubSub.js';
+import {apiPostTrainGlobalRuleType} from '../../../../../../common/api/postWording.js';
 
 export default function militaryTrain() {
   const trainTimeRef = ref(null);
@@ -17,185 +19,198 @@ export default function militaryTrain() {
   const currAnswer = ref(0);
   const resDuration = ref(0);
   const showResultModal = ref(false);
-  const gradeTypeList = ref([])
+  const gradeTypeList = ref([]);
 
-  PubSub.subscribe('send_examTrainPage', (e)=>{
+  PubSub.subscribe('send_examTrainPage', function () {
     if (militaryData.value.status === 1) {
       Modal.confirm({
         class: 'init_modal_style',
         content: '当前训练还未结束，是否结束训练？',
-        icon: () => createVNode(ExclamationCircleOutlined),
+        icon: function () {
+          return createVNode(ExclamationCircleOutlined);
+        },
         okType: 'danger',
-        okText: () => '结束',
-        cancelText: () => '取消',
+        okText: function () {
+          return '结束';
+        },
+        cancelText: function () {
+          return '取消';
+        },
         maskClosable: true,
-        onOk: () => {
-          endTrainInfo('go')
+        onOk: function () {
+          endTrainInfo('go');
         }
-      })
+      });
     } else {
       PubSub.publish('callback_closeExamTrainPage', true);
     }
   });
 
-  onMounted(() => {
+  onMounted(function () {
     if (route.query.id && route.query.id !== '') {
-      getTelegramTrainInfo()
+      getMilitaryTrainInfo();
     }
   });
 
-  onUnmounted(()=>{
-    PubSub.unsubscribe("send_examTrainPage");
+  onUnmounted(function () {
+    stopTrainTimer();
+    PubSub.unsubscribe('send_examTrainPage');
   });
 
-  /**
-   * 获取收报训练详情
-   */
-  const getTelegramTrainInfo = () => {
-    getPostMilitaryTrainDetails({id: route.query.id}).then(res => {
-      if (res.code === 200) {
-        for (let key in res.data) {
-          militaryData.value[key] = res.data[key];
+  function getMilitaryTrainInfo() {
+    getPostMilitaryTrainDetails({id: route.query.id}).then(function (res) {
+      if (res.code !== 200) {
+        message.error(res.message || '加载训练失败');
+        return;
+      }
+      const data = res.data || {};
+      Object.assign(militaryData.value, data);
+      const duration = data.duration || 0;
+      resDuration.value = partTimeFormatInfo(duration * 1000, 'number').replace(/：/g, ':');
+      getGradeTypeList({type: 1}, militaryData.value.accuracy);
+      const papers = Array.isArray(data.testPaperList) ? data.testPaperList : [];
+      papers.forEach(function (item, index) {
+        if (currAnswer.value < 0 && item.userAnswer === null) {
+          currAnswer.value = index;
+          changeAnimate();
         }
-        resDuration.value = partTimeFormatInfo(res.data.duration*1000, 'number');
-        resDuration.value = resDuration.value.replace(/：/g, ':');
-        getGradeTypeList({type:1},militaryData.value.accuracy)
-        militaryData.value.testPaperList.map((item,i) => {
-          if (currAnswer.value < 0 && item.userAnswer === null) {
-            currAnswer.value = i;
-            changeAnimate();
-          }
-        });
-        if(res.data.status === 1){
-          trainTime();
-        }
-        if(res.data.status === 2){
-          showResultModal.value = true;
-          trainTimeRef.value.autoSetTimeAdd(militaryData.value.duration)
+      });
+      if (data.status === 1) {
+        trainTime();
+      } else {
+        stopTrainTimer();
+      }
+      if (data.status === 2) {
+        showResultModal.value = true;
+        if (trainTimeRef.value) {
+          trainTimeRef.value.autoSetTimeAdd(duration);
         }
       }
-    })
-  };
-
-  //获取评论列表列表
-  const getGradeTypeList = (data,number) => {
-    const num = number ?? 0
-    apiPostTrainGlobalRuleType(data).then(res => {
-      const list = res.data ?? []
-      gradeTypeList.value = list.map(item => {
-        const obj = {
-          ...item,
-          start: Number(item.accuracy.split('~')[0]),
-          end: Number(item.accuracy.split('~')[1])
-        }
-        return obj
-      }).filter((item)=>{
-        return item.start< num && num< item.end
-      })
-    })
+    });
   }
 
-  /**
-   * 训练用时
-   */
-  const trainTime = ()=>{
-    trainTimer.value =  setInterval(()=>{
-      militaryData.value.duration++;
-      trainTimeRef.value.autoSetTimeAdd(militaryData.value.duration)
-    },1000);
-  };
+  function getGradeTypeList(data, number) {
+    const num = number ?? 0;
+    apiPostTrainGlobalRuleType(data).then(function (res) {
+      if (res.code !== 200) {
+        message.error(res.message || '加载评分规则失败');
+        return;
+      }
+      const list = res.data ?? [];
+      gradeTypeList.value = list.map(function (item) {
+        const bounds = item.accuracy.split('~');
+        return {
+          ...item,
+          start: Number(bounds[0]),
+          end: Number(bounds[1])
+        };
+      }).filter(function (item) {
+        return item.start < num && num < item.end;
+      });
+    });
+  }
 
-  /**
-   * 切换题目
-   * @param num
-   */
-  const changeAnswer = (num) => {
-    if ((currAnswer.value === 0 && num < 0) ||
-        (currAnswer.value === (militaryData.value.testPaperList.length - 1) && num > 0)) return false;
+  function stopTrainTimer() {
+    if (trainTimer.value !== null) {
+      clearInterval(trainTimer.value);
+      trainTimer.value = null;
+    }
+  }
+
+  function trainTime() {
+    stopTrainTimer();
+    trainTimer.value = setInterval(function () {
+      militaryData.value.duration = (militaryData.value.duration || 0) + 1;
+      if (trainTimeRef.value) {
+        trainTimeRef.value.autoSetTimeAdd(militaryData.value.duration);
+      }
+    }, 1000);
+  }
+
+  function changeAnswer(num) {
+    const papers = militaryData.value.testPaperList || [];
+    if ((currAnswer.value === 0 && num < 0)
+        || (currAnswer.value === papers.length - 1 && num > 0)) {
+      return false;
+    }
     currAnswer.value += num;
     changeAnimate();
-  };
-  /**
-   * 题目切换动画
-   */
-  const changeAnimate = () => {
-     anime({
-       targets:['.option'],
-       duration:1000,
-       keyframes:[
-         {rotateX:90,duration:200},
-         {rotateX:360,duration:200},
-         {rotateX:0,duration:0},
-       ]
-     })
-  };
+  }
 
-  /**
-   * 开始训练
-   */
-  const startTrainInfo = () => {
-    beginPostMilitaryTrain({
-      id: militaryData.value.id
-    }).then(res => {
-      if (res.code === 200) {
-        message.success('开始训练！');
-        militaryData.value.status = 1;
-        currAnswer.value = 0;
-        trainTime();
-        changeAnimate();
-      } else {
-        message.error(res.message);
+  function changeAnimate() {
+    anime({
+      targets: ['.option'],
+      duration: 1000,
+      keyframes: [
+        {rotateX: 90, duration: 200},
+        {rotateX: 360, duration: 200},
+        {rotateX: 0, duration: 0}
+      ]
+    });
+  }
+
+  function startTrainInfo() {
+    beginPostMilitaryTrain({id: militaryData.value.id}).then(function (res) {
+      if (res.code !== 200) {
+        message.error(res.message || '开始训练失败');
+        return;
       }
-    })
+      message.success('开始训练！');
+      militaryData.value.status = 1;
+      currAnswer.value = 0;
+      trainTime();
+      changeAnimate();
+    });
+  }
 
-  };
-
-  /**
-   * 开始答题
-   * @param answer
-   */
-  const questAnswer = (answer) => {
-    if (militaryData.value.status !== 1) return false;
-    militaryData.value.testPaperList[currAnswer.value].userAnswer = answer;
-    if (currAnswer.value < militaryData.value.testPaperList.length - 1) {
-      currAnswer.value ++;
+  function questAnswer(answer) {
+    const papers = militaryData.value.testPaperList || [];
+    if (militaryData.value.status !== 1 || !papers[currAnswer.value]) {
+      return false;
+    }
+    papers[currAnswer.value].userAnswer = answer;
+    if (currAnswer.value < papers.length - 1) {
+      currAnswer.value++;
       changeAnimate();
     }
-  };
+  }
 
-  /**
-   * 结束训练
-   * @param go
-   */
-  const endTrainInfo = (go) => {
-    clearInterval(trainTimer.value);
+  function endTrainInfo(go) {
+    const testPaperList = (militaryData.value.testPaperList || []).map(function (item) {
+      return {
+        id: item.id,
+        userAnswer: item.userAnswer
+      };
+    });
     finishPostMilitaryTrain({
       id: militaryData.value.id,
-      testPaperList: militaryData.value.testPaperList
-    }).then(res => {
-      if (res.code === 200) {
-        message.success('训练已结束！');
-        if (go === 'go') {
-          PubSub.publish('callback_closeExamTrainPage', true);
-        } else {
-          getTelegramTrainInfo()
-        }
-      } else {
-        message.error(res.message);
+      testPaperList
+    }).then(function (res) {
+      if (res.code !== 200) {
+        message.error(res.message || '训练结束失败');
+        return;
       }
-    })
-  };
+      stopTrainTimer();
+      message.success('训练已结束！');
+      if (go === 'go') {
+        PubSub.publish('callback_closeExamTrainPage', true);
+      } else {
+        getMilitaryTrainInfo();
+      }
+    });
+  }
 
   return {
-    militaryData, trainTimeRef, currAnswer, resDuration, showResultModal,
-    startTrainInfo, endTrainInfo, changeAnswer, questAnswer, changeAnimate,
+    militaryData,
+    trainTimeRef,
+    currAnswer,
+    resDuration,
+    showResultModal,
+    startTrainInfo,
+    endTrainInfo,
+    changeAnswer,
+    questAnswer,
+    changeAnimate,
     gradeTypeList
-  }
+  };
 }
-
-
-
-
-
-
-
