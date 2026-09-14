@@ -53,7 +53,7 @@ public class TickerTapeTrainDao extends BaseRepository<TickerTapeTrainEntity, St
   @Transactional
   public void goOn(
       String id) {
-    update("`status` = 1  where id = ?1", id);
+    update("`status` = 1,startTime = now() where id = ?1", id);
   }
 
   @Transactional

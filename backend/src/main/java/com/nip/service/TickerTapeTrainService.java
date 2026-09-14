@@ -132,22 +132,19 @@ public class TickerTapeTrainService {
     tickerTapeTrainDao.pause(param.getId(), param.getValidTime(), param.getMark(), param.getSchedule());
   }
   public void pause(TickerTapeTrainUpdateParam updateParam, String token) {
-    checkStatus(owned(updateParam.getId(), token));
-    tickerTapeTrainDao.pause(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(), updateParam.getSchedule());
+    TickerTapeTrainEntity entity = owned(updateParam.getId(), token);
+    checkStatus(entity);
+    tickerTapeTrainDao.pause(updateParam.getId(), String.valueOf(elapsedSeconds(entity)), updateParam.getMark(), updateParam.getSchedule());
   }
-
-  public void goOn(String id, String token) {
-    checkStatus(owned(id, token));
-    tickerTapeTrainDao.goOn(id);
-  }
-
   public void finish(TickerTapeTrainUpdateParam updateParam, String token) {
-    TickerTapeTrainEntity owned = owned(updateParam.getId(), token);
-    checkStatus(owned);
-    tickerTapeTrainDao.finish(updateParam.getId(), updateParam.getValidTime(), updateParam.getMark(), updateParam.getSchedule());
-    TickerTapeTrainEntity entity = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId())).orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
-    finishStatistical(entity);
+    TickerTapeTrainEntity entity = owned(updateParam.getId(), token);
+    checkStatus(entity);
+    tickerTapeTrainDao.finish(updateParam.getId(), String.valueOf(elapsedSeconds(entity)), updateParam.getMark(), updateParam.getSchedule());
+    TickerTapeTrainEntity saved = Optional.ofNullable(tickerTapeTrainDao.findById(updateParam.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到训练"));
+    finishStatistical(saved);
   }
+
 
   @Transactional
   public void saveBaseTrain(TickerTapeBaseTrainAddParam param, String token) {
@@ -234,9 +231,27 @@ public class TickerTapeTrainService {
     if (!Objects.equals(entity.getUserId(), user.getId())) throw new ForbiddenException("无权访问他人训练");
     return entity;
   }
+  public void goOn(String id, String token) {
+    TickerTapeTrainEntity entity = owned(id, token);
+    checkStatus(entity);
+    tickerTapeTrainDao.goOn(id);
+  }
 
   private void checkStatus(TickerTapeTrainEntity entity) {
-    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) throw new TerminalStateException("训练已结束");
+    if (Objects.equals(entity.getStatus(), TickerTapeTrainStatusEnum.FINISH.getCode())) {
+      throw new TerminalStateException("训练已结束");
+    }
+  }
+
+  private long elapsedSeconds(TickerTapeTrainEntity entity) {
+    long accumulated = 0;
+    try {
+      accumulated = entity.getValidTime() == null ? 0 : Long.parseLong(entity.getValidTime());
+    } catch (NumberFormatException ignored) {
+      throw new IllegalStateException("训练累计用时损坏");
+    }
+    if (entity.getStartTime() == null) return accumulated;
+    return accumulated + Math.max(0, java.time.Duration.between(entity.getStartTime(), LocalDateTime.now()).toSeconds());
   }
 
   @Transactional
