@@ -93,15 +93,22 @@ fn parse_faults(params: &Value) -> Result<Vec<Fault>, String> {
     Ok(parsed)
 }
 
-/// 按请求参数造时间轴；故障注入在这里统一落地
-pub fn build_timeline(params: &Value) -> Result<Timeline, String> {
+/// 按请求参数造时间轴；故障注入在这里统一落地。
+/// 返回每种故障实际注入的次数，供预览与日志如实呈现（勾了却是 0 次也要看得见）。
+pub fn build_timeline_with_faults(params: &Value) -> Result<(Timeline, Vec<(faults::Fault, usize)>), String> {
     let mut timeline = if params["key"].as_str().unwrap_or("hand") == "hand" {
         keying::hand_timeline(&hand_options(params)?)?
     } else {
         keying::electron_timeline(&electron_options(params)?)?
     };
-    faults::apply(&mut timeline, &parse_faults(params)?);
-    Ok(timeline)
+    let seed = number(params, "seed", 1.0) as u32;
+    let every = number(params, "faultEvery", faults::DEFAULT_EVERY).max(1.0);
+    let report = faults::apply(&mut timeline, &parse_faults(params)?, seed, every);
+    Ok((timeline, report))
+}
+
+pub fn build_timeline(params: &Value) -> Result<Timeline, String> {
+    build_timeline_with_faults(params).map(|(timeline, _)| timeline)
 }
 
 impl Console {
@@ -162,8 +169,8 @@ impl Console {
                     Err(error) => json!({"ok": false, "error": error}),
                 }
             }
-            "/api/preview" => match build_timeline(body) {
-                Ok(timeline) => {
+            "/api/preview" => match build_timeline_with_faults(body) {
+                Ok((timeline, injected)) => {
                     let chunks = sinks::to_bytes(&timeline);
                     let head: Vec<String> = chunks.iter().take(12).map(|chunk| sinks::hex(&chunk.bytes)).collect();
                     // 纸带用：按下/抬起的时刻对，页面据此把点划画出来。
@@ -197,15 +204,32 @@ impl Console {
                         "captureWindow": (keying::capture_window(&timeline) * 1000.0).round() / 1000.0,
                         "marks": marks,
                         "marksTruncated": timeline.events.len() > MARK_LIMIT,
+                        "faults": injected
+                            .iter()
+                            .map(|(fault, count)| json!({"name": fault.label(), "count": count}))
+                            .collect::<Vec<_>>(),
                         "head": head
                     })
                 }
                 Err(error) => json!({"ok": false, "error": error}),
             },
-            "/api/send" => match build_timeline(body) {
-                Ok(timeline) => {
+            "/api/send" => match build_timeline_with_faults(body) {
+                Ok((timeline, injected)) => {
                     let speed = number(body, "speed", 1.0).max(0.05);
                     let text = text_of(body, "text", "");
+                    if !injected.is_empty() {
+                        self.log(
+                            "warn",
+                            format!(
+                                "本次带故障注入：{}",
+                                injected
+                                    .iter()
+                                    .map(|(fault, count)| format!("{} ×{count}", fault.label()))
+                                    .collect::<Vec<_>>()
+                                    .join(" · ")
+                            ),
+                        );
+                    }
                     match self.serial.send(&timeline, speed, &text) {
                         Ok(state) => json!({"ok": true, "state": state}),
                         Err(error) => json!({"ok": false, "error": error}),

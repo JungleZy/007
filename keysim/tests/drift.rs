@@ -153,7 +153,7 @@ fn micro_press_threshold_matches_use_traffic() {
         ..Default::default()
     })
     .expect("手键时间轴应能生成");
-    faults::apply(&mut timeline, &[faults::Fault::MicroPress]);
+    faults::apply(&mut timeline, &[faults::Fault::MicroPress], 7, faults::DEFAULT_EVERY);
     let mut shortest = f64::MAX;
     let mut down: Option<f64> = None;
     for event in &timeline.events {
