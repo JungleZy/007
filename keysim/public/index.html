@@ -59,11 +59,14 @@
       <button id="btnClose" class="danger">关闭虚拟串口</button>
     </div>
     <table style="margin-bottom:10px">
+      <tr><td>⓿ 内核级虚拟串口</td><td id="kernelState">--</td></tr>
+      <tr><td>被测程序应选</td><td id="kernelSelectable">--</td></tr>
       <tr><td>① 系统串口设备</td><td id="devPath">--</td></tr>
       <tr><td>设备链接</td><td id="devLinks">--</td></tr>
       <tr><td>② 桌面桥接</td><td id="bridgeUrl">ws://127.0.0.1:18765/echo</td></tr>
       <tr><td>③ 浏览器注入</td><td id="injectCount">0 个页面</td></tr>
     </table>
+    <p class="hint" id="kernelHint">⓿ 只有内核级后端能让浏览器的串口选择框与桌面串口列表"直接选到"这个口；不可用时下面会说明缺什么。</p>
     <p class="hint" id="devHint">① 开启后是系统里真实存在的字符设备，任何按路径打开串口的程序（串口调试助手、pyserial、minicom、cat）都能读到字节流。</p>
     <div class="row">
       <button id="btnLink">接入系统串口列表</button>
@@ -199,6 +202,13 @@ const applyState = state => {
   $('bridgeClients').textContent = state.bridgeClients
   $('injectClients').textContent = state.injectClients
   $('bridgeUrl').textContent = state.bridgeUrl
+  const kernel = state.kernel || {}
+  $('kernelState').textContent = kernel.title || '未启用'
+  $('kernelSelectable').textContent = kernel.selectable || '--'
+  if (!kernel.id && Array.isArray(kernel.backends)) {
+    const lines = kernel.backends.map(item => `${item.title}：${item.available ? '可用' : item.reason}${item.install ? '（' + item.install + '）' : ''}`)
+    if (lines.length) $('kernelHint').textContent = '⓿ 本机没有可用的内核级后端：' + lines.join('；')
+  }
   const device = state.device || {}
   $('devPath').textContent = device.path || (device.available === false ? '不可用' : '未开启')
   $('devLinks').textContent = (device.links && device.links.length) ? device.links.join(' , ') : '--'

@@ -14,8 +14,12 @@ import {startBridge} from './sinks/bridge.mjs'
 import {electronUploadPayload, handUploadPayload} from './sinks/payload.mjs'
 import {randomMessage} from './random.mjs'
 import {startServer} from './server.mjs'
+import {probeKernelBackends} from './providers/kernel.mjs'
+import {probeDevice, probeElevation} from './providers/device.mjs'
+import {probeBrowser} from './providers/browser.mjs'
 
 const USAGE = `用法：
+  keysim doctor                                   体检：本机能提供哪种虚拟串口，缺什么装什么
   keysim serve    [--http 18700] [--port 18765]   打开网页控制台（虚拟串口开关 / 随机或手输报文）
   keysim hand     --text "ABCD EFGH" [选项]
   keysim electron --text "ABCD EFGH" [选项]
@@ -111,7 +115,22 @@ const emit = payload => {
   else process.stdout.write(`${text}\n`)
 }
 
-if (command === 'serve') {
+if (command === 'doctor') {
+  const [kernelBackends, device, elevation, browser] = await Promise.all([
+    probeKernelBackends(), probeDevice(), probeElevation(), probeBrowser()
+  ])
+  const mark = ok => ok ? '可用' : '不可用'
+  process.stdout.write('内核级虚拟串口（浏览器选择框与桌面串口列表都能直接选中）\n')
+  for (const backend of kernelBackends) {
+    process.stdout.write(`  [${mark(backend.available)}] ${backend.title}\n`)
+    if (backend.available) process.stdout.write(`            被测程序选这个口：${backend.theirs}\n`)
+    if (backend.reason) process.stdout.write(`            原因：${backend.reason}\n`)
+    if (backend.install) process.stdout.write(`            装法：${backend.install}\n`)
+  }
+  process.stdout.write(`\nPTY 设备（任何按路径打开串口的程序可用，浏览器选择框看不到）\n  [${mark(device.available)}]${device.reason ? ' ' + device.reason : ''}\n`)
+  process.stdout.write(`系统串口列表链接（/dev/ttyUSBn，需要提权）\n  [${mark(elevation.available)}]${elevation.reason ? ' ' + elevation.reason : ''}\n`)
+  process.stdout.write(`一键拉起被测页面（Web 模式的等效方案）\n  [${mark(browser.available)}]${browser.reason ? ' ' + browser.reason : ''}\n`)
+} else if (command === 'serve') {
   const server = await startServer({
     port: number(values.http, 18700),
     bridgePort: number(values.port, 18765),

@@ -10,6 +10,8 @@
  */
 import {startBridge} from './sinks/bridge.mjs'
 import {DEFAULT_LINKS, linkIntoSystem, openDevice, probeDevice, probeElevation, SYSTEM_LINK, unlinkFromSystem} from './providers/device.mjs'
+import {probeKernelBackends, startKernelSerial} from './providers/kernel.mjs'
+import {open as openFile} from 'node:fs/promises'
 import {toBridgeMessages} from './sinks/frames.mjs'
 import {toByteStream} from './sinks/bytes.mjs'
 
@@ -20,12 +22,22 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
   let deviceProbe = null
   let systemLinked = null
   let elevation = null
+  let kernel = null          // 内核级后端（浏览器/桌面都能直接选到的那种）
+  let kernelHandle = null    // 我们写入的那一端
+  let kernelBackends = null
   let replay = null
 
   const emit = (type, payload = {}) => onEvent({type, at: Date.now(), ...payload})
 
   const state = () => ({
     open: bridge !== null,
+    kernel: {
+      id: kernel ? kernel.id : null,
+      title: kernel ? kernel.title : null,
+      /** 被测程序（浏览器选择框 / 桌面串口列表）应该选的那个口 */
+      selectable: kernel ? kernel.theirs : null,
+      backends: kernelBackends
+    },
     device: {
       path: device ? device.path : null,
       links: device ? device.links : [],
@@ -61,7 +73,8 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     async probe() {
       deviceProbe = await probeDevice()
       elevation = await probeElevation()
-      return {device: deviceProbe, elevation}
+      kernelBackends = await probeKernelBackends()
+      return {device: deviceProbe, elevation, kernel: kernelBackends}
     },
     /** 把设备接进系统串口列表：root 直接建链接，否则弹一次系统授权框。 */
     async linkSystem(target = SYSTEM_LINK) {
@@ -87,6 +100,25 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     async open() {
       if (bridge) return state()
       // 真设备优先：开出来就是系统里的一个字符设备，任何串口客户端都能打开
+      // 先试内核级：成功的话被测程序能在浏览器/桌面的串口列表里直接选中它
+      kernelBackends = await probeKernelBackends()
+      const started = await startKernelSerial()
+      if (started.id) {
+        kernel = started
+        try {
+          kernelHandle = await openFile(started.ours, 'r+')
+          emit('log', {level: 'ok', message: `内核级虚拟串口已就绪（${started.title}）：被测程序请选 ${started.theirs}`})
+        } catch (error) {
+          kernelHandle = null
+          kernel = null
+          await started.stop().catch(() => {})
+          emit('log', {level: 'warn', message: `内核级虚拟串口打开失败，退回 PTY：${error.message}`})
+        }
+      } else {
+        const why = started.attempts.map(item => `${item.id}: ${item.error}`).join('；')
+        emit('log', {level: 'info', message: `没有可用的内核级虚拟串口后端（${why}），使用 PTY 设备；浏览器选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」`})
+      }
+
       deviceProbe = await probeDevice()
       elevation = await probeElevation()
       if (deviceProbe.available) {
@@ -121,6 +153,12 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
     },
     async close() {
       await this.stop()
+      if (kernelHandle) { await kernelHandle.close().catch(() => {}); kernelHandle = null }
+      if (kernel) {
+        const result = await kernel.stop().catch(error => ({ok: false, error: error.message}))
+        emit('log', {level: result.ok ? 'warn' : 'warn', message: result.ok ? '内核级虚拟串口已移除' : `移除内核级虚拟串口失败：${result.error}`})
+        kernel = null
+      }
       if (systemLinked) await unlinkFromSystem(device ? device.path : null, systemLinked).catch(() => {})
       systemLinked = null
       if (device) {
@@ -171,6 +209,7 @@ export function createVirtualSerial({bridgePort = 18765, deviceLinks = DEFAULT_L
           while (replay.sent < items.length && items[replay.sent].at / speed <= elapsed + 1) {
             const item = items[replay.sent++]
             bridge.broadcast(item.text)
+            if (kernelHandle) kernelHandle.write(Buffer.from(item.bytes)).catch(() => {})
             if (device) device.write(item.bytes)
             for (const socket of injectClients) if (socket.writable) socket.write(binaryFrame(item.bytes))
           }
