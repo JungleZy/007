@@ -8,7 +8,7 @@
 | [`bw-frontend/`](bw-frontend/) | Electron 桌面外壳（主进程、本地 HTTP 服务、串口桥接、授权校验） | [`bw-frontend/README.md`](bw-frontend/README.md) |
 | [`bw-frontend/frontend/`](bw-frontend/frontend/) | Vue 3.5 + Vite 4 前端页面工程 | [`bw-frontend/frontend/README.md`](bw-frontend/frontend/README.md) |
 
-- 仓库：`JungleZy/007`；当前发布版本 `backend/pom.xml` = `1.1.0`
+- 仓库：`JungleZy/007`；当前发布版本 `backend/pom.xml` = `3.1.1`
 - 面向 AI 编码代理的命令、约定与红线：[`AGENTS.md`](AGENTS.md)（含**提交约定**：完成一个任务就提交，不攒批）
 
 ---
@@ -90,13 +90,14 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 
 | 项 | 状态 |
 |---|---|
-| 后端测试基线 | **401 测试 / 94 suite 全绿**（`./mvnw -B clean verify`，需 Docker；2026-09-12）|
-| 前端测试基线 | `npm run test` **24/24**、`npm run build` 成功 |
+| 后端测试基线 | 历史执行记录见对应评审；当前状态以最新复核及后续干净验证为准，勿据此推断新的测试总数 |
+| 前端测试基线 | 历史执行记录见对应评审；当前状态以最新复核及后续干净验证为准，勿据此推断新的测试总数 |
 | 后端单侧整改（2026-09-07 轮，34 条 P1）| 已完成，4 项偏离已于 2026-09-08 闭合（`docs/plans/archive/2026-09-07-fix-plan.md`）|
 | 跨栈整改（2026-09-08 联合评审）| 已闭环（`docs/plans/2026-09-08-joint-fix-plan.md`）|
 | 客户报障 12 条整改（2026-09-10）| 六个训练域已落地；仅 T17 现场交付未完成（`docs/plans/2026-09-10-customer-issue-fix-plan.md`）|
-| **全项目评审整改（2026-09-12，48 条）** | **已执行** —— 4 条 P0 + 11 条 P1 全部处置，B1–B5/B7 共 32 个提交；执行记录见 `docs/reviews/2026-09-12-full-project-review.md` §6.2 |
-| 已知未收口项 | G4 可信证书链、真实训练房间的设备授权环境验收（均为外部前置）；P2/P3 长尾与 `docs/reviews/2026-09-12-full-project-review.md` §7 的「需产品确认」条目 |
+| **全项目评审整改（2026-09-12，48 条）** | **历史执行基线** —— 执行记录保留在 `docs/reviews/2026-09-12-full-project-review.md`；当前闭环与外部前置以最新复核为准 |
+| **当前状态复核（2026-09-12）** | **仓内整改已闭合** —— 441/94 后端、30/30 前端、17迁移双快照；可信证书、Windows/ARM64、硬件和现场仍为外部前置 |
+| 已知未收口项 | G4 可信证书链、Windows/ARM64 native CI、桌面 native DB 凭据 provisioning、真实硬件和客户现场签收 |
 
 本轮已落地的关键安全与契约边界：训练同步端点不再回传会话凭据；非 free controller 全部有类级 `@JWT`（架构测试守卫）；管理写端点有 `@RequireAdmin`，授权拒绝统一 `code:207`；业务终态用 `code:208`；token 为不透明随机串、只从请求头读、DB 存哈希；WebSocket 握手校验凭据并覆盖路径 `uid`；六个训练域 + 组训数据报域的码速/用时一律服务端从原始采集区间重算；桌面渲染进程启用 `contextIsolation` + preload 白名单，内嵌文件服务只监听 127.0.0.1 且路径约束在资源根内。
 
@@ -107,11 +108,8 @@ CI 的 `run` 步骤统一 `working-directory: backend`；`upload-artifact` 的 `
 | 主题 | 路径 |
 |---|---|
 | **文档地图（先看这个）** | [`docs/README.md`](docs/README.md) |
-| **当前全项目评审（唯一入口）** | [`docs/reviews/2026-09-12-full-project-review.md`](docs/reviews/2026-09-12-full-project-review.md) |
-| 跨栈契约详细证据（历史，仍有效） | [`docs/reviews/2026-09-08-joint-frontend-backend-review.md`](docs/reviews/2026-09-08-joint-frontend-backend-review.md) |
-| 上一轮全项目评审（已被取代） | [`docs/reviews/2026-09-08-full-project-review.md`](docs/reviews/2026-09-08-full-project-review.md) |
-| 跨栈修复 spec | [`docs/specs/2026-09-08-joint-fix-spec.md`](docs/specs/2026-09-08-joint-fix-spec.md) |
-| 历史评审证据 | [`docs/reviews/archive/`](docs/reviews/archive/) |
-| 后端整改规格 / 计划 | `docs/specs/`、`docs/plans/` |
+| **最新当前状态复核** | [`docs/reviews/2026-09-12-current-state-review.md`](docs/reviews/2026-09-12-current-state-review.md) |
+| 当前复核整改规格 / 计划 | [`docs/specs/2026-09-12-current-state-fix-spec.md`](docs/specs/2026-09-12-current-state-fix-spec.md)、[`docs/plans/2026-09-12-current-state-fix-plan.md`](docs/plans/2026-09-12-current-state-fix-plan.md) |
+| 历史全项目评审（48 条基线） | [`docs/reviews/2026-09-12-full-project-review.md`](docs/reviews/2026-09-12-full-project-review.md) |
 | 数据库快照与迁移脚本 | `backend/database/`、`backend/database/migrations/` |
 | 迁移演练证据 | `backend/database/rehearsal/` |

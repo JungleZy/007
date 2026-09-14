@@ -78,6 +78,9 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-01-general-telex-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-02-post-telex-due-index.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-04-comprehensive-key-authority.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-05-radio-study-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-06-entering-accuracy-capacity.sql"
 )
 
 for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}"; do
@@ -242,6 +245,10 @@ rehearse() {
   # 到期扫描支撑索引：列序即 findDueIds 的 (等值, 范围)，错序会让 order by 回落 filesort。
   assert_eq "[$label] exact due-scan index idx_post_telex_due" "status,deadline" \
     "$(mysql_scalar "$cname" "select group_concat(column_name order by seq_in_index) from information_schema.statistics where table_schema=database() and table_name='t_post_telex_pat_train' and index_name='idx_post_telex_due'")"
+  assert_eq "[$label] personal entering accepts full accuracy" "100" \
+    "$(mysql_scalar "$cname" "START TRANSACTION; SET @accuracy_id=UUID(); INSERT INTO t_post_entering_exercise(id,accuracy) VALUES(@accuracy_id,100); SELECT accuracy FROM t_post_entering_exercise WHERE id=@accuracy_id; ROLLBACK;")"
+  assert_eq "[$label] legacy comprehensive rows stay unversioned" "0" \
+    "$(mysql_scalar "$cname" "select count(*) from t_telegraph_key_pat_synthetical_train where protocol_version is not null")"
   for legacy_table in general_ticker_pat general_key_pat t_post_telegram_train t_post_telegraph_key_pat_train t_post_telex_pat_train; do
     assert_eq "[$label] historical $legacy_table is not relabeled as new capture" "0" \
       "$(mysql_scalar "$cname" "select count(*) from $legacy_table where protocol_version<>0 or protocol_version is null")"

@@ -2,7 +2,7 @@
 
 全仓文字文档统一存放在 `docs/`。评审资料采用“当前入口 + 历史归档”结构：
 
-- `docs/reviews/2026-09-12-full-project-review.md`：**当前唯一的全项目评审入口**（2026-09-12 基线，48 条发现 / P0 4 条），覆盖前后端、数据库、交付形态、测试与文档一致性。**其 P0/P1 已全部处置**，执行记录见该文 §6.2。
+- `docs/reviews/2026-09-12-current-state-review.md`：**最新的当前状态复核/收口入口**。复核确认上一轮 48 条评审只是历史基线（当前开放项以本复核为准），当前尚不满足“全项目修复完成”；新增整改规格与计划见 `docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。
 - `docs/reviews/2026-09-10-customer-issue-analysis.md`：客户报障 12 条的根因分析与取证，是本轮整改的事实基础。
 - `docs/reviews/2026-09-08-full-project-review.md`：上一轮全项目评审，**降为历史证据**（其 216 测试基线等数字已过期，勿作为当前状态依据）。
 - `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：跨栈契约的详细历史证据，供修改跨栈接口前查阅。
@@ -17,11 +17,10 @@
 
 | 目的 | 入口 |
 |---|---|
-| 了解当前全项目状态 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) |
-| **发布这一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
+| 了解当前全项目状态 | [`reviews/2026-09-12-current-state-review.md`](reviews/2026-09-12-current-state-review.md) |
+| **发布上一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
-| 承接当前整改任务 | [`specs/2026-09-12-review-fix-spec.md`](specs/2026-09-12-review-fix-spec.md) + [`plans/2026-09-12-review-fix-plan.md`](plans/2026-09-12-review-fix-plan.md)（B1–B5/B7 已执行，见评审 §6.2） |
-| P2/P3 收尾（已执行） | [`specs/2026-09-12-p2p3-closure-spec.md`](specs/2026-09-12-p2p3-closure-spec.md) + [`plans/2026-09-12-p2p3-closure-plan.md`](plans/2026-09-12-p2p3-closure-plan.md)（见评审 §6.4） |
+| 承接当前复核整改任务 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
 | 修改跨栈契约 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) §5.5 + [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) |
 | 会话与口令协议迁移 | [`plans/2026-09-09-password-session-migration-plan.md`](plans/2026-09-09-password-session-migration-plan.md) |
@@ -36,16 +35,13 @@
 
 ### 全项目综合评审
 
-[`2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) 是当前 HEAD（`0efbdf1`）的汇总文档，包含：
+[`2026-09-12-current-state-review.md`](reviews/2026-09-12-current-state-review.md) 是最新的当前状态复核，覆盖上一轮整改后的代码、运行面与文档一致性。它确认 2026-09-12 全项目评审的 48 条发现是**历史基线**，已被当前复核对当前开放项的判断取代，但保留作历史证据：
 
-- 48 条发现（P0 4 / P1 11 / P2 24 / P3 9）与六个根因簇；
-- 后端授权边界、凭据协议、评分采集、并发与结算结论；
-- 组训数据报/电传域未纳入上一轮迁移的证据与二选一处置（已选「修复」）；
-- 桌面交付形态（内嵌文件服务、渲染进程安全特性、随包地址、CI 缺口）；
-- 测试与文档一致性（`%test` 调度器竞态、AGENTS.md 过期断言）；
-- §5 的已核实正确点清单（避免重复排查）、§6 整改批次、**§6.1/§6.2 两份执行记录（B6 与 B1–B5/B7，含提交号与运行证据）**、§7 待运行验证事项。
+- 当前复核确认上一轮整改在仓内已闭环；最终本地证据为后端441/94、前端30/30、17脚本双快照，未验证项只在外部前置中保留。
+- 当前 WS 实际为7个端点（6个带身份端点 + 匿名 `/status`）；`webSecurity:false` 是明确延期项，等待 `app://` 改造，不得写成已恢复。
+- 上一轮 [`2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) 保留48条发现、执行记录与历史证据，不作为当前开放项清单。
 
-整改后基线：后端 401 测试 / 94 suite 全绿、前端 24/24 + build 成功、迁移演练双快照全绿。
+整改规格与计划：[`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md)。
 
 上一轮 [`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) 仅作历史对照，其测试基线与 MyISAM 等数字已过期。
 

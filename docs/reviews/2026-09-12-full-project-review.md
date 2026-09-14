@@ -6,7 +6,7 @@
 - **验证基线**：`cd backend && ./mvnw -B clean verify` → **316 测试 / 74 suite，0 失败 0 错误 0 跳过**（2026-09-12，2 分 36 秒）；前端 `npm run build` 成功
 - **整改后基线**：B1–B5/B7 共 32 个提交（`e7b5477..0efbdf1`）+ 计划回写核验补做 5 个（`23cafc9..f9f97bd`）+ P2/P3 收尾 8 个（`654187a..1fff2c8`）；后端 **401 测试 / 94 suite 全绿**、前端 `npm run test` 24/24 + `build` 成功、迁移演练双快照全绿。详见 §6.2（执行记录）、§6.3（逐条核验与补做）与 §6.4（P2/P3 收尾）
 - **评审方式**：8 路并行只读评审队（评分采集 / 数据与迁移 / 安全授权 / 并发与 WS / 跨栈契约 / 前端 / 交付形态 / 测试与文档），逐条要求根相对 `path:line` 取证；全部 P0/P1 由主评审独立复核，复核结论与纠正记录见 §9
-- **本文定位**：**替代 `docs/reviews/2026-09-08-full-project-review.md` 成为当前唯一全项目评审入口**。2026-09-08 评审降为历史证据（其 216 测试基线等数字已过期）
+- **本文定位**：保留为 2026-09-12 全项目评审的**历史基线与执行证据**；最新当前状态与开放项以 `docs/reviews/2026-09-12-current-state-review.md` 为准。此前替代 `docs/reviews/2026-09-08-full-project-review.md` 的历史关系仍保留，不应将本文当作当前开放项清单。
 - **关联文档**：客户报障分析 `docs/reviews/2026-09-10-customer-issue-analysis.md`；本轮规格 `docs/specs/2026-09-10-customer-issue-fix-spec.md`；本轮计划 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付仍未完成）
 
 ## 0. 总体结论
@@ -103,7 +103,7 @@ GET /api/generalKeyPat/getTrainInfoBatch
 |---|---|---|
 | **SEC-04** | token = `AES/ECB(账号-明文口令-deviceId)`，密钥硬编码、**永不过期** | `backend/src/main/java/com/nip/service/UserService.java:452`；`backend/src/main/java/com/nip/common/utils/AESUtil.java:20,30` |
 | **SEC-05** | `importTrainInfo(Batch)` 无授权，直接把客户端 `UserSyncDto`（含 token/deviceId/password/status）落库建号 | `backend/src/main/java/com/nip/controller/general/GeneralKeyPatController.java:152-173`；`GeneralKeyPatService.java:1073-1095` |
-| **SEC-06** | 全部 **8** 个 WebSocket 端点握手零鉴权；仿真端点把无房间成员行的连接合成为「组训人员」 | `backend/src/main/java/com/nip/ws/WebSocketService.java:32-60`；`WebSocketSimulationService.java:70-72` |
+| **SEC-06** | 全部 **7** 个 WebSocket 端点握手零鉴权；仿真端点把无房间成员行的连接合成为「组训人员」 | `backend/src/main/java/com/nip/ws/WebSocketService.java:32-60`；`WebSocketSimulationService.java:70-72` |
 | **SEC-07** | `@RequireAdmin` 仅覆盖 **6** 个 controller；评分规则与主数据写端点仍只有 `@JWT` | `backend/src/main/java/com/nip/controller/GradingRuleController.java:51-77`；`DeviceScoringRuleController.java:39-53` |
 | **SEC-08** | `getAllUser` 的门禁被 5 个同类端点旁路，全量用户 PII（身份证号）对任意学员开放；`findAllUser` 存在 REGEXP 注入 | `backend/src/main/java/com/nip/controller/UserController.java:97-132`；`UserService.java:593-601`；`dao/UserDao.java:93-107` |
 | **SEC-09** | 理论考试写端点按请求体 `userId` 定位记录：可改他人答卷、提前锁死他人考试；自测结算采信客户端分数 | `backend/src/main/java/com/nip/controller/TheoryKnowledgeExamController.java:102-119`；`service/TheoryKnowledgeExamService.java:178-204` |
@@ -132,7 +132,7 @@ GET /api/generalKeyPat/getTrainInfoBatch
 | ID | 问题 | 证据 |
 |---|---|---|
 | **DELIVERY-01** | 随包 `bin/nip.db` 把桌面后端地址钉死在开发机 `10.10.0.117` | `git show HEAD:bw-frontend/bin/nip.db` 第 2 行 = `{"_id":2,"text":{"dataUrl":{"url":"10.10.0.117","port":"18001"},...}}`（主评审直接核实提交内容）；`bw-frontend/electron/core/index.js:29-46` 仅在 `_id:2` **缺失**时写 localhost 默认值，随包文件已含该行故默认值被跳过；`bw-frontend/package.json:33-35` `extraFiles: ["./bin"]` 原样随包 |
-| **DELIVERY-03** | 渲染进程安全特性全部关闭 + 全局忽略证书错误 | `bw-frontend/electron/index.js:55-58`：`nodeIntegration: true`、`contextIsolation: false`、`webSecurity: false`；`bw-frontend/main.js:9`：`appendSwitch('--ignore-certificate-errors','true')` |
+| **DELIVERY-03** | 渲染进程安全特性部分关闭；`webSecurity:false` 为明确延期项，等待 `app://` 改造，不应写成已恢复 | `bw-frontend/electron/index.js:55-58`：`nodeIntegration: true`、`contextIsolation: false`、`webSecurity: false`；`bw-frontend/main.js:9`：`appendSwitch('--ignore-certificate-errors','true')` |
 
 `DELIVERY-01` 后果：客户开箱后所有业务 API 发往开发机，本地 `localhost:18001` 后端被旁路 —— 该主机不可达则应用整体不可用；若恰好可达则数据发往错误主机。
 `DELIVERY-03` 后果：系统内以富文本/`v-html` 渲染用户可编辑内容（如理论知识 `content`），任一注入点即等价宿主机任意代码执行；`--ignore-certificate-errors` 使 HTTPS 部署的 TLS 校验失效（可被 MITM），与 §8 记录的 G4「可信证书」门禁直接冲突。
@@ -225,7 +225,7 @@ GET /api/generalKeyPat/getTrainInfoBatch
 
 ### 5.2 并发与 WebSocket
 
-- **红线 3 残留面 = 0**：8 个端点的会话/房间态全部挂 `static ConcurrentHashMap`，无实例会话字段（`ws/WebSocketService.java:47` 等）。
+- **红线 3 残留面 = 0**：7 个端点的会话/房间态全部挂 `static ConcurrentHashMap`，无实例会话字段（`ws/WebSocketService.java:47` 等）；其中 6 个为带身份端点，另有匿名 `/status`。
 - 三条结算路径（`finish`、教师结束、`@Scheduled` 兜底）统一 `PESSIMISTIC_WRITE` 行锁 + 锁内状态复检，**行锁为 DB 级，跨实例有效**：`general/GeneralTickerPatService.java:512-535,678-693`。
 - `AFTER_SUCCESS` 观察者在提交后触发，`send` 内吞单点异常不断广播，通知仅作触发不携数据故无脏读：`service/simulation/SimulationResultNotifier.java:36-51`。
 - 成员集合为 `CopyOnWriteArrayList`，房间生命周期用 `compute/computeIfPresent` 原子改 map，断连摘除不泄漏：`ws/service/simulation/SimulationRoomLifecycle.java:17-60`。
@@ -282,7 +282,7 @@ GET /api/generalKeyPat/getTrainInfoBatch
 | **B2 授权层收口** ✅**已执行（2026-09-12）** | `@RequireAdmin` 扩到评分规则/主数据/题库写端点；训练 `delete`/`updateStatus` 改属主或管理员判定（复用 `readableMember` 同构的 `writableTrain`）；理论考试与 free 统计端点改 token 推导身份并删除请求体 `userId`；补架构测试防回归 | SEC-03/07/08/09/10、SCORE-02 | 跨栈契约改动，需同步 `common/api/*.js`（红线 5） |
 | **B3 凭据协议** ✅**已执行（2026-09-12，SEC-12 守卫项撤销）** | token 改 `SecureRandom` 不透明串（与口令解耦）+ DB 存哈希 + `issuedAt/expiresAt` + 移除 query-string 回退；WS 握手校验 token/deviceId 并以校验结果覆盖路径 `uid`；`%prod` 口令改环境变量注入并降权 | SEC-04/05/06/12 | 依赖 B2；需前端 `http/index.js` 同版本发布，接 `docs/plans/2026-09-09-password-session-migration-plan.md` |
 | **B4 组训数据报域** ✅**已执行（2026-09-12，选「修复」而非下线）** | 纳入采集契约重算码率/用时 + 冻结满分 + 行锁 + 事务后通知 + token 主体；前端 `datagramZuXun` 同步 `telexZuXun` 修复。**或**整域下线 | SCORE-01/02/03、CONTRACT-01、FE-02 | 需先确认该域是否启用（§7） |
-| **B5 桌面交付** ✅**已执行（2026-09-12，证书门禁仍为外部前置）** | `bin/nip.db` 发布态归一为 localhost；`contextIsolation:true` + preload 白名单、恢复 `webSecurity`、去 `--ignore-certificate-errors`；桌面包纳入 CI 并出 manifest；release 断言 tag == `pom.version`；串口选择器三处修复 | DELIVERY-01/03/04/05/06/07 | B5 的证书项是 G4「可信证书」门禁前提 |
+| **B5 桌面交付** ✅**已执行（2026-09-12，证书门禁仍为外部前置）** | `bin/nip.db` 发布态归一为 localhost；`contextIsolation:true` + preload 白名单、移除 `--ignore-certificate-errors`；`webSecurity:false` 明确延期，等待 `app://` 改造；桌面包纳入 CI 并出 manifest；release 断言 tag == `pom.version`；串口选择器三处修复 | DELIVERY-01/03/04/05/06/07 | B5 的证书项是 G4「可信证书」门禁前提 |
 | **B6 测试与文档** ✅**已执行（2026-09-12）** | 见下方执行记录 | TESTDOC-01…12 | 已完成 |
 | **B7 长尾** ✅**已执行（2026-09-12）** | 电传倒计时补索引；`GeneralSettlementRecovery` 扫描兜底；裸 `firstResult()` 分批收敛（优先鉴权与结算写路径）；迁移序号唯一化 + 回滚 runbook；死代码与热路径日志清理 | DATA-01…07、CONC-01、SEC-11、FE-01/03 | 无 |
 
@@ -348,7 +348,7 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 | 发现 | 处置 | 提交 |
 |---|---|---|
 | DELIVERY-01 | 随包 `bin/nip.db` 归一为发布态默认（localhost:18001 / 127.0.0.1:8000） | `e1d9cdd` |
-| DELIVERY-03/04 | 渲染进程启用 `contextIsolation`、preload 白名单桥、恢复 `webSecurity`、移除 `--ignore-certificate-errors` | `2b465f2` |
+| DELIVERY-03/04 | 渲染进程启用 `contextIsolation`、preload 白名单桥、移除 `--ignore-certificate-errors`；`webSecurity:false` 保持为等待 `app://` 改造的明确延期项 | `2b465f2` |
 | DELIVERY-05 | 桌面包纳入 CI 并产出 manifest；release 断言 tag == `pom.version` == 两个 `package.json` 版本 | `3611281` |
 | DELIVERY-06/07 | 串口链路容错并改为用户显式授权（三处修复） | `5c3a285` |
 
@@ -478,7 +478,7 @@ Spec/plan：[`../specs/2026-09-12-review-fix-spec.md`](../specs/2026-09-12-revie
 
 | 项 | 评审队结论 | 复核后 |
 |---|---|---|
-| WebSocket 端点数 | 7 个 | **8 个**（`@ServerEndpoint` 文件实测） |
+| WebSocket 端点数 | 7 个 | **7 个**（6 个带身份端点 + 匿名 `/status`） |
 | 裸 `firstResult()` 残留 | 约 57 处 / 44 文件 | **55 处 / 42 文件** |
 | MyISAM 残留 | 「22 张只在 base 快照」（另一域称「106 表全 InnoDB」） | 当前快照 `project006.sql` **105 表全 InnoDB / 0 MyISAM**；base 快照 78 InnoDB + **22 MyISAM** |
 | CONC-02 WS `TOPIC_RESULT` 静默 return | P3 推断项，疑前端仍发该帧致结果丢失 | **排除**：前端已全量改走 REST，无发送点（§5.2） |

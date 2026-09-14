@@ -180,7 +180,7 @@ test('tag 与三个版本号不一致时拒发，且报错点名三个文件的�
   assert.match(allDrift, /Fix: set every MISMATCH file above to 9\.9\.9 in one commit, then re-tag\./);
 
   // 「v1.1.0 的 tag 挂 3.1.0 的桌面包」——只断言后端或前端版本时漏掉的正是这一条。
-  // 这也是当前仓库的真实状态：另两处 1.1.0，bw-frontend/package.json 是 3.1.0。
+  // 保留历史版本分歧的回归夹具，不依赖当前仓库的发布版本。
   const desktopDrift = releaseFailure(createFixture({ desktop: '3.1.0' }), 'refs/tags/v1.1.0');
   assert.match(desktopDrift, /1 of 3 version files disagree/);
   assert.match(desktopDrift, /MISMATCH bw-frontend\/package\.json declares 3\.1\.0, expected 1\.1\.0/);

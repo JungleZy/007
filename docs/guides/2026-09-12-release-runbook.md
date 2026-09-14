@@ -1,6 +1,6 @@
 # 发布 runbook（2026-09-12 整改批次）
 
-- **适用范围**：`docs/reviews/2026-09-12-full-project-review.md` §6.2 记录的 B1–B5/B7 整改（提交 `e7b5477..HEAD`）。
+- **适用范围**：`docs/reviews/2026-09-12-full-project-review.md` §6.2 记录的 B1–B5/B7 整改；其执行记录是历史基线，当前开放项与后续处理以 `docs/reviews/2026-09-12-current-state-review.md` 及对应 spec/plan 为准。
 - **定位**：本文是**发布执行清单**，不是设计文档。迁移脚本本体在 `backend/database/migrations/`，演练脚本在 `backend/scripts/rehearse-migrations.sh`。
 - **前置**：本批次含 schema 变更与**会话协议不兼容变更**，必须停写 + 备份后执行。
 
@@ -141,9 +141,9 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
   -Dquarkus.native.march=x86-64
 ```
 
-2026-09-12 修复后实测：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
+2026-09-12 修复阶段的**历史/中间执行记录**：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
 要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
-数据库业务可用，生产仍须满足 §4.1。Windows 与 ARM64 尚待修复提交的 CI 验证。
+数据库业务可用。当前最终 JVM 基线是 **441 测试 / 94 suite**，前端为 **30/30 + build**，迁移为17脚本双快照；Windows/ARM64 native、可信证书、桌面 native 凭据和真实硬件仍待外部验收。
 
 ## 5. 发布后验证
 

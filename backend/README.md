@@ -2,10 +2,10 @@
 
 基于 **Quarkus 3.20.4 / Java 21** 的海军报务（电报/键控/报底/推演）训练系统后端服务。提供 REST + WebSocket 双通道，覆盖手键/电子键拍发、抄报、理论考试、仿真推演等训练科目的下发、评分与统计。
 
-- Maven 坐标：`com.nip:quarkus-template:1.1.0`
+- Maven 坐标：`com.nip:quarkus-template:3.1.1`
 - 仓库：`JungleZy/007`
 - 持久化：Hibernate ORM + Panache，MySQL 8.0.26（当前快照 105 张表，全 InnoDB）
-- 规模：main 770 个 Java 文件（61 controller / 80 service / 104 entity / 102 dao / 27 WebSocket 类），test 74 个测试类（Testcontainers 驱动），全量 316 项测试
+- 规模：main 770 个 Java 文件（61 controller / 80 service / 104 entity / 102 dao / 27 WebSocket 类）；测试与当前运行证据以最新复核及干净验证为准，不在此固定易变总数。
 
 ---
 

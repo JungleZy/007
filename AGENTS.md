@@ -10,7 +10,7 @@
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
 - **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
-- 当前全项目评审见 `docs/reviews/2026-09-12-full-project-review.md`（**唯一入口**）。其 P0/P1（授权层缺失、凭证协议回传、组训数据报/电传域整体未迁移、桌面交付）**已于 2026-09-12 全部处置**，执行记录见该文 §6.2；新增同类代码必须沿用已落地的约束（`@RequireAdmin` + `writableTrain` 属主判定、授权拒绝统一 207、终态错误 208、token 不透明串只走请求头、服务端重算码率/用时）。本轮整改规格与计划：`docs/specs/2026-09-12-review-fix-spec.md`、`docs/plans/2026-09-12-review-fix-plan.md`。跨栈契约的详细取证仍看 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；`docs/reviews/2026-09-08-full-project-review.md` 已降为历史证据。历史分片统一在 `docs/reviews/archive/`，不作为当前状态依据。
+- 当前全项目评审基线与最新复核入口分别为 `docs/reviews/2026-09-12-full-project-review.md` 与 `docs/reviews/2026-09-12-current-state-review.md`；后一份记录上一轮 48 条为历史基线，本轮仓内可验证整改已闭合，外部前置仍不可替代。新增同类代码必须沿用已落地的约束（`@RequireAdmin` + `writableTrain` 属主判定、授权拒绝统一 207、终态错误 208、token 不透明串只走请求头、服务端重算码率/用时）。
 
 ## 构建与测试
 
@@ -26,7 +26,7 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前基线 **401 测试 / 94 suite 全绿**（`docs/reviews/2026-09-12-full-project-review.md` §6.2–§6.4）；新增测试只增不减。
+- 当前最终基线 **441 测试 / 94 suite 全绿**（`./mvnw -B clean verify`，2026-09-14）；新增测试只增不减。
 
 ## 运行时关键事实（易踩）
 
@@ -62,8 +62,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 当前项目评审结论以 `docs/reviews/2026-09-12-full-project-review.md` 为唯一入口；其 4 条 P0 与 11 条 P1 **已于 2026-09-12 全部处置**，执行记录（批次 → 发现 → 提交号 → 运行证据）见该文 §6.2。§7「需运行验证或需产品确认」的条目未因此关闭。
-- 本轮整改规格与计划：`docs/specs/2026-09-12-review-fix-spec.md`、`docs/plans/2026-09-12-review-fix-plan.md`（两份文档已按执行中的实测结果就地更正；唯一撤销项是 SEC-12 的 `%prod` 启动守卫）。
+- 当前项目评审以最新复核 `docs/reviews/2026-09-12-current-state-review.md` 为当前状态入口；上一轮全项目评审是历史执行证据，当前仓内整改已闭合，可信证书、Windows/ARM64、真实硬件和客户现场仍为外部前置。
+- 当前复核整改规格与计划：`docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。最终本地验证为441/94、30/30、17迁移双快照；GitHub Actions需推送后观察。
 - `docs/reviews/2026-09-08-full-project-review.md` 已降为历史证据；**跨栈问题的详细取证仍以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**，汇总结论以当前全项目评审为准。更早的后端评审、审计和分片位于 `docs/reviews/archive/`，仅用于追溯。跨栈整改规格为 `docs/specs/2026-09-08-joint-fix-spec.md`，客户报障整改计划为 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付未完成）。
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。
