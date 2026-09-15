@@ -417,14 +417,14 @@
       <div class="link" id="linkKernel" title="内核里真实存在的 USB 串口，浏览器的串口选择框能看到它">
         <i></i><span class="name">内核级设备<em>浏览器手选</em></span><span class="val" id="vKernel">--</span>
       </div>
-      <div class="link" id="linkAlias" title="桌面壳的串口下拉只匹配 /dev/ttyUSBn（nativeSerialPort.js:45）">
-        <i></i><span class="name">桌面壳下拉<em>只认 ttyUSBn</em></span><span class="val" id="vAlias">--</span>
+      <div class="link" id="linkAlias" title="按名字挑串口的程序只认 /dev/ttyUSBn：硬件桥 TrafficService 这类服务，以及桌面壳的串口下拉（nativeSerialPort.js:45）">
+        <i></i><span class="name">系统别名<em>硬件桥按名挑口</em></span><span class="val" id="vAlias">--</span>
       </div>
       <div class="link" id="linkDevice" title="/dev/pts/N：pyserial、minicom、cat 等按路径开串口的程序可用">
         <i></i><span class="name">PTY 设备<em>按路径打开</em></span><span class="val" id="vDevice">--</span>
       </div>
-      <div class="link" id="linkBridge" title="MessageWebSocket.js:159 只在 Electron 里连这条；桌面模式没有别的通路">
-        <i></i><span class="name">桌面桥接<em>桌面模式唯一通路</em></span><span class="val" id="vBridge">--</span>
+      <div class="link" id="linkBridge" title="冒充仓外硬件桥 TrafficService：真桥不在时桌面壳从这里拿帧。真桥在场时两条路互斥（同占 18765），应让真桥去开上面的虚拟串口，整条生产链都被测到">
+        <i></i><span class="name">桌面桥接<em>冒充硬件桥</em></span><span class="val" id="vBridge">--</span>
       </div>
       <div class="link" id="linkInject" title="Web Serial 的 requestPort() 必须用户手势，脚本点不了选择框">
         <i></i><span class="name">浏览器注入<em>免手点选择框</em></span><span class="val" id="vInject">--</span>
@@ -988,7 +988,7 @@ const applyState = raw => {
   setLink('linkKernel', kernelOn ? (openable === false ? 'fault' : 'live') : null,
     kernelOn ? (selectable + (openable === true ? ' · 可打开' : openable === false ? ' · 打不开' : windows ? ' · 独占，不试探' : '')) : '未启用', 'vKernel')
   setShown('linkAlias', !windows)
-  if (!windows) setLink('linkAlias', kernel.desktopAlias ? 'live' : (kernelOn ? 'fault' : null), kernel.desktopAlias || (kernelOn ? '无别名，下拉看不到' : '未启用'), 'vAlias')
+  if (!windows) setLink('linkAlias', kernel.desktopAlias ? 'live' : (kernelOn ? 'fault' : null), kernel.desktopAlias || (kernelOn ? '无别名，按名挑口的程序看不到' : '未启用'), 'vAlias')
   setShown('linkDevice', !windows)
   if (!windows) setLink('linkDevice', ptyOn ? 'live' : null,
     device.path || (device.supported === false ? '本平台不提供' : device.available === false ? ('不可用：' + (device.reason || '未知')) : '未开启'), 'vDevice')
@@ -1033,7 +1033,7 @@ const applyState = raw => {
   setText('channelDoc', (windows
     ? '⓿ com0com 成对 COM 口：浏览器串口选择框与按口名打开的程序都能用。① PTY 是类 Unix 专属，本平台没有。'
     : '⓿ 内核级设备：唯一能被浏览器串口选择框看到的口；桌面壳的下拉只匹配 /dev/ttyUSBn，所以内核设备会额外挂一个别名。① PTY /dev/pts/N 是真字符设备，pyserial、minicom、cat 都能读，但内核不把它注册成 udev tty，浏览器选择框看不到它。')
-    + ' ② 桌面桥接与 ③ 浏览器注入并不重复，它们服务互斥的两种模式：被测前端在 Electron 里只连 ws://localhost:18765/echo（MessageWebSocket.js:159），根本不碰串口——桌面壳的 linkPort 只把选中的口名存进本地库，electron/ 里没有任何地方读串口数据；在浏览器里则只走 navigator.serial（同文件 :107），而 Web Serial 的 requestPort() 必须由用户手势触发，脚本点不了那个选择框，所以无人值守跑测试要靠注入。')
+    + ' ② 桌面桥接是冒充仓外硬件桥 TrafficService.exe：生产链路是 电键→串口→TrafficService→ws:18765→桌面壳（MessageWebSocket.js:115），桌面模式的数据源头同样是串口。keysim 占 18765 是真桥不在时的替身；真桥在场时二者互斥，应让真桥去开上面的虚拟串口（串口→真桥→ws→壳 整条链都被测到）。③ 浏览器注入则因为 Web 模式只走 navigator.serial（同文件 :107），而 requestPort() 必须由用户手势触发，脚本点不了选择框，无人值守跑测试要靠注入。')
 
   // 被测页面
   const browserBroken = browser.available === false
