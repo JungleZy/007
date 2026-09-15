@@ -2,6 +2,8 @@
 name = "keysim"
 version = "1.0.0"
 edition = "2021"
+rust-version = "1.75"
+license = "MIT"
 description = "手键/电子键拍发模拟器与虚拟串口台：单个 Rust 可执行文件，网页控制台内嵌"
 
 [lib]
@@ -21,6 +23,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [profile.release]
-opt-level = 2
-panic = "abort"
+# 交付物是单个可执行文件：体积优先 + 瘦 LTO。
+# 刻意不用 panic = "abort"：控制台每连接一个线程，一条连接的 panic
+# 不该杀掉整个常驻进程（unwind 下只是断这条连接）。
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
 strip = true
