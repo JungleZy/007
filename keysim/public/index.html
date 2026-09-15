@@ -110,6 +110,21 @@
   .tape-meta button{height:24px;line-height:22px;font-size:11.5px;padding:0 8px;border-color:var(--live);color:var(--live)}
   .tape-meta button:hover:not(:disabled){background:rgba(111,195,164,.12);border-color:var(--live);color:var(--live)}
   .tape-meta b{color:var(--ink);font-weight:500}
+  /* 电键手柄：拍发中随墨迹压下/抬起，把"一笔一笔在拍"做出来 */
+  .paddle{display:none;position:relative;width:44px;height:22px;margin-left:2px}
+  .paddle.live{display:inline-block}
+  .paddle .base{position:absolute;left:2px;right:2px;bottom:2px;height:4px;background:#3a4447;border-radius:2px;box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
+  .paddle .arm{
+    position:absolute;left:5px;bottom:6px;width:32px;height:5px;border-radius:2px;
+    background:linear-gradient(180deg,#d9a451,#8a6420);
+    transform-origin:4px center;transform:rotate(-7deg);transition:transform .05s
+  }
+  .paddle .arm::after{
+    content:"";position:absolute;right:-4px;top:-3px;width:11px;height:11px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#e9bd6d,#8a6420);box-shadow:0 1px 2px rgba(0,0,0,.5)
+  }
+  .paddle.down .arm{transform:rotate(4deg)}
+  .paddle.down .arm::after{box-shadow:0 0 9px rgba(229,161,60,.85)}
   .tape-empty{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     font-family:var(--mono);font-size:12px;color:var(--paper-scale);letter-spacing:.12em
@@ -300,6 +315,7 @@
     </span>
     <button id="btnFollow" class="hidden" title="拖动纸带后会脱离跟随，点这里回到当前拍发位置">回到播放头</button>
     <span id="mProgress"></span>
+    <span class="paddle" id="keyPaddle" title="电键手柄：正在拍的那一笔会压下"><i class="base"></i><i class="arm"></i></span>
   </div>
 </div>
 
@@ -627,6 +643,9 @@ const attachScrollbar = (view, bar, axis) => {
 const tape = {
   canvas: $('tape'), view: $('tapeView'), track: $('tapeTrack'),
   marks: [], duration: 0, key: 'hand', playhead: null, truncated: false,
+  // spans：手键的 按下→抬起 区间表（缺抬起的故障区间 end=Infinity）；
+  // ticks：电子键的刻点时刻表。播放头落在哪一笔上，靠它们 O(log n) 查
+  spans: [], ticks: null,
   pxPerMs: 1, follow: true,
   // 播放头插值：服务端约 7 次/秒报"已发到第几毫秒"，两次之间按倍速自己推进，
   // 这样播放头是 60fps 连续走的，而不是一秒跳七下
@@ -637,6 +656,7 @@ const stopPlayhead = () => {
   if (tape.raf) cancelAnimationFrame(tape.raf)
   tape.raf = 0
   tape.play = null
+  syncPaddle()
 }
 const animatePlayhead = () => {
   tape.raf = 0
@@ -646,6 +666,7 @@ const animatePlayhead = () => {
   tape.playhead = Math.min(tape.duration, Math.max(at, advanced))
   // followPlayhead 滚动了纸带就会触发 scroll 事件 → drawTape，这一帧就不必画两遍
   if (followPlayhead() === false) drawTape()
+  syncPaddle()
   if (tape.play) tape.raf = requestAnimationFrame(animatePlayhead)
 }
 /// 收到一次进度上报：校准锚点，然后交给 rAF 连续推进。
@@ -662,6 +683,43 @@ const markPlayhead = (at, speed) => {
     if (followPlayhead() === false) drawTape()
   }
 }
+/// 由 marks 建立播放头索引；marks 一变就要重建（预览/清空时）
+const buildSpans = () => {
+  tape.spans = []
+  tape.ticks = null
+  if (tape.key === 'electron') {
+    tape.ticks = tape.marks.map(([at]) => at)
+    return
+  }
+  let down = null
+  for (const [at, kind] of tape.marks) {
+    if (kind === 0) down = at
+    else if (kind === 1 && down !== null) { tape.spans.push([down, at]); down = null }
+  }
+  if (down !== null) tape.spans.push([down, Infinity])   // 缺抬起：红色断口
+}
+/// 播放头正压着哪一笔：手键返回 span 下标，电子键返回刻点下标，都不在返回 -1
+const activeMarkAt = ms => {
+  if (tape.ticks) {
+    let lo = 0, hi = tape.ticks.length
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (tape.ticks[mid] < ms - 3) lo = mid + 1; else hi = mid }
+    return lo < tape.ticks.length && Math.abs(tape.ticks[lo] - ms) <= 3 ? lo : -1
+  }
+  let lo = 0, hi = tape.spans.length
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (tape.spans[mid][1] < ms) lo = mid + 1; else hi = mid }
+  return lo < tape.spans.length && tape.spans[lo][0] <= ms ? lo : -1
+}
+/// 电键手柄跟随播放头：压着墨迹就压下，抬起就弹回；不在拍发就收起
+let paddleDown = null
+const syncPaddle = () => {
+  const node = $('keyPaddle')
+  node.classList.toggle('live', tape.play !== null)
+  const down = tape.play !== null && tape.playhead !== null && activeMarkAt(tape.playhead) >= 0
+  if (down === paddleDown) return
+  paddleDown = down
+  node.classList.toggle('down', down)
+}
+
 const tapeWidth = () => Math.max(tape.view.clientWidth, Math.ceil(tape.duration * tape.pxPerMs) + 20)
 
 const drawTape = () => {
@@ -733,26 +791,26 @@ const drawTape = () => {
   const tall = base - top
   const leftMs = msAt(-40)
   const rightMs = msAt(width + 40)
-  // 墨迹：暖黑，像电报纸条上的油墨
-  pen.fillStyle = '#38342c'
+  // 墨迹：暖黑，像电报纸条上的油墨。正在拍的那一笔发琥珀光，
+  // 连续走纸也能看出"现在拍的是哪一下"
+  const active = tape.playhead === null ? -1 : activeMarkAt(tape.playhead)
   if (tape.key === 'electron') {
-    for (const [at] of tape.marks) {
+    for (let i = 0; i < tape.marks.length; i++) {
+      const [at] = tape.marks[i]
       if (at < leftMs || at > rightMs) continue
-      pen.fillRect(xOf(at), top + tall * 0.25, 2, tall * 0.75)
+      pen.fillStyle = i === active ? '#c98f3d' : '#38342c'
+      pen.fillRect(xOf(at), top + tall * 0.25, i === active ? 3 : 2, tall * 0.75)
     }
   } else {
-    let down = null
-    for (const [at, kind] of tape.marks) {
-      if (kind === 0) { down = at; continue }
-      if (kind !== 1 || down === null) continue
-      if (at >= leftMs && down <= rightMs) {
-        pen.fillRect(xOf(down), top, Math.max(1.2, (at - down) * scale), tall)
-      }
-      down = null
-    }
-    if (down !== null && down <= rightMs) {   // 缺抬起（故障注入）：画成红色断口
-      pen.fillStyle = '#b8452f'
-      pen.fillRect(xOf(down), top, 2, tall)
+    for (let i = 0; i < tape.spans.length; i++) {
+      const [start, end] = tape.spans[i]
+      if (end < leftMs || start > rightMs) continue
+      const broken = end === Infinity            // 缺抬起（故障注入）：红色断口
+      const width = broken ? 2 : Math.max(1.2, (end - start) * scale)
+      pen.fillStyle = i === active ? '#c98f3d' : broken ? '#b8452f' : '#38342c'
+      if (i === active) { pen.shadowColor = 'rgba(201,143,61,.8)'; pen.shadowBlur = 7 }
+      pen.fillRect(xOf(start), top, width, tall)
+      if (i === active) pen.shadowBlur = 0
     }
   }
 
@@ -849,6 +907,7 @@ const clearTape = note => {
   stopPlayhead()
   // follow 一并复位：纸带清空后「回到播放头」按钮不该还挂着
   tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false; tape.follow = true
+  tape.spans = []; tape.ticks = null
   tape.track.style.width = '1px'
   syncFollowButton()
   drawTape()
@@ -875,6 +934,7 @@ const runPreview = async () => {
   tape.duration = Number(result.duration) || 0
   tape.key = $('key').value
   tape.truncated = result.marksTruncated === true
+  buildSpans()
   stopPlayhead()
   tape.playhead = null
   tape.follow = true
