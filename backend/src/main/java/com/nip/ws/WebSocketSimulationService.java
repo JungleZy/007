@@ -13,6 +13,7 @@ import com.nip.dto.vo.simulation.disturd.SimulationDisturdWebscoketVO;
 import com.nip.entity.UserEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomEntity;
 import com.nip.entity.simulation.router.SimulationRouterRoomUserEntity;
+import com.nip.service.simulation.SimulationRoomAccess;
 import com.nip.ws.model.SimulationResponseModel;
 import com.nip.ws.model.SimulationUserModel;
 import com.nip.ws.model.SimulationSessionHolder;
@@ -55,6 +56,8 @@ public class WebSocketSimulationService {
   SimulationRouterRoomUserDao roomUserDao;
   @Inject
   WebSocketHandshake handshake;
+  @Inject
+  SimulationRoomAccess roomAccess;
 
   private record OpenTransition(
       String error,
@@ -424,6 +427,10 @@ public class WebSocketSimulationService {
       } else if ((Objects.equals(REPORT.getType(), roomType)
           || Objects.equals(RECEPT.getType(), roomType))
           && SimulationRoomLifecycle.isCurrent(SimulationGlobal.reportRoom, roomId, id, session)) {
+        if (roomUserDao.findByUserIdAndRoomId(id, roomId) == null) {
+          sendErrorMessage(session, "无权操作该房间", id, id);
+          return;
+        }
         messageHandleReport(message, roomId, id);
       } else if (Objects.equals(ROUTER.getType(), roomType)
           && SimulationRoomLifecycle.isCurrent(SimulationGlobal.routerRoom, roomId, id, session)) {
@@ -544,6 +551,19 @@ public class WebSocketSimulationService {
     Map<String, String> mesg = JSONUtils.fromJson(message, new TypeToken<>() {
     });
     String type = mesg.get(TYPE);
+    boolean control = TOPIC_TRAIN_START.getType().equals(type)
+        || TOPIC_TRAIN_PAUSE.getType().equals(type)
+        || TOPIC_TRAIN_GOON.getType().equals(type)
+        || TOPIC_TRAIN_FINISH.getType().equals(type);
+    if (!control && !TOPIC_TRAIN_ONLINE.getType().equals(type) && !TOPIC_RESULT.getType().equals(type)) {
+      throw new IllegalArgumentException("未知通报教学消息类型");
+    }
+    if (control && !roomAccess.isOrganizer(roomDao.findById(roomId), userId)) {
+      socketSimulations.stream()
+          .filter(holder -> Objects.equals(holder.userModel().getId(), userId))
+          .forEach(holder -> sendErrorMessage(holder.session(), "无权控制该训练", userId, userId));
+      return;
+    }
     // 教员开始训练
     if (TOPIC_TRAIN_START.getType().equals(type)) {
       roomDao.updateStatsToGoing(roomId);
@@ -701,8 +721,7 @@ public class WebSocketSimulationService {
   }
 
   /**
-   * 仅 onOpen 拒接路径使用：此刻 session 尚未入房、无并发写者，保持同步写，
-   * 确保紧随其后的 session.close() 前错误帧已发出
+   * 协议错误只回复发起会话；同步发送确保拒接路径紧随其后的 close 前错误帧已发出。
    */
   private void sendErrorMessage(Session session, String errorMsg, String sendName, String receiveName) {
     try {
