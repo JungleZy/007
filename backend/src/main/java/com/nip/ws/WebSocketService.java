@@ -1,13 +1,17 @@
 package com.nip.ws;
 
+import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import com.nip.common.constants.CodeConstants;
+import com.nip.common.constants.ResponseCode;
+import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
 import com.nip.entity.TelegramTrainFloorContentEntity;
 import com.nip.entity.TelegramTrainLogEntity;
 import com.nip.entity.UserEntity;
-import com.nip.service.event.WebSocketEventService;
+import com.nip.service.TelegramTrainService;
 import com.nip.service.simulation.SimulationRouterRoomUserService;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -36,7 +39,7 @@ import java.util.concurrent.ConcurrentMap;
 public class WebSocketService {
 
   @Inject
-  private WebSocketEventService webSocketEventService;
+  private TelegramTrainService telegramTrainService;
   @Inject
   private SimulationRouterRoomUserService roomUserService;
   @Inject
@@ -97,35 +100,37 @@ public class WebSocketService {
   @OnMessage
   public void onMessage(String message, Session session) {
     if (WebSocketHeartbeat.respond(session, message)) return;
-    Map<String, Object> model = JSONUtils.fromJson(message, new TypeToken<>() {
-    });
-
-    if (model != null) {
-      switch (new BigDecimal(model.get("code").toString()).intValue()) {
-        case 2001:
-          TelegramTrainLogEntity telegramTrainLogEntity = PojoUtils.convertOne(model.get("data"), TelegramTrainLogEntity.class);
-          CompletableFuture.runAsync(() -> {
-            webSocketEventService.saveTelegramTrainLog(telegramTrainLogEntity);
-            log.info("更新手键日志");
-          }).exceptionally(t -> {
-            log.error("保存手键日志失败", t);
-            return null;
-          });
-          break;
-        case 3001:
-          TelegramTrainFloorContentEntity contentEntity = PojoUtils.convertOne(model.get("data"), TelegramTrainFloorContentEntity.class);
-          CompletableFuture.runAsync(() -> {
-            webSocketEventService.saveTelegramTrainFloorContentEntity(contentEntity);
-            log.info("更新key and time ");
-          }).exceptionally(t -> {
-            log.error("保存楼层内容失败", t);
-            return null;
-          });
-          break;
-        default:
-          break;
-      }
+    String actorId = WebSocketHandshake.authenticatedId(session);
+    if (actorId == null || CLIENTS.get(actorId) != session) {
+      send(session, JSONUtils.toJson(new ResponseModel(CodeConstants.CLOSE.getCode(), "当前连接已失效")));
+      close(session);
+      return;
     }
+    try {
+      Map<String, Object> model = JSONUtils.fromJson(message, new TypeToken<>() {});
+      if (model == null || model.get("code") == null) throw new IllegalArgumentException("消息类型不能为空");
+      switch (new BigDecimal(model.get("code").toString()).intValueExact()) {
+        case 2001 -> telegramTrainService.saveCapturedLog(actorId,
+            PojoUtils.convertOne(model.get("data"), TelegramTrainLogEntity.class));
+        case 3001 -> telegramTrainService.saveCapturedFloorContent(actorId,
+            PojoUtils.convertOne(model.get("data"), TelegramTrainFloorContentEntity.class));
+        default -> { }
+      }
+    } catch (ForbiddenException failure) {
+      rejectCapture(session, actorId, ResponseCode.CODE_207, failure);
+    } catch (TerminalStateException failure) {
+      rejectCapture(session, actorId, ResponseCode.CODE_208, failure);
+    } catch (JsonParseException | IllegalArgumentException | ArithmeticException failure) {
+      rejectCapture(session, actorId, ResponseCode.PARAMS_ERROR, failure);
+    } catch (RuntimeException failure) {
+      log.error("保存手键采集失败，actor={}", actorId, failure);
+      send(session, JSONUtils.toJson(new ResponseModel(ResponseCode.SYSTEM_ERROR.getCode(), ResponseCode.SYSTEM_ERROR.getMessage())));
+    }
+  }
+
+  private static void rejectCapture(Session session, String actorId, ResponseCode code, RuntimeException failure) {
+    log.warn("拒绝手键采集，actor={}, code={}, reason={}", actorId, code.getCode(), failure.getMessage());
+    send(session, JSONUtils.toJson(new ResponseModel(code.getCode(), failure.getMessage())));
   }
 
   /**

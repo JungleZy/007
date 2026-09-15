@@ -91,6 +91,8 @@ public class TelegramTrainService {
       Map.entry("Y", "1011"), Map.entry("Z", "1100"), Map.entry("0", "11111"), Map.entry("1", "01111"),
       Map.entry("2", "00111"), Map.entry("3", "00011"), Map.entry("4", "00001"), Map.entry("5", "00000"),
       Map.entry("6", "10000"), Map.entry("7", "11000"), Map.entry("8", "11100"), Map.entry("9", "11110"));
+  private static final Map<String, String> SHORT_DIGITS = Map.of(
+      "0", "1", "1", "01", "2", "001", "8", "100", "9", "10");
 
   public Response<List<TelegramTrainEntity>> getAll(String token) {
     try {
@@ -253,9 +255,14 @@ public class TelegramTrainService {
 
   private TelegramTrainEntity writableTrainForUpdate(String id, String token) {
     UserEntity actor = userService.getUserByToken(token);
+    return writableTrainForActor(id, actor.getId());
+  }
+
+  private TelegramTrainEntity writableTrainForActor(String id, String actorId) {
+    if (StringUtils.isBlank(actorId)) throw new ForbiddenException("未认证的采集会话");
     TelegramTrainEntity train = Optional.ofNullable(telegramTrainDao.findByIdForUpdate(id))
         .orElseThrow(() -> new IllegalArgumentException("未查询该训练！"));
-    if (!Objects.equals(actor.getId(), train.getCreateUserId())) {
+    if (!Objects.equals(actorId, train.getCreateUserId())) {
       throw new ForbiddenException("无权访问他人训练");
     }
     if (!Integer.valueOf(1).equals(train.getProtocolVersion())) {
@@ -278,15 +285,61 @@ public class TelegramTrainService {
   }
 
   private void recalculateFromPersistedRaw(TelegramTrainEntity train) {
-    List<TelegramTrainFloorEntity> persistedFloors = telegramTrainFloorDao.findAllByTrainIdOrderBySort(train.getId());
-    List<TelegramTrainFloorDto> all = new ArrayList<>(persistedFloors.size());
-    for (TelegramTrainFloorEntity floor : persistedFloors) {
-      TelegramTrainFloorDto dto = new TelegramTrainFloorDto();
-      dto.setFloor(floor);
-      dto.setFloorContents(telegramTrainFloorContentDao.findAllByFloorIdOrderBySort(floor.getId()));
-      all.add(dto);
+    int total = 0;
+    int errors = 0;
+    int attempted = 0;
+    for (TelegramTrainFloorEntity floor : telegramTrainFloorDao.findAllByTrainIdOrderBySort(train.getId())) {
+      boolean grouped = floor.getType() != null && floor.getType() > 10;
+      for (TelegramTrainFloorContentEntity content : telegramTrainFloorContentDao.findAllByFloorIdOrderBySort(floor.getId())) {
+        total++;
+        try {
+          JsonNode value = StringUtils.isBlank(content.getMoresValue()) ? null : objectMapper.readTree(content.getMoresValue());
+          if (value != null && !value.isArray()) throw new IllegalArgumentException("拍发值必须为数组");
+          boolean correct;
+          boolean captured = false;
+          if (grouped) {
+            JsonNode keys = objectMapper.readTree(content.getMoresKey());
+            if (keys == null || !keys.isArray() || keys.isEmpty()) throw new IllegalArgumentException("词组报文必须为字符数组");
+            correct = value != null && value.size() == keys.size();
+            for (int i = 0; i < keys.size(); i++) {
+              JsonNode actual = value == null ? null : value.get(i);
+              correct &= matchesMorse(actual, morseFor(keys.get(i).asText(), floor.getNumberType()));
+            }
+            if (value != null) {
+              for (JsonNode actual : value) captured |= actual.isArray() && !actual.isEmpty();
+            }
+          } else {
+            correct = matchesMorse(value, morseFor(content.getMoresKey(), floor.getNumberType()));
+            captured = value != null && !value.isEmpty();
+          }
+          if (!correct) errors++;
+          if (captured) attempted++;
+        } catch (JsonProcessingException failure) {
+          throw new IllegalArgumentException("报文原始内容无效", failure);
+        }
+      }
     }
-    recalculateFromRaw(train, all);
+    train.setTotalNumber(total);
+    train.setErrorNumber(errors);
+    train.setTotalKnockNumber(total - errors);
+    train.setAccuracy(ScoreMath.accuracy(total - errors, total).toPlainString());
+    train.setSpeed(ScoreMath.rate(attempted, train.getAccumulatedActiveMillis() == null ? 0 : train.getAccumulatedActiveMillis()).toPlainString());
+  }
+
+  private static String morseFor(String key, Integer numberType) {
+    if (key == null || key.length() != 1) throw new IllegalArgumentException("报文字符无效");
+    String normalized = key.toUpperCase(Locale.ROOT);
+    String expected = MORSE.get(normalized);
+    if (expected == null) throw new IllegalArgumentException("报文字符无效");
+    return Integer.valueOf(1).equals(numberType) ? SHORT_DIGITS.getOrDefault(normalized, expected) : expected;
+  }
+
+  private static boolean matchesMorse(JsonNode actual, String expected) {
+    if (actual == null || !actual.isArray() || actual.size() != expected.length()) return false;
+    for (int i = 0; i < expected.length(); i++) {
+      if (!actual.get(i).isIntegralNumber() || actual.get(i).intValue() != expected.charAt(i) - '0') return false;
+    }
+    return true;
   }
 
   private static void closeActiveSegment(TelegramTrainEntity train, long now) {
@@ -312,41 +365,6 @@ public class TelegramTrainService {
     }
   }
 
-  private void recalculateFromRaw(TelegramTrainEntity train, List<TelegramTrainFloorDto> floors) {
-    int total = 0;
-    int errors = 0;
-    if (floors != null) {
-      for (TelegramTrainFloorDto floor : floors) {
-        if (floor == null || floor.getFloorContents() == null) throw new IllegalArgumentException("报底内容无效");
-        for (TelegramTrainFloorContentEntity content : floor.getFloorContents()) {
-          if (content == null || CharSequenceUtil.isEmpty(content.getMoresKey())) throw new IllegalArgumentException("报文原始内容无效");
-          try {
-            JsonNode keyNode = objectMapper.readTree(content.getMoresKey());
-            String rawValue = content.getMoresValue();
-            JsonNode valueNode = CharSequenceUtil.isEmpty(rawValue) ? null : objectMapper.readTree(rawValue);
-            List<String> keys = new ArrayList<>();
-            if (keyNode != null && keyNode.isArray()) keyNode.forEach(node -> keys.add(node.asText()));
-            else if (keyNode != null && keyNode.isTextual()) keys.add(keyNode.asText());
-            total += keys.size();
-            if (valueNode == null) { errors += keys.size(); continue; }
-            if (!valueNode.isArray()) throw new IllegalArgumentException("拍发值必须为数组");
-            if (valueNode.size() > keys.size()) errors += valueNode.size() - keys.size();
-            for (int i = 0; i < keys.size(); i++) {
-              String expected = MORSE.get(keys.get(i).toUpperCase(Locale.ROOT));
-              JsonNode actual = valueNode.get(i);
-              if (expected == null || actual == null || !actual.isArray() || actual.size() != expected.length()) { errors++; continue; }
-              for (int j = 0; j < expected.length(); j++) if (actual.get(j).asInt(-1) != expected.charAt(j) - '0') { errors++; break; }
-            }
-          } catch (JsonProcessingException | IllegalArgumentException ex) { throw new IllegalArgumentException("报文原始内容无效", ex); }
-        }
-      }
-    }
-    train.setTotalNumber(total);
-    train.setErrorNumber(errors);
-    train.setTotalKnockNumber(Math.max(0, total - errors));
-    train.setAccuracy(ScoreMath.accuracy(total - errors, total).toPlainString());
-    train.setSpeed(ScoreMath.rate(total, train.getAccumulatedActiveMillis() == null ? 0 : train.getAccumulatedActiveMillis()).toPlainString());
-  }
 
   /**
    * 训练完成统计
@@ -444,15 +462,41 @@ public class TelegramTrainService {
 
   @Transactional
   public Response<Void> saveFloorContent(Map<String, String> map, String token) {
-    if (map == null || StringUtils.isBlank(map.get(ID))) throw new IllegalArgumentException("未查询报文内容");
-    TelegramTrainFloorContentEntity content = Optional.ofNullable(telegramTrainFloorContentDao.findById(map.get(ID)))
+    if (map == null) throw new IllegalArgumentException("未查询报文内容");
+    String actorId = userService.getUserByToken(token).getId();
+    saveContentForActor(actorId, map.get(ID), map.get("moresValue"), map.get("moresTime"));
+    return ResponseResult.success();
+  }
+
+  @Transactional
+  public void saveCapturedFloorContent(String actorId, TelegramTrainFloorContentEntity submission) {
+    if (submission == null) throw new IllegalArgumentException("未查询报文内容");
+    saveContentForActor(actorId, submission.getId(), submission.getMoresValue(), submission.getMoresTime());
+  }
+
+  private void saveContentForActor(String actorId, String contentId, String value, String time) {
+    if (StringUtils.isBlank(contentId)) throw new IllegalArgumentException("未查询报文内容");
+    TelegramTrainFloorContentEntity content = Optional.ofNullable(telegramTrainFloorContentDao.findById(contentId))
         .orElseThrow(() -> new IllegalArgumentException("未查询报文内容"));
     TelegramTrainFloorEntity floor = Optional.ofNullable(telegramTrainFloorDao.findById(content.getFloorId()))
         .orElseThrow(() -> new IllegalArgumentException("未查询报底"));
-    writableTrainForUpdate(floor.getTrainId(), token);
-    content.setMoresValue(map.get("moresValue"));
-    content.setMoresTime(CharSequenceUtil.isEmpty(map.get("moresTime")) ? "[]" : map.get("moresTime"));
-    return ResponseResult.success();
+    writableTrainForActor(floor.getTrainId(), actorId);
+    content.setMoresValue(value);
+    content.setMoresTime(StringUtils.isBlank(time) ? "[]" : time);
+  }
+
+  @Transactional
+  public void saveCapturedLog(String actorId, TelegramTrainLogEntity submission) {
+    if (submission == null || StringUtils.isBlank(submission.getTelegramTrainId())) {
+      throw new IllegalArgumentException("训练编号不能为空");
+    }
+    writableTrainForActor(submission.getTelegramTrainId(), actorId);
+    TelegramTrainLogEntity entry = new TelegramTrainLogEntity();
+    entry.setTelegramTrainId(submission.getTelegramTrainId());
+    entry.setType(submission.getType());
+    entry.setValue(submission.getValue());
+    entry.setCreatTime(Long.toString(System.currentTimeMillis()));
+    telegramTrainLogDao.saveAndFlush(entry);
   }
 
   private void handleMaps(Map<String, List<TelegramTrainFloorContentEntity>> list,

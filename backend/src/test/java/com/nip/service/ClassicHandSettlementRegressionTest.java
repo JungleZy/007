@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -85,7 +86,8 @@ class ClassicHandSettlementRegressionTest {
   @Test
   void partiallyWrongFirstSubmissionIsNotScoredFromThePreviousBlankAnswer() {
     TelegramTrainDto request = training(1, 2, 60_000, null);
-    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[[0,1],[0]]");
+    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    request.getTrainFloors().getFirst().getFloorContents().get(1).setMoresValue("[0]");
 
     TelegramTrainEntity finished = submit("endTelegramTrain", request);
     assertEquals(0, new BigDecimal(finished.getAccuracy()).compareTo(new BigDecimal("50")));
@@ -100,7 +102,7 @@ class ClassicHandSettlementRegressionTest {
       TelegramTrainDto request = training(protocol, status, 0, null);
       String contentId = request.getTrainFloors().getFirst().getFloorContents().getFirst().getId();
       given().contentType(ContentType.JSON).header(TOKEN, token).header(DEVICE_ID, device)
-          .body(Map.of("id", contentId, "moresValue", "[[0,1]]", "moresTime", "[100]"))
+          .body(Map.of("id", contentId, "moresValue", "[0,1]", "moresTime", "[100]"))
           .post("/api/telegramTrain/saveFloorContent")
           .then().statusCode(200).body("code", is(208));
       given().contentType(ContentType.JSON).header(TOKEN, token).header(DEVICE_ID, device)
@@ -130,6 +132,75 @@ class ClassicHandSettlementRegressionTest {
     assertEquals("[]", unchanged.getTrainFloors().getFirst().getFloorContents().getFirst().getMoresValue());
   }
 
+  @Test
+  void actualSingleLetterCreationAcceptsBareKeyAndFlatPulses() {
+    TelegramTrainDto request = createdPayload("A", 0, 0);
+    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    TelegramTrainEntity result = submit("endTelegramTrain", request);
+    assertEquals(1, result.getTotalNumber());
+    assertEquals(0, result.getErrorNumber());
+    assertEquals("1", result.getSpeed());
+    assertEquals(0, new BigDecimal(result.getAccuracy()).compareTo(new BigDecimal("100")));
+  }
+
+  @Test
+  void numericShortAndLongPulsesUseThePersistedAlphabet() {
+    TelegramTrainDto shortRequest = createdPayload("1", 1, 1);
+    shortRequest.getTrainFloors().getFirst().getFloor().setNumberType(0);
+    shortRequest.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    assertEquals(0, submit("endTelegramTrain", shortRequest).getErrorNumber());
+
+    TelegramTrainDto longRequest = createdPayload("1", 1, 0);
+    longRequest.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    assertEquals(1, submit("endTelegramTrain", longRequest).getErrorNumber());
+  }
+
+  @Test
+  void fourCharacterWordsAreScoredAsOneExerciseUnit() {
+    String keys = "[\"1\",\"2\",\"3\",\"8\"]";
+    TelegramTrainDto complete = createdPayload(keys, 21, 1);
+    complete.getTrainFloors().getFirst().getFloorContents().getFirst()
+        .setMoresValue("[[0,1],[0,0,1],[0,0,0,1,1],[1,0,0]]");
+    TelegramTrainEntity result = submit("endTelegramTrain", complete);
+    assertEquals(1, result.getTotalNumber());
+    assertEquals(0, result.getErrorNumber());
+    assertEquals("1", result.getSpeed());
+
+    TelegramTrainDto incomplete = createdPayload(keys, 21, 1);
+    incomplete.getTrainFloors().getFirst().getFloorContents().getFirst()
+        .setMoresValue("[[0,1],[0,0,1],[],[1,0,0]]");
+    TelegramTrainEntity incorrect = submit("endTelegramTrain", incomplete);
+    assertEquals(1, incorrect.getTotalNumber());
+    assertEquals(1, incorrect.getErrorNumber());
+    assertEquals(0, new BigDecimal(incorrect.getAccuracy()).compareTo(BigDecimal.ZERO));
+  }
+
+  @Test
+  void unsentEntriesDoNotInflateTheMeasuredRate() {
+    TelegramTrainDto request = training(1, 2, 60_000, null);
+    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    TelegramTrainEntity result = submit("endTelegramTrain", request);
+    assertEquals(2, result.getTotalNumber());
+    assertEquals(1, result.getErrorNumber());
+    assertEquals("1", result.getSpeed());
+  }
+
+  private TelegramTrainDto createdPayload(String key, int type, int numberType) {
+    String id = given().contentType(ContentType.JSON).header(TOKEN, token).header(DEVICE_ID, device)
+        .body(Map.of("train", Map.of("type", type), "trainFloors", List.of(Map.of(
+            "floor", Map.of("type", type, "numberType", numberType),
+            "floorContents", List.of(Map.of("moresKey", key, "moresValue", "[]", "moresTime", "[]"))))))
+        .post("/api/telegramTrain/saveTelegramTrain")
+        .then().statusCode(200).body("code", is(200)).extract().path("data.id");
+    QuarkusTransaction.requiringNew().run(() -> {
+      TelegramTrainEntity train = trainDao.findById(id);
+      train.setStatus(2);
+      train.setAccumulatedActiveMillis(60_000L);
+      train.setSustainTime("60000");
+    });
+    return details(id);
+  }
+
   private TelegramTrainDto training(int protocol, int status, long elapsed, Long activeSince) {
     String id = QuarkusTransaction.requiringNew().call(() -> {
       TelegramTrainEntity train = new TelegramTrainEntity();
@@ -145,20 +216,23 @@ class ClassicHandSettlementRegressionTest {
       floor.setTrainId(train.getId());
       floor.setSort(0);
       floorDao.saveAndFlush(floor);
-      TelegramTrainFloorContentEntity content = new TelegramTrainFloorContentEntity();
-      content.setFloorId(floor.getId());
-      content.setSort(0);
-      content.setMoresKey("[\"A\",\"B\"]");
-      content.setMoresValue("[]");
-      content.setMoresTime("[]");
-      contentDao.saveAndFlush(content);
+      for (int i = 0; i < 2; i++) {
+        TelegramTrainFloorContentEntity content = new TelegramTrainFloorContentEntity();
+        content.setFloorId(floor.getId());
+        content.setSort(i);
+        content.setMoresKey(i == 0 ? "A" : "B");
+        content.setMoresValue("[]");
+        content.setMoresTime("[]");
+        contentDao.saveAndFlush(content);
+      }
       return train.getId();
     });
     return details(id);
   }
 
   private void correctAnswers(TelegramTrainDto request) {
-    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[[0,1],[1,0,0,0]]");
+    request.getTrainFloors().getFirst().getFloorContents().getFirst().setMoresValue("[0,1]");
+    request.getTrainFloors().getFirst().getFloorContents().get(1).setMoresValue("[1,0,0,0]");
   }
 
   private TelegramTrainDto details(String id) {
