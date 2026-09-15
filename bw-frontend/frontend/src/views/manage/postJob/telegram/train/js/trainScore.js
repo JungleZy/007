@@ -75,8 +75,9 @@ export default function telegramList(showChart) {
             leaf = resDataHandle(leaf,scoreData.value.finishInfo[l])
             return leaf
           });
-          scoreData.value.resolver.map((leaf,l) => {
-            leaf = JSON.parse(leaf);
+          successResolver.value = scoreData.value.resolver.map(leaf => {
+            leaf = leaf ? JSON.parse(leaf) : null;
+            if (!leaf) return null;
             leaf['moreObj'] = {}
             if (leaf.moreGroups) {
               leaf.moreGroups.map(item => {
@@ -85,7 +86,7 @@ export default function telegramList(showChart) {
                 }
               })
             }
-            successResolver.value.push(leaf)
+            return leaf
           });
           totalTelegraghMsg();
           if (scoreData.value.statisticInfo) {
@@ -141,21 +142,23 @@ export default function telegramList(showChart) {
 
   const getPostTrainKeyInfo = (res) => {
     if (res.code === 200) {
-      let result = resDataHandle(res.data.messageBody, JSON.parse(res.data.finishInfo))
+      const finishInfo = JSON.parse(res.data.finishInfo);
+      let result = resDataHandle(res.data.messageBody, finishInfo)
       scoreData.value.messageBody.push(result)
+      scoreData.value.finishInfo.push(finishInfo)
       scoreData.value.standards.push(JSON.parse(res.data.standard))
-      if(res.data.resolver!==''){
-        let obj = JSON.parse(res.data.resolver);
+      let obj = res.data.resolver ? JSON.parse(res.data.resolver) : null;
+      if (obj) {
+        obj['moreObj'] = {}
         if (obj.moreGroups) {
-          obj['moreObj'] = {}
           obj.moreGroups.map(item => {
             if(item.message){
               obj['moreObj'][item.point+''] = item.message.join(',')
             }
           })
-          successResolver.value.push(obj)
         }
       }
+      successResolver.value.push(obj);
       totalTelegraghMsg();
     }
   };

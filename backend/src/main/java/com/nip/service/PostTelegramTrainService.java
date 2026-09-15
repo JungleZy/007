@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -379,13 +380,12 @@ public class PostTelegramTrainService {
       List<String> messageBody = new ArrayList<>();
       List<PostTelegramTrainFloorContentEntity> floorContentEntities = floorContentDao
           .findByTrainIdOrderByFloorNumberSort(entity.getId());
-      List<Integer> floorNumber = floorContentDao.findByTrainIdCountFloor(entity.getId());
 
-      r.setExistNumber(floorNumber);
       List<String> resolver = new ArrayList<>();
 
       Map<Integer, List<PostTelegramTrainFloorContentEntity>> collect = floorContentEntities.stream().collect(
-          Collectors.groupingBy(PostTelegramTrainFloorContentEntity::getFloorNumber));
+          Collectors.groupingBy(PostTelegramTrainFloorContentEntity::getFloorNumber, TreeMap::new, Collectors.toList()));
+      r.setExistNumber(new ArrayList<>(collect.keySet()));
       List<PostTelegramTrainFinishInfoDto> finishInfoDtos = new ArrayList<>();
       List<String> standards = new ArrayList<>();
       for (Map.Entry<Integer, List<PostTelegramTrainFloorContentEntity>> entry : collect.entrySet()) {
@@ -399,6 +399,7 @@ public class PostTelegramTrainService {
           messageBody.add(JSONUtils.toJson(addParams));
           finishInfoDtos.add(null);
           standards.add("{}");
+          resolver.add(null);
         } else {
           String finishInfo = contentFloorValueEntity.getFinishInfo();
           finishInfoDtos.add(JSONUtils.fromJson(finishInfo, PostTelegramTrainFinishInfoDto.class));
@@ -408,9 +409,9 @@ public class PostTelegramTrainService {
           standards.add(contentFloorValueEntity.getStandard());
 
           resolver.add(contentFloorValueEntity.getResolver());
-          if (messageBody.size() == 2) {
-            break;
-          }
+        }
+        if (messageBody.size() == 2) {
+          break;
         }
       }
       r.setResolver(resolver);
