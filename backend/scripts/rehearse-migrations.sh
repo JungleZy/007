@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
-# rehearse-migrations.sh — 双快照迁移演练（一次性 Docker 容器，纯 schema 证据）
+# rehearse-migrations.sh — 双快照迁移演练（一次性 Docker 容器，schema 与关键数据不变量）
 #
 # 对 database/project006.sql（current）与 project006-base.sql（base）两个快照（路径以 backend/ 为根），
 # 各起一个全新、唯一命名的 mysql:8.0 容器+卷，导入快照，顺序执行迁移
-# 01（schema-sync）→ 02（engine-innodb）→ 03（unique-lazy-create）→ 04/05（JSON容量），断言最终 schema，并对实体表生成
-# 与实体权威 schema（EntitySchemaSnapshotRehearsal 导出的 entity-schema.tsv）
-# 的规范化差分。差分必须为空。
+# 按 MIGRATIONS 执行全部 schema 增量，再对电子统计数据迁移演练混合协议与重复执行。
+# 最终实体 schema 与 EntitySchemaSnapshotRehearsal 导出的 entity-schema.tsv 差分必须为空。
 #
 # 硬安全约束：
 #   - 不接受任何位置参数（不接受主机 / JDBC URL）。
@@ -14,7 +13,7 @@
 #   - 绝不读取 application.yml 的 datasource 配置。
 #   - 每个快照使用全新、唯一命名的容器与卷；仅通过 docker exec -i 导入。
 #   - 所有出口路径 trap 清理容器与卷。
-#   - 只写 schema 元数据（表/列/引擎），绝不导出业务数据行或凭据。
+#   - 只落盘 schema/引擎元数据与合成数据断言，绝不导出业务正文或凭据。
 #
 # 可调项（只影响证据落盘位置，不影响数据源）：
 #   REHEARSAL_OUT_NAME    证据目录名（默认当天日期），仅允许 [0-9A-Za-z._-]，
@@ -84,8 +83,10 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-14-01-classic-telegram-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-14-02-classic-telex-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-14-03-classic-receive-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-15-01-entering-exercise-clock.sql"
 )
-for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}"; do
+STATISTICS_MIGRATION="$PROJECT_ROOT/database/migrations/2026-09-15-02-electronic-statistics-time.sql"
+for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}" "$STATISTICS_MIGRATION"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
@@ -251,10 +252,12 @@ rehearse() {
     "$(mysql_scalar "$cname" "START TRANSACTION; SET @accuracy_id=UUID(); INSERT INTO t_post_entering_exercise(id,accuracy) VALUES(@accuracy_id,100); SELECT accuracy FROM t_post_entering_exercise WHERE id=@accuracy_id; ROLLBACK;")"
   assert_eq "[$label] legacy comprehensive rows stay unversioned" "0" \
     "$(mysql_scalar "$cname" "select count(*) from t_telegraph_key_pat_synthetical_train where protocol_version is not null")"
-  for legacy_table in general_ticker_pat general_key_pat t_post_telegram_train t_post_telegraph_key_pat_train t_post_telex_pat_train; do
+  for legacy_table in general_ticker_pat general_key_pat t_post_telegram_train t_post_telegraph_key_pat_train t_post_telex_pat_train t_entering_exercise; do
     assert_eq "[$label] historical $legacy_table is not relabeled as new capture" "0" \
       "$(mysql_scalar "$cname" "select count(*) from $legacy_table where protocol_version<>0 or protocol_version is null")"
   done
+  assert_eq "[$label] personal entering history has no invented capture" "0" \
+    "$(mysql_scalar "$cname" "select count(*) from t_entering_exercise where source_content is not null or elapsed_millis<>0 or active_started_at is not null")"
   assert_eq "[$label] General electronic standard empty values normalized" "0" \
     "$(mysql_scalar "$cname" "select count(*) from general_key_pat_page where value is null")"
   for payload in "simulation_router_room_page_value:value:longtext" \
@@ -265,12 +268,53 @@ rehearse() {
     "general_ticker_pat_train_user_value:capture_intervals:longtext" \
     "t_post_telegram_train_floor_content_value:capture_intervals:longtext" \
     "t_post_telex_pat_train_page_value:capture_intervals:longtext" \
-    "t_post_telegraph_key_pat_train_raw_page:capture_intervals:longtext"; do
+    "t_post_telegraph_key_pat_train_raw_page:capture_intervals:longtext" \
+    "t_entering_exercise:source_content:longtext"; do
     local payload_table="${payload%%:*}"; local payload_rest="${payload#*:}"
     local payload_column="${payload_rest%%:*}"; local payload_type="${payload_rest##*:}"
     assert_eq "[$label] $payload_table.$payload_column type=$payload_type" "$payload_type" \
       "$(mysql_scalar "$cname" "select data_type from information_schema.columns where table_schema=database() and table_name='$payload_table' and column_name='$payload_column'")"
   done
+
+  # 数据迁移另测：历史0/NULL协议、新协议亚秒精度、未完成记录和不相关统计。
+  local mixed_user="rehearsal-electronic-${label}"
+  local null_user="rehearsal-electronic-null-${label}"
+  local empty_user="rehearsal-electronic-empty-${label}"
+  mysql_exec "$cname" project006 <<SQL
+INSERT INTO t_telegraph_key_pat_synthetical_train
+  (id,create_user_id,status,protocol_version,duration,accumulated_active_millis,speed,accuracy,content)
+VALUES
+  ('${mixed_user}-old','${mixed_user}',3,0,'60000',NULL,'60',75,'legacy-answer'),
+  ('${mixed_user}-new','${mixed_user}',3,1,'2',2250,'106.67',100,'new-answer'),
+  ('${mixed_user}-active','${mixed_user}',1,1,'99999',99999999,'999',0,'unfinished'),
+  ('${null_user}-old','${null_user}',3,NULL,'60000',NULL,'60',75,'legacy-answer'),
+  ('${null_user}-new','${null_user}',3,1,'2',2250,'106.67',100,'new-answer');
+INSERT INTO t_telegraph_key_train_statistical (id,user_id,type,total_time,total_count,avg_speed)
+VALUES
+  ('${mixed_user}-stats','${mixed_user}',2,'2',999,999),
+  ('${null_user}-stats','${null_user}',2,'2',999,999),
+  ('${empty_user}-stats','${empty_user}',2,'99999',999,999),
+  ('${mixed_user}-basic','${mixed_user}',0,'12345',7,19.50),
+  ('${mixed_user}-single','${mixed_user}',1,'9876',8,20.50);
+SQL
+  local repeat user_id
+  for repeat in 1 2; do
+    mysql_exec "$cname" project006 < "$STATISTICS_MIGRATION"
+    for user_id in "$mixed_user" "$null_user"; do
+      assert_eq "[$label] electronic mixed protocol milliseconds, pass $repeat" "62250:2:83.34" \
+        "$(mysql_scalar "$cname" "select concat(cast(total_time as decimal(20,0)),':',total_count,':',avg_speed) from t_telegraph_key_train_statistical where user_id='$user_id' and type=2")"
+    done
+    assert_eq "[$label] empty electronic source clears stale summary, pass $repeat" "0:0:0.00" \
+      "$(mysql_scalar "$cname" "select concat(cast(total_time as decimal(20,0)),':',total_count,':',avg_speed) from t_telegraph_key_train_statistical where user_id='$empty_user' and type=2")"
+    assert_eq "[$label] basic and single statistics unchanged, pass $repeat" "0:12345:7:19.50|1:9876:8:20.50" \
+      "$(mysql_scalar "$cname" "select group_concat(concat(type,':',total_time,':',total_count,':',avg_speed) order by type separator '|') from t_telegraph_key_train_statistical where user_id='$mixed_user' and type in (0,1)")"
+    assert_eq "[$label] original legacy answers and results unchanged, pass $repeat" "2" \
+      "$(mysql_scalar "$cname" "select count(*) from t_telegraph_key_pat_synthetical_train where id in ('${mixed_user}-old','${null_user}-old') and (protocol_version=0 or protocol_version is null) and duration='60000' and speed='60' and accuracy=75 and content='legacy-answer'")"
+  done
+  mysql_exec "$cname" project006 <<SQL
+DELETE FROM t_telegraph_key_train_statistical WHERE user_id IN ('$mixed_user','$null_user','$empty_user');
+DELETE FROM t_telegraph_key_pat_synthetical_train WHERE create_user_id IN ('$mixed_user','$null_user');
+SQL
 
   # ---- schema 转储（仅实体表，6 列，带表头） ----
   local schema_tsv="$OUTDIR/${label}-schema.tsv"
