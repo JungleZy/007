@@ -33,6 +33,9 @@ import com.nip.ws.WebSocketService;
 import com.nip.ws.model.ResponseModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -56,6 +59,42 @@ public class TheoryKnowledgeExamService {
   private final TestPaperQuestionDao questionDao;
   private final UserDao userDao;
   private final RoleDao roleDao;
+  private static final Object EXAM_STATE_NOTIFICATIONS = new Object();
+  @Inject TransactionSynchronizationRegistry examTransactions;
+
+  record ExamStateChanged(String message, List<String> recipients) {}
+
+  private void queueExamStateChanged(ExamStateChanged notification) {
+    ExamStateNotifications pending = (ExamStateNotifications) examTransactions.getResource(EXAM_STATE_NOTIFICATIONS);
+    if (pending == null) {
+      pending = new ExamStateNotifications();
+      examTransactions.putResource(EXAM_STATE_NOTIFICATIONS, pending);
+      examTransactions.registerInterposedSynchronization(pending);
+    }
+    pending.notifications.add(notification);
+  }
+
+  private static final class ExamStateNotifications implements Synchronization {
+    private final List<ExamStateChanged> notifications = new ArrayList<>();
+
+    @Override
+    public void beforeCompletion() {}
+
+    @Override
+    public void afterCompletion(int status) {
+      try {
+        if (status == Status.STATUS_COMMITTED) {
+          for (ExamStateChanged notification : notifications) {
+            for (String recipient : notification.recipients()) {
+              WebSocketService.sendInfo(recipient, notification.message());
+            }
+          }
+        }
+      } finally {
+        notifications.clear();
+      }
+    }
+  }
 
   @Inject
   public TheoryKnowledgeExamService(TheoryKnowledgeExamDao theoryKnowledgeExamDao, UserService userService,
@@ -232,11 +271,11 @@ public class TheoryKnowledgeExamService {
     }
     entity.setState(type);
     TheoryKnowledgeExamEntity save = theoryKnowledgeExamDao.save(entity);
-    Map<String, Object> map = new HashMap<>();
-    map.put("exam", save);
-    List<TheoryKnowledgeExamUserEntity> students = theoryKnowledgeExamUserDao.findAllByExamId(examId);
-    students.forEach(student -> WebSocketService.sendInfo(student.getUserId(),
-        new ResponseModel(CodeConstants.TEACHERCHANGEEXAMSTATE.getCode(), map)));
+    String notification = JSONUtils.toJson(new ResponseModel(CodeConstants.TEACHERCHANGEEXAMSTATE.getCode(),
+        Map.of("exam", save)));
+    List<String> recipients = theoryKnowledgeExamUserDao.findAllByExamId(examId).stream()
+        .map(TheoryKnowledgeExamUserEntity::getUserId).toList();
+    queueExamStateChanged(new ExamStateChanged(notification, recipients));
     return ResponseResult.success(entity);
   }
 
