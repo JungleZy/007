@@ -228,7 +228,7 @@ export default function telegramList(wpmTOmm) {
         applyTiming()
         voicePlayData.value.curr = res.data.mark.split(',').map(n => Number(n));
         if (res.data.validTime && res.data.validTime > 0) {
-          handleValidTime(res.data.validTime);
+          handleValidTime(Number(res.data.validTime) * 1000);
         }
       } else {
         message.error(res.message);
