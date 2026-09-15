@@ -15,7 +15,6 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Optional;
 
 /**
@@ -83,8 +82,8 @@ public class TelegraphKeyPatTrainService {
    * @param entity     训练记录实体，从中提取统计数据
    */
   private void saveStsatistical(TelegraphKeyPatTrainDto dto, UserEntity userEntity, TelegraphKeyPatTrainEntity entity) {
-    // 平均速率 = 拍发总次数 / 时长(秒) 折算次/分钟（ScoreMath 统一口径；原两分支一处 /1000 一处不除，按“秒”统一，P2-68）
-    BigDecimal avgSpeed = ScoreMath.rate(entity.getTotalNum(), entity.getTotalTime() * 1000L);
+    // 采集累计时长已经是毫秒，ScoreMath 将其折算为每分钟码率。
+    BigDecimal avgSpeed = ScoreMath.rate(entity.getTotalNum(), entity.getTotalTime());
     TelegraphKeyTrainStatisticalEntity statisticalEntity = statisticalDao.findByUserIdAndType(userEntity.getId(), dto.getType());
     statisticalEntity = Optional.ofNullable(statisticalEntity)
         .map(temp -> temp.setAvgSpeed(avgSpeed)
@@ -125,11 +124,10 @@ public class TelegraphKeyPatTrainService {
         .setTotalTime(0);
 
     TelegraphKeyPatTrainEntity save = patTrainDao.save(entity);
-    //清除训练次数；统计行可能不存在（新用户从未训练过），缺失时不落库
-    //——save(null) 会触发 cn.hutool.core.lang.Assert.notNull 抛 IllegalArgumentException 并回滚整个清空事务
+    // 清空全部汇总指标；缺少统计行的新用户由统计查询初始化零值。
     TelegraphKeyTrainStatisticalEntity statisticalEntity = statisticalDao.findByUserIdAndType(userEntity.getId(), type);
     if (statisticalEntity != null) {
-      statisticalEntity.setTotalCount(0);
+      statisticalEntity.setTotalCount(0).setTotalTime("0").setAvgSpeed(BigDecimal.ZERO);
       statisticalDao.save(statisticalEntity);
     }
     return PojoUtils.convertOne(save, TelegraphKeyPatTrainVO.class);

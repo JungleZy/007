@@ -26,7 +26,8 @@ public class TelegraphKeyPatSyntheticalDao extends BaseRepository<TelegraphKeyPa
   public Map<String, Object> finishStatistical(String userId) {
     // 当前读：等待属主行锁后不能复用 token 查询建立的旧 RR 快照；只载入统计所需标量。
     List<Object[]> rows = entityManager.createNativeQuery(
-        "SELECT duration,speed FROM t_telegraph_key_pat_synthetical_train "
+        "SELECT CASE WHEN protocol_version=1 THEN accumulated_active_millis ELSE duration END,speed "
+            + "FROM t_telegraph_key_pat_synthetical_train "
             + "WHERE create_user_id=:userId AND status=3 FOR UPDATE", Object[].class)
         .setParameter("userId", userId).getResultList();
     BigDecimal totalTime = BigDecimal.ZERO;
