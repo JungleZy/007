@@ -109,8 +109,10 @@
     flex:1;min-height:0;min-width:0;overflow:auto;
     display:grid;gap:12px;padding:12px;
     grid-template-columns:minmax(340px,1fr) minmax(420px,1.15fr);
-    grid-template-rows:auto minmax(168px,1fr);align-items:start
+    grid-template-rows:auto minmax(168px,1fr)
   }
+  /* 同一行的两张卡片等高（栅格默认 stretch）；矮的那张底部留白，
+     不允许谁的内容把行高顶起来——所以 faultNote 必须是固定高的槽位 */
   section{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 12px 12px}
   /* 卡片间距一律由栅格 gap 负责：早先这里有过 section+section{margin-top}，
      在栅格里它会把第二张卡片整体压下 14px，两列顶边就对不齐了 */
@@ -169,6 +171,9 @@
   .note{color:var(--ink-dim);font-size:11.5px;font-family:var(--mono);margin:8px 0 0;word-break:break-all;line-height:1.6}
   .note.warn{color:var(--lamp)}
   .note:empty{display:none}
+  /* 故障提示是固定槽位：有/无内容都占同一行、长文省略号截断，
+     不出现"勾了故障卡片就长高"的布局跳动；完整文字在 title 里 */
+  #faultNote{display:block;min-height:18px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .note.ok{color:var(--live)}
   .hidden{display:none!important}
   .inline{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
@@ -465,6 +470,7 @@ const setNote = (id, value, tone) => {
   const node = $(id)
   if (!node) return
   node.textContent = value || ''
+  node.title = value || ''
   node.classList.toggle('warn', tone === 'warn')
   node.classList.toggle('ok', tone === 'ok')
 }
