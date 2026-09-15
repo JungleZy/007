@@ -67,11 +67,11 @@
 ## E. 提交、推送、Actions
 
 - [x] 按C逐项提交；跨栈契约修改正文记录前端模块/消费者与验证命令；R19补审批准，最终文档交付审阅所报旧基线已订正。提交索引见review §7。
-- [ ] 整体green后推送main，不发tag/不发布新版本。
-- [ ] 查找最终提交SHA对应Actions；等待JVM、前端、Rust、三平台native所有必跑job完成。
-- [ ] 若失败，读取准确job日志，单独修复真实原因、本地验证、再次提交/推送，直到最终SHA必跑job全部success。tag-only的desktop/release跳过不等于产品包实机验证。
-- [ ] 回填review/spec/plan中实际commit、命令、测试数量、迁移证据目录、Actions run URL；文档再审阅并提交。如最后文档提交触发新run，继续观察该最终SHA。
+- [x] 本地green后已推送完整交付`bcdf641`到main，不发tag/不发布新版本。
+- [x] [Actions 34963263622](https://github.com/JungleZy/007/actions/runs/34963263622)的JVM、前端、Rust、三平台native共六个必跑job全部success。
+- [x] 本轮功能提交CI首轮通过，无须修复失败job；tag-only desktop/release按设计跳过，不代表产品包实机验收。
+- [x] 回填review/spec/plan的功能提交SHA、测试/迁移证据及Actions URL；最终文档审阅发现的旧基线已修正。本次证据记录提交的新run仍按最终交付规则观察，精确SHA/run由交付回复链接，避免文档自引用导致无限新提交。
 
 ## 执行记录
 
-本地代码、19项行为验证和迁移演练已完成，初始两路文档审阅的D1–D5及后续真实边界均已整改。补验R19纳入独立提交与最终文档补审；逐项SHA见review §7。下一门禁是最终推送提交的全部必跑Actions，不以本地绿色代替CI。
+完成19项整改、初始及补充文档门禁、本地回归、真实核心UI、双快照迁移与完整交付`bcdf641`的Actions全绿。Linux CI实际native产物经manifest/校验和核对后，以生产validate连接隔离库，拼音/五笔真实创建、权威计分与幂等结束通过。该证据记录提交自身的CI在交付前另外核验；真实硬件、听感、目标桌面/证书/现场仍为外部验收边界。

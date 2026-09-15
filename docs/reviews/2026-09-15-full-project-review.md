@@ -2,7 +2,7 @@
 
 ## 1. 结论与证据口径
 
-本轮以 `a39e226ea686e886648c8388a38d5acea54e9a9b` 为审查起点，采用六路领域审查、两路补充审查、隔离 MySQL + 生产 fast-jar + 真实浏览器验证。**确认并修复19项问题，已完成本地回归与核心运行复核；最终GitHub Actions结果在本节末尾单独记录，不能以起点绿色替代。** 第3节保留修复前取证，不代表当前开放缺陷。
+本轮以 `a39e226ea686e886648c8388a38d5acea54e9a9b` 为审查起点，采用六路领域审查、两路补充审查、隔离 MySQL + 生产 fast-jar + 真实浏览器验证。**确认并修复19项问题，完整交付提交`bcdf641`已通过本地回归、核心运行及六个必跑GitHub Actions job。** 第3节保留修复前取证，不代表当前开放缺陷；不可替代的实机/现场边界见§6。
 
 - 基线后端：`JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`，442 tests，0 failures / errors / skipped。
 - 基线前端：`npm run test` 31/31；`npm run build` 成功；发布契约 5/5。
@@ -185,13 +185,15 @@
 - 文档审阅：ReviewDocsPlan批准执行映射及验证计划；ReviewDocsContracts提出D1–D5（个人码串模型、理论合法流程/写入口/试卷投影、经典手键单内容旁路），Main修正后三份文档获复审批准；R18独立补审通过。
 - 本地最终后端：`JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`，**502 tests / 115 suites，0 failures / errors / skipped**。收报DTO的isLowRate说明校正后，受影响两类再跑8/8通过。
 - 本地最终前端：`npm run test && npm run build`，**37/37**通过、生产构建成功；最终尾页补丁也包含在本次构建。发布manifest契约5/5通过。
-- Rust：隔离提交态测试/构建83项通过；不覆盖、不代提交随后继续发生的keysim与MessageWebSocket并发编辑。最终CI按推送提交态再验证。
+- Rust：本地隔离早期提交态83项通过；推送前另一路keysim修改独立提交后，本轮CI提交态实测81项（59+7+10+1+4）全部通过并成功构建。不把前一快照的83冒充最终提交数量，未代stage外部keysim/MessageWebSocket编辑。
 - 迁移：最终22脚本=20 schema+2 data；实体快照与current/base双快照通过，每份106表全部InnoDB、schema差分为空。统计专项覆盖旧协议0/NULL、1新协议、空源、未完成源、不相关type0/1及重复执行；旧贡献60000ms+新2250ms=62250ms，不倍乘。证据：`backend/database/rehearsal/2026-09-15-full-project/`，提交`8fea233`。
 - 独立代码/错误路径审阅发现的真实格式、WS写旁路、字符码率、结束快照冻结、无teacher自测及事务通知问题均已补契约并整改。最终ReviewFinalClarity只读检查未发现结构阻断；其空闲全文重算建议以`f09e136`局部清理，原函数执行验证计时不改变判定、输入改正仍重算，不增加缓存。
 - R19真实补验发现后追加规格与计划；一次性原函数执行在旧版本失败为99!=0，修复后正确尾页0、未交尾页1、完整缺页100、解析内部空位1通过；VerifyPostHandReplayUI对同一生产预览fixture复测通过，截图由Main复核。浏览器证据不替代真实硬件。
 - 最终文档契约补审：ReviewFinalDocContracts批准R19规格/实现及R09/R10/R11最终文档，无阻断；只读审查与Main运行证据分开记述。
 - 最终交付审阅：ReviewFinalDocDelivery核对19项映射、22迁移、回滚/CI/硬件边界，发现runbook §4.5遗留442/102、31/31、17迁移旧基线；Main已改为502/115、37/37、22脚本并更新关联入口。60处本地Markdown链接均有效。
-- CI：最终提交尚未推送；收到全部必跑job结果后回填，不提前宣称通过。
+- CI：完整交付`bcdf641657fc275ff35e9eb46a317ea5a4dfbe89`的[Actions 34963263622](https://github.com/JungleZy/007/actions/runs/34963263622)为**success**。JVM 502/0失败、前端37/37、发布契约5/5、Rust81，以及Linux x64、Linux ARM64、Windows x64 native构建及`/q/openapi`冒烟全部通过；desktop/release因非tag按设计跳过，未发布新版本。
+- Native业务补验：下载该run的Linux x64真实产物，manifest.sourceCommit与上述SHA一致，SHA-256为`f14226c06220c37b1e605857bd99e197d99b816abfb387d1893e3198726dde95`且实物校验一致。连接隔离库、保持生产schema validate启动，真实登录200，type2/9默认词库创建成功；彼岸分别冻结`bian`/`thcymdfj`，提交伪造font/py/计数/时长不改权威题面，完成均status2、correct1、accuracy100、duration1秒，相同完成重试仍1秒。初次误用旧测试密码得到明确密码拒绝，改用既有fixture正确密码后成功，不是native产品故障。
+- 本次仅证据文档提交会另触发同一workflow；交付前仍须观察该记录提交的结果，最终回复提供其精确SHA/run链接。报告使用已完成的功能提交作为不可变证据，避免为了把文档自身SHA写回文档而无限产生新提交。
 
 ### 独立提交索引
 
@@ -210,11 +212,11 @@
 | R11 | 考生/题型响应最小投影 | `a1482df` |
 | R12 | 授权卡片布局 | `26b1453` |
 | R13 | Rust CI与跨栈守门 | `664d2da` |
-| R14 | 迁移演练与部署文档 | `8fea233` |
+| R14 | 迁移演练、部署入口与收报API说明 | `8fea233`、`bcdf641` |
 | R15 | 请求局部试卷递归 | `29c9846` |
 | R16 | 汉字要点管理员门禁 | `3fb6246` |
 | R17 | 教学WS控制角色 | `ae9e926` |
 | R18 | 电子统计毫秒与历史重算 | `3db245e` |
 | R19 | 岗位手键实际源组漏拍统计 | `46312bc` |
 
-初始文档审阅提交`9c26873`；R14其余README/索引/收报API说明与本报告同批文档提交。表中只列本轮负责的修复，不混入外部keysim/MessageWebSocket编辑；最终CI记录单列。
+初始文档审阅提交`9c26873`；最终本地证据与部署入口提交`bcdf641`。表中只列本轮负责的修复，不混入外部keysim/MessageWebSocket编辑；本次CI证据回填不改功能源码。
