@@ -198,8 +198,12 @@ export default function telegramList(showChart) {
    */
   const totalTelegraghMsg = () => {
     scoreData.value.total = {sm: 0, dm: 0, sz: 0, dz: 0,dh: []};
+    const resolver = successResolver.value[scoreData.value.currPage-1];
     if (scoreData.value.messageBody[scoreData.value.currPage-1]) {
-      scoreData.value.messageBody[scoreData.value.currPage-1].map(item => {
+      scoreData.value.messageBody[scoreData.value.currPage-1].forEach((item, index) => {
+        if (item.moresKey !== '#' && !resolver?.resolverMessage[index]) {
+          scoreData.value.total.sz ++;
+        }
         if (item.moresKey === '#') {
           scoreData.value.total.dz ++;
         } else if (typeof item.moresKey === 'string') {
@@ -208,26 +212,21 @@ export default function telegramList(showChart) {
         if (typeof item.patKeys === 'string') {
           item.patKeys = JSON.parse(item.patKeys);
         }
-        if (item.patKeys.length === 0) {
-          // scoreData.value.total.sz ++;
-        } else if (item.moresKey.length > item.patKeys.length && item.moresKey !== '#') {
+        if (item.patKeys.length > 0 && item.moresKey.length > item.patKeys.length && item.moresKey !== '#') {
           scoreData.value.total.sm += 4 - item.patKeys.length;
         } else if (item.moresKey.length < item.patKeys.length && item.moresKey !== '#') {
           scoreData.value.total.dm += item.patKeys.length - 4;
         }
       });
     }
-    if (successResolver.value[scoreData.value.currPage-1]) {
-      if (successResolver.value[scoreData.value.currPage-1].resolverMessage.length < 100) {
-        scoreData.value.total.sz = 100 - successResolver.value[scoreData.value.currPage-1].resolverMessage.length
-      }
-      successResolver.value[scoreData.value.currPage-1].moreGroups.map(item => {
+    if (resolver) {
+      resolver.moreGroups.forEach(item => {
         if(item.message){
           scoreData.value.total.dz += item.message.length
         }
       })
-      if (successResolver.value[scoreData.value.currPage-1].moreLine.length > 0) {
-        scoreData.value.total.dh = successResolver.value[scoreData.value.currPage-1].moreLine
+      if (resolver.moreLine.length > 0) {
+        scoreData.value.total.dh = resolver.moreLine
       }
     }
   };
