@@ -17,7 +17,11 @@
     --lamp-off:#4a4038;    /* 信号灯：熄灭 */
     --live:#6fc3a4;        /* 就绪 / 通路 */
     --fault:#d76a55;       /* 故障 */
-    --tape:#0f1314;        /* 纸带底 */
+    --tape:#0f1314;        /* 纸带槽底（机箱侧） */
+    --paper:#e9dfc3;       /* 纸带纸色：暖米 */
+    --paper-ink:#38342c;   /* 纸上墨迹 */
+    --paper-scale:#7a6a4a; /* 纸上刻度 */
+    --brass:#c98f3d;       /* 黄铜件 */
     --mono:ui-monospace,"JetBrains Mono","SFMono-Regular",Consolas,"Noto Sans Mono CJK SC",monospace;
     --sans:system-ui,-apple-system,"Segoe UI","Noto Sans SC","PingFang SC",sans-serif;
   }
@@ -40,19 +44,26 @@
     padding:12px 12px;background:var(--panel);border-bottom:1px solid var(--rule);
     box-shadow:inset 0 -1px 0 rgba(0,0,0,.4);
   }
-  .plate{font-family:var(--mono);font-size:16px;font-weight:600;letter-spacing:.42em;text-transform:uppercase}
-  .plate b{color:var(--lamp);font-weight:600}
+  /* 黄铜铭牌：阴刻字 + 顶部一道抛光 */
+  .plate{
+    font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.42em;text-transform:uppercase;
+    padding:3px 10px 3px 14px;border-radius:2px;color:#241c10;
+    background:linear-gradient(180deg,#d9a451 0%,var(--brass) 45%,#a5762f 100%);
+    box-shadow:inset 0 1px 0 rgba(255,235,190,.55),inset 0 -1px 0 rgba(60,40,8,.55),0 1px 3px rgba(0,0,0,.5);
+    text-shadow:0 1px 0 rgba(255,235,190,.35)
+  }
+  .plate b{color:#4d3005;font-weight:600}
   .sub{color:var(--ink-dim);font-size:11.5px;letter-spacing:.08em}
   .lamps{display:flex;gap:12px;flex-wrap:wrap}
   header .spacer{flex:1}
   .lamp{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
   .lamp i{
-    width:9px;height:9px;border-radius:50%;background:var(--lamp-off);
-    box-shadow:inset 0 0 2px rgba(0,0,0,.8);flex:none
+    width:9px;height:9px;border-radius:50%;background:var(--lamp-off);flex:none;
+    box-shadow:0 0 0 2.5px #2b3234,inset 0 0 2px rgba(0,0,0,.8)
   }
-  .lamp.on i{background:var(--lamp);box-shadow:0 0 7px rgba(229,161,60,.65)}
-  .lamp.live i{background:var(--live);box-shadow:0 0 7px rgba(111,195,164,.5)}
-  .lamp.fault i{background:var(--fault);box-shadow:0 0 7px rgba(215,106,85,.6)}
+  .lamp.on i{background:var(--lamp);box-shadow:0 0 0 2.5px #2b3234,0 0 9px 1px rgba(229,161,60,.75)}
+  .lamp.live i{background:var(--live);box-shadow:0 0 0 2.5px #2b3234,0 0 9px 1px rgba(111,195,164,.6)}
+  .lamp.fault i{background:var(--fault);box-shadow:0 0 0 2.5px #2b3234,0 0 9px 1px rgba(215,106,85,.7)}
   .lamp.on b,.lamp.live b{color:var(--ink)}
 
   /* ---------- 纸带：本页主角 ----------
@@ -64,8 +75,8 @@
      绝对定位的子元素若挂在滚动容器里，会随内容一起滚走（滚一下就看不见了）。 */
   .tapehost{position:relative}
   .tape{
-    position:relative;background:var(--tape);border:1px solid var(--rule);border-radius:3px;
-    box-shadow:inset 0 2px 12px rgba(0,0,0,.55);overflow-x:auto;overflow-y:hidden
+    position:relative;background:var(--paper);border:1px solid #241f16;border-radius:3px;
+    box-shadow:inset 0 2px 12px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.04);overflow-x:auto;overflow-y:hidden
   }
   /* 原生滚动条一律隐藏，改用下面的虚拟滚动条：占位为 0，样式与面板一致 */
   .noscroll{scrollbar-width:none;-ms-overflow-style:none}
@@ -82,6 +93,9 @@
   .stage:hover>.vbar.live,
   .vbar.live.drag{opacity:1;pointer-events:auto}
   .vbar i{position:absolute;background:#4f5d5c;border-radius:3px;transition:background .12s}
+  .tapehost .vbar{background:rgba(56,52,44,.14)}
+  .tapehost .vbar i{background:#a08c5f}
+  .tapehost .vbar i:hover,.tapehost .vbar i.drag{background:#6d5a33}
   .vbar.x i{top:0;height:100%;min-width:24px}
   .vbar.y i{left:0;width:100%;min-height:24px}
   .vbar i:hover,.vbar i.drag{background:var(--lamp)}
@@ -98,7 +112,7 @@
   .tape-meta b{color:var(--ink);font-weight:500}
   .tape-empty{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:var(--mono);font-size:12px;color:var(--ink-dim);letter-spacing:.12em
+    font-family:var(--mono);font-size:12px;color:var(--paper-scale);letter-spacing:.12em
   }
 
   /* ---------- 面板分区 ---------- */
@@ -113,13 +127,23 @@
   }
   /* 同一行的两张卡片等高（栅格默认 stretch）；矮的那张底部留白，
      不允许谁的内容把行高顶起来——所以 faultNote 必须是固定高的槽位 */
-  section{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 12px 12px}
+  section{
+    background:linear-gradient(180deg,#21292b 0%,var(--panel) 42px);border:1px solid var(--rule);border-radius:3px;
+    padding:12px 12px 12px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 8px 20px rgba(0,0,0,.28)
+  }
   /* 卡片间距一律由栅格 gap 负责：早先这里有过 section+section{margin-top}，
      在栅格里它会把第二张卡片整体压下 14px，两列顶边就对不齐了 */
   h2{
     margin:0 0 6px;font-family:var(--mono);font-size:11px;font-weight:600;
     letter-spacing:.26em;text-transform:uppercase;color:var(--ink-dim);
     padding-bottom:5px;border-bottom:1px solid var(--rule)
+  }
+  /* 标题左侧一颗黄铜钉，像铭牌铆在面板上 */
+  h2::before{
+    content:"";display:inline-block;width:5px;height:5px;margin:0 8px 1px 0;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#e9bd6d,var(--brass) 60%,#7d5a22);
+    box-shadow:0 1px 1px rgba(0,0,0,.6)
   }
   .wide{grid-column:1/-1;align-self:stretch;display:flex;flex-direction:column;min-height:0}
 
@@ -132,7 +156,12 @@
   .link.fault i{background:var(--fault)}
   .link .name{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .link .name em{font-style:normal;color:var(--ink-dim);font-size:10.5px;margin-left:5px;font-family:var(--sans)}
-  .link .val{grid-column:2;font-family:var(--mono);font-size:11px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .link .val{
+    grid-column:2;font-family:var(--mono);font-size:11px;color:var(--ink-dim);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    background:rgba(0,0,0,.26);border-radius:2px;padding:1px 6px;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.5)
+  }
   .link.on .val,.link.live .val{color:var(--ink)}
   .link.fault .val{color:var(--fault)}
   .subhead{display:block;margin:10px 0 6px;padding-top:8px;border-top:1px dashed var(--rule);color:var(--ink-dim);font-family:var(--mono);font-size:11px;letter-spacing:.14em}
@@ -147,6 +176,8 @@
     border:1px solid var(--rule);border-radius:2px;
     font-family:var(--sans);font-size:13px;line-height:30px
   }
+  /* 输入件是面板上开出的槽：内凹 */
+  input,select,textarea{box-shadow:inset 0 2px 5px rgba(0,0,0,.45),inset 0 -1px 0 rgba(255,255,255,.03)}
   input[type=number]{width:84px;font-family:var(--mono);font-size:12.5px}
   input[type=checkbox]{width:13px;height:13px;padding:0;accent-color:var(--lamp);vertical-align:middle}
   select{padding-right:4px}
@@ -158,14 +189,26 @@
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
     outline:2px solid var(--lamp);outline-offset:1px
   }
-  button{cursor:pointer;white-space:nowrap}
+  button{
+    cursor:pointer;white-space:nowrap;
+    background:linear-gradient(180deg,#2a3234 0%,#222a2c 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 1px 2px rgba(0,0,0,.45)
+  }
+  button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
   button:hover:not(:disabled){border-color:var(--lamp);color:var(--lamp)}
   button:disabled{opacity:.38;cursor:not-allowed}
   /* 主操作与次操作同高同字号，只有配色不同 */
   button.key{background:var(--panel-2);border-color:#4a5558;padding:0 12px;letter-spacing:.06em}
-  button.key.go{border-color:var(--lamp);color:var(--lamp);background:rgba(229,161,60,.09)}
-  button.key.go:hover:not(:disabled){background:rgba(229,161,60,.16)}
-  button.key.halt{border-color:#7a3a30;color:#f0a595}
+  button.key.go{
+    border-color:#8a6420;color:#f3c87a;font-weight:600;
+    background:linear-gradient(180deg,#6b4d1c 0%,#4e3812 100%);
+    box-shadow:inset 0 1px 0 rgba(255,220,150,.3),0 1px 3px rgba(0,0,0,.5)
+  }
+  button.key.go:hover:not(:disabled){background:linear-gradient(180deg,#7d5a22 0%,#5a4115 100%);color:#ffd992}
+  button.key.halt{
+    border-color:#7a3a30;color:#f0a595;
+    background:linear-gradient(180deg,#40221d 0%,#331a16 100%)
+  }
   button.key.halt:hover:not(:disabled){border-color:var(--fault);color:var(--fault)}
   .grow{flex:1;min-width:120px}
   .note{color:var(--ink-dim);font-size:11.5px;font-family:var(--mono);margin:8px 0 0;word-break:break-all;line-height:1.6}
@@ -635,30 +678,52 @@ const drawTape = () => {
 
   const pen = canvas.getContext('2d')
   pen.setTransform(ratio, 0, 0, ratio, 0, 0)
-  pen.clearRect(0, 0, width, height)
 
   const pad = 10
-  const base = height - 26
+  const base = height - 26          // 墨迹基线：上排孔带之下、刻度文字之上
   const scale = tape.pxPerMs
   const offset = tape.view.scrollLeft            // 这一窗从哪一毫秒开始
   const msAt = x => (x - pad + offset) / scale
   const xOf = ms => pad + ms * scale - offset
+
+  // --- 纸：暖米纸面，顶部略亮，像从纸卷里拉出来的一截 ---
+  const paper = pen.createLinearGradient(0, 0, 0, height)
+  paper.addColorStop(0, '#eee4c8')
+  paper.addColorStop(0.5, '#e9dfc3')
+  paper.addColorStop(1, '#e0d4b2')
+  pen.fillStyle = paper
+  pen.fillRect(0, 0, width, height)
+  // 纸纹：两条极淡的横向纤维
+  pen.fillStyle = 'rgba(120,100,60,.05)'
+  pen.fillRect(0, height * 0.38, width, 1)
+  pen.fillRect(0, height * 0.72, width, 1)
+
+  // --- 链孔：纸带是打孔纸，孔随纸走（按像素对齐滚动偏移） ---
+  // 孔是打穿的，透出底下机箱的深色；孔缘一圈纸被压陷的阴影
+  for (const y of [6, height - 6]) {
+    for (let x = 5 - (offset % 16); x < width + 8; x += 16) {
+      pen.fillStyle = 'rgba(120,100,60,.4)'
+      pen.beginPath(); pen.arc(x, y + 0.8, 3.1, 0, Math.PI * 2); pen.fill()
+      pen.fillStyle = '#221f18'
+      pen.beginPath(); pen.arc(x, y, 2.6, 0, Math.PI * 2); pen.fill()
+    }
+  }
 
   // 走纸刻度：按倍率挑一个整齐的间隔，标签不挤在一起
   const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 30000, 60000]
   const step = steps.find(value => value * scale >= 60) || steps[steps.length - 1]
   const from = Math.max(0, Math.floor(msAt(0) / step) * step)
   const to = msAt(width)
-  pen.strokeStyle = 'rgba(231,227,215,.10)'
-  pen.fillStyle = '#5d6a6d'
+  pen.strokeStyle = 'rgba(122,106,74,.35)'
+  pen.fillStyle = '#7a6a4a'
   pen.font = '10px ui-monospace, monospace'
   pen.lineWidth = 1
   for (let ms = from; ms <= to; ms += step) {
     const x = xOf(ms)
-    pen.beginPath(); pen.moveTo(x, 14); pen.lineTo(x, base + 6); pen.stroke()
-    pen.fillText(ms >= 1000 ? (ms / 1000).toFixed(ms % 1000 ? 1 : 0) + 's' : ms + 'ms', x + 3, base + 18)
+    pen.beginPath(); pen.moveTo(x, 16); pen.lineTo(x, base + 5); pen.stroke()
+    pen.fillText(ms >= 1000 ? (ms / 1000).toFixed(ms % 1000 ? 1 : 0) + 's' : ms + 'ms', x + 3, base + 16)
   }
-  pen.strokeStyle = 'rgba(231,227,215,.22)'
+  pen.strokeStyle = 'rgba(122,106,74,.55)'
   pen.beginPath(); pen.moveTo(0, base); pen.lineTo(width, base); pen.stroke()
 
   if (!tape.marks.length) { setShown('tapeEmpty', true); return }
@@ -668,7 +733,8 @@ const drawTape = () => {
   const tall = base - top
   const leftMs = msAt(-40)
   const rightMs = msAt(width + 40)
-  pen.fillStyle = '#e5a13c'
+  // 墨迹：暖黑，像电报纸条上的油墨
+  pen.fillStyle = '#38342c'
   if (tape.key === 'electron') {
     for (const [at] of tape.marks) {
       if (at < leftMs || at > rightMs) continue
@@ -685,21 +751,21 @@ const drawTape = () => {
       down = null
     }
     if (down !== null && down <= rightMs) {   // 缺抬起（故障注入）：画成红色断口
-      pen.fillStyle = '#d76a55'
+      pen.fillStyle = '#b8452f'
       pen.fillRect(xOf(down), top, 2, tall)
     }
   }
 
   if (tape.truncated) {
-    pen.fillStyle = '#d76a55'
-    pen.fillText('帧数超出纸带上限，后段未绘', Math.max(pad, width - 190), 12)
+    pen.fillStyle = '#b8452f'
+    pen.fillText('帧数超出纸带上限，后段未绘', Math.max(pad, width - 190), 20)
   }
 
   if (tape.playhead !== null) {
     const x = xOf(Math.min(tape.duration, tape.playhead))
-    pen.fillStyle = 'rgba(111,195,164,.14)'
+    pen.fillStyle = 'rgba(61,143,110,.16)'
     pen.fillRect(0, top - 6, Math.max(0, x), tall + 12)
-    pen.strokeStyle = '#6fc3a4'
+    pen.strokeStyle = '#2e7d5f'
     pen.lineWidth = 1.5
     pen.beginPath(); pen.moveTo(x, top - 8); pen.lineTo(x, base + 4); pen.stroke()
   }
