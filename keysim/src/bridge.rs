@@ -84,11 +84,17 @@ pub type Log = Arc<dyn Fn(String) + Send + Sync>;
 /// 自动开串口整条链路放弃（界面上表现为"串口未开启"），而它其实马上就能用。
 pub fn start(port: u16, path: &str, announce_status: bool, log: Log) -> std::io::Result<Arc<Bridge>> {
     let mut bound = TcpListener::bind(("127.0.0.1", port));
-    for _ in 0..20 {
+    for attempt in 0..20 {
         match &bound {
             Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                bound = TcpListener::bind(("127.0.0.1", port));
+                // 与 console::listen 一致：首次重试时吱一声，别静默卡 3 秒
+                if attempt == 0 {
+                    log(format!("桥接端口 {port} 仍被占用，等待旧进程退出…"));
+                }
+                if attempt + 1 < 20 {
+                    std::thread::sleep(std::time::Duration::from_millis(150));
+                    bound = TcpListener::bind(("127.0.0.1", port));
+                }
             }
             _ => break,
         }

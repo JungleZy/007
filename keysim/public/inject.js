@@ -10,7 +10,7 @@
 (() => {
   const origin = (document.currentScript && document.currentScript.src)
     ? new URL(document.currentScript.src).origin
-    : (window.__keysimOrigin || 'http://127.0.0.1:18700')
+    : (window.__keysimOrigin || '__KEYSIM_ORIGIN__')
   const wsUrl = origin.replace(/^http/, 'ws') + '/ws/serial'
 
   if (window.__keysimSerial) {

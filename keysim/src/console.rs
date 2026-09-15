@@ -112,9 +112,7 @@ pub fn build_timeline(params: &Value) -> Result<Timeline, String> {
 
 impl Console {
     fn broadcast(&self, event: &Value) {
-        let payload = format!("data: {event}\n\n");
-        let mut clients = self.events.lock();
-        clients.retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
+        sse_broadcast(&self.events, event);
     }
 
     fn state(&self) -> Value {
@@ -285,13 +283,22 @@ impl Console {
 impl Console {
     /// 拉起浏览器打开被测页面，并在页面脚本执行前注入虚拟串口
     pub fn open_page(&self, url: &str) -> Result<(), String> {
-        let origin = format!("http://127.0.0.1:{}", self.port);
-        let script = INJECT_JS.replace("http://127.0.0.1:18700", &origin);
-        let session = browser::open(url, &script)?;
+        let session = browser::open(url, &inject_script(self.port))?;
         self.log("ok", format!("已打开被测页面并预置虚拟串口：{url}"));
         *self.browser.lock() = Some(session);
         Ok(())
     }
+}
+
+/// 注入脚本按实际端口定制 origin（脚本内是占位符，见 public/inject.js）
+fn inject_script(port: u16) -> String {
+    INJECT_JS.replace("__KEYSIM_ORIGIN__", &format!("http://127.0.0.1:{port}"))
+}
+
+/// SSE 广播：Console::broadcast 与 serve 里的 sink 闭包共用这一份
+fn sse_broadcast(events: &Mutex<Vec<TcpStream>>, event: &Value) {
+    let payload = format!("data: {event}\n\n");
+    events.lock().retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
 }
 
 fn respond(stream: &mut TcpStream, status: &str, content_type: &str, body: &[u8]) {
@@ -338,7 +345,9 @@ fn listen(port: u16) -> std::io::Result<TcpListener> {
                     eprintln!("[keysim] 端口 {port} 仍被占用，等待旧进程退出…");
                 }
                 last = Some(error);
-                thread::sleep(std::time::Duration::from_millis(150));
+                if attempt + 1 < 20 {
+                    thread::sleep(std::time::Duration::from_millis(150));
+                }
             }
             Err(error) => return Err(error),
         }
@@ -356,9 +365,7 @@ pub fn serve(options: Options) -> std::io::Result<Arc<Console>> {
         options.bridge,
         options.links.clone(),
         Arc::new(move |event: Value| {
-            let payload = format!("data: {event}\n\n");
-            let mut clients = sink_events.lock();
-            clients.retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
+            sse_broadcast(&sink_events, &event);
         }),
     );
 
@@ -445,6 +452,12 @@ fn serve_one(console: Arc<Console>, mut stream: TcpStream) {
     let length: usize = ws::header_value(&headers, "content-length")
         .and_then(|value| value.parse().ok())
         .unwrap_or(0);
+    // content-length 直接决定分配大小，不能无条件信任客户端声明的数字
+    const MAX_BODY: usize = 16 * 1024 * 1024;
+    if length > MAX_BODY {
+        respond(&mut stream, "413 Payload Too Large", "text/plain; charset=utf-8", b"body too large");
+        return;
+    }
     let mut body = vec![0u8; length];
     if length > 0 && reader.read_exact(&mut body).is_err() {
         return;
@@ -453,8 +466,7 @@ fn serve_one(console: Arc<Console>, mut stream: TcpStream) {
     match (method.as_str(), path.as_str()) {
         ("GET", "/") | ("GET", "/index.html") => respond(&mut stream, "200 OK", "text/html; charset=utf-8", INDEX_HTML.as_bytes()),
         ("GET", "/inject.js") => {
-            let origin = format!("http://127.0.0.1:{}", console.port);
-            let script = INJECT_JS.replace("http://127.0.0.1:18700", &origin);
+            let script = inject_script(console.port);
             respond(&mut stream, "200 OK", "application/javascript; charset=utf-8", script.as_bytes());
         }
         ("OPTIONS", _) => respond(&mut stream, "204 No Content", "text/plain", b""),
