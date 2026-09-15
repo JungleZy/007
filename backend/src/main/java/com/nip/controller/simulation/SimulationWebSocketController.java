@@ -1,6 +1,7 @@
 package com.nip.controller.simulation;
 
 import com.nip.common.interceptor.JWT;
+import com.nip.common.interceptor.RequireAdmin;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.ws.model.SimulationSessionHolder;
@@ -25,6 +26,7 @@ public class SimulationWebSocketController {
   @GET
   @Path("/getAllRoomInfo")
   @Operation(summary = "获取所有房间在线人员信息")
+  @RequireAdmin
   public Response<Map<String, List<Map<Integer, List<SimulationUserModel>>>>> getAllRoomInfo() {
     Map<Integer, List<SimulationSessionHolder>> routerRoom = SimulationGlobal.routerRoom;
     Map<Integer, List<SimulationSessionHolder>> disturbRoom = SimulationGlobal.disturbRoom;

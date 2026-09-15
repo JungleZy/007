@@ -245,9 +245,9 @@ public class SimulationRouterRoomService {
    * @return 更新后的模拟路由器房间用户信息VO对象
    */
   @Transactional(rollbackOn = Exception.class)
-  public SimulationRouterRoomUserVO changeChannel(SimulationRoomRouterChangeParam param) {
-    SimulationRouterRoomUserEntity routerRoomUserEntity = roomUserDao.findByUserIdAndRoomId(param.getUserId(), param.getRoomId());
-    routerRoomUserEntity = Optional.ofNullable(routerRoomUserEntity).orElseThrow(() -> new IllegalArgumentException(STRING));
+  public SimulationRouterRoomUserVO changeChannel(HttpServerRequest request, SimulationRoomRouterChangeParam param) {
+    SimulationRouterRoomUserEntity routerRoomUserEntity = roomAccess.requireChannelChange(
+        request, param.getRoomId(), param.getUserId());
     routerRoomUserEntity.setChannel(param.getChannel());
     roomUserDao.save(routerRoomUserEntity);
     //更改内存中的
@@ -316,7 +316,8 @@ public class SimulationRouterRoomService {
     });
   }
 
-  public List<Integer> getRoomChannels(Integer roomId) {
+  public List<Integer> getRoomChannels(HttpServerRequest request, Integer roomId) {
+    roomAccess.requireMember(request, roomId);
     return roomUserDao.findByRoomId(roomId)
         .stream()
         .filter(item -> item.getUserType().compareTo(0) == 0)

@@ -99,8 +99,9 @@ public class SimulationDisturdController {
   @POST
   @Path("/saveSetting")
   @Operation(summary = "保存设置")
-  public Response<SimulationDisturdSettingVO> saveSetting(@RequestBody SimulationDisturdSettingVO vo) {
-    return ResponseResult.success(roomContentService.saveSetting(vo));
+  public Response<SimulationDisturdSettingVO> saveSetting(HttpServerRequest request,
+      @RequestBody SimulationDisturdSettingVO vo) {
+    return ResponseResult.success(roomContentService.saveSetting(request, vo));
   }
 
   @GET

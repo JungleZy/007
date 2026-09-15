@@ -65,8 +65,9 @@ public class SimulationRouterRoomController {
   @POST
   @Path("/changeChannel")
   @Operation(summary = "更改频道号")
-  public Response<SimulationRouterRoomUserVO> changeChannel(@RequestBody SimulationRoomRouterChangeParam param) {
-    return ResponseResult.success(roomService.changeChannel(param));
+  public Response<SimulationRouterRoomUserVO> changeChannel(HttpServerRequest request,
+      @RequestBody SimulationRoomRouterChangeParam param) {
+    return ResponseResult.success(roomService.changeChannel(request, param));
   }
 
   @GET
@@ -80,8 +81,8 @@ public class SimulationRouterRoomController {
   @GET
   @Path("/getRoomChannels")
   @Operation(summary = "查询所有管道")
-  public Response<List<Integer>> getRoomChannels(@RestQuery(ROOM_ID) Integer roomId) {
-    return ResponseResult.success(roomService.getRoomChannels(roomId));
+  public Response<List<Integer>> getRoomChannels(HttpServerRequest request, @RestQuery(ROOM_ID) Integer roomId) {
+    return ResponseResult.success(roomService.getRoomChannels(request, roomId));
   }
 
   @POST

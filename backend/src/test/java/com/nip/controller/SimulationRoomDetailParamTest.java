@@ -124,13 +124,13 @@ class SimulationRoomDetailParamTest {
         memberDao.saveAndFlush(membership);
       }
       assertPageAccess(TOKEN, roomId, receiver.getId(), 200);
-      assertPageAccess(senderToken, roomId, receiver.getId(), roomType == 0 ? 202 : 200);
+      assertPageAccess(senderToken, roomId, receiver.getId(), roomType == 0 ? 207 : 200);
       assertPageAccess(receiverToken, roomId, receiver.getId(), 200);
-      assertPageAccess(receiverToken, roomId, sender.getId(), 202);
-      assertPageAccess(outsiderToken, roomId, receiver.getId(), 202);
+      assertPageAccess(receiverToken, roomId, sender.getId(), 207);
+      assertPageAccess(outsiderToken, roomId, receiver.getId(), 207);
       given().header("Origin", "http://localhost").header("token", outsiderToken).header("deviceId", DEVICE)
           .queryParam("roomId", roomId).when().get("/api/simulation/report/getRoomDetail")
-          .then().statusCode(200).body("code", is(202));
+          .then().statusCode(200).body("code", is(207));
     }
   }
 

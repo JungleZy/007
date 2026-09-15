@@ -318,9 +318,8 @@ public class SimulationRouterRoomContentService {
    * @param vo
    */
   @Transactional
-  public SimulationDisturdSettingVO saveSetting(SimulationDisturdSettingVO vo) {
-    SimulationRouterRoomEntity roomEntity = Optional.ofNullable(routerRoomDao.findById(vo.getRoomId()))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该房间"));
+  public SimulationDisturdSettingVO saveSetting(HttpServerRequest request, SimulationDisturdSettingVO vo) {
+    SimulationRouterRoomEntity roomEntity = roomAccess.requireControl(request, vo.getRoomId());
     roomEntity.setSetting(vo.getSetting());
     routerRoomDao.save(roomEntity);
     return vo;
