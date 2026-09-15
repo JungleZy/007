@@ -4,10 +4,14 @@ import { findTexPatTrainById, saveTexPatTrain } from '../../../../../../common/a
 import { PubSub } from '../../../../../../common/utils/PubSub.js'
 import { Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 
 import { letterKey, numberKey } from '../../../../../../components/preJob/telexTrain/js/enum'
 
 export default function telexTrain(countDown) {
+  const submission = useConfirmedSubmission()
+  const finalizing = ref(false)
+  let disposed = false
   onMounted(() => {
     init()
     window.addEventListener('keydown', onkeydown)
@@ -37,6 +41,11 @@ export default function telexTrain(countDown) {
   onUnmounted(() => {
     PubSub.unsubscribe('send_telexTrainPage')
   })
+  onBeforeUnmount(() => {
+    disposed = true
+    clearInterval(autoTime.value)
+    window.removeEventListener('keydown', onkeydown)
+  })
   const activeMessage = ref({
     text: ''
   })
@@ -54,6 +63,7 @@ export default function telexTrain(countDown) {
   const nowTime = ref({})
   const init = () => {
     findTexPatTrainById({ id: route.query.id }).then(res => {
+      if (disposed) return
       if (!res || res.code !== 200 || !res.data || !res.data.content) {
         Modal.error({ content: res && (res.code === 202 || res.code === 207 || res.code === 208) ? '训练已失效或已结束' : '训练加载失败，请重试' })
         return
@@ -79,35 +89,33 @@ export default function telexTrain(countDown) {
     }).catch(() => Modal.error({ content: '训练加载失败，请重试' }))
   }
   const onkeydown = () => {
-    if (isFirst == 0) {
-      document.getElementsByClassName('isfocusInput')[0].focus()
-      isFirst = 1
-      if (trainData.value.status == 0 || trainData.value.status == 2) {
-        beginTrain()
-      } else if (trainData.value.status == 1) {
-        trainTime()
-      }
-      window.removeEventListener('keydown', onkeydown)
-    }
+    if (isFirst !== 0 || disposed) return
+    document.getElementsByClassName('isfocusInput')[0]?.focus()
+    beginTrain()
   }
 
   //保存训练类容
-  const saveTest = status => {
+  const saveTest = (status, onConfirmed) => {
     clearInterval(autoTime.value)
     const extendBy = status === 1 && Array.isArray(message.value) && message.value.length > 0 && message.value.every(item => item.isFocus === true) ? 100 : 0
     const payload = { ...trainData.value, content: JSON.stringify(message.value || []), status, extendBy, speed: (trainData.value.speed * 4).toString(), accuracy: correct.value }
-    saveTexPatTrain(payload).then(res => {
-      if (!res || res.code !== 200) {
-        Modal.error({ content: res && (res.code === 202 || res.code === 207 || res.code === 208) ? '训练状态已变化，请重新进入' : '训练保存失败，请重试' })
-        return
-      }
+    return submission.run(async request => {
+      const res = await request(() => saveTexPatTrain(payload))
+      const savedMessage = res.data?.content ? JSON.parse(res.data.content) : null
       trainData.value = { ...trainData.value, ...res.data }
-      if (res.data && res.data.content) message.value = JSON.parse(res.data.content)
+      // Keep input typed while confirmation was in flight; only append server-issued groups.
+      if (savedMessage && status === 1) message.value.push(...savedMessage.slice(message.value.length))
+      if (savedMessage && status !== 1) {
+        message.value = savedMessage
+        activeMessage.value = message.value[activeIndex.value] || { text: '', value: '' }
+      }
+      onConfirmed?.()
       if (status === 3) PubSub.publish('callback_closeTelexTrainPage', true)
-    }).catch(() => Modal.error({ content: '训练保存失败，请重试' }))
+    })
   }
   // 训练用时
   const trainTime = () => {
+    clearInterval(autoTime.value)
     autoTime.value = setInterval(() => {
       trainData.value.duration++
       // countDown.value.autoSetTimeAdd(trainData.value.duration)
@@ -122,6 +130,10 @@ export default function telexTrain(countDown) {
     }, 1000)
   }
   const keyCodeDown = (v, item, index) => {
+    if (finalizing.value) {
+      v.preventDefault?.()
+      return false
+    }
     if (v.key == 'Tab' || v.keyCode == 32) {
       if (v.preventDefault) {
         v.preventDefault()
@@ -156,6 +168,10 @@ export default function telexTrain(countDown) {
     }
   }
   const keyCodeDown2 = v => {
+    if (finalizing.value) {
+      v.preventDefault?.()
+      return false
+    }
     if (isFirst == 0) {
       return false
     }
@@ -230,18 +246,20 @@ export default function telexTrain(countDown) {
     }
   }
   //改变输入框值
-  const changeMessage = v => {
-    if (isFirst == 0) {
-      v.value = ''
-    } else {
-      v.value = v.value.toUpperCase()
-    }
+  const changeMessage = (v, value = v.value) => {
+    if (finalizing.value) return
+    v.value = value.toUpperCase()
   }
   const divChange = (e, v) => {
+    if (finalizing.value) {
+      e.target.innerHTML = v.value
+      return
+    }
     v.value = e.target.innerHTML
   }
   //输入框失去焦点
   const changeFocus = input => {
+    if (finalizing.value) return
     trainData.value.errorNumber = 0
     trainData.value.accuracy = 0
     if (input.text == input.value.trim()) {
@@ -277,18 +295,32 @@ export default function telexTrain(countDown) {
   }
   //开始训练
   const beginTrain = () => {
-    saveTest(1).then(ok => {
-      if (!ok) return
+    if (finalizing.value) return Promise.resolve(false)
+    if (disposed || submission.busy.value || submission.terminal.value) return Promise.resolve(false)
+    if (![0, 1, 2].includes(trainData.value.status)) return Promise.resolve(false)
+    const start = () => {
       trainData.value.status = 1
+      isFirst = 1
+      window.removeEventListener('keydown', onkeydown)
       trainTime()
       nextTick(() => {
+        if (disposed) return
         document.querySelectorAll('.editDiv')[activeIndex.value]?.focus()
         document.querySelectorAll('.isfocusInput')[0]?.focus()
       })
-    })
+    }
+    if (trainData.value.status === 1 && !submission.pending()) {
+      if (isFirst === 0) start()
+      return Promise.resolve(true)
+    }
+    return saveTest(1, start)
   }
   //结束训练
   const endExerciseInfo = () => {
+    if (disposed || submission.busy.value || submission.terminal.value) return Promise.resolve(false)
+    if (finalizing.value) return submission.retry()
+    // A failed final submission may already have reached the server: keep its visible answer frozen for retry.
+    finalizing.value = true
     clearInterval(autoTime.value)
     trainData.value.errorNumber = 0
     trainData.value.accuracy = 0
@@ -302,7 +334,7 @@ export default function telexTrain(countDown) {
     })
     const correctn = trainData.value.accuracy / (trainData.value.accuracy + trainData.value.errorNumber)
     correct.value = Number((correctn * 100).toFixed(2))
-    saveTest(3)
+    return saveTest(3)
     // isfocus.value = false
   }
   const goback = () => {
@@ -346,6 +378,7 @@ export default function telexTrain(countDown) {
   }
   return {
     message,
+    finalizing,
     trainData,
     correct,
     activeMessage,

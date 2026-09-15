@@ -44,11 +44,12 @@
               />
             </div>
             <a-input
-              v-model:value="activeMessage.value"
+              :value="activeMessage.value"
+              :disabled="finalizing"
               style="height: 50px; font-size: 24px"
               class="value isfocusInput"
               @keydown="keyCodeDown2"
-              @change="changeMessage(activeMessage)"
+              @update:value="value => changeMessage(activeMessage, value)"
               @focus="getFocus(activeMessage)"
             ></a-input>
           </div>
@@ -164,7 +165,7 @@
                 <!--                <a-input v-model:value="v.value" style="font-size: 16px;-ms-ime-mode: disabled;ime-mode:active" :disabled="trainData.status!=1 || isfocus" @keydown="keyCodeDown($event,v,index)" class="value" @change="changeMessage(v)" @focus="getFocus(v)" ></a-input>-->
                 <div
                   style="font-size: 16px; ime-mode: active"
-                  :contenteditable="trainData.status == 1 && !isfocus"
+                  :contenteditable="trainData.status == 1 && !isfocus && !finalizing"
                   @keydown="keyCodeDown($event, v, index)"
                   class="editDiv value"
                   @input="divChange($event, v)"
@@ -402,7 +403,7 @@
     { type: 'white', name: '纯白' }
   ])
   const codeType = ref('gradient')
-  const { message, trainData, correct, activeMessage, isfocus, activeIndex, nowTime, selectCard, keyCodeDown, keyCodeDown2, changeSwitch, changeMessage, changeFocus, divChange, beginTrain, selectMessage, getFocus, goback, endExerciseInfo } = telexTrain(countDown)
+  const { message, finalizing, trainData, correct, activeMessage, isfocus, activeIndex, nowTime, selectCard, keyCodeDown, keyCodeDown2, changeSwitch, changeMessage, changeFocus, divChange, beginTrain, selectMessage, getFocus, goback, endExerciseInfo } = telexTrain(countDown)
 </script>
 
 <style scoped lang="less">
