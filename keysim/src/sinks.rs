@@ -56,12 +56,6 @@ pub fn to_frames(timeline: &Timeline, base: f64) -> Vec<(f64, Value)> {
         .collect()
 }
 
-pub fn to_bridge_messages(timeline: &Timeline, base: f64) -> Vec<(f64, String)> {
-    to_frames(timeline, base)
-        .into_iter()
-        .map(|(at, frame)| (at, json!({"data": frame}).to_string()))
-        .collect()
-}
 
 fn round3(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0

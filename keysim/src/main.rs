@@ -9,7 +9,7 @@
 
 #[cfg(unix)]
 use keysim::attachd;
-use keysim::{console, faults, install, keying, rest, serial, sinks, BRIDGE_PORT, CONSOLE_PORT};
+use keysim::{console, faults, install, keying, rest, sinks, CONSOLE_PORT};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -20,12 +20,11 @@ const USAGE: &str = "\
 keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
 
   keysim                                          等同 serve：开控制台并自动开虚拟串口
-  keysim serve  [--http 18700] [--port 18765]     网页控制台（虚拟串口开关 / 报文 / 拍发）
+  keysim serve  [--http 18700]                  网页控制台（虚拟串口开关 / 报文 / 拍发）
                 [--no-autostart] [--open <url>] [--link /dev/ttyUSB0]
   keysim doctor                                   体检：本机能提供哪种虚拟串口，缺什么装什么
   keysim hand     --text \"ABCD EFGH\" [选项]        手键拍发
   keysim electron --text \"ABCD EFGH\" [选项]        电子键拍发
-  keysim bridge   [--port 18765] [--speed 1]      只起桌面桥接并回放
   keysim upload   --user <账号> --password <密码>   打真实后端：取页 → startTrain → uploadResult → finish
                   --train-id <n> [--page 1] [--attempt 1] [--base http://localhost:18001/api]
   keysim install-helper / uninstall-helper        装/卸 root 助手（Linux 用；Windows 装 com0com 即可）
@@ -44,7 +43,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --no-preamble         不发开始符（默认发）
   --multi-page          非单页训练：按\"翻页后 codeGap 夹到 60ms\"校验可行性
   --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
-  --sink <名>           frames（默认）| bytes | bridge | payload
+  --sink <名>           frames（默认）| bytes | payload
   --chunk <名>          bytes 分包：exact（默认）|split|merge|random
   --window <ms>         分包窗口（默认 20）
   --speed <倍数>        回放倍速（默认 1）
@@ -205,40 +204,7 @@ fn run_key(args: &Args, key: &str) -> Result<(), String> {
             };
             emit(args, &serde_json::to_string_pretty(&payload).unwrap_or_default());
         }
-        "bridge" => {
-            let port = args.number("port").unwrap_or(BRIDGE_PORT as f64) as u16;
-            let speed = args.number("speed").unwrap_or(1.0).max(0.05);
-            let serial = serial::VirtualSerial::new(
-                port,
-                args.links.clone(),
-                std::sync::Arc::new(|event: Value| {
-                    if event["type"] == "log" {
-                        println!("[{}] {}", event["level"].as_str().unwrap_or("info"), event["message"].as_str().unwrap_or_default());
-                    }
-                }),
-            );
-            serial.open()?;
-            println!("等待被测程序接入……（Ctrl-C 退出）");
-            for _ in 0..100 {
-                if serial.state()["bridgeClients"].as_u64().unwrap_or(0) > 0 {
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-            serial.send(&timeline, speed, params["text"].as_str().unwrap_or_default())?;
-            while serial.state()["replay"]["running"] == true {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-            if !args.has("hold") {
-                serial.close();
-            } else {
-                println!("已回放完毕，保持串口开启（Ctrl-C 退出）");
-                loop {
-                    std::thread::sleep(std::time::Duration::from_secs(3600));
-                }
-            }
-        }
-        other => return Err(format!("未知 sink {other}（可选 frames / bytes / bridge / payload）")),
+        other => return Err(format!("未知 sink {other}（可选 frames / bytes / payload）")),
     }
     Ok(())
 }
@@ -307,7 +273,6 @@ fn run_upload(args: &Args) -> Result<(), String> {
 fn run_serve(args: &Args) -> Result<(), String> {
     let options = console::Options {
         http: args.number("http").unwrap_or(CONSOLE_PORT as f64) as u16,
-        bridge: args.number("port").unwrap_or(BRIDGE_PORT as f64) as u16,
         autostart: !args.has("no-autostart"),
         links: if args.links.is_empty() { keysim::default_device_links() } else { args.links.clone() },
     };
@@ -327,7 +292,6 @@ fn run_serve(args: &Args) -> Result<(), String> {
             }
         );
     }
-    println!("桌面桥接：{}", state["bridgeUrl"].as_str().unwrap_or_default());
     if let Some(url) = args.text("open") {
         match console.open_page(url) {
             Ok(()) => println!("已打开被测页面并预置虚拟串口：{url}"),
@@ -341,17 +305,10 @@ fn run_serve(args: &Args) -> Result<(), String> {
 }
 
 fn main() {
-    let mut args = Args::parse();
+    let args = Args::parse();
     if args.has("help") || args.command == "help" {
         print!("{USAGE}");
         return;
-    }
-    // bridge 子命令在通用参数上补两个默认：桥接输出 + 无报文时随机 4 组
-    if args.command == "bridge" {
-        args.flags.insert("sink".into(), "bridge".into());
-        if args.text("text").is_none() && args.number("random").is_none() {
-            args.flags.insert("random".into(), "4".into());
-        }
     }
     let result = match args.command.as_str() {
         "serve" => run_serve(&args),
@@ -361,7 +318,6 @@ fn main() {
         }
         "hand" => run_key(&args, "hand"),
         "electron" => run_key(&args, "electron"),
-        "bridge" => run_key(&args, args.text("key").unwrap_or("hand").to_string().as_str()),
         "upload" => run_upload(&args),
         "install-helper" => match install::install_helper() {
             result if result["ok"] == true => {

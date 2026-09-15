@@ -1,5 +1,5 @@
 //! 端到端：起真控制台，用真 WebSocket 客户端分别冒充
-//! ①桌面被测应用（连 18765 桥接）与 ②被注入的网页（连 /ws/serial），
+//! 被注入的网页（连 /ws/serial），
 //! 然后走 HTTP API 发一次真实拍发，断言两条通道收到的东西自洽。
 //!
 //! 这是"模拟器能不能真的驱动被测端"的证明，不是内部实现的镜子。
@@ -92,14 +92,6 @@ impl Client {
         panic!("等「{what}」超时，已收到 {} 条消息", self.inbox.len());
     }
 
-    fn texts(&self) -> Vec<Value> {
-        self.inbox
-            .iter()
-            .filter(|message| message.opcode == ws::OP_TEXT)
-            .filter_map(|message| serde_json::from_slice(&message.payload).ok())
-            .collect()
-    }
-
     fn bytes(&self) -> Vec<Vec<u8>> {
         self.inbox
             .iter()
@@ -108,17 +100,13 @@ impl Client {
             .collect()
     }
 
-    fn send_text(&mut self, text: &str) {
-        let frame = ws::encode_masked(ws::OP_TEXT, text.as_bytes(), [0x37, 0xfa, 0x21, 0x3d]);
-        self.stream.write_all(&frame).expect("客户端消息应能发出");
-    }
 }
 
 fn start_console() -> std::sync::Arc<console::Console> {
     // 测试不碰内核级后端：它会往内核挂 USB 设备、重指 /dev/ttyUSBn 别名，
     // 跑一遍就把开发机上正在用的实例搅乱（实测把常驻控制台搞挂过）。
     std::env::set_var("KEYSIM_NO_KERNEL", "1");
-    console::serve(console::Options { http: 0, bridge: 0, autostart: true, links: Vec::new() })
+    console::serve(console::Options { http: 0, autostart: true, links: Vec::new() })
         .expect("控制台应能起在随机端口")
 }
 
@@ -128,8 +116,7 @@ fn autostart_opens_the_port() {
     let console = start_console();
     let state = http(console.port, "GET", "/api/state", None)["state"].clone();
     assert_eq!(state["open"], true, "启动后虚拟串口应已开启");
-    let bridge_url = state["bridgeUrl"].as_str().unwrap_or_default();
-    assert!(bridge_url.starts_with("ws://127.0.0.1:") && bridge_url.ends_with("/echo"), "{bridge_url}");
+    assert_eq!(state["injectClients"].as_u64(), Some(0), "注入通道字段应存在");
     assert!(
         state["device"]["path"].as_str().is_some() || state["device"]["available"] == false,
         "要么给出设备路径，要么说清为什么不可用：{}",
@@ -143,32 +130,10 @@ fn autostart_opens_the_port() {
 }
 
 #[test]
-/// 桌面被测端一连上就该收到"设备在线"，并把它回推的频率/音量记下来
-fn desktop_bridge_gets_device_online() {
+/// 一次手键拍发：被注入的网页收齐字节，且符合 WebSerial 帧协议（按下 2 字节 / 抬起 3 字节）
+fn one_hand_replay_reaches_injected_page() {
     let console = start_console();
-    let port = console.serial.state()["bridgePort"].as_u64().expect("桥接端口") as u16;
-    let mut client = Client::connect(port, "/echo");
-    client.wait_until(|inbox| !inbox.is_empty(), 3, "设备在线通知");
-    let first = client.texts().first().cloned().expect("首条应是 JSON");
-    assert_eq!(first["data"]["status"], true, "首条应是设备在线：{first}");
-
-    // 客户端回推的音频控制必须被收下（MessageWebSocket.js:151,156-157）
-    client.send_text(&json!({"type": 0, "fre": 1200, "volume": 0.8}).to_string());
-    let deadline = Instant::now() + Duration::from_secs(3);
-    while Instant::now() < deadline && console.serial.state()["bridgeClients"].as_u64() == Some(0) {
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    assert_eq!(console.serial.state()["bridgeClients"], 1, "桥接客户端数不对");
-}
-
-#[test]
-/// 一次手键拍发：桥接收到帧、网页收到字节，两者一一对应且符合 WebSerial 帧协议
-fn one_hand_replay_drives_both_channels() {
-    let console = start_console();
-    let bridge_port = console.serial.state()["bridgePort"].as_u64().unwrap() as u16;
-    let mut desktop = Client::connect(bridge_port, "/echo");
     let mut page = Client::connect(console.port, "/ws/serial");
-    desktop.wait_until(|inbox| !inbox.is_empty(), 3, "设备在线通知");
 
     let params = json!({
         "key": "hand",
@@ -187,35 +152,19 @@ fn one_hand_replay_drives_both_channels() {
     let sent = http(console.port, "POST", "/api/send", Some(&params));
     assert_eq!(sent["ok"], true, "{sent}");
 
-    desktop.wait_until(move |inbox| inbox.len() >= expected + 1, 20, "桥接收齐所有帧");
     page.wait_until(move |inbox| inbox.len() >= expected, 20, "网页收齐所有字节");
 
-    // 桥接：每帧都是 {data:{t,k,d}}，t=0 手键，k=0 按下 / 1 抬起
-    let frames: Vec<Value> = desktop
-        .texts()
-        .into_iter()
-        .filter(|value| value["data"]["status"].is_null())
-        .collect();
-    assert_eq!(frames.len(), expected, "桥接帧数与预览不一致");
-    for frame in &frames {
-        assert_eq!(frame["data"]["t"], 0, "手键帧 t 必须为 0：{frame}");
-        assert!(
-            matches!(frame["data"]["k"].as_i64(), Some(0) | Some(1)),
-            "k 只能是 0/1：{frame}"
-        );
-        assert!(frame["data"]["d"].as_f64().is_some(), "缺时间戳：{frame}");
-    }
-
-    // 网页：字节必须是 1,0（按下）或 2,0,0（抬起），与帧序一一对应
+    // 字节必须是 1,0（按下）或 2,0,0（抬起），按下/抬起严格交替
     let chunks = page.bytes();
     assert_eq!(chunks.len(), expected, "网页字节帧数与预览不一致");
+    let mut expect_down = true;
     for (index, chunk) in chunks.iter().enumerate() {
-        let k = frames[index]["data"]["k"].as_i64().unwrap();
-        if k == 0 {
+        if expect_down {
             assert_eq!(chunk.as_slice(), &[1, 0], "第 {index} 帧应是按下 2 字节");
         } else {
             assert_eq!(chunk.as_slice(), &[2, 0, 0], "第 {index} 帧应是抬起 3 字节");
         }
+        expect_down = expect_down == false
     }
 
     let state = http(console.port, "GET", "/api/state", None)["state"].clone();
@@ -226,23 +175,21 @@ fn one_hand_replay_drives_both_channels() {
 /// 拍发中途可以停：stop 之后回放状态清零，且不再有新帧
 fn stop_halts_replay() {
     let console = start_console();
-    let bridge_port = console.serial.state()["bridgePort"].as_u64().unwrap() as u16;
-    let mut desktop = Client::connect(bridge_port, "/echo");
-    desktop.wait_until(|inbox| !inbox.is_empty(), 3, "设备在线通知");
+    let mut page = Client::connect(console.port, "/ws/serial");
 
     let params = json!({"key": "hand", "text": "ABCD EFGH", "rate": 40, "preamble": true, "tail": "turn"});
     assert_eq!(http(console.port, "POST", "/api/send", Some(&params))["ok"], true);
-    desktop.wait_until(|inbox| inbox.len() > 3, 10, "拍发开始");
+    page.wait_until(|inbox| inbox.len() > 3, 10, "拍发开始");
 
     let stopped = http(console.port, "POST", "/api/stop", None);
     assert_eq!(stopped["stopped"], true, "应报告已停止");
     assert_eq!(stopped["state"]["replay"]["running"], false);
 
-    desktop.pump();
-    let before = desktop.inbox.len();
+    page.pump();
+    let before = page.inbox.len();
     std::thread::sleep(Duration::from_millis(600));
-    desktop.pump();
-    assert_eq!(desktop.inbox.len(), before, "停止后仍在发帧");
+    page.pump();
+    assert_eq!(page.inbox.len(), before, "停止后仍在发帧");
 }
 
 #[test]
@@ -386,7 +333,7 @@ fn serve_retries_when_http_port_is_taken() {
         std::thread::sleep(Duration::from_millis(300));
         drop(blocker);
     });
-    let console = console::serve(console::Options { http: port, bridge: 0, autostart: false, links: Vec::new() })
+    let console = console::serve(console::Options { http: port, autostart: false, links: Vec::new() })
         .expect("占用解除后重试应成功");
     assert_eq!(console.port, port, "应绑到原本被占的那个端口");
 }
@@ -397,23 +344,9 @@ fn serve_fails_when_port_stays_taken() {
     let blocker = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("应能占一个空闲端口");
     let port = blocker.local_addr().expect("应能读到占用端口").port();
     let started = Instant::now();
-    let result = console::serve(console::Options { http: port, bridge: 0, autostart: false, links: Vec::new() });
+    let result = console::serve(console::Options { http: port, autostart: false, links: Vec::new() });
     assert!(result.is_err(), "端口一直被占必须失败");
     assert!(started.elapsed() >= Duration::from_secs(2), "返回太快说明根本没重试");
     drop(blocker);
 }
 
-#[test]
-/// 桥接端口是同一个竞态（评审 H1）：18765 被占时 bridge::start 也要重试
-fn bridge_retries_when_port_is_taken() {
-    let blocker = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("应能占一个空闲端口");
-    let port = blocker.local_addr().expect("应能读到占用端口").port();
-    std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(300));
-        drop(blocker);
-    });
-    let log: keysim::bridge::Log = std::sync::Arc::new(|_| {});
-    let bridge = keysim::bridge::start(port, "/echo", false, log).expect("占用解除后重试应成功");
-    assert_eq!(bridge.port, port);
-    bridge.close();
-}

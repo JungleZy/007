@@ -3,7 +3,7 @@
 //! ⓿ 内核级设备（usbip/gadget/tty0tty/com0com）：浏览器选择框与桌面串口列表都能直接选中
 //! ① PTY 设备（仅类 Unix）：任何按路径打开串口的程序可用（浏览器选择框看不到 PTY）；
 //!    Windows 上没有这条，那边的 ⓿ 就是 com0com 给的真实 COM 口
-//! ② 桌面桥接 18765：桌面模式下被测应用自己连过来，线上跑帧级 JSON
+//! ② 系统别名 /dev/ttyUSBn：桌面壳（Electron Web Serial）与硬件桥这类按名挑口的程序用
 //! ③ 浏览器注入 /ws/serial：页面里的虚拟 navigator.serial 连回来，线上跑串口字节
 
 use std::path::PathBuf;
@@ -15,7 +15,6 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 
-use crate::bridge::{self, Bridge};
 use crate::kernel::{self, Started};
 use crate::keying;
 #[cfg(unix)]
@@ -40,11 +39,11 @@ struct Replay {
 }
 
 pub struct VirtualSerial {
-    bridge_port: u16,
     #[cfg(unix)]
     device_links: Vec<PathBuf>,
     sink: Sink,
-    bridge: Mutex<Option<Arc<Bridge>>>,
+    /// 是否已开启：内核级/PTY 任一就绪即算开（注入通道挂在控制台上，不算）
+    opened: Mutex<bool>,
     #[cfg(unix)]
     device: Mutex<Option<Pty>>,
     kernel: Mutex<Option<Started>>,
@@ -58,15 +57,14 @@ pub struct VirtualSerial {
 pub const SYSTEM_LINK: &str = "/dev/ttyUSB0";
 
 impl VirtualSerial {
-    pub fn new(bridge_port: u16, device_links: Vec<PathBuf>, sink: Sink) -> Arc<Self> {
+    pub fn new(device_links: Vec<PathBuf>, sink: Sink) -> Arc<Self> {
         #[cfg(not(unix))]
         let _ = device_links;
         Arc::new(VirtualSerial {
-            bridge_port,
             #[cfg(unix)]
             device_links,
             sink,
-            bridge: Mutex::new(None),
+            opened: Mutex::new(false),
             #[cfg(unix)]
             device: Mutex::new(None),
             kernel: Mutex::new(None),
@@ -124,9 +122,9 @@ impl VirtualSerial {
     }
 
     pub fn state(&self) -> Value {
-        let bridge = self.bridge.lock();
         let kernel = self.kernel.lock();
         let replay = self.replay.lock();
+        let opened = *self.opened.lock();
         json!({
             "platform": crate::PLATFORM,
             "helper": {
@@ -134,11 +132,7 @@ impl VirtualSerial {
                 "installed": crate::install::helper_installed(),
                 "command": crate::install::install_command()
             },
-            "open": bridge.is_some(),
-            "bridgePort": bridge.as_ref().map(|item| item.port).unwrap_or(self.bridge_port),
-            "bridgeUrl": bridge.as_ref().map(|item| item.url())
-                .unwrap_or_else(|| format!("ws://127.0.0.1:{}/echo", self.bridge_port)),
-            "bridgeClients": bridge.as_ref().map(|item| item.client_count()).unwrap_or(0),
+            "open": opened,
             "injectClients": self.inject.lock().len(),
             "kernel": {
                 "id": kernel.as_ref().map(|item| item.id),
@@ -167,9 +161,9 @@ impl VirtualSerial {
         self.announce();
     }
 
-    /// 开启：内核级优先（浏览器/桌面都能直接选），同时开 PTY 与桥接
+    /// 开启：内核级优先（浏览器/桌面都能直接选），同时开 PTY
     pub fn open(self: &Arc<Self>) -> Result<Value, String> {
-        if self.bridge.lock().is_some() {
+        if *self.opened.lock() {
             return Ok(self.state());
         }
 
@@ -196,7 +190,7 @@ impl VirtualSerial {
                         if crate::DEVICE_CHANNEL_SUPPORTED {
                             "改用 PTY 设备：浏览器选择框看不到 PTY，Web 模式请用「打开并预置虚拟串口」"
                         } else {
-                            "本平台请先安装 com0com；桥接与浏览器注入两条通道仍可用"
+                            "本平台请先安装 com0com；浏览器注入通道仍可用"
                         }
                     ),
                 );
@@ -231,14 +225,8 @@ impl VirtualSerial {
             Err(error) => self.log("warn", format!("PTY 设备创建失败，仅启用其余通道：{error}")),
         }
 
-        let sink = Arc::clone(&self.sink);
-        let bridge_log: bridge::Log = Arc::new(move |message: String| {
-            sink(json!({"type": "log", "level": "info", "message": message}));
-        });
-        let bridge = bridge::start(self.bridge_port, "/echo", true, bridge_log)
-            .map_err(|error| format!("桥接端口 {} 无法监听：{error}", self.bridge_port))?;
-        self.log("ok", format!("虚拟串口已开启：{}", bridge.url()));
-        *self.bridge.lock() = Some(bridge);
+        *self.opened.lock() = true;
+        self.log("ok", "虚拟串口已开启");
         self.announce();
         Ok(self.state())
     }
@@ -256,9 +244,12 @@ impl VirtualSerial {
         if self.device.lock().take().is_some() {
             self.log("warn", "虚拟串口设备已移除");
         }
-        if let Some(bridge) = self.bridge.lock().take() {
-            bridge.close();
-            self.log("warn", "虚拟串口已关闭");
+        {
+            let mut opened = self.opened.lock();
+            if *opened {
+                *opened = false;
+                self.log("warn", "虚拟串口已关闭");
+            }
         }
         for stream in self.inject.lock().drain(..) {
             let _ = stream.shutdown(std::net::Shutdown::Both);
@@ -338,17 +329,16 @@ impl VirtualSerial {
     /// 按时间轴向所有通道同时回放；speed≠1 整体缩放时间轴
     /// （注意被测程序侧的 800ms/静默定时器不随之缩放）
     pub fn send(self: &Arc<Self>, timeline: &Timeline, speed: f64, text: &str) -> Result<Value, String> {
-        if self.bridge.lock().is_none() {
+        if !*self.opened.lock() {
             return Err("虚拟串口未开启".into());
         }
         // speed 必须有限且为正：0 会让 due=x/speed=+inf，回放线程永远等不到发帧而空转
         if !speed.is_finite() || speed <= 0.0 {
             return Err(format!("倍速必须是正的有限数，收到 {speed}"));
         }
-        let frames = sinks::to_bridge_messages(timeline, 0.0);
         let chunks = sinks::to_bytes(timeline);
-        if frames.len() != chunks.len() {
-            return Err("帧与字节序列长度不一致，时间轴异常".into());
+        if chunks.is_empty() {
+            return Err("时间轴为空，没有可拍发的帧".into());
         }
         let cancel = Arc::new(AtomicBool::new(false));
         // 检查与赋值必须在同一次锁持有内完成，否则并发 /api/send 会起两个回放线程，
@@ -360,7 +350,7 @@ impl VirtualSerial {
             }
             *replay = Some(Replay {
                 sent: 0,
-                total: frames.len(),
+                total: chunks.len(),
                 speed,
                 at: 0.0,
                 key: timeline.key.to_string(),
@@ -396,7 +386,7 @@ impl VirtualSerial {
                 counted,
                 target_rate,
                 unit_name,
-                frames.len(),
+                chunks.len(),
                 (timeline.duration() - origin) / 1000.0,
                 if speed == 1.0 { String::new() } else { format!(" · {speed}× 倍速") }
             ),
@@ -404,11 +394,8 @@ impl VirtualSerial {
         self.announce();
 
         let manager = Arc::clone(self);
-        let items: Vec<(f64, String, Vec<u8>)> = frames
-            .into_iter()
-            .zip(chunks)
-            .map(|((at, text), chunk)| (at, text, chunk.bytes))
-            .collect();
+        let items: Vec<(f64, Vec<u8>)> =
+            chunks.into_iter().map(|chunk| (chunk.at, chunk.bytes)).collect();
         thread::spawn(move || {
             let started = Instant::now();
             let mut last_report = Instant::now();
@@ -429,10 +416,7 @@ impl VirtualSerial {
                     thread::sleep(Duration::from_micros(((due - elapsed) * 1000.0).min(50_000.0) as u64));
                     continue;
                 }
-                let (at, text, bytes) = &items[index];
-                if let Some(bridge) = manager.bridge.lock().as_ref() {
-                    bridge.broadcast(text);
-                }
+                let (at, bytes) = &items[index];
                 if let Some(started) = manager.kernel.lock().as_mut() {
                     if let Err(error) = started.writer.write(bytes) {
                         if !kernel_failed {

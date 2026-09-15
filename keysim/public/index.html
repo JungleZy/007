@@ -284,7 +284,6 @@
   <div class="lamps">
     <span class="lamp" id="lampPort"><i></i><b>串口未开启</b></span>
     <span class="lamp" id="lampKernel"><i></i><b>内核级未启用</b></span>
-    <span class="lamp" id="lampBridge"><i></i><b>桥接 0</b></span>
     <span class="lamp" id="lampInject"><i></i><b>注入 0</b></span>
   </div>
 </header>
@@ -422,9 +421,6 @@
       </div>
       <div class="link" id="linkDevice" title="/dev/pts/N：pyserial、minicom、cat 等按路径开串口的程序可用">
         <i></i><span class="name">PTY 设备<em>按路径打开</em></span><span class="val" id="vDevice">--</span>
-      </div>
-      <div class="link" id="linkBridge" title="冒充仓外硬件桥 TrafficService：真桥不在时桌面壳从这里拿帧。真桥在场时两条路互斥（同占 18765），应让真桥去开上面的虚拟串口，整条生产链都被测到">
-        <i></i><span class="name">桌面桥接<em>冒充硬件桥</em></span><span class="val" id="vBridge">--</span>
       </div>
       <div class="link" id="linkInject" title="Web Serial 的 requestPort() 必须用户手势，脚本点不了选择框">
         <i></i><span class="name">浏览器注入<em>免手点选择框</em></span><span class="val" id="vInject">--</span>
@@ -970,7 +966,6 @@ const applyState = raw => {
   const windows = state.platform === 'windows'
   const open = state.open === true
   const running = replay.running === true
-  const bridgeClients = Number(state.bridgeClients) || 0
   const injectClients = Number(state.injectClients) || 0
   const helperCommand = helper.command || 'sudo keysim install-helper'
   const selectable = kernel.selectable || ''
@@ -979,9 +974,8 @@ const applyState = raw => {
   const ptyOn = !windows && device.supported !== false && Boolean(device.path)
 
   // 铭牌信号灯
-  setLamp('lampPort', open ? 'on' : null, open ? ('串口已开启 :' + (state.bridgePort || '--')) : '串口未开启')
+  setLamp('lampPort', open ? 'on' : null, open ? '串口已开启' : '串口未开启')
   setLamp('lampKernel', kernelOn ? (openable === false ? 'fault' : 'live') : null, kernelOn ? ('内核 ' + selectable) : '内核级未启用')
-  setLamp('lampBridge', bridgeClients ? 'on' : null, '桥接 ' + bridgeClients)
   setLamp('lampInject', injectClients ? 'on' : null, '注入 ' + injectClients)
 
   // 通道链
@@ -992,8 +986,6 @@ const applyState = raw => {
   setShown('linkDevice', !windows)
   if (!windows) setLink('linkDevice', ptyOn ? 'live' : null,
     device.path || (device.supported === false ? '本平台不提供' : device.available === false ? ('不可用：' + (device.reason || '未知')) : '未开启'), 'vDevice')
-  setLink('linkBridge', open ? (bridgeClients ? 'on' : 'live') : null,
-    (state.bridgeUrl || '--') + (bridgeClients ? ('　' + bridgeClients + ' 个客户端') : ''), 'vBridge')
   setLink('linkInject', injectClients ? 'on' : null, injectClients ? (injectClients + ' 个页面') : '无页面接入', 'vInject')
 
   const deviceNode = $('vDevice')
@@ -1033,7 +1025,7 @@ const applyState = raw => {
   setText('channelDoc', (windows
     ? '⓿ com0com 成对 COM 口：浏览器串口选择框与按口名打开的程序都能用。① PTY 是类 Unix 专属，本平台没有。'
     : '⓿ 内核级设备：唯一能被浏览器串口选择框看到的口；桌面壳的下拉只匹配 /dev/ttyUSBn，所以内核设备会额外挂一个别名。① PTY /dev/pts/N 是真字符设备，pyserial、minicom、cat 都能读，但内核不把它注册成 udev tty，浏览器选择框看不到它。')
-    + ' ② 桌面桥接是冒充仓外硬件桥 TrafficService.exe：生产链路是 电键→串口→TrafficService→ws:18765→桌面壳（MessageWebSocket.js:115），桌面模式的数据源头同样是串口。keysim 占 18765 是真桥不在时的替身；真桥在场时二者互斥，应让真桥去开上面的虚拟串口（串口→真桥→ws→壳 整条链都被测到）。③ 浏览器注入则因为 Web 模式只走 navigator.serial（同文件 :107），而 requestPort() 必须由用户手势触发，脚本点不了选择框，无人值守跑测试要靠注入。')
+    + ' ② 桌面壳与浏览器同走 Web Serial（MessageWebSocket 已统一：Electron 由主进程 select-serial-port 按已存口名自动应答，挑选范围只认 /dev/ttyUSBn——所以内核设备要挂别名）；曾经的 ws:18765 硬件桥已退役删除。③ 浏览器注入则因为 Web Serial 的 requestPort() 在真浏览器里必须由用户手势触发，脚本点不了选择框，无人值守跑测试要靠注入。')
 
   // 被测页面
   const browserBroken = browser.available === false
@@ -1048,7 +1040,7 @@ const applyState = raw => {
   setDisabled('btnClosePage', !browser.open, '没有已打开的页面')
 
   // 开关与拍发
-  setNote('portNote', open ? '四条通道已就绪' : '开启后才能拍发', open ? 'ok' : null)
+  setNote('portNote', open ? '通道已就绪' : '开启后才能拍发', open ? 'ok' : null)
   setDisabled('btnOpen', open, '已开启')
   setDisabled('btnClose', !open, '未开启')
   $('btnOpen').classList.toggle('go', !open)

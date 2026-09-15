@@ -313,7 +313,6 @@ fn respond(stream: &mut TcpStream, status: &str, content_type: &str, body: &[u8]
 /// 控制台启动参数
 pub struct Options {
     pub http: u16,
-    pub bridge: u16,
     /// 首屏即可用：起来就开虚拟串口
     pub autostart: bool,
     pub links: Vec<std::path::PathBuf>,
@@ -323,7 +322,6 @@ impl Default for Options {
     fn default() -> Self {
         Options {
             http: crate::CONSOLE_PORT,
-            bridge: crate::BRIDGE_PORT,
             autostart: true,
             links: crate::default_device_links(),
         }
@@ -362,7 +360,6 @@ pub fn serve(options: Options) -> std::io::Result<Arc<Console>> {
 
     let sink_events = Arc::clone(&events);
     let serial = VirtualSerial::new(
-        options.bridge,
         options.links.clone(),
         Arc::new(move |event: Value| {
             sse_broadcast(&sink_events, &event);
@@ -522,7 +519,6 @@ pub fn doctor() -> String {
             Err(reason) => format!("不可用（{reason}）"),
         }
     ));
-    lines.push(format!("| bridge | 可用 | ws://127.0.0.1:{}/echo | 桌面模式下被测应用主动连过来 |", crate::BRIDGE_PORT));
     lines.push(String::new());
     lines.push(format!(
         "root 助手：{}",
@@ -581,9 +577,9 @@ mod tests {
             return;
         }
         let expected: &[&str] = if cfg!(target_os = "linux") {
-            &["linux-usbip", "linux-gadget", "linux-tty0tty", "pty", "bridge"]
+            &["linux-usbip", "linux-gadget", "linux-tty0tty", "pty"]
         } else {
-            &["windows-com0com", "bridge"]
+            &["windows-com0com"]
         };
         for id in expected {
             assert!(report.contains(id), "doctor 少了 {id}：\n{report}");
