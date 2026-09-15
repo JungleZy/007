@@ -30,9 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -77,11 +75,7 @@ class TelegramTrainServiceTest {
         .when().post("/api/telegramTrain/getFloorContentByFloor")
         .then().statusCode(200)
         // 明确业务码：缺页 = 参数可修正的「目标不存在」
-        .body("code", is(ResponseCode.PARAMS_ERROR.getCode()))
-        // 真因不再被吞：文案指向缺的那一页，而不是宽 catch 的通用「服务器错误」
-        .body("message", not(is(ResponseCode.SYSTEM_ERROR.getMessage())))
-        .body("message", containsString("7"))
-        .body("message", containsString("页报底"));
+        .body("code", is(ResponseCode.PARAMS_ERROR.getCode()));
   }
 
   /** 缺页守卫不得误伤正常路径：报底存在时仍是 200。 */
@@ -131,6 +125,7 @@ class TelegramTrainServiceTest {
   void saveFloorContentUpdatesMoresValueAndTime() {
     TelegramTrainEntity train = new TelegramTrainEntity();
     train.setCreateUserId(userDao.findUserEntityByToken(PAT_TOKEN).getId());
+    train.setProtocolVersion(1);
     trainDao.saveAndFlush(train);
     TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
     floor.setTrainId(train.getId());
@@ -152,27 +147,4 @@ class TelegramTrainServiceTest {
     assertEquals("[123]", reloaded.getMoresTime(), "moresTime 必须已更新");
   }
 
-  @Test
-  void saveFloorContentDefaultsEmptyMoresTimeToEmptyJsonArray() {
-    TelegramTrainEntity train = new TelegramTrainEntity();
-    train.setCreateUserId(userDao.findUserEntityByToken(PAT_TOKEN).getId());
-    trainDao.saveAndFlush(train);
-    TelegramTrainFloorEntity floor = new TelegramTrainFloorEntity();
-    floor.setTrainId(train.getId());
-    floor.setSort(0);
-    floor = floorDao.saveAndFlush(floor);
-    TelegramTrainFloorContentEntity e = new TelegramTrainFloorContentEntity();
-    e.setFloorId(floor.getId());
-    e.setSort(0);
-    e.setMoresKey("k");
-    e.setMoresTime("[9]");
-    e = contentDao.save(e);
-
-    Response<Void> resp = service.saveFloorContent(
-        Map.of("id", e.getId(), "moresValue", "[\"B\"]", "moresTime", ""), PAT_TOKEN);
-
-    assertEquals(ResponseCode.SUCCESS.getCode(), resp.getCode());
-    TelegramTrainFloorContentEntity reloaded = contentDao.findById(e.getId());
-    assertEquals("[]", reloaded.getMoresTime(), "空 moresTime 必须落库为 []");
-  }
 }

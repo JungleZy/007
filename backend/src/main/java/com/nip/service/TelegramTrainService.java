@@ -7,11 +7,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nip.common.exception.ForbiddenException;
+import com.nip.common.exception.TerminalStateException;
 import com.nip.common.exception.UnauthorizedException;
 import com.nip.common.response.Response;
 import com.nip.common.response.ResponseResult;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
+import com.nip.common.utils.ScoreMath;
 import com.nip.dao.*;
 import com.nip.dto.TelegramBaseTrainDto;
 import com.nip.dto.TelegramTrainDto;
@@ -204,14 +206,8 @@ public class TelegramTrainService {
       throw new IllegalArgumentException("训练信息不能为空");
     }
     String id = trainDto.getTrain().getId();
-    requireOwner(id, token);
-    TelegramTrainEntity train = Optional.ofNullable(telegramTrainDao.findByIdForUpdate(id))
-        .orElseThrow(() -> new IllegalArgumentException("未查询该训练！"));
+    TelegramTrainEntity train = writableTrainForUpdate(id, token);
     int current = train.getStatus() == null ? 0 : train.getStatus();
-    if (current == 3) throw new IllegalStateException("训练已结束");
-    if (!Integer.valueOf(1).equals(train.getProtocolVersion()) && (type == 1 || type == 2)) {
-      throw new IllegalStateException("历史训练不支持新的生命周期操作");
-    }
     validateTrainingSettings(trainDto.getTrain());
     TelegramTrainEntity requested = trainDto.getTrain();
     train.setRateDotMinMs(requested.getRateDotMinMs());
@@ -235,10 +231,11 @@ public class TelegramTrainService {
       if (current != 1) throw new IllegalStateException("训练未开始");
       validateFloorContentsBelongToTrain(id, trainDto.getTrainFloors());
       updateSubmittedContent(trainDto.getTrainFloors());
-      recalculateFromPersistedRaw(train);
       closeActiveSegment(train, now);
+      recalculateFromPersistedRaw(train);
       train.setPauseTime(String.valueOf(now));
       train.setStatus(2);
+      updateCurrentFloor(train, requested.getNowFloorId());
     } else if (type == 2) {
       if (current != 1 && current != 2) throw new IllegalStateException("训练未开始");
       if (current == 1) closeActiveSegment(train, now);
@@ -247,16 +244,37 @@ public class TelegramTrainService {
       recalculateFromPersistedRaw(train);
       train.setEndTime(String.valueOf(now));
       train.setStatus(3);
-      if (requested.getNowFloorId() != null) {
-        TelegramTrainFloorEntity nowFloor = Optional.ofNullable(telegramTrainFloorDao.findById(requested.getNowFloorId()))
-            .orElseThrow(() -> new IllegalArgumentException("未查询当前报底"));
-        if (!Objects.equals(id, nowFloor.getTrainId())) throw new ForbiddenException("当前报底不属于训练");
-      }
-      train.setNowFloorId(requested.getNowFloorId());
+      updateCurrentFloor(train, requested.getNowFloorId());
     } else throw new IllegalStateException("Unexpected value: " + type);
     TelegramTrainEntity saved = telegramTrainDao.save(train);
     if (saved.getStatus() == 3) finishStatistical(saved);
     return ResponseResult.success(saved);
+  }
+
+  private TelegramTrainEntity writableTrainForUpdate(String id, String token) {
+    UserEntity actor = userService.getUserByToken(token);
+    TelegramTrainEntity train = Optional.ofNullable(telegramTrainDao.findByIdForUpdate(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询该训练！"));
+    if (!Objects.equals(actor.getId(), train.getCreateUserId())) {
+      throw new ForbiddenException("无权访问他人训练");
+    }
+    if (!Integer.valueOf(1).equals(train.getProtocolVersion())) {
+      throw new TerminalStateException("历史训练缺少权威时间轴，请新建训练");
+    }
+    if (train.getStatus() != null && (train.getStatus() < 0 || train.getStatus() > 2)) {
+      throw new TerminalStateException("训练已结束");
+    }
+    return train;
+  }
+
+  private void updateCurrentFloor(TelegramTrainEntity train, String floorId) {
+    if (floorId == null) return;
+    TelegramTrainFloorEntity floor = Optional.ofNullable(telegramTrainFloorDao.findById(floorId))
+        .orElseThrow(() -> new IllegalArgumentException("未查询当前报底"));
+    if (!Objects.equals(train.getId(), floor.getTrainId())) {
+      throw new ForbiddenException("当前报底不属于训练");
+    }
+    train.setNowFloorId(floorId);
   }
 
   private void recalculateFromPersistedRaw(TelegramTrainEntity train) {
@@ -286,8 +304,10 @@ public class TelegramTrainService {
       if (floor == null || floor.getFloorContents() == null) throw new IllegalArgumentException("报底内容不能为空");
       for (TelegramTrainFloorContentEntity content : floor.getFloorContents()) {
         if (content == null || content.getId() == null) throw new IllegalArgumentException("未查询报文内容");
-        telegramTrainFloorContentDao.update("moresValue=?1,moresTime=?2 where id=?3", content.getMoresValue(),
-            CharSequenceUtil.isEmpty(content.getMoresTime()) ? "[]" : content.getMoresTime(), content.getId());
+        TelegramTrainFloorContentEntity persisted = Optional.ofNullable(telegramTrainFloorContentDao.findById(content.getId()))
+            .orElseThrow(() -> new IllegalArgumentException("未查询报文内容"));
+        persisted.setMoresValue(content.getMoresValue());
+        persisted.setMoresTime(CharSequenceUtil.isEmpty(content.getMoresTime()) ? "[]" : content.getMoresTime());
       }
     }
   }
@@ -324,8 +344,8 @@ public class TelegramTrainService {
     train.setTotalNumber(total);
     train.setErrorNumber(errors);
     train.setTotalKnockNumber(Math.max(0, total - errors));
-    train.setAccuracy(total == 0 ? "0" : BigDecimal.valueOf(Math.max(0, total - errors) * 100.0 / total).stripTrailingZeros().toPlainString());
-    train.setSpeed(train.getAccumulatedActiveMillis() == null || train.getAccumulatedActiveMillis() == 0 ? "0" : BigDecimal.valueOf(total * 60000.0 / train.getAccumulatedActiveMillis()).stripTrailingZeros().toPlainString());
+    train.setAccuracy(ScoreMath.accuracy(total - errors, total).toPlainString());
+    train.setSpeed(ScoreMath.rate(total, train.getAccumulatedActiveMillis() == null ? 0 : train.getAccumulatedActiveMillis()).toPlainString());
   }
 
   /**
@@ -424,23 +444,15 @@ public class TelegramTrainService {
 
   @Transactional
   public Response<Void> saveFloorContent(Map<String, String> map, String token) {
-    requireOwnerByContent(map == null ? null : map.get(ID), token);
-    try {
-      telegramTrainFloorContentDao.update("moresValue=?1,moresTime=?2 where id = ?3", map.get("moresValue"),
-          CharSequenceUtil.isEmpty(map.get("moresTime")) ? "[]" : map.get("moresTime"),
-          map.get(ID)
-      );
-      return ResponseResult.success();
-    } catch (Exception e) {
-      try {
-        transactionManager.setRollbackOnly();
-      } catch (SystemException rollbackFailure) {
-        e.addSuppressed(rollbackFailure);
-        throw new IllegalStateException("无法标记楼层内容保存事务回滚", e);
-      }
-      log.error("saveFloorContent error", e);
-      return ResponseResult.error();
-    }
+    if (map == null || StringUtils.isBlank(map.get(ID))) throw new IllegalArgumentException("未查询报文内容");
+    TelegramTrainFloorContentEntity content = Optional.ofNullable(telegramTrainFloorContentDao.findById(map.get(ID)))
+        .orElseThrow(() -> new IllegalArgumentException("未查询报文内容"));
+    TelegramTrainFloorEntity floor = Optional.ofNullable(telegramTrainFloorDao.findById(content.getFloorId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询报底"));
+    writableTrainForUpdate(floor.getTrainId(), token);
+    content.setMoresValue(map.get("moresValue"));
+    content.setMoresTime(CharSequenceUtil.isEmpty(map.get("moresTime")) ? "[]" : map.get("moresTime"));
+    return ResponseResult.success();
   }
 
   private void handleMaps(Map<String, List<TelegramTrainFloorContentEntity>> list,
@@ -648,10 +660,6 @@ public class TelegramTrainService {
   private void requireFloorOwner(List<String> ids, String token) {
     if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("报底不能为空");
     for (String id : ids) requireFloorOwner(id, token);
-  }
-  private void requireOwnerByContent(String contentId, String token) {
-    TelegramTrainFloorContentEntity content = Optional.ofNullable(telegramTrainFloorContentDao.findById(contentId)).orElseThrow(() -> new IllegalArgumentException("未查询报文内容"));
-    requireFloorOwner(content.getFloorId(), token);
   }
   private void requireOwnerByFloor(String floorId, String token) { requireFloorOwner(floorId, token); }
   private void requireOwner(String trainId, String token) {
