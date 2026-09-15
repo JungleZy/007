@@ -173,10 +173,10 @@ export default function telegramList(showChart,selfId) {
    */
   const renderLineChart = () => {
     let data = [],speed = 0,xTxt = [];
-    patTotal.value.map((item,i) => {
-      speed = Number(parseFloat(item.patNumber/(item.totalTime/60/1000)).toFixed(0));
-      xTxt.push('第'+(i+1)+'页');
-      data.push(isNaN(speed)?0:speed)
+    patTotal.value.map(item => {
+      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime).toFixed(0)) : 0;
+      xTxt.push('第'+item.pageNumber+'页');
+      data.push(speed)
     });
 
     nextTick(()=>{

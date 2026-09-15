@@ -297,7 +297,7 @@ public class GeneralTelexPatService {
           item.setUserStatus(0);
         }
         // 统计信息
-        item.setPageAnalyzeVOS(generatePageAnalyze(param.getTrainId(), item.getUserId()));
+        item.setPageAnalyzeVOS(generatePageAnalyze(keyPatEntity, item.getUserId()));
       }
       return patTrainVO;
     } catch (ForbiddenException | TerminalStateException | IllegalArgumentException | IllegalStateException e) {
@@ -311,23 +311,32 @@ public class GeneralTelexPatService {
   /**
    * 生成统计信息
    */
-  private List<PostTelegraphKeyPatTrainPageAnalyzeVO> generatePageAnalyze(String trainId, String userId) {
-    // 统计每页拍发时长和个数
+  private List<PostTelegraphKeyPatTrainPageAnalyzeVO> generatePageAnalyze(GeneralTelexPatEntity train, String userId) {
+    // 与结算码率同源：逐页正文字符数及有效毫秒，不把组数当作字符数。
     List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao
-        .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(trainId, userId);
+        .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(train.getId(), userId);
     Map<Integer, List<GeneralTelexPatUserValueEntity>> collect = pageValueEntities.stream()
-        .collect(Collectors.groupingBy(GeneralTelexPatUserValueEntity::getPageNumber));
+        .collect(Collectors.groupingBy(GeneralTelexPatUserValueEntity::getPageNumber, TreeMap::new,
+            Collectors.toList()));
     List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
     collect.forEach((key, value) -> {
       PostTelegraphKeyPatTrainPageAnalyzeVO analyzeVO = new PostTelegraphKeyPatTrainPageAnalyzeVO();
+      analyzeVO.setPageNumber(key);
+      long totalTime = 0;
       int patNumber = 0;
       for (GeneralTelexPatUserValueEntity valueEntity : value) {
         if (valueEntity.getSort() == -1) {
-          Integer convert = groupNumber(valueEntity.getValue());
-          patNumber += convert;
+          patNumber = Math.addExact(patNumber, Math.toIntExact(
+              PostTelexPatTrainService.characterCount(valueEntity.getValue(), train.getTrainType())));
+          // 原始行保存最终确认区间；扩展替换该行，不能累加历次上报或已取整的秒数。
+          if (StringUtils.isNotBlank(valueEntity.getCaptureIntervals())) {
+            totalTime = Math.addExact(totalTime,
+                CaptureTimeline.durationMillis(intervals(valueEntity.getCaptureIntervals()), Long.MAX_VALUE));
+          }
         }
       }
       analyzeVO.setPatNumber(patNumber);
+      analyzeVO.setTotalTime(totalTime);
       analyzeVOS.add(analyzeVO);
     });
     return analyzeVOS;
@@ -348,27 +357,8 @@ public class GeneralTelexPatService {
       List<GeneralTelexPatPageEntity> twoPage = trainPageDao.findTwoPage(param.getTrainId());
       List<GeneralTelexPatUserValueEntity> toPageValue = trainUserValueDao.findTwoPage(param.getTrainId(),
           param.getUserId());
-      // 统计每页拍发时长和个数
-      List<GeneralTelexPatUserValueEntity> pageValueEntities = trainUserValueDao
-          .findByTrainIdAndUserIdOrderByPageNumberAscSortAsc(param.getTrainId(), param.getUserId());
-      Map<Integer, List<GeneralTelexPatUserValueEntity>> collect = pageValueEntities.stream()
-          .collect(Collectors.groupingBy(GeneralTelexPatUserValueEntity::getPageNumber));
-      List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = new ArrayList<>();
-      collect.forEach((key, value) -> {
-        PostTelegraphKeyPatTrainPageAnalyzeVO analyzeVO = new PostTelegraphKeyPatTrainPageAnalyzeVO();
-        int totalTime = 0;
-        int patNumber = 0;
-        for (GeneralTelexPatUserValueEntity valueEntity : value) {
-          if (valueEntity.getSort() == -1) {
-            Integer convert = groupNumber(valueEntity.getValue());
-            patNumber += convert;
-          }
-
-        }
-        analyzeVO.setPatNumber(patNumber);
-        analyzeVO.setTotalTime(totalTime);
-        analyzeVOS.add(analyzeVO);
-      });
+      List<PostTelegraphKeyPatTrainPageAnalyzeVO> analyzeVOS = generatePageAnalyze(keyPatEntity,
+          param.getUserId());
 
       return PojoUtils.convertOne(patUserEntity, GeneralTelexPatUserInfoVO.class, (t, v) -> {
         v.setExistPage(pageNumber);
