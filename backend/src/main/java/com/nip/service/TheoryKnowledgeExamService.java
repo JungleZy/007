@@ -22,7 +22,6 @@ import com.nip.dto.TestPaperQuestionDto;
 import com.nip.dto.TheoryKnowledgeExamDto;
 import com.nip.dto.TheoryKnowledgeExamSelfFinishDto;
 import com.nip.dto.TheoryKnowledgeQuestionCheckDto;
-import com.nip.dto.sql.FindAllExamByIdDto;
 import com.nip.dto.sql.FindAllExamDto;
 import com.nip.dto.sql.FindExamIdDto;
 import com.nip.dto.vo.TheoryKnowLedgeExamAnalyseVO;
@@ -114,29 +113,84 @@ public class TheoryKnowledgeExamService {
   }
 
   @Transactional
-  public Response<List<FindAllExamDto>> findAllTheoryKnowledgeExam(boolean mark) {
-    if (mark) {
-      return ResponseResult.success(theoryKnowledgeExamDao.findAllExam(1, 2));
-    } else {
-      return ResponseResult.success(theoryKnowledgeExamDao.findAllExam(3, 4));
-    }
+  public Response<List<FindAllExamDto>> findAllTheoryKnowledgeExam(String token, boolean mark) {
+    String actorId = userService.getUserByToken(token).getId();
+    boolean admin = roleDao.existsAdminRoleByUserId(actorId);
+    List<FindAllExamDto> exams = theoryKnowledgeExamDao.findAllExam(mark ? 1 : 3, mark ? 2 : 4);
+    return ResponseResult.success(exams.stream()
+        .filter(exam -> admin || Objects.equals(actorId, exam.getCreate_user_id())
+            || Objects.equals(actorId, exam.getTeacher()))
+        .toList());
   }
 
   @Transactional
-  public Response<Map<String, Object>> findTheoryKnowledgeExamById(String id) {
-    try {
-      FindAllExamByIdDto allExamById = theoryKnowledgeExamDao.findAllExamById(id);
-      TheoryKnowledgeExamTestPaperEntity paper = theoryKnowledgeExamTestPaperDao.findAllByExamId(id);
-      List<FindExamIdDto> allByExamIdSql = theoryKnowledgeExamUserDao.findAllByExamIdSql(id);
-      Map<String, Object> map = new HashMap<>();
-      map.put("exam", allExamById);
-      map.put("paper", paper);
-      map.put("user", allByExamIdSql);
-      return ResponseResult.success(map);
-    } catch (Exception e) {
-      log.error("findTheoryKnowledgeExamById error", e);
-      return ResponseResult.error();
+  public Response<Map<String, Object>> findTheoryKnowledgeExamById(String token, String id) {
+    String actorId = userService.getUserByToken(token).getId();
+    TheoryKnowledgeExamEntity exam = Optional.ofNullable(theoryKnowledgeExamDao.findById(id))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
+    TheoryKnowledgeExamUserEntity candidate = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(id, actorId);
+    boolean controller = canControlExam(actorId, exam);
+    if (!controller && candidate == null) {
+      throw new ForbiddenException("无权查看该考试");
     }
+    List<FindExamIdDto> users = theoryKnowledgeExamUserDao.findAllByExamIdSql(id);
+    if (!controller) {
+      users = users.stream().filter(row -> Objects.equals(actorId, row.getUser_id())).toList();
+    }
+    Map<String, Object> data = new HashMap<>();
+    data.put("exam", theoryKnowledgeExamDao.findAllExamById(id));
+    data.put("paper", projectPaper(exam, candidate, controller));
+    data.put("user", users);
+    return ResponseResult.success(data);
+  }
+
+  private boolean isSelfTesting(String examId) {
+    return theoryKnowledgeExamUserDao.count("examId = ?1 and isSelfTesting = 0", examId) > 0;
+  }
+
+  private boolean canControlExam(String actorId, TheoryKnowledgeExamEntity exam) {
+    // A self-test creator is a candidate, including when that account is an administrator.
+    return !isSelfTesting(exam.getId()) && (Objects.equals(actorId, exam.getCreateUserId())
+        || Objects.equals(actorId, exam.getTeacher()) || roleDao.existsAdminRoleByUserId(actorId));
+  }
+
+  private TheoryKnowledgeExamTestPaperEntity projectPaper(TheoryKnowledgeExamEntity exam,
+      TheoryKnowledgeExamUserEntity candidate, boolean controller) {
+    TheoryKnowledgeExamTestPaperEntity snapshot = Optional.ofNullable(
+        theoryKnowledgeExamTestPaperDao.findAllByExamId(exam.getId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到试卷快照"));
+    TheoryKnowledgeExamTestPaperEntity paper = PojoUtils.convertOne(snapshot,
+        TheoryKnowledgeExamTestPaperEntity.class);
+    boolean review = candidate != null && Objects.equals(candidate.getState(), 4)
+        && (Objects.equals(candidate.getIsSelfTesting(), 0) || Objects.equals(exam.getState(), 4));
+    if (!controller && !review) {
+      paper.setSingleChoiceList(projectQuestions(snapshot.getSingleChoiceList(), 1));
+      paper.setMultipleChoiceList(projectQuestions(snapshot.getMultipleChoiceList(), 2));
+      paper.setJudgeList(projectQuestions(snapshot.getJudgeList(), 3));
+      paper.setCompletionList(projectQuestions(snapshot.getCompletionList(), 4));
+      paper.setShortAnswer(projectQuestions(snapshot.getShortAnswer(), 5));
+    }
+    return paper;
+  }
+
+  private String projectQuestions(String json, int type) {
+    List<TestPaperQuestionDto> questions = ListUtils.nullToEmpty(JSONUtils.fromJson(json,
+        new TypeToken<List<TestPaperQuestionDto>>() {}));
+    for (TestPaperQuestionDto question : questions) {
+      question.setAnalysis(null);
+      question.setAnswer(switch (type) {
+        case 2 -> "[]";
+        case 4 -> JSONUtils.toJson(Collections.nCopies(completionSlots(question.getTopic()), ""));
+        case 5 -> "";
+        default -> "\"\"";
+      });
+    }
+    return JSONUtils.toJson(questions);
+  }
+
+  private int completionSlots(String topic) {
+    if (topic == null) return 0;
+    return topic.split("________|\\(___\\)|\\$_\\$", -1).length - 1;
   }
 
   @Transactional
@@ -209,7 +263,7 @@ public class TheoryKnowledgeExamService {
       if (StringUtils.isEmpty(student.getStartTime())) {
         student.setStartTime(DateTimeUtil.now());
       }
-      data.put("paper", theoryKnowledgeExamTestPaperDao.findAllByExamId(examId));
+      data.put("paper", projectPaper(entity, student, canControlExam(userId, entity)));
     } else {
       student.setContent(content);
       if (type == 3) {
@@ -220,8 +274,10 @@ public class TheoryKnowledgeExamService {
     TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(student);
     data.put("exam", entity);
     data.put("student", save);
-    WebSocketService.sendInfo(entity.getTeacher(),
-        new ResponseModel(CodeConstants.STUDENTCHANGEEXAMSTATE.getCode(), data));
+    if (StringUtils.isNotBlank(entity.getTeacher())) {
+      WebSocketService.sendInfo(entity.getTeacher(),
+          new ResponseModel(CodeConstants.STUDENTCHANGEEXAMSTATE.getCode(), data));
+    }
     return ResponseResult.success(data);
   }
 
@@ -241,7 +297,9 @@ public class TheoryKnowledgeExamService {
     TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(student);
     Map<String, Object> map = new HashMap<>();
     map.put("student", save);
-    WebSocketService.sendInfo(entity.getTeacher(), new ResponseModel(CodeConstants.USERUPLOADCONTENT.getCode(), map));
+    if (StringUtils.isNotBlank(entity.getTeacher())) {
+      WebSocketService.sendInfo(entity.getTeacher(), new ResponseModel(CodeConstants.USERUPLOADCONTENT.getCode(), map));
+    }
     return ResponseResult.success(save);
   }
 
@@ -499,7 +557,8 @@ public class TheoryKnowledgeExamService {
    *
    * @param examId 考试id
    */
-  public TheoryKnowLedgeExamAnalyseVO examineAnalyse(String examId) {
+  public TheoryKnowLedgeExamAnalyseVO examineAnalyse(String token, String examId) {
+    String actorId = userService.getUserByToken(token).getId();
     TheoryKnowLedgeExamAnalyseVO ret = new TheoryKnowLedgeExamAnalyseVO();
     ret.setOrdinary(0);
     ret.setFailing(0);
@@ -508,6 +567,9 @@ public class TheoryKnowledgeExamService {
     TheoryKnowledgeExamEntity examEntity = theoryKnowledgeExamDao.findById(examId);
     if (ObjectUtil.isEmpty(examEntity)) {
       throw new IllegalArgumentException("未查询到考试");
+    }
+    if (!canControlExam(actorId, examEntity)) {
+      throw new ForbiddenException("无权分析该考试");
     }
     List<TheoryKnowledgeExamUserEntity> examUserEntityList = theoryKnowledgeExamUserDao.findAllByExamId(examId);
     // 考题

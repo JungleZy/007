@@ -185,14 +185,7 @@ export default defineComponent({
       paramsT,
       newD => {
         if (newD.type == 4) {
-          let arr
-          if (newD.topic.indexOf('________') !== -1) {
-            arr = newD.topic.split('________')
-          } else if (newD.topic.indexOf('(___)') !== -1) {
-            arr = newD.topic.split('(___)')
-          } else if (newD.topic.indexOf('$_$') !== -1) {
-            arr = newD.topic.split('$_$')
-          }
+          const arr = newD.topic.split(/________|\(___\)|\$_\$/)
           let dom = []
           for (let index in arr) {
             dom.push({
@@ -237,14 +230,7 @@ export default defineComponent({
     }
     //处理填空题
     if (params.value.type == 4) {
-      let arr
-      if (params.value.topic.indexOf('________') !== -1) {
-        arr = params.value.topic.split('________')
-      } else if (params.value.topic.indexOf('(___)') !== -1) {
-        arr = params.value.topic.split('(___)')
-      } else if (params.value.topic.indexOf('$_$') !== -1) {
-        arr = params.value.topic.split('$_$')
-      }
+      const arr = params.value.topic.split(/________|\(___\)|\$_\$/)
       let dom = []
       for (let index in arr) {
         //考试时清空答案

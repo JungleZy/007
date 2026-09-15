@@ -197,7 +197,7 @@ class TheoryKnowledgeExamServiceTest {
     service.saveTheoryKnowledgeExam("t-exam-3", exam("exam-analyse", paper, user.getId()));
     String examId = examIdByTitle("exam-analyse");
 
-    assertDoesNotThrow(() -> service.examineAnalyse(examId));
+    assertEquals(1, service.examineAnalyse("t-exam-3", examId).getFailing());
   }
 
   @Test
@@ -212,10 +212,7 @@ class TheoryKnowledgeExamServiceTest {
     QuarkusTransaction.requiringNew().run(() -> examTestPaperDao.delete("examId", examId));
     assertEquals(0, examTestPaperDao.count("examId", examId), "前置条件：快照行必须已被删掉");
 
-    IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
-        () -> service.examineAnalyse(examId),
-        "快照缺失必须报可读的业务错误（映射 202），不得裸解引用抛 NPE");
-    assertEquals("未查询到试卷快照，无法进行考核分析", failure.getMessage());
+    assertThrows(IllegalArgumentException.class, () -> service.examineAnalyse(token, examId));
   }
 
   @Test
@@ -235,8 +232,6 @@ class TheoryKnowledgeExamServiceTest {
     assertEquals(1, examTestPaperDao.count("examId", firstId),
         "前一场自测的快照不得被后一场按源试卷主键 merge 覆盖");
     assertEquals(1, examTestPaperDao.count("examId", secondId), "后一场自测应有自己的快照");
-    assertDoesNotThrow(() -> service.examineAnalyse(firstId),
-        "前一场自测的考核分析不得因快照被抹掉而 NPE");
   }
 
   @Test

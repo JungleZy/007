@@ -68,6 +68,12 @@ export default function startGrade() {
   //初始化考卷信息
   const initPaper = () => {
     findTheoryKnowledgeExamById({ id: route.query.id }).then(res => {
+      if (res.code !== 200) return
+      const member = res.data.user.find(item => item.user_id === userInfo.value.id)
+      if (userRole.value.id == 2 && (Number(res.data.exam.state) !== 4 || Number(member?.state) !== 4)) {
+        message.warning('考试和本人阅卷完成后才能复盘')
+        return
+      }
       examState.value = res.data.exam.state
       testExam.value = res.data.exam
       testExam.value.userLen = res.data.user.length
@@ -85,7 +91,7 @@ export default function startGrade() {
       }
       if (itemQ['judge'] && itemQ['judge'].length > 0) {
         itemQ['judge'].forEach(item => {
-          item.answer = `${item.answer}`
+          item.answer = String(JSON.parse(item.answer))
           item.options = JSON.parse(item.options)
         })
       }
@@ -97,7 +103,7 @@ export default function startGrade() {
       }
       if (itemQ['singleChoice'] && itemQ['singleChoice'].length > 0) {
         itemQ['singleChoice'].forEach(item => {
-          item.answer = `${item.answer}`
+          item.answer = String(JSON.parse(item.answer))
           item.options = JSON.parse(item.options)
         })
       }

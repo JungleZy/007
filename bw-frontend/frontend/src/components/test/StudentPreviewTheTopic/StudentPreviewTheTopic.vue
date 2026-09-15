@@ -10,9 +10,8 @@
       </div>
       <div v-if="params.type == 4 && clearAnswer" style="font-size: 15px; padding-bottom: 10px">
         <span v-for="(m, k) in params.dom" :key="k">
-          <div class="answerTK" contenteditable="true" @keyup="changeAnswer($event, k)" style="min-width: 50px; display: inline-block" v-if="m.text == '' && k == 0">{{ noFirst ? m.answer : '' }}</div>
           <span v-if="m.text !== ''">{{ m.text }}</span>
-          <div class="answerTK" contenteditable="true" @keyup="changeAnswer($event, k)" style="min-width: 50px; display: inline-block" v-if="m.text && m.answer !== undefined">{{ noFirst ? m.answer : '' }}</div>
+          <div class="answerTK" contenteditable="true" @input="changeAnswer($event, k)" style="min-width: 50px; display: inline-block" v-if="m.answer !== undefined">{{ noFirst ? m.answer : '' }}</div>
         </span>
       </div>
     </div>
@@ -113,7 +112,7 @@
         <span style="padding-right: 5px">{{ params.answer }}</span>
       </div>
     </div>
-    <div v-if="!isAnswer || (examState && examState == 4)" style="color: #c17b4a">解析：{{ params.analysis ? params.analysis : '暂无解析' }}</div>
+    <div v-if="!isAnswer || isGarde" style="color: #c17b4a">解析：{{ params.analysis ? params.analysis : '暂无解析' }}</div>
   </div>
 </template>
 
@@ -170,14 +169,7 @@ export default defineComponent({
       }
     }
     if (params.value.type == 4) {
-      let arr
-      if (params.value.topic.indexOf('________') !== -1) {
-        arr = params.value.topic.split('________')
-      } else if (params.value.topic.indexOf('(___)') !== -1) {
-        arr = params.value.topic.split('(___)')
-      } else if (params.value.topic.indexOf('$_$') !== -1) {
-        arr = params.value.topic.split('$_$')
-      }
+      const arr = params.value.topic.split(/________|\(___\)|\$_\$/)
       let dom = []
       for (let index in arr) {
         //考试时清空答案

@@ -43,7 +43,7 @@ export default function startTest(countDown) {
     for (const { key } of bankList.value) {
       for (const question of questions.value[key]) {
         const saved = answers?.[key]?.find(answer => answer.id === question.id)
-        question.answer = saved ? saved.answer : (Array.isArray(question.answer) ? question.answer.map(() => '') : '')
+        question.answer = saved ? saved.answer : (key === 'multipleChoice' ? [] : Array.isArray(question.answer) ? question.answer.map(() => '') : '')
         question.isAnswer = saved?.isAnswer ?? false
       }
     }

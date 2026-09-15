@@ -75,14 +75,16 @@ public class TheoryKnowledgeExamController {
 
   @POST
   @Path("/findAllTheoryKnowledgeExam")
-  public Response<List<FindAllExamDto>> findAllTheoryKnowledgeExam(Map<String, Boolean> map) {
-    return theoryKnowledgeExamService.findAllTheoryKnowledgeExam(map.get("state"));
+  public Response<List<FindAllExamDto>> findAllTheoryKnowledgeExam(@RestHeader(TOKEN) String token,
+      Map<String, Boolean> map) {
+    return theoryKnowledgeExamService.findAllTheoryKnowledgeExam(token, map.get("state"));
   }
 
   @POST
   @Path("/findTheoryKnowledgeExamById")
-  public Response<Map<String, Object>> findTheoryKnowledgeExamById(Map<String, String> map) {
-    return theoryKnowledgeExamService.findTheoryKnowledgeExamById(map.get(ID));
+  public Response<Map<String, Object>> findTheoryKnowledgeExamById(@RestHeader(TOKEN) String token,
+      Map<String, String> map) {
+    return theoryKnowledgeExamService.findTheoryKnowledgeExamById(token, map.get(ID));
   }
 
   /**
@@ -131,8 +133,9 @@ public class TheoryKnowledgeExamController {
   @POST
   @Path("/examineAnalyse")
   @Operation(summary = "考核分析")
-  public Response<TheoryKnowLedgeExamAnalyseVO> examineAnalyse(Map<String, String> body) {
-    return ResponseResult.success(theoryKnowledgeExamService.examineAnalyse(body.get(EXAM_ID)));
+  public Response<TheoryKnowLedgeExamAnalyseVO> examineAnalyse(@RestHeader(TOKEN) String token,
+      Map<String, String> body) {
+    return ResponseResult.success(theoryKnowledgeExamService.examineAnalyse(token, body.get(EXAM_ID)));
   }
 
   @POST

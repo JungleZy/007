@@ -8,7 +8,7 @@
       </div>
       <div class="bottom">
         <div class="bottomLeft">
-          <StudentPerviewTest v-if="questions && isShow" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></StudentPerviewTest>
+          <StudentPerviewTest v-if="questions" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></StudentPerviewTest>
         </div>
         <div class="bottomRight">
           <div class="studentInfo">
@@ -67,7 +67,7 @@ const IconFont = createFromIconfontCN({
 onMounted(() => {
   initPaper()
 })
-const { initPaper, questions, students, fileUrl, examState, isShow, activeUser, userRole, testExam, endGrade, goback, commitScore, selelctStu } = startGrade()
+const { initPaper, questions, fileUrl, activeUser, testExam, goback } = startGrade()
 </script>
 
 <style lang="less" scoped>
