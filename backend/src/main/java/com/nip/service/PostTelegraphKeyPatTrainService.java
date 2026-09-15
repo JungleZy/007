@@ -506,9 +506,9 @@ public class PostTelegraphKeyPatTrainService {
 
     // 错误个数
     entity.setErrorNumber(ks.getError());
-    // 计算正确率 （拍发总个数 - 错误个数 - 串组） / 拍发总个数（守分母，ScoreMath 统一口径）
+    // 正确组扣除同源解析的错码、串组、少码和多码，由 ScoreMath 钳制并统一精度。
     BigDecimal accuracy = ScoreMath.accuracy(
-        (long) ks.getPatGroup() - ks.getError() - ks.getBunchGroup(), ks.getPatGroup());
+        (long) ks.getPatGroup() - ks.getError() - ks.getBunchGroup() - ks.getLack() - ks.getMore(), ks.getPatGroup());
     entity.setAccuracy(accuracy.doubleValue());
 
     // 得到要扣的分

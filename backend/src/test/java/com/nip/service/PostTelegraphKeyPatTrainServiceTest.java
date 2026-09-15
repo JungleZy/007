@@ -15,6 +15,8 @@ import com.nip.testsupport.Fixtures;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -249,6 +251,48 @@ class PostTelegraphKeyPatTrainServiceTest {
     assertEquals(begin, trainDao.findById(train.getId()).getBeginTime());
     assertEquals(0, resumed.getAttempt());
     assertTrue(resumed.getServerElapsedMs() >= 119000);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"123", "12345"})
+  void missingOrExtraCodeCannotCountAsACorrectGroup(String value) {
+    PostTelegraphKeyPatTrainVO result = finishGroups(value);
+    assertEquals(0d, result.getAccuracy());
+    assertEquals(0, new BigDecimal("98").compareTo(result.getScore()));
+  }
+
+  @Test
+  void mixedCorrectMissingExtraAndWrongGroupsKeepTheirSeparateDeductions() {
+    PostTelegraphKeyPatTrainVO result = finishGroups("1234", "123", "12345", "9999");
+    assertEquals(25d, result.getAccuracy());
+    assertEquals(0, new BigDecimal("93").compareTo(result.getScore()));
+  }
+
+  private PostTelegraphKeyPatTrainVO finishGroups(String... values) {
+    String token = token();
+    PostTelegraphKeyPatTrainEntity train = seed(token, values.length);
+    train.setRuleContent(RULE.replace("\"r\":2", "\"r\":0").replace("\"l\":3", "\"l\":0")
+        .replace("\"muchLessCode\":0", "\"muchLessCode\":2").replace("\"errorCode\":0", "\"errorCode\":3"));
+    trainDao.save(train);
+    List<PostTelegraphKeyPatTrainPageMessageVO> groups = new java.util.ArrayList<>();
+    for (int i = 0; i < values.length; i++) {
+      PostTelegraphKeyPatTrainPageMessageVO group = page(train, 1, 0, 1000, values[i].split(""))
+          .getValue().getFirst();
+      group.setSort(i);
+      groups.add(group);
+      PostTelegraphKeyPatTrainPageEntity source = new PostTelegraphKeyPatTrainPageEntity();
+      source.setTrainId(train.getId());
+      source.setPageNumber(1);
+      source.setSort(i);
+      source.setKey(group.getKey());
+      source.setValue("[]");
+      source.setTime("[]");
+      pageDao.save(source);
+    }
+    PostTelegraphKeyPatTrainPageDto upload = page(train, 1, 0, 1000);
+    upload.setValue(groups);
+    service.finishPage(upload, token);
+    return service.finish(action(train), token);
   }
 
   private String token() {
