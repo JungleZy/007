@@ -66,17 +66,15 @@ public class EnteringExerciseController {
   @POST
   @Path("/finish")
   @Operation(summary = "完成训练")
-  public Response<Void> finish(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
-    enteringExerciseService.finish(param, token);
-    return ResponseResult.success();
+  public Response<EnteringExerciseVO> finish(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
+    return ResponseResult.success(enteringExerciseService.finish(param, token));
   }
 
   @POST
   @Path("/pause")
   @Operation(summary = "暂停训练")
-  public Response<Void> pause(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
-    enteringExerciseService.pause(param, token);
-    return ResponseResult.success();
+  public Response<EnteringExerciseVO> pause(@RestHeader(TOKEN) String token, EnteringExerciseFinishParam param) {
+    return ResponseResult.success(enteringExerciseService.pause(param, token));
   }
 
   @POST

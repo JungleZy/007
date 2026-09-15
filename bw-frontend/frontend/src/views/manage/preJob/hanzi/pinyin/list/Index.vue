@@ -89,7 +89,9 @@ onMounted(() => {
 const verifyPrevTrain = type => {
   findPrevPYTrainTotal({ type: type }).then(res => {
     if (res.code === 200) {
-      if (res.data && res.data.status === 3) {
+      if (res.data && res.data.protocolVersion !== 1 && res.data.status !== 2) {
+        Modal.info({ content: '旧版未完成练习不能继续，请重新创建训练；旧记录不会被改写。', onOk: () => addTelexTrain(type) })
+      } else if (res.data && [0, 1, 3].includes(res.data.status)) {
         Modal.confirm({
           title: () => '上次训练还未结束，是否重新生成训练？',
           icon: () => createVNode(ExclamationCircleOutlined),

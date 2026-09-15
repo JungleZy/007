@@ -14,22 +14,22 @@ public class EnteringExerciseFinishParam {
   @Schema(title = "id")
   private String id;
 
-  @Schema(title = "正确率")
+  @Schema(title = "客户端预览正确率，不作为评分依据")
   private Double accuracy;
 
-  @Schema(title = "速度")
+  @Schema(title = "客户端预览速度，不作为评分依据")
   private Integer speed;
 
-  @Schema(title = "训练时长")
+  @Schema(title = "客户端预览秒数，不作为计时依据")
   private Integer duration;
 
-  @Schema(title = "训练内容")
+  @Schema(title = "JSON数组字符串，每条必须包含实际输入value；题面与正误由服务端重建")
   private String content;
 
-  @Schema(title = "正确个数")
+  @Schema(title = "客户端预览正确组数，不作为评分依据")
   private Integer correctNum;
 
-  @Schema(title = "错误个数")
+  @Schema(title = "客户端预览错误组数，不作为评分依据")
   private Integer errorNum;
 
 }

@@ -85,4 +85,6 @@ public class EnteringExerciseVO {
 
   @Schema(name = "错误个数")
   private Integer errorNum;
+
+  private Integer protocolVersion;
 }

@@ -57,6 +57,7 @@ public class EnteringExerciseEntity {
   /**
    * 文本内容
    */
+  @Column(columnDefinition = "longtext")
   private String content;
 
   /**
@@ -83,4 +84,13 @@ public class EnteringExerciseEntity {
    * 正确个数
    */
   private Integer correctNum;
+
+  private Integer protocolVersion = 0;
+
+  @Column(columnDefinition = "longtext")
+  private String sourceContent;
+
+  private Long elapsedMillis = 0L;
+
+  private LocalDateTime activeStartedAt;
 }

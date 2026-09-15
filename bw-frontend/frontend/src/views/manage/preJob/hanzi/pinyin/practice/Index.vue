@@ -1,5 +1,5 @@
 <template>
-  <div class="telexTrainBox h-full w-full overflow-auto layout-side-n relative content-mask-bg ">
+  <div ref="practiceArea" tabindex="0" aria-label="拼音练习录入区" class="telexTrainBox h-full w-full overflow-auto layout-side-n relative content-mask-bg ">
     <div class=" "  >
       <div class="statisticsBox statisticalBox">
         <div class="lineBox">
@@ -25,9 +25,21 @@
         </div>
         <div class="linebtns">
           <div class="exerciseBtn btn">
-            <div class="layout-center" @click="goback">
+            <div class="layout-center" @click="router.back()">
               <IconFont type="icon-rollback" style="margin-right: 5px"></IconFont> 退出
             </div>
+          </div>
+          <button v-if="ready && trainData.status !== 2" :disabled="busy || uncertain" @click="trainData.status === 1 ? stopTest() : resumeTest()">{{ trainData.status === 1 ? '暂停' : trainData.status === 3 ? '继续' : '开始' }}</button>
+          <button v-if="ready && trainData.status !== 2" :disabled="busy || uncertain || trainData.status === 0" @click="saveTest">结束练习</button>
+          <span v-if="pendingKey !== null" role="status">开始尚未确认，已保留首键；请等待或点击开始重试。</span>
+          <div v-if="uncertain" role="status">
+            保存结果待确认，输入已冻结并保留。
+            <button :disabled="busy" @click="confirmWrite">重新确认状态</button>
+            <button :disabled="busy" @click="retryWrite">原样重试保存</button>
+          </div>
+          <div v-if="terminalConflict" role="alert">
+            服务端已完成且答案与本地草稿不同；本地草稿已保留，不能覆盖最终成绩。
+            <button @click="router.back()">保留草稿并退出</button>
           </div>
         </div>
       </div>
@@ -53,7 +65,7 @@
         </div>
       </div>
       <div class="w-full absolute "  style="left: 0px; "  :style="[isfocus?'height: calc(100% - 330px)':'height:100%']">
-        <div class="w-full h-full layout-left-top scorebox"  @scroll="scoreRoll" style=" overflow: auto;;max-height: max-content">
+        <div class="w-full h-full layout-left-top scorebox" style="overflow: auto;max-height: max-content">
           <div  style="max-height: max-content;width: 100% ;display: flex;flex-wrap: wrap;padding: 0 4px;" :style="[trainData.type>1?'justify-content: space-between':'']">
             <div v-if="trainData.type!=4" class="cardBox" style="display: flex;height: max-content;" v-for=" (v,index) of message" :style="[trainData.type>1?'min-width:16%':'width: 10%']" >
               <div class="messageBox"
@@ -71,7 +83,7 @@
               </div>
             </div>
             <div v-else class="h-full w-full ">
-              <WZTrain :message="message" :trainData="trainData" @statistics="statistics"></WZTrain>
+              <WZTrain :message="message" :trainData="trainData" :activeIndex="activeIndex" :inputIndex="inputIndex"></WZTrain>
             </div>
           </div>
         </div>
@@ -148,6 +160,8 @@
 
 <script setup>
   import parctice from "./js/parctice.js";
+  import { useRouter } from 'vue-router'
+  const router = useRouter()
   import WZTrain from "./compoents/WZTrain.vue";
   import CountDown from '../../../../../../components/common/CountDown.vue';
   import Number from '../../../../../../components/number/Number.vue';
@@ -220,32 +234,8 @@
   ]);
 
   const codeType = ref('gradient');
-  const {
-    message,
-    trainData,
-    correct,
-    activeMessage,
-    isfocus,
-    activeIndex,
-    inputIndex,
-      big,
-      small,
-    nowTime,
-    computationTime2,
-    inputFocus,
-    scoreRoll,
-    selectCard,
-    keyCodeDown,
-    keyCodeDown2,
-    changeSwitch,
-    changeMessage,
-    changeFocus,
-    statistics,
-    saveTest,
-    selectMessage,
-    getFocus,
-    goback,
-  } = parctice()
+  const { message, trainData, activeMessage, isfocus, activeIndex, inputIndex, big, small,
+    nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = parctice()
 </script>
 
 <style scoped lang="less">

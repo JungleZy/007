@@ -21,6 +21,7 @@
     <commons-codec.version>1.13</commons-codec.version>
     <fastjson.version>1.2.78</fastjson.version>
     <lombok.version>1.18.36</lombok.version>
+    <quarkus.native.resources.includes>resources/**,entering-codebook.json</quarkus.native.resources.includes>
   </properties>
 
   <dependencyManagement>
@@ -148,6 +149,17 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>../bw-frontend/frontend/src/common/utils</directory>
+        <includes>
+          <include>entering-codebook.json</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>${quarkus.platform.group-id}</groupId>

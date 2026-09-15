@@ -3,7 +3,6 @@ package com.nip.dao;
 import com.nip.common.repository.BaseRepository;
 import com.nip.entity.EnteringExerciseEntity;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -13,28 +12,6 @@ import static com.nip.common.utils.ToolUtil.assembleData;
 
 @ApplicationScoped
 public class EnteringExerciseDao extends BaseRepository<EnteringExerciseEntity, String> {
-
-  /**
-   * 根据id修改状态
-   *
-   * @param: id
-   * @param: status
-   */
-  @Transactional
-  public void begin(String id, Integer status) {
-    update("status = ?2,startTime = now() where id = ?1", id, status);
-  }
-
-  /**
-   * 继续训练
-   *
-   * @param: id
-   * @param: status
-   */
-  @Transactional
-  public void goTo(String id, Integer status) {
-    update("status = ?2 where id = ?1", id, status);
-  }
 
   /**
    * 根据用户id和type统计
