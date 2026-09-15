@@ -91,14 +91,15 @@ impl VirtualSerial {
         #[cfg(unix)]
         {
             let device = self.device.lock();
+            let probe = pty::probe();
             json!({
                 "supported": true,
                 "linkNeeded": link_needed && device.is_some(),
                 "path": device.as_ref().map(|item| item.path.clone()),
                 "links": device.as_ref().map(|item| item.links.iter().map(|link| link.display().to_string()).collect::<Vec<_>>()).unwrap_or_default(),
                 "warnings": device.as_ref().map(|item| item.warnings.clone()).unwrap_or_default(),
-                "available": pty::probe().is_ok(),
-                "reason": pty::probe().err(),
+                "available": probe.is_ok(),
+                "reason": probe.err(),
                 "systemLink": SYSTEM_LINK,
                 "systemLinked": self.system_link.lock().clone(),
                 "systemLinkHint": device.as_ref().map(|item| item.system_link_hint(SYSTEM_LINK))
@@ -334,14 +335,15 @@ impl VirtualSerial {
         json!({"ok": false, "error": "本平台无需接入，也就无需移出"})
     }
 
-    /// 按时间轴向所有通道同时回放；speed>1 整体加速
-    /// （注意客户端的 800ms/静默定时器不随之缩放）
+    /// 按时间轴向所有通道同时回放；speed≠1 整体缩放时间轴
+    /// （注意被测程序侧的 800ms/静默定时器不随之缩放）
     pub fn send(self: &Arc<Self>, timeline: &Timeline, speed: f64, text: &str) -> Result<Value, String> {
         if self.bridge.lock().is_none() {
             return Err("虚拟串口未开启".into());
         }
-        if self.replay.lock().is_some() {
-            return Err("上一次拍发还在进行".into());
+        // speed 必须有限且为正：0 会让 due=x/speed=+inf，回放线程永远等不到发帧而空转
+        if !speed.is_finite() || speed <= 0.0 {
+            return Err(format!("倍速必须是正的有限数，收到 {speed}"));
         }
         let frames = sinks::to_bridge_messages(timeline, 0.0);
         let chunks = sinks::to_bytes(timeline);
@@ -349,15 +351,23 @@ impl VirtualSerial {
             return Err("帧与字节序列长度不一致，时间轴异常".into());
         }
         let cancel = Arc::new(AtomicBool::new(false));
-        *self.replay.lock() = Some(Replay {
-            sent: 0,
-            total: frames.len(),
-            speed,
-            at: 0.0,
-            key: timeline.key.to_string(),
-            text: text.to_string(),
-            cancel: Arc::clone(&cancel),
-        });
+        // 检查与赋值必须在同一次锁持有内完成，否则并发 /api/send 会起两个回放线程，
+        // 双倍写入全部通道，且 stop() 只能取消其中一个
+        {
+            let mut replay = self.replay.lock();
+            if replay.is_some() {
+                return Err("上一次拍发还在进行".into());
+            }
+            *replay = Some(Replay {
+                sent: 0,
+                total: frames.len(),
+                speed,
+                at: 0.0,
+                key: timeline.key.to_string(),
+                text: text.to_string(),
+                cancel: Arc::clone(&cancel),
+            });
+        }
         // 组边界：用来在拍发过程中按组报进度。客户端/服务端的码率口径是
         // 字符数×60000/采集区间，所以这里顺便报"到这一组为止的实测码率"，
         // 跑长页时不用等结束就能看出快了还是慢了。
@@ -485,8 +495,12 @@ impl VirtualSerial {
                     format!(
                         "拍发已中止：第 {}/{groups_total} 组，{index}/{total} 帧，已过 {wall:.1}s",
                         next_milestone.max(1).min(groups_total.max(1)),
-                        ),
+                    ),
                 );
+                // 中止时循环内的节流上报可能没覆盖到最后一帧，补一条终态；
+                // 正常完成时 index==total 已在循环内报过，不再重复
+                let ended_at = items.get(index.saturating_sub(1)).map(|item| item.0).unwrap_or(0.0);
+                (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at, "speed": speed}));
             } else {
                 let sent_chars = milestones.last().map(|item| item.3).unwrap_or(0);
                 let window = (items.last().map(|item| item.0).unwrap_or(0.0) - origin).max(1.0);
@@ -499,14 +513,12 @@ impl VirtualSerial {
                     ),
                 );
             }
-            let ended_at = items.get(index.saturating_sub(1)).map(|item| item.0).unwrap_or(0.0);
-            (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at, "speed": speed}));
             manager.announce();
         });
         Ok(self.state())
     }
 
-    /// 立刻停：置取消位并等回放线程收尾
+    /// 立刻停：置取消位并等回放线程收尾；返回是否真正停下来了
     pub fn stop(&self) -> bool {
         let cancel = self.replay.lock().as_ref().map(|state| Arc::clone(&state.cancel));
         match cancel {
@@ -514,11 +526,12 @@ impl VirtualSerial {
                 flag.store(true, Ordering::SeqCst);
                 for _ in 0..100 {
                     if self.replay.lock().is_none() {
-                        break;
+                        return true;
                     }
                     thread::sleep(Duration::from_millis(10));
                 }
-                true
+                // 取消位已置但 1s 内回放线程没收尾：如实报告，不让 /api/stop 误报 stopped
+                self.replay.lock().is_none()
             }
             None => false,
         }
