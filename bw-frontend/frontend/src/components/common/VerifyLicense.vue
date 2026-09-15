@@ -24,12 +24,12 @@
     <ActionBtn></ActionBtn>
     <!-- 连击 5 次为清除授权信息的隐藏入口，见 VerifyLicense.js 的 onLogoClick -->
     <img class="absolute" src="../../assets/HJ/lincense/wisdom.png" style="top: 100px" @click="onLogoClick"/>
-    <div class="layout-side" style="width: 900px; height: 400px;box-shadow: 0px 0px 20px 0px #020f2f;">
-      <div class="left h-full">
+    <div class="layout-side license-card">
+      <div class="left">
         <div class="w-full layout-center py-2">{{ licenseState === 'hardware_error' ? '本机硬件标识不可用' : '授权存储不可用' }}</div>
         <div class="w-full layout-center">未主动清除授权记录，请勿重置设备码</div>
       </div>
-      <div class="right h-full">
+      <div class="right">
         <div class="w-full layout-left-center" style="font-weight: 600">{{ licenseState === 'hardware_error' ? '无法取得本机硬件设备码' : '无法读取或保存授权信息' }}</div>
         <div class="w-full py-2" style="line-height: 1.8; color: #666">
           当前无法完成离线授权校验，<b>不代表后端登录凭证失效或授权时长耗尽</b>。<br/>
@@ -61,14 +61,14 @@
         style="top: 100px"
         @click="onLogoClick"
     />
-    <div class="layout-side" style="width: 900px; height: 400px;box-shadow: 0px 0px 20px 0px #020f2f;">
-      <div class="left h-full">
+    <div class="layout-side license-card">
+      <div class="left">
         <div class="w-full layout-center py-2">{{ tips.title }}</div>
         <div class="w-full layout-center">
           {{ tips.codeTips }}
         </div>
       </div>
-      <div class="right h-full">
+      <div class="right">
         <div class="w-full layout-left-center">设备码</div>
         <div class="w-full py-2 ">
           <div class="w-full layout-side pr-2" style="background: #f5f5f5">
@@ -166,6 +166,29 @@ const {
   background-position: center;
   background-size: cover;
   font-size: 14px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 32px;
+  padding: 32px 16px;
+  overflow-y: auto;
+
+  > img {
+    position: static;
+    flex-shrink: 0;
+    max-width: 100%;
+    margin-top: auto;
+  }
+
+  .license-card {
+    width: 900px;
+    max-width: 100%;
+    min-height: 400px;
+    flex-shrink: 0;
+    align-items: stretch;
+    margin-bottom: auto;
+    box-shadow: 0 0 20px #020f2f;
+  }
 
   .left {
     width: 500px;
