@@ -14,6 +14,10 @@ use keysim::{console, ws};
 
 fn http(port: u16, method: &str, path: &str, body: Option<&Value>) -> Value {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("控制台应可连接");
+    // 没有读超时的话，handler 一旦回归成 keep-alive，测试不是超时失败而是永久挂死
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("应能设置读超时");
     let payload = body.map(|value| value.to_string()).unwrap_or_default();
     let request = format!(
         "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{payload}",
@@ -21,7 +25,7 @@ fn http(port: u16, method: &str, path: &str, body: Option<&Value>) -> Value {
     );
     stream.write_all(request.as_bytes()).expect("请求应能发出");
     let mut response = String::new();
-    stream.read_to_string(&mut response).expect("响应应可读");
+    stream.read_to_string(&mut response).unwrap_or_else(|error| panic!("{method} {path} 响应读取失败：{error}"));
     let (head, body) = response.split_once("\r\n\r\n").expect("响应不完整");
     assert!(head.starts_with("HTTP/1.1 2"), "{method} {path} 返回 {head}");
     serde_json::from_str(body.trim()).unwrap_or_else(|_| json!({"raw": body}))
@@ -29,10 +33,13 @@ fn http(port: u16, method: &str, path: &str, body: Option<&Value>) -> Value {
 
 fn http_text(port: u16, path: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("控制台应可连接");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("应能设置读超时");
     let request = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nconnection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).expect("请求应能发出");
     let mut response = String::new();
-    stream.read_to_string(&mut response).expect("响应应可读");
+    stream.read_to_string(&mut response).unwrap_or_else(|error| panic!("GET {path} 响应读取失败：{error}"));
     response.split_once("\r\n\r\n").map(|(_, body)| body.to_string()).unwrap_or_default()
 }
 
@@ -251,4 +258,162 @@ fn invalid_message_is_rejected() {
     assert_eq!(result["ok"], false);
     let error = result["error"].as_str().unwrap_or_default();
     assert!(error.contains('1') && error.contains("letter"), "{error}");
+}
+
+/// 极简 SSE 客户端：订阅 /api/events，把 data: 行逐条解析出来
+struct Events {
+    stream: TcpStream,
+    buffer: String,
+}
+
+impl Events {
+    fn connect(port: u16) -> Events {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("控制台应可连接");
+        stream.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        stream
+            .write_all(b"GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nconnection: close\r\n\r\n")
+            .expect("订阅请求应能发出");
+        let mut events = Events { stream, buffer: String::new() };
+        // 事件流是 keep-alive，先读到响应头结束
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !events.buffer.contains("\r\n\r\n") {
+            assert!(Instant::now() < deadline, "事件流响应头超时");
+            events.pump();
+        }
+        let (_, rest) = events.buffer.split_once("\r\n\r\n").expect("响应头应完整");
+        events.buffer = rest.to_string();
+        events
+    }
+
+    fn pump(&mut self) {
+        let mut chunk = [0u8; 8192];
+        if let Ok(count) = self.stream.read(&mut chunk) {
+            if count > 0 {
+                self.buffer.push_str(&String::from_utf8_lossy(&chunk[..count]));
+            }
+        }
+    }
+
+    /// 收到满足条件的事件为止，返回途中所有事件
+    fn collect_until(&mut self, seconds: u64, done: impl Fn(&Value) -> bool) -> Vec<Value> {
+        let deadline = Instant::now() + Duration::from_secs(seconds);
+        let mut events = Vec::new();
+        while Instant::now() < deadline {
+            self.pump();
+            while let Some((chunk, rest)) = self.buffer.split_once("\n\n").map(|(a, b)| (a.to_string(), b.to_string())) {
+                self.buffer = rest;
+                for line in chunk.lines() {
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if let Ok(event) = serde_json::from_str::<Value>(data) {
+                            let finished = done(&event);
+                            events.push(event);
+                            if finished {
+                                return events;
+                            }
+                        }
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("等事件超时（{}s），已收到 {} 条", seconds, events.len());
+    }
+}
+
+#[test]
+/// 进度事件是前端播放头的唯一数据源（评审 H2）：
+/// 必须带 at/speed、at 单调、末帧落在时间轴后半段，且 speed 真的影响墙上耗时
+fn progress_events_drive_the_playhead() {
+    let console = start_console();
+    let port = console.port;
+    let preview = http(port, "POST", "/api/preview", Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 120})));
+    assert_eq!(preview["ok"], true, "预览应成功：{preview}");
+    let duration = preview["duration"].as_f64().expect("预览应有时间轴总长");
+    let total = preview["events"].as_u64().expect("预览应有帧数");
+
+    // 一次拍发：订阅事件流 -> 发 -> 收到末帧进度。返回（进度事件序列, 墙上耗时）
+    let run = |speed: f64| {
+        let mut events = Events::connect(port);
+        let started = Instant::now();
+        let sent = http(
+            port,
+            "POST",
+            "/api/send",
+            Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 120, "speed": speed})),
+        );
+        assert_eq!(sent["ok"], true, "拍发应能开始：{sent}");
+        let progress: Vec<Value> = events
+            .collect_until(30, |event| {
+                event["type"] == "progress" && event["sent"].as_u64() == Some(total)
+            })
+            .into_iter()
+            .filter(|event| event["type"] == "progress")
+            .collect();
+        (progress, started.elapsed())
+    };
+
+    let (slow, wall_slow) = run(1.0);
+    let (fast, wall_fast) = run(16.0);
+
+    assert!(slow.len() >= 2, "一秒 7 次节流上报，一次拍发不该只有 {} 条", slow.len());
+    let mut last = -1.0f64;
+    for event in &slow {
+        let at = event["at"].as_f64().unwrap_or_else(|| panic!("progress 缺 at：{event}"));
+        assert_eq!(event["speed"].as_f64(), Some(1.0), "speed 应如实回传：{event}");
+        assert!(at >= last, "at 必须单调不减：{last} -> {at}");
+        last = at;
+    }
+    assert!(
+        last > duration * 0.5 && last <= duration * 1.05,
+        "末帧进度应落在时间轴后半段：at={last} duration={duration}"
+    );
+    assert!(
+        wall_slow.as_secs_f64() > wall_fast.as_secs_f64() * 4.0,
+        "16× 倍速应显著更快：1×={:.2}s 16×={:.2}s",
+        wall_slow.as_secs_f64(),
+        wall_fast.as_secs_f64()
+    );
+    assert_eq!(fast.last().and_then(|event| event["speed"].as_f64()), Some(16.0));
+}
+
+#[test]
+/// 重启竞态（评审 H1）：旧进程还占着控制台端口时，serve 要等它退出重试成功，而不是起来就挂
+fn serve_retries_when_http_port_is_taken() {
+    let blocker = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("应能占一个空闲端口");
+    let port = blocker.local_addr().expect("应能读到占用端口").port();
+    // 300ms 后放手，模拟旧进程退出
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        drop(blocker);
+    });
+    let console = console::serve(console::Options { http: port, bridge: 0, autostart: false, links: Vec::new() })
+        .expect("占用解除后重试应成功");
+    assert_eq!(console.port, port, "应绑到原本被占的那个端口");
+}
+
+#[test]
+/// 端口一直被占着就要如实失败：重试窗口（约 3s）耗尽后返回 Err，不能假装起来了
+fn serve_fails_when_port_stays_taken() {
+    let blocker = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("应能占一个空闲端口");
+    let port = blocker.local_addr().expect("应能读到占用端口").port();
+    let started = Instant::now();
+    let result = console::serve(console::Options { http: port, bridge: 0, autostart: false, links: Vec::new() });
+    assert!(result.is_err(), "端口一直被占必须失败");
+    assert!(started.elapsed() >= Duration::from_secs(2), "返回太快说明根本没重试");
+    drop(blocker);
+}
+
+#[test]
+/// 桥接端口是同一个竞态（评审 H1）：18765 被占时 bridge::start 也要重试
+fn bridge_retries_when_port_is_taken() {
+    let blocker = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("应能占一个空闲端口");
+    let port = blocker.local_addr().expect("应能读到占用端口").port();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        drop(blocker);
+    });
+    let log: keysim::bridge::Log = std::sync::Arc::new(|_| {});
+    let bridge = keysim::bridge::start(port, "/echo", false, log).expect("占用解除后重试应成功");
+    assert_eq!(bridge.port, port);
+    bridge.close();
 }
