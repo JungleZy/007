@@ -341,10 +341,17 @@ fn run_serve(args: &Args) -> Result<(), String> {
 }
 
 fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
     if args.has("help") || args.command == "help" {
         print!("{USAGE}");
         return;
+    }
+    // bridge 子命令在通用参数上补两个默认：桥接输出 + 无报文时随机 4 组
+    if args.command == "bridge" {
+        args.flags.insert("sink".into(), "bridge".into());
+        if args.text("text").is_none() && args.number("random").is_none() {
+            args.flags.insert("random".into(), "4".into());
+        }
     }
     let result = match args.command.as_str() {
         "serve" => run_serve(&args),
@@ -354,14 +361,7 @@ fn main() {
         }
         "hand" => run_key(&args, "hand"),
         "electron" => run_key(&args, "electron"),
-        "bridge" => {
-            let mut args = Args::parse();
-            args.flags.insert("sink".into(), "bridge".into());
-            if args.text("text").is_none() && args.number("random").is_none() {
-                args.flags.insert("random".into(), "4".into());
-            }
-            run_key(&args, args.text("key").unwrap_or("hand").to_string().as_str())
-        }
+        "bridge" => run_key(&args, args.text("key").unwrap_or("hand").to_string().as_str()),
         "upload" => run_upload(&args),
         "install-helper" => match install::install_helper() {
             result if result["ok"] == true => {

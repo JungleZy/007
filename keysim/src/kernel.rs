@@ -462,7 +462,8 @@ fn start_com0com() -> Result<Started, String> {
 ///
 /// 内核级后端会真的往内核挂 USB 设备、改 /dev 下的别名，是**机器级副作用**：
 /// 自动化测试里跑一遍，就会把开发机上正在用的那个实例的设备与别名搅乱。
-/// 所以测试进程一律设 KEYSIM_NO_KERNEL=1，只用 PTY + 桥接 + 注入三条通道。
+/// e2e 测试进程会设 KEYSIM_NO_KERNEL=1（见 tests/console_e2e.rs），只用
+/// PTY + 桥接 + 注入三条通道；单元测试如需同样隔离，也要自行设置。
 pub fn disabled_by_env() -> bool {
     std::env::var("KEYSIM_NO_KERNEL").map(|value| value != "0").unwrap_or(false)
 }
@@ -474,7 +475,7 @@ pub fn probe_all() -> Vec<Verdict> {
         return vec![Verdict {
             id: "disabled",
             title: "内核级后端已停用（KEYSIM_NO_KERNEL）",
-            selectable: String::new(),
+            selectable: "-".into(),
             available: false,
             reason: Some("已按 KEYSIM_NO_KERNEL 停用：避免测试往内核挂设备、动 /dev 别名".into()),
             install: None,
