@@ -1,6 +1,6 @@
-# 发布 runbook（2026-09-12 整改批次）
+# 发布与迁移 runbook（更新至2026-09-15）
 
-- **适用范围**：`docs/reviews/2026-09-12-full-project-review.md` §6.2 记录的 B1–B5/B7 整改；其执行记录是历史基线，当前开放项与后续处理以 `docs/reviews/2026-09-12-current-state-review.md` 及对应 spec/plan 为准。
+- **适用范围**：覆盖09-12以来的迁移与发布约束；当前整改及证据以`docs/reviews/2026-09-15-full-project-review.md`和对应spec/plan为准，旧批次记录仅供追溯。
 - **定位**：本文是**发布执行清单**，不是设计文档。迁移脚本本体在 `backend/database/migrations/`，演练脚本在 `backend/scripts/rehearse-migrations.sh`。
 - **前置**：本批次含 schema 变更与**会话协议不兼容变更**，必须停写 + 备份后执行。
 
@@ -9,7 +9,7 @@
 | 必做 | 为什么 |
 |---|---|
 | 全库备份（`mysqldump --single-transaction`） | 迁移含 `MODIFY`/`ADD COLUMN`/引擎转换，**无自动 down 脚本**，回滚依赖备份（见 §3） |
-| 按 §2 顺序执行 14 个迁移脚本 | `%prod` 是 `generation: validate`，缺任一列即启动失败 |
+| 对照已执行清单，补齐 §2 的22个迁移 | 20个schema增量守生产validate；2个数据订正守路由和统计单位 |
 | 注入 `DB_USER` / `DB_PASSWORD` | `%prod` 数据源凭据无默认值；漏注入时应用在 JPA 引导阶段失败退出（见 §4.1） |
 | 通告「全员需重新登录一次」 | token 协议改不透明随机串 + 哈希存储，**存量会话全部失效**（见 §4.2） |
 | 给需要上分的教员赋系统管理员角色 | 理论考试上分端点改为 `@RequireAdmin`，库中无独立教员角色（见 §4.3） |
@@ -27,9 +27,9 @@ mysqldump --single-transaction --routines --triggers \
 
 `2026-09-11-03-personal-electronic-capture.sql` 与 `2026-09-11-04-personal-handkey-capture.sql` 的脚本头注已明确要求「停写 + 备份后执行」。
 
-## 2. 迁移执行顺序（14 个脚本）
+## 2. 迁移执行顺序（22个脚本）
 
-**按文件名字典序执行**，与 `backend/scripts/rehearse-migrations.sh` 的 `MIGRATIONS` 数组同序。同日重号（`-01`/`-03`/`-04` 各有两个）按下表的先后执行；同日同号之间无依赖，但顺序固定以保证演练与生产一致。
+**按文件名字典序执行尚未执行的增量**。schema子集与`backend/scripts/rehearse-migrations.sh`的`MIGRATIONS`数组同序；#14菜单和#22统计为数据迁移，不混入schema数组，但必须纳入部署清单。同日重号按下表顺序，不能因旧文档止于09-12-03而漏掉后续迁移。
 
 | # | 脚本 | 性质 |
 |---|---|---|
@@ -47,25 +47,43 @@ mysqldump --single-transaction --routines --triggers \
 | 12 | `2026-09-12-01-general-telex-capture.sql` | 组训数据报/电传采集时间轴、冻结满分、收尾索引 |
 | 13 | `2026-09-12-02-post-telex-due-index.sql` | 倒计时到期扫描索引 |
 | 14 | `2026-09-12-03-menu-telex-component-path.sql` | **数据迁移**（菜单 component 路径），与前端同版本强耦合 |
+| 15 | `2026-09-12-04-comprehensive-key-authority.sql` | 综合电子键冻结题面与权威活动时钟 |
+| 16 | `2026-09-12-05-radio-study-clock.sql` | 报话学习持久化会话与活动时钟 |
+| 17 | `2026-09-12-06-entering-accuracy-capacity.sql` | 岗位录入准确率容量修正 |
+| 18 | `2026-09-14-01-classic-telegram-clock.sql` | 经典手键协议与暂停活动时钟 |
+| 19 | `2026-09-14-02-classic-telex-clock.sql` | 经典数据报协议与活动时钟 |
+| 20 | `2026-09-14-03-classic-receive-clock.sql` | 经典收报协议与活动时钟 |
+| 21 | `2026-09-15-01-entering-exercise-clock.sql` | 个人拼音/五笔真实输入、冻结题面与时钟；旧行保持协议0 |
+| 22 | `2026-09-15-02-electronic-statistics-time.sql` | **数据迁移**：按0/NULL旧协议及1新协议重算现有电子type2毫秒汇总；不改源训练及type0/1 |
+
+仅对尚未执行过前三项的基线库，首次完整升级可用下例；已有库须按运维记录选取后续增量，不能盲重跑非幂等项。子shell在首个失败处退出，不把`break`后的零退出码当作全部成功。
 
 ```bash
-cd backend
-for m in $(ls database/migrations/*.sql | sort); do
-  echo "== $m"
-  mysql -u root -p project006 < "$m" || { echo "FAILED at $m"; break; }
-done
+(
+  set -e
+  cd backend
+  export LC_ALL=C
+  for m in database/migrations/*.sql; do
+    printf '== %s\n' "$m"
+    mysql -u root -p project006 < "$m"
+  done
+)
 ```
 
 要点：
 
-- **#1–#3 非幂等**，重复执行会报错；#4 起为幂等（先查 `information_schema` 再 DDL，重复执行 0 变更）。演练脚本对 `index >= 3` 的条目断言「重复执行 0 变更」。
-- **无迁移账本表**：已执行脚本由运维按文件名记录。因此脚本**不改名**（改名会让已跑脚本以新名重现）。
-- **#14 是数据迁移**，不进 `rehearse-migrations.sh` 的 `MIGRATIONS`：该演练比对的是 schema 与实体的等价性，菜单 `UPDATE` 无 schema 差分。它仍属本批次必执行项，前端路由与 `t_menus.component` 必须同版本。
+- **#1–#3非幂等**，重复执行会报错。后续schema脚本以结构守卫重复执行；数据迁移按确定源数据更新，幂等不等于每条语句都“零变更”。
+- **无迁移账本表**：运维必须按文件名记录已跑清单，脚本不改名。
+- **#14菜单数据迁移**仍与前端路由同版本；演练脚本不以schema差分替代菜单正确性。
+- **#22统计数据迁移**在schema之后另有合成数据演练：旧协议0/NULL、新协议亚秒精度、未完成源、空源以及不相关type0/1，连续执行两遍。它直接从已完成训练重算，不能用统计列乘1000代替。
 
 执行后验证：
 
 ```bash
-cd backend && ./scripts/rehearse-migrations.sh   # 双快照全绿（含实体列 ⊆ 快照的 validate 等价断言）
+cd backend
+export JAVA_HOME=$HOME/.local/opt/jdk21
+./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test
+REHEARSAL_OUT_NAME=2026-09-15-release-check ./scripts/rehearse-migrations.sh
 ```
 
 ## 3. 逐脚本还原步骤
@@ -88,8 +106,14 @@ cd backend && ./scripts/rehearse-migrations.sh   # 双快照全绿（含实体�
 | #12 `general-telex-capture` | 删 8 个新列（`general_telex_pat` 及 `*_user`/`*_user_value`）+ `DROP INDEX idx_general_telex_pat_closing` | 同 #8 |
 | #13 `post-telex-due-index` | `DROP INDEX idx_post_telex_due ON t_post_telex_pat_train;`（脚本头注已写） | 无，只影响扫描性能 |
 | #14 `menu-telex-component-path` | 把 `t_menus.component` 改回旧路径 | 必须与前端版本一起回滚，否则菜单指向不存在的组件 |
+| #15 综合电子键权威字段 | 备份还原，或先保留增量列再成对回退代码 | 丢列将失去冻结源和活动时钟，不可重算新协议记录 |
+| #16 报话学习时钟 | 同 #15 | 丢失活动会话与已结算标识 |
+| #17 录入准确率容量 | 优先备份还原，不盲缩容 | 100%结果可能无法写入旧容量 |
+| #18–#20 经典训练时钟 | 备份还原；成对回退前评估新协议记录 | 丢失暂停/继续的服务器时间证据 |
+| #21 个人码串协议 | 备份还原，并同步前端/后端/共享码表 | 新输入value与冻结题面不能交给旧判分模型处理 |
+| #22 电子统计数据订正 | 恢复备份中的type2汇总行 | 不可用反向乘除重建混合协议的旧汇总 |
 
-**回滚代码但不回滚库是安全的**：所有新列可空或带默认值，旧代码不读它们。反之（回滚库但不回滚代码）会让 `%prod` 的 `validate` 直接拒绝启动。
+增量列通常不妨碍旧版ORM的结构校验，**但这不等于业务协议可以单侧回滚**。必须成对回退前端、后端及共享码表，并评估已经产生的新协议记录；回滚库而保留新代码会让生产validate失败。
 
 ## 4. 应用侧发布前提
 
@@ -143,7 +167,7 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
 
 2026-09-12 修复阶段的**历史/中间执行记录**：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
 要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
-数据库业务可用。当前最终 JVM 基线是 **442 测试 / 102 suite**，前端为 **31/31 + build**，迁移为17脚本双快照；Windows/ARM64 native、可信证书、桌面 native 凭据和真实硬件仍待外部验收。
+数据库业务可用。本轮本地最终基线为 **502 测试 / 115 suite**、前端 **37/37 + build**，22个迁移（20 schema + 2 data）的schema与电子统计专项双快照演练通过。最终三平台native Actions结果见`docs/reviews/2026-09-15-full-project-review.md`；native CI不等于目标桌面实机、可信证书、生产凭据或真实硬件验收。
 
 ## 5. 发布后验证
 
@@ -159,7 +183,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:18001/q/openapi       
 
 ## 6. 关联文档
 
-- 评审与执行记录：`docs/reviews/2026-09-12-full-project-review.md`（§6.2）
-- 规格与计划：`docs/specs/2026-09-12-review-fix-spec.md`、`docs/plans/2026-09-12-review-fix-plan.md`
+- 当前评审与执行证据：`docs/reviews/2026-09-15-full-project-review.md`（§7）；09-12报告为历史执行记录。
+- 当前规格与计划：`docs/specs/2026-09-15-full-project-fix-spec.md`、`docs/plans/2026-09-15-full-project-fix-plan.md`
 - 后端工程说明（含迁移与凭据硬约束）：`backend/README.md`
 - 会话/口令协议迁移设计：`docs/plans/2026-09-09-password-session-migration-plan.md`

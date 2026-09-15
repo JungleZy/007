@@ -43,7 +43,7 @@ public class TickerTapeTrainAddParam {
   @Schema(title = "训练名称")
   private String name;
 
-  @Schema(title = "是否低速训练 0是 1否")
+  @Schema(title = "是否低速训练 0否 1是")
   private Integer isLowRate;
 
 }

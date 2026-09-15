@@ -4,13 +4,13 @@
 
 ## 仓库布局与路径约定
 
-单仓两工程：`backend/`（Quarkus 服务）+ `bw-frontend/`（Electron 桌面外壳，Vue 前端在 `bw-frontend/frontend/`）。**本文以后端为主**；「红线 5/6」与「提交约定」对两侧同时适用。
+主工程为`backend/`（Quarkus服务）与`bw-frontend/`（Electron外壳，Vue在`bw-frontend/frontend/`）；`keysim/`为独立Rust拍发/串口模拟器。**本文以后端为主**；跨栈红线与提交约定适用于全仓。
 
 - 所有 Maven 命令在 **`backend/`** 下执行。
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
 - **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
-- 当前全项目评审基线与最新复核入口分别为 `docs/reviews/2026-09-12-full-project-review.md` 与 `docs/reviews/2026-09-12-current-state-review.md`；后一份记录上一轮 48 条为历史基线，本轮仓内可验证整改已闭合，外部前置仍不可替代。新增同类代码必须沿用已落地的约束（`@RequireAdmin` + `writableTrain` 属主判定、授权拒绝统一 207、终态错误 208、token 不透明串只走请求头、服务端重算码率/用时）。
+- 最新全项目与核心训练复核入口是`docs/reviews/2026-09-15-full-project-review.md`；09-12与09-14报告保留历史执行证据。当前完成状态、验证范围及Actions以最新报告为准，不能用旧“已闭合”代替本轮验收。新增同类代码沿用`@RequireAdmin`与属主判定、207授权、208终态、不透明token请求头及服务器权威结果。
 
 ## 构建与测试
 
@@ -26,12 +26,12 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 当前最终基线 **442 测试 / 102 suite 全绿**（`./mvnw -B clean verify`，2026-09-14）；新增测试只增不减。
+- 2026-09-14历史基线为442测试/102 suite全绿；后续实际数量与验证结果以最新复核报告为准，不用历史计数替代当前运行。
 
 ## 运行时关键事实（易踩）
 
 - **端口 18001**，不是 8080。REST 前缀 **`/api`**（`common/MainApplication.java` 的 `@ApplicationPath`）。测试端口 18081。
-- **响应恒为 HTTP 200**，业务状态在 JSON `code` 字段。禁止用 HTTP 状态码表达业务错误。
+- **已定义业务结果为HTTP200信封**，业务状态在JSON `code`字段，禁止用HTTP状态表达业务拒绝。未处理系统故障按现有`GlobalExceptionMapper`保留HTTP500+code500；JAX-RS协议错误保留原404/405/415等状态，`ExceptionBoundaryTest`守此边界。
 - **鉴权头**：`token` + `deviceId`（`common/constants/BaseConstants`），**只从请求头读**（query 回退已移除）。类级 `@JWT` 拦截，`controller/free/**` 免鉴权。**授权**另由 `@RequireAdmin`（当前 45 个端点 / 17 个 controller）与服务层 `writableTrain`/属主判定承担。WebSocket 在 `@OnOpen` 校验 query `token`+`deviceId`，并以校验身份覆盖路径 `uid`。
 - 生产库 schema 策略 `validate`：改实体/表结构必须同步 `backend/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
 
@@ -62,8 +62,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 当前项目评审以最新复核 `docs/reviews/2026-09-12-current-state-review.md` 为当前状态入口；上一轮全项目评审是历史执行证据，当前仓内整改已闭合，可信证书、Windows/ARM64、真实硬件和客户现场仍为外部前置。
-- 当前复核整改规格与计划：`docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。最终本地验证为442/102、31/31、17迁移双快照；GitHub Actions需推送后观察。
+- 当前状态入口为`docs/reviews/2026-09-15-full-project-review.md`；可信证书、真实设备/听感和客户现场不可被本地测试替代，native CI结果与实机验收单独陈述。
+- 当前规格与计划：`docs/specs/2026-09-15-full-project-fix-spec.md`、`docs/plans/2026-09-15-full-project-fix-plan.md`。测试、迁移及GitHub Actions使用本轮实际命令/最终提交证据，不沿用历史计数。
 - `docs/reviews/2026-09-08-full-project-review.md` 已降为历史证据；**跨栈问题的详细取证仍以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**，汇总结论以当前全项目评审为准。更早的后端评审、审计和分片位于 `docs/reviews/archive/`，仅用于追溯。跨栈整改规格为 `docs/specs/2026-09-08-joint-fix-spec.md`，客户报障整改计划为 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付未完成）。
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
 - 若代码现状与文档/记忆冲突，以**仓库现状 + 运行验证**为准。

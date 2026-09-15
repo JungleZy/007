@@ -4,8 +4,8 @@
 
 - Maven 坐标：`com.nip:quarkus-template:3.1.1`
 - 仓库：`JungleZy/007`
-- 持久化：Hibernate ORM + Panache，MySQL 8.0.26（当前快照 105 张表，全 InnoDB）
-- 规模：main 770 个 Java 文件（61 controller / 80 service / 104 entity / 102 dao / 27 WebSocket 类）；测试与当前运行证据以最新复核及干净验证为准，不在此固定易变总数。
+- 持久化：Hibernate ORM + Panache，MySQL 8；以迁移后的实体对齐演练为 schema 权威，不把原始快照当作已升级生产库。
+- 服务覆盖 controller/service/dao/entity/WebSocket 分层；测试与规模以最新复核及干净验证为准，不固定易变总数。
 
 ---
 
@@ -90,16 +90,16 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | `%prod` | 本地 `project006` | **`validate`** | 启动即校验 schema，与实体不一致直接 fail-fast；库凭据取自 `DB_USER` / `DB_PASSWORD` |
 
 > **生产部署硬约束**：`%prod` 的 `generation=validate` 要求先按**文件名字典序**执行 `database/migrations/`
-> 下的全部 14 个脚本（`2026-08-26-01-schema-sync` → `2026-08-26-02-engine-innodb` → … →
-> `2026-09-12-03-menu-telex-component-path`），否则启动校验失败。
+> 下尚未执行的全部脚本（当前完整清单为22项，见runbook），包括schema与数据迁移。
+> 不能只执行旧清单到09-12-03，也不能在已有库盲重跑前3个非幂等脚本。
 > 逐脚本还原步骤、同日重号顺序与停写/备份要求见
 > [`../docs/guides/2026-09-12-release-runbook.md`](../docs/guides/2026-09-12-release-runbook.md)。
-> 2026-09-12 实测：对落后若干版本的库按序补齐 14 个脚本后，`%prod` 的 `validate` 通过。
+> 2026-09-15隔离旧库实测：漏迁移时缺少`t_radiotelephone_train.active_millis`而启动失败；补齐已有迁移后生产validate通过。
 >
-> 其中前 3 个脚本**非幂等**（重复执行报错），第 4 个起幂等（先查 `information_schema` 再 DDL）。
-> `2026-09-12-03-menu-telex-component-path` 是**数据迁移**（改 `t_menus.component`），
-> **与前端路由强耦合**：必须与前端同版本发布，且不进 `scripts/rehearse-migrations.sh` 的
-> `MIGRATIONS`（该演练比对 schema 与实体的等价性，菜单 `UPDATE` 无 schema 差分）。
+> 前3个脚本非幂等；后续schema脚本以information_schema守卫，数据脚本按确定源数据订正。
+> `2026-09-12-03-menu-telex-component-path.sql`是菜单数据迁移，与前端路由同版本发布；
+> `2026-09-15-02-electronic-statistics-time.sql`按0/NULL旧协议与1新协议重算电子统计毫秒。
+> 二者不混入rehearsal的schema数组；统计迁移另有双快照合成数据/重复执行断言。
 
 > **生产凭据硬约束**：`%prod` 的 `username`/`password` 写作 `${DB_USER}`/`${DB_PASSWORD}`，**不带默认值**，
 > 发布时必须注入这两个环境变量（如 `DB_USER=app DB_PASSWORD=**** java -jar quarkus-run.jar`）。
@@ -117,8 +117,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - **前缀**：`@ApplicationPath("/api")`（`common/MainApplication.java`），所有 REST 路径以 `/api` 开头。
 - **方法**：以 `POST` 为主，参数多为 `Map<String,String>` 或实体 JSON。
-- **鉴权**：类级 `@JWT` 拦截器（`common/interceptor/JWTInterceptor.java`）要求请求头（或同名 query 参数）携带 `token` + `deviceId`，并校验 `existsUserByTokenAndDeviceId`。`controller/free/**` 下的接口不拦截（如登录、注册）。
-- **响应信封**：一律返回 **HTTP 200**，业务状态放在 JSON `code` 字段。统一封装类 `common/response/Response<T>`，工厂方法 `common/response/ResponseResult`（`success(...)` / `error(...)`）。
+- **鉴权**：类级`@JWT`只从请求头读取`token`+`deviceId`，不接受REST query回退；`controller/free/**`为匿名入口。对象授权和管理门禁由服务层与`@RequireAdmin`承担。
+- **响应信封**：已定义业务失败使用HTTP200+JSON业务code；未处理系统故障保持HTTP500+code500，JAX-RS协议错误保留404/405/415等原状态。均不得通过改HTTP状态表达业务授权拒绝，也不得隐藏系统故障。
 
 响应结构：
 
@@ -135,6 +135,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 | 203 | token 不能为空 |
 | 204 | 请求参数为空 / 设备标识不能为空（语义由端点区分） |
 | 206 | 账号登录凭证异常 |
+| 207 | 无权限（对象或管理员授权拒绝） |
+| 208 | 操作已不可执行（终态，不应原样重试） |
 | 500 | 服务器错误 |
 
 登录（无需鉴权）：`POST /api/user/login`，body `{ "userAccount", "password", "deviceId" }`。
@@ -174,7 +176,7 @@ WebSocket 类位于 `com.nip.ws`，端点路径（相对根，非 `/api` 前缀�
 ## 数据库与迁移
 
 - 快照：`database/project006.sql`（当前）、`project006-base.sql`（基线）。
-- 迁移脚本：`database/migrations/`，共 11 个，按文件名日期顺序执行（`01-schema-sync` 结构对齐 → `02-engine-innodb` 引擎转 InnoDB → 后续唯一索引、JSON 容量、采集时钟等增量）。
+- 迁移脚本：`database/migrations/`，当前22项（20个schema增量、菜单与电子统计2个数据迁移）。按文件名字典序对照已执行清单升级；完整顺序与回滚边界见发布runbook。
 - **存储引擎自检**：`common/LifecycleApplication.checkStorageEngine` 在启动时扫描 `information_schema`，发现 MyISAM 表时——生产（`NORMAL`）抛 `IllegalStateException` 阻断启动并提示执行迁移 02，dev/test 仅告警。原因：MyISAM 不支持事务，`@Transactional` 回滚在其上是空操作，结算类「先删后插」一旦中断即永久丢数据。当前快照 `database/project006.sql` 已全部 InnoDB（0 张 MyISAM）；22 张 MyISAM 只存在于 `database/project006-base.sql`（78 InnoDB + 22 MyISAM，仅供迁移演练）。
 - 迁移演练记录见 `database/rehearsal/` 与 `../docs/reviews/archive/*-migration-rehearsal.md`。
 
@@ -202,7 +204,7 @@ src/main/java/com/nip/
 
 ## 文档索引
 
-- **当前全项目评审（唯一入口）**：[`../docs/reviews/2026-09-12-full-project-review.md`](../docs/reviews/2026-09-12-full-project-review.md)。
+- **最新全项目与核心训练复核**：[`../docs/reviews/2026-09-15-full-project-review.md`](../docs/reviews/2026-09-15-full-project-review.md)。
 - **前后端联合评审详细证据（历史，跨栈契约仍以此为准）**：[`../docs/reviews/2026-09-08-joint-frontend-backend-review.md`](../docs/reviews/2026-09-08-joint-frontend-backend-review.md)。
 - 上一轮全项目评审（已被取代，仅作历史证据）：[`../docs/reviews/2026-09-08-full-project-review.md`](../docs/reviews/2026-09-08-full-project-review.md)。
 - 历史评审、分片、审计与迁移文字记录：`../docs/reviews/archive/`。

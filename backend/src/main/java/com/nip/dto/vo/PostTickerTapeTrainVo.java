@@ -120,7 +120,7 @@ public class PostTickerTapeTrainVo {
   //@Schema(title = "图片base64",position = 22)
   private List<String> images;
 
-  //@Schema(title = "是否低速训练 0是 1否",position = 23)
+  //@Schema(title = "是否低速训练 0否 1是",position = 23)
   private Integer isLowRate;
   //  @Schema(title = "播报干扰",position = 24)
   private String disturb;

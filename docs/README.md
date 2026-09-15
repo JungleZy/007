@@ -2,8 +2,8 @@
 
 全仓文字文档统一存放在 `docs/`。评审资料采用“当前入口 + 历史归档”结构：
 
-- `docs/reviews/2026-09-12-current-state-review.md`：**最新的当前状态复核/收口入口**。复核确认上一轮 48 条评审只是历史基线（当前开放项以本复核为准），当前尚不满足“全项目修复完成”；新增整改规格与计划见 `docs/specs/2026-09-12-current-state-fix-spec.md`、`docs/plans/2026-09-12-current-state-fix-plan.md`。
-- `docs/reviews/2026-09-14-core-training-review.md`：**核心训练专项复核**，聚焦手键拍发、电子键拍发、收报/报话闭环；整改规格与计划见 `docs/specs/2026-09-14-core-training-fix-spec.md`、`docs/plans/2026-09-14-core-training-fix-plan.md`。
+- `docs/reviews/2026-09-15-full-project-review.md`：**最新全项目与核心训练复核入口**。19项整改、独立文档审阅、实际运行及最终交付证据集中于此；配套spec/plan同日同名。
+- `docs/reviews/2026-09-12-current-state-review.md`与`2026-09-14-core-training-review.md`：历史复核批次，保留当时的修复、计数和验收边界，不代表当前开放项。
 - `docs/reviews/2026-09-10-customer-issue-analysis.md`：客户报障 12 条的根因分析与取证，是本轮整改的事实基础。
 - `docs/reviews/2026-09-08-full-project-review.md`：上一轮全项目评审，**降为历史证据**（其 216 测试基线等数字已过期，勿作为当前状态依据）。
 - `docs/reviews/2026-09-08-joint-frontend-backend-review.md`：跨栈契约的详细历史证据，供修改跨栈接口前查阅。
@@ -18,12 +18,12 @@
 
 | 目的 | 入口 |
 |---|---|
-| 了解当前全项目状态 | [`reviews/2026-09-12-current-state-review.md`](reviews/2026-09-12-current-state-review.md) |
-| 核心训练专项复核 | [`reviews/2026-09-14-core-training-review.md`](reviews/2026-09-14-core-training-review.md) |
-| 核心训练整改规格 / 计划 | [`specs/2026-09-14-core-training-fix-spec.md`](specs/2026-09-14-core-training-fix-spec.md) + [`plans/2026-09-14-core-training-fix-plan.md`](plans/2026-09-14-core-training-fix-plan.md) |
-| **发布上一批整改** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md) |
+| 了解当前全项目与核心功能状态 | [`reviews/2026-09-15-full-project-review.md`](reviews/2026-09-15-full-project-review.md) |
+| 当前整改规格 / 计划 | [`specs/2026-09-15-full-project-fix-spec.md`](specs/2026-09-15-full-project-fix-spec.md) + [`plans/2026-09-15-full-project-fix-plan.md`](plans/2026-09-15-full-project-fix-plan.md) |
+| 历史核心训练专项复核 | [`reviews/2026-09-14-core-training-review.md`](reviews/2026-09-14-core-training-review.md) |
+| **发布与迁移执行** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md)（持续更新至本轮） |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
-| 承接当前复核整改任务 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |
+| 追溯09-12复核整改 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
 | 修改跨栈契约 | [`reviews/2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) §5.5 + [`reviews/2026-09-08-joint-frontend-backend-review.md`](reviews/2026-09-08-joint-frontend-backend-review.md) |
 | 会话与口令协议迁移 | [`plans/2026-09-09-password-session-migration-plan.md`](plans/2026-09-09-password-session-migration-plan.md) |
@@ -38,13 +38,13 @@
 
 ### 全项目综合评审
 
-[`2026-09-12-current-state-review.md`](reviews/2026-09-12-current-state-review.md) 是最新的当前状态复核，覆盖上一轮整改后的代码、运行面与文档一致性。它确认 2026-09-12 全项目评审的 48 条发现是**历史基线**，已被当前复核对当前开放项的判断取代，但保留作历史证据：
+[`2026-09-15-full-project-review.md`](reviews/2026-09-15-full-project-review.md)是最新状态入口，覆盖手键、电子键、收报、数据报、其余业务与交付，并区分静态审查、真实运行、测试、迁移和Actions证据。
 
-- 当前复核确认上一轮整改在仓内已闭环；最终本地证据为后端442/102、前端31/31、17脚本双快照，未验证项只在外部前置中保留。
+- 09-12和09-14的测试数量与“当时未验证”陈述仅属于对应批次；最新证据不能由历史计数推断。
 - 当前 WS 实际为7个端点（6个带身份端点 + 匿名 `/status`）；`webSecurity:false` 是明确延期项，等待 `app://` 改造，不得写成已恢复。
 - 上一轮 [`2026-09-12-full-project-review.md`](reviews/2026-09-12-full-project-review.md) 保留48条发现、执行记录与历史证据，不作为当前开放项清单。
 
-整改规格与计划：[`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md)。
+当前规格与计划：[`specs/2026-09-15-full-project-fix-spec.md`](specs/2026-09-15-full-project-fix-spec.md) + [`plans/2026-09-15-full-project-fix-plan.md`](plans/2026-09-15-full-project-fix-plan.md)。
 
 上一轮 [`2026-09-08-full-project-review.md`](reviews/2026-09-08-full-project-review.md) 仅作历史对照，其测试基线与 MyISAM 等数字已过期。
 

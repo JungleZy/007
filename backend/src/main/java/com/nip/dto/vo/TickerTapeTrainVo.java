@@ -91,8 +91,8 @@ public class TickerTapeTrainVo {
   private Integer schedule;
 
   /**
-   * 是否低速训练 0是 1否
+   * 是否低速训练 0否 1是
    */
-  @Schema(name = "isLowRate",title = "是否低速训练 0是 1否")
+  @Schema(name = "isLowRate",title = "是否低速训练 0否 1是")
   private Integer isLowRate;
 }
