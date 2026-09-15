@@ -6,7 +6,7 @@
       </div>
       <div class="cutDown">
         <div class="text">距离考试结束还有</div>
-        <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 55px" />
+        <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" @commitTest="commitTest" style="height: 55px" />
       </div>
       <div class="line"  v-if="interfaceStyle==='HJ'">
         <div style="width: 100%;height: 8px;background: #253554"></div>
@@ -36,12 +36,13 @@
             </div>
           </div>
         </div>
-        <div class="commit btn-animate btn-animate-orange" @click="commitTest">交卷评分</div>
+        <div v-if="terminalMessage" role="status" style="padding: 12px; color: #ffd591">{{ terminalMessage }}</div>
+        <div class="commit btn-animate btn-animate-orange" @click="commitTest">{{ terminal ? '退出查看' : '交卷评分' }}</div>
       </div>
     </div>
     <div class="right grouping">
       <div class="w-full grouping_halving_line"></div>
-      <StudentPerviewTest v-if="questions && isShow" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="true" :isAnswer="true"></StudentPerviewTest>
+      <StudentPerviewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="true" :isAnswer="true"></StudentPerviewTest>
     </div>
   </div>
 </template>
@@ -56,9 +57,9 @@ import CountDown from '../../../../../../components/common/CountDown.vue'
 import StudentPerviewTest from '../../../../../../components/test/studentPerviewTest/StudentPerviewTest.vue'
 import { ref, onMounted } from 'vue'
 import startTest from './js/startTest'
-const countDown = ref('')
+const countDown = ref(null)
 const interfaceStyle = window.interfaceStyle
-const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, clearAnswer, commitTest, getStudentInfo } = startTest(countDown)
+const { userInfo, fileUrl, questions, bankList, testTime, isShow, commitTest, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDown)
 </script>
 
 <style lang="less" scoped>

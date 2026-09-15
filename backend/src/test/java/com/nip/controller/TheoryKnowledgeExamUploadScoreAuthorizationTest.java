@@ -1,10 +1,12 @@
 package com.nip.controller;
 
 import com.nip.dao.RoleDao;
+import com.nip.dao.TheoryKnowledgeExamDao;
 import com.nip.dao.TheoryKnowledgeExamUserDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
 import com.nip.entity.RoleEntity;
+import com.nip.entity.TheoryKnowledgeExamEntity;
 import com.nip.entity.TheoryKnowledgeExamUserEntity;
 import com.nip.entity.UserEntity;
 import com.nip.entity.UserRoleEntity;
@@ -38,13 +40,14 @@ class TheoryKnowledgeExamUploadScoreAuthorizationTest {
   @Inject RoleDao roleDao;
   @Inject UserRoleDao userRoleDao;
   @Inject TheoryKnowledgeExamUserDao examUserDao;
+  @Inject TheoryKnowledgeExamDao examDao;
 
   @Test
   void ordinaryUserCannotUploadScore() {
     UserEntity actor = Fixtures.user(userDao, "upload-ordinary-" + UUID.randomUUID(), "device-upload-ordinary");
     attachRole(actor, 1);
 
-    String examId = UUID.randomUUID().toString();
+    String examId = seedExam();
     TheoryKnowledgeExamUserEntity examUser = seedExamUser(examId, 11);
 
     given()
@@ -69,10 +72,10 @@ class TheoryKnowledgeExamUploadScoreAuthorizationTest {
     UserEntity actor = Fixtures.user(userDao, "upload-admin-foreign-" + UUID.randomUUID(), "device-upload-foreign");
     attachRole(actor, 0);
 
-    String examId = UUID.randomUUID().toString();
+    String examId = seedExam();
     TheoryKnowledgeExamUserEntity mine = seedExamUser(examId, 11);
     // 另一场考试的考生：examId 不匹配
-    TheoryKnowledgeExamUserEntity foreign = seedExamUser(UUID.randomUUID().toString(), 22);
+    TheoryKnowledgeExamUserEntity foreign = seedExamUser(seedExam(), 22);
 
     given()
         .contentType(ContentType.JSON)
@@ -98,7 +101,7 @@ class TheoryKnowledgeExamUploadScoreAuthorizationTest {
     UserEntity actor = Fixtures.user(userDao, "upload-admin-" + UUID.randomUUID(), "device-upload-admin");
     attachRole(actor, 0);
 
-    String examId = UUID.randomUUID().toString();
+    String examId = seedExam();
     TheoryKnowledgeExamUserEntity first = seedExamUser(examId, 11);
     TheoryKnowledgeExamUserEntity second = seedExamUser(examId, 22);
 
@@ -120,6 +123,14 @@ class TheoryKnowledgeExamUploadScoreAuthorizationTest {
     assertEquals(88, afterFirst.getScore());
     assertEquals(4, afterFirst.getState(), "上分成功后状态应为 4（老师已阅卷）");
     assertEquals(99, examUserDao.findById(second.getId()).getScore());
+  }
+
+  private String seedExam() {
+    TheoryKnowledgeExamEntity exam = new TheoryKnowledgeExamEntity();
+    exam.setTitle("upload-" + UUID.randomUUID());
+    exam.setState(2);
+    exam.setDuration("60");
+    return examDao.saveAndFlush(exam).getId();
   }
 
   // 播种一条考生行：state=2（学生考核中），便于断言上分是否真的改了状态

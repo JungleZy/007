@@ -38,7 +38,8 @@
             </div>
           </template>
         </div>
-        <div class="commit btn-animate btn-animate-orange" @click="commitTest">交卷退出</div>
+        <div v-if="terminalMessage" role="status" style="padding: 12px; color: #ffd591">{{ terminalMessage }}</div>
+        <div class="commit btn-animate btn-animate-orange" @click="commitTest">{{ terminal ? '退出查看' : '交卷退出' }}</div>
       </div>
       <div v-else style="height: calc(100% - 201px); position: relative">
         <div class="stuInfo" style="position: absolute">学员列表</div>
@@ -64,7 +65,7 @@
     </div>
     <div class="right grouping layout-center">
       <div class="w-full grouping_halving_line"></div>
-      <perviewTest v-if="questions && isShow" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="true"></perviewTest>
+      <perviewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="true"></perviewTest>
     </div>
   </div>
   <div class="w-full h-full layout-center" style="position: absolute;z-index: 9;top: 0;background: rgba(255,255,255,0.1)" v-if="paperLoding">
@@ -82,9 +83,9 @@ import CountDown from '../../../../../../components/common/CountDown.vue'
 import perviewTest from '../../../../../../components/test/perviewTest/perviewTest.vue'
 import { ref, onMounted } from 'vue'
 import startTest from './js/startTest'
-const countDown = ref('')
+const countDown = ref(null)
 const interfaceStyle = window.interfaceStyle
-const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, clearAnswer, commitTest, getStudentInfo,paperLoding } = startTest(countDown)
+const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, clearAnswer, commitTest, getStudentInfo, paperLoding, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDown)
 </script>
 
 <style lang="less" scoped>

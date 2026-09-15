@@ -18,6 +18,14 @@ import static com.nip.common.constants.BaseConstants.ID;
 @ApplicationScoped
 public class TheoryKnowledgeExamDao extends BaseRepository<TheoryKnowledgeExamEntity, String> {
 
+  public TheoryKnowledgeExamEntity findByIdForUpdate(String id) {
+    TheoryKnowledgeExamEntity exam = findById(id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    if (exam != null) {
+      entityManager.refresh(exam, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+    return exam;
+  }
+
   public List<FindAllExamDto> findAllExam(int type1, int type2) {
     return entityManager.createNamedQuery("find_all_exam", FindAllExamDto.class).setParameter("s1", type1)
                         .setParameter("s2", type2).getResultList();

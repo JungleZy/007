@@ -40,8 +40,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -144,41 +142,46 @@ public class TheoryKnowledgeExamService {
   @Transactional
   public Response<TheoryKnowledgeExamEntity> teacherStartExam(String token, String examId, int type) {
     String actorId = userService.getUserByToken(token).getId();
-    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findById(examId))
+    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findByIdForUpdate(examId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
     boolean admin = roleDao.existsAdminRoleByUserId(actorId);
     if (!admin && (type != 2
-        || theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, actorId) == null)) {
+        || theoryKnowledgeExamUserDao.findByExamAndUserForUpdate(examId, actorId) == null)) {
       throw new ForbiddenException("无权修改该考试状态");
     }
     if (type < 2 || type > 4) {
       throw new IllegalArgumentException("考试状态必须为2、3或4");
     }
+    if (Objects.equals(entity.getState(), type)) {
+      return ResponseResult.success(entity);
+    }
     if (type == 2) {
-      if (Objects.equals(entity.getState(), 2)) {
-        return ResponseResult.success(entity);
-      }
       if (!Objects.equals(entity.getState(), 1)) {
         throw new TerminalStateException("考试已结束，不能重新开始");
       }
       entity.setStartTime(DateTimeUtil.now());
     } else if (type == 3) {
+      if (!Objects.equals(entity.getState(), 2)) {
+        throw new TerminalStateException("考试不在进行中，不能结束");
+      }
       entity.setEndTime(DateTimeUtil.now());
-      List<TheoryKnowledgeExamUserEntity> allByExamId = theoryKnowledgeExamUserDao.findAllByExamId(examId);
-      allByExamId.forEach(a -> {
-        if (!Objects.equals(3, a.getState())) {
-          a.setState(3);
-          a.setEndTime(entity.getEndTime());
+      List<TheoryKnowledgeExamUserEntity> students = theoryKnowledgeExamUserDao.findAllByExamForUpdate(examId);
+      students.forEach(student -> {
+        if (Objects.equals(1, student.getState()) || Objects.equals(2, student.getState())) {
+          student.setState(3);
+          student.setEndTime(entity.getEndTime());
         }
       });
-      theoryKnowledgeExamUserDao.save(allByExamId);
+      theoryKnowledgeExamUserDao.save(students);
+    } else if (!Objects.equals(entity.getState(), 3)) {
+      throw new TerminalStateException("考试尚未结束，不能完成阅卷");
     }
     entity.setState(type);
     TheoryKnowledgeExamEntity save = theoryKnowledgeExamDao.save(entity);
     Map<String, Object> map = new HashMap<>();
     map.put("exam", save);
-    List<TheoryKnowledgeExamUserEntity> allByExamId = theoryKnowledgeExamUserDao.findAllByExamId(examId);
-    allByExamId.forEach(a -> WebSocketService.sendInfo(a.getUserId(),
+    List<TheoryKnowledgeExamUserEntity> students = theoryKnowledgeExamUserDao.findAllByExamId(examId);
+    students.forEach(student -> WebSocketService.sendInfo(student.getUserId(),
         new ResponseModel(CodeConstants.TEACHERCHANGEEXAMSTATE.getCode(), map)));
     return ResponseResult.success(entity);
   }
@@ -192,32 +195,29 @@ public class TheoryKnowledgeExamService {
   @Transactional
   public Response<Map<String, Object>> studentChangeExamState(String token, String examId, int type, String content) {
     String userId = userService.getUserByToken(token).getId();
-    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findById(examId))
+    if (type < 1 || type > 3) {
+      throw new IllegalArgumentException("考生状态必须为1、2或3");
+    }
+    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findByIdForUpdate(examId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
-    TheoryKnowledgeExamUserEntity allByExamIdAndUserId = Optional.ofNullable(
-            theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, userId))
-        .orElseThrow(() -> new IllegalArgumentException("未查询到该考生的考试记录"));
+    TheoryKnowledgeExamUserEntity student = Optional.ofNullable(
+        theoryKnowledgeExamUserDao.findByExamAndUserForUpdate(examId, userId))
+        .orElseThrow(() -> new ForbiddenException("不是本场考试的考生"));
+    requireActiveCandidate(entity, student);
     Map<String, Object> data = new HashMap<>();
-    switch (type) {
-      case 2 -> {
-        if (StringUtils.isEmpty(allByExamIdAndUserId.getStartTime())) {
-          allByExamIdAndUserId.setStartTime(DateTimeUtil.now());
-        }
-        TheoryKnowledgeExamTestPaperEntity paper = theoryKnowledgeExamTestPaperDao.findAllByExamId(examId);
-        data.put("paper", paper);
-        allByExamIdAndUserId.setState(type);
+    if (type == 2) {
+      if (StringUtils.isEmpty(student.getStartTime())) {
+        student.setStartTime(DateTimeUtil.now());
       }
-      case 3 -> {
-        allByExamIdAndUserId.setEndTime(DateTimeUtil.now());
-        allByExamIdAndUserId.setState(type);
-        allByExamIdAndUserId.setContent(content);
-      }
-      default -> {
-        allByExamIdAndUserId.setContent(content);
-        allByExamIdAndUserId.setState(type);
+      data.put("paper", theoryKnowledgeExamTestPaperDao.findAllByExamId(examId));
+    } else {
+      student.setContent(content);
+      if (type == 3) {
+        student.setEndTime(DateTimeUtil.now());
       }
     }
-    TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(allByExamIdAndUserId);
+    student.setState(type);
+    TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(student);
     data.put("exam", entity);
     data.put("student", save);
     WebSocketService.sendInfo(entity.getTeacher(),
@@ -231,19 +231,26 @@ public class TheoryKnowledgeExamService {
   @Transactional
   public Response<TheoryKnowledgeExamUserEntity> saveUserRealTimeParam(String token, String examId, String content) {
     String userId = userService.getUserByToken(token).getId();
-    TheoryKnowledgeExamUserEntity allByExamIdAndUserId = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId,
-        userId);
-    if (ObjectUtil.isEmpty(allByExamIdAndUserId)) {
-      return ResponseResult.error("数据错误");
-    }
-    allByExamIdAndUserId.setContent(content);
-    TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(allByExamIdAndUserId);
-    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findById(examId))
+    TheoryKnowledgeExamEntity entity = Optional.ofNullable(theoryKnowledgeExamDao.findByIdForUpdate(examId))
         .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
+    TheoryKnowledgeExamUserEntity student = Optional.ofNullable(
+        theoryKnowledgeExamUserDao.findByExamAndUserForUpdate(examId, userId))
+        .orElseThrow(() -> new ForbiddenException("不是本场考试的考生"));
+    requireActiveCandidate(entity, student);
+    student.setContent(content);
+    TheoryKnowledgeExamUserEntity save = theoryKnowledgeExamUserDao.save(student);
     Map<String, Object> map = new HashMap<>();
     map.put("student", save);
     WebSocketService.sendInfo(entity.getTeacher(), new ResponseModel(CodeConstants.USERUPLOADCONTENT.getCode(), map));
     return ResponseResult.success(save);
+  }
+
+  private void requireActiveCandidate(TheoryKnowledgeExamEntity exam, TheoryKnowledgeExamUserEntity candidate) {
+    if (!Objects.equals(exam.getState(), 2)
+        || (!Objects.equals(candidate.getState(), 1) && !Objects.equals(candidate.getState(), 2))
+        || candidate.getEndTime() != null) {
+      throw new TerminalStateException("考试或答卷已结束，不能继续作答");
+    }
   }
 
   /**
@@ -259,16 +266,20 @@ public class TheoryKnowledgeExamService {
     UserEntity userEntity = userService.getUserByToken(token);
     TheoryKnowledgeExamEntity existing = null;
     if (StringUtils.isNotBlank(dto.getId())) {
-      existing = theoryKnowledgeExamDao.findByIdOptional(dto.getId(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+      existing = Optional.ofNullable(theoryKnowledgeExamDao.findByIdForUpdate(dto.getId()))
           .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
       if (!Objects.equals(existing.getCreateUserId(), userEntity.getId())
           && !roleDao.existsAdminRoleByUserId(userEntity.getId())) {
         throw new ForbiddenException("无权修改他人的自测");
       }
-      List<TheoryKnowledgeExamUserEntity> existingUsers = theoryKnowledgeExamUserDao.find("examId", dto.getId())
-          .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).list();
+      List<TheoryKnowledgeExamUserEntity> existingUsers = theoryKnowledgeExamUserDao.findAllByExamForUpdate(dto.getId());
+      if (existingUsers.size() != 1 || !Objects.equals(existingUsers.getFirst().getIsSelfTesting(), 0)
+          || !Objects.equals(existingUsers.getFirst().getUserId(), existing.getCreateUserId())) {
+        throw new ForbiddenException("普通考核不能改为自测");
+      }
       if (Objects.equals(existing.getState(), 3) || Objects.equals(existing.getState(), 4)
-          || existingUsers.stream().anyMatch(row -> Objects.equals(row.getState(), 4) || row.getEndTime() != null)) {
+          || existingUsers.stream().anyMatch(row -> Objects.equals(row.getState(), 3)
+              || Objects.equals(row.getState(), 4) || row.getEndTime() != null)) {
         throw new TerminalStateException("考试已结束，不能重建自测");
       }
     }
@@ -335,37 +346,34 @@ public class TheoryKnowledgeExamService {
   @Transactional(rollbackOn = Exception.class)
   public TheoryKnowledgeExamEntity finishSelfTesting(String token, TheoryKnowledgeExamSelfFinishDto dto) {
     String actorId = userService.getUserByToken(token).getId();
-    TheoryKnowledgeExamUserEntity examUserEntity = theoryKnowledgeExamUserDao.findByExamId(dto.getExamId());
-    if (ObjectUtil.isEmpty(examUserEntity)) {
-      throw new IllegalArgumentException("未查询到训练");
-    }
-    if (!Objects.equals(actorId, examUserEntity.getUserId())) {
-      throw new ForbiddenException("无权结算他人的自测");
+    TheoryKnowledgeExamEntity exam = Optional.ofNullable(theoryKnowledgeExamDao.findByIdForUpdate(dto.getExamId()))
+        .orElseThrow(() -> new IllegalArgumentException("未查询到考试"));
+    TheoryKnowledgeExamUserEntity student = theoryKnowledgeExamUserDao
+        .findByExamAndUserForUpdate(dto.getExamId(), actorId);
+    if (student == null || !Objects.equals(student.getIsSelfTesting(), 0)) {
+      throw new ForbiddenException("只能结算本人的自测");
     }
     TheoryKnowledgeExamTestPaperEntity paper = theoryKnowledgeExamTestPaperDao.findAllByExamId(dto.getExamId());
-    if (ObjectUtil.isEmpty(paper)) {
+    if (paper == null) {
       throw new IllegalArgumentException("未查询到试卷快照，无法结算自测");
     }
-
-    // 作答内容解析成功时用重写过 teacherScore 的副本落库，保证入库的逐题得分与总分自洽
     JsonObject answers = parseAnswerContent(dto.getContent());
     int score = recomputeSelfTestingScore(paper, answers);
-    examUserEntity.setContent(answers == null ? dto.getContent() : JSONUtils.toJson(answers));
-    examUserEntity.setEndTime(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-    examUserEntity.setState(4);
-    examUserEntity.setScore(score);
-    // 保存 exam_user表
-    theoryKnowledgeExamUserDao.save(examUserEntity);
-
-    // 保存exam表
-    TheoryKnowledgeExamEntity examEntity = theoryKnowledgeExamDao.findById(dto.getExamId());
-    if (ObjectUtil.isEmpty(examEntity)) {
-      throw new IllegalArgumentException("未查询到考试");
+    String content = answers == null ? dto.getContent() : JSONUtils.toJson(answers);
+    if (Objects.equals(exam.getState(), 4) && Objects.equals(student.getState(), 4)
+        && Objects.equals(content, student.getContent())) {
+      return exam;
     }
-    examEntity.setState(4);
-    theoryKnowledgeExamDao.save(examEntity);
-
-    return examEntity;
+    requireActiveCandidate(exam, student);
+    student.setContent(content);
+    student.setEndTime(DateTimeUtil.now());
+    student.setState(4);
+    student.setScore(score);
+    theoryKnowledgeExamUserDao.save(student);
+    exam.setState(4);
+    exam.setEndTime(student.getEndTime());
+    theoryKnowledgeExamDao.save(exam);
+    return exam;
   }
 
   /**

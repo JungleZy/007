@@ -68,19 +68,19 @@ class TheoryExamIdentityAuthorizationTest {
         .post("/api/theoryKnowledgeExam/studentChangeExamState")
         .then().statusCode(200).body("code", is(200));
 
-    // 实时答案上传：同样不得越过 token 写到别人行上
+    // 已交卷后的实时上传必须拒绝，且不能借请求体身份改动他人答卷。
     given().contentType(ContentType.JSON)
         .header("token", actor.getToken()).header("deviceId", actor.getDeviceId())
         .body(Map.of("examId", exam.getId(), "userId", victim.getId(), "content", "actor-实时答案"))
         .post("/api/theoryKnowledgeExam/studentSaveExamRealtimeContont")
-        .then().statusCode(200).body("code", is(200));
+        .then().statusCode(200).body("code", is(208));
 
     TheoryKnowledgeExamUserEntity victimAfter = examUserDao.findById(victimRow.getId());
     assertEquals("victim-原始答卷", victimAfter.getContent(), "他人答卷内容不得被覆盖");
     assertEquals(2, victimAfter.getState(), "他人考试状态不得被提前置为已交卷");
 
     TheoryKnowledgeExamUserEntity actorAfter = examUserDao.findById(actorRow.getId());
-    assertEquals("actor-实时答案", actorAfter.getContent(), "写入必须落在 token 所属考生行上");
+    assertEquals("actor-交卷答卷", actorAfter.getContent(), "交卷后必须保留服务器已确认的答卷");
     assertEquals(3, actorAfter.getState());
   }
 

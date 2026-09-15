@@ -66,6 +66,9 @@ public class TheoryKnowledgeExamUserService {
    */
   @Transactional
   public Response<Void> teacherUploadScore(String examId, Object map) {
+    if (theoryKnowledgeExamDao.findByIdForUpdate(examId) == null) {
+      throw new IllegalArgumentException("未查询到考试");
+    }
     List<Map<String, Object>> maps = JSONUtils.fromJson(JSONUtils.toJson(map), new TypeToken<>() {
     });
     if (Objects.isNull(maps) || maps.isEmpty()) {
@@ -79,7 +82,7 @@ public class TheoryKnowledgeExamUserService {
         throw new IllegalArgumentException("上分列表中存在缺少 user_id 的条目，整批已拒绝");
       }
       String userId = rawUserId.toString();
-      TheoryKnowledgeExamUserEntity examUser = theoryKnowledgeExamUserDao.findAllByExamIdAndUserId(examId, userId);
+      TheoryKnowledgeExamUserEntity examUser = theoryKnowledgeExamUserDao.findByExamAndUserForUpdate(examId, userId);
       if (Objects.isNull(examUser)) {
         throw new IllegalArgumentException("考生 " + userId + " 不是本场考试的考生，整批上分已拒绝");
       }
@@ -112,7 +115,7 @@ public class TheoryKnowledgeExamUserService {
   @Transactional
   public Response<TheoryKnowledgeExamUserEntity> findExamUser(String token, String userId, String examId) {
     String actorId = userService.getUserByToken(token).getId();
-    TheoryKnowledgeExamEntity exam = theoryKnowledgeExamDao.findById(examId);
+    TheoryKnowledgeExamEntity exam = theoryKnowledgeExamDao.findByIdForUpdate(examId);
     if (Objects.isNull(exam)) {
       throw new IllegalArgumentException("未查询到考试");
     }

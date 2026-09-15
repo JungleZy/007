@@ -44,6 +44,28 @@ public class TheoryKnowledgeExamUserDao extends BaseRepository<TheoryKnowledgeEx
     return find("examId = ?1 and userId = ?2", examId, userId).firstResult();
   }
 
+  // Call only after locking the parent exam; all lifecycle writers use this order.
+  public TheoryKnowledgeExamUserEntity findByExamAndUserForUpdate(String examId, String userId) {
+    List<TheoryKnowledgeExamUserEntity> rows = find("examId = ?1 and userId = ?2", examId, userId)
+        .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).list();
+    if (rows.size() > 1) {
+      throw new IllegalStateException("同一考试存在重复考生记录");
+    }
+    if (rows.isEmpty()) {
+      return null;
+    }
+    TheoryKnowledgeExamUserEntity row = rows.getFirst();
+    entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    return row;
+  }
+
+  public List<TheoryKnowledgeExamUserEntity> findAllByExamForUpdate(String examId) {
+    List<TheoryKnowledgeExamUserEntity> rows = find("examId = ?1 order by id", examId)
+        .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).list();
+    rows.forEach(row -> entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE));
+    return rows;
+  }
+
   public List<TheoryKnowledgeExamUserEntity> findAllByUserIdAndEndTimeLike(String userId, String time) {
     return find("userId = ?1 and endTime like ?2", userId, time).list();
   }
