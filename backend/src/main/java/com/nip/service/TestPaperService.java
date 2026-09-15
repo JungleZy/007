@@ -221,7 +221,8 @@ public class TestPaperService {
     if (StringUtils.isEmpty(id)) {
       allByNameStartingWith = testPaperDao.findAllByNameLike("%" + name + "%");
     } else {
-      findAllLevel(id);
+      List<String> ids = new ArrayList<>();
+      findAllLevel(id, ids);
       if (StringUtils.isEmpty(name)) {
         allByNameStartingWith = testPaperDao.findAllByLevelIdIn(ids);
       } else {
@@ -232,17 +233,14 @@ public class TestPaperService {
     for (TestPaperEntity entity : allByNameStartingWith) {
       list.add(getTestPaper(entity));
     }
-    ids = new ArrayList<>();
     return ResponseResult.success(list);
   }
 
-  List<String> ids = new ArrayList<>();
-
-  private void findAllLevel(String id) {
+  private void findAllLevel(String id, List<String> ids) {
     ids.add(id);
     List<TheoryKnowledgeQuestionLevelEntity> entityList = theoryKnowledgeQuestionLevelDao.findAllByParentId(id);
     if (!entityList.isEmpty()) {
-      entityList.forEach(a -> findAllLevel(a.getId()));
+      entityList.forEach(a -> findAllLevel(a.getId(), ids));
     }
   }
 
