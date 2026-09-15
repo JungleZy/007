@@ -121,18 +121,19 @@
   }
   .wide{grid-column:1/-1;align-self:stretch;display:flex;flex-direction:column;min-height:0}
 
-  /* ---------- 通道链 ---------- */
-  .chain{display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
-  .link{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--panel-2)}
-  .link i{width:8px;height:8px;border-radius:50%;background:var(--lamp-off);justify-self:center}
+  /* ---------- 通道链：纯展示，两列小格，别占地方 ---------- */
+  .chain{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+  .link{display:grid;grid-template-columns:10px 1fr;gap:1px 7px;align-items:center;padding:4px 9px;background:var(--panel-2)}
+  .link i{width:8px;height:8px;border-radius:50%;background:var(--lamp-off);justify-self:center;grid-row:span 2}
   .link.on i{background:var(--lamp);box-shadow:0 0 6px rgba(229,161,60,.6)}
   .link.live i{background:var(--live);box-shadow:0 0 6px rgba(111,195,164,.45)}
   .link.fault i{background:var(--fault)}
-  .link .name{font-size:13px}
-  .link .name em{font-style:normal;color:var(--ink-dim);font-size:11.5px;margin-left:6px;font-family:var(--sans)}
-  .link .val{font-family:var(--mono);font-size:12px;color:var(--ink-dim);text-align:right;word-break:break-all}
+  .link .name{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .link .name em{font-style:normal;color:var(--ink-dim);font-size:10.5px;margin-left:5px;font-family:var(--sans)}
+  .link .val{grid-column:2;font-family:var(--mono);font-size:11px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .link.on .val,.link.live .val{color:var(--ink)}
   .link.fault .val{color:var(--fault)}
+  .subhead{display:block;margin:10px 0 6px;padding-top:8px;border-top:1px dashed var(--rule);color:var(--ink-dim);font-family:var(--mono);font-size:11px;letter-spacing:.14em}
 
   /* ---------- 控件 ---------- */
   .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -313,43 +314,37 @@
       <button id="btnStop" class="key halt">停止</button>
       <span class="inline" id="sendNote"></span>
     </div>
-    <details class="more">
-      <summary>节拍与故障</summary>
-      <div class="body">
-        <div class="row">
-          <div class="field"><label for="jitter">抖动</label><input id="jitter" type="number" min="0" max="0.19" step="0.01" value="0"/><span class="inline">真人风格留 0 即 ±12%</span></div>
-          <div class="field"><label for="seed">种子</label><input id="seed" type="number" min="1" value="1"/></div>
-          <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label for="tail">收尾</label>
-            <select id="tail" title="翻页符 / 句号都会提交本页；结束符是整训结束；只留静默则靠客户端 800ms 超时">
-              <option value="turn">手键翻页符</option>
-              <option value="end">结束符</option>
-              <option value="page">电子键句号</option>
-              <option value="none">只留静默</option>
-            </select>
-          </div>
-          <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
-          <label class="field"><input type="checkbox" id="singlePage" checked/> 单页</label>
-        </div>
-        <div class="row">
-          <label>故障</label>
-          <label class="field"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
-          <label class="field"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
-          <label class="field"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
-          <label class="field"><input type="checkbox" class="fault" value="unknownByte"/> 未知字节</label>
-        </div>
-        <p class="note" id="faultNote"></p>
-        <p class="note">抖动须 ≤ 规则偏移/100，且划的最短仍要超过点的最长两倍，否则客户端试机不过。</p>
+    <span class="subhead">节拍与故障</span>
+    <div class="row">
+      <div class="field"><label for="jitter">抖动</label><input id="jitter" type="number" min="0" max="0.19" step="0.01" value="0"/><span class="inline">真人风格留 0 即 ±12%</span></div>
+      <div class="field"><label for="seed">种子</label><input id="seed" type="number" min="1" value="1"/></div>
+      <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
+      <div class="field">
+        <label for="tail">收尾</label>
+        <select id="tail" title="翻页符 / 句号都会提交本页；结束符是整训结束；只留静默则靠客户端 800ms 超时">
+          <option value="turn">手键翻页符</option>
+          <option value="end">结束符</option>
+          <option value="page">电子键句号</option>
+          <option value="none">只留静默</option>
+        </select>
       </div>
-    </details>
+      <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
+      <label class="field"><input type="checkbox" id="singlePage" checked/> 单页</label>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <label>故障</label>
+      <label class="field"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
+      <label class="field"><input type="checkbox" class="fault" value="missingUp"/> 缺抬起</label>
+      <label class="field"><input type="checkbox" class="fault" value="microPress"/> ≤10ms 抖动</label>
+      <label class="field"><input type="checkbox" class="fault" value="unknownByte"/> 未知字节</label>
+    </div>
+    <p class="note" id="faultNote"></p>
+    <p class="note">抖动须 ≤ 规则偏移/100，且划的最短仍要超过点的最长两倍，否则客户端试机不过。</p>
   </section>
 
   <section>
     <h2>信号通道</h2>
-    <div class="row" style="margin-bottom:11px">
+    <div class="row" style="margin-bottom:8px">
       <button id="btnOpen" class="key">开启虚拟串口</button>
       <button id="btnClose" class="key">关闭</button>
       <span class="inline" id="portNote"></span>
@@ -372,11 +367,11 @@
       </div>
     </div>
     <p class="note warn hidden" id="actionHint">--</p>
-    <div class="row" id="rowHelper" style="margin-top:10px">
+    <div class="row" id="rowHelper" style="margin-top:6px">
       <button id="btnInstallHelper">安装 root 助手</button>
       <span class="inline" id="helperState">装一次即可，之后不再输密码</span>
     </div>
-    <div class="row" id="rowLink" style="margin-top:10px">
+    <div class="row" id="rowLink" style="margin-top:6px">
       <button id="btnLink">接入系统串口列表</button>
       <button id="btnUnlink">移出</button>
       <span class="inline" id="linkState">--</span>
@@ -386,7 +381,7 @@
       <div class="body"><p class="note" id="channelDoc" style="margin:0">--</p></div>
     </details>
 
-    <h2 style="margin-top:12px">被测页面</h2>
+    <h2 style="margin-top:10px">被测页面</h2>
     <div class="row">
       <input id="targetUrl" class="grow" placeholder="http://127.0.0.1:8080/#/... 训练页地址"/>
       <button id="btnOpenPage" class="key">打开</button>
@@ -492,6 +487,9 @@ const setLink = (id, tone, value, valueId) => {
   const node = $(id)
   if (node) { node.classList.remove('on', 'live', 'fault'); if (tone) node.classList.add(tone) }
   setText(valueId, value)
+  // 格子紧凑后 val 会省略号截断：完整内容放 tooltip
+  const valNode = $(valueId)
+  if (valNode) valNode.title = (value === undefined || value === null) ? '' : String(value)
 }
 const faults = () => [...document.querySelectorAll('.fault:checked')].map(box => box.value)
 const params = () => ({
