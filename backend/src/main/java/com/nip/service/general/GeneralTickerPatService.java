@@ -1032,7 +1032,7 @@ public class GeneralTickerPatService {
 
       List<Integer> existFloorNumber = userValueDao.countByTrainIdAndUserIdGroupByPageNumber(entity.getId(), userId);
       processPageComparisons(entity, userId, existFloorNumber, scoreVO, rule, statisticsVO);
-      int lack = calculateLackCount(entity.getMessageNumber(), existFloorNumber, rule, scoreVO);
+      int lack = calculateLackCount(entity.getMessageNumber(), existFloorNumber, scoreVO);
       statisticsAllAvg(statisticsVO, scoreVO.getDotTotalTime(), scoreVO.getLineTotalTime(),
           scoreVO.getCodeTotalTime(), scoreVO.getWordTotalTime(), scoreVO.getGroupTotalTime());
 
@@ -1076,7 +1076,7 @@ public class GeneralTickerPatService {
   }
 
   private int calculateLackCount(Integer messageNumber, List<Integer> existFloorNumber,
-      PostTelegramTrainRule rule, PostTelegramTrainScoreVO scoreVO) {
+      PostTelegramTrainScoreVO scoreVO) {
     int lack = 0;
     int totalFloorNumber = messageNumber / 100;
     if (messageNumber % 100 > 0) {
@@ -1087,14 +1087,10 @@ public class GeneralTickerPatService {
       existPageNumber.add(i + 1);
     }
     existPageNumber.removeAll(existFloorNumber);
-    for (int i = 0; i < existPageNumber.size(); i++) {
-      if (i != existPageNumber.size() - 1) {
-        lack += 100;
-      } else {
-        lack += messageNumber % 100;
-      }
+    for (Integer missingPage : existPageNumber) {
+      lack += Math.min(100, messageNumber - (missingPage - 1) * 100);
     }
-    scoreVO.setLackGroup(scoreVO.getLackGroup() + existPageNumber.size() * 100);
+    scoreVO.setLackGroup(scoreVO.getLackGroup() + lack);
     return lack;
   }
 

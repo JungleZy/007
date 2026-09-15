@@ -45,6 +45,15 @@ class GeneralTickerPatScoreTest {
                 "alterError":{"l":1,"max":4},"quantoRow":{"l":1,"max":4},"bunchGroup":{"l":1,"max":4}}}
       """;
 
+  private static final String MISSING_GROUP_RULE = """
+      {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":40,"r":0,"l":0},"skew":51,
+       "code":{"dot":{"base":30,"l":0,"r":0,"max":0},"dash":{"base":50,"l":0,"r":0,"max":0}},
+       "gap":{"little":{"base":40,"l":0,"r":0,"max":0},"middle":{"base":60,"l":0,"r":0,"max":0},
+              "large":{"base":90,"l":0,"r":0,"max":0}},
+       "other":{"errorCode":{"l":0,"max":0},"quantoCode":{"l":0,"max":0},"quantoGroup":{"l":2,"max":1000},
+                "alterError":{"l":0,"max":0},"quantoRow":{"l":0,"max":0},"bunchGroup":{"l":0,"max":0}}}
+      """;
+
   @Inject GeneralTickerPatService service;
   @Inject GeneralTickerPatTrainDao trainDao;
   @Inject GeneralTickerPatTrainPageDao pageDao;
@@ -124,5 +133,92 @@ class GeneralTickerPatScoreTest {
     }
     assertEquals(0, new BigDecimal("141").compareTo(result.getScore()), "150 - 5 dash - 1 dot - 3 wrong group");
     assertEquals(1, result.getIsFinish());
+  }
+
+  @Test
+  void whollyMissingHundredGroupPageReportsAndDeductsOneHundredGroups() {
+    assertMissingGroups(100, List.of(), false, 100, 200);
+  }
+
+  @Test
+  void missingPartialLastPageDeductsOnlyItsFiftyGroups() {
+    assertMissingGroups(150, List.of(1), false, 50, 100);
+  }
+
+  @Test
+  void missingFirstAndThirdPagesUseTheirOwnSizes() {
+    assertMissingGroups(250, List.of(2), false, 150, 300);
+  }
+
+  @Test
+  void wholeMissingPagesPreservePreviouslyDetectedWithinPageOmissions() {
+    assertMissingGroups(150, List.of(1), true, 50, 102);
+  }
+
+  @Test
+  void correctlySubmittedFullPageHasNoMissingGroupDeduction() {
+    assertMissingGroups(100, List.of(1), false, 0, 0);
+  }
+
+  private void assertMissingGroups(int groups, List<Integer> submittedPages, boolean omitSecondGroup,
+      int expectedLack, int expectedDeduction) {
+    String token = "general-missing-" + UUID.randomUUID();
+    UserEntity user = Fixtures.user(userDao, token);
+    GeneralTickerPatTrainEntity train = trainDao.save(new GeneralTickerPatTrainEntity()
+        .setName("Missing group accounting").setType(0).setTrainType(1).setCodeSort(0)
+        .setIsRandom(0).setIsCable(0).setIsAverage(0).setMessageNumber(groups)
+        .setCreateUser(user.getId()).setRuleContent(MISSING_GROUP_RULE).setRuleScore(1000)
+        .setProtocolVersion(1).setStatus(1).setStartTime(LocalDateTime.now().minusMinutes(1)));
+    trainUserDao.save(new GeneralTickerPatTrainUserEntity()
+        .setTrainId(train.getId()).setUserId(user.getId()).setRole(0).setIsFinish(0)
+        .setCaptureStartedAt(train.getStartTime()));
+
+    for (int page = 1; page <= (groups + 99) / 100; page++) {
+      List<GeneralTickerPatTrainContentAddParam> body = new ArrayList<>();
+      int pageGroups = Math.min(100, groups - (page - 1) * 100);
+      for (int index = 0; index < pageGroups; index++) {
+        List<String> keys = String.valueOf(1000 + (page - 1) * 100 + index).chars()
+            .mapToObj(value -> String.valueOf((char) value)).toList();
+        GeneralTickerPatTrainPageEntity source = pageDao.save(new GeneralTickerPatTrainPageEntity()
+            .setTrainId(train.getId()).setFloorNumber(page).setSort(index).setMoresKey(JSONUtils.toJson(keys)));
+        if (omitSecondGroup && index == 1) continue;
+        GeneralTickerPatTrainContentAddParam content = new GeneralTickerPatTrainContentAddParam();
+        content.setId(source.getId());
+        content.setMoresKey(source.getMoresKey());
+        content.setPatKeys(source.getMoresKey());
+        content.setMoresValue("[[0],[0],[0],[0]]");
+        content.setMoresTime("[[1],[1],[1],[1]]");
+        content.setPatLogs(JSONUtils.toJson(keys.stream().map(key -> List.of(
+            Map.of("key", 2, "value", 1), Map.of("key", 0, "value", 1))).toList()));
+        body.add(content);
+      }
+      if (!submittedPages.contains(page)) continue;
+      GeneralTickerPatTrainFinishInfoVO standard = new GeneralTickerPatTrainFinishInfoVO();
+      standard.setDot(1);
+      standard.setLine(3);
+      standard.setCodeGap(1);
+      standard.setWordGap(3);
+      standard.setGroupGap(7);
+      standard.setOffSize(51);
+      GeneralTickerPatTrainContentValueVO upload = new GeneralTickerPatTrainContentValueVO();
+      upload.setTrainId(train.getId());
+      upload.setFloorNumber(page);
+      upload.setAttempt(0);
+      upload.setMessageBody(body);
+      upload.setStandard(List.of(standard));
+      upload.setCaptureIntervals(List.of(new CaptureInterval((page - 1) * 1000L, page * 1000L)));
+      service.saveContentValue(upload, token);
+    }
+
+    GeneralTickerPatTrainFinishVO finish = new GeneralTickerPatTrainFinishVO();
+    finish.setId(train.getId());
+    finish.setAttempt(0);
+    service.finish(finish, token);
+
+    GeneralTickerPatTrainUserDto result = trainUserDao.findByTrainIdToMap(train.getId(), user.getId()).getFirst();
+    Map<String, Integer> deductions = JSONUtils.fromJson(result.getDeductInfo(), new TypeToken<>() {});
+    assertEquals(expectedLack, result.getLack());
+    assertEquals(expectedDeduction, deductions.get("quantoGroup"));
+    assertEquals(0, BigDecimal.valueOf(1000 - expectedDeduction).compareTo(result.getScore()));
   }
 }
