@@ -56,6 +56,9 @@ export default function parctice() {
       }
     }
   }
+  const updateSpeed = () => {
+    trainData.value.speed = Math.floor((trainData.value.correctNum + trainData.value.errorNum) * 60 / Math.max(1, trainData.value.duration))
+  }
   const statistics = () => {
     let correct = 0
     let errors = 0
@@ -69,7 +72,7 @@ export default function parctice() {
     trainData.value.correctNum = correct
     trainData.value.errorNum = errors
     trainData.value.accuracy = correct + errors ? Math.round(correct * 10000 / (correct + errors)) / 100 : 0
-    trainData.value.speed = Math.floor((correct + errors) * 60 / Math.max(1, trainData.value.duration))
+    updateSpeed()
   }
   const restoreCursor = () => {
     const index = message.value.findIndex(row => row.value.length < row.pys.length)
@@ -78,7 +81,7 @@ export default function parctice() {
   }
   const startTimer = () => {
     clearInterval(timer)
-    timer = setInterval(() => { trainData.value.duration++; statistics() }, 1000)
+    timer = setInterval(() => { trainData.value.duration++; updateSpeed() }, 1000)
   }
   const consumeKey = key => {
     if (key === 'Backspace') {
