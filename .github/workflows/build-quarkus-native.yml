@@ -75,6 +75,24 @@ jobs:
           path: bw-frontend/frontend/output/artifacts/*
           if-no-files-found: error
 
+  keysim:
+    name: Keysim (Rust contracts)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: keysim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - name: Test simulator and cross-stack contracts
+        run: cargo test --locked
+      - name: Build simulator
+        run: cargo build --locked
+
   build:
     name: Build (${{ matrix.os }} / ${{ matrix.arch }})
     strategy:
