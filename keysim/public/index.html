@@ -148,13 +148,10 @@
   input[type=checkbox]{width:13px;height:13px;padding:0;accent-color:var(--lamp);vertical-align:middle}
   select{padding-right:4px}
   textarea{
-    color:var(--ink);background:var(--deck);border:1px solid var(--rule);border-radius:2px;padding:8px 10px
-  }
-  textarea{
-    width:100%;min-height:92px;resize:vertical;padding:6px 8px;
+    width:100%;min-height:92px;resize:vertical;padding:6px 8px;color:var(--ink);
+    background:var(--deck);border:1px solid var(--rule);border-radius:2px;
     font-family:var(--mono);font-size:13.5px;letter-spacing:.1em;line-height:1.5
   }
-  @media (max-width:1000px){ main{grid-template-rows:auto auto minmax(140px,1fr)} }
   input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{
     outline:2px solid var(--lamp);outline-offset:1px
   }
@@ -187,12 +184,6 @@
   details.more[open]>summary{color:var(--ink)}
   details.more .body{padding:7px 0 2px}
 
-  /* ---------- 读数 ---------- */
-  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:12px}
-  .cell{background:var(--deck);padding:8px 10px}
-  .cell span{display:block;font-size:11.5px;color:var(--ink-dim);letter-spacing:.08em}
-  .cell b{display:block;font-family:var(--mono);font-size:15px;font-weight:500;margin-top:2px}
-
   /* ---------- 日志 ---------- */
   .logbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex:none}
   .logbar .spacer{flex:1}
@@ -212,7 +203,7 @@
   .l-recv{color:#7fb6cf} .l-info{color:var(--ink-dim)}
 
   @media (max-width:1000px){
-    main{grid-template-columns:1fr}
+    main{grid-template-rows:auto auto minmax(140px,1fr);grid-template-columns:1fr}
     header .spacer{display:none}
     .lamps{width:100%}
   }
@@ -441,10 +432,15 @@ let syncStageBar = null
 let syncMsgBar = null
 // GET 只有 /api/state；其余一律 POST，默认带空 body。
 const api = async (path, body = {}, method = 'POST') => {
-  const response = await fetch(path, method === 'GET' ? {} : {
-    method, headers: {'content-type': 'application/json'}, body: JSON.stringify(body)
-  })
-  return response.json()
+  try {
+    const response = await fetch(path, method === 'GET' ? {} : {
+      method, headers: {'content-type': 'application/json'}, body: JSON.stringify(body)
+    })
+    return await response.json()
+  } catch (error) {
+    // 服务端重启瞬间 fetch 会 reject；给调用方一个普通的失败结果，而不是未处理的 rejection
+    return {ok: false, error: '控制台连不上：' + ((error && error.message) || error)}
+  }
 }
 const log = (message, level = 'info') => {
   const line = document.createElement('div')
@@ -601,19 +597,22 @@ const animatePlayhead = () => {
   const {at, since, speed} = tape.play
   const advanced = at + (performance.now() - since) * speed
   tape.playhead = Math.min(tape.duration, Math.max(at, advanced))
-  followPlayhead()
-  drawTape()
+  // followPlayhead 滚动了纸带就会触发 scroll 事件 → drawTape，这一帧就不必画两遍
+  if (followPlayhead() === false) drawTape()
   if (tape.play) tape.raf = requestAnimationFrame(animatePlayhead)
 }
-/// 收到一次进度上报：校准锚点，然后交给 rAF 连续推进
+/// 收到一次进度上报：校准锚点，然后交给 rAF 连续推进。
+/// 倍速非法（0/负/NaN，正常路径到不了，API 直调的兜底）时冻结播放头并提示，
+/// 不能悄悄按 1× 走——服务端与前端对不上比停下来更误导。
 const markPlayhead = (at, speed) => {
-  tape.play = {at, since: performance.now(), speed: Number.isFinite(speed) && speed > 0 ? speed : 1}
+  const valid = Number.isFinite(speed) && speed > 0
+  if (valid === false) log('倍速无效（' + speed + '），播放头冻结在当前位置', 'warn')
+  tape.play = {at, since: performance.now(), speed: valid ? speed : 0}
   tape.playhead = at
-  if (smooth) {
-    if (!tape.raf) tape.raf = requestAnimationFrame(animatePlayhead)
+  if (smooth && valid) {
+    if (tape.raf === 0) tape.raf = requestAnimationFrame(animatePlayhead)
   } else {
-    followPlayhead()
-    drawTape()
+    if (followPlayhead() === false) drawTape()
   }
 }
 const tapeWidth = () => Math.max(tape.view.clientWidth, Math.ceil(tape.duration * tape.pxPerMs) + 20)
@@ -702,25 +701,34 @@ const drawTape = () => {
   }
 }
 
-/// 脱离跟随时把「回到播放头」露出来；跟随中或没在拍发就收起
+/// 脱离跟随时把「回到播放头」露出来；跟随中或没在拍发就收起。
+/// 每帧都会走到这里，所以只在可见性真的变化时才碰 DOM
+let followShown = null
 const syncFollowButton = () => {
-  setShown('btnFollow', tape.playhead !== null && !tape.follow)
+  const show = tape.playhead !== null && tape.follow === false
+  if (show === followShown) return
+  followShown = show
+  setShown('btnFollow', show)
 }
 
 /// 拍发时让播放头跟着走：过了视窗中线就把它钉在中间，纸带连续走。
 /// 原来是"快撞右边缘才跳一屏"，那一下最不顺。用户自己拖过纸带就不再抢方向盘。
+/// 返回这一帧有没有真的滚动（滚动了会由 scroll 事件负责重绘）
 const followPlayhead = () => {
   syncFollowButton()
-  if (!tape.follow || tape.playhead === null) return
+  if (tape.follow === false || tape.playhead === null) return false
   const view = tape.view
   const x = 10 + tape.playhead * tape.pxPerMs
   const half = view.clientWidth / 2
   const limit = Math.max(0, tapeWidth() - view.clientWidth)
   const desired = Math.max(0, Math.min(limit, x - half))
   // 起头半屏内不动（播放头还没到中线），到中线之后纸带才开始走
-  if (Math.abs(view.scrollLeft - desired) > 0.5) view.scrollLeft = desired
+  if (Math.abs(view.scrollLeft - desired) > 0.5) {
+    view.scrollLeft = desired
+    return true
+  }
+  return false
 }
-
 window.addEventListener('resize', drawTape)
 tape.view.addEventListener('scroll', drawTape, {passive: true})
 // 左键按住拖动走纸：横向长内容最自然的操作，滚轮与滚动条照旧可用
@@ -769,8 +777,10 @@ $('tapeZoom').addEventListener('change', () => {
 
 const clearTape = note => {
   stopPlayhead()
-  tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false
+  // follow 一并复位：纸带清空后「回到播放头」按钮不该还挂着
+  tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false; tape.follow = true
   tape.track.style.width = '1px'
+  syncFollowButton()
   drawTape()
   for (const id of ['mRate', 'mWindow', 'mEvents', 'mChars', 'mPlan', 'mGap']) setText(id, null)
   setNote('mProgress', note || '')
@@ -799,6 +809,7 @@ const runPreview = async () => {
   tape.playhead = null
   tape.follow = true
   tape.view.scrollLeft = 0
+  syncFollowButton()
   drawTape()
   const plan = result.plan || {}
   const ms = value => Math.round(Number(value) || 0) + 'ms'
@@ -934,7 +945,9 @@ const applyState = raw => {
 
 const events = new EventSource('/api/events')
 events.onmessage = message => {
-  const event = JSON.parse(message.data)
+  // 一条坏事件不该炸掉整个流（后面的 state/progress 还得继续收）
+  let event
+  try { event = JSON.parse(message.data) } catch { return }
   if (event.type === 'state') applyState(event.state)
   else if (event.type === 'log') log(event.message, event.level)
   else if (event.type === 'progress') {
@@ -945,12 +958,19 @@ events.onmessage = message => {
       if (sent >= total) stopPlayhead()
       else markPlayhead(at, event.speed)
       tape.playhead = at
-      if (!tape.raf) { followPlayhead(); drawTape() }
+      if (tape.raf === 0 && followPlayhead() === false) drawTape()
       setNote('mProgress', sent + ' / ' + total + ' 帧 · ' + (at / 1000).toFixed(1) + 's')
     }
   }
 }
-events.onerror = () => log('事件流断开，正在重连', 'warn')
+// 服务端重启时 onerror 会按浏览器自己的节奏反复打：节流到 5 秒一条，别刷屏
+let sseErrorAt = 0
+events.onerror = () => {
+  const now = Date.now()
+  if (now - sseErrorAt < 5000) return
+  sseErrorAt = now
+  log('事件流断开，正在重连', 'warn')
+}
 
 // ================= 操作 =================
 $('key').onchange = () => {
@@ -1070,16 +1090,23 @@ new ResizeObserver(() => syncMsgBar()).observe($('message'))
 $('injectSnippet').value = `fetch('${location.origin}/inject.js').then(r=>r.text()).then(eval)`
 drawTape()
 ;(async () => {
-  const result = await api('/api/state', {}, 'GET')
-  applyState((result && result.state) || {})
-  log('控制台就绪 ' + location.origin + (lastState.open ? '，虚拟串口已自动开启' : ''), 'ok')
-  if (!$('message').value.trim()) {
-    // 首屏纸带不该是空白：先给一页样例报文，改掉即可
-    const sample = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
-    if (sample.ok) $('message').value = sample.text
-    if (syncMsgBar) syncMsgBar()
+  // api() 已经不会抛，但 applyState/runPreview 里仍可能有意外异常：
+  // 首屏挂掉要看得见，而不是一片 -- 还没有任何解释
+  try {
+    const result = await api('/api/state', {}, 'GET')
+    applyState((result && result.state) || {})
+    if (result && result.ok) log('控制台就绪 ' + location.origin + (lastState.open ? '，虚拟串口已自动开启' : ''), 'ok')
+    else log('控制台暂不可达：' + ((result && result.error) || '未知错误') + '，事件流恢复后会自动同步', 'warn')
+    if (!$('message').value.trim()) {
+      // 首屏纸带不该是空白：先给一页样例报文，改掉即可
+      const sample = await api('/api/message/random', {alphabet: $('alphabet').value, groups: Number($('groups').value)})
+      if (sample.ok) $('message').value = sample.text
+      if (syncMsgBar) syncMsgBar()
+    }
+    await runPreview()
+  } catch (error) {
+    log('首屏初始化失败：' + ((error && error.message) || error), 'error')
   }
-  await runPreview()
 })()
 </script>
 </body>
