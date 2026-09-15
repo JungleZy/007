@@ -28,6 +28,13 @@ fn frontend(path: &str) -> String {
     std::fs::read_to_string(&full).unwrap_or_else(|error| panic!("读不到前端源文件 {}：{error}", full.display()))
 }
 
+/// 忽略空白的子串匹配：判据是语义而不是排版——前端跑一次 prettier
+/// （改空白/换行）不该让对表测试误报失败
+fn includes(source: &str, needle: &str) -> bool {
+    let compact = |text: &str| text.chars().filter(|ch| !ch.is_whitespace()).collect::<String>();
+    compact(source).contains(&compact(needle))
+}
+
 /// 从 useMorse.js 的 morseCode 里取某字母表的 字符 -> 点划串。
 /// 前端同一文件里还有一张"点划 -> 字符"反查表，所以只认第一段（带 value: 的那段），
 /// 并按花括号配平取块，不依赖缩进。
@@ -111,7 +118,7 @@ fn electron_codes_match_web_serial() {
 /// 帧协议：按下 2 字节、抬起 3 字节、电子键码 1 字节（WebSerial.handleData）
 fn frame_lengths_match_web_serial() {
     let source = frontend("common/utils/WebSerial.js");
-    assert!(source.contains("code === 1"), "WebSerial.js 的按下分支变了");
+    assert!(includes(&source, "code === 1"), "WebSerial.js 的按下分支变了");
     assert_eq!(sinks::DOWN.len(), 2, "按下帧必须 2 字节");
     assert_eq!(sinks::UP.len(), 3, "抬起帧必须 3 字节");
     assert_eq!(sinks::DOWN[0], 1, "按下帧首字节必须是 1");
@@ -136,7 +143,7 @@ fn frame_lengths_match_web_serial() {
 fn duplicate_down_window_matches_use_traffic() {
     let source = frontend("common/mixin/useTraffic.js");
     assert!(
-        source.contains("Math.max(2000"),
+        includes(&source, "Math.max(2000"),
         "useTraffic.js 的重复按下窗口变了，faults.rs 的 DUP_DOWN_WINDOW 需同步"
     );
     assert_eq!(faults::DUP_DOWN_WINDOW, 2000.0);
@@ -146,7 +153,7 @@ fn duplicate_down_window_matches_use_traffic() {
 /// ≤10ms 的按压会被 useTraffic.js 丢弃：故障注入必须造出这种帧
 fn micro_press_threshold_matches_use_traffic() {
     let source = frontend("common/mixin/useTraffic.js");
-    assert!(source.contains("duration <= 10"), "useTraffic.js 的 10ms 丢弃阈值变了");
+    assert!(includes(&source, "duration <= 10"), "useTraffic.js 的 10ms 丢弃阈值变了");
 
     let mut timeline = keying::hand_timeline(&keying::HandOptions {
         text: "ABCD".into(),
@@ -175,10 +182,10 @@ fn micro_press_threshold_matches_use_traffic() {
 fn timing_ratio_matches_voice_module() {
     let source = frontend("common/utils/voice/MorseVoiceHighPerformance.js");
     assert!(
-        source.contains("{dot: 1, dash: 3, gap: 1, word: 3, suite: 5, leaf: 7}"),
+        includes(&source, "{dot: 1, dash: 3, gap: 1, word: 3, suite: 5, leaf: 7}"),
         "DEFAULT_RATIO 变了，morse.rs 的 Ratio::default 需同步"
     );
-    assert!(source.contains("i < 400"), "校准页不再是 400 字符，criterion 公式需同步");
+    assert!(includes(&source, "i < 400"), "校准页不再是 400 字符，criterion 公式需同步");
     let ratio = morse::Ratio::default();
     assert_eq!(
         [ratio.dot, ratio.dash, ratio.gap, ratio.word, ratio.suite, ratio.leaf],
@@ -196,13 +203,13 @@ fn electron_key_map_matches_key_code_js() {
     let source = frontend("views/manage/organization/electronKeyZuXun/train/student/js/keyCode.js");
     for (code, key, _, elements) in morse::ELECTRON_KEYS {
         assert!(
-            source.contains(&format!("code: '{code}'")),
+            includes(&source, &format!("code: '{code}'")),
             "keyCode.js 里没有键码 {code}（keysim 按键 {key} 用它）"
         );
         if !elements.is_empty() {
             let rendered = format!("[{}]", elements.chars().map(|c| c.to_string()).collect::<Vec<_>>().join(","));
             assert!(
-                source.contains(&rendered) || source.contains(&format!("_code: {rendered}")),
+                includes(&source, &rendered) || includes(&source, &format!("_code: {rendered}")),
                 "keyCode.js 里键码 {code} 的 _code 与 keysim 的 {rendered} 不一致"
             );
         }
@@ -219,11 +226,11 @@ fn control_symbols_match_hand_key_train() {
     assert!(hand.contains("'10001'"), "手键开始符不再是 10001");
     let electron = frontend("views/manage/organization/electronKeyZuXun/train/student/js/handKeyTrain.js");
     assert!(
-        electron.contains("pauseDuration = ref(800)"),
+        includes(&electron, "pauseDuration = ref(800)"),
         "末字提交超时不再是 800ms，keying::PAUSE_DURATION 需同步"
     );
-    assert!(hand.contains("end: '01010'"), "手键结束符不再是 01010");
-    assert!(hand.contains("alter: '001100'") || hand.contains("'001100'"), "更正符不再是 001100");
+    assert!(includes(&hand, "end: '01010'"), "手键结束符不再是 01010");
+    assert!(includes(&hand, "alter: '001100'") || includes(&hand, "'001100'"), "更正符不再是 001100");
     assert_eq!(morse::CONTROL_START, "10001");
     assert_eq!(morse::CONTROL_END, "01010");
     assert_eq!(keying::PAUSE_DURATION, 800.0);
@@ -236,7 +243,7 @@ fn rate_formula_matches_client_and_server() {
     // 客户端：字符数 × 60000 / 采集区间（handKeyTrain.js:142）
     let client = frontend("views/manage/organization/handkeyZuXun/train/student/js/handKeyTrain.js");
     assert!(
-        client.contains("patNumber.value * 60000 / elapsed"),
+        includes(&client, "patNumber.value * 60000 / elapsed"),
         "客户端码率公式变了，keysim 的 measured_rate 需同步"
     );
 
@@ -245,14 +252,14 @@ fn rate_formula_matches_client_and_server() {
     assert!(math.contains("MILLIS_PER_MINUTE"), "ScoreMath 不再用分钟毫秒常量");
     assert!(math.contains("RoundingMode.HALF_UP"), "服务端码率不再四舍五入");
     assert!(
-        math.contains("divide(new BigDecimal(totalTimeMillis), 0, RoundingMode.HALF_UP)"),
+        includes(&math, "divide(new BigDecimal(totalTimeMillis), 0, RoundingMode.HALF_UP)"),
         "服务端码率的除法口径变了"
     );
 
     // 单位换算：字/分 ×1，组/分 ×4
     let unit = repo("backend/src/main/java/com/nip/dto/score/TrainingRateUnit.java");
-    assert!(unit.contains("CHARACTERS_PER_MINUTE(1)"), "字/分的换算系数变了");
-    assert!(unit.contains("FOUR_CHARACTER_GROUPS_PER_MINUTE(4)"), "组/分的换算系数变了");
+    assert!(includes(&unit, "CHARACTERS_PER_MINUTE(1)"), "字/分的换算系数变了");
+    assert!(includes(&unit, "FOUR_CHARACTER_GROUPS_PER_MINUTE(4)"), "组/分的换算系数变了");
 
     // keysim 自己：同样的公式，同样的分母系数
     let plan = keying::HandOptions { text: "ABCD EFGH".into(), rate: 70.0, ..Default::default() };
@@ -269,9 +276,9 @@ fn rate_formula_matches_client_and_server() {
 /// keysim 的比例表必须给出同样的关系，否则翻页后客户端再也编译不出字码。
 fn page_standard_ratios_match_pat_standard_js() {
     let source = frontend("views/manage/organization/handkeyZuXun/train/student/js/patStandard.js");
-    assert!(source.contains("codeGap * 3"), "字间隔不再是 codeGap×3");
-    assert!(source.contains("codeGap * 5"), "组间隔不再是 codeGap×5");
-    assert!(source.contains("codeGap = 60"), "codeGap 的 60ms 下限没了");
+    assert!(includes(&source, "codeGap * 3"), "字间隔不再是 codeGap×3");
+    assert!(includes(&source, "codeGap * 5"), "组间隔不再是 codeGap×5");
+    assert!(includes(&source, "codeGap = 60"), "codeGap 的 60ms 下限没了");
 
     let ratio = morse::Ratio::default();
     assert_eq!(ratio.word / ratio.gap, 3.0, "字间隔/符内间隔应为 3");

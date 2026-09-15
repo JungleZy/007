@@ -41,6 +41,9 @@ fn occupy(target: &str) -> Running {
 #[test]
 fn replaces_a_binary_that_is_currently_running() {
     let directory = std::env::temp_dir().join(format!("keysim-replace-{}", std::process::id()));
+    // 上次运行若 panic/被强杀，孤儿进程还在执行旧副本：先幂等清掉，
+    // 否则 occupy 的 fs::copy 会拿到 ETXTBSY，报出一个与真实原因（残留）不符的错
+    std::fs::remove_dir_all(&directory).ok();
     std::fs::create_dir_all(&directory).expect("应能建临时目录");
     let target = directory.join("keysim");
     let target_text = target.display().to_string();
