@@ -38,7 +38,7 @@ pub fn hex(bytes: &[u8]) -> String {
 }
 
 /// 桥接/注入共用的帧对象（MessageWebSocket.js:148-155 只取 parsed.data）。
-/// 不声明 receivedAt：页面会用自己的 performance.now() 打标（useTraffic.js:11），
+/// 不声明 receivedAt：页面会用自己的 performance.now() 打标（useTraffic.js:13 publishTrafficFrame），
 /// 这与真实桥接一致；点划时长只取 d 的差值，所以 d 用模拟器时钟即可精确。
 pub fn to_frames(timeline: &Timeline, base: f64) -> Vec<(f64, Value)> {
     timeline

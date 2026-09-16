@@ -4,7 +4,7 @@
 
 use crate::timeline::{Event, Kind, Rng, Timeline};
 
-/// 客户端对重复按下的容忍窗口：max(2000, lineLimit*8)（useTraffic.js:44）
+/// 客户端对重复按下的容忍窗口：max(2000, lineLimit*8)（handKeyDecoder.js:33）
 pub const DUP_DOWN_WINDOW: f64 = 2000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

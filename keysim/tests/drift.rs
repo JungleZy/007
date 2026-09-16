@@ -6,7 +6,8 @@
 //! 源文件（相对仓库根）：
 //! - bw-frontend/frontend/src/common/mixin/useMorse.js                     点划表
 //! - bw-frontend/frontend/src/common/utils/WebSerial.js                    串口帧协议与电子键码集
-//! - bw-frontend/frontend/src/common/mixin/useTraffic.js                   手键点划判定与重复按下窗口
+//! - bw-frontend/frontend/src/common/utils/handKeyDecoder.js             手键点划判定与重复按下窗口
+//!   （2026-09-16 前在 common/mixin/useTraffic.js，d2e245f 抽为纯状态机后阈值口径未变）
 //! - bw-frontend/frontend/src/common/utils/voice/MorseVoiceHighPerformance.js  节拍配比与校准页
 //! - .../electronKeyZuXun/train/student/js/keyCode.js                      电子键键位与装配表
 //! - .../handkeyZuXun/train/student/js/handKeyTrain.js                     控制符与提交超时
@@ -139,21 +140,21 @@ fn frame_lengths_match_web_serial() {
 }
 
 #[test]
-/// 手键重复按下容忍窗口取自 useTraffic.js 的 max(2000, lineLimit*8)
+/// 手键重复按下容忍窗口取自 handKeyDecoder.js 的 max(2000, lineLimit*8)
 fn duplicate_down_window_matches_use_traffic() {
-    let source = frontend("common/mixin/useTraffic.js");
+    let source = frontend("common/utils/handKeyDecoder.js");
     assert!(
         includes(&source, "Math.max(2000"),
-        "useTraffic.js 的重复按下窗口变了，faults.rs 的 DUP_DOWN_WINDOW 需同步"
+        "handKeyDecoder.js 的重复按下窗口变了，faults.rs 的 DUP_DOWN_WINDOW 需同步"
     );
     assert_eq!(faults::DUP_DOWN_WINDOW, 2000.0);
 }
 
 #[test]
-/// ≤10ms 的按压会被 useTraffic.js 丢弃：故障注入必须造出这种帧
+/// ≤10ms 的按压会被 handKeyDecoder.js 丢弃：故障注入必须造出这种帧
 fn micro_press_threshold_matches_use_traffic() {
-    let source = frontend("common/mixin/useTraffic.js");
-    assert!(includes(&source, "duration <= 10"), "useTraffic.js 的 10ms 丢弃阈值变了");
+    let source = frontend("common/utils/handKeyDecoder.js");
+    assert!(includes(&source, "duration <= 10"), "handKeyDecoder.js 的 10ms 丢弃阈值变了");
 
     let mut timeline = keying::hand_timeline(&keying::HandOptions {
         text: "ABCD".into(),

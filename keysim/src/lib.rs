@@ -3,7 +3,7 @@
 //! 一个核心（真实节拍的事件时间轴）+ 四条注入通道（内核级虚拟串口 / PTY 设备 /
 //! 浏览器页面注入）+ 后端载荷与 REST 驱动。
 //!
-//! 口径来源全部是仓内生产代码（前端 useTraffic.js / WebSerial.js / handKeyTrain.js、
+//! 口径来源全部是仓内生产代码（前端 handKeyDecoder.js / WebSerial.js / handKeyTrain.js、
 //! 后端 GeneralTickerPatService.java / GeneralKeyPatService.java）；
 //! tests/ 下的对表测试逐项核对，任何一侧漂移即失败。
 
