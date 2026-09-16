@@ -202,11 +202,14 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
     if (submission.pending() && !event.captureSpan) event = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
     if (submission.defer(() => handleReceiveKeyCode(val, diffTime, gapTime, event))) return
     if (isFirstKey && trainData.value.process === 2) {
+      // 先给触发事件打戳再闭合：close() 以墙钟收尾，而事件的 receivedAt 略早于它，
+      // 事件循环稍有延迟时 floor/ceil 会让该事件的区间落到已确认末段之前
+      // （采集协议按重叠拒绝，2026-09-16 微按压场景实测 1ms 竞态）
+      const queuedEvent = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
       capture.close()
       return submission.run(async request => {
         await request(config => startTrainUser({trainId: trainData.value.trainId, attempt: capture.metadata.value.attempt}, config))
         isFirstKey = false
-        const queuedEvent = Object.freeze({...event, captureSpan: capture.stamp(event.startedAt ?? event.receivedAt, event.receivedAt)})
         submission.defer(() => handleReceiveKeyCode(val, diffTime, gapTime, queuedEvent), true)
       })
     }

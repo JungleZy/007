@@ -63,7 +63,7 @@ export default function useTrainingCapture() {
   const recordQueued = span => {
     if (!queuedSpan) {
       const previousEnd = intervals.at(-1)?.endedMs ?? 0
-      if (span.startedMs < previousEnd - 1) throw new Error('排队采集时间与已确认区间重叠，请保留记录并重新同步')
+      if (span.startedMs < previousEnd - 1) throw new Error(`排队采集时间与已确认区间重叠（span [${span.startedMs}, ${span.endedMs}] vs 已确认末段 ${previousEnd}），请保留记录并重新同步`)
       queuedSpan = {startedMs: Math.max(previousEnd, span.startedMs), endedMs: Math.max(previousEnd, span.endedMs)}
     } else {
       queuedSpan.endedMs = Math.max(queuedSpan.endedMs, span.endedMs)
