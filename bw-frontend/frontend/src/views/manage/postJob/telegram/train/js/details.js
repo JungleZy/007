@@ -581,11 +581,13 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * 电码信号转码成字符
    */
   let controlCandidates = []
+      // 多截控制符的每一截都必须独立成组（组间隔分隔，句号=三截'00'的协议语义）；
+      // 两截变体（如 H='0000' 与 I='00'、F='0010' 与 M='11'）与字母报正文必然碰撞，
+      // 2026-09-16 keysim e2e 实测：字码报 H→I 跨组被误判翻页符导致训练提前 autoEnd。
       const patterns = [
         ['start', ['10001']], ['end', ['01010']], ['alter', ['001100']],
-        ['next', ['001011']], ['next', ['0010', '11']],
-        ['turn', ['000000']], ['turn', ['00', '00', '00']],
-        ['turn', ['00', '0000']], ['turn', ['0000', '00']]
+        ['next', ['001011']],
+        ['turn', ['000000']], ['turn', ['00', '00', '00']]
       ]
   const codeCompileKeyInfo = type => {
     if (submission.busy.value || submission.error.value) return
@@ -594,7 +596,10 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     if (type === 'word' && code) {
       const match = patterns.find(([, parts]) => {
         if (parts[parts.length - 1] !== code || parts.length > controlCandidates.length + 1) return false
-        return parts.slice(0, -1).every((part, i) => controlCandidates[controlCandidates.length - parts.length + 1 + i].code === part)
+        return parts.slice(0, -1).every((part, i) => {
+          const candidate = controlCandidates[controlCandidates.length - parts.length + 1 + i]
+          return candidate.code === part && candidate.groupEnd === true
+        })
       })
       if (match) {
         const [action, parts] = match
@@ -660,6 +665,9 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       if (controlCandidates.length > 2) controlCandidates.shift()
     } else if (type === 'group' && startStatus.value && cacheKey.value.length) {
       pageResetPatStandard()
+      // 该组最后一个字码的候选标记为"独立成组"：多截控制符只允许由这样的候选拼出，
+      // 正文里的字母（I='00' 出现在组中间）不会被误判成控制符
+      if (controlCandidates.length) controlCandidates[controlCandidates.length - 1].groupEnd = true
       currPatKeyIndex.value++
       cacheKey.value = []
     }
