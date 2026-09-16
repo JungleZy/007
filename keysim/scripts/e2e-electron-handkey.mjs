@@ -12,18 +12,15 @@
  *   4. 测试账号已入库（见文末 SEED_SQL 或 docs 中的回放记录）。
  *
  * 用法：
- *   node keysim/scripts/e2e-electron-handkey.mjs [--rate 90] [--groups 100]
- *   - 前端每次成组都会把 codeGap 夹到 ≥60ms（patStandard.js:41-43），实测口径下手键
- *     >104 字/分组间隔越不过 60×3.51 阈值 → 第一组之后全部粘连。本脚本默认 90 字/分。
-
+ *   node keysim/scripts/e2e-electron-handkey.mjs [--rate 120] [--groups 100] [--alphabet short|letter]
  *   环境变量：KEYSIM_ELECTRON=…/electron 可执行文件路径
  *            KEYSIM_CDP_PORT=33422  KEYSIM_KEEP_APP=1（结束后保留窗口）
  *
- * 已知行为（2026-09-15 实测）：
- *   - 字码报(letter)正文中 H→I / I→H / I·I·I 会被前端误判为翻页符、F→M 误判为改错前一组
- *     （控制符匹配只看电码串不看间隔，handKeyTrain.js codeCompileKeyInfo 的 patterns）。
- *     字母报随机文很大概率踩中 → 训练提前 autoEnd。因此本脚本默认用数码报(short)跑通全页；
- *     字母报可用 --alphabet letter 复现该误判。
+ * 回归基线（2026-09-16 修复后必须保持通过）：
+ *   - 字码报(letter)：H→I / I·I·I / F→M 曾触发控制符碰撞误判（翻页/改错），
+ *     修复=多截图案每截必须独立成组 + 删除两截变体（handKeyTrain.js patterns + groupEnd 门控）。
+ *   - 数码报(short)@120 字/分：曾因 patStandard.js 的 60ms 夹值在第一次成组后全部粘连，
+ *     修复=删除该夹值（与 postJob 域同名文件对齐）。
  */
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -31,8 +28,9 @@ import path from 'node:path'
 
 const args = Object.fromEntries(process.argv.slice(2).map((v, i, a) => v.startsWith('--') ? [v.slice(2), a[i + 1] && !a[i + 1].startsWith('--') ? a[i + 1] : true] : null).filter(Boolean))
 
-const RATE = Number(args.rate || 90)               // 60ms 夹值下 >104 字/分无法成组（keysim check_hand_plan 同口径拒发）
-const GROUPS = Number(args.groups || 100)
+const RATE = Number(args.rate || 120)
+const GROUPS = Number(args.groups || 100)          // 每页组数
+const PAGES = Number(args.pages || 1)              // 页数；>1 时逐页拍发并验证翻页符路径
 const ALPHABET = args.alphabet || 'short'          // short=数码报 type 0；letter=字码报 type 1
 const TRAIN_TYPE = ALPHABET === 'letter' ? 1 : 0
 const CDP_PORT = Number(process.env.KEYSIM_CDP_PORT || 33422)
@@ -83,18 +81,18 @@ async function createTrain(token) {
     method: 'POST', token, deviceId: TEACHER.deviceId,
     body: {
       name: `keysim自动化-${ALPHABET}-${Date.now()}`, isCable: 0, type: TRAIN_TYPE, trainType: 0,
-      codeSort: false, isRandom: true, messageNumber: GROUPS, ruleId: RULE_ID, isAverage: false,
+      codeSort: false, isRandom: true, messageNumber: GROUPS * PAGES, ruleId: RULE_ID, isAverage: false,
       userId: [STUDENT.id]
     }
   })
-  ok(`训练已创建 id=${data.id}（${ALPHABET === 'short' ? '数码报' : '字码报'} ${GROUPS} 组）`)
+  ok(`训练已创建 id=${data.id}（${ALPHABET === 'short' ? '数码报' : '字码报'} ${GROUPS} 组 × ${PAGES} 页）`)
   return data.id
 }
 
-async function pageText(token, trainId) {
+async function pageText(token, trainId, floorNumber = 1) {
   const data = await rest('/generalTickerPatTrain/findPage', {
     method: 'POST', token, deviceId: TEACHER.deviceId,
-    body: { id: trainId, userId: STUDENT.id, floorNumber: 1 }
+    body: { id: trainId, userId: STUDENT.id, floorNumber }
   })
   return data.messageKey.map(g => JSON.parse(g.moresKey).join('')).join(' ')
 }
@@ -132,11 +130,18 @@ class Cdp {
 }
 
 async function launchElectron() {
-  const bin = process.env.KEYSIM_ELECTRON || path.resolve('bw-frontend/node_modules/.bin/electron')
-  const child = spawn(bin, [path.resolve('bw-frontend'), '--no-sandbox', `--remote-debugging-port=${CDP_PORT}`], { stdio: 'ignore', detached: true })
+  // --packaged：测打包产物（out/linux-unpacked，file:// 加载）；默认测源码 dev 模式（vite:18000）
+  const packaged = !!args.packaged
+  const bin = process.env.KEYSIM_ELECTRON || (packaged
+    ? path.resolve('bw-frontend/out/linux-unpacked/nip-traffic-system')
+    : path.resolve('bw-frontend/node_modules/.bin/electron'))
+  const argv = packaged
+    ? ['--no-sandbox', `--remote-debugging-port=${CDP_PORT}`]
+    : [path.resolve('bw-frontend'), '--no-sandbox', `--remote-debugging-port=${CDP_PORT}`]
+  const child = spawn(bin, argv, { stdio: 'ignore', detached: true })
   child.unref()
   process.on('exit', () => { if (!process.env.KEYSIM_KEEP_APP) try { process.kill(-child.pid) } catch {} })
-  ok(`Electron 已拉起（pid ${child.pid}，CDP :${CDP_PORT}）`)
+  ok(`Electron 已拉起（${packaged ? '打包产物' : 'dev'}，pid ${child.pid}，CDP :${CDP_PORT}）`)
 }
 
 async function main() {
@@ -145,17 +150,28 @@ async function main() {
   // 1) 教员侧：登录、建训、取报文
   const teacherToken = await login(TEACHER)
   const trainId = await createTrain(teacherToken)
-  const text = await pageText(teacherToken, trainId)
+  const pageTexts = []
+  for (let p = 1; p <= PAGES; p++) pageTexts.push(await pageText(teacherToken, trainId, p))
 
   // 2) keysim 侧：可行性预览
-  const plan = { key: 'hand', text, alphabet: ALPHABET, rate: RATE, skew: 51, style: 'machine', tail: 'end', sink: 'frames' }
+  // 逐页计划：非末页用翻页符收尾（翻页后新页要重新拍开始符，keysim 每页都带开始符）
+  const pagePlans = pageTexts.map((text, i) => ({
+    key: 'hand', text, alphabet: ALPHABET, rate: RATE, skew: 51, style: 'machine',
+    tail: i + 1 < PAGES ? 'turn' : 'end', sink: 'frames'
+  }))
+  const plan = pagePlans[0]
   const preview = await keysim('/api/preview', plan)
+  for (const p of pagePlans.slice(1)) {
+    const pv = await keysim('/api/preview', p)
+    if (!pv.ok) fail(`keysim 预览拒绝（第 ${pagePlans.indexOf(p) + 1} 页）：${pv.error}`)
+    preview.duration += pv.duration
+  }
   if (!preview.ok) fail(`keysim 预览拒绝：${preview.error}`)
   ok(`拍发计划：${preview.chars} 字 / ${preview.rate} ${preview.rateUnit} / 约 ${Math.round(preview.duration / 1000)}s`)
 
   // 3) Electron 侧：拉起、注入虚拟串口、学员登录
   await launchElectron()
-  const cdp = await Cdp.connect(CDP_PORT, 'localhost:18000')
+  const cdp = await Cdp.connect(CDP_PORT, args.packaged ? 'index.html' : 'localhost:18000')
   // 裸 CDP 下 Page.addScriptToEvaluateOnNewDocument 需先 Page.enable，否则注册被静默忽略（实测 Electron 124 踩中）
   await cdp.call('Page.enable')
 
@@ -218,23 +234,32 @@ async function main() {
     }
   }
   ok('训练页就绪，虚拟串口在线')
-  // 串口自愈重连（生产同源入口 messageWebSocket，与 NipSerial「重连」同路径）：
-  // 实测 dev 态偶发读循环饥饿（流被锁定但帧不进 PubSub），重连后恢复。
-  // 然后打一对真实探针帧（按下/抬起），确认帧能一路走到 PubSub 总线再开始正式拍发。
+  // 串口自愈重连 + 通帧探针。dev 模式走模块 import（生产同源入口 messageWebSocket，
+  // 与 NipSerial「重连」同路径）；打包态模块已打包不可按路径 import，退回
+  // 列表↔训练页往返强制 NipSerial 重挂载（其 onMounted 自动重连）。
   const probeOk = await cdp.eval(`(async () => {
-    const { PubSub } = await import('/src/common/utils/PubSub.js')
-    let frames = 0
-    PubSub.subscribe('traffic:frame', () => frames++)
-    const mw = (await import('/src/common/ws/MessageWebSocket.js')).default
-    mw('reset')
-    await new Promise(r => setTimeout(r, 1500))
-    window.__keysimSerial.bytes([1, 0])
-    await new Promise(r => setTimeout(r, 200))
-    window.__keysimSerial.bytes([2, 0, 0])
-    await new Promise(r => setTimeout(r, 800))
-    return frames >= 2
+    try {
+      const { PubSub } = await import('/src/common/utils/PubSub.js')
+      let frames = 0
+      PubSub.subscribe('traffic:frame', () => frames++)
+      const mw = (await import('/src/common/ws/MessageWebSocket.js')).default
+      mw('reset')
+      await new Promise(r => setTimeout(r, 1500))
+      window.__keysimSerial.bytes([1, 0])
+      await new Promise(r => setTimeout(r, 200))
+      window.__keysimSerial.bytes([2, 0, 0])
+      await new Promise(r => setTimeout(r, 800))
+      return frames >= 2 ? true : 'no-frames'
+    } catch (e) { return 'no-modules' }
   })()`)
-  if (!probeOk) fail('串口探针帧未到达 PubSub（重连后仍不通）')
+  if (probeOk !== true) {
+    await cdp.eval(`location.hash = '#/preview/networkUsing/equipmentNetwork/handkeyZuXunList'; true`)
+    await delay(1500)
+    await cdp.eval(`location.hash = '#/preview/networkUsing/equipmentNetwork/handkeyZuXunTrain?id=${trainId}'; true`)
+    await delay(4000)
+    const st = await cdp.eval(`(() => { const p = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia; let o = {}; p._s.forEach((s, id) => { if (id === 'traffic') o = { dev: s.devStatus } }); return o })()`)
+    if (!st.dev) fail(`串口重连失败（${probeOk}，导航重连后 devStatus=false）`)
+  }
   ok('串口通帧验证通过')
 
 
@@ -254,10 +279,20 @@ async function main() {
   }
   ok('训练已开始，等待拍发开始符')
 
-  // 7) keysim 拍发（开始符校准 + 正文 + 结束符）
-  const send = await keysim('/api/send', plan)
-  if (!send.ok) fail(`keysim 拍发失败：${send.error}`)
-  ok('keysim 拍发中…')
+  // 7) keysim 逐页拍发（每页：开始符 + 正文 + 翻页/结束符；翻页后新页要重拍开始符，keysim 每页自带）
+  const sendPage = async (i) => {
+    const send = await keysim('/api/send', pagePlans[i])
+    if (!send.ok) fail(`keysim 第 ${i + 1} 页拍发失败：${send.error}`)
+    ok(`keysim 拍发中…（第 ${i + 1}/${PAGES} 页）`)
+  }
+  await sendPage(0)
+  // 翻页：上一页翻页符触发 turn，前端取下一页并把「当前页」翻到 i+1
+  for (let i = 1; i < PAGES; i++) {
+    const flipped = await cdp.eval(`new Promise(res => { const t = setInterval(() => { const n = document.querySelector('.pag .curr .num'); if (n && n.innerText.trim() === '${i + 1}') { clearInterval(t); res(true) } }, 500); setTimeout(() => { clearInterval(t); res(false) }, ${Math.round(preview.duration / PAGES) + 30000}) })`)
+    if (!flipped) fail(`第 ${i} 页拍完后未翻到第 ${i + 1} 页（翻页符未被识别）`)
+    ok(`已翻到第 ${i + 1} 页`)
+    await sendPage(i)
+  }
 
   // 8) 等学员端自动结算（结束符 → autoEnd → uploadResult → finish → 成绩页）
   // 轮询页面进度：拍发记录数应持续增长；停滞超 90s 带现场诊断失败
