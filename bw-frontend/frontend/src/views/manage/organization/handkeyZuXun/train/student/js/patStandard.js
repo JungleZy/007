@@ -38,9 +38,6 @@ export default function () {
     if (patStandard.value.codeGap < patStandard.value.dot) {
       patStandard.value.codeGap = patStandard.value.dot
     }
-    if (patStandard.value.codeGap < 60) {
-      patStandard.value.codeGap = 60
-    }
     // if (w_gap.length > 0) {
     //   patStandard.value.wordGap = parseInt(sum(w_gap)/w_gap.length);
     patStandard.value.wordGap = parseInt(patStandard.value.codeGap * 3);
