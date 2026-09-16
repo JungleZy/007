@@ -273,7 +273,7 @@ impl Events {
 fn progress_events_drive_the_playhead() {
     let console = start_console();
     let port = console.port;
-    let preview = http(port, "POST", "/api/preview", Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 90})));
+    let preview = http(port, "POST", "/api/preview", Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 120})));
     assert_eq!(preview["ok"], true, "预览应成功：{preview}");
     let duration = preview["duration"].as_f64().expect("预览应有时间轴总长");
     let total = preview["events"].as_u64().expect("预览应有帧数");
@@ -286,7 +286,7 @@ fn progress_events_drive_the_playhead() {
             port,
             "POST",
             "/api/send",
-            Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 90, "speed": speed})),
+            Some(&json!({"key": "hand", "text": "ABCD EFGH IJKL", "rate": 120, "speed": speed})),
         );
         assert_eq!(sent["ok"], true, "拍发应能开始：{sent}");
         let progress: Vec<Value> = events

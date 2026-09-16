@@ -38,7 +38,7 @@ impl Default for HandOptions {
         HandOptions {
             text: String::new(),
             alphabet: "letter".into(),
-            rate: 90.0,
+            rate: 120.0,
             unit: "characters".into(),
             skew: 51.0,
             jitter: 0.0,
@@ -248,7 +248,7 @@ fn build_hand_timeline(options: &HandOptions, plan: Timing) -> Result<Timeline, 
             for (index, elements) in morse::CONTROL_TURN.iter().enumerate() {
                 emit_hand_char(&mut builder, "翻页", elements, None, true, &mut leading_gap);
                 if index + 1 < morse::CONTROL_TURN.len() {
-                    leading_gap = Some(builder.wait_slot(Slot::Word));
+                    leading_gap = Some(builder.wait_slot(Slot::Group));
                 }
             }
         }

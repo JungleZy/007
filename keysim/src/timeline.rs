@@ -342,10 +342,10 @@ impl Builder {
 /// - 点 ≤ 10ms 的按压被直接丢弃（useTraffic.js:64）；
 /// - 试机要求划 > 点的两倍（handKeyTrain.js:360）；
 /// - 抖动必须落在评分规则 skew 容差内，否则开始符校验不通过（:357-359）；
-/// - 每次成组（不只翻页）都会触发 pageResetPatStandard 重算并把 codeGap 夹到 ≥60ms
-///   （handKeyTrain.js:553-557 → patStandard.js:41-43；2026-09-16 数码报 e2e 实测：
-///   120 字/分时第一组之后组间隔 184ms < 60×3.51=210.6ms，再也编译不出组）。
-///   所以夹值无条件生效：字间隔须 > 60×(1+skew/100)、组间隔须 > 60×(3+skew/100)。
+/// - 成字/成组阈值跟随实测 codeGap（patStandard.js 重算，1:3:5 比例写死）：
+///   字间隔须 > codeGap×(1+skew/100)、组间隔须 > codeGap×(3+skew/100)。
+///   （patStandard.js 历史上的 60ms 下限已于 2026-09-16 移除——它让高速拍发
+///   在第一次成组后全部粘连；同仓库 postJob 域的同名文件从未有过该下限。）
 pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64) -> Result<(), String> {
     let mut problems: Vec<String> = Vec::new();
     let low = 1.0 - jitter;
@@ -363,19 +363,18 @@ pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64) -> Result<(), Stri
     if jitter * 100.0 > skew {
         problems.push(format!("抖动 ±{}% 超过规则容差 ±{}%，开始符校验必失败", jitter * 100.0, skew));
     }
-    let clamped = plan.gap.max(60.0);
-    if plan.word <= clamped * (1.0 + skew / 100.0) {
+    if plan.word <= plan.gap * (1.0 + skew / 100.0) {
         problems.push(format!(
             "字间隔 {:.1}ms 未超过 codeGap 阈值 {:.1}ms，无法成字",
             plan.word,
-            clamped * (1.0 + skew / 100.0)
+            plan.gap * (1.0 + skew / 100.0)
         ));
     }
-    if plan.group <= clamped * (3.0 + skew / 100.0) {
+    if plan.group <= plan.gap * (3.0 + skew / 100.0) {
         problems.push(format!(
             "组间隔 {:.1}ms 未超过组阈值 {:.1}ms，无法成组",
             plan.group,
-            clamped * (3.0 + skew / 100.0)
+            plan.gap * (3.0 + skew / 100.0)
         ));
     }
     if problems.is_empty() {

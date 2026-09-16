@@ -106,9 +106,25 @@ impl Pty {
     }
 
     /// 设备"收到"字节：写进主端，对端（真串口客户端）就读到它
+    ///
+    /// 从端被打开却无人读取时（典型：被测程序只走注入通道，PTY 只挂着）缓冲区会满，
+    /// 阻塞写会把回放线程永久卡死并拖着 device 锁让 /api/state 无响应（2026-09-16
+    /// 两页连拍实测复现）。写前先用 poll 零超时探测可写性，满了立即报 WouldBlock，
+    /// 由调用方按"该通道本次拍发已失联"处理。watch() 的读路径不受影响。
     pub fn write(&self, bytes: &[u8]) -> io::Result<()> {
         let mut written = 0usize;
         while written < bytes.len() {
+            // SAFETY: fd 有效、pollfd 布局正确、超时 0 立即返回
+            let ready = unsafe {
+                let mut poller = libc::pollfd { fd: self.master, events: libc::POLLOUT, revents: 0 };
+                libc::poll(&mut poller, 1, 0)
+            };
+            if ready == 0 {
+                return Err(io::Error::new(io::ErrorKind::WouldBlock, "PTY 缓冲区已满且无人读取"));
+            }
+            if ready < 0 {
+                return Err(errno());
+            }
             // SAFETY: self.master 在 Pty 生命周期内有效，切片边界由 written 保证
             let count = unsafe {
                 libc::write(
@@ -214,5 +230,41 @@ mod tests {
         // 这里刻意不去重开 /dev/pts/N 断言"打不开"——内核会立刻回收并复用该号，
         // 并行跑的其他测试可能刚好占上，那种断言是在测内核而且必然偶发。
         assert!(reader.read_exact(&mut buffer).is_err(), "关闭后从端仍可读，说明主端没真的关掉");
+    }
+
+    #[test]
+    /// 从端挂着但无人读取时，写满缓冲必须立即报 WouldBlock，而不是把回放线程永久卡死
+    /// （2026-09-16 实测卡死现场：两页连拍约 36KB 后 /api/state 整体无响应）。
+    /// 看门狗：修复前这个测试表现为 15s 超时失败，不会挂住整个套件。
+    fn full_buffer_fails_fast_instead_of_blocking() {
+        if probe().is_err() {
+            return;
+        }
+        let pty = Pty::open(&[]).expect("开 PTY");
+        let (sender, receiver) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let chunk = [1u8, 0, 2, 0, 0];
+            let mut total = 0usize;
+            let outcome = loop {
+                match pty.write(&chunk) {
+                    Ok(()) => total += chunk.len(),
+                    Err(error) => break (Some(error.kind()), total),
+                }
+                if total > 16 * 1024 * 1024 {
+                    break (None, total);
+                }
+            };
+            let _ = sender.send(outcome);
+        });
+        let outcome = receiver
+            .recv_timeout(std::time::Duration::from_secs(15))
+            .expect("PTY 写入在缓冲已满后仍然阻塞（15s 看门狗超时）");
+        assert_eq!(
+            outcome.0,
+            Some(io::ErrorKind::WouldBlock),
+            "缓冲写满后应报 WouldBlock，实际 {:?}（已写 {} 字节）",
+            outcome.0,
+            outcome.1
+        );
     }
 }

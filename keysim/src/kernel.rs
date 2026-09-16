@@ -73,6 +73,20 @@ impl Writer {
     }
 }
 
+/// 写端统一非阻塞打开：tty/gadget 设备在无人读取对端时缓冲区会满，
+/// 阻塞写会把回放线程连同内核锁一起卡死（同 pty.rs::write 的 poll 探测一个病根）。
+/// WouldBlock 由回放循环按"该通道本次拍发已失联"上报。
+#[cfg(unix)]
+fn open_device_nonblocking(path: &str) -> Result<fs::File, String> {
+    use std::os::unix::fs::OpenOptionsExt;
+    fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|error| format!("打开 {path} 失败：{error}"))
+}
+
 pub struct Started {
     pub id: &'static str,
     pub title: &'static str,
@@ -341,11 +355,7 @@ fn start_gadget() -> Result<Started, String> {
     }
     for _ in 0..20 {
         if Path::new(GADGET_DEVICE).exists() {
-            let file = fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(GADGET_DEVICE)
-                .map_err(|error| format!("打开 {GADGET_DEVICE} 失败：{error}"))?;
+            let file = open_device_nonblocking(GADGET_DEVICE)?;
             return Ok(Started {
                 id: "linux-gadget",
                 title: "USB gadget（dummy_hcd + g_serial）",
@@ -388,11 +398,7 @@ fn start_tty0tty() -> Result<Started, String> {
     if !Path::new(TTY0TTY_OURS).exists() {
         run_privileged("modprobe", &["tty0tty"]).map_err(|error| format!("加载 tty0tty 失败：{error}"))?;
     }
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(TTY0TTY_OURS)
-        .map_err(|error| format!("打开 {TTY0TTY_OURS} 失败：{error}"))?;
+    let file = open_device_nonblocking(TTY0TTY_OURS)?;
     Ok(Started {
         id: "linux-tty0tty",
         title: "tty0tty（成对虚拟串口 /dev/tnt0 <-> /dev/tnt1）",

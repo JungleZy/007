@@ -278,9 +278,26 @@ fn page_standard_ratios_match_pat_standard_js() {
     let source = frontend("views/manage/organization/handkeyZuXun/train/student/js/patStandard.js");
     assert!(includes(&source, "codeGap * 3"), "字间隔不再是 codeGap×3");
     assert!(includes(&source, "codeGap * 5"), "组间隔不再是 codeGap×5");
-    assert!(includes(&source, "codeGap = 60"), "codeGap 的 60ms 下限没了");
+    assert!(
+        !includes(&source, "codeGap = 60"),
+        "codeGap 的 60ms 下限又回来了——它会让高速拍发第一次成组后全部粘连（2026-09-16 e2e 实测）"
+    );
 
     let ratio = morse::Ratio::default();
     assert_eq!(ratio.word / ratio.gap, 3.0, "字间隔/符内间隔应为 3");
     assert_eq!(ratio.suite / ratio.gap, 5.0, "组间隔/符内间隔应为 5");
+}
+
+#[test]
+/// 多截控制符（句号 00,00,00 / 改错前一组 001011）的匹配门控：keysim 与前端必须同口径。
+/// 前端 2026-09-16 起要求多截图案的每一截都"独立成组"（groupEnd），且不再接受
+/// 两截变体（H='0000'、I='00'、F='0010'、M='11' 与字母报正文必然碰撞）。
+fn control_symbol_gating_matches_frontend() {
+    let hand = frontend("views/manage/organization/handkeyZuXun/train/student/js/handKeyTrain.js");
+    assert!(includes(&hand, "candidate.groupEnd === true"), "前端多截控制符不再要求成组门控");
+    assert!(!includes(&hand, "['00', '0000']"), "两截翻页变体复活——会与字母报 H→I 碰撞");
+    assert!(!includes(&hand, "['0010', '11']"), "两截改错变体复活——会与字母报 F→M 碰撞");
+    // keysim 侧：翻页符三截之间必须走组间隔，否则过不了前端的成组门控
+    let keying = repo("keysim/src/keying.rs");
+    assert!(includes(&keying, "CONTROL_TURN"), "keysim 翻页符定义丢失");
 }
