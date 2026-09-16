@@ -1,7 +1,7 @@
 //! 手键与电子键的拍发模型。
 //!
 //! 手键（直键）：设备只送按下/抬起两种边沿，点划由客户端按按压时长判定
-//! （useTraffic.js:63-68），阈值现场从开始符 '10001' 校准（handKeyTrain.js:335-366），
+//! （handKeyDecoder.js:53-61），阈值现场从开始符 '10001' 校准（handKeyTrain.js:335-366），
 //! 所以时间轴必须先发一遍合格的开始符。
 //!
 //! 电子键（双手电键盘）：设备送的是**已成形的点划组**单字节码。
@@ -29,7 +29,7 @@ pub struct HandOptions {
     /// "turn" 翻页符 | "end" 结束符 | "none"
     pub tail: String,
     pub low_rate: bool,
-    /// "machine" 机械等长 | "human" 真人手感
+    /// "machine" 机械等长 | "human" 真人手感 | "fatigue" 疲劳模式
     pub style: String,
 }
 
@@ -64,7 +64,7 @@ pub struct ElectronOptions {
     pub preamble: bool,
     /// "page" 句号提交本页 | "end" F3+回车 | "none"
     pub tail: String,
-    /// "machine" 机械等长 | "human" 真人手感
+    /// "machine" 机械等长 | "human" 真人手感 | "fatigue" 疲劳模式
     pub style: String,
 }
 
@@ -123,12 +123,12 @@ pub fn validate(text: &str, alphabet: &str) -> Result<Vec<String>, String> {
     Ok(groups)
 }
 
-/// 风格与有效抖动信封只在这里算一次：真人手感在没指定抖动时用 ±12%，
+/// 风格与有效抖动信封只在这里算一次：真人手感与疲劳模式在没指定抖动时用 ±12%，
 /// 之后所有可行性校验都按这个信封做，不另开一套判定。
 fn resolve_style(name: &str, jitter: f64) -> Result<(Style, f64), String> {
-    let style = Style::parse(name).ok_or_else(|| format!("未知拍发风格 {name}（可选 machine / human）"))?;
+    let style = Style::parse(name).ok_or_else(|| format!("未知拍发风格 {name}（可选 machine / human / fatigue）"))?;
     let envelope = match (style, jitter > 0.0) {
-        (Style::Human, false) => Style::HUMAN_DEFAULT_JITTER,
+        (Style::Human | Style::Fatigue, false) => Style::HUMAN_DEFAULT_JITTER,
         _ => jitter,
     };
     Ok((style, envelope))
@@ -571,7 +571,7 @@ mod tests {
     fn hand_rate_matches_the_measured_formula() {
         for rate in [40.0, 70.0, 90.0] {
             for text in ["ABCD EFGH", "HELL OWOR LDXX", "EEEE TTTT", "ABCD EFGH IJKL MNOP QRST"] {
-                for style in ["machine", "human"] {
+                for style in ["machine", "human", "fatigue"] {
                     let options = HandOptions { text: text.into(), rate, style: style.into(), ..Default::default() };
                     let timeline = hand_timeline(&options).expect("时间轴应能生成");
                     let actual = measured_rate(&timeline, 1.0);

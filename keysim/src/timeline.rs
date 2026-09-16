@@ -114,12 +114,19 @@ fn round(value: f64) -> f64 {
 /// - 逐符小噪声：截断高斯，不是均匀分布；
 /// - 组首犹豫：偶尔在组间隔上多停一下。
 ///
-/// 三项之和被钳在 ±jitter 的信封内，所以客户端的硬边界（划 > 点的两倍、
+/// `Fatigue` 在真人手感之上叠加宏观体力循环（慢漂移改由它承担）：
+/// 开局手速偏快且稳，随拍发量单调变慢；累极了在组间停下来休息几秒，
+/// 休完手速回升——但回不到开局那么快（累积疲倦逐轮抬高地板）。
+/// 休息停顿只加长组间隔——客户端按"大于阈值"判组，长一点只会更清楚，也没有
+/// 静默上限会把它当成报文结束（handKeyTrain.js 的 word/group 定时器只编译不终止）。
+///
+/// 各项之和被钳在 ±jitter 的信封内，所以客户端的硬边界（划 > 点的两倍、
 /// 点 > 10ms、抖动 ≤ 规则偏移）仍由 `check_hand_plan` 一处保证，不需要另算一套。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Style {
     Machine,
     Human,
+    Fatigue,
 }
 
 impl Style {
@@ -127,11 +134,12 @@ impl Style {
         match name {
             "machine" => Some(Style::Machine),
             "human" => Some(Style::Human),
+            "fatigue" => Some(Style::Fatigue),
             _ => None,
         }
     }
 
-    /// 真人手感在没指定抖动时的默认信封：±12%
+    /// 真人系风格（human / fatigue）在没指定抖动时的默认信封：±12%
     /// （低于 0.2 的硬上界，也低于默认规则偏移 51%）
     pub const HUMAN_DEFAULT_JITTER: f64 = 0.12;
 }
@@ -150,6 +158,8 @@ pub enum Slot {
 }
 
 /// 一个人的手感。全部由种子导出，同种子同手感。
+/// 慢漂移参数只有 `Human` 用，疲劳参数只有 `Fatigue` 用，各抽各的随机数，
+/// 两个风格互不影响对方的可复现性。
 #[derive(Debug, Clone, Copy)]
 struct Fist {
     bias_dot: f64,
@@ -157,31 +167,66 @@ struct Fist {
     bias_gap: f64,
     bias_word: f64,
     bias_group: f64,
+    /// Human 慢漂移：两条正弦的幅度与周期/相位
     drift: f64,
     periods: (f64, f64),
     phases: (f64, f64),
+    /// Fatigue 宏观手速摆动占信封的份额
+    tempo_share: f64,
+    /// Fatigue 连续拍发多少毫秒后累极（要休息）
+    work_span: f64,
+    /// Fatigue 一次休息的基础时长（毫秒）
+    rest_span: f64,
+    /// Fatigue 每休息一轮，累积疲倦地板抬升多少（休完也回不到开局）
+    wear_step: f64,
     noise: f64,
     hesitate: f64,
 }
 
 impl Fist {
-    fn derive(rng: &mut Rng) -> Fist {
+    /// 手速摆动的两端：fresh 是开局（偏快），tired 是累极（偏慢），取值 [-1,1] 内
+    const TEMPO_FRESH: f64 = -0.55;
+    const TEMPO_TIRED: f64 = 0.70;
+    /// 累积疲倦地板的上限：后期再怎么累，也要给偏差和噪声留出信封余量
+    const WEAR_CAP: f64 = 0.45;
+
+    fn derive(rng: &mut Rng, style: Style) -> Fist {
         let spread = |rng: &mut Rng| rng.next_f64() * 2.0 - 1.0;
-        Fist {
+        let mut fist = Fist {
             // 系统性偏差占信封的三分之一：这是"谁在发"的部分，整页不变
             bias_dot: spread(rng) * 0.34,
             bias_dash: spread(rng) * 0.34,
             bias_gap: spread(rng) * 0.40,
             bias_word: spread(rng) * 0.30,
             bias_group: spread(rng) * 0.30,
-            // 慢漂移占三分之一：热身与疲劳
-            drift: 0.34,
-            periods: (7000.0 + rng.next_f64() * 6000.0, 19000.0 + rng.next_f64() * 14000.0),
-            phases: (rng.next_f64() * std::f64::consts::TAU, rng.next_f64() * std::f64::consts::TAU),
+            drift: 0.0,
+            periods: (0.0, 0.0),
+            phases: (0.0, 0.0),
+            tempo_share: 0.0,
+            work_span: 0.0,
+            rest_span: 0.0,
+            wear_step: 0.0,
             // 逐符噪声占三分之一
             noise: 0.32,
             hesitate: 0.09,
+        };
+        match style {
+            // 慢漂移占三分之一：热身与疲劳
+            Style::Human => {
+                fist.drift = 0.34;
+                fist.periods = (7000.0 + rng.next_f64() * 6000.0, 19000.0 + rng.next_f64() * 14000.0);
+                fist.phases = (rng.next_f64() * std::f64::consts::TAU, rng.next_f64() * std::f64::consts::TAU);
+            }
+            // 疲劳循环占另一半：宏观手速先快后慢、休息后回升
+            Style::Fatigue => {
+                fist.tempo_share = 0.50;
+                fist.work_span = 60_000.0 + rng.next_f64() * 90_000.0;
+                fist.rest_span = 1_500.0 + rng.next_f64() * 3_000.0;
+                fist.wear_step = 0.10 + rng.next_f64() * 0.08;
+            }
+            Style::Machine => {}
         }
+        fist
     }
 
     fn bias(&self, slot: Slot) -> f64 {
@@ -194,11 +239,16 @@ impl Fist {
         }
     }
 
-    /// 两条正弦叠加，取值落在 [-1,1]
+    /// Human 慢漂移：两条正弦叠加，取值落在 [-1,1]
     fn wander(&self, at: f64) -> f64 {
         let first = (at / self.periods.0 * std::f64::consts::TAU + self.phases.0).sin();
         let second = (at / self.periods.1 * std::f64::consts::TAU + self.phases.1).sin();
         (first + second) / 2.0
+    }
+
+    /// Fatigue 当前手速：疲劳 0（开局）→ 偏快，疲劳 1（累极）→ 偏慢
+    fn tempo(&self, fatigue: f64) -> f64 {
+        Self::TEMPO_FRESH + fatigue.clamp(0.0, 1.0) * (Self::TEMPO_TIRED - Self::TEMPO_FRESH)
     }
 }
 
@@ -206,10 +256,15 @@ pub struct Builder {
     key: &'static str,
     plan: Timing,
     jitter: f64,
-    /// 有手感就是真人风格；机械风格没有手感对象
+    style: Style,
+    /// 有手感就是真人系风格；机械风格没有手感对象
     fist: Option<Fist>,
     rng: Rng,
     cursor: f64,
+    /// 距上次休息已拍发的工作量（毫秒）；只在疲劳模式下推进
+    worked: f64,
+    /// 累积疲倦地板：休息清不掉的那部分，逐轮抬升
+    wear: f64,
     events: Vec<Event>,
     chars: Vec<Char>,
 }
@@ -222,30 +277,50 @@ impl Builder {
     pub fn styled(key: &'static str, plan: Timing, jitter: f64, seed: u32, style: Style) -> Self {
         let mut rng = Rng::new(seed);
         let fist = match style {
-            Style::Human => Some(Fist::derive(&mut rng)),
             Style::Machine => None,
+            _ => Some(Fist::derive(&mut rng, style)),
         };
-        Builder { key, plan, jitter, fist, rng, cursor: 0.0, events: Vec::new(), chars: Vec::new() }
+        Builder { key, plan, jitter, style, fist, rng, cursor: 0.0, worked: 0.0, wear: 0.0, events: Vec::new(), chars: Vec::new() }
     }
 
     pub fn cursor(&self) -> f64 {
         self.cursor
     }
 
-    /// 机械风格：均匀白噪声。真人风格：系统偏差 + 慢漂移 + 截断高斯，和钳在信封内。
+    /// 机械风格：均匀白噪声。真人系风格：系统偏差 + 宏观手速 + 截断高斯，和钳在信封内。
+    /// 宏观手速 Human 走正弦慢漂移，Fatigue 走疲劳循环。
     fn deviation(&mut self, slot: Option<Slot>) -> f64 {
         if self.jitter <= 0.0 {
             return 0.0;
         }
         match (self.fist, slot) {
             (Some(fist), Some(slot)) => {
-                let at = self.cursor;
                 // 截断高斯：两次均匀取样相加再折半，落在 [-1,1]，中间密两头疏
                 let noise = self.rng.next_f64() + self.rng.next_f64() - 1.0;
-                let total = fist.bias(slot) + fist.drift * fist.wander(at) + fist.noise * noise;
+                let wander = match self.style {
+                    Style::Fatigue => fist.tempo_share * fist.tempo(self.fatigue()),
+                    _ => fist.drift * fist.wander(self.cursor),
+                };
+                let total = fist.bias(slot) + wander + fist.noise * noise;
                 total.clamp(-1.0, 1.0) * self.jitter
             }
             _ => (self.rng.next_f64() * 2.0 - 1.0) * self.jitter,
+        }
+    }
+
+    /// 当前疲劳度 [0,1]：拍发工作量除以累极阈值，但永远不低于休息清不掉的地板。
+    /// 只有疲劳模式有疲劳可言。
+    fn fatigue(&self) -> f64 {
+        match (self.style, self.fist) {
+            (Style::Fatigue, Some(fist)) => (self.worked / fist.work_span).max(self.wear).min(1.0),
+            _ => 0.0,
+        }
+    }
+
+    /// 拍发是有氧运动：按压与间隔都算工作量，推着疲劳往前走
+    fn exert(&mut self, ms: f64) {
+        if self.style == Style::Fatigue {
+            self.worked += ms;
         }
     }
 
@@ -264,7 +339,8 @@ impl Builder {
         applied
     }
 
-    /// 空走一个已知槽位的间隔：真人在组首偶尔会多停一下
+    /// 空走一个已知槽位的间隔：真人系在组首偶尔会多停一下，
+    /// 疲劳模式累极了会直接在组间休息
     pub fn wait_slot(&mut self, slot: Slot) -> f64 {
         let nominal = match slot {
             Slot::Dot => self.plan.dot,
@@ -279,7 +355,15 @@ impl Builder {
             if slot == Slot::Group && self.rng.next_f64() < fist.hesitate {
                 applied = round(applied * (1.0 + self.rng.next_f64() * 0.6));
             }
+            // 累极了就在这个组间隔里歇一口气，休完疲劳清零但地板抬升
+            if slot == Slot::Group && self.fatigue() >= 1.0 {
+                let rest = fist.rest_span * (0.8 + self.rng.next_f64() * 0.6);
+                applied = round(applied + rest);
+                self.worked = 0.0;
+                self.wear = (self.wear + fist.wear_step).min(Fist::WEAR_CAP);
+            }
         }
+        self.exert(applied);
         self.cursor = round(self.cursor + applied);
         applied
     }
@@ -306,6 +390,7 @@ impl Builder {
         self.events.push(Event { at: round(self.cursor), kind: Kind::Down, fault: None });
         self.cursor = round(self.cursor + duration);
         self.events.push(Event { at: self.cursor, kind: Kind::Up, fault: None });
+        self.exert(duration);
         duration
     }
 
@@ -339,7 +424,7 @@ impl Builder {
 }
 
 /// 手键节拍可行性校验。这些不是风格偏好，是客户端判定的硬边界：
-/// - 点 ≤ 10ms 的按压被直接丢弃（useTraffic.js:64）；
+/// - 点 ≤ 10ms 的按压被直接丢弃（handKeyDecoder.js:54）；
 /// - 试机要求划 > 点的两倍（handKeyTrain.js:360）；
 /// - 抖动必须落在评分规则 skew 容差内，否则开始符校验不通过（:357-359）；
 /// - 成字/成组阈值跟随实测 codeGap（patStandard.js 重算，1:3:5 比例写死）：
@@ -351,7 +436,7 @@ pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64) -> Result<(), Stri
     let low = 1.0 - jitter;
     let high = 1.0 + jitter;
     if plan.dot * low <= 10.0 {
-        problems.push(format!("点时长 {:.1}ms ≤ 10ms，会被 useTraffic.js:64 丢弃", plan.dot * low));
+        problems.push(format!("点时长 {:.1}ms ≤ 10ms，会被 handKeyDecoder.js:54 丢弃", plan.dot * low));
     }
     if plan.dash * low <= plan.dot * high * 2.0 {
         problems.push(format!(
@@ -388,7 +473,8 @@ pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64) -> Result<(), Stri
 mod tests {
     use super::*;
 
-    /// 归一化偏差序列：真实时长 / 名义时长 - 1
+    /// 归一化偏差序列：真实时长 / 名义时长 - 1。
+    /// Human 的正弦周期最短 7s，300 个点约 25s 足够采出慢漂移
     fn deviations(style: Style, jitter: f64, slot: Slot) -> Vec<f64> {
         let plan = crate::morse::timing(70.0, "characters", "letter", crate::morse::Ratio::default(), false).unwrap();
         let mut builder = Builder::styled("hand", plan, jitter, 7, style);
@@ -429,11 +515,13 @@ mod tests {
     }
 
     #[test]
-    /// 真人手感不能越出信封：客户端的"划 > 点两倍""点 > 10ms"全靠这条守住
+    /// 真人系风格不能越出信封：客户端的"划 > 点两倍""点 > 10ms"全靠这条守住
     fn human_style_stays_inside_the_envelope() {
         for slot in [Slot::Dot, Slot::Dash, Slot::Gap, Slot::Word] {
-            for value in deviations(Style::Human, 0.12, slot) {
-                assert!(value.abs() <= 0.12 + 1e-9, "{slot:?} 偏差 {value} 越出 ±12% 信封");
+            for style in [Style::Human, Style::Fatigue] {
+                for value in deviations(style, 0.12, slot) {
+                    assert!(value.abs() <= 0.12 + 1e-9, "{style:?}/{slot:?} 偏差 {value} 越出 ±12% 信封");
+                }
             }
         }
     }
@@ -487,6 +575,50 @@ mod tests {
             (0..40).map(|_| builder.press_element(false) / plan.dot - 1.0).collect()
         };
         assert_ne!(first[..40].to_vec(), other, "换种子应当换一个人");
+    }
+
+    #[test]
+    /// 疲劳循环是疲劳模式的宏观骨架：开局快 → 累极慢 → 组间休息 → 休完回升。
+    /// 休息只表现为远超名义的组间隔（犹豫最多 ×1.6×1.12 < 2，不会误判成休息）
+    fn fatigue_cycle_slows_rests_and_recovers() {
+        let plan = crate::morse::timing(70.0, "characters", "letter", crate::morse::Ratio::default(), false).unwrap();
+        let mut builder = Builder::styled("hand", plan, 0.12, 7, Style::Fatigue);
+        let mut dots: Vec<f64> = Vec::new();
+        let mut rest_at: Option<usize> = None;
+        // work_span 最长 150s，一组约 0.75s → 400 组必到累极
+        for _ in 0..400 {
+            for _ in 0..4 {
+                dots.push(builder.press_element(false) / plan.dot);
+            }
+            if builder.wait_slot(Slot::Group) > plan.group * 2.0 {
+                rest_at = Some(dots.len());
+                break;
+            }
+        }
+        let rest_at = rest_at.expect("连续拍发 400 组内必须出现一次休息停顿");
+        let fresh = mean(&dots[..16]);
+        let tired = mean(&dots[rest_at - 16..rest_at]);
+        assert!(tired > fresh + 0.02, "累极应明显慢于开局：{fresh:.3} → {tired:.3}");
+        let recovered: Vec<f64> = (0..16).map(|_| builder.press_element(false) / plan.dot).collect();
+        let recovered = mean(&recovered);
+        assert!(recovered < tired - 0.02, "休息后手速应明显回升：{tired:.3} → {recovered:.3}");
+    }
+
+    #[test]
+    /// 机械与真人（正弦）风格永不停歇：拍发同样的量，组间隔绝不能出现休息级停顿。
+    /// 真人系有组首犹豫（≤×1.6×1.12），上限放宽到 1.9；机械只有白噪声（≤×1.12）
+    fn non_fatigue_styles_never_rest() {
+        let plan = crate::morse::timing(70.0, "characters", "letter", crate::morse::Ratio::default(), false).unwrap();
+        for (style, bound) in [(Style::Machine, 1.2), (Style::Human, 1.9)] {
+            let mut builder = Builder::styled("hand", plan, 0.12, 7, style);
+            for _ in 0..400 {
+                for _ in 0..4 {
+                    builder.press_element(false);
+                }
+                let gap = builder.wait_slot(Slot::Group);
+                assert!(gap <= plan.group * bound, "{style:?} 的组间隔出现休息级停顿：{gap}");
+            }
+        }
     }
 
     #[test]

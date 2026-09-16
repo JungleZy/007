@@ -3,7 +3,7 @@
 //! 单个 Rust 可执行文件：网页控制台、虚拟串口（内核级 / PTY / 桥接 / 浏览器注入）、
 //! 节拍模型、故障注入、后端载荷与 REST 驱动、root 助手，全部内嵌。
 //!
-//! 口径来源全部是仓内生产代码（前端 useTraffic.js / WebSerial.js / handKeyTrain.js、
+//! 口径来源全部是仓内生产代码（前端 handKeyDecoder.js / WebSerial.js / handKeyTrain.js、
 //! 后端 GeneralTickerPatService.java / GeneralKeyPatService.java），
 //! tests/ 下的对表测试会逐项核对，任何一侧改动导致漂移即测试失败。
 
@@ -38,7 +38,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
   --seed <n>            随机种子（默认 1）
   --skew <n>            评分规则偏移量，手键可行性校验用（默认 51）
-  --style <名>          machine 机械等长（默认）| human 真人手感（默认 ±12% 信封）
+  --style <名>          machine 机械等长（默认）| human 真人手感（±12% 信封，带疲劳-休息-恢复循环）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
   --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
