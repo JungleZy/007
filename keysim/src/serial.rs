@@ -155,6 +155,10 @@ impl VirtualSerial {
     }
 
     pub fn attach_inject(&self, stream: std::net::TcpStream) {
+        // 回放线程在持有 inject 锁期间做阻塞写：对端进程被杀但 TCP 未彻底断开时，
+        // write_all 会一直阻塞，/api/state 等同锁读取随之卡死（控制台表现为"端口活着但 API 无响应"）。
+        // 写超时让失联客户端在至多 2s 后报错、被 retain_mut 剔除。
+        let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(2)));
         self.inject.lock().push(stream);
         let count = self.inject.lock().len();
         self.log("info", format!("浏览器虚拟串口已接入（当前 {count} 个）"));
