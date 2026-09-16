@@ -705,18 +705,18 @@ export default function (trainData, patStandard, loading, title, handleBaoWenKey
     gap = gap.sort((a, b) => a - b)
     if (dot.length > 0) {
       consumTime.value.dot.av = Math.floor(sum(dot) / dot.length)
-      consumTime.value.dot.min = dot[0]
-      consumTime.value.dot.max = dot[dot.length - 1]
+      consumTime.value.dot.min = Math.floor(dot[0])
+      consumTime.value.dot.max = Math.floor(dot[dot.length - 1])
     }
     if (line.length > 0) {
       consumTime.value.line.av = Math.floor(sum(line) / line.length)
-      consumTime.value.line.min = line[0]
-      consumTime.value.line.max = line[line.length - 1]
+      consumTime.value.line.min = Math.floor(line[0])
+      consumTime.value.line.max = Math.floor(line[line.length - 1])
     }
     if (gap.length > 0) {
       consumTime.value.gap.av = Math.floor(sum(gap) / gap.length)
-      consumTime.value.gap.min = gap[0]
-      consumTime.value.gap.max = gap[gap.length - 1]
+      consumTime.value.gap.min = Math.floor(gap[0])
+      consumTime.value.gap.max = Math.floor(gap[gap.length - 1])
     }
   }
 

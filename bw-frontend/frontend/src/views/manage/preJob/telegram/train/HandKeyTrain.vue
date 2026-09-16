@@ -156,7 +156,7 @@
                 <div class="text">
                   <img :src="fileUrl+codeType+'/'+bw.key+'.png'" alt="">
                 </div>
-                <div class="value" :title="bw.time.map(t => ((t[1]-t[0])+'ms')).join(',')" style="cursor: default">
+                <div class="value" :title="bw.time.map(t => (Math.round(t[1] - t[0]) + 'ms')).join(',')" style="cursor: default">
                   <div v-if="bw.val.length > 0" class="vals">
                     <span v-for="(val, v) in bw.val" class="val" :data="val"></span>
                   </div>
@@ -461,7 +461,7 @@
                                         gap: code.key===2 || code.key===12}"
                                     :style="{width: parseInt(code.value/2)+'px',minWidth: '15px'}"
                                     v-if="c < (word.length - 1)">
-                                 <div class="num">{{ code.value }}</div>
+                                 <div class="num">{{ Math.round(code.value) }}</div>
                                  <div class="nimi"
                                       v-if="c < (word.length - morseCode[numberCodeType][group.key[w]].len*2)"></div>
                                  <div class="abno" v-if="code.key===12||code.key===11||code.key===10"></div>
@@ -518,7 +518,7 @@
                                     gap: code.key===2 || code.key===12}"
                                 :style="{width: parseInt(code.value/2)+'px',minWidth: '15px'}"
                                 v-if="c < (group.list.length - 1)">
-                             <div class="num">{{ code.value }}</div>
+                             <div class="num">{{ Math.round(code.value) }}</div>
                              <div class="nimi"
                                   v-if="c < (group.list.length - morseCode[numberCodeType][group.key].len*2)"></div>
                              <div class="abno" v-if="code.key===12||code.key===11||code.key===10"></div>
