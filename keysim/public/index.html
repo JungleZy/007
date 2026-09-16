@@ -392,7 +392,6 @@
         </select>
       </div>
       <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
-      <label class="field"><input type="checkbox" id="singlePage" checked/> 单页</label>
     </div>
     <div class="row" style="margin-top:6px">
       <label>故障</label>
@@ -562,7 +561,6 @@ const params = () => ({
   seed: Number($('seed').value),
   skew: Number($('skew').value),
   preamble: $('preamble').checked,
-  singlePage: $('singlePage').checked,
   tail: $('tail').value,
   style: $('style').value,
   faults: faults(),
@@ -1115,7 +1113,7 @@ for (const [id, name] of Object.entries(labels)) {
 for (const box of document.querySelectorAll('.fault')) {
   box.addEventListener('change', () => log('故障注入 ' + box.parentElement.textContent.trim() + (box.checked ? ' 已开' : ' 已关'), box.checked ? 'warn' : 'info'))
 }
-for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'singlePage']) {
+for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble']) {
   const node = $(id)
   if (!node) continue
   // textarea 与文本/数字 input 都要听 input：只听 change 的话失焦才刷新，边打字纸带不动

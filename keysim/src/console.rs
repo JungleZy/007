@@ -62,7 +62,6 @@ fn hand_options(params: &Value) -> Result<HandOptions, String> {
         seed: number(params, "seed", 1.0) as u32,
         preamble: params["preamble"].as_bool().unwrap_or(true),
         tail: text_of(params, "tail", &defaults.tail),
-        single_page: params["singlePage"].as_bool().unwrap_or(true),
         low_rate: params["lowRate"].as_bool().unwrap_or(false),
         style: text_of(params, "style", &defaults.style),
     })

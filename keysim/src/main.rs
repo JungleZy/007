@@ -34,14 +34,13 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --key hand|electron   键型（hand/electron 子命令已隐含）
   --text <报文>         组间空格分隔；也可用 --random <组数> 现生成
   --alphabet <名>       letter | short | long | mix（默认 letter）
-  --rate <n>            手键 字符/分（默认 120），电子键 组/分（默认 30，等价 120 字/分）
+  --rate <n>            手键 字符/分（默认 90；60ms 夹值下 >104 无法成组），电子键 组/分（默认 30）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
   --seed <n>            随机种子（默认 1）
   --skew <n>            评分规则偏移量，手键可行性校验用（默认 51）
   --style <名>          machine 机械等长（默认）| human 真人手感（默认 ±12% 信封）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
-  --multi-page          非单页训练：按\"翻页后 codeGap 夹到 60ms\"校验可行性
   --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
   --sink <名>           frames（默认）| bytes | payload
   --chunk <名>          bytes 分包：exact（默认）|split|merge|random
@@ -81,7 +80,7 @@ impl Args {
             let value = inline.or_else(|| {
                 if matches!(
                     name.as_str(),
-                    "no-autostart" | "no-preamble" | "multi-page" | "hold" | "help" | "json"
+                    "no-autostart" | "no-preamble" | "hold" | "help" | "json"
                 ) {
                     None
                 } else {
@@ -134,7 +133,6 @@ fn params_of(args: &Args, key: &str) -> Result<Value, String> {
         "skew": args.number("skew").unwrap_or(51.0),
         "style": args.text("style").unwrap_or("machine"),
         "preamble": !args.has("no-preamble"),
-        "singlePage": !args.has("multi-page"),
         "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default()
     });
     if let Some(rate) = args.number("rate") {

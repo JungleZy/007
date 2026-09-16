@@ -28,8 +28,6 @@ pub struct HandOptions {
     pub preamble: bool,
     /// "turn" 翻页符 | "end" 结束符 | "none"
     pub tail: String,
-    /// 单页训练不经历"翻页后 codeGap 夹到 60ms"，可用更高码率
-    pub single_page: bool,
     pub low_rate: bool,
     /// "machine" 机械等长 | "human" 真人手感
     pub style: String,
@@ -40,14 +38,13 @@ impl Default for HandOptions {
         HandOptions {
             text: String::new(),
             alphabet: "letter".into(),
-            rate: 120.0,
+            rate: 90.0,
             unit: "characters".into(),
             skew: 51.0,
             jitter: 0.0,
             seed: 1,
             preamble: true,
             tail: "turn".into(),
-            single_page: true,
             low_rate: false,
             style: "machine".into(),
         }
@@ -192,7 +189,7 @@ where
 pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
     let (_, envelope) = resolve_style(&options.style, options.jitter)?;
     let plan = morse::timing(options.rate, &options.unit, &options.alphabet, Ratio::default(), options.low_rate)?;
-    check_hand_plan(&plan, options.skew, envelope, !options.single_page)?;
+    check_hand_plan(&plan, options.skew, envelope)?;
     Ok(plan)
 }
 
@@ -205,9 +202,9 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
     }
     let per_unit = if options.unit == "groups" { 4.0 } else { 1.0 };
     let timeline = calibrate(options.rate, per_unit, |factor| build_hand_timeline(options, nominal.scaled(factor)))?;
-    // 定标后的节拍仍须过客户端硬边界（点 > 10ms、划 > 点两倍、翻页后能成字）
+    // 定标后的节拍仍须过客户端硬边界（点 > 10ms、划 > 点两倍、60ms 夹值后能成字成组）
     let (_, envelope) = resolve_style(&options.style, options.jitter)?;
-    check_hand_plan(&timeline.plan, options.skew, envelope, !options.single_page)?;
+    check_hand_plan(&timeline.plan, options.skew, envelope)?;
     Ok(timeline)
 }
 
@@ -572,7 +569,7 @@ mod tests {
     /// 报文内容一变（EEEE TTTT 全是单笔字），名义定标会偏出几十个百分点，
     /// 所以这里逐一核对实测值，而不是核对 criterion。
     fn hand_rate_matches_the_measured_formula() {
-        for rate in [40.0, 70.0, 100.0, 140.0] {
+        for rate in [40.0, 70.0, 90.0] {
             for text in ["ABCD EFGH", "HELL OWOR LDXX", "EEEE TTTT", "ABCD EFGH IJKL MNOP QRST"] {
                 for style in ["machine", "human"] {
                     let options = HandOptions { text: text.into(), rate, style: style.into(), ..Default::default() };
@@ -613,7 +610,7 @@ mod tests {
     fn preamble_passes_calibration() {
         // 抖动上界：3(1-j) > 2(1+j) → j < 0.2，所以 0.2 本身不可用（见下一个测试）
         for jitter in [0.0, 0.15] {
-            let options = HandOptions { text: "A".into(), jitter, seed: 7, ..Default::default() };
+            let options = HandOptions { text: "ABCD EFGH".into(), jitter, seed: 7, ..Default::default() };
             let timeline = hand_timeline(&options).unwrap();
             let preamble = timeline.chars.iter().find(|item| item.value == "开始").unwrap();
             let dots: Vec<f64> = preamble
@@ -649,7 +646,7 @@ mod tests {
         let options = HandOptions { text: "A".into(), jitter: 0.6, skew: 50.0, ..Default::default() };
         assert!(hand_timeline(&options).unwrap_err().contains("抖动"));
         // 边界：抖动 ≥0.2 时"划的最短"不再超过"点的最长"的两倍，客户端试机必失败
-        let boundary = HandOptions { text: "A".into(), jitter: 0.2, skew: 99.0, ..Default::default() };
+        let boundary = HandOptions { text: "A".into(), jitter: 0.2, skew: 99.0, rate: 40.0, ..Default::default() };
         let error = hand_timeline(&boundary).expect_err("抖动 0.2 必须被拒");
         assert!(error.contains("两倍"), "{error}");
         assert!(hand_timeline(&HandOptions { jitter: 0.19, ..boundary }).is_ok(), "0.19 应当可用");

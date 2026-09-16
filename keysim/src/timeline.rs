@@ -342,9 +342,11 @@ impl Builder {
 /// - 点 ≤ 10ms 的按压被直接丢弃（useTraffic.js:64）；
 /// - 试机要求划 > 点的两倍（handKeyTrain.js:360）；
 /// - 抖动必须落在评分规则 skew 容差内，否则开始符校验不通过（:357-359）；
-/// - 翻页会触发每页重算并把 codeGap 夹到 ≥60ms（patStandard.js:41-43），此后字间隔须
-///   > 60×(1+skew/100)、组间隔须 > 60×(3+skew/100)，否则翻页后再也编译不出字码。
-pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64, page_turns: bool) -> Result<(), String> {
+/// - 每次成组（不只翻页）都会触发 pageResetPatStandard 重算并把 codeGap 夹到 ≥60ms
+///   （handKeyTrain.js:553-557 → patStandard.js:41-43；2026-09-16 数码报 e2e 实测：
+///   120 字/分时第一组之后组间隔 184ms < 60×3.51=210.6ms，再也编译不出组）。
+///   所以夹值无条件生效：字间隔须 > 60×(1+skew/100)、组间隔须 > 60×(3+skew/100)。
+pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64) -> Result<(), String> {
     let mut problems: Vec<String> = Vec::new();
     let low = 1.0 - jitter;
     let high = 1.0 + jitter;
@@ -361,7 +363,7 @@ pub fn check_hand_plan(plan: &Timing, skew: f64, jitter: f64, page_turns: bool) 
     if jitter * 100.0 > skew {
         problems.push(format!("抖动 ±{}% 超过规则容差 ±{}%，开始符校验必失败", jitter * 100.0, skew));
     }
-    let clamped = if page_turns { plan.gap.max(60.0) } else { plan.gap };
+    let clamped = plan.gap.max(60.0);
     if plan.word <= clamped * (1.0 + skew / 100.0) {
         problems.push(format!(
             "字间隔 {:.1}ms 未超过 codeGap 阈值 {:.1}ms，无法成字",
