@@ -66,7 +66,7 @@
                   <div class="scale"></div>
                   <div class="vals overflow-auto" :id="'patValBox'+u">
                     <template v-for="(code, i) in user.log" :key="i">
-                      <div class="gap" :style="{ width: code.gap / 10 + 'px' }">{{ code.gap > 5000 ? code.gap + 'ms' : '' }}</div>
+                      <div class="gap" :style="{ width: code.gap / 10 + 'px' }">{{ code.gap > 5000 ? Math.round(code.gap) + 'ms' : '' }}</div>
                       <div class="val" :style="{ width: code.diff / 10 + 'px' }"></div>
                     </template>
                   </div>

@@ -331,7 +331,7 @@
                                       gap: code.key==2}"
                                :style="{width: parseInt(code.value/2)+'px',minWidth: '15px'}"
                                v-if="c < (word.length - 1)">
-                            <div class="num">{{code.value}}</div>
+                            <div class="num">{{ Math.round(code.value) }}</div>
                           </div>
                         </template>
                       </div>
@@ -347,7 +347,7 @@
                         <div class="time gap"
                              v-if="word[word.length-1]"
                              :style="{width:parseInt(word[word.length-1].value/2)+'px'}">
-                          <div class="num">{{word[word.length-1].value}}</div>
+                          <div class="num">{{ Math.round(word[word.length - 1].value) }}</div>
                           <div class="abno" v-if="word[word.length-1].value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"
                                :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"></div>
                         </div>
@@ -374,7 +374,7 @@
                        :style="{maxWidth: (scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2>800?800:
                                 scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2)+'px',
                                 width:parseInt(group.patLog[group.patLog.length-1][group.patLog[group.patLog.length-1].length-1].value/2)+'px'}">
-                    <div class="num">{{group.patLog[group.patLog.length-1][group.patLog[group.patLog.length-1].length-1].value}}</div>
+                    <div class="num">{{ Math.round(group.patLog[group.patLog.length - 1][group.patLog[group.patLog.length - 1].length - 1].value) }}</div>
                     <div class="abno"
                          v-if="group.patLog[group.patLog.length-1][group.patLog[group.patLog.length-1].length-1].value >
                                scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"
