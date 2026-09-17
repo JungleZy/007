@@ -1,4 +1,3 @@
-import { log } from '@antv/g2plot/lib/utils/invariant.js'
 import axios from '../http/axios.js'
 
 export const userLogin = (data) => {

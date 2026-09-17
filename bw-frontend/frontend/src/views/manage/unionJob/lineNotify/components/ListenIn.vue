@@ -96,7 +96,6 @@ import TrainResult from '../../disturbCode/TrainResult.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { FileTextOutlined } from '@ant-design/icons-vue'
 import { uploadUnionTrainResult, apiSimulationRouterFindPage } from '../../../../../common/api/UnionApi'
-import { log } from '@antv/g2plot/lib/utils'
 import iconImage from "../../../postJob/js/iconImage";
 
 const {receiveBg} = iconImage()

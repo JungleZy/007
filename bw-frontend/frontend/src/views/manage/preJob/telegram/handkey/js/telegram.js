@@ -4,7 +4,6 @@ import useMorse from '../../../../../../common/mixin/useMorse.js'
 import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
 import { timeFormatInfo } from '../../../../../../common/utils/Utils.js'
 import { saveTelegramTrain, saveBasicSetting, getBasicSetting, findHandKeyTrainTotal, findPrevHandKeyTrainInfo } from '../../../../../../common/api/TelegramApi.js'
-import { log } from '@antv/g2plot/lib/utils/invariant.js'
 import { parseTelegramBasicSettings, settingMilliseconds } from '../../../../../../common/utils/telegramSettings.js'
 
 export default function telegramList() {

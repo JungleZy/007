@@ -8,7 +8,6 @@ import { PubSub } from '../../../../../../common/utils/PubSub.js'
 import { Ws, wsCode } from '../../../../../../common/ws/Ws.js'
 import { startTelegramTrain, pauseTelegramTrain, endTelegramTrain, saveFloorContent, getTelegramTrainLog } from '../../../../../../common/api/TelegramApi.js'
 import * as echarts from 'echarts'
-import { log } from '@antv/g2plot/lib/utils/invariant.js'
 import { last } from 'ramda'
 import {getFloorContentByFloor} from "../../../../../../common/api/TelegramApi";
 

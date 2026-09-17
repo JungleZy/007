@@ -8,7 +8,6 @@ import { sanitizeHtml } from '../../../../../../../common/utils/sanitizeHtml.js'
 import { getByKnowledgeSwfIdAndEnable, saveUserKnowledgeSwfTestContent, getTestContentByUserIdAndKnowledgeSwfId, saveTheoryKnowledgeRecord } from '../../../../../../../common/api/TestApi.js'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
-import { log } from '@antv/g2plot/lib/utils/invariant.js'
 export default function userDetails(data) {
   onMounted(() => {
     countdown()

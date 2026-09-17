@@ -164,7 +164,6 @@
   import stateWsOn from '../../../../../assets/HJ/ico/ico-state-ws-on.png'
   import keyEnter from '../../../../../assets/HJ/exam/keyEnter.png'
   import CutDown from '../../../../../components/cutDown/CutDown.vue'
-  import { log } from '@antv/g2plot/lib/utils/invariant.js'
   const interfaceStyle = window.interfaceStyle
   let keyboardBg
   if(interfaceStyle==='HJ' || interfaceStyle==='GD'){

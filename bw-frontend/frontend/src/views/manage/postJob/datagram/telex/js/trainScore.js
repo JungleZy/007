@@ -6,7 +6,6 @@ import { partTimeFormatInfo } from '../../../../../../common/utils/Utils.js'
 import { getTelexTrainByID, apiPostTelexPatTrainGetPage } from '../../../../../../common/api/TelegramApi.js'
 import { deepClone } from '../../../../../../common/utils/Utils.js'
 import * as echarts from 'echarts'
-import { log } from '@antv/g2plot/lib/utils/invariant.js'
 
 export default function telegramList(patHairTrendBoxRef) {
   const loading = ref(true)

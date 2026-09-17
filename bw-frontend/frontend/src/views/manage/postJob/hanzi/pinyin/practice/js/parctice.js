@@ -7,7 +7,6 @@ import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import Homophone from '../../../../../../../common/utils/Homophone'
   
 import { apiPostTrainGlobalRuleType } from '../../../../../../../common/api/postWording'
-import { log } from '@antv/g2plot/lib/utils'
 
 export default function parctice(countDown) {
   onMounted(() => {

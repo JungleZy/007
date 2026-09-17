@@ -11,7 +11,9 @@ module.exports = {
   // rules 里面的内容根据团队风格统一配置
   rules: {
     'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
-    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off'
+    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+    // 防死 import 回潮（如 g2plot log 事件）：存量违规较多，先 warn 观察
+    'no-unused-vars': 'warn'
   },
   parserOptions: {
     parser: 'babel-eslint'
