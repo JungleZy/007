@@ -61,7 +61,7 @@
 | B12 | 依赖冗余：bluebird/body-parser/compression/formidable/mockjs 声明但 src 零引用 | package.json | 已验证 | K3-R1，GLM-R2 采信 |
 | B13 | main.js:91 debounce 指令 unmounted 错写 addEventListener 且 el.$handle 从未赋值（确凿 bug）；waves 指令含 Vue2 死钩子 bind/unbind 且 v-waves 全仓仅 1 用 | 主持人 F6 复核 | 已验证 | K3-R1，GLM-R2 |
 | B14 | http/index.js:39 `config.method === 'POST'` 死分支（axios 先归一小写，永不命中） | axios 源码 Axios.js:41-47 | 已验证 | K3-R1，GLM-R2 源码证实 |
-| B15 | equipment 双入口：Index.vue（9 行）vs equipmentIndex.vue（370 行） | 现象已验证，存活 [推断] | 部分 | GLM-R1 |
+| B15 | equipment 双入口：Index.vue（9 行）vs equipmentIndex.vue（370 行） | 菜单表终判：`/manage/equipment/Index` 与 `/manage/equipment/equipmentIndex` **均被菜单引用，两者皆活**；收敛需菜单合并，见 3.4 | 已验证 | GLM-R1，菜单表终判 |
 
 ---
 
@@ -98,13 +98,30 @@
 - ~~「41 个纯 Options API」~~（R2 口径修正：18 Options + ~25 setup()）
 - ~~GLM「WZTrain 现在抽 computationTime」~~（函数不存在，GLM 自纠）
 
+### 3.4 菜单表终判（本地 `t_menus` 查询，2026-09-17）
+
+评审后查询本地 MySQL `t_menus`（130 条 DISTINCT component 路径），将动态路由卡住的 [推断] 项终判：
+
+| 项 | 终判 | 依据 |
+|---|------|------|
+| `equipmentOperate/equipmentList1/`（第三份拷贝） | **确证死代码，可删** | 菜单 0 引用 |
+| 各 `teaching/Index1.vue` | **确证死代码，可删** | 菜单 0 引用（菜单指向 `teaching/Index`） |
+| `views/Index.vue`（空模板） | **确证死代码，可删** | 无对应菜单 |
+| equipment 双入口 | **两者皆活** | `/manage/equipment/Index` 与 `/manage/equipment/equipmentIndex` 均在菜单表 |
+| preJob/postJob | **双双重度存活**（37 + 33 条菜单） | 合并任何一层都必须迁移菜单 path，J2「菜单协同」前置证实为硬约束 |
+| organization 四模块 | **2 活 + 2 疑似死**：electronKeyZuXun、handkeyZuXun 有路由；**datagramZuXun、telexZuXun 无菜单路由且无静态路由**，当前菜单数据下不可达 | 菜单表全列查询；但 `useNotification.js:46` 等 4 处代码仍 `router.push` 指向 `datagramZuXunTrain` 路由名——若生产菜单同样缺失，这些跳转是断链。**需生产菜单表复核** |
+| 拼写目录改名 | **大部分无需菜单同步**：`compoents/`、`perviewTest`、`parctice.js` 菜单 0 引用（降 P1）；**例外** `unionJob/broadcastTeacheing/` 被菜单 `/manage/unionJob/broadcastTeacheing/BroadcastTeachTrain` 引用，改名必须同步菜单表（留 P2） | 菜单表逐名核查 |
+| 菜单健康反向检查 | **130 条菜单路径全部有对应文件，无断链菜单**（唯一 `-1` 为占位符） | 菜单路径 × 文件系统双向比对 |
+
+注意：本判定基于本地开发库 `project006` 快照；生产菜单数据若不同，以生产为准复核。
+
 ---
 
 ## 四、最终整改路线图（风险×收益排序）
 
 **P0 零/低风险，本期落地**
 1. 删 8 处 g2plot `log` 死 import；CI 加 no-unused-imports。（GLM-R1）
-2. 死代码批删：IndexDelete.vue、components/model/、useBase.js、anime.js、unpkg.js×2（省 1.5MB）、explain axios 死导入、vue-ueditor-wrap 注册+依赖+资源链、Vuex router 死状态、App.vue 注释块、http/index.js:39 死分支与 :6 框架层 console.log。（K3-R1/GLM-R2/F6）
+2. 死代码批删：IndexDelete.vue、components/model/、useBase.js、anime.js、unpkg.js×2（省 1.5MB）、explain axios 死导入、vue-ueditor-wrap 注册+依赖+资源链、Vuex router 死状态、App.vue 注释块、http/index.js:39 死分支与 :6 框架层 console.log、**equipmentList1 整目录、各 teaching/Index1.vue、views/Index.vue（3.4 菜单表终判确证）**。（K3-R1/GLM-R2/F6/菜单表）
 3. 修 main.js:91 debounce unmounted bug（v-debounce 7 处调用点）。（K3-R1/F6）
 4. 组件 name 残留 5 处：gradingRule×4 + GDStyle.vue:7。（双方）
 5. v-waves：确认唯一使用点后整条删除或重写（去 Vue2 死钩子）。（K3-R1/GLM）
@@ -119,6 +136,7 @@
 12. 15 组字节级相同文件合并——闸：若含路由目标 .vue 对，先查后端菜单表。（K3-R1，GLM 加闸）
 13. 两个 Pagination 二合一，保留 common 版（迁移 2 处引用）。（K3-R1/GLM-R2）
 14. dayjs/moment 二选一收敛。（K3-R1）
+14b. 拼写改名（无需菜单同步部分）：`compoents/`、`perviewTest`、`parctice.js`、`wb_colork.js` 等——菜单表证实 0 引用，纯 import 修复。（3.4 终判降级自 P2）
 
 **P2 中风险，需排期 + 分批 PR**
 15. common/http 导出 isBizOk/unwrap，统一 366 处 code 判断；先灭 35 处宽松等号；错误提示收口拦截器消灭双弹。（GLM-R1/K3-R1）
@@ -127,12 +145,12 @@
 18. TelegramApi.js 按业务域拆分（485 行/72 导出，仅动 import 路径）。（GLM-R1，P2 排序采 K3）
 19. 组件名唯一化 + defineOptions 替换 ~205 个双 script 块 + App.vue 双 script 统一。（双方）
 20. WS 上层语义对齐（J1 本期项）。（双方）
-21. views 层拼写目录改名（perviewTest/parctice/compoents 等）——必须与后端菜单表同步批次（guards.js:64 机制）；components 层拼写不受此限，可提前。（GLM/K3 交叉裁判修正）
+21. ~~views 层拼写目录改名~~ 经 3.4 终判：仅 `unionJob/broadcastTeacheing/` 被菜单引用需同步菜单表（保留本项）；compoents/perviewTest/parctice 已降 P1-14b。（GLM/K3 交叉裁判修正 + 菜单表终判）
 
 **P3 长线，设闸推进**
 22. preJob/postJob 三阶段合并：纯函数 → 相同文件共享 → 分化层参数化（业务确认为闸）。（J2）
 23. WZTrain/WordTrain：建档 + 确认函；仅字节级相同纯函数可机械抽取（实测候选已漂移，预期无可抽）。（J3）
-24. organization 四模块组训收敛（三胞胎合并 + handkeyZuXun 异类归属）。（K3-R1/GLM-R2）
+24. organization 收敛重定基线（3.4 终判）：electronKeyZuXun/handkeyZuXun 活，datagramZuXun/telexZuXun 疑似死（无路由）——先以生产菜单表复核两疑似死模块，若为死则直接删除而非合并；存活两模块再评估参数化。另需处理 4 处指向不存在路由的 router.push 断链。（K3-R1/GLM-R2/菜单表）
 25. lint 收口：eqeqeq、no-console、no-var、命名规范。（双方）
 26. 样式规范渐进收敛（内联 style/!important 评审卡口）。（双方）
 27. WS 单分发层终态（J1 条件触发）。（J1）
@@ -141,7 +159,7 @@
 
 ## 五、未决风险与外部依赖
 
-- **依赖后端菜单表**（guards.js:6/60-64 动态路由 glob 决定，静态分析无法替代）：views 层 Index1.vue 系列、equipmentList1、equipment 双入口的死活终判；equipment 合并后的 path 重指；views 层目录改名。
+- ~~依赖后端菜单表~~ **已终判（3.4）**：equipmentList1/Index1.vue/views-Index.vue 确证可删；equipment 双入口皆活；preJob/postJob 双活；拼写改名大部分解锁。残余菜单依赖仅两项：**生产菜单表复核** datagramZuXun/telexZuXun（本地快照已判死）；equipment 合并时的菜单 path 重指。
 - **依赖业务确认**：preJob/postJob 岗位隔离需求；WZTrain/WordTrain 差异意图；organization 四模块边界；`i<4` vs `i<1` 等已枚举行为差异的意图（刻意分叉 vs 未察觉 bug）。
 - **依赖运行时验证**：Ws.js:15 `PubSub.publish(NOTIFICATION_TRAIN_RESULT, data.map)` 疑似把数组方法当数据发布——**建议单独开 bug 单**，不随重构捎带。
 - **另行立项**：ant-design-vue 2.2.8 × Vue 3.5.42 版本代差兼容性（超出本次维度）。
