@@ -62,6 +62,7 @@ export default {
 }
 </script>
 <script setup>
+import moment from 'moment'
 import personal from './js/personal'
 import {ref} from 'vue'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
@@ -83,7 +84,7 @@ const {trainType,trainData,
   changeTab,isHaveTrainData,
   time,activeKey} = personal()
 const disabledDate = ( current) => {
-  return current && current >= dayjs().endOf('day');
+  return current && current >= moment().endOf('day');
 };
 </script>
 

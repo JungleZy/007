@@ -3,7 +3,7 @@ import {getUserTrainDurationStat,getRecentHandKeyTrains,getRecentElectronicKeyTr
 import {changePassword} from "../../../common/api/UserApi";
 import {message} from "ant-design-vue";
 import {useRoute, useRouter} from "vue-router";
-import dayjs from "dayjs";
+import moment from "moment";
 import * as echarts from 'echarts'
 export default function Personal(props) {
   const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
@@ -80,8 +80,8 @@ export default function Personal(props) {
     // 统计对象由后端按 token 推导，请求体只剩可选的时间区间
     const submitdata = {}
     if(time.value!==null){
-      submitdata.startTime = dayjs(time.value[0]).format('YYYY-MM-DD HH:mm:ss')
-      submitdata.endTime = dayjs(time.value[1]).format('YYYY-MM-DD HH:mm:ss')
+      submitdata.startTime = moment(time.value[0]).format('YYYY-MM-DD HH:mm:ss')
+      submitdata.endTime = moment(time.value[1]).format('YYYY-MM-DD HH:mm:ss')
     }
 
     getUserTrainDurationStat(submitdata).then(res => {

@@ -42,6 +42,7 @@ export default {
 }
 </script>
 <script setup>
+import moment from 'moment'
 import {ref, onMounted} from 'vue'
 import {MenuOutlined, SettingOutlined, HomeFilled} from '@ant-design/icons-vue'
 import {useDraggable, useDateFormat, useNow} from '@vueuse/core'
@@ -84,7 +85,7 @@ getNowTime().then((e) => {
 const startServerTiming = () => {
   if (constTime.value <= 100) {
     setTimeout(() => {
-      serverTime.value = useDateFormat(dayjs(new Date(serverTime.value)).add(1, "second").toDate(), 'YYYY/MM/DD HH:mm:ss').value
+      serverTime.value = useDateFormat(moment(new Date(serverTime.value)).add(1, "second").toDate(), 'YYYY/MM/DD HH:mm:ss').value
       startServerTiming()
     }, 1000)
   } else {

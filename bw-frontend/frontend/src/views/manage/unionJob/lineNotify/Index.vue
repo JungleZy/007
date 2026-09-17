@@ -157,6 +157,7 @@ export default {
 </script>
 
 <script setup>
+import moment from 'moment'
 import {onMounted, nextTick, ref, provide} from 'vue'
 import Pagination from '../../../../components/pagination/Pagination.vue'
 import lineNotify from './js/index'
@@ -261,7 +262,7 @@ const setCategoryOptions = value => {
 //添加训练
 const addLIneBulletin = () => {
   visibleModal.value = true
-  const name = `线路通报${dayjs().format('YYMMDDHHmmss')}`
+  const name = `线路通报${moment().format('YYMMDDHHmmss')}`
   roomName.value = name
 }
 const cancelTrainModal = () => {

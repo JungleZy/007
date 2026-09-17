@@ -76,7 +76,7 @@
   import trainTime from '../../../../../../assets/HJ/receive/trainTime.png'
   import linetp from '../../../../../../assets/HJ/basicTheory/line.png'
   import CutDown from '../../../../../../components/cutDown/CutDown.vue'
-  import dayjs from 'dayjs'
+  import moment from 'moment'
 
   import { useRoute } from 'vue-router'
   import { onMounted, onBeforeUnmount, ref } from 'vue'
@@ -100,7 +100,7 @@
   })
   const { hour, min, sec, score, knowledgeSwfsId, Knowledge, checkKnowledge, checkItem, nowTime, getToken, showTest, testVisible, rightShow, rightValue, bornTest, activeTile, takeNoTestVisible, loginAndLogoutTwo } = useDetails(data)
   const getDayjs = data => {
-    return dayjs(Number(data.knowledge.createTime)).format('YYYY-MM-DD HH:mm:ss')
+    return moment(Number(data.knowledge.createTime)).format('YYYY-MM-DD HH:mm:ss')
   }
 </script>
 

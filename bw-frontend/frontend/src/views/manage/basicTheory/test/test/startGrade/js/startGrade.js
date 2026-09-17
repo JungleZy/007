@@ -1,3 +1,4 @@
+import moment from 'moment'
 import { message, Modal } from 'ant-design-vue'
 import { ref, nextTick, provide, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -164,7 +165,7 @@ export default function startGrade() {
     if (item['start_time'] == null) {
       testExam.value.testime = 0
     } else {
-      testExam.value.testime = dayjs(item['end_time']).diff(dayjs(item['start_time']), 'minute')
+      testExam.value.testime = moment(item['end_time']).diff(moment(item['start_time']), 'minute')
     }
   }
   const studentAnswer = con => {

@@ -84,6 +84,7 @@ export default {
 }
 </script>
 <script setup>
+import moment from 'moment'
 import avatarBg from '../../assets/HJ/main/avatar-bg.png';
 import avatarDef from '../../assets/HJ/main/avatar-def.png';
 import rightBar from '../../assets/HJ/main/right-bar.png';
@@ -98,13 +99,13 @@ const pageWidth = ref(document.body.clientWidth);
 const userInfo = ref(JSON.parse(window.localStorage.getItem("userInfo")));
 const fileUrl = ref(window.fileUrl);
 const dateList = ref([
-  {title: dayjs().subtract(3, 'day').format('MM-DD'),list: []},
-  {title: dayjs().subtract(2, 'day').format('MM-DD'),list: []},
-  {title: dayjs().subtract(1, 'day').format('MM-DD'),list: []},
-  {title: dayjs().format('MM-DD'),list: []},
-  {title: dayjs().add(1, 'day').format('MM-DD'),list: []},
-  {title: dayjs().add(2, 'day').format('MM-DD'),list: []},
-  {title: dayjs().add(3, 'day').format('MM-DD'),list: []}
+  {title: moment().subtract(3, 'day').format('MM-DD'),list: []},
+  {title: moment().subtract(2, 'day').format('MM-DD'),list: []},
+  {title: moment().subtract(1, 'day').format('MM-DD'),list: []},
+  {title: moment().format('MM-DD'),list: []},
+  {title: moment().add(1, 'day').format('MM-DD'),list: []},
+  {title: moment().add(2, 'day').format('MM-DD'),list: []},
+  {title: moment().add(3, 'day').format('MM-DD'),list: []}
 ]);
 const resDataList = ref({});
 const dateListFlag = ref(null);
@@ -232,7 +233,7 @@ const handleDataList = (e, index) => {
     if (index < 3) {
       dateListFlag.value = false;
       setTimeout(() => {
-        const d = dayjs(e.title).subtract(index === 2 ? 3 : 2, 'day');
+        const d = moment(e.title).subtract(index === 2 ? 3 : 2, 'day');
         dateList.value.unshift({title: d.format('MM-DD'),list: []});
         dateList.value = dateList.value.filter((ele, idx, arr) => arr.length - 1 !== idx);
         dateListFlag.value = null;
@@ -241,7 +242,7 @@ const handleDataList = (e, index) => {
     } else if (index > 3) {
       dateListFlag.value = true;
       setTimeout(() => {
-        const d = dayjs(e.title).add(index === 4 ? 3 : 2, 'day');
+        const d = moment(e.title).add(index === 4 ? 3 : 2, 'day');
         dateList.value.push({title: d.format('MM-DD'),list: []});
         dateList.value.splice(0, 1);
         dateListFlag.value = null;

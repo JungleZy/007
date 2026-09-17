@@ -110,6 +110,7 @@
   }
 </script>
 <script setup>
+import moment from 'moment'
   import {
     FileTextOutlined,
     FormOutlined,
@@ -184,7 +185,7 @@
     })
   }
   const getDayjs = (text) => {
-    return dayjs(Number(text)).format('YYYY-MM-DD HH:mm:ss')
+    return moment(Number(text)).format('YYYY-MM-DD HH:mm:ss')
   }
 </script>
 

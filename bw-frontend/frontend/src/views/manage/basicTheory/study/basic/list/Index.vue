@@ -102,6 +102,7 @@
   }
 </script>
 <script setup>
+import moment from 'moment'
   import {
     SettingOutlined, EditOutlined, EllipsisOutlined, createFromIconfontCN,PlayCircleOutlined
   } from '@ant-design/icons-vue';
@@ -147,7 +148,7 @@
     })
   })
   const getDayjs = (text) => {
-    return dayjs(Number(text)).format('YYYY-MM-DD HH:mm:ss')
+    return moment(Number(text)).format('YYYY-MM-DD HH:mm:ss')
   }
   const fileUrl = ref(window.fileUrl);
   const {

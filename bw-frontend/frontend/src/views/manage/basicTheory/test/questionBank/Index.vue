@@ -252,6 +252,7 @@
 </template>
 
 <script>
+import moment from 'moment'
 import {defineComponent, toRefs} from "vue"
 
 export default defineComponent({
@@ -389,7 +390,7 @@ const atMenus = ref({
   }]
 })
 const getDayjs = (text) => {
-  return dayjs(Number(text)).format('YYYY-MM-DD HH:mm:ss')
+  return moment(Number(text)).format('YYYY-MM-DD HH:mm:ss')
 }
 </script>
 
