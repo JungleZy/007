@@ -31,6 +31,8 @@ pub struct HandOptions {
     pub low_rate: bool,
     /// "machine" 机械等长 | "human" 真人手感 | "fatigue" 疲劳模式
     pub style: String,
+    /// 对抗测试：明知开始符/成字过不了也要发（乱拍场景用；正常拍发不要开）
+    pub force: bool,
 }
 
 impl Default for HandOptions {
@@ -45,6 +47,7 @@ impl Default for HandOptions {
             seed: 1,
             preamble: true,
             tail: "turn".into(),
+            force: false,
             low_rate: false,
             style: "machine".into(),
         }
@@ -189,7 +192,7 @@ where
 pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
     let (_, envelope) = resolve_style(&options.style, options.jitter)?;
     let plan = morse::timing(options.rate, &options.unit, &options.alphabet, Ratio::default(), options.low_rate)?;
-    check_hand_plan(&plan, options.skew, envelope)?;
+    if (!options.force) { check_hand_plan(&plan, options.skew, envelope)?; }
     Ok(plan)
 }
 
@@ -204,7 +207,7 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
     let timeline = calibrate(options.rate, per_unit, |factor| build_hand_timeline(options, nominal.scaled(factor)))?;
     // 定标后的节拍仍须过客户端硬边界（点 > 10ms、划 > 点两倍、60ms 夹值后能成字成组）
     let (_, envelope) = resolve_style(&options.style, options.jitter)?;
-    check_hand_plan(&timeline.plan, options.skew, envelope)?;
+    if (!options.force) { check_hand_plan(&timeline.plan, options.skew, envelope)?; }
     Ok(timeline)
 }
 

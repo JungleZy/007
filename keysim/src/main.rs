@@ -41,6 +41,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --style <名>          machine 机械等长（默认）| human 真人手感（±12% 信封，带疲劳-休息-恢复循环）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
+  --force               明知开始符/成字过不了也发（乱拍对抗测试用）
   --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
   --sink <名>           frames（默认）| bytes | payload
   --chunk <名>          bytes 分包：exact（默认）|split|merge|random
@@ -80,7 +81,7 @@ impl Args {
             let value = inline.or_else(|| {
                 if matches!(
                     name.as_str(),
-                    "no-autostart" | "no-preamble" | "hold" | "help" | "json"
+                    "no-autostart" | "no-preamble" | "force" | "hold" | "help" | "json"
                 ) {
                     None
                 } else {
@@ -133,6 +134,7 @@ fn params_of(args: &Args, key: &str) -> Result<Value, String> {
         "skew": args.number("skew").unwrap_or(51.0),
         "style": args.text("style").unwrap_or("machine"),
         "preamble": !args.has("no-preamble"),
+        "force": args.has("force"),
         "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default()
     });
     if let Some(rate) = args.number("rate") {

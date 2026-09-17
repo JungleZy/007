@@ -63,6 +63,7 @@ fn hand_options(params: &Value) -> Result<HandOptions, String> {
         preamble: params["preamble"].as_bool().unwrap_or(true),
         tail: text_of(params, "tail", &defaults.tail),
         low_rate: params["lowRate"].as_bool().unwrap_or(false),
+        force: params["force"].as_bool().unwrap_or(false),
         style: text_of(params, "style", &defaults.style),
     })
 }
