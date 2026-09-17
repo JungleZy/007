@@ -1,7 +1,7 @@
 import { userLoginOut } from '../api/UserApi.js'
 import { Ws } from '../ws/Ws.js'
 import UnionWs from '../../views/manage/unionJob/js/UnionWs.js'
-import { shutdownMessageWebSocket } from '../ws/MessageWebSocket.js'
+import { shutdownWebSerialChannel } from '../ws/WebSerialChannel.js'
 import { closePublicSockets } from '../ws/PublicSocket.js'
 
 const SESSION_KEYS = ['token', 'deviceId', 'userInfo', 'userRole', 'userRouter']
@@ -20,7 +20,7 @@ export const closeSession = router => {
     } catch (error) {
       console.warn('退出登录接口失败，继续清理本地会话', error)
     } finally {
-      await shutdownMessageWebSocket()
+      await shutdownWebSerialChannel()
       Ws.shutdown()
       closePublicSockets()
       UnionWs.shutdown()

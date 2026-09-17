@@ -185,7 +185,7 @@
     PlayCircleOutlined
   } from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
-  import messageWebSocket from '../../../../common/ws/MessageWebSocket.js'
+  import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
@@ -313,7 +313,7 @@
         linkWsIndex.value === 0
     ) {
       linkWsIndex.value++
-      // messageWebSocket('reset')
+      // webSerialChannel('reset')
     }
   })
 

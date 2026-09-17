@@ -469,7 +469,7 @@
     PlayCircleOutlined, PlusOutlined
   } from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
-  import messageWebSocket from '../../../../common/ws/MessageWebSocket.js'
+  import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
   import {fontSizeDispose} from '../../../../common/utils/Utils'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
@@ -537,9 +537,9 @@
       // ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,localSerial.value)
     }
     if(localStorage.getItem('serialChrome')){
-      messageWebSocket('reset', 'reset')
+      webSerialChannel('reset', 'reset')
     }else {
-      messageWebSocket()
+      webSerialChannel()
     }
     userRole.value = JSON.parse(localStorage.getItem('userRole'))
     userInfo.value = JSON.parse(window.localStorage.getItem('userInfo'))
@@ -564,7 +564,7 @@
           linkWsIndex.value === 0
       ) {
         linkWsIndex.value++
-        // messageWebSocket('reset')
+        // webSerialChannel('reset')
       }
     })
 
@@ -583,7 +583,7 @@
     //   localSerial.value = localStorage.getItem('serial')
     // }else {
       localStorage.setItem('serialChrome',true)
-      messageWebSocket('reset', 'reset')
+      webSerialChannel('reset', 'reset')
     // }
   }
   //连接串口
@@ -595,7 +595,7 @@
       // linkPort uses sendSync and returns the selected port string; failures return ''.
       if (data) {
         localStorage.setItem('serial',data)
-        messageWebSocket('reset')
+        webSerialChannel('reset')
         serialShow.value = false
       } else {
         message.error('串口连接失败')

@@ -17,10 +17,10 @@ const removeBeforeUnload = () => {
 }
 
 async function handleBeforeUnload() {
-	await shutdownMessageWebSocket()
+	await shutdownWebSerialChannel()
 }
 
-export async function shutdownMessageWebSocket() {
+export async function shutdownWebSerialChannel() {
 	active = false
 	lifecycleGeneration++
 	removeBeforeUnload()
@@ -36,7 +36,7 @@ export async function shutdownMessageWebSocket() {
 // select-serial-port/权限处理器，requestPort 由主进程按已存口名自动应答）。
 // 历史上的 ws://localhost:18765/echo 桥接是 TrafficService 时代的遗留，
 // 该服务退役后仓内无人服务此端口，已随本次清理删除。
-export default function messageWebSocket(type, reset) {
+export default function webSerialChannel(type, reset) {
 	active = true
 	lifecycleGeneration++
 	const generation = lifecycleGeneration
@@ -45,7 +45,7 @@ export default function messageWebSocket(type, reset) {
 		beforeUnloadInstalled = true
 	}
 	onUnmounted(() => {
-		shutdownMessageWebSocket()
+		shutdownWebSerialChannel()
 	})
 	const num = ref(0)
 	const connect = async (reset) => {

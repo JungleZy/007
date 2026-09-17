@@ -47,7 +47,7 @@ import ico_state_dev from '../../assets/LJ/ico/ico-state-dev.png'
 import ico_state_dev_on from '../../assets/LJ/ico/ico-state-dev-on.png'
 import {ref, onMounted, onUnmounted} from "vue";
 import {ipcApi, ipcRenderer} from "../../electron";
-import messageWebSocket from "../../common/ws/MessageWebSocket";
+import webSerialChannel from "../../common/ws/WebSerialChannel";
 import useTraffic from "../../common/mixin/useTraffic";
 
 let ico_state_wsLJ = ico_state_ws, ico_state_ws_onLJ = ico_state_ws_on,
@@ -86,7 +86,7 @@ onMounted(() => {
       linkPort(localSerial.value)
     }
     if (localStorage.getItem('serialChrome')) {
-      messageWebSocket('reset', 'reset')
+      webSerialChannel('reset', 'reset')
     }
   }
 })
@@ -100,7 +100,7 @@ const linkWsOnInfo = () => {
 
 	} else {
 		localStorage.setItem('serialChrome', true)
-		messageWebSocket('reset', 'reset')
+		webSerialChannel('reset', 'reset')
 	}
 }
 //连接串口
@@ -112,7 +112,7 @@ const linkPort = (portName) => {
 	const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort, portName.path?arr[2]:portName)
 	if (data) {
 		localStorage.setItem('serial', data)
-		messageWebSocket('reset')
+		webSerialChannel('reset')
 		serialShow.value = false
 	}
 }
