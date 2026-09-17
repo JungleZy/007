@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 /**
- * keysim × Electron 手键拍发端到端自动化。
+ * keysim × Electron 手键拍发端到端自动化（双域）。
+ *
+ * 域：--domain zuxun（默认，综合组训 generalTickerPatTrain，教员建训+房间 WS）
+ *     --domain postJob（岗位训练-发报训练 postTelegramTrain，学员自助开始练习）
  *
  * 全链路：keysim 控制台(18700) 虚拟串口注入 → Electron 学员页
- *         → WebSerial 生产解码路径 → 后端(18001) uploadResult/finish 结算 → 成绩断言。
+ *         → WebSerial 生产解码路径 → 后端(18001) 结算 → detail 权威断言。
  *
  * 前置（脚本只检查，不代起）：
  *   1. MySQL + 后端：cd backend && ./mvnw quarkus:dev          （18001）
@@ -13,19 +16,14 @@
  *   4. 测试账号已入库（见文末 SEED_SQL）。
  *
  * 用法：
- *   单次：node keysim/scripts/e2e-electron-handkey.mjs [--rate 120] [--groups 100]
- *         [--pages 1] [--alphabet short|letter] [--packaged] [--fault dupDown,...]
- *   矩阵：node keysim/scripts/e2e-electron-handkey.mjs --matrix [speed|fault|all]
- *         [--only speed-120,fault-combo] [--packaged]
- *   环境变量：KEYSIM_ELECTRON=…/electron 可执行文件路径
- *            KEYSIM_CDP_PORT=33422  KEYSIM_KEEP_APP=1（结束后保留窗口）
+ *   单次：node keysim/scripts/e2e-electron-handkey.mjs [--domain postJob] [--rate 120]
+ *         [--groups 100] [--pages 1] [--alphabet short|letter] [--style machine|human]
+ *         [--jitter 0.12] [--fault dupDown,...] [--packaged]
+ *   矩阵：node keysim/scripts/e2e-electron-handkey.mjs --matrix [speed|fault|chaos|all]
+ *         [--domain postJob] [--only name1,name2] [--packaged]
  *
- * 矩阵的预期口径（keysim faults.rs 与前端一一对应的故障语义）：
- *   - 速度扫描：可行速域内全部满分正确率（60/90/120/180/240 字/分）。
- *   - dupDown    → 容忍：重复按下落在 max(2000, lineLimit*8) 窗口内被忽略（useTraffic.js:44）。
- *   - microPress → 容忍：≤10ms 按压被直接丢弃（useTraffic.js:64）。
- *   - unknownByte→ 容忍：未知字节告警跳过、帧流不失步（WebSerial.js:86-89）。
- *   - missingUp  → 劣化：缺抬起的按压与下一元素合并成划 → 错码扣分，但训练必须完成。
+ * 预期口径：perfect=满分容忍；degraded=劣化扣分但必须完成；low=大幅错码但完成；
+ *           stall=训练无法结束（开始符不过/无开始符时产品无退出路径——如实记录）。
  */
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -33,10 +31,11 @@ import path from 'node:path'
 
 const args = Object.fromEntries(process.argv.slice(2).map((v, i, a) => v.startsWith('--') ? [v.slice(2), a[i + 1] && !a[i + 1].startsWith('--') ? a[i + 1] : true] : null).filter(Boolean))
 
+const DOMAIN = args.domain || 'zuxun'                 // zuxun=综合组训；postJob=岗位训练
 const RATE = Number(args.rate || 120)
-const GROUPS = Number(args.groups || 100)          // 每页组数
-const PAGES = Number(args.pages || 1)              // 页数；>1 时逐页拍发并验证翻页符路径
-const ALPHABET = args.alphabet || 'short'          // short=数码报 type 0；letter=字码报 type 1
+const GROUPS = Number(args.groups || (DOMAIN === 'postJob' ? 50 : 100))
+const PAGES = Number(args.pages || 1)
+const ALPHABET = args.alphabet || 'short'
 const CDP_PORT = Number(process.env.KEYSIM_CDP_PORT || 33422)
 const BACKEND = 'http://localhost:18001'
 const KEYSIM = 'http://127.0.0.1:18700'
@@ -45,8 +44,8 @@ const TEACHER = { account: 'keysimteacher', password: 'keysim123', id: 'keysim-t
 const STUDENT = { account: 'keysimstudent', password: 'keysim123', id: 'keysim-student-001', deviceId: 'keysim-student-dev' }
 const RULE_ID = '6c407aee-92b4-4c41-842f-22da80c48053' // 手键评分规则（skew 51, wpm base 70）
 
-// 矩阵场景：kind=speed 速度扫描；kind=fault 故障组合。expect=perfect|degraded
-const SCENARIOS = [
+// 组训矩阵
+const SCENARIOS_ZUXUN = [
   { name: 'speed-60',  kind: 'speed', rate: 60,  alphabet: 'short', expect: 'perfect' },
   { name: 'speed-90',  kind: 'speed', rate: 90,  alphabet: 'short', expect: 'perfect' },
   { name: 'speed-120', kind: 'speed', rate: 120, alphabet: 'short', expect: 'perfect' },
@@ -58,6 +57,28 @@ const SCENARIOS = [
   { name: 'fault-missingUp',   kind: 'fault', rate: 120, alphabet: 'short', fault: 'missingUp',   expect: 'degraded' },
   { name: 'fault-combo',       kind: 'fault', rate: 120, alphabet: 'short', fault: 'dupDown,missingUp,microPress,unknownByte', expect: 'degraded' },
 ]
+
+// 岗位训练矩阵：手感 × 速度 × 故障 × 乱拍
+const SCENARIOS_POSTJOB = [
+  { name: 'base-120',       kind: 'speed', rate: 120, alphabet: 'short', groups: 100, expect: 'perfect' },
+  { name: 'style-human-90', kind: 'speed', rate: 90,  alphabet: 'short', style: 'human', expect: 'perfect' },
+  { name: 'style-fatigue-120', kind: 'speed', rate: 120, alphabet: 'short', style: 'fatigue', expect: 'perfect' },
+  { name: 'style-human-150', kind: 'speed', rate: 150, alphabet: 'short', style: 'human', expect: 'perfect' },
+  { name: 'speed-60',       kind: 'speed', rate: 60,  alphabet: 'short', expect: 'perfect' },
+  { name: 'speed-180',      kind: 'speed', rate: 180, alphabet: 'short', expect: 'perfect' },
+  { name: 'fault-dupDown',     kind: 'fault', rate: 120, alphabet: 'short', fault: 'dupDown',     expect: 'perfect'  },
+  { name: 'fault-microPress',  kind: 'fault', rate: 120, alphabet: 'short', fault: 'microPress',  expect: 'perfect'  },
+  { name: 'fault-unknownByte', kind: 'fault', rate: 120, alphabet: 'short', fault: 'unknownByte', expect: 'perfect'  },
+  { name: 'fault-missingUp',   kind: 'fault', rate: 120, alphabet: 'short', fault: 'missingUp',   expect: 'degraded' },
+  { name: 'fault-combo',       kind: 'fault', rate: 120, alphabet: 'short', fault: 'dupDown,missingUp,microPress,unknownByte', expect: 'degraded' },
+  // 乱拍：全文拍错（每组首两字符互换，节拍完美）→ 应大幅错码但完成
+  { name: 'chaos-wrongText',   kind: 'chaos', rate: 120, alphabet: 'short', corrupt: 'swap', expect: 'low' },
+  // 乱拍：不拍开始符直接拍正文 → 开始符校验永远不过，产品应如实停留（无退出路径）
+  { name: 'chaos-noStart',     kind: 'chaos', rate: 120, alphabet: 'short', preamble: false, expect: 'stall' },
+  // 乱拍：抖动 ±40%（force 跳过 keysim 自检）：点划比必跌破 2 倍、一致性必超 ±51%，开始符校验应持续失败
+  { name: 'chaos-jitter40',    kind: 'chaos', rate: 120, alphabet: 'short', style: 'human', jitter: 0.4, force: true, expect: 'stall' },
+]
+const SCENARIOS = DOMAIN === 'postJob' ? SCENARIOS_POSTJOB : SCENARIOS_ZUXUN
 
 const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(1) }
 const ok = (msg) => console.log(`✓ ${msg}`)
@@ -95,9 +116,22 @@ async function login({ account, password, deviceId }) {
   return data.token
 }
 
-async function createTrain(token, { alphabet, groups, pages }) {
+async function createTrain(owner, { alphabet, groups, pages }) {
+  if (DOMAIN === 'postJob') {
+    // 岗位训练是属主域：非创建者读 detail 直接 207。后端单会话模型下同账号两会话互踢，
+    // 所以建训/取报文/detail 一律复用页面里学员登录后的同一对 token+deviceId
+    const data = await rest('/postTelegramTrain/save', {
+      method: 'POST', token: owner.token, deviceId: owner.deviceId,
+      body: {
+        name: `keysim岗位-${alphabet}-${Date.now()}`, isCable: 0, cableId: null, startPage: 1,
+        type: alphabet === 'letter' ? 1 : 0, codeSort: false, isAverage: false, isRandom: true,
+        messageNumber: groups * pages, ruleId: RULE_ID, messageBody: []
+      }
+    })
+    return data.id
+  }
   const data = await rest('/generalTickerPatTrain/add', {
-    method: 'POST', token, deviceId: TEACHER.deviceId,
+    method: 'POST', token: owner.token, deviceId: owner.deviceId,
     body: {
       name: `keysim自动化-${alphabet}-${Date.now()}`, isCable: 0, type: alphabet === 'letter' ? 1 : 0, trainType: 0,
       codeSort: false, isRandom: true, messageNumber: groups * pages, ruleId: RULE_ID, isAverage: false,
@@ -107,12 +141,26 @@ async function createTrain(token, { alphabet, groups, pages }) {
   return data.id
 }
 
-async function pageText(token, trainId, floorNumber = 1) {
-  const data = await rest('/generalTickerPatTrain/findPage', {
-    method: 'POST', token, deviceId: TEACHER.deviceId,
-    body: { id: trainId, userId: STUDENT.id, floorNumber }
-  })
+async function pageText(owner, trainId, floorNumber = 1) {
+  const data = DOMAIN === 'postJob'
+    ? await rest('/postTelegramTrain/findMessageBody', { method: 'POST', token: owner.token, deviceId: owner.deviceId, body: { id: trainId, floorNumber } })
+    : await rest('/generalTickerPatTrain/findPage', { method: 'POST', token: owner.token, deviceId: owner.deviceId, body: { id: trainId, userId: STUDENT.id, floorNumber } })
   return data.messageKey.map(g => JSON.parse(g.moresKey).join('')).join(' ')
+}
+
+/** 每组首两字符互换：节拍完美的「乱拍」 */
+function corruptSwap(text) {
+  return text.split(' ').map(g => g.length > 1 ? g[1] + g[0] + g.slice(2) : g).join(' ')
+}
+
+async function trainDetail(owner, trainId) {
+  if (DOMAIN === 'postJob') {
+    const data = await rest('/postTelegramTrain/detail', { method: 'POST', token: owner.token, deviceId: owner.deviceId, body: { id: trainId } })
+    return { finished: data.status === 2, score: data.score, accuracy: data.accuracy, speed: data.speed, errors: data.errorNumber ?? 0, lack: data.lack ?? 0, validTime: data.validTime, raw: data }
+  }
+  const data = await rest('/generalTickerPatTrain/detail', { method: 'POST', token: owner.token, deviceId: owner.deviceId, body: { id: trainId, uid: STUDENT.id } })
+  const me = data.userInfoList.find(u => u.userId === STUDENT.id) || {}
+  return { finished: me.isFinish === 1, score: me.score, accuracy: me.accuracy, speed: me.speed, errors: me.errorNumber ?? 0, lack: me.lack ?? 0, validTime: me.validTime, raw: me }
 }
 
 /** 极简 CDP 客户端（Node 内建 WebSocket） */
@@ -148,7 +196,6 @@ class Cdp {
 }
 
 async function launchElectron() {
-  // --packaged：测打包产物（out/linux-unpacked，file:// 加载）；默认测源码 dev 模式（vite:18000）
   const packaged = !!args.packaged
   const bin = process.env.KEYSIM_ELECTRON || (packaged
     ? path.resolve('bw-frontend/out/linux-unpacked/nip-traffic-system')
@@ -207,32 +254,29 @@ async function setupOnce() {
   return cdp
 }
 
-const TRAIN_PATH = '#/preview/networkUsing/equipmentNetwork/handkeyZuXunTrain'
-const LIST_PATH = '#/preview/networkUsing/equipmentNetwork/handkeyZuXunList'
+const PAGE_PATH = DOMAIN === 'postJob'
+  ? { train: '#/preview/basicSkill/postJob/telegram/handKeyPostJobTrain', list: '#/preview/basicSkill/postJob/telegram/handKeyPostJob' }
+  : { train: '#/preview/networkUsing/equipmentNetwork/handkeyZuXunTrain', list: '#/preview/networkUsing/equipmentNetwork/handkeyZuXunList' }
 const storeOnline = `(() => { const p = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia; let o = {}; p._s.forEach((s, id) => { if (id === 'traffic') o = { link: s.linkStatus, dev: s.devStatus } }); return o })()`
-const readyBtnWait = `new Promise(res => { const t = setInterval(() => { if ([...document.querySelectorAll('.roadBtn')].some(b => b.innerText.includes('准备拍发'))) { clearInterval(t); res(true) } }, 300); setTimeout(() => { clearInterval(t); res(false) }, 20000) })`
 
 /** 进学员训练页（同一路由 query 变化不重挂载，先回列表再进），并确保串口在线 */
 async function enterTrainPage(cdp, trainId) {
-  await cdp.eval(`location.hash = '${LIST_PATH}'; true`)
-  await delay(1800)
-  await cdp.eval(`location.hash = '${TRAIN_PATH}?id=${trainId}'; true`)
-  await cdp.eval(readyBtnWait)
-  let serial = await cdp.eval(storeOnline)
-  if (!serial.dev) {
-    // vite 冷编译等时序问题：重进一次训练页（NipSerial 重新挂载触发自动连接），仍不通则带诊断失败
-    await delay(2000)
-    await cdp.eval(`location.hash = '${LIST_PATH}'; true`)
-    await delay(1500)
-    await cdp.eval(`location.hash = '${TRAIN_PATH}?id=${trainId}'; true`)
-    await cdp.eval(readyBtnWait)
-    await delay(1500)
-    serial = await cdp.eval(storeOnline)
-    if (!serial.dev) {
+  const readyWait = DOMAIN === 'postJob'
+    ? `new Promise(res => { const t = setInterval(() => { if ([...document.querySelectorAll('.start')].some(b => b.innerText.includes('开始训练'))) { clearInterval(t); res(true) } }, 300); setTimeout(() => { clearInterval(t); res(false) }, 20000) })`
+    : `new Promise(res => { const t = setInterval(() => { if ([...document.querySelectorAll('.roadBtn')].some(b => b.innerText.includes('准备拍发'))) { clearInterval(t); res(true) } }, 300); setTimeout(() => { clearInterval(t); res(false) }, 20000) })`
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await cdp.eval(`location.hash = '${PAGE_PATH.list}'; true`)
+    await delay(1800)
+    await cdp.eval(`location.hash = '${PAGE_PATH.train}?id=${trainId}'; true`)
+    await cdp.eval(readyWait)
+    const serial = await cdp.eval(storeOnline)
+    if (serial.dev) break
+    if (attempt === 1) {
       const trace = await cdp.eval(`(window.__serialTrace || []).slice(-20)`)
       console.error('  串口链路追踪：', JSON.stringify(trace))
       throw new Error('串口未连接（traffic.devStatus=false，重试后仍不通）')
     }
+    await delay(2000)
   }
   // 串口自愈重连 + 通帧探针。dev 模式走模块 import（生产同源入口 messageWebSocket，
   // 与 NipSerial「重连」同路径）；打包态模块已打包不可按路径 import，退回
@@ -253,26 +297,55 @@ async function enterTrainPage(cdp, trainId) {
     } catch (e) { return 'no-modules' }
   })()`)
   if (probeOk !== true) {
-    await cdp.eval(`location.hash = '${LIST_PATH}'; true`)
+    await cdp.eval(`location.hash = '${PAGE_PATH.list}'; true`)
     await delay(1500)
-    await cdp.eval(`location.hash = '${TRAIN_PATH}?id=${trainId}'; true`)
+    await cdp.eval(`location.hash = '${PAGE_PATH.train}?id=${trainId}'; true`)
     await delay(4000)
     const st = await cdp.eval(storeOnline)
     if (!st.dev) throw new Error(`串口重连失败（${probeOk}，导航重连后 devStatus=false）`)
   }
 }
 
-/** 跑一个完整训练场景，返回服务端权威成绩 */
+/** 学员侧开始训练：组训走教员房间广播，岗位走页面[开始训练]按钮 */
+async function beginTrain(cdp, teacherToken, trainId) {
+  if (DOMAIN === 'postJob') {
+    // 等待[开始训练]按钮渲染（detail 是异步加载；探针重导航后不能假定已就绪）
+    await cdp.eval(`new Promise((res, rej) => { const t = setInterval(() => { if ([...document.querySelectorAll('.start')].some(b => b.innerText.includes('开始训练'))) { clearInterval(t); res(true) } }, 300); setTimeout(() => rej(new Error('开始训练按钮等待超时')), 20000) })`)
+    await cdp.eval(`(() => { const b = [...document.querySelectorAll('.start')].find(b => b.innerText.includes('开始训练')); if (!b) throw new Error('开始训练按钮不存在'); b.click(); return true })()`)
+  } else {
+    await cdp.eval(`[...document.querySelectorAll('.roadBtn')].find(b => b.innerText.includes('准备拍发')).click(); true`)
+    await delay(1000)
+    await rest('/socket/generalTickerPatTrain/updateTrainStatus', { method: 'POST', token: teacherToken, deviceId: TEACHER.deviceId, body: { trainId, status: 1 } })
+    const room = new WebSocket(`ws://localhost:18001/generalTickerPat/${TEACHER.id}/${trainId}/1?token=${encodeURIComponent(teacherToken)}&deviceId=${TEACHER.deviceId}`)
+    await new Promise((res, rej) => { room.onopen = res; room.onerror = () => rej(new Error('教员房间 WS 连接失败')) })
+    await delay(800) // 等学员 WS 入房（学员进页时 connectWebsocket）
+    for (let attempt = 0; attempt < 3; attempt++) {
+      room.send(JSON.stringify({ topic: 'begin' }))
+      const begun = await cdp.eval(`new Promise(res => { const t = setInterval(() => { if (document.body.innerText.includes('拍发开始符号')) { clearInterval(t); res(true) } }, 300); setTimeout(() => { clearInterval(t); res(false) }, 4000) })`)
+      if (begun) { room.close(); return }
+    }
+    room.close()
+    throw new Error('未进入开始符阶段（begin 广播 3 次均未生效）')
+  }
+  // 岗位：begin 由页面自己调 REST，等开始符阶段出现即可
+  await cdp.eval(`new Promise((res, rej) => { const t = setInterval(() => { if (document.body.innerText.includes('拍发开始符号')) { clearInterval(t); res(true) } }, 300); setTimeout(() => rej(new Error('未进入开始符阶段')), 15000) })`)
+}
+
+/** 跑一个完整训练场景，返回服务端权威成绩（stall 场景返回未结算现场） */
 async function runScenario(cdp, teacherToken, scenario) {
-  const { name, rate, alphabet, fault, pages = 1, groups = GROUPS } = scenario
+  const { name, rate, alphabet, fault, pages = 1, groups = GROUPS, style = 'machine', jitter, skewGate, preamble = true, corrupt, force } = scenario
+  const owner = DOMAIN === 'postJob' ? scenario._session : { token: teacherToken, deviceId: TEACHER.deviceId }
   // 1) 建训、取报文
-  const trainId = await createTrain(teacherToken, { alphabet, groups, pages })
+  const trainId = await createTrain(owner, { alphabet, groups, pages })
   const pageTexts = []
-  for (let p = 1; p <= pages; p++) pageTexts.push(await pageText(teacherToken, trainId, p))
+  for (let p = 1; p <= pages; p++) pageTexts.push(await pageText(owner, trainId, p))
 
   // 2) 逐页拍发计划（非末页翻页符收尾；翻页后新页要重拍开始符，keysim 每页自带）
   const pagePlans = pageTexts.map((text, i) => ({
-    key: 'hand', text, alphabet, rate, skew: 51, style: 'machine',
+    key: 'hand', text: corrupt === 'swap' ? corruptSwap(text) : text, alphabet, rate, style,
+    ...(jitter !== undefined ? { jitter } : {}),
+    skew: skewGate ?? 51, preamble,
+    ...(force ? { force: true } : {}),
     tail: i + 1 < pages ? 'turn' : 'end', sink: 'frames',
     ...(fault ? { faults: fault.split(',') } : {})
   }))
@@ -284,91 +357,55 @@ async function runScenario(cdp, teacherToken, scenario) {
     previews.push(pv)
     totalDuration += pv.duration
   }
-  console.log(`→ [${name}] 训练 ${trainId}：${previews[0].chars} 字 × ${pages} 页 / ${rate} 字/分 / 约 ${Math.round(totalDuration / 1000)}s${fault ? ` / 故障 ${fault}` : ''}`)
+  console.log(`→ [${name}] 训练 ${trainId}：${previews[0].chars} 字 × ${pages} 页 / ${rate} 字/分 / 约 ${Math.round(totalDuration / 1000)}s${style !== 'machine' ? ` / ${style}${jitter !== undefined ? '±' + jitter * 100 + '%' : ''}` : ''}${fault ? ` / 故障 ${fault}` : ''}${corrupt ? ' / 乱拍' : ''}${preamble ? '' : ' / 无开始符'}`)
 
-  // 3) 进训练页、学员准备、教员开始
+  // 3) 进训练页并开始
   await enterTrainPage(cdp, trainId)
-  await cdp.eval(`[...document.querySelectorAll('.roadBtn')].find(b => b.innerText.includes('准备拍发')).click(); true`)
-  await delay(1000)
-  await rest('/socket/generalTickerPatTrain/updateTrainStatus', { method: 'POST', token: teacherToken, deviceId: TEACHER.deviceId, body: { trainId, status: 1 } })
-  const room = new WebSocket(`ws://localhost:18001/generalTickerPat/${TEACHER.id}/${trainId}/1?token=${encodeURIComponent(teacherToken)}&deviceId=${TEACHER.deviceId}`)
-  await new Promise((res, rej) => { room.onopen = res; room.onerror = () => rej(new Error('教员房间 WS 连接失败')) })
-  await delay(800) // 等学员 WS 入房（学员进页时 connectWebsocket）
-  // 房间 WS 的 begin 与学员入房存在竞态：学员端未进「拍发开始符号」阶段就重发
-  for (let attempt = 0; attempt < 3; attempt++) {
-    room.send(JSON.stringify({ topic: 'begin' }))
-    const begun = await cdp.eval(`new Promise(res => { const t = setInterval(() => { if (document.body.innerText.includes('拍发开始符号')) { clearInterval(t); res(true) } }, 300); setTimeout(() => { clearInterval(t); res(false) }, 4000) })`)
-    if (begun) break
-    if (attempt === 2) throw new Error('未进入开始符阶段（begin 广播 3 次均未生效）')
-  }
+  await beginTrain(cdp, teacherToken, trainId)
 
   // 4) 逐页拍发
   for (let i = 0; i < pagePlans.length; i++) {
     const send = await keysim('/api/send', pagePlans[i])
     if (!send.ok) throw new Error(`keysim 第 ${i + 1} 页拍发失败：${send.error}`)
     if (i + 1 < pagePlans.length) {
-      // 翻页：上一页翻页符触发 turn，前端取下一页并把「当前页」翻到 i+2
       const flipped = await cdp.eval(`new Promise(res => { const t = setInterval(() => { const n = document.querySelector('.pag .curr .num'); if (n && n.innerText.trim() === '${i + 2}') { clearInterval(t); res(true) } }, 500); setTimeout(() => { clearInterval(t); res(false) }, ${Math.round(previews[i].duration) + 30000}) })`)
       if (!flipped) throw new Error(`第 ${i + 1} 页拍完后未翻到第 ${i + 2} 页（翻页符未被识别）`)
       console.log(`  [${name}] 已翻到第 ${i + 2} 页`)
     }
   }
 
-  // 5) 等学员端自动结算（结束符 → autoEnd → uploadResult → finish → 成绩页）
-  const waitMs = totalDuration + 90000
-  const probe = `(() => { const t = document.body.innerText; return {
-    done: location.hash.includes('status=2') || t.includes('正确率'),
-    keys: document.querySelectorAll('.patKey .keys .key').length,
-    startSymbolPhase: t.includes('拍发开始符号'),
-    submissionError: (document.querySelector('.ant-alert-error .ant-alert-message') || {}).innerText || null,
-    underway: t.includes('本轮正在进行') } })()`
+  // 5) 等结算（以后端 detail 为权威）；stall 场景等拍完后观察 45s 要求“未结算”
+  const settleDeadline = Date.now() + totalDuration + 90000
+  const stallObserveMs = 45000
   const t0 = Date.now()
-  let lastKeys = -1, lastMove = Date.now()
-  let evalErrors = 0
+  let lastFloor = ''
   for (;;) {
-    let p
-    try {
-      p = await cdp.eval(probe)
-      evalErrors = 0
-    } catch (e) {
-      // 页面跳转成绩页的瞬间 eval 会撞上上下文销毁；连续失败才是真故障
-      if (++evalErrors >= 5) throw new Error(`页面探针连续失败：${e.message}`)
-      await delay(2000)
-      continue
+    const d = await trainDetail(owner, trainId)
+    if (d.finished) {
+      return { name, trainId, score: d.score, accuracy: d.accuracy, speed: d.speed, errors: d.errors, lack: d.lack, validTime: d.validTime }
     }
-    if (p.done) break
-    if (p.keys !== lastKeys) { lastKeys = p.keys; lastMove = Date.now() }
-    if (p.submissionError) throw new Error(`页面提交失败（应重试/上报）：${p.submissionError}`)
-    if (Date.now() - lastMove > 90000) {
-      const ks = await keysim('/api/state')
-      throw new Error(`拍发停滞 90s：keys=${p.keys} startSymbolPhase=${p.startSymbolPhase} keysimReplay=${JSON.stringify(ks.state.replay ?? null)} injectClients=${ks.state.injectClients}`)
+    if (scenario.expect === 'stall' && Date.now() - t0 > totalDuration + stallObserveMs) {
+      const page = await cdp.eval(`(() => { const t = document.body.innerText; return { startPhase: t.includes('拍发开始符号') || t.includes('试机操作'), err: (t.match(/拍发[^\\n]*错误[^\\n]*/g) || []).slice(0, 2) } })()`).catch(() => null)
+      return { name, trainId, stalled: true, page, validTime: Math.round((Date.now() - t0) / 1000) }
     }
-    if (Date.now() - t0 > waitMs) throw new Error(`结算超时（keys=${p.keys} underway=${p.underway}）`)
+    if (scenario.expect !== 'stall' && Date.now() > settleDeadline) {
+      throw new Error(`结算超时（detail 未完成，lastFloor=${lastFloor}）`)
+    }
     await delay(5000)
-  }
-
-  // 6) 后端权威断言
-  const detail = await rest('/generalTickerPatTrain/detail', { method: 'POST', token: teacherToken, deviceId: TEACHER.deviceId, body: { id: trainId, uid: STUDENT.id } })
-  const me = detail.userInfoList.find(u => u.userId === STUDENT.id)
-  room.close()
-  if (!me || me.isFinish !== 1) throw new Error(`后端未结算：${JSON.stringify(me)}`)
-  return {
-    name, trainId,
-    score: me.score, accuracy: me.accuracy, speed: me.speed,
-    errors: me.errorNumber, lack: me.lack, validTime: me.validTime
   }
 }
 
 /** 结果是否满足场景预期 */
 function checkExpect(result, scenario) {
+  if (result.stalled) return scenario.expect === 'stall' ? null : '应结算但训练未结束'
+  if (scenario.expect === 'stall') return `应无法结束但已结算：score=${result.score}`
   if (scenario.expect === 'perfect') {
-    if (result.accuracy !== '100.00' || result.lack !== 0) {
-      return `应满分容忍：accuracy=${result.accuracy} lack=${result.lack} errors=${result.errors}`
-    }
+    if (result.accuracy !== '100.00' || result.lack !== 0) return `应满分容忍：accuracy=${result.accuracy} lack=${result.lack} errors=${result.errors}`
   } else if (scenario.expect === 'degraded') {
-    if (result.accuracy === '100.00' || result.errors === 0) {
-      return `应劣化扣分（故障未生效？）：accuracy=${result.accuracy} errors=${result.errors}`
-    }
+    if (result.accuracy === '100.00' || result.errors === 0) return `应劣化扣分（故障未生效？）：accuracy=${result.accuracy} errors=${result.errors}`
+  } else if (scenario.expect === 'low') {
+    const acc = parseFloat(result.accuracy)
+    if (!(acc < 20)) return `乱拍应大幅错码：accuracy=${result.accuracy}`
   }
   return null
 }
@@ -377,6 +414,10 @@ async function main() {
   await preflight()
   const teacherToken = await login(TEACHER)
   const cdp = await setupOnce()
+  // 后端单会话模型下复用页面学员会话（另起 REST 登录会把页面会话踢成 206）
+  const pageSession = DOMAIN === 'postJob'
+    ? await cdp.eval(`({ token: localStorage.getItem('token'), deviceId: localStorage.getItem('deviceId') })`)
+    : null
 
   let scenarios
   if (args.matrix) {
@@ -389,9 +430,14 @@ async function main() {
     if (!scenarios.length) fail('矩阵没有匹配的场景')
   } else {
     scenarios = [{
-      name: 'single', rate: RATE, alphabet: ALPHABET, pages: PAGES,
+      name: 'single', rate: RATE, alphabet: ALPHABET, pages: PAGES, groups: GROUPS,
+      style: args.style || 'machine',
+      ...(args.jitter !== undefined ? { jitter: Number(args.jitter) } : {}),
+      ...(args.skewGate !== undefined ? { skewGate: Number(args.skewGate) } : {}),
+      ...(args.noStart ? { preamble: false } : {}),
+      ...(args.corrupt ? { corrupt: args.corrupt } : {}),
       fault: args.fault || null,
-      expect: args.fault ? (String(args.fault).includes('missingUp') ? 'degraded' : 'perfect') : 'perfect'
+      expect: args.expect || (args.fault ? (String(args.fault).includes('missingUp') ? 'degraded' : 'perfect') : 'perfect')
     }]
   }
 
@@ -399,10 +445,14 @@ async function main() {
   const violations = []
   for (const scenario of scenarios) {
     try {
-      const result = await runScenario(cdp, teacherToken, scenario)
+      const result = await runScenario(cdp, teacherToken, { ...scenario, _session: pageSession })
       const violation = checkExpect(result, scenario)
       results.push({ ...result, expect: scenario.expect, pass: !violation })
-      console.log(`  [${result.name}] score=${result.score} accuracy=${result.accuracy}% speed=${result.speed}字/分 errors=${result.errors} lack=${result.lack} validTime=${result.validTime}s${violation ? `  ✗ ${violation}` : ''}`)
+      if (result.stalled) {
+        console.log(`  [${result.name}] 训练未结束（符合 stall 预期）：页面仍停在开始符/试机阶段=${result.page?.startPhase}，${result.validTime}s 无结算${violation ? `  ✗ ${violation}` : ''}`)
+      } else {
+        console.log(`  [${result.name}] score=${result.score} accuracy=${result.accuracy}% speed=${result.speed}字/分 errors=${result.errors} lack=${result.lack} validTime=${result.validTime}s${violation ? `  ✗ ${violation}` : ''}`)
+      }
       if (violation) violations.push(`${result.name}: ${violation}`)
     } catch (e) {
       results.push({ name: scenario.name, expect: scenario.expect, pass: false, error: e.message })
@@ -414,7 +464,7 @@ async function main() {
   if (scenarios.length > 1) {
     console.log('\n场景汇总：')
     for (const r of results) {
-      console.log(`  ${r.pass ? '✓' : '✗'} ${r.name.padEnd(20)} ${r.error ? r.error : `score=${r.score} accuracy=${r.accuracy}% speed=${r.speed} errors=${r.errors} lack=${r.lack}`}`)
+      console.log(`  ${r.pass ? '✓' : '✗'} ${r.name.padEnd(20)} ${r.error ? r.error : r.stalled ? `未结束（stall）` : `score=${r.score} accuracy=${r.accuracy}% speed=${r.speed} errors=${r.errors} lack=${r.lack}`}`)
     }
   }
   if (violations.length) fail(`${violations.length} 个场景未达预期：\n- ${violations.join('\n- ')}`)
