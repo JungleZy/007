@@ -128,15 +128,20 @@
 6. 契约面同名导出去重（hanziAdd/getAllStudent，重命名消歧，双条件见 3.2）。（主持人终裁）
 7. dayjs 显式声明（或直接并入 P1 的 moment 统一）。（K3-R1）
 
-**P1 低风险高收益**
-8. Pinia 收编 Vuex 余下 permissions/online，卸载 vuex（含 ButtonPermission 改造）。（双方）
-9. localforage 转 npm 依赖改 ES import（7 文件 + index.html）。（GLM-R1）
-10. 依赖清理：bluebird/body-parser/compression/formidable/mockjs。（K3-R1）
-11. MessageWebSocket → WebSerialChannel 更名（J1 裁决项）。（双方）
-12. 15 组字节级相同文件合并——闸：若含路由目标 .vue 对，先查后端菜单表。（K3-R1，GLM 加闸）
-13. 两个 Pagination 二合一，保留 common 版（迁移 2 处引用）。（K3-R1/GLM-R2）
-14. dayjs/moment 二选一收敛。（K3-R1）
-14b. 拼写改名（无需菜单同步部分）：`compoents/`、`perviewTest`、`parctice.js`、`wb_colork.js` 等——菜单表证实 0 引用，纯 import 修复。（3.4 终判降级自 P2）
+**P1 低风险高收益** ✅ 已全部执行（2026-09-17，commits cde9c5a→70c5059；验证：node 测试 39/39、`vite build` 52s 通过）。执行中更正与增量发现：
+- **13 二合一裁决撤销**：两 Pagination 并非冗余——pagination/ 版是客户端全量分页（内部切片），common/ 版是服务端分页（父组件翻页拉取，changeListPage→findRoomInfo）。实际执行：common/ 版函数 prop 改 emit（6 调用点同步），两文件头互加模型指引注释。教训：评审时只对了引用数与 props 风格，未对数据流——执行期核实纠回。
+- **14 口径修正**：dayjs 实为 10 处使用而非 2（8 处经 index.html script 标签全局注入裸用，与 localforage 同款反模式，评审漏检）。收敛方向取多数派 moment（58 文件规范 import）；script 注入与 vendored 文件已删。
+- **12 增量**：usePreviewTheTopic.js×2（引用全为注释）与 preJob telexTrain/js/wordTrain.js×2（零导入）升级为死代码直接删除，未走合并。
+- **8 增量**：Vuex 的 online 状态零写入方（Room.js 读取恒 undefined），Room.js 整类唯一实例化点已注释——删除整文件；permissions 流迁入 Pinia global store。
+- 另修复执行引入的 2 处构建断点（commit 70c5059）。
+8. ✅ Pinia 收编 Vuex，卸载 vuex（c45394b）
+9. ✅ localforage 转 npm ESM（b00962a）
+10. ✅ 依赖清理（cde9c5a）——注意：body-parser/compression/formidable 被 Electron 外壳真实使用，由顶层 bw-frontend/package.json 提供，仅前端包内副本为冗余
+11. ✅ MessageWebSocket → WebSerialChannel（f043d30）
+12. ✅ 字节级相同文件合并 + 死代码增量删除（ded6af0）
+13. ✅ 更正为「两模型并存 + emit 改造」（9662608）
+14. ✅ 收敛到 moment（128a68e）
+14b. ✅ 拼写改名批次（df45eb2）
 
 **P2 中风险，需排期 + 分批 PR**
 15. common/http 导出 isBizOk/unwrap，统一 366 处 code 判断；先灭 35 处宽松等号；错误提示收口拦截器消灭双弹。（GLM-R1/K3-R1）
