@@ -1,3 +1,4 @@
+import localforage from 'localforage'
 import {endpointUrl} from '../common/http/endpoint.js'
 import {ipc, isEE} from '../electron/ipcRenderer.js'
 

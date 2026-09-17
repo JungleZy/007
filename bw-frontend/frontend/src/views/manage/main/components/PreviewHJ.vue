@@ -438,6 +438,7 @@
   }
 </script>
 <script setup>
+  import localforage from 'localforage'
   import NipSerial from "../../../../components/common/NipSerial.vue";
   import Personal from "../../../../components/personal/Personal.vue";
   import useTraffic from './../../../../common/mixin/useTraffic.js'

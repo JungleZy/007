@@ -1,3 +1,4 @@
+import localforage from 'localforage'
 import {ipcRenderer, ipcApi} from '../../electron/index'
 
 /**
@@ -42,18 +43,12 @@ const withTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-const localforageRef = () => {
-	if (typeof localforage === 'undefined' || !localforage) {
-		throw new Error('localforage 未加载')
-	}
-	return localforage
-}
 
 const readIdbKey = async (key) => {
 	let lastErr
 	for (let i = 0; i < STORAGE_RETRY; i++) {
 		try {
-			return await withTimeout(localforageRef().getItem(key), STORAGE_TIMEOUT_MS, `getItem(${key})`)
+			return await withTimeout(localforage.getItem(key), STORAGE_TIMEOUT_MS, `getItem(${key})`)
 		} catch (e) {
 			lastErr = e
 			if (i < STORAGE_RETRY - 1) await sleep(200 * Math.pow(2, i))
@@ -94,7 +89,7 @@ const readIndexed = async () => {
 
 const writeIndexed = async (record) => {
 	try {
-		const lf = localforageRef()
+		const lf = localforage
 		await withTimeout(lf.setItem(KEY_MACHINE, {machineCode: record.machineCode}), STORAGE_TIMEOUT_MS, 'setItem(2)')
 		await withTimeout(lf.setItem(KEY_LICENSE, {
 			license: record.license,
@@ -110,7 +105,7 @@ const writeIndexed = async (record) => {
 
 const clearIndexed = async () => {
 	try {
-		const lf = localforageRef()
+		const lf = localforage
 		await withTimeout(lf.removeItem(KEY_LICENSE), STORAGE_TIMEOUT_MS, 'removeItem(1)')
 		await withTimeout(lf.removeItem(KEY_MACHINE), STORAGE_TIMEOUT_MS, 'removeItem(2)')
 		return {source: '浏览器存储', ok: true, error: null}

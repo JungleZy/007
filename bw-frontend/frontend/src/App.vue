@@ -36,6 +36,7 @@ import VerifyLicense from './components/common/VerifyLicense.vue'
 import NetSetting from './components/common/NetSetting.vue'
 import useFontSize from "./common/mixin/useFontSize.js";
 import GlobalStyle from "./components/GlobalStyle.vue";
+import localforage from 'localforage'
 import {userLoginOut} from "./common/api/UserApi";
 import {ipcRenderer, ipcApi} from './electron/index'
 import NipPagePermission from "./components/common/NipPagePermission.vue";

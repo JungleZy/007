@@ -1,3 +1,4 @@
+import localforage from 'localforage'
 import { userLoginOut } from '../api/UserApi.js'
 import { Ws } from '../ws/Ws.js'
 import UnionWs from '../../views/manage/unionJob/js/UnionWs.js'
@@ -27,7 +28,7 @@ export const closeSession = router => {
       SESSION_KEYS.forEach(key => window.localStorage.removeItem(key))
       window.localStorage.removeItem('tabCache')
       try {
-        await window.localforage.removeItem('autoLoginInfo')
+        await localforage.removeItem('autoLoginInfo')
       } catch (error) {
         console.warn('清理自动登录缓存失败', error)
       }

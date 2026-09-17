@@ -1,3 +1,4 @@
+import localforage from 'localforage'
 import { userLogin, addSignin } from '../../../common/api/UserApi.js'
 import { message } from 'ant-design-vue'
 import { isNavigationFailure, NavigationFailureType, useRouter } from 'vue-router'
