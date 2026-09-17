@@ -60,7 +60,6 @@ export async function configureRuntime() {
     window.httpUrl = webAddress(config.httpUrl, 18001, securePage ? '/data' : '')
     window.wsUrl = webAddress(config.wsUrl, 18001, securePage ? '/push' : '', true)
     fileBase = webAddress(config.fileUrl, 8000, securePage ? '/file' : '')
-    window.ueditorUrl = webAddress(config.ueditorUrl, 8003, '/ueditor')
     window.ocrUrl = webAddress(config.ocrUrl, 8080, '/ocr')
   }
   window.mqttUrl = window.serverConfig?.mqttUrl

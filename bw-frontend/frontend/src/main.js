@@ -6,7 +6,6 @@ import {handleClick, context} from './config/directive/waves/waves'
 
 import {createApp} from 'vue'
 import {createPinia} from 'pinia'
-import VueUeditorWrap from 'vue-ueditor-wrap'
 import App from './App.vue'
 import 'ant-design-vue/dist/antd.less'
 import router from './config/router/index'
@@ -99,7 +98,6 @@ const useGlobalStore = global.useGlobalStore();
 useGlobalStore.changeTheme(window.interfaceStyle)
 app.use(store)
 app.use(print)
-app.use(VueUeditorWrap)
 ButtonPermission(app, store)
 ImgError(app)
 app.mount('#app')
