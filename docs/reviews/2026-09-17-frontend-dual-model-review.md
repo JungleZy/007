@@ -119,7 +119,7 @@
 
 ## 四、最终整改路线图（风险×收益排序）
 
-**P0 零/低风险，本期落地**
+**P0 零/低风险，本期落地** ✅ 已全部执行（2026-09-17，commits 57c360e→64c0fd1；验证：前端 node 测试 39/39 通过、`vite build` 53s 构建成功）。各项与提交对应：P0-1=57c360e、P0-2=0822a99、P0-3=e6164d1、P0-4=717c406、P0-5=830c136、P0-6=c9abd5a、P0-7=9c07990、P0-8=2995ba7、P0-9=64c0fd1。
 1. 删 8 处 g2plot `log` 死 import；CI 加 no-unused-imports。（GLM-R1）
 2. 死代码批删：IndexDelete.vue、components/model/、useBase.js、anime.js、unpkg.js×2（省 1.5MB）、explain axios 死导入、vue-ueditor-wrap 注册+依赖+资源链、Vuex router 死状态、App.vue 注释块、http/index.js:39 死分支与 :6 框架层 console.log、**equipmentList1 整目录、各 teaching/Index1.vue、views/Index.vue（3.4 菜单表终判确证）**。（K3-R1/GLM-R2/F6/菜单表）
 3. 修 main.js:91 debounce unmounted bug（v-debounce 7 处调用点）。（K3-R1/F6）
