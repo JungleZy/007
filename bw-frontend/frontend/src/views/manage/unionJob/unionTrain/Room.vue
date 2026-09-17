@@ -179,9 +179,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { PubSub } from '../../../../common/utils/PubSub.js'
 import { CloseOutlined, CheckOutlined, LogoutOutlined, RestOutlined, SettingOutlined, MessageOutlined, ArrowDownOutlined } from '@ant-design/icons-vue'
 import { Modal, message } from 'ant-design-vue'
-import Room from './js/Room.js'
 
-let unionWs, room
+let unionWs
 const route = useRoute()
 const router = useRouter()
 const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
@@ -262,8 +261,6 @@ onMounted(() => {
   PubSub.subscribe(UnionWsCode.SEAT_INSPECT_ACCEPT, seatInspectAccept)
   PubSub.subscribe(UnionWsCode.SEAT_INSPECT_BROADCAST, seatInspectBroadcast)
   unionWs = UnionWs.getInstance()
-  // room = new Room()
-  // room.connect(terminalCallback)
   handleIsOpen()
 })
 
