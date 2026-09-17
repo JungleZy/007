@@ -62,7 +62,7 @@
           :totalNumber="totalAll"
           :pageAll="totalPage"
           :currentPage="currPage"
-          :selectTablePage="changeListPage"
+          @selectTablePage="changeListPage"
         ></Pagination>
       </div>
     </div>

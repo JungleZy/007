@@ -1,3 +1,4 @@
+<!-- 服务端分页组件：父组件持有数据与页码，翻页经 selectTablePage 事件通知父组件拉取。客户端全量分页见 components/pagination/Pagination.vue -->
 <template>
   <div class="table_pagination">
     <div class="total">共{{ totalNumber }}条数据</div>
@@ -20,7 +21,7 @@
   }
 </script>
 <script setup>
-  const props = defineProps({
+  defineProps({
     totalNumber: {
       type: Number,
     },
@@ -30,12 +31,9 @@
     currentPage: {
       type: Number,
     },
-    selectTablePage: {
-      type: Function,
-      default: () => {
-      },
-    },
   })
+  const emit = defineEmits(['selectTablePage'])
+  const selectTablePage = (pag) => emit('selectTablePage', pag)
 </script>
 
 <style scoped>

@@ -1,3 +1,4 @@
+<!-- 客户端全量分页组件：传入完整数组 tableAllData，组件内部切片并经 getTableList 事件抛出当前页。服务端分页见 components/common/Pagination.vue -->
 <template>
   <div class="table_pagination">
     <div class="total">共{{ tableAllData.length }}条数据</div>

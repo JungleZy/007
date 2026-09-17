@@ -60,7 +60,7 @@
             :totalNumber="tableData.totalNumber"
             :pageAll="tableData.totalPage"
             :currentPage="currTablePage"
-            :selectTablePage="selectTablePage"
+            @selectTablePage="selectTablePage"
           ></Pagination>
         </div>
       </div>

@@ -63,7 +63,7 @@
           :totalNumber="totalAll"
           :pageAll="totalPage"
           :currentPage="currPage"
-          :selectTablePage="changeListPage"
+          @selectTablePage="changeListPage"
         ></Pagination>
         <!--        <div class="table_pagination">-->
         <!--          <div class="total">共{{ totalAll }}条数据</div>-->
