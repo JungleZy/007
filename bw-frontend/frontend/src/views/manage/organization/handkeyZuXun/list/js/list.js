@@ -1,6 +1,6 @@
 import {ref, onMounted, createVNode} from 'vue'
 import moment from 'moment'
-import {getAllStudent, addRoom,} from '../../../../../../common/api/broaddcastTeacheingApi'
+import {getUserDirectory, addRoom,} from '../../../../../../common/api/broaddcastTeacheingApi'
 import {findAll, addTrain,deleteTrain} from '../../../../../../common/api/handkeyZuXun'
 import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 
@@ -182,7 +182,7 @@ export default function broaddcastTeacheing(selectCable) {
 
   onMounted(() => {
     const info = JSON.parse(localStorage.getItem('userInfo'))
-    getAllStudent().then(res => {
+    getUserDirectory().then(res => {
       if (res.code !== 200 || !Array.isArray(res.data)) return
       res.data.forEach((item, i) => {
         if (res.data[i].id == self.value[0]) {

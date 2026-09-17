@@ -1,6 +1,6 @@
 import axios from '../http/axios.js'
 
-export const hanziAdd = (data) => {
+export const postHanziAdd = (data) => {
   return axios({
     method: "post",
     url: "/api/postEnteringExercise/add",

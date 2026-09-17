@@ -1,6 +1,6 @@
 import {onMounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import {getArticleList, hanziAdd} from "../../../../../common/api/postHanZi";
+import {getArticleList} from "../../../../../common/api/postHanZi";
 import {message} from "ant-design-vue";
 import moment from "moment";
 

@@ -2,7 +2,7 @@ import { message, Modal } from 'ant-design-vue'
 import wubi from 'qq-wubi'
 import moment from 'moment'
 import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
-import { getArticleList, hanziAdd } from '../../../../../../common/api/postHanZi.js'
+import { getArticleList, postHanziAdd } from '../../../../../../common/api/postHanZi.js'
 import { numberKey, letterKey } from '../../../../../../components/preJob/telexTrain/js/enum.js'
 import { useRouter, useRoute } from 'vue-router'
 
@@ -109,7 +109,7 @@ export default function telegramList(addDrillModal) {
         type = 1
         break
     }
-    hanziAdd({ type, name }).then(res => {
+    postHanziAdd({ type, name }).then(res => {
       const data = {
         id: res.data.id
       }

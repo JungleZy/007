@@ -1,6 +1,6 @@
 import axios from '../http/axios.js'
 
-export const getAllStudent = () => {
+export const getUserDirectory = () => {
   return axios({
     method: "post",
     url: "/api/user/getUserDirectory"
