@@ -161,7 +161,7 @@
 
 - ~~依赖后端菜单表~~ **已终判（3.4）**：equipmentList1/Index1.vue/views-Index.vue 确证可删；equipment 双入口皆活；preJob/postJob 双活；拼写改名大部分解锁。残余菜单依赖仅两项：**生产菜单表复核** datagramZuXun/telexZuXun（本地快照已判死）；equipment 合并时的菜单 path 重指。
 - **依赖业务确认**：preJob/postJob 岗位隔离需求；WZTrain/WordTrain 差异意图；organization 四模块边界；`i<4` vs `i<1` 等已枚举行为差异的意图（刻意分叉 vs 未察觉 bug）。
-- **依赖运行时验证**：Ws.js:15 `PubSub.publish(NOTIFICATION_TRAIN_RESULT, data.map)` 疑似把数组方法当数据发布——**建议单独开 bug 单**，不随重构捎带。
+- ~~依赖运行时验证：Ws.js:15 data.map 疑点~~ **已静态终判：非缺陷（2026-09-17）**。后端 `ResponseModel` 有线协议含字面 `map` 字段（`ResponseModel(int code, Map map)` 构造器），code 201 的唯一发送方 `GeneralPatResultNotifier.java:28-29` 以 `Map.of(type,userId,trainId)` 填充该字段；前端 `data.map` 恰好取出订阅方 `userSubmitStatus` 期望的 `{trainId,userId,type}`。对照组 code 200（`GeneralTickerPatService.java:124` 等三处）同样用 map 字段，前端处理方 `useNotification.js:24,26` 读 `data.map.type`——两种前端取法（整报文 vs 发布时预取 `.map`）均与线协议自洽。K3 的「数组方法误发布」假设被后端源码证伪，不开 bug 单。
 - **另行立项**：ant-design-vue 2.2.8 × Vue 3.5.42 版本代差兼容性（超出本次维度）。
 - **口径说明**：宏观统计（446 深路径、3519 内联 style、129 console.log 等）为 K3 单方实测、GLM 采信，F6 抽查 11 项全属实提供旁证，量级可信、精确值允许个位数偏差；code 判断 366 处为双方复算一致，已验证。
 
