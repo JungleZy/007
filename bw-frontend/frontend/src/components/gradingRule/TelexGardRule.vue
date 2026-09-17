@@ -206,7 +206,7 @@
 
 <script>
   export default {
-    name: 'TelexGradingRule'
+    name: 'TelexGardRule'
   }
 </script>
 <script setup>

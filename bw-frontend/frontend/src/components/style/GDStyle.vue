@@ -4,7 +4,7 @@
 
 <script>
   export default {
-    name: "LJStyle"
+    name: "GDStyle"
   }
 </script>
 

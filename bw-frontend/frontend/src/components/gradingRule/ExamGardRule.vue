@@ -205,7 +205,7 @@
 
 <script>
   export default {
-    name: 'TelexGradingRule'
+    name: 'ExamGardRule'
   }
 </script>
 <script setup>

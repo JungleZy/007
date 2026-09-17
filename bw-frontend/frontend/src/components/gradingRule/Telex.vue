@@ -322,7 +322,7 @@
 
 <script>
 export default {
-  name: 'TelexGradingRule'
+  name: 'GradingRule'
 }
 </script>
 <script setup>
