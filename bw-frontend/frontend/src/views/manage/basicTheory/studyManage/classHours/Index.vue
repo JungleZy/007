@@ -51,7 +51,7 @@ export default {
 
 <script setup>
 import { onMounted, reactive, toRefs, ref, watch } from 'vue'
-import { selectTimeTagsFunc } from './js/selectTimeTag.js'
+import { selectTimeTagsFunc } from '../../../../../common/mixin/selectTimeTag.js'
 import { selectTypeTagsFunc } from './js/selectTypeTag.js'
 import useChart from './js/useChart.js'
 import locale from 'ant-design-vue/es/date-picker/locale/zh_CN'

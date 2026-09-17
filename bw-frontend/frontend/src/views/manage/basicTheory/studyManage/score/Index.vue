@@ -186,7 +186,7 @@ export default {
 <script setup>
 import { onMounted, ref } from 'vue'
 import { selectTypeTagsFunc } from './js/selectTypeTag.js'
-import { selectTimeTagsFunc } from './js/selectTimeTag.js'
+import { selectTimeTagsFunc } from '../../../../../common/mixin/selectTimeTag.js'
 import locale from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn'
