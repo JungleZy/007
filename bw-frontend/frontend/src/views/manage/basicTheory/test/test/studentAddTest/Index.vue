@@ -135,7 +135,7 @@
     </div>
     <div class="shadowFind fade-in" v-if="preview">
       <div class="shadowInfo relative">
-        <perviewTest :paperData="questions"></perviewTest>
+        <previewTest :paperData="questions"></previewTest>
         <div class="w-full bottominfo">
           <div class="close" @click="preview = !preview"></div>
         </div>
@@ -147,7 +147,7 @@
     <!--        <div style="width: 100%;height: 100%;overflow: hidden">-->
     <!--&lt;!&ndash;          <StudentQues v-for="(item,index) in questions"  :index="index" :params="item" :score="100">&ndash;&gt;-->
     <!--&lt;!&ndash;          </StudentQues>&ndash;&gt;-->
-    <!--          <perviewTest :paperData="questions"></perviewTest>-->
+    <!--          <previewTest :paperData="questions"></previewTest>-->
     <!--        </div>-->
     <!--      </template>-->
     <!--    </model-self>-->
@@ -166,7 +166,7 @@ export default {
 import { ref, onMounted, watch, provide } from 'vue'
 import addTest from './js/addTest'
 import { createFromIconfontCN } from '@ant-design/icons-vue'
-import perviewTest from '../../../../../../components/test/perviewTest/perviewTest.vue'
+import previewTest from '../../../../../../components/test/previewTest/previewTest.vue'
 import llcy from '../../../../../../assets/HJ/test/llcy.png'
 
 const IconFont = createFromIconfontCN({

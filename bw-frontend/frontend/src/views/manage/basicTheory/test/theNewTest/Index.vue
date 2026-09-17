@@ -467,7 +467,7 @@
         </a-modal>
         <div class="shadowFind fade-in" v-if="preview">
           <div class="shadowInfo">
-            <perviewTest :paperData="paperData"></perviewTest>
+            <previewTest :paperData="paperData"></previewTest>
             <div class="w-full bottominfo">
               <div class="close" @click="preview = !preview"></div>
             </div>
@@ -541,7 +541,7 @@ export default {
 import { PlusOutlined, createFromIconfontCN } from '@ant-design/icons-vue'
 import theNewTest from './js/theNewTest'
 import addAndSelectTopic from './js/addAndSelectTopic'
-import perviewTest from '../../../../../components/test/perviewTest/perviewTest.vue'
+import previewTest from '../../../../../components/test/previewTest/previewTest.vue'
 import nomore from '../../../../../components/nomore/nomore.vue'
 import PreviewTheTopic from '../../../../../components/test/previewTheTopic/PreviewTheTopic.vue'
 import questionBank from '../questionBank/Index.vue'

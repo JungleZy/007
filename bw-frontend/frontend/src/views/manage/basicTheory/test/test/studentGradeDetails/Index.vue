@@ -8,7 +8,7 @@
       </div>
       <div class="bottom">
         <div class="bottomLeft">
-          <StudentPerviewTest v-if="questions" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></StudentPerviewTest>
+          <StudentPreviewTest v-if="questions" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></StudentPreviewTest>
         </div>
         <div class="bottomRight">
           <div class="studentInfo">
@@ -60,7 +60,7 @@ export default {
 import { createFromIconfontCN } from '@ant-design/icons-vue'
 import { onMounted } from 'vue'
 import startGrade from './js/startGrade'
-import StudentPerviewTest from '../../../../../../components/test/studentPerviewTest/StudentPerviewTest.vue'
+import StudentPreviewTest from '../../../../../../components/test/studentPreviewTest/StudentPreviewTest.vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })

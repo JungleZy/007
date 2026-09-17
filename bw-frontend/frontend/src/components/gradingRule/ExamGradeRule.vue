@@ -205,7 +205,7 @@
 
 <script>
   export default {
-    name: 'ExamGardRule'
+    name: 'ExamGradeRule'
   }
 </script>
 <script setup>

@@ -205,7 +205,7 @@ import {
 } from '@ant-design/icons-vue'
   import SelectCable from "../../../../components/cable/SelectCable.vue"
   import NipLeftMenu from '../../../../components/common/NipLeftMenu.vue'
-  import broaddcastTeacheing from './js/broaddcastTeacheing'
+  import broaddcastTeacheing from './js/broadcastTeaching'
   import useBroadcast from './js/useBroadcast'
   import {provide, ref} from "vue";
   import {getCableAll} from "../../../../common/api/CableApi";

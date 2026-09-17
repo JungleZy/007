@@ -1,7 +1,7 @@
 import {ref, onMounted, createVNode} from 'vue'
 import moment from 'moment'
 import {letterKey, numberKey} from '../../../../../components/preJob/telexTrain/js/enum'
-import {getUserDirectory, addRoom, findRoom,addRoomZuXun,findRoomZuXun,deleteTrain} from '../../../../../common/api/broaddcastTeacheingApi'
+import {getUserDirectory, addRoom, findRoom,addRoomZuXun,findRoomZuXun,deleteTrain} from '../../../../../common/api/broadcastTeachingApi'
 import {apiSimulationRouterFindPage} from '../../../../../common/api/UserApi'
 
 import {message, Modal} from 'ant-design-vue'

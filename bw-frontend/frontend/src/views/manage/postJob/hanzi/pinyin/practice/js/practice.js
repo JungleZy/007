@@ -8,7 +8,7 @@ import Homophone from '../../../../../../../common/utils/Homophone'
   
 import { apiPostTrainGlobalRuleType } from '../../../../../../../common/api/postWording'
 
-export default function parctice(countDown) {
+export default function practice(countDown) {
   onMounted(() => {
     init()
   })
@@ -62,9 +62,30 @@ export default function parctice(countDown) {
       if (res.data.status === 2) {
         countDown.value.autoSetTimeAdd(trainData.value.duration)
         message.value = JSON.parse(res.data.content)
+        if (res.data.type === 4) {
+          message.value.forEach(item => {
+            const tfArr = []
+            const arr = item.font.split('')
+            const valueArr = item.value.split('')
+            for (let i in arr) {
+              if (arr[i] === valueArr[i]) {
+                tfArr.push({
+                  text: valueArr[i],
+                  type: true
+                })
+              } else {
+                tfArr.push({
+                  text: valueArr[i],
+                  type: false
+                })
+              }
+            }
+            item.tfArr = tfArr
+          })
+        }
       } else {
         const fonts = []
-        if (res.data.type === 0) {
+        if (res.data.type === 4) {
           const width = document.querySelectorAll('.wz')[0].clientWidth - 20
           const lineNum = width / 16 - 1
           const strs = JSON.parse(res.data.content)
@@ -105,7 +126,7 @@ export default function parctice(countDown) {
       if (res.data.status === 1) {
         trainTime()
       }
-      if (res.data.type === 1) {
+      if (res.data.type === 3) {
         message.value[0].isFocus = true
       }
     })
@@ -114,7 +135,7 @@ export default function parctice(countDown) {
   //获取评分列表
   const getGradeTypeList = number => {
     const num = number ?? 0
-    apiPostTrainGlobalRuleType({ type: 4 }).then(res => {
+    apiPostTrainGlobalRuleType({ type: 2 }).then(res => {
       if (res.code !== 200) {
         notification.error(res.message || '加载评分规则失败')
         return
@@ -148,7 +169,27 @@ export default function parctice(countDown) {
         return
       }
       clearInterval(autoTime.value)
+      isfocus.value = false
       trainData.value.status = 2
+      message.value.forEach(item => {
+        const tfArr = []
+        const arr = item.font.trim().split('')
+        const valueArr = item.value.split('')
+        for (let i in arr) {
+          if (arr[i] === valueArr[i]) {
+            tfArr.push({
+              text: valueArr[i],
+              type: true
+            })
+          } else {
+            tfArr.push({
+              text: valueArr[i],
+              type: false
+            })
+          }
+        }
+        item.tfArr = tfArr
+      })
       PubSub.publish('callback_closehanziPage', true)
       init()
     })
@@ -163,6 +204,7 @@ export default function parctice(countDown) {
   const changeSwitch = item => {
     isfocus.value = item
     // if(item){
+    //   activeMessage.value = message.value[activeIndex.value]
     //   nextTick(()=>{
     //     //专注模式控制滚动条
     //     const scrol = document.getElementsByClassName('scorebox')
@@ -185,6 +227,9 @@ export default function parctice(countDown) {
       if (trainData.value.type === 3) {
         message.value[0].isFocus = true
       }
+      nextTick(() => {
+        document.querySelectorAll('.wz input')[0].focus()
+      })
       trainTime()
     })
   }

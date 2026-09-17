@@ -8,7 +8,7 @@ import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import Homophone from '../../../../../../../common/utils/Homophone'
 import { apiPostTrainGlobalRuleType } from '../../../../../../../common/api/postWording'
 
-export default function parctice(countDown) {
+export default function practice(countDown) {
   onMounted(() => {
     init()
   })

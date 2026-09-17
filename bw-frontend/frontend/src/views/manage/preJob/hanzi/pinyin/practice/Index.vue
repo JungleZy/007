@@ -159,10 +159,10 @@
 </script>
 
 <script setup>
-  import parctice from "./js/parctice.js";
+  import practice from "./js/practice.js";
   import { useRouter } from 'vue-router'
   const router = useRouter()
-  import WZTrain from "./compoents/WZTrain.vue";
+  import WZTrain from "./components/WZTrain.vue";
   import CountDown from '../../../../../../components/common/CountDown.vue';
   import Number from '../../../../../../components/number/Number.vue';
   import labnum from '../../../../../../assets/HJ/train/lab-num.png'
@@ -235,7 +235,7 @@
 
   const codeType = ref('gradient');
   const { message, trainData, activeMessage, isfocus, activeIndex, inputIndex, big, small,
-    nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = parctice()
+    nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = practice()
 </script>
 
 <style scoped lang="less">

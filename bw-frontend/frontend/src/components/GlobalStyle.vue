@@ -30,5 +30,5 @@
 </script>
 
 <style  lang="less">
-  @import '../common/styles/HJ/messsageBody.css';
+  @import '../common/styles/HJ/messageBody.css';
 </style>

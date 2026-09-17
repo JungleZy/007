@@ -39,7 +39,7 @@
       </div>
       <div class="bottom">
         <div class="bottomLeft">
-          <perviewTest v-if="questions && isShow" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></perviewTest>
+          <previewTest v-if="questions && isShow" :time="testExam.duration" :paperData="questions" :isGarde="true" :height="'100%'" :clearAnswer="false" :isAnswer="true"></previewTest>
         </div>
         <div class="bottomRight">
           <div class="studentInfo">
@@ -113,7 +113,7 @@ export default {
 import { LineChartOutlined, createFromIconfontCN } from '@ant-design/icons-vue'
 import { onMounted, ref } from 'vue'
 import startGrade from './js/startGrade'
-import perviewTest from '../../../../../../components/test/perviewTest/perviewTest.vue'
+import previewTest from '../../../../../../components/test/previewTest/previewTest.vue'
 import testAnalyse from '../../../../../../components/test/testAnalyse/testAnalyse.vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl

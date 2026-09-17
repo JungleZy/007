@@ -42,7 +42,7 @@
     </div>
     <div class="right grouping">
       <div class="w-full grouping_halving_line"></div>
-      <StudentPerviewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="true" :isAnswer="true"></StudentPerviewTest>
+      <StudentPreviewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="true" :isAnswer="true"></StudentPreviewTest>
     </div>
   </div>
 </template>
@@ -54,7 +54,7 @@ export default {
 </script>
 <script setup>
 import CountDown from '../../../../../../components/common/CountDown.vue'
-import StudentPerviewTest from '../../../../../../components/test/studentPerviewTest/StudentPerviewTest.vue'
+import StudentPreviewTest from '../../../../../../components/test/studentPreviewTest/StudentPreviewTest.vue'
 import { ref, onMounted } from 'vue'
 import startTest from './js/startTest'
 const countDown = ref(null)

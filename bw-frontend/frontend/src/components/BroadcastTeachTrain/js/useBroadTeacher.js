@@ -1,6 +1,6 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { getRoomDetail } from '../../../common/api/broaddcastTeacheingApi'
+import { getRoomDetail } from '../../../common/api/broadcastTeachingApi'
 import { useRoute } from 'vue-router'
 import { findUserPageBaoWenInfo } from '../../../common/api/UnionApi'
 import useMorse from '../../../common/mixin/useMorse'

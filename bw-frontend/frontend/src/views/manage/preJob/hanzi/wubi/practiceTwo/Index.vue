@@ -164,8 +164,8 @@
 </script>
 
 <script setup>
-  import parctice from '../../pinyin/practice/js/parctice.js'
-  import WZTrain from '../../pinyin/practice/compoents/WZTrain.vue'
+  import practice from '../../pinyin/practice/js/practice.js'
+  import WZTrain from '../../pinyin/practice/components/WZTrain.vue'
   import { useRouter } from 'vue-router'
   const router = useRouter()
   import CountDown from '../../../../../../components/common/CountDown.vue';
@@ -240,7 +240,7 @@
 
   const codeType = ref('gradient');
   const { message, trainData, activeMessage, isfocus, activeIndex, inputIndex, big, small,
-    nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = parctice()
+    nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = practice()
 </script>
 
 <style scoped lang="less">

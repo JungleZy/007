@@ -149,7 +149,7 @@
       <template #footer>
         <div class="w-full layout-center"></div>
       </template>
-      <TelexGardRule />
+      <TelexGradeRule />
     </a-modal>
   </div>
 </template>
@@ -176,7 +176,7 @@
   import {message, Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
   import { timeFormatInfo, partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
-  import TelexGardRule from '../../../../../components/gradingRule/TelexGardRule.vue'
+  import TelexGradeRule from '../../../../../components/gradingRule/TelexGradeRule.vue'
   import * as gr from '../../../../../common/api/GradingRuleApi'
   import SelectCable from "../../../../../components/cable/SelectCable.vue"
   import Pagination from '../../../../../components/common/Pagination.vue'

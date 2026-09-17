@@ -4,7 +4,7 @@ import { getById, begin, hanziFinish, hanziPause, goTo } from '../../../../../..
 import { Modal } from 'ant-design-vue'
 import codebook from '../../../../../../../common/utils/entering-codebook.json'
 
-export default function parctice() {
+export default function practice() {
   const route = useRoute()
   const id = route.query.id
   const draftKey = `entering-exercise:${id}`

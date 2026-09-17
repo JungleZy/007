@@ -17,7 +17,7 @@ import BroadTeacher from '../../../../components/BroadcastTeachTrain/BroadTeache
 import BroadStudent from '../../../../components/BroadcastTeachTrain/BroadStudent.vue'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getRoomDetail } from '../../../../common/api/broaddcastTeacheingApi'
+import { getRoomDetail } from '../../../../common/api/broadcastTeachingApi'
 const route = useRoute()
 const entryRole = ref(null)
 const entryError = ref('')

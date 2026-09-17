@@ -300,7 +300,7 @@ export default function (trainData,loading,emits) {
       trainData.value.validTime = 0;
     }
     trainTimer.value = setInterval(() => {
-      // 展示口径与服务端一致：有效采集时长 + 字符/分钟（DatagramGardRule 的 rateUnit）
+      // 展示口径与服务端一致：有效采集时长 + 字符/分钟（DatagramGradeRule 的 rateUnit）
       const elapsed = capture.elapsed()
       trainData.value.validTime = Math.floor(elapsed / 1000);
       let codelength = 0

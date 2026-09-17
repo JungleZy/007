@@ -1,6 +1,6 @@
 import {ref, onMounted} from 'vue'
 import moment from 'moment'
-import {getUserDirectory} from '../../../../../../common/api/broaddcastTeacheingApi'
+import {getUserDirectory} from '../../../../../../common/api/broadcastTeachingApi'
 import {addTrain, findDatagramList} from '../../../../../../common/api/datagramZuXun.js'
 import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 

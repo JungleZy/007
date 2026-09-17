@@ -165,9 +165,9 @@ export default {
 </script>
 
 <script setup>
-import parctice from './js/parctice.js'
+import practice from './js/practice.js'
 import TrainLeft from '../../../../../../components/postJob/trainLeft/TrainLeft.vue'
-import WZTrain from './compoents/WZTrain.vue'
+import WZTrain from './components/WZTrain.vue'
 import CountDown from '../../../../../../components/common/CountDown.vue'
 import Number from '../../../../../../components/number/Number.vue'
 import resspeed from '../../../../../../assets/LJ/train/new-lab-speed.png'
@@ -262,7 +262,7 @@ const {
   saveTest,
   goback,
   gradeTypeList
-} = parctice(countDown)
+} = practice(countDown)
 </script>
 
 <style scoped lang="less">

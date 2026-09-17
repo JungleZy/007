@@ -188,8 +188,8 @@ export default {
 
 <script setup>
 
-import parctice from './js/parctice.js'
-import WZTrain from './compoents/WZTrain.vue'
+import practice from './js/practice.js'
+import WZTrain from './components/WZTrain.vue'
 import TrainLeft from '../../../../../../components/postJob/trainLeft/TrainLeft.vue'
 import detailexercise from '../../../../../../assets/HJ/train/detail-exercise.png'
 
@@ -289,7 +289,7 @@ const {
   saveTest,
   goback,
   gradeTypeList
-} = parctice(countDown)
+} = practice(countDown)
 </script>
 
 <style scoped lang="less">

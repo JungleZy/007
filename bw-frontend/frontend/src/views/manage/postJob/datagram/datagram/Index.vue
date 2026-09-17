@@ -166,7 +166,7 @@
       <template #footer>
         <div class="w-full layout-center"></div>
       </template>
-      <DatagramGardRule/>
+      <DatagramGradeRule/>
     </a-modal>
   </div>
 </template>
@@ -194,7 +194,7 @@
   import {message, Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
   import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
-  import DatagramGardRule from '../../../../../components/gradingRule/DatagramGardRule.vue'
+  import DatagramGradeRule from '../../../../../components/gradingRule/DatagramGradeRule.vue'
   import * as gr from '../../../../../common/api/GradingRuleApi'
   import moment from "moment";
   import {getCableAll} from "../../../../../common/api/CableApi.js";

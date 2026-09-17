@@ -1,6 +1,6 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted } from 'vue'
-import { getRoomDetail } from '../../../../../common/api/broaddcastTeacheingApi.js'
+import { getRoomDetail } from '../../../../../common/api/broadcastTeachingApi.js'
 import { useRoute } from 'vue-router'
 
 export default function useBroadcastTrain() {

@@ -1,6 +1,6 @@
 import { message, Modal } from 'ant-design-vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { getRoomDetail } from '../../../common/api/broaddcastTeacheingApi'
+import { getRoomDetail } from '../../../common/api/broadcastTeachingApi'
 import { partTimeFormatInfo } from '../../../common/utils/Utils.js'
 import { useRoute } from 'vue-router'
 import { findUserPageBaoWenInfo, uploadUnionTrainResult } from '../../../common/api/UnionApi'

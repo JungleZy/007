@@ -3,7 +3,7 @@
     <div class="h-full border-r pr-1 borderColor" style=" width: 200px">
       <div class="item_group btn big mb-2" @click="addGradingRuleInfo" style="justify-content: center"><PlusOutlined /> 新增评分规则</div>
       <div class="w-full overflow-auto" style="height: calc(100% - 40px)">
-        <div class="w-full layout-left-center" v-for="(r, index) in ruleList" :key="index">
+        <div class="w-full layout-left-center" v-for="(r, index) in ruleList">
           <div class="w-full h-full cursor-pointer p-1 ruleItem layout-side" :class="[pickRuleIndex === index ? 'rule-active' : 'rule-un-active']" @click="pickGradingRuleInfo(index)">
             <div>{{ r?.title }}</div>
             <a-popconfirm
@@ -60,7 +60,7 @@
         </a-row>
         <a-row class="w-full" style="padding: 0">
           <a-col :span="12">
-            <a-row class="w-full border-r border-l border-b border-t borderColor" >
+            <a-row class="w-full border-r border-l border-b border-t borderColor">
               <a-col :span="24">
                 <a-row class="w-full">
                   <a-col :span="6" class="layout-center">类型</a-col>
@@ -73,7 +73,7 @@
                 <a-row class="w-full">
                   <a-col :span="6" class="layout-center cursor-pointer-def">
                     <a-tooltip class="layout-left-center" color="orange">
-                      <template #title>错码</template>
+                      <template style="" #title>错码</template>
                       错码&nbsp;<QuestionCircleOutlined style="color: orange" />
                     </a-tooltip>
                   </a-col>
@@ -189,7 +189,7 @@
             </a-row>
           </a-col>
         </a-row>
-        <div class="pr-2 pt-1 layout-right-center" style="position: absolute; bottom: 0px; right: calc(50% - 109px)">
+        <div class="pt-1 layout-right-center" style="position: absolute; bottom: 0px; right: calc(50% - 109px)">
           <a-button @click="handleCancel" class="layout-center" danger>
             <DeleteOutlined />
             取消编辑
@@ -206,7 +206,7 @@
 
 <script>
   export default {
-    name: 'TelexGardRule'
+    name: 'DatagramGradeRule'
   }
 </script>
 <script setup>

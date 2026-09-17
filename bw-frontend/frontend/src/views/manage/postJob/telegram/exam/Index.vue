@@ -163,7 +163,7 @@
       <template #footer>
         <div class="w-full layout-center"></div>
       </template>
-      <ExamGardRule/>
+      <ExamGradeRule/>
     </a-modal>
   </div>
 </template>
@@ -189,7 +189,7 @@ import {
 import {message, Modal} from 'ant-design-vue'
 import telegramList from './js/telex'
 import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
-import ExamGardRule from '../../../../../components/gradingRule/ExamGardRule.vue'
+import ExamGradeRule from '../../../../../components/gradingRule/ExamGradeRule.vue'
 import {getCableAll} from "../../../../../common/api/CableApi.js";
 import SelectCable from "../../../../../components/cable/SelectCable.vue"
 

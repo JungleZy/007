@@ -1,6 +1,6 @@
 import {ref, onMounted, createVNode} from 'vue'
 import moment from 'moment'
-import {getUserDirectory, addRoom,} from '../../../../../../common/api/broaddcastTeacheingApi'
+import {getUserDirectory, addRoom,} from '../../../../../../common/api/broadcastTeachingApi'
 import {findAll, addTrain,deleteTrain} from '../../../../../../common/api/handkeyZuXun'
 import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 

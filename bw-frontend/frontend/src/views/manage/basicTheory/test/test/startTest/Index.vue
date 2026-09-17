@@ -65,7 +65,7 @@
     </div>
     <div class="right grouping layout-center">
       <div class="w-full grouping_halving_line"></div>
-      <perviewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="true"></perviewTest>
+      <previewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="true"></previewTest>
     </div>
   </div>
   <div class="w-full h-full layout-center" style="position: absolute;z-index: 9;top: 0;background: rgba(255,255,255,0.1)" v-if="paperLoding">
@@ -80,7 +80,7 @@ export default {
 </script>
 <script setup>
 import CountDown from '../../../../../../components/common/CountDown.vue'
-import perviewTest from '../../../../../../components/test/perviewTest/perviewTest.vue'
+import previewTest from '../../../../../../components/test/previewTest/previewTest.vue'
 import { ref, onMounted } from 'vue'
 import startTest from './js/startTest'
 const countDown = ref(null)

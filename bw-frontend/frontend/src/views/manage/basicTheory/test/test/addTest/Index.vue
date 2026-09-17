@@ -145,7 +145,7 @@
     </div>
     <div class="shadowFind fade-in" v-if="preview">
       <div class="shadowInfo relative">
-        <perviewTest :paperData="questions"></perviewTest>
+        <previewTest :paperData="questions"></previewTest>
         <div class="w-full bottominfo">
           <div class="close" @click="preview = !preview"></div>
         </div>
@@ -166,7 +166,7 @@
   import { ref, onMounted, watch, provide } from 'vue'
   import addTest from './js/addTest'
   import { createFromIconfontCN } from '@ant-design/icons-vue'
-  import perviewTest from '../../../../../../components/test/perviewTest/perviewTest.vue'
+  import previewTest from '../../../../../../components/test/previewTest/previewTest.vue'
   import llcy from '../../../../../../assets/HJ/test/llcy.png'
   provide('changeShortAnswerScore', '')
   const IconFont = createFromIconfontCN({
