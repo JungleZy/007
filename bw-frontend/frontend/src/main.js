@@ -9,7 +9,6 @@ import App from './App.vue'
 import 'ant-design-vue/dist/antd.less'
 import router from './config/router/index'
 import './config/router/guards'
-import store from './config/store/index.js'
 import {ButtonPermission} from './config/directive/ButtonPermission.js'
 import {ImgError} from './config/directive/ImgError.js'
 import ButtonStyle from './components/common/ButtonStyle.vue'
@@ -78,8 +77,7 @@ app.use(router)
 app.use(createPinia())
 const useGlobalStore = global.useGlobalStore();
 useGlobalStore.changeTheme(window.interfaceStyle)
-app.use(store)
 app.use(print)
-ButtonPermission(app, store)
+ButtonPermission(app)
 ImgError(app)
 app.mount('#app')

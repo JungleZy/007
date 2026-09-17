@@ -3,7 +3,8 @@ import {defineStore} from 'pinia';
 export const useGlobalStore = defineStore('global', {
   state: () => ({
     theme: 'LJ',
-    leftWidth: 170
+    leftWidth: 170,
+    permissions: []
   }),
   actions: {
     changeTheme(t) {
@@ -15,6 +16,9 @@ export const useGlobalStore = defineStore('global', {
       }else {
         this.leftWidth = 170
       }
+    },
+    setPermissions(p) {
+      this.permissions = p
     }
   }
 });

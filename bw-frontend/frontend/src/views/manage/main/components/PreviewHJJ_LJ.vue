@@ -172,7 +172,7 @@
   import otherBgGD from '../../../../assets/GD/main/otherBg.jpg'
   import useTraffic from '../../../../common/mixin/useTraffic.js'
   import {useRoute, useRouter, onBeforeRouteUpdate} from 'vue-router'
-  import {useStore} from 'vuex'
+  import {useGlobalStore} from '../../../../config/pinia/global.js'
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, onBeforeMount, watch, onMounted, nextTick, inject, provide} from 'vue'
   import {Modal, message} from 'ant-design-vue'
@@ -233,7 +233,7 @@
   const router = useRouter()
   const route = useRoute()
   const systemPath = ref('')
-  const store = useStore()
+  const store = useGlobalStore()
   const userRole = ref({})
   const userInfo = ref({})
   const routeName = ref('')
@@ -358,7 +358,7 @@
     handlePermissions(to.meta.permissions)
   })
   const handlePermissions = meta => {
-    store.commit('setPermissions', meta)
+    store.setPermissions(meta)
   }
   const reloadWindow = () => {
     window.location.reload(true)

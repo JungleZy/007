@@ -457,7 +457,6 @@
   import logoTitle from '../../../../assets/HJ/home/title-1.png'
   import address from '../../../../assets/HJ/home/addres.png'
   import {useRoute, useRouter, onBeforeRouteUpdate} from 'vue-router'
-  import {useStore} from 'vuex'
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, provide, watch, onMounted, nextTick, inject} from 'vue'
   import {Modal, message} from 'ant-design-vue'
@@ -485,7 +484,6 @@
   const router = useRouter()
   const route = useRoute()
   const systemPath = ref('')
-  const store = useStore()
   const userRole = ref({})
   const userInfo = ref({})
   const routeName = ref('')

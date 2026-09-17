@@ -48,7 +48,6 @@ export default {
 import { useRoute, useRouter } from 'vue-router'
 import { ref, onMounted, watch, inject } from 'vue'
 import breadCru from '../components/breadCrumb/Index.vue'
-import store from '../config/store/index'
 import mmb from '../assets/HJ/TransitionPage/menu-mask-bg.gif'
 import mmbp from '../assets/HJ/TransitionPage/menu-mask-bg2.png'
 import mmbm from '../assets/HJ/TransitionPage/menu-mask-bg-movein.png'
