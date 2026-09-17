@@ -3,7 +3,6 @@ import {message, Modal} from 'ant-design-vue';
 import {apiUrl} from './endpoint.js'
 import {isTerminalCode, terminalReason} from './terminalCode.js'
 //创建axios的一个实例
-console.log(window.httpUrl)
 const instance = axios.create({
   baseURL: apiUrl(),
   timeout: 30000,
@@ -35,10 +34,6 @@ instance.interceptors.request.use((config) => {
   }
   token && (config.headers.token = token);
   deviceId && (config.headers.deviceId = deviceId);
-  //若请求方式为post，则将data参数转为JSON字符串
-  if (config.method === 'POST') {
-    config.data = JSON.stringify(config.data);
-  }
   return config;
 }, (error) =>
   // 对请求错误做些什么

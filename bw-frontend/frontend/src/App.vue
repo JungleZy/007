@@ -34,21 +34,12 @@ import {Modal} from 'ant-design-vue'
 import {useRoute, useRouter} from 'vue-router'
 import VerifyLicense from './components/common/VerifyLicense.vue'
 import NetSetting from './components/common/NetSetting.vue'
-// import NetStatus from './components/common/NetStatus.vue'
 import useFontSize from "./common/mixin/useFontSize.js";
 import GlobalStyle from "./components/GlobalStyle.vue";
-// import confim from "./components/model/confirm";
 import {userLoginOut} from "./common/api/UserApi";
 import {ipcRenderer, ipcApi} from './electron/index'
 import NipPagePermission from "./components/common/NipPagePermission.vue";
 
-// Modal.confirm = confim
-// Modal.error = confim
-
-// // 在 main.js 或 App.vue 中添加<br/>
-// window.addEventListener('error', (event) => {console.error('全局错误:', event.error)})
-// window.addEventListener('unhandledrejection', (event) => {console.error('未处理的 Promise 拒绝:', event.reason)})
-// setInterval(() => {console.log('Memory:', performance.memory ? performance.memory.usedJSHeapSize / 1048576 : 'N/A', 'MB')}, 1000)
 
 const router = useRouter()
 const route = useRoute()
@@ -57,12 +48,6 @@ const isOpen = ref(false)
 const interfaceStyle = window.interfaceStyle
 const childRef = ref(null);
 
-// const isClear = localStorage.getItem('code')
-// if(isClear==null){
-//   window.indexedDB.deleteDatabase('WisdomJ233')
-//   localStorage.setItem('code',1)
-//   window.location.reload()
-// }
 
 
 const cool = ref(false)

@@ -115,28 +115,12 @@ import { createFromIconfontCN } from '@ant-design/icons-vue'
 import explain from './js/explain'
 import ydjj03 from '../../../../../assets/HJ/explain/ydjj03.png'
 import ydjj09 from '../../../../../assets/HJ/explain/ydjj09.png'
-import {useRoute} from 'vue-router'
-import axios from "axios";
 const interfaceStyle = window.interfaceStyle
-const route = useRoute()
-console.log(route.query)
 
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })
 const { uploadFileUrl, fileUrl, fileList, listData, active, activeS, addDrillModal, newKnowledge, clickTitle, labelClick, openAddMainPoints, modifyMainPoints, deleteMainPoints, addMainPoints, clickMainPoints, handleChange, beforeUpload } = explain()
-// let q = localStorage.getItem('index')
-// let i = 1213
-// if(q){
-//   i = q
-// }
-// const next = ()=>{
-//   i++
-//   localStorage.setItem("index",i)
-//   axios.get(`http://localhost:8000/api/file/getFile/test/${i}.json`).then(res=>{
-//     listData.value[0].content = res.data
-//   })
-// }
 </script>
 <style scoped lang="less">
 
