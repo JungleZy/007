@@ -68,9 +68,8 @@ app.directive('debounce', {
     const waitTime = binding.arg ? parseInt(binding.arg) : false;
     const handler = binding.value.fn;
     let loding = false
-    let timer = null;
     // 绑定事件监听器，这里以 input 为例
-    el.addEventListener('click', () => {
+    el.$debounceHandler = () => {
       if(waitTime===false){
         if(loding===false){
           loding = true
@@ -80,14 +79,16 @@ app.directive('debounce', {
         }
         return
       }
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+      if (el.$debounceTimer) clearTimeout(el.$debounceTimer);
+      el.$debounceTimer = setTimeout(() => {
         handler(binding.value.data); // 执行用户传入的函数，并传递当前值
       }, waitTime);
-    });
+    };
+    el.addEventListener('click', el.$debounceHandler);
   },
   unmounted(el){
-    el.addEventListener('click',el.$handle)
+    if (el.$debounceTimer) clearTimeout(el.$debounceTimer);
+    el.removeEventListener('click', el.$debounceHandler)
   }
 });
 app.component('ButtonStyle', ButtonStyle)
