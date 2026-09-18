@@ -2,7 +2,7 @@
   <div class="w-full h-full overflow-hidden layout-side" style="padding: 0px 12px 12px 0px">
     <nip-left-menu />
     <div class="h-full transition-all duration-300 overflow-auto listBox" style="margin-left: 12px; padding-bottom: 20px" :style="{ width: 'calc(100% - ' + (leftMenuWidth + 12) + 'px)' }">
-      <template v-for="v of euqipments">
+      <template v-for="(v, kIdx) of euqipments" :key="kIdx">
         <div class="card" @click="selectEquipment(v)" v-if="v.isEnable == 1">
           <div class="equipmentCard layout-center">
             <img :src="fileUrl + '/' + v.image" alt="" />

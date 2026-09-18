@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full layout-side">
     <div class="w-full h-full relative layout-center" style="min-width: 768px">
-      <div v-for="(item,i) in trainData.total" class="trainItem" @click="startExamTrain(item.type)">
+      <div v-for="(item,i) in trainData.total" :key="i" class="trainItem" @click="startExamTrain(item.type)">
         <div class="title fs_dispose" v-if="interfaceStyle!=='HJ'">{{ item.type == 0 ? '基础练习' : item.type == 1 ? '单字练习' : '综合练习' }}</div>
         <img :src="itemImg5" v-if="item.type==0" class="itemImg">
         <img :src="itemImg1" v-else-if="item.type==1" class="itemImg">

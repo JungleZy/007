@@ -8,7 +8,7 @@
 <!--          <div>{{max}}</div>-->
         </template>
         <template v-else>
-          <div v-for="(item,i) in list" :class="{on: item.value==val}">{{item.label}}</div>
+          <div v-for="(item,i) in list" :key="i" :class="{on: item.value==val}">{{item.label}}</div>
         </template>
       </div>
     </div>

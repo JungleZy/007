@@ -26,7 +26,7 @@
         <div class="line r"></div>
         <div class="lr overflow-auto r">
           <template v-if="props.analyseData && props.analyseData.errorTop3">
-            <template v-for="(item, i) in props.analyseData.errorTop3">
+            <template v-for="(item, i) in props.analyseData.errorTop3" :key="i">
               <div class="item">
                 <!-- v-if="item.topic && item.topic != ''"-->
                 <div class="text nobr-2">[{{ typeList[item.type - 1] }}]-{{ item.topic }}</div>

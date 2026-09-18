@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full overflow-hidden layout-side">
     <div class="w-full h-full relative layout-center" style="min-width: 768px;">
-      <div v-for="(item,i) in totalList" class="trainItem" @click="verifyPrevTrain(item.type)">
+      <div v-for="(item,i) in totalList" :key="i" class="trainItem" @click="verifyPrevTrain(item.type)">
         <div class="title fs_dispose" v-if="interfaceStyle!=='HJ'">{{ item.type == 0 ? '同字异音' : item.type == 1 ? '同音异字' : '连音词组' }}</div>
         <img :src="itemImg9" v-if="item.type==0" class="itemImg">
         <img :src="itemImg10" v-else-if="item.type==1" class="itemImg">

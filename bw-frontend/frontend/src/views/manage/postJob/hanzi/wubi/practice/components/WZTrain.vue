@@ -11,7 +11,7 @@
                 <div style="width: calc(100% - 50px); height: 100%">
                   <div style="width: 100%; height: 50%; text-align: left; display: flex; align-items: center; padding-left: 10px; font-size: 18px">{{ wubiData.text }}</div>
                   <div style="width: 100%; height: 50%; display: flex; justify-content: flex-start; align-items: center">
-                    <div v-for="(font, index2) of wubiData.activeArr" style="cursor: pointer; padding-left: 15px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.stop="selectText(font.text, $event)">{{ index2 + 1 }}.{{ font.text }}</div>
+                    <div v-for="(font, index2) of wubiData.activeArr" :key="index2" style="cursor: pointer; padding-left: 15px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.stop="selectText(font.text, $event)">{{ index2 + 1 }}.{{ font.text }}</div>
                   </div>
                 </div>
                 <div style="width: 50px; height: 100%" class="rightbtn">
@@ -26,7 +26,7 @@
       </div>
     </div>
     <div v-if="trainData.type != 0" id="scoreBox" :style="[isfocus ? 'height: calc(100% - 330px)' : 'height:100%']" style="display: flex; flex-wrap: wrap; overflow: auto; justify-content: space-between">
-      <div class="cardBox" style="display: flex; height: max-content; min-width: max-content" v-for="(v, index) of message" :style="[trainData.type > 1 ? 'min-width:16%' : 'width: 10%']">
+      <div class="cardBox" style="display: flex; height: max-content; min-width: max-content" v-for="(v, index) of message" :key="index" :style="[trainData.type > 1 ? 'min-width:16%' : 'width: 10%']">
         <div :class="{ messageBox: true, activeBox: activeIndex === index && trainData.status === 1 }" @click="inputFocus(index)">
           <div class="imgBox" style="">{{ v.font }}</div>
           <div class="layout-center containerBox" style="text-align: center">
@@ -36,7 +36,7 @@
                 <div style="width: calc(100% - 50px); height: 100%">
                   <div style="width: 100%; height: 50%; text-align: left; display: flex; align-items: center; padding-left: 10px; font-size: 18px">{{ wubiData.text }}</div>
                   <div style="width: 100%; height: 50%; display: flex; justify-content: flex-start; align-items: center">
-                    <div v-for="(font, index2) of wubiData.activeArr" style="cursor: pointer; padding-left: 15px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.stop="selectText(font.text, $event)">{{ index2 + 1 }}.{{ font.text }}</div>
+                    <div v-for="(font, index2) of wubiData.activeArr" :key="index2" style="cursor: pointer; padding-left: 15px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.stop="selectText(font.text, $event)">{{ index2 + 1 }}.{{ font.text }}</div>
                   </div>
                 </div>
                 <div style="width: 50px; height: 100%" class="rightbtn">
@@ -52,7 +52,7 @@
     </div>
 
     <div v-else style="overflow: auto; height: 100%" class="wzBox">
-      <div class="wzLine" style="font-size: 16px; border-bottom: 1px solid #555252; padding: 10px 10px; width: 100%" v-for="(v, index) of message" :style="[v.isFirst ? 'margin-left: 3em;width:calc( 100% - 3em)' : '']">
+      <div class="wzLine" style="font-size: 16px; border-bottom: 1px solid #555252; padding: 10px 10px; width: 100%" v-for="(v, index) of message" :key="index" :style="[v.isFirst ? 'margin-left: 3em;width:calc( 100% - 3em)' : '']">
         <div style="text-align: center; display: flex; align-items: center; justify-content: flex-start; margin-bottom: 10px; word-spacing: 10px">
           {{ v.font }}
           <!--          <div v-for="t of v.font">-->
@@ -61,7 +61,7 @@
         </div>
         <div style="text-align: center" class="layout-left-bottom containerBox">
           <div style="font-size: 16px; height: 26px; text-align: left" v-if="!inputeMethod || trainData.status === 2">
-            <span v-for="(f, index) of v.value" style="word-spacing: 10px; display: inline-block; min-width: 16px" :style="[f != v.font[index] && trainData.status === 2 ? 'color:red' : '']">
+            <span v-for="(f, index) of v.value" :key="index" style="word-spacing: 10px; display: inline-block; min-width: 16px" :style="[f != v.font[index] && trainData.status === 2 ? 'color:red' : '']">
               {{ f }}
             </span>
           </div>
@@ -70,7 +70,7 @@
               <div style="width: calc(100% - 50px); height: 100%">
                 <div style="width: 100%; height: 50%; text-align: left; display: flex; align-items: center; padding-left: 10px; font-size: 18px">{{ wubiData.text }}</div>
                 <div style="width: 100%; height: 50%; display: flex; justify-content: flex-start; align-items: center">
-                  <span v-for="(font, index2) of wubiData.activeArr" style="cursor: pointer; padding-left: 12px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.prevent="selectText(font.text)">{{ index2 + 1 }}.{{ font.text }}</span>
+                  <span v-for="(font, index2) of wubiData.activeArr" :key="index2" style="cursor: pointer; padding-left: 12px" :style="[activeText === index2 ? 'color:#84f749' : '']" @click.prevent="selectText(font.text)">{{ index2 + 1 }}.{{ font.text }}</span>
                 </div>
               </div>
               <div style="width: 50px; height: 100%" class="rightbtn">

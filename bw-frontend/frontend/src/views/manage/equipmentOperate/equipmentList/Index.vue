@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full overflow-hidden layout-side" style="padding: 0px 12px 12px 0px">
     <div v-if="isTrain" class=" w-full h-full transition-all duration-300 overflow-auto listBox" style="margin-left: 12px; padding-bottom: 20px" >
-      <template v-for="v of euqipments">
+      <template v-for="(v, kIdx) of euqipments" :key="kIdx">
         <div class="card" @click="selectEquipment(v)" v-if="v.isEnable == 1">
           <div class="equipmentCard layout-center">
             <img :src="fileUrl + '/' + v.image" alt="" />

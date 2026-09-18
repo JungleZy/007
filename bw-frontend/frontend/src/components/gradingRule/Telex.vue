@@ -6,7 +6,7 @@
         新增评分规则
       </div>
       <div class="w-full overflow-auto" style="height: calc(100% - 40px)">
-        <div class="w-full layout-left-center" v-for="(r, index) in ruleList">
+        <div class="w-full layout-left-center" v-for="(r, index) in ruleList" :key="index">
           <div class="w-full h-full cursor-pointer p-1" :class="[pickRuleIndex === index ? 'rule-active' : 'rule-un-active']" @click="pickGradingRuleInfo(index)">
             {{ r.title }}
           </div>

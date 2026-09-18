@@ -1,9 +1,9 @@
 <template>
   <div class="h-full w-full layout-left-top wz" >
-    <div style="font-size: 16px;border-bottom: 1px solid #555252;padding: 20px 0;" v-for=" (v,index) of message">
+    <div style="font-size: 16px;border-bottom: 1px solid #555252;padding: 20px 0;" v-for=" (v,index) of message" :key="index">
       <div style="text-align: center;">{{v.font}}</div>
       <div style="font-size: 24px;padding:0px 3px;text-align: center" class="layout-left-top">
-                  <div class="relative layout-left-top"   v-for="(zm,i) of v.pys" :style="[zm.trueOrfalse==false?'color:red':zm.trueOrfalse==true?'color:rgb(178 253 177)':'']" >
+                  <div class="relative layout-left-top"   v-for="(zm,i) of v.pys" :key="i" :style="[zm.trueOrfalse==false?'color:red':zm.trueOrfalse==true?'color:rgb(178 253 177)':'']" >
                   <div style="font-size: 24px;padding-left: 2px;border-left: 1px solid transparent"  :class="[activeIndex==index&&inputIndex==i&&trainData.status==1?'active':'']" >
                     {{zm.py}}</div>
                   </div>

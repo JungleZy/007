@@ -12,10 +12,10 @@
         </div>
         <div class="listBox" :style="{height: 'calc(100% - 54px)', paddingLeft: formData.type=='single'?'20px':'2px'}">
           <div class="indexs" v-if="formData.type=='single'">
-            <div v-for="(idx, i) in indexs" class="idx" @click="anchorJump(idx)">{{idx}}</div>
+            <div v-for="(idx, i) in indexs" :key="i" class="idx" @click="anchorJump(idx)">{{idx}}</div>
           </div>
           <div class="overflow-auto w-full h-full " ref="anchorJumpBoxRef" style="padding-left: 10px">
-            <template v-for="(item, i) in termData[formData.type]">
+            <template v-for="(item, i) in termData[formData.type]" :key="i">
               <div :id="'anchor'+keyLabs[i]" style="height: 36px;margin:10px 0 10px -10px"
                    v-if="item.key && item.key.split('')[0] != keyLabs[i-1] && formData.type == 'single'">
                 <a-affix :target="() => anchorJumpBoxRef">

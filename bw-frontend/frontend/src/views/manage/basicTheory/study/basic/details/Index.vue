@@ -8,7 +8,7 @@
           <img class="line" :src="linetp">
         </div>
         <div class="overflow-auto" style="height: calc(100% - 52px); width: 100%; display: flex; flex-direction: column; align-items: center; box-shadow: -7px 0px 7px -7px rgba(255, 255, 255, 0.09) inset; padding-top: 10px">
-          <div class="list cursor-pointer-def"  v-for="(s,index) in data.knowledgeSwfs" :class="[Knowledge==index? 'listcheck ':'']"  @click="checkKnowledge(s,index,true)">
+          <div class="list cursor-pointer-def"  v-for="(s,index) in data.knowledgeSwfs" :key="index" :class="[Knowledge==index? 'listcheck ':'']"  @click="checkKnowledge(s,index,true)">
             <div class="timer layout-side">
               <!--            :style="{backgroundImage:'url('+fileUrl+(s.cover?s.cover:'/006/cover/base.jpg')+')'}"-->
               <div class="time">{{s.record?s.record>60?(s.record/60).toFixed(2)+' H':s.record.toFixed(0)+' M':'0 M'}}</div>

@@ -102,7 +102,7 @@
           </div>
           <div class="options">
             <template v-if="militaryData.testPaperList">
-              <div v-for="(opt,o) in JSON.parse(militaryData.testPaperList[currAnswer].option)"
+              <div v-for="(opt,o) in JSON.parse(militaryData.testPaperList[currAnswer].option)" :key="o"
                    :class="{option: true, on: o == militaryData.testPaperList[currAnswer].userAnswer, play: militaryData.status<=1,
                             answer: militaryData.status==2&&o==militaryData.testPaperList[currAnswer].correctAnswer}"
                    @click="questAnswer(o)">

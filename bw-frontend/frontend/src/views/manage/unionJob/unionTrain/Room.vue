@@ -16,7 +16,7 @@
         <div class="center layout-side">
           <div class="leftBox">
             <div class="addBtn" @click="joinGroup(true, 1)"></div>
-            <template v-for="user in roomInfo.users">
+            <template v-for="(user, kIdx) in roomInfo.users" :key="kIdx">
               <div class="imgBorder" v-if="user.type === 1" :class="[roomInfo.admin === user.id ? 'homeowner' : '']">
                 <img :src="fileUrl + user.userImg" :title="user.name" />
               </div>
@@ -28,7 +28,7 @@
           </div>
           <div class="rightBox">
             <div class="addBtn-y" @click="joinGroup(true, 2)"></div>
-            <template v-for="user in roomInfo.users">
+            <template v-for="(user, kIdx) in roomInfo.users" :key="kIdx">
               <div class="imgBorder" v-if="user.type === 2" :class="[roomInfo.admin === user.id ? 'homeowner' : '']">
                 <img :src="fileUrl + user.userImg" :title="user.name" />
               </div>
@@ -38,7 +38,7 @@
       </div>
       <div class="bottom layout-left-center">
         <div class="addBtn" @click="joinGroup(false, 0)"></div>
-        <template v-for="user in roomInfo.users">
+        <template v-for="(user, kIdx) in roomInfo.users" :key="kIdx">
           <div class="imgBorder" v-if="user.type === 0" :class="[roomInfo.admin === user.id ? 'homeowner' : '']">
             <img :src="fileUrl + user.userImg" :title="user.name" />
           </div>
@@ -61,7 +61,7 @@
               <div class="w-full layout-center" style="color: #0a1429; height: 78px">当前无人员进入训练席位</div>
             </template>
             <template v-else>
-              <template v-for="user of processedUsers">
+              <template v-for="(user, kIdx) of processedUsers" :key="kIdx">
                 <div class="pr-1 pl-1" style="width: 90px; float: left" v-if="user.type > 0">
                   <div class="w-full layout-center relative">
                     <img :src="fileUrl + user.userImg" style="width: 50px; height: 50px; border-radius: 50px" />
@@ -136,7 +136,7 @@
         <div class="chartBox">
           <div class="closebox layout-center" @click="closeMessageBox"><div class="closeIco"></div></div>
           <div class="messageBox">
-            <template v-for="v of chartContent">
+            <template v-for="(v, kIdx) of chartContent" :key="kIdx">
               <div class="messageItem layout-left-top" v-if="!v.type">
                 <div class="imgBorder" style="margin-left: 0">
                   <img :src="fileUrl + v.userImg" />

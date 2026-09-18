@@ -48,7 +48,7 @@
       <CutDown :nowTime="nowTime"></CutDown>
       <div class="tabs layout-center">
         <template v-if="queryType==0">
-          <div v-for="(v,index) of tab" :class="{ZGbtns:true,on:tabIndex==index}"  @click="selectTab(index)" >
+          <div v-for="(v,index) of tab" :key="index" :class="{ZGbtns:true,on:tabIndex==index}"  @click="selectTab(index)" >
             <div class="left">
               <div class="left-top"></div>
               <div class="left-bottom"></div>
@@ -86,7 +86,7 @@
         </template>
       </div>
       <div class="letterbox" :style="{padding: queryType==1?'40px 0':'40px 0',height: 'auto'}">
-        <div v-for="(v,index) of letter" :class="{letter:true, on: letterIndex==index}">
+        <div v-for="(v,index) of letter" :key="index" :class="{letter:true, on: letterIndex==index}">
           <img v-if="numberArr.indexOf(v.key)>-1&&interfaceStyle==='HJ'" :src="fileUrl+v.key+'.png'" class="img">
           <div class="key" style="font-size: 80px" v-else>{{v.key}}</div>
         </div>
@@ -99,7 +99,7 @@
             <div v-if="tabIndex == 1" class="letterText">
               {{letterText}}
             </div>
-            <div class="lineKeys" v-for="(row, r) in electronKey">
+            <div class="lineKeys" v-for="(row, r) in electronKey" :key="r">
               <div class="patGist" v-if="r==0">
                 <div class="tit">拍发要领</div>
                 <div class="gist" v-if="letter[letterIndex]">{{letter[letterIndex].tip}}用力，垂直击下</div>
@@ -109,7 +109,7 @@
                   <div class="key"><div>应急</div></div>
                 </div>
               </div>
-              <div class="keyBox" v-for="(key, k) in row">
+              <div class="keyBox" v-for="(key, k) in row" :key="k">
                 <div :class="{keys: true, activeKey: letter[letterIndex]&&letter[letterIndex].code==key.key,
                               successKey: patKey==key.code&&letter[letterIndex]&&letter[letterIndex].code==key.key,
                               errorKey: patKey==key.code&&letter[letterIndex]&&letter[letterIndex].code!=key.key}">
@@ -119,7 +119,7 @@
                   <div class="key" v-else>
                     <div>{{key.text}}</div>
                     <div class="cod" v-if="key._code&&key._code.length > 0">
-                      <div class="co" v-for="(co, c) in key._code" :data="co"></div>
+                      <div class="co" v-for="(co, c) in key._code" :key="c" :data="co"></div>
                     </div>
                   </div>
                 </div>

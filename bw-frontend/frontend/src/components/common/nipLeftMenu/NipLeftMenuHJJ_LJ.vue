@@ -3,7 +3,7 @@
     <div class="grouping h-full w-full" style="padding-top: 0;padding-left: 2px;">
       <div class="w-full grouping_content la layout-left-top" style="height: 100%">
         <div class="menus w-full "  >
-          <template v-for="(p,index) in atRoute.children">
+          <template v-for="(p,index) in atRoute.children" :key="index">
             <div class="menuBox" v-if="p.meta.isMenu" :class="[active==index||activeT==index?'activeBg':'']">
               <div class="menu " :class="[activeT==index?'menuActive':'']" v-if="(p.meta.isMenu&&isShow(p.path))||p.children.length==0"   @click="handleMenuClick(p,index)">
                 <div class="firstTitle">
@@ -11,7 +11,7 @@
                 </div>
               </div>
               <div class="secondMenu  " v-if="p.meta.isMenu&&p.children.length>0&&(active==index||activeT==index)" >
-                <template v-for="(v,key) of p.children">
+                <template v-for="(v,key) of p.children" :key="key">
                   <div class="secondMenuItem"  v-if="v.meta.isMenu" @click="handleItemClick(v,p,index,key)" :class="[activeSec==key&&(route.query.studyType?route.query.studyType==index:true)&&isChildern(v)?'activeScconMenuItem':'']">
                     {{v.meta.title}}
                   </div>

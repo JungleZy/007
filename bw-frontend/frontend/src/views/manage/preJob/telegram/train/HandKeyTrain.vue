@@ -37,7 +37,7 @@
               <span class="rightLine"></span>
             </div>
             <div class="cont codeCont">
-              <div v-for="(item, i) in codeTypeArr"
+              <div v-for="(item, i) in codeTypeArr" :key="i"
                    :class="{codeStyle: true, on: item.type===codeType}"
                    @click="codeType=item.type">
                 <img :src="fileUrl+item.type+'/A.png'" alt="">
@@ -147,7 +147,7 @@
         <div class="w-full h-full overflow-auto handKeyBoardBoxs">
           <div class="flex" ref="handKeyBoardBoxRef" v-show="!isTrainFocusMode">
             <template v-if="trainData.type<10">
-              <div v-for="(bw, w) in currBaoWen.baoWenList"
+              <div v-for="(bw, w) in currBaoWen.baoWenList" :key="w"
                    :class="{keyItem: true,
                           active: currBaoWenIndex===w&&currBaoDiIndex===editBaoDiIndex&&trainData.status===1,
                           success: bw.val.length>0&&bw.val.join('')===morseCode[numberCodeType][bw.key].value,
@@ -158,7 +158,7 @@
                 </div>
                 <div class="value" :title="bw.time.map(t => (Math.round(t[1] - t[0]) + 'ms')).join(',')" style="cursor: default">
                   <div v-if="bw.val.length > 0" class="vals">
-                    <span v-for="(val, v) in bw.val" class="val" :data="val"></span>
+                    <span v-for="(val, v) in bw.val" :key="v" class="val" :data="val"></span>
                   </div>
                   <div class="time" v-if="trainData.status===3 && bw.time.length > 0">
                     {{ sum(bw.time.map(t => (t[1] - t[0]))) }} ms
@@ -167,19 +167,19 @@
               </div>
             </template>
             <template v-else><!--930px-->
-              <div v-for="(bw, w) in currBaoWen.baoWenList"
+              <div v-for="(bw, w) in currBaoWen.baoWenList" :key="w"
                    :class="{plraseItem: true,
                             active: currBaoWenIndex===w&&currBaoDiIndex===editBaoDiIndex&&trainData.status===1,
                             success: bw.val.every((v,x) => v.join('')===morseCode['mix'][bw.key[x]].value),
                             error: !bw.val.every((v,x) => v.join('')===morseCode['mix'][bw.key[x]].value)&&!bw.val.every((v,x) => v.length===0)&&currBaoWenIndex!=w}">
                 <div class="imgBox">
-                  <template v-for="(c,k) in bw.key">
+                  <template v-for="(c,k) in bw.key" :key="k">
                     <img :src="fileUrl+codeType+'/'+c+'.png'" class="img">
                   </template>
                 </div>
                 <div class="value">
-                  <div class="vals" v-for="(val, v) in bw.val">
-                    <span v-for="(v, c) in val" class="val" :data="v"></span>
+                  <div class="vals" v-for="(val, v) in bw.val" :key="v">
+                    <span v-for="(v, c) in val" :key="c" class="val" :data="v"></span>
                   </div>
                 </div>
               </div>
@@ -199,11 +199,11 @@
                   <div class="value">
                     <template
                       v-if="currBaoWen.baoWenList[currBaoWenIndex] && currBaoWen.baoWenList[currBaoWenIndex].val.length > 0">
-                      <span v-for="(v, j) in currBaoWen.baoWenList[currBaoWenIndex].val" class="val" :data="v"
+                      <span v-for="(v, j) in currBaoWen.baoWenList[currBaoWenIndex].val" :key="j" class="val" :data="v"
                             :style="{background: 'url('+fileUrl+'big/'+codeType+'/'+(v===1?'line':'dot')+'.png) no-repeat center'}"></span>
                     </template>
                     <template v-else-if="currBaoWen.baoWenList[currBaoWen.baoWenList.length-1]">
-                      <span v-for="(v, j) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].val" class="val"
+                      <span v-for="(v, j) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].val" :key="j" class="val"
                             :data="v"
                             :style="{background: 'url('+fileUrl+'big/'+codeType+'/'+(v===1?'line':'dot')+'.png) no-repeat center'}"></span>
                     </template>
@@ -211,14 +211,14 @@
                 </div>
               </div>
               <div class="w-full thumb overflow-auto" ref="focusTrainThumbRef">
-                <div v-for="(bw, w) in currBaoWen.baoWenList"
+                <div v-for="(bw, w) in currBaoWen.baoWenList" :key="w"
                      :class="{item: true,
                             active: currBaoWenIndex===w&&currBaoDiIndex===editBaoDiIndex&&trainData.status===1,
                             success: bw.val.length>0&&bw.val.join('')===morseCode[numberCodeType][bw.key].value,
                             error: !(currBaoWenIndex===w&&currBaoDiIndex===editBaoDiIndex)&&bw.val.length>0&&bw.val.join('')!=morseCode[numberCodeType][bw.key].value}">
                   <img :src="fileUrl+codeType+'/'+bw.key+'.png'" alt="">
                   <div class="vals">
-                    <div class="v" v-for="(va,v) in bw.val" :data="va"></div>
+                    <div class="v" v-for="(va,v) in bw.val" :key="v" :data="va"></div>
                   </div>
                 </div>
               </div>
@@ -228,24 +228,24 @@
                 <div class="bigKey plraseBigKey">
                   <div class="img">
                     <template v-if="currBaoWen.baoWenList[currBaoWenIndex]">
-                      <img v-for="(c,k) in currBaoWen.baoWenList[currBaoWenIndex].key"
+                      <img v-for="(c,k) in currBaoWen.baoWenList[currBaoWenIndex].key" :key="k"
                            :src="fileUrl+'big/'+codeType+'/'+c+'.png'">
                     </template>
                     <template v-else-if="currBaoWen.baoWenList[currBaoWen.baoWenList.length-1]">
-                      <img v-for="(c,k) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].key"
+                      <img v-for="(c,k) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].key" :key="k"
                            :src="fileUrl+'big/'+codeType+'/'+c+'.png'">
                     </template>
                   </div>
                   <div class="value">
                     <template v-if="currBaoWen.baoWenList[currBaoWenIndex]">
-                      <div class="vals" v-for="(vs, i) in currBaoWen.baoWenList[currBaoWenIndex].val">
-                        <span v-for="(v, j) in vs" class="val" :data="v"
+                      <div class="vals" v-for="(vs, i) in currBaoWen.baoWenList[currBaoWenIndex].val" :key="i">
+                        <span v-for="(v, j) in vs" :key="j" class="val" :data="v"
                               :style="{background: 'url('+fileUrl+'big/'+codeType+'/'+(v===1?'line':'dot')+'.png) no-repeat center'}"></span>
                       </div>
                     </template>
                     <template v-else-if="currBaoWen.baoWenList[currBaoWen.baoWenList.length-1]">
-                      <div class="vals" v-for="(vs, i) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].val">
-                        <span v-for="(v, j) in vs" class="val" :data="v"
+                      <div class="vals" v-for="(vs, i) in currBaoWen.baoWenList[currBaoWen.baoWenList.length-1].val" :key="i">
+                        <span v-for="(v, j) in vs" :key="j" class="val" :data="v"
                               :style="{background: 'url('+fileUrl+'big/'+codeType+'/'+(v===1?'line':'dot')+'.png) no-repeat center'}"></span>
                       </div>
                     </template>
@@ -253,8 +253,8 @@
                 </div>
               </div>
               <div class="w-full thumb overflow-auto" ref="focusTrainThumbRef">
-                <div class="items" v-for="(bw, w) in currBaoWen.baoWenList">
-                  <div v-for="(code, k) in bw.key"
+                <div class="items" v-for="(bw, w) in currBaoWen.baoWenList" :key="w">
+                  <div v-for="(code, k) in bw.key" :key="k"
                        :data="bw.val[k]"
                        :class="{item: true,
                             active: currBaoWenIndex===w&&currBaoDiIndex===editBaoDiIndex&&trainData.status===1,
@@ -262,7 +262,7 @@
                             error: w<currBaoWenIndex&&bw.val[k]&&bw.val[k].join('')!=morseCode['mix'][code].value}">
                     <img :src="fileUrl+codeType+'/'+code+'.png'" alt="">
                     <div class="vals">
-                      <div class="v" v-for="(va,v) in bw.val[k]" :data="va"></div>
+                      <div class="v" v-for="(va,v) in bw.val[k]" :key="v" :data="va"></div>
                     </div>
                   </div>
                 </div>
@@ -277,7 +277,7 @@
               <div :class="{handShank: true, up: handKeyDown&&trainData.status===1}"></div>
             </div>
             <div :class="{'handKeyLogs overflow-auto': true, logs: handKeyLogs.length>0}" ref="logsContainerRef">
-              <template v-for="(log, l) in handKeyLogs">
+              <template v-for="(log, l) in handKeyLogs" :key="l">
                 <div :class="{log: true, gap: log.val === 2}" v-if="log.time.length > 0"
                      :style="{fontSize: (fs * 1 + 12) + 'px'}">
                   <span class="lab" :data="log.val"></span>
@@ -447,14 +447,14 @@
             </div>
             <div class="patHairTrend" v-show="currChart===-2&&chartData.length>0" ref="patHairTrendBoxRef">
              <template v-if="showResultModal && trainData.status === 3">
-               <template v-for="(group, g) in trendLogData" >
+               <template v-for="(group, g) in trendLogData" :key="g" >
                  <template v-if="trainData.type > 10 && group.list.length > 0">
                    <div class="groupLog">
                      <div class="codeContLog">
-                       <template v-for="(word, w) in group.list">
+                       <template v-for="(word, w) in group.list" :key="w">
                          <div :class="{key: true, omiss: (group.key.length - group.list.length) > 0}">
                            <div class="times">
-                             <template v-for="(code, c) in word">
+                             <template v-for="(code, c) in word" :key="c">
                                <div :class="{time: true,
                                         dot: code.key===0 || code.key===10,
                                         line: code.key===1 || code.key===11,
@@ -483,7 +483,7 @@
                          </div>
                        </template>
                        <template v-if="(group.key.length - group.list.length) > 0">
-                         <template v-for="(omi, o) in group.key">
+                         <template v-for="(omi, o) in group.key" :key="o">
                            <div class="key omission" v-if="o > (group.list.length - 1)">
                              <div class="omis"></div>
                              <div class="keyName">{{ omi }}</div>
@@ -511,7 +511,7 @@
                    <div class="codeContLog" v-if="group.list.length > 0&&g<editBaoDiIndex*100">
                      <div class="key">
                        <div class="times">
-                         <template v-for="(code, c) in group.list">
+                         <template v-for="(code, c) in group.list" :key="c">
                            <div :class="{time: true,
                                     dot: code.key===0 || code.key===10,
                                     line: code.key===1 || code.key===11,

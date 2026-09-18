@@ -14,7 +14,7 @@
         <div class="userListBox">
           <div class="title">参训人员 ({{trainData.userInfoList?trainData.userInfoList.length:0}}人)</div>
           <div class="userList overflow-auto" :style="{height: 'calc(100% - '+(trainData.status==2?40:100)+'px)'}">
-            <template v-for="(user,u) in trainData.userInfoList">
+            <template v-for="(user,u) in trainData.userInfoList" :key="u">
               <div class="user" :class="[activeUserId==user.userId?'active':'']" @click="seeStudentScore(user)">
                 <div class="use">
                   <img :src="fileUrl+user.userImg" class="avatar">

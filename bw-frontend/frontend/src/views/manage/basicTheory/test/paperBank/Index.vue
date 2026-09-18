@@ -24,7 +24,7 @@
                     <IconFont type="icon-xiangxiazhankai1" style="color: #ffffff" v-else @click.stop="openMenu = !openMenu"></IconFont>
                   </div>
                 </div>
-                <div class="Cmenus" v-for="(item, index) in knowledgeList" :class="{ animate__animated: true,animate__fadeOutUp: !openMenu,animate__fadeInDown: openMenu,}">
+                <div class="Cmenus" v-for="(item, index) in knowledgeList" :key="index" :class="{ animate__animated: true,animate__fadeOutUp: !openMenu,animate__fadeInDown: openMenu,}">
                   <div class="Cmenus_title Cmenus_title" :class="{   activeKnowledge2: activeKnowledge.index === index, }" @click="clickKnowledge(item, index)">
                     <span class="actives">{{ item.title }}</span>
                     <span @click.stop="clickMenu(item, index)" :class="{ ico: true, open: item.isOpen }"></span>
@@ -43,7 +43,7 @@
                       animate__fadeInDown: item.isOpen,
                     }"
                   >
-                    <template v-for="(sub, s) in item.children">
+                    <template v-for="(sub, s) in item.children" :key="s">
                       <div
                         :class="{
                           Cmenu_item: true,

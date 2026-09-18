@@ -5,7 +5,7 @@
       <div class="card">
         <div class="layout-side title fs_dispose">专业岗位</div>
         <div class="cardBox fs_dispose">
-          <div class="item layout-center relative" v-for="v of searchList.specialtyList" :class="[v.active?'active':'']" @click="selectItem(v)">
+          <div class="item layout-center relative" v-for="(v, kIdx) of searchList.specialtyList" :key="kIdx" :class="[v.active?'active':'']" @click="selectItem(v)">
             <div class="className" :title="v.name">{{v.name}}</div>
           </div>
         </div>
@@ -13,7 +13,7 @@
       <div class="card">
         <div class="layout-side title fs_dispose">人员类别</div>
         <div class="cardBox fs_dispose">
-          <div class="item layout-center relative" v-for="v of searchList.difficultyList" :class="[v.active?'active':'']" @click="selectItem(v)">
+          <div class="item layout-center relative" v-for="(v, kIdx) of searchList.difficultyList" :key="kIdx" :class="[v.active?'active':'']" @click="selectItem(v)">
             <div class="className" :title="v.name">{{v.name}}</div>
           </div>
         </div>
@@ -83,7 +83,7 @@
         <div class="total">共{{listData.length>0? listData.length:0}}条数据</div>
         <div class="item prev" @click="selectTablePage('-')"></div>
         <template
-          v-for="(item, i) in Math.ceil(listData.length/10)">
+          v-for="(item, i) in Math.ceil(listData.length/10)" :key="i">
           <div :class="{item: true, active: item==currTablePage}"
                v-if="item>(currTablePage-3)&&item<(currTablePage+3)"
                @click="selectTablePage(item)">{{ item }}

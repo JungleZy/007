@@ -40,7 +40,7 @@
           </div>
           <div class="bread layout-left-center">
             <img :src="address" alt="" style="margin-right: 5px"/>
-            <template v-for="(item, index) in route.matched">
+            <template v-for="(item, index) in route.matched" :key="index">
               <span v-if="index > 1">
                 {{
                   item.name === 'BasicTheory' && route.query.studyType === 1

@@ -38,7 +38,7 @@
           <div class="messageBox big">
             <div class="imgBox" style="height: 160px; padding: 0 40px">
               <img
-                v-for="img of activeMessage.text"
+                v-for="(img, kIdx) of activeMessage.text" :key="kIdx"
                 :src="fileUrl + 'big/' + codeType + '/' + img + '.png'"
                 alt=""
               />
@@ -70,7 +70,7 @@
           "
         >
           <div
-            v-for="i in 10"
+            v-for="(i, kIdx) in 10" :key="kIdx"
             style="
               display: flex;
               justify-content: center;
@@ -140,7 +140,7 @@
                 overflow: hidden;
                 box-sizing: border-box;
               "
-              v-for="(v, index) of message"
+              v-for="(v, index) of message" :key="index"
               @click="selectMessage(v, index)"
             >
               <div
@@ -157,7 +157,7 @@
               >
                 <div class="imgBox">
                   <img
-                    v-for="img of v.text"
+                    v-for="(img, kIdx) of v.text" :key="kIdx"
                     :src="fileUrl + codeType + '/' + img + '.png'"
                     alt=""
                   />
@@ -189,7 +189,7 @@
                   : '',
                   i % 10 == 0 ? '' : 'border1'
               ]"
-              v-for="(i, index) in Math.ceil(trainData.totalNumber / 10)"
+              v-for="(i, index) in Math.ceil(trainData.totalNumber / 10)" :key="index"
             >
               <img
                 v-if="i % 10 == 0"
@@ -226,7 +226,7 @@
           </div>
           <div class="cont codeCont">
             <div
-              v-for="(item, i) in codeTypeArr"
+              v-for="(item, i) in codeTypeArr" :key="i"
               :class="{ codeStyle: true, on: item.type == codeType }"
               @click="codeType = item.type"
             >

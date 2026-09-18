@@ -24,7 +24,7 @@
           <div class="context-setting layout-center" @click="topButton(1)"><img src="../../assets/HJ/shortcut/s.png"></div>
         </div>
         <div class="w-full context-center">
-          <div class="item" v-for="m in menus">
+          <div class="item" v-for="(m, kIdx) in menus" :key="kIdx">
             <div class="children layout-center w-full h-full" @click="skipMenu(m)">
               {{ m.title }}
             </div>

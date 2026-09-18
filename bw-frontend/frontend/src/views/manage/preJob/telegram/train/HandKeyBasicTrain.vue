@@ -12,7 +12,7 @@
             <span>拍发总数</span></div>
           <div class="box"> {{trainLogData.chartData.dot.length + trainLogData.chartData.line.length}}</div>
         </div>
-        <div class="lineBox"  v-for="(item,i) in totalData">
+        <div class="lineBox"  v-for="(item,i) in totalData" :key="i">
           <div class="box">
             <img :src="errorLab" v-if="item.type==0">
             <img :src="gcLab" v-else-if="item.type==1">
@@ -30,7 +30,7 @@
       <CutDown :nowTime="nowTime"></CutDown>
       <div class="codeBodyBox">
         <div class="codeBody">
-          <div v-for="(item,i) in totalData" class="item">
+          <div v-for="(item,i) in totalData" :key="i" class="item">
             <div class="key" :style="{fontSize: (fs * 1 + 12) + 'px'}">{{ item.name }}区间</div>
             <div class="value" v-if="currTrainTab=='dot'" :style="{fontSize: (fs * 1 + 13) + 'px'}">
               {{ standard.dot.filter(d => d.value.type == item.type)[0].value.min }}
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div class="barrageBox" ref="barrageBoxRef" v-show="showBarrageBox">
-        <template v-for="(log,i) in trainLogData.barrage[currTrainTab]">
+        <template v-for="(log,i) in trainLogData.barrage[currTrainTab]" :key="i">
           <div :class="{barrage:true, perfect: log.type==2,abnormal: log.type==0}"
                :style="{top: (log.top+'px'),zIndex: (i+1)}">
             <strong class="lab">{{ log.name }}</strong>
@@ -71,7 +71,7 @@
         </div>
         <div class="patLogs">
           <img src="../../../../../assets/HJ/train/zhanwei.png" v-if="trainLogData.logData[currTrainTab].length == 0">
-          <template v-for="(item, index) in dotLineLog">
+          <template v-for="(item, index) in dotLineLog" :key="index">
             <div
                  :class="{log: true,
                           abnormal: item.type==0,

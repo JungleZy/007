@@ -202,7 +202,7 @@
                 <div class="key">10</div>
               </div>
               <div class="keyBox" v-if="scoreData.messageBody">
-                <template v-for="(key, index) in scoreData.messageBody[scoreData.currPage-1]">
+                <template v-for="(key, index) in scoreData.messageBody[scoreData.currPage-1]" :key="index">
                   <div v-if="key.moresKey != '#'&&index<100"
                        :class="{key: true,
                                 error: successResolver[scoreData.currPage-1]&&successResolver[scoreData.currPage-1].resolverMessage[index] &&
@@ -230,7 +230,7 @@
                       </div>
                     </div>
                     <div class="layout-center">
-                      <template v-for="(item, i) in key.moresKey">
+                      <template v-for="(item, i) in key.moresKey" :key="i">
                         <div :style="{color: successResolver[scoreData.currPage-1]&&item==successResolver[scoreData.currPage-1].resolverMessage[index]?'#fff':'inherit'}">{{item}}</div>
                       </template>
                     </div>
@@ -248,7 +248,7 @@
                   </div>
                 </template>
                 <template v-if="scoreData.messageBody[scoreData.currPage-1] && scoreData.messageBody[scoreData.currPage-1].length < 100">
-                  <div class="key" v-for="(key, index) in 100 - scoreData.messageBody[scoreData.currPage-1].length"></div>
+                  <div class="key" v-for="(key, index) in 100 - scoreData.messageBody[scoreData.currPage-1].length" :key="index"></div>
                 </template>
               </div>
             </div>
@@ -318,13 +318,13 @@
             <div class="_t" style="height: 32px;">目标组</div>
           </div>
           <div class="patHairTrend" ref="patHairTrendBoxRef">
-            <template v-for="(group, g) in trendLogKeyData[scoreData.currPage-1]">
+            <template v-for="(group, g) in trendLogKeyData[scoreData.currPage-1]" :key="g">
               <div class="groupLog" v-if="group.moresKey" :id="'ht_'+scoreData.currPage+'_'+(g+1)+'_'+(group.moresKey=='#'?'#':group.moresKey.join(''))">
                 <div class="codeContLog">
-                  <template v-for="(word, w) in group.patLog">
+                  <template v-for="(word, w) in group.patLog" :key="w">
                     <div :class="{key: true, omiss: (group.patKeys.length - group.patLog.length) > 0}">
                       <div class="times" v-if="group.patKeys[w] != '/'">
-                        <template v-for="(code, c) in word">
+                        <template v-for="(code, c) in word" :key="c">
                           <div :class="{time: true,
                                       dot: code.key!=2&&group.moresValue[w][c/2]==0,
                                       line: code.key!=2&&group.moresValue[w][c/2]==1,
@@ -356,7 +356,7 @@
                     </div>
                   </template>
                   <template v-if="group.moresKey != '#' && (group.moresKey.length - group.patLog.length) > 0">
-                    <template v-for="(omi, o) in group.moresKey">
+                    <template v-for="(omi, o) in group.moresKey" :key="o">
                       <div class="key omission" v-if="o > (group.patLog.length - 1)">
                         <div class="omis"></div>
                         <div :class="{keyName:true, err:!group.patKeys[o]}">

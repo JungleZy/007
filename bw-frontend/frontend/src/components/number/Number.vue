@@ -1,6 +1,6 @@
 <template>
   <div class="num">
-    <template v-for="(val,i) in num">
+    <template v-for="(val,i) in num" :key="i">
       <span v-if="val == '.'">.</span>
       <span :data="val" class="box" v-else>
         <span :class="{numT: true, show: val==0, hide: _num[i]==0&&val!=0}">0</span>

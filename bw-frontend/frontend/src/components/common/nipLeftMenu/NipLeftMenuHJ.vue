@@ -3,12 +3,12 @@
     <div class="grouping h-full w-full" style="padding-top: 0;">
       <div class="w-full grouping_content la layout-left-top" style="height: 100%;padding-top: 35px">
         <div class="menus w-full " style="padding-right: 15px">
-          <template v-for="(p,index) in atRoute.children">
+          <template v-for="(p,index) in atRoute.children" :key="index">
             <div class="w-full layout-center" v-if="p.meta.isMenu" style="margin-bottom: 1px;">
               <a-popover v-if="isShrink && p.children.length>0" placement="rightTop">
                 <template #content>
                   <div class="menusProp">
-                    <template v-for="c in p.children">
+                    <template v-for="(c, kIdx) in p.children" :key="kIdx">
                       <div v-if="c.meta.isMenu"
                            :class="{'w-full layout-left-center menu_item fs_dispose': true, active: c.name==openMenu.childName}"
                            @click="handleMenuClick(p,c)">
@@ -44,7 +44,7 @@
 
               <template v-if="p.children.length>0 && isShrink">
                 <div :class="{'w-full menus_content animate__animated':true, animate__fadeOutUp: openMenu.name!=p.name, animate__fadeInDown: openMenu.name==p.name}">
-                  <template v-for="c in p.children">
+                  <template v-for="(c, kIdx) in p.children" :key="kIdx">
                     <div v-if="c.meta.isMenu"
                          :class="{'w-full layout-left-center menu_item fs_dispose': true, active: c.name==openMenu.childName}"
                          @click="handleMenuClick(p,c)">

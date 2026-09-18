@@ -31,7 +31,7 @@
     <div class="w-full h-full relative layout-center">
       <div class="w-full h-full  layout-left-center" style="padding: 0 2%;">
         <img id="qwe" src="../../assets/HJ/canBg.png" style="display: none" alt="">
-        <div class="h-3/5 pl-4 pr-4 relative menu homeMenu" v-for="(m ,index) in menus" ><!--:style="[index>0?'margin-left:-30px':'']"-->
+        <div class="h-3/5 pl-4 pr-4 relative menu homeMenu" v-for="(m ,index) in menus" :key="index" ><!--:style="[index>0?'margin-left:-30px':'']"-->
           <div class="h-full  cursor-pointer-def" style="display: flex;justify-content: center"
                @click="handleMenuClick(m)"
                @mouseenter="handleMouseStatus(m,true,index)"

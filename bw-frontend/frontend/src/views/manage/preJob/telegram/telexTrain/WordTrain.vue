@@ -46,12 +46,12 @@
       </div>
       <div class="tabs layout-left-center">
         <div class="tab " style="text-align: center;line-height:50px " @click="slelectTab(index)"
-             :class="[tabType==index?'activeTab':'']" v-for="(v,index) of tab"
+             :class="[tabType==index?'activeTab':'']" v-for="(v,index) of tab" :key="index"
              :style="{fontSize: (fs * 2 + 18) + 'px'}">{{v.text}}练习</div>
       </div>
     </div>
     <div class="letterbox" v-if="tabType!=3" >
-      <div class="letter" :class="[letterIndex==index?'letterActive':'']" v-for="(v,index) of letter">
+      <div class="letter" :class="[letterIndex==index?'letterActive':'']" v-for="(v,index) of letter" :key="index">
 
         <img v-if="tabType!=2" style="height: 90px;opacity: 0.3" :src="fileUrl+(v.text2?v.text2:v.text)+'.png'" alt="">
         <div style="font-size:40px;font-weight: bold" :class="[letterIndex==index?'specialKeyActive':'specialKey']" v-else>

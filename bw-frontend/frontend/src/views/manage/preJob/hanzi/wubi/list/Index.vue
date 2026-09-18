@@ -1,7 +1,7 @@
 <template>
   <div class="w-full h-full overflow-hidden layout-side">
     <div class="w-full h-full relative layout-center" style="min-width: 768px;">
-      <div v-for="(item,i) in totalList" class="trainItem" @click="verifyPrevTrain(item.type)">
+      <div v-for="(item,i) in totalList" :key="i" class="trainItem" @click="verifyPrevTrain(item.type)">
         <div class="title fs_dispose" v-if="interfaceStyle!=='HJ'">
           {{ item.type == 0 ? '口诀训练' : item.type == 1 ? '字根训练' : item.type == 2 ? '拆字训练' : '连音词组' }}
         </div>

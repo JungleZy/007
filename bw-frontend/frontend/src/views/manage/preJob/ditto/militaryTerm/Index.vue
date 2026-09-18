@@ -8,7 +8,7 @@
                      style="width: 97%;margin-bottom: 10px"></a-input>
             <div class="w-full overflow-auto relative scoreBoxL" style="height: calc(100% - 40px);padding-left: 2px">
               <a-spin class="spin" size="large" v-if="militaryTerm.length==0"/>
-              <template v-for="(values,index) in militaryTerm">
+              <template v-for="(values,index) in militaryTerm" :key="index">
                 <div class="w-full item boxl"
                      style="padding-left: 10px"
                      :style="{fontSize: (fs * 2 + 17) + 'px'}"
@@ -25,7 +25,7 @@
                      style="width: 97%;margin-bottom: 10px"></a-input>
             <div class="w-full overflow-auto scoreBox relative" style="height: calc(100% - 40px);padding-left: 2px">
               <a-spin class="spin" size="large" v-if="militaryTerm.length==0"/>
-              <template v-for="(two,index) in twoMilitaryTerm">
+              <template v-for="(two,index) in twoMilitaryTerm" :key="index">
                 <div class="w-full item boxl"
                      :style="{fontSize: (fs * 2 + 16) + 'px'}"
                      :title="two.key"

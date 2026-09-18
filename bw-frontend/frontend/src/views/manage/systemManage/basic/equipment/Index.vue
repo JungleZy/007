@@ -36,7 +36,7 @@
           <div class="table_pagination">
             <div class="total">共{{ tableData.length }}条数据</div>
             <div class="item prev" @click="selectTablePage('-')"></div>
-            <template v-for="(item, i) in Math.ceil(tableData.length / 10)">
+            <template v-for="(item, i) in Math.ceil(tableData.length / 10)" :key="i">
               <div :class="{ item: true, active: item == currTablePage }" v-if="item > currTablePage - 3 && item < currTablePage + 3" @click="selectTablePage(item)">{{ item }}</div>
             </template>
             <div class="item next" @click="selectTablePage('+')"></div>

@@ -11,7 +11,7 @@
     <div class="center"></div>
     <div class="keys" style="padding-top: 30px">
       <div style="display: flex;" class="lineBox">
-        <div style="padding: 5px;position: relative" v-for="v of secondKey" :class="[v.finger&&area?v.finger:'']">
+        <div style="padding: 5px;position: relative" v-for="(v, kIdx) of secondKey" :key="kIdx" :class="[v.finger&&area?v.finger:'']">
           <div class="pormptAreaBox" style="left: -20px" v-if="v.text2==1&&area" >
             <div v-if="v.finger" class="hand areahand"   :style="[fingerPosition(v.finger)]"></div>
             <div class="pormptBg" :class="[v.finger?v.finger:'']">小指(左手)</div>
@@ -69,7 +69,7 @@
       <div style="display: flex">
         <div style="">
           <div style="display: flex;">
-            <div style="padding: 5px" v-for="v of thirdKey" :class="[v.finger&&area?v.finger:'']">
+            <div style="padding: 5px" v-for="(v, kIdx) of thirdKey" :key="kIdx" :class="[v.finger&&area?v.finger:'']">
               <div class="keybox" :style="[v.style2?v.style2:'']"
                    :class="[activeKey==v.keyCode?keyStyle:'',targetKey==v.keyCode?'targetKey':'']">
                 <div class="key key2"   :style="[v.style?v.style:'']" >
@@ -84,7 +84,7 @@
             </div>
           </div>
           <div style="display: flex;">
-            <div style="padding: 5px" v-for="v of fourthKey" :class="[v.finger&&area?v.finger:'']">
+            <div style="padding: 5px" v-for="(v, kIdx) of fourthKey" :key="kIdx" :class="[v.finger&&area?v.finger:'']">
               <div class="keybox" :style="[v.style2?v.style2:'']"
                    :class="[activeKey==v.keyCode?keyStyle:'',targetKey==v.keyCode?'targetKey':'']">
                 <div class="key key2"   :style="[v.style?v.style:'']">
@@ -115,7 +115,7 @@
       <div style="display: flex">
         <div style="">
           <div style="display: flex;">
-            <div style="padding: 5px;" v-for="v of fifthKey" :class="[v.finger&&area?v.finger:'']">
+            <div style="padding: 5px;" v-for="(v, kIdx) of fifthKey" :key="kIdx" :class="[v.finger&&area?v.finger:'']">
               <div class="keybox" :style="[v.style2?v.style2:'']"
                    :class="[activeKey==v.keyCode&&(v.location?v.location==location:true)?keyStyle:'',targetKey==v.keyCode?'targetKey':'']">
                 <div class="key key2"   :style="[v.style?v.style:'']" >
@@ -130,7 +130,7 @@
             </div>
           </div>
           <div style="display: flex;">
-            <div style="padding: 5px;" v-for="v of lastKey" :class="[v.finger&&area?v.finger:'']">
+            <div style="padding: 5px;" v-for="(v, kIdx) of lastKey" :key="kIdx" :class="[v.finger&&area?v.finger:'']">
               <div class="keybox" :style="[v.style2?v.style2:'']"
                    :class="[activeKey==v.keyCode?keyStyle:'',targetKey==v.keyCode?'targetKey':'']">
                 <div class="key key2"   :style="[v.style?v.style:'']" >

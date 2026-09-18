@@ -19,7 +19,7 @@
       </div>
     </div>
     <div class="w-full layout-center" style="height: calc(100% - 120px); padding: 20px; overflow: auto; display: flex">
-      <div class="layout-side" v-for="(item, index) in listData" style="flex-wrap: nowrap; max-width: 800px; transition: all 0.5s; margin-right: 10px" :style="{ width: active === index ? 'calc(100% - ' + (listData.length - 1) * 100 + 'px)' : '80px' }">
+      <div class="layout-side" v-for="(item, index) in listData" :key="index" style="flex-wrap: nowrap; max-width: 800px; transition: all 0.5s; margin-right: 10px" :style="{ width: active === index ? 'calc(100% - ' + (listData.length - 1) * 100 + 'px)' : '80px' }">
         <div class="list" :class="{ listTwo: active === index }">
           <div class="w-full h-full timu" :class="{ timu1: active === index }" @click="clickTitle(index)">
             <div class="labNum">
@@ -37,7 +37,7 @@
             <video controls loop :src="fileUrl + '/' + item.content[0].url"></video>
           </div>
           <div class="h-full" style="width: 100%; padding: 10px; overflow: auto" v-if="item.type == 2">
-            <img v-for="j in item.content" :src="fileUrl + '/' + j.url" alt="" />
+            <img v-for="(j, kIdx) in item.content" :key="kIdx" :src="fileUrl + '/' + j.url" alt="" />
           </div>
           <div class="h-full layout-center" style="width: 100%; padding: 10px" v-if="item.type == 3">
             <playAudio :url="fileUrl + '/' + item.content[0].url" />

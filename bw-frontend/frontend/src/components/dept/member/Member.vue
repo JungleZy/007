@@ -18,7 +18,7 @@
           {{ text ? text : '暂未设置电话' }}
         </template>
         <template #departmentPostEntities="{ text }">
-          <span v-for="(item, index) in text">{{ item.title }}{{ text.length - 1 == index ? '' : ',' }}</span>
+          <span v-for="(item, index) in text" :key="index">{{ item.title }}{{ text.length - 1 == index ? '' : ',' }}</span>
           <span v-if="text.length == 0">目前暂未设置职务！</span>
         </template>
         <template #action="{ record }">

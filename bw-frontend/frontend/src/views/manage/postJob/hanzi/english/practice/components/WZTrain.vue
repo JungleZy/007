@@ -1,12 +1,12 @@
 <template>
   <div class="h-full w-full layout-left-top wz">
-    <div class="wzLine" style="font-size: 16px; padding: 10px 10px; width: 100%" v-for="(v, index) of message" :style="[v.isFirst ? 'margin-left: 3em;width:calc( 100% - 3em)' : '', trainData.status === 2 ? 'border-bottom: 1px solid #555252;' : '']">
+    <div class="wzLine" style="font-size: 16px; padding: 10px 10px; width: 100%" v-for="(v, index) of message" :key="index" :style="[v.isFirst ? 'margin-left: 3em;width:calc( 100% - 3em)' : '', trainData.status === 2 ? 'border-bottom: 1px solid #555252;' : '']">
       <div style="text-align: center; display: flex; align-items: center; margin-bottom: 10px">
         {{ v.font }}
       </div>
       <div style="font-size: 24px; text-align: center" class="layout-left-top">
         <div v-if="trainData.status === 2">
-          <span v-for="m of v.tfArr" style="padding-right: 5px; font-size: 16px" :style="[m.type ? '' : 'color:red']">
+          <span v-for="(m, kIdx) of v.tfArr" :key="kIdx" style="padding-right: 5px; font-size: 16px" :style="[m.type ? '' : 'color:red']">
             {{ m.text }}
           </span>
         </div>

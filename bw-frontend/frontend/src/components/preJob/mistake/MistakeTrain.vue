@@ -1,13 +1,13 @@
 <template>
   <div class="mistake">
     <div style="width: 100%;flex-wrap: wrap;justify-content: center;display: flex;margin-bottom: 30px;margin-top: 10px" >
-      <div class="mistakeBtn" v-for="(v,index) of btn2" :class="[active2==index?'mistakeBtnActive':'']" @click="selectType2(index)">
+      <div class="mistakeBtn" v-for="(v,index) of btn2" :key="index" :class="[active2==index?'mistakeBtnActive':'']" @click="selectType2(index)">
         {{v}}
       </div>
     </div>
     <div class="container">
       <div style="width: 100%;flex-wrap: wrap;justify-content: center;display: flex;margin-bottom: 10px;margin-top: 10px;" v-if="active2==0">
-        <div class="ZGbtns" v-for="(v,index) of btn" :class="[active==index?'activeBtn1':'']" @click="selectType(index)">
+        <div class="ZGbtns" v-for="(v,index) of btn" :key="index" :class="[active==index?'activeBtn1':'']" @click="selectType(index)">
           <div class="left">
             <div class="left-top"></div>
             <div class="left-bottom"></div>
@@ -22,16 +22,16 @@
       <div style="height: calc(100% - 10px);overflow:auto;">
         <div v-if="active2==0" style="height: calc(100% - 70px);overflow: auto">
 
-          <div v-for="v of activeType" style="margin: 10px 0;" >
+          <div v-for="(v, kIdx) of activeType" :key="kIdx" style="margin: 10px 0;" >
             <div style="color: #e8a829;font-size: 18px;font-weight: bold" class="layout-left-center">{{v.title}} <div class="trangle"></div></div>
-            <div v-for="i of v.example"  style="margin: 10px" class="layout-left-top">
+            <div v-for="(i, kIdx) of v.example" :key="kIdx"  style="margin: 10px" class="layout-left-top">
               <div style="height: 5px;width: 5px;background:white;margin: 7px 0px 0px 0px;border-radius: 50%"></div>
             <div style="padding-left: 10px">
               <div style="word-spacing: 10px">{{i.title}}</div>
               <div  class="layout-left-top">
                 <div style="margin-right: 10px">例 :</div>
                 <div>
-                  <div style="word-spacing: 10px" v-for="k of i.example">{{k}}</div>
+                  <div style="word-spacing: 10px" v-for="(k, kIdx) of i.example" :key="kIdx">{{k}}</div>
                 </div>
               </div>
             </div>
@@ -47,7 +47,7 @@
               <div v-for="(item, index) of activeQuestion.code" :key="index" class="layout-center code">{{item}}</div>
             </template>
             <div style="width: 600px" class="layout-center" v-if="activeQuestion.type==1">
-              <div v-for="(item,index) of activeQuestion.code" class="layout-center code" :style="[index%10==9?'border-right:1px solid #70a3b8!important':'']">{{item}}</div>
+              <div v-for="(item,index) of activeQuestion.code" :key="index" class="layout-center code" :style="[index%10==9?'border-right:1px solid #70a3b8!important':'']">{{item}}</div>
             </div>
           </div>
           <div class="layout-left-top" style="margin-bottom: 10px">
@@ -56,7 +56,7 @@
               <div v-for="(item,index) of activeQuestion.compileCode.split(' ')" :key="index" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'']" class="layout-center code">{{item}}</div>
             </template>
             <div style="width: 600px" class="layout-center" v-if="activeQuestion.type==1">
-              <div v-for="(item,index) of activeQuestion.compileCode.split(' ')" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'',index%10==9?'border-right: 1px solid #70a3b8':'']" class="layout-center code">{{item}}</div>
+              <div v-for="(item,index) of activeQuestion.compileCode.split(' ')" :key="index" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'',index%10==9?'border-right: 1px solid #70a3b8':'']" class="layout-center code">{{item}}</div>
             </div>
           </div>
           <a-input v-model:value="activeQuestion.value" @change="activeQuestion.fun(activeQuestion)" style="font-size: 20px;word-spacing: 10px"></a-input>

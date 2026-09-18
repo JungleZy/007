@@ -4,7 +4,7 @@
         <div class="floatPopRight" v-if="userRole.id != '2'">
           <div class="deploy fs_dispose_1" @click="basicDeploy"><img :src="deployIco" class="ico">基础配置</div>
         </div>
-        <div v-for="(item,i) in totalList" class="trainItem" @click="addDrillModalInfo(item.type)">
+        <div v-for="(item,i) in totalList" :key="i" class="trainItem" @click="addDrillModalInfo(item.type)">
           <div class="title fs_dispose" v-if="interfaceStyle!=='HJ'">{{item.type==0?'基础练习':item.type==1?'连贯练习':'单码练习'}}</div>
           <img :src="itemImg5" v-if="item.type==0" class="itemImg">
           <img :src="itemImg7" v-else-if="item.type==1" class="itemImg">
@@ -86,7 +86,7 @@
                   </a-radio-group>
                 </div>
               </div>
-              <template v-for="(bd,index) in trainData.baoDi">
+              <template v-for="(bd,index) in trainData.baoDi" :key="index">
                 <div class="rowItem" v-if="bd.type == formData.type">
                   <div class="lab" :style="{fontSize: (fs * 1 + 13) + 'px'}">{{ bd.text }}：</div>
                   <!--<div class="item relative">
@@ -171,7 +171,7 @@
                 <div class="item">码率({{wpmTOmm?'码/分':'WPM'}})</div>
                 <div class="item" style="width: 220px;">文案</div>
               </div>
-              <div class="rowItem mini" v-for="(item, index) in basicDeployData">
+              <div class="rowItem mini" v-for="(item, index) in basicDeployData" :key="index">
                 <div class="item" style="width: 80px;">
                   <a-input v-model:value="item.name" style="width: 100%;text-align: center"></a-input>
                 </div>

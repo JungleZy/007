@@ -39,7 +39,7 @@
         </div>
         <div class="cont codeCont">
           <div
-            v-for="(item, i) in codeTypeArr"
+            v-for="(item, i) in codeTypeArr" :key="i"
             :class="{ codeStyle: true, on: item.type == codeType }"
             @click="codeType = item.type"
           >
@@ -83,7 +83,7 @@
             v-if="activeMessage.text"
           >
             <img
-              v-for="(img, i) in activeMessage.text.split('')"
+              v-for="(img, i) in activeMessage.text.split('')" :key="i"
               :src="fileUrl + 'big/' + codeType + '/' + img + '.png'"
               alt=""
             />
@@ -103,7 +103,7 @@
       :style="[isfocus ? 'height: calc(100% - 330px)' : 'height:100%']"
     >
       <div class="w-full layout-left-top" style="padding: 5px 0; position: sticky;top: 0px;padding: 0px 58px 0px 10px;">
-        <div v-for="i in 10" style=" display: flex; justify-content: center; flex-direction: column;width: 10%;align-items: center; ">
+        <div v-for="(i, kIdx) in 10" :key="kIdx" style=" display: flex; justify-content: center; flex-direction: column;width: 10%;align-items: center; ">
           <div class="color1" >{{ i }}</div>
           <div  style="width: 100%;height: 1px;margin-bottom: 5px;" class="relative bg1">
             <div class="bg2" style="height: 2px; width: 10px;position: absolute;top: -1px;" v-if="i == 1"></div>
@@ -131,7 +131,7 @@
         >
           <div
             style="width: 10%; display: flex; height: max-content"
-            v-for="(v, index) of messageData"
+            v-for="(v, index) of messageData" :key="index"
             @click="selectMessage(v, index)"
           >
             <div
@@ -146,7 +146,7 @@
             >
               <div class="imgBox">
                 <img
-                  v-for="img of v.text.split('')"
+                  v-for="(img, kIdx) of v.text.split('')" :key="kIdx"
                   :src="fileUrl + codeType + '/' + img + '.png'"
                   alt=""
                 />
@@ -173,7 +173,7 @@
                 : '',
                 i % 10 == 0 ? '' : 'border1'
             ]"
-            v-for="(i, index) in parseInt(trainData.totalNumber / 10)"
+            v-for="(i, index) in parseInt(trainData.totalNumber / 10)" :key="index"
           >
             <img
               v-if="i % 10 == 0"

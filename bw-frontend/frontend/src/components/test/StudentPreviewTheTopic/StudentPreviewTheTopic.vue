@@ -96,10 +96,10 @@
     <div class="layout-left-top" style="color: #78e775; padding-bottom: 10px" v-if="isGarde">
       正确答案：
       <div v-if="(params.type == 2 || params.type == 1) && params.correctAnswer && isGarde" style="padding-right: 20px">
-        <span v-for="v in params.correctAnswer">{{ Earray[v] }}</span>
+        <span v-for="(v, kIdx) in params.correctAnswer" :key="kIdx">{{ Earray[v] }}</span>
       </div>
       <div v-else-if="(params.type == 2 || params.type == 1) && !params.correctAnswer && isGarde" style="padding-right: 20px">
-        <span v-for="v in params.answer">{{ Earray[v] }}</span>
+        <span v-for="(v, kIdx) in params.answer" :key="kIdx">{{ Earray[v] }}</span>
       </div>
       <div v-if="params.type == 3 && params.correctAnswer && isGarde" style="padding-right: 20px">
         <span>{{ params.correctAnswer == '1' ? '对' : '错' }}</span>
@@ -108,10 +108,10 @@
         <span>{{ params.answer == '1' ? '对' : '错' }}</span>
       </div>
       <div v-if="params.type == 4 && params.correctAnswer && isGarde" style="padding-right: 20px">
-        <span style="padding-right: 5px" v-for="v in params.correctAnswer">{{ v }}</span>
+        <span style="padding-right: 5px" v-for="(v, kIdx) in params.correctAnswer" :key="kIdx">{{ v }}</span>
       </div>
       <div v-else-if="params.type == 4 && !params.correctAnswer && isGarde" style="padding-right: 20px">
-        <span style="padding-right: 5px" v-for="v in params.answer">{{ v }}</span>
+        <span style="padding-right: 5px" v-for="(v, kIdx) in params.answer" :key="kIdx">{{ v }}</span>
       </div>
       <div v-if="params.type == 5 && params.correctAnswer && isGarde" style="padding-right: 20px">
         <span style="padding-right: 5px">{{ params.correctAnswer }}</span>

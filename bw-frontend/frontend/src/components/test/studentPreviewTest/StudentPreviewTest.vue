@@ -5,13 +5,13 @@
       <span>总分：{{ paperData.total }}分</span>
     </div>
     <div style="overflow-y: auto; margin-top: 20px" :style="{ height: height ? 'calc(100% - 38px - 40px)' : 'calc(100% - 38px)' }">
-      <div v-for="i in bankList">
+      <div v-for="(i, kIdx) in bankList" :key="kIdx">
         <div v-if="paperData && paperData[i.key].length !== 0" style="font-size: 18px; font-weight: 600; display: flex; padding-right: 10px; align-items: center; margin-bottom: 10px">
           {{ i.name }}
           <span class="gardColor" style="flex: 1; display: inline-block; border-bottom: 1px dashed #5d76a0; margin: 5px 10px"></span>
           <span class="gardColor">( 共{{ paperData[i.key].length }}小题，共{{ calculateScore(paperData[i.key]) }}分 )</span>
         </div>
-        <div v-for="(j, index) in paperData[i.key]" class="layout-left-top" style="padding: 10px 0 10px 30px; position: relative">
+        <div v-for="(j, index) in paperData[i.key]" :key="index" class="layout-left-top" style="padding: 10px 0 10px 30px; position: relative">
           <IconFont v-if="j.correctAnswer && j.answer.toString().trim() == j.correctAnswer.toString().trim() && isGarde" type="icon-gou1" style="position: absolute; left: 0; color: #78e775; font-size: 20px"></IconFont>
           <IconFont v-else-if="isGarde && !(j.correctAnswer && j.answer.toString() == j.correctAnswer.toString())" type="icon-cha" style="position: absolute; left: 0; color: #d81e06; font-size: 20px"></IconFont>
           <div style="width: 20px">

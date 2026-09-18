@@ -43,7 +43,7 @@
                style="width: 500px;flex-wrap: wrap;justify-content: center;display: flex;margin-bottom: 30px;margin-top: 10px">
             <div class="ZGbtns "
                  :class="[activeBtn==index?index<5?'activeBtn'+(index+1):'activeBtn6':'',index<5?'btn'+(index+1):'btn6']"
-                 v-for="(v,index) of btn" @click="changetype(v,index)">
+                 v-for="(v,index) of btn" :key="index" @click="changetype(v,index)">
               <div class="left">
                 <div class="left-top"></div>
                 <div class="left-bottom"></div>
@@ -60,7 +60,7 @@
         <div class="layout-center" v-if="trainType==2">
           <div class="tabsTypeBox"
                style="width: 600px;flex-wrap: wrap;justify-content: center;display: flex;margin-bottom: 15px;margin-top: 10px">
-            <div class="btns" :class="[activeBtn==index?'activeBtn':'']" v-for="(v,index) of btn"
+            <div class="btns" :class="[activeBtn==index?'activeBtn':'']" v-for="(v,index) of btn" :key="index"
                  @click="changetype(v,index)"
                  :style="{fontSize: (fs * 1 + 13) + 'px'}">{{ v.text }}
             </div>

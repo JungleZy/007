@@ -91,7 +91,7 @@
           <div
             class="Cmenus"
             style="position: relative"
-            v-for="(item, index) in listData"
+            v-for="(item, index) in listData" :key="index"
             :class="{
               animate__fadeOutUp: !item.isOpen,
               animate__fadeInDown: item.isOpen,
@@ -135,7 +135,7 @@
                 animate__fadeInDown: item.isOpen,
               }"
             >
-              <template v-for="(sub, s) in item.children">
+              <template v-for="(sub, s) in item.children" :key="s">
                 <div
                   style="
                     white-space: nowrap;
@@ -185,7 +185,7 @@
               </div>
             </div>
             <div style="overflow: auto; height: calc(100% - 61px)">
-              <div v-for="(i, xb) in bankList" :id="'title' + xb">
+              <div v-for="(i, xb) in bankList" :key="xb" :id="'title' + xb">
                 <div
                   v-if="paperData && paperData[i.key].length !== 0"
                   style="
@@ -216,7 +216,7 @@
                   >
                 </div>
                 <div
-                  v-for="(j, index) in paperData[i.key]"
+                  v-for="(j, index) in paperData[i.key]" :key="index"
                   :id="'gd' + xb + index"
                   class="layout-left-top paperList"
                 >
@@ -245,7 +245,7 @@
                       </div>
                       <div class="layout-right-center">
                         <div
-                          v-for="(s, indexx) in iconList"
+                          v-for="(s, indexx) in iconList" :key="indexx"
                           class="layout-center border"
                           style="width: 26px; height: 26px"
                         >
@@ -346,7 +346,7 @@
             </div>
             <div class="h-full" style="padding: 0px 0px 0px 0px">
               <div style="height: calc(100% - 38px); overflow-y: auto">
-                <div v-for="i in randomBankList" @click="randomActive(i)">
+                <div v-for="(i, kIdx) in randomBankList" :key="kIdx" @click="randomActive(i)">
                   <div style="font-size: 18px; font-weight: 600">
                     <span style="color: #f1f4f5">{{ i.name }}</span>
                     <span
@@ -434,7 +434,7 @@
                     <div style="padding: 10px 0">
                       <div
                         class="layout-side topicList"
-                        v-for="(item, index) in paperData[i.key]"
+                        v-for="(item, index) in paperData[i.key]" :key="index"
                       >
                         <div
                           style="

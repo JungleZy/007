@@ -6,7 +6,7 @@
     </div>
     <div class="w-full h-full absolute" style="z-index: 2">
       <div class="w-full h-full overflow-hidden layout-center">
-        <div class="pr-5 pl-5 layout-center" v-for="(r, index) in atRoute.children">
+        <div class="pr-5 pl-5 layout-center" v-for="(r, index) in atRoute.children" :key="index">
           <div class="layout-center relative" style="width: 280px; height: 524px">
             <div @mouseenter="handleMenuMouse(index)" class="w-full h-full animate__animated animate__zoomIn" :style="{ background: 'url(' + (cool ? mmb : mmbp) + ')' }">
               <div class="w-full h-full layout-center">
@@ -17,7 +17,7 @@
             </div>
             <div v-show="hoverMenu === index" @mouseleave="handleMenuMouse(-1)" class="w-full h-full absolute" :style="{ background: 'url(' + mmbm + ')' }">
               <div class="w-full h-full layout-center" v-if="r.children.length > 0">
-                <template v-for="(m, key) in r.children">
+                <template v-for="(m, key) in r.children" :key="key">
                   <div class="w-full layout-center p-3" v-if="m.meta.isMenu" :style="{ height: 'calc(100% / ' + calNum(r) + ')' }">
                     <div class="w-full h-full layout-center cursor-pointer-def menu animate__animated animate__zoomIn" :style="{ background: 'url(' + mb + ')  center center / contain no-repeat' }" @click="handleMenuClick(r, m, key)" style="font-size: 26px; font-weight: bold; color: #e2f2ff">
                       {{ m.meta.title }}

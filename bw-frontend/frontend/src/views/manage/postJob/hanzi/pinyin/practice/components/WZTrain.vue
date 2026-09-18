@@ -15,7 +15,7 @@
     </div>
     <div v-if="trainData.type!=4" id="scoreBox" :style="[isfocus?'height: calc(100% - 330px)':'height:100%']" style="display: flex;flex-wrap: wrap;overflow: auto">
       <div  class="cardBox" style="display: flex;height: max-content;min-width: max-content"
-           v-for=" (v,index) of message" :style="[trainData.type>1?'min-width:14%':'width: 10%']" >
+           v-for=" (v,index) of message" :key="index" :style="[trainData.type>1?'min-width:14%':'width: 10%']" >
         <div class="messageBox"
              :class="[activeIndex===index&&trainData.status===1?'activeBox':'']">
           <div class="imgBox" style="" >{{v.font}}</div>
@@ -31,7 +31,7 @@
         </div>
       </div>
     </div>
-    <div v-else class="wzLine" style="font-size: 16px;padding: 10px 10px;width: 100%" v-for=" (v,index) of message" :style="[v.isFirst?'margin-left: 3em;width:calc( 100% - 3em)':'',trainData.status===2?'border-bottom: 1px solid #555252;':'']">
+    <div v-else class="wzLine" style="font-size: 16px;padding: 10px 10px;width: 100%" v-for=" (v,index) of message" :key="index" :style="[v.isFirst?'margin-left: 3em;width:calc( 100% - 3em)':'',trainData.status===2?'border-bottom: 1px solid #555252;':'']">
       <div style="text-align: center;display: flex;align-items: center;justify-content: flex-start;margin-bottom: 10px;word-spacing: 10px;min-width: 10px" >
         {{v.font}}
 <!--        <div v-for="t of v.font">-->
@@ -40,7 +40,7 @@
       </div>
       <div style="font-size: 24px;text-align: center" class="layout-left-top">
         <div v-if="trainData.status===2" style="min-height: 20px;word-spacing: 10px">
-          <span v-for="m of v.tfArr" style="font-size: 16px;" :style="[m.type?'':'color:red']">
+          <span v-for="(m, kIdx) of v.tfArr" :key="kIdx" style="font-size: 16px;" :style="[m.type?'':'color:red']">
             {{m.text}}
           </span>
         </div>

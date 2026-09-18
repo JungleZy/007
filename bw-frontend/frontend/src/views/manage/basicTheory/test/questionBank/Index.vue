@@ -37,7 +37,7 @@
               </div>
             </div>
             <div class="Cmenus"
-                 v-for="(item,index) in knowledgeList"
+                 v-for="(item,index) in knowledgeList" :key="index"
                  :class="{'animate__animated':true, animate__fadeOutUp: !openMenu, animate__fadeInDown: openMenu}"
             >
               <div class="Cmenus_title" :class="{activeKnowledge2:activeKnowledge.index === index}"
@@ -48,7 +48,7 @@
               <div style="transition: height 0.5s"
                    :style="{height:openMenu?item.isOpen?((item.children?item.children.length:0)*40)+'px':'0' :'0'}"
                    :class="{'Cmenus_content animate__animated': true, animate__fadeOutUp: !item.isOpen, animate__fadeInDown: item.isOpen}">
-                <template v-for="(sub, s) in item.children">
+                <template v-for="(sub, s) in item.children" :key="s">
                   <div class="menuQB" :class="{Cmenu_item: true, active: activeKnowledge.index === index+String(s)}"
                        @click="clickKnowledge(sub,index+String(s)), findAllQuestion(sub),searchStr=''">
                     {{ sub.title }}

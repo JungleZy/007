@@ -12,7 +12,7 @@
         <div class="text">联合训练房间数</div>
       </div>
       <div class="roomBox overflow-auto">
-        <div class="roomItem" v-for="r in onlineRooms" @click="handleJoinRoom(r)">
+        <div class="roomItem" v-for="(r, kIdx) in onlineRooms" :key="kIdx" @click="handleJoinRoom(r)">
           <div class="mode">{{ r.type === 0 ? '一发多收' : r.type === 1 ? '多发多收' : r.type === 2 ? '抄收竞速' : '发报竞速' }}</div>
           <div class="name nobr" :title="r.name">{{ r.name }}</div>
           <div class="data">

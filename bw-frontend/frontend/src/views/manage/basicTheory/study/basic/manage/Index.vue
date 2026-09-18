@@ -11,7 +11,7 @@
             <div class="card">
               <div class="title fs_dispose">专业岗位<IconFont type="icon-tianjia1" class="icon1" @click="openModel(0)"></IconFont></div>
               <div class="cardBox fs_dispose">
-                <div class="item layout-center relative" v-for="v of searchList.specialtyList" :class="[v.active?'active':'']" @click="selectItem(v)">
+                <div class="item layout-center relative" v-for="(v, kIdx) of searchList.specialtyList" :key="kIdx" :class="[v.active?'active':'']" @click="selectItem(v)">
                   <div class="className" :title="v.name">{{v.name}}</div>
                   <div class="iconBox">
                     <IconFont type="icon-shanchu1" style="margin-right: 10px;color: red" class="icon" @click.stop="deleteModel(v)"></IconFont>
@@ -23,7 +23,7 @@
             <div class="card mt-[6px]">
               <div class="layout-side title fs_dispose">人员类别<IconFont type="icon-tianjia1" class="icon1" @click="openModel(1)"></IconFont></div>
               <div class="cardBox fs_dispose">
-                <div class="item layout-center relative" v-for="v of searchList.difficultyList" :class="[v.active?'active':'']" @click="selectItem(v)">
+                <div class="item layout-center relative" v-for="(v, kIdx) of searchList.difficultyList" :key="kIdx" :class="[v.active?'active':'']" @click="selectItem(v)">
                   <div class="className" :title="v.name">{{v.name}}</div>
                   <div class="iconBox">
                     <IconFont type="icon-shanchu1" style="margin-right: 10px;color: red" class="icon"  @click.stop="deleteModel(v)"></IconFont>
@@ -66,7 +66,7 @@
             <div class="table_pagination" v-if="tableList.length > 0">
               <div class="total">共{{ tableData.length }}条数据</div>
               <div class="item prev" @click="selectTablePage('-')"></div>
-              <template v-for="(item, i) in Math.ceil(tableData.length/10)">
+              <template v-for="(item, i) in Math.ceil(tableData.length/10)" :key="i">
                 <div :class="{item: true, active: item==currTablePage}"
                      v-if="item>(currTablePage-3)&&item<(currTablePage+3)"
                      @click="selectTablePage(item)">{{ item }}</div>

@@ -32,7 +32,7 @@
               <div style="font-weight: bold; line-height: 35px">{{ questions[v.key].length }}题</div>
             </div>
             <div style="display: flex; flex-wrap: wrap; padding: 10px 0px">
-              <div class="questionItem" :class="[item.isAnswer ? 'questionItemActive' : '']" v-for="(item, index) of questions[v.key]">{{ index + 1 }}</div>
+              <div class="questionItem" :class="[item.isAnswer ? 'questionItemActive' : '']" v-for="(item, index) of questions[v.key]" :key="index">{{ index + 1 }}</div>
               <!--            <div class="questionItem questionItemActive">2</div>-->
             </div>
           </div>

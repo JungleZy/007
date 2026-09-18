@@ -4,7 +4,7 @@
       <div class="floatPopRight" v-if="userRole.id != '2'">
         <div class="deploy fs_dispose_1" @click="basicDeploy"><img :src="deployIco" class="ico">基础配置</div>
       </div>
-      <div v-for="(item,i) in totalList" class="trainItem" @click="addDrillModalInfo(item.type)">
+      <div v-for="(item,i) in totalList" :key="i" class="trainItem" @click="addDrillModalInfo(item.type)">
         <div class="title fs_dispose" v-if="interfaceStyle!=='HJ'">{{item.type==0?'单字练习':item.type==1?'词组练习':'基础练习'}}</div>
         <img :src="itemImg1" v-if="item.type==0" class="itemImg">
         <img :src="itemImg6" v-else-if="item.type==1" class="itemImg">
@@ -86,7 +86,7 @@
                 </a-radio-group>
               </div>
             </div>
-            <template v-for="(bd,index) in trainData.baoDi">
+            <template v-for="(bd,index) in trainData.baoDi" :key="index">
               <div class="rowItem" v-if="bd.type == formData.train.type">
                 <div class="lab">{{ bd.text }}：</div>
                 <!--<div class="item relative">
@@ -117,7 +117,7 @@
               <div class="item">最大值 (ms)</div>
               <div class="item" style="margin: 0;" v-if="trainData.way >= 0">比例</div>
             </div>
-            <template v-for="(deploy, index) in trainData.interval">
+            <template v-for="(deploy, index) in trainData.interval" :key="index">
               <div class="rowItem" v-if="deploy.type < 2 || (deploy.type == 3 && formData.train.type > 10) || (deploy.type == 2 && trainData.way > -1)">
                 <div class="lab">{{ deploy.text }}：</div>
                 <div class="item">
@@ -174,7 +174,7 @@
               <div class="item">划 ({{basicLabTitle.line[0]}}-{{basicLabTitle.line[1]}})</div>
               <div class="item" style="width: 220px;">文案</div>
             </div>
-            <div class="rowItem mini" v-for="(item, index) in basicDeployData">
+            <div class="rowItem mini" v-for="(item, index) in basicDeployData" :key="index">
               <div class="item" style="width: 80px;">
                 <a-input v-model:value="item.name" :disabled="!item.prune"
                          :style="{width: '100%',opacity: item.prune?'1':'.8'}"></a-input>

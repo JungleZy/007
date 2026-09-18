@@ -6,7 +6,7 @@
         <div class="card">
           <div class="layout-side title fs_dispose">报底类型<IconFont type="icon-tianjia1" class="icon1" @click="openModel()"></IconFont></div>
           <div class="cardBox fs_dispose">
-            <div class="item layout-center relative" v-for="v of cableType" :class="[v.active?'active':'']" @click="selectType(v,'type')">
+            <div class="item layout-center relative" v-for="(v, kIdx) of cableType" :key="kIdx" :class="[v.active?'active':'']" @click="selectType(v,'type')">
               <!--            @click="selectItem(v)"-->
               <div class="className" :title="v.title">{{v.title}}</div>
               <div class="iconBox">
@@ -19,7 +19,7 @@
         <div class="card">
           <div class="layout-side title fs_dispose" style="padding-left: 4%">用途</div>
           <div class="cardBox fs_dispose">
-            <div class="item layout-center relative" v-for="(v,index) of useType" :class="[v.active?'active':'']" @click="selectType(v)">
+            <div class="item layout-center relative" v-for="(v,index) of useType" :key="index" :class="[v.active?'active':'']" @click="selectType(v)">
               <!--            @click="selectItem(v)"-->
               <div class="className" :title="v.title">{{v.title}}</div>
             </div>
@@ -59,7 +59,7 @@
           <div class="total">共{{listData.length>0? listData.length:0}}条数据</div>
           <div class="item prev" @click="selectTablePage('-')"></div>
           <template
-            v-for="(item, i) in Math.ceil(listData.length/10)">
+            v-for="(item, i) in Math.ceil(listData.length/10)" :key="i">
             <div :class="{item: true, active: item==currTablePage}"
                  v-if="item>(currTablePage-3)&&item<(currTablePage+3)"
                  @click="selectTablePage(item)">{{ item }}

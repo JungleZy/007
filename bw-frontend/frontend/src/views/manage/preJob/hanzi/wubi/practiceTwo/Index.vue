@@ -54,7 +54,7 @@
           <div class="focusBox" style="height: 100%;display: flex;flex-direction: column;justify-content: center;align-items: center" >
             <div v-if=" trainData.status!=2" class="imgBox" style="font-size: 40px;font-weight: bold;padding-bottom: 30px">{{activeMessage.font}}</div>
             <div v-if=" trainData.status!=2" style="text-align: center;height: 60px;line-height: 60px" class="layout-center" >
-              <div v-for="(zm,i) of activeMessage.pys" style="color: rgba(255,255,255,0.5)" :style="[zm.trueOrfalse==false?'color:red':'',zm.trueOrfalse==true?'color:#fff':'']" >
+              <div v-for="(zm,i) of activeMessage.pys" :key="i" style="color: rgba(255,255,255,0.5)" :style="[zm.trueOrfalse==false?'color:red':'',zm.trueOrfalse==true?'color:#fff':'']" >
                 <div style="font-size: 40px;font-weight: bold;border-left: 1px solid transparent;border-right: 1px solid transparent"
                      :class="[inputIndex==i&&isfocus?'activeL':'',
                   inputIndex==(activeMessage.pys.length)&&inputIndex==i+1?'activeR':'']"
@@ -75,7 +75,7 @@
                    :class="[!v.trueOrfalse&&v.trueOrfalse!=null&&(v.isFocus)?'erroyMessageBox':'',v.trueOrfalse&&(v.isFocus)?'successMessageBox':'',activeIndex==index&&trainData.status==1?'activeBox':'']">
                 <div class="imgBox" style="">{{v.font}}</div>
                 <div class="layout-center" style="text-align: center;" >
-                  <div class="layout-left-top" v-for="(zm,i) of v.pys" style="color: rgba(255,255,255,0.5)" :style="[zm.trueOrfalse==false?'color:red':'',zm.trueOrfalse==true?'color:#fff':'']"  >
+                  <div class="layout-left-top" v-for="(zm,i) of v.pys" :key="i" style="color: rgba(255,255,255,0.5)" :style="[zm.trueOrfalse==false?'color:red':'',zm.trueOrfalse==true?'color:#fff':'']"  >
                     <!--                    <input v-if="activeIndex==index&&inputIndex==i&&!isfocus&&trainData.status==1" type="text"  @keydown="keyCodeDown($event,zm,i,v.pys)"-->
                     <!--                           style="width: 1px;padding: 0px;margin:0 2px;height: 20px;outline: none;border: 0px none #fff;background: rgba(0,0,0,0)">-->
                     <div style="font-size: 24px;border-left: 1px solid transparent;border-right: 1px solid transparent;"

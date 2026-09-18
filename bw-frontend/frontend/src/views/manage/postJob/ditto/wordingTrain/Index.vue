@@ -86,7 +86,7 @@
           </div>
           <div class="w-full p-2 center" style="height: calc(100% - 92px - 10px)">
             <div style="width: 100%; height: 100%; overflow: auto" v-if="interfaceStyle==='HJ'">
-              <template v-for="(d,index) in trainData.data">
+              <template v-for="(d,index) in trainData.data" :key="index">
                 <div class="p-1 card relative"
                      :style="[trainData.type==1?'width:33%':'width:20%']"
                      style="height: 120px;min-width:260px;float: left;position: relative;transition: all 2s;display: flex">

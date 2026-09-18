@@ -22,7 +22,7 @@
             <div class="layout-center h-full" v-if="listData.length == 0 && !sprinShow">
               <a-empty />
             </div>
-            <div class="item layout-side relative" draggable="true" @dragstart="dragStart(v)" @drop="dragDrop(v, listData, index, 0)" @dragover="drgaOver($event)" v-for="(v, index) of listData" @click="selectItem(index)">
+            <div class="item layout-side relative" draggable="true" @dragstart="dragStart(v)" @drop="dragDrop(v, listData, index, 0)" @dragover="drgaOver($event)" v-for="(v, index) of listData" :key="index" @click="selectItem(index)">
               <div style="width: 100%" class="boxl">
                 <div class="mark">{{ index + 1 }}</div>
                 <div class="text" :class="[listDataIndex == index ? 'active' : '']" :title="v.key">{{ v.key }}</div>
@@ -44,7 +44,7 @@
             <div class="layout-center h-full" v-if="listData2.length == 0 && !sprinShow">
               <a-empty />
             </div>
-            <div class="item layout-side relative" v-for="(v, index) of listData2" draggable="true" @dragstart="dragStart(v)" @drop="dragDrop(v, listData2, index, 1)" @dragover="drgaOver($event)" @click="selectItem2(index)">
+            <div class="item layout-side relative" v-for="(v, index) of listData2" :key="index" draggable="true" @dragstart="dragStart(v)" @drop="dragDrop(v, listData2, index, 1)" @dragover="drgaOver($event)" @click="selectItem2(index)">
               <!--              <div class="text" :title="v.key">{{index+1}}、{{v.key}}</div>-->
               <div style="width: 100%" class="boxl">
                 <div class="mark">{{ index + 1 }}</div>
