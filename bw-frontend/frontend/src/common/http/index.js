@@ -18,7 +18,7 @@ instance.interceptors.request.use((config) => {
   try {
     token = window.localStorage.getItem('token');
     deviceId = window.localStorage.getItem('deviceId');
-  } catch (error) {
+  } catch {
     const failure = new Error('无法读取本地登录凭证，请恢复浏览器存储权限后重新登录；这不代表离线授权失效')
     failure.loginStorageError = true
     throw failure

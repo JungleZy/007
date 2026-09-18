@@ -20,7 +20,7 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
   try {
     session.expectedToken = window.localStorage.getItem('token')
     session.expectedDeviceId = window.localStorage.getItem('deviceId')
-  } catch (error) {
+  } catch {
     sessionError = new Error('无法读取登录凭证，请恢复浏览器存储权限并重新打开训练页')
     sessionError.sessionChanged = true
   }

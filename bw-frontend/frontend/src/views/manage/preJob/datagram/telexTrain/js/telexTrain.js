@@ -70,7 +70,7 @@ export default function telexTrain(countDown) {
       const data = res.data
       data.speed = Number(data.speed)
       data.errorNumber = Number(data.errorNumber)
-      try { message.value = JSON.parse(data.content) } catch (e) {
+      try { message.value = JSON.parse(data.content) } catch {
         Modal.error({ content: '训练报文无效，请重试' })
         return
       }

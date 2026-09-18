@@ -53,7 +53,7 @@ export default function startTest(countDown) {
       if (response.code !== 200 || !response.data) throw new Error('未取得服务器答卷')
       if (questions.value) restoreAnswer(response.data.content)
       terminalMessage.value = '自测已结束；当前显示服务器最后确认的答卷，本地未确认内容不能再提交。'
-    } catch (error) {
+    } catch {
       if (!disposed) {
         isShow.value = false
         terminalMessage.value = '自测已结束，服务器答卷读取失败。已停止作答，请重新进入查看；本地未确认内容不能再提交。'
@@ -107,7 +107,7 @@ export default function startTest(countDown) {
       if (disposed || terminal.value) return
       const elapsed = Math.max(0, moment().diff(moment(exam.start_time), 'second'))
       countDown.value?.autoSetTimeNew(Math.max(0, Number(exam.duration) * 60 - elapsed))
-    } catch (error) {
+    } catch {
       if (!disposed) message.error('自测试卷加载失败，未开始作答，请重新进入')
     }
   }
@@ -133,7 +133,7 @@ export default function startTest(countDown) {
       } else if (response.code === 208) {
         await showConfirmedAnswer()
       }
-    } catch (error) {
+    } catch {
       message.error('交卷未获确认，请检查网络；当前答案仍保留')
     } finally {
       submitting.value = false
@@ -145,7 +145,7 @@ export default function startTest(countDown) {
     try {
       const response = await studentSaveExamRealtimeContont({ examId, content: JSON.stringify(organizeAnwser()) })
       if (response.code === 208 && !disposed) await showConfirmedAnswer()
-    } catch (error) {
+    } catch {
       if (!disposed && !terminal.value) message.error('实时答案未获服务器确认，请检查网络')
     }
   }

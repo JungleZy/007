@@ -244,7 +244,7 @@ export default function train() {
       try {
         const envelope = JSON.parse(e.data)
         data = typeof envelope.data === 'string' ? JSON.parse(envelope.data) : envelope.data || envelope
-      } catch (error) {
+      } catch {
         return
       }
       if (!data || typeof data !== 'object') return

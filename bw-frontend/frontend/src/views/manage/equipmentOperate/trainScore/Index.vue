@@ -303,7 +303,7 @@ const establishMQTT = () => {
     try {
       mqttClint.disconnect()
       mqttClint = null
-    } catch (e) {
+    } catch {
       mqttClint = null
     }
   }
@@ -318,7 +318,7 @@ const establishMQTT = () => {
   setTimeout(() => {
     try {
       mqttClint.subscribe(s, { qos: 1 })
-    } catch (e) {
+    } catch {
       loading.value = false
       message.error('通信呼叫失败，请刷新后尝试')
     }
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
     try {
       mqttClint.disconnect()
       mqttClint = null
-    } catch (e) {
+    } catch {
       mqttClint = null
     }
   }
@@ -468,7 +468,7 @@ window.onbeforeunload = function (event) {
     try {
       mqttClint.disconnect()
       mqttClint = null
-    } catch (e) {
+    } catch {
       mqttClint = null
     }
   }

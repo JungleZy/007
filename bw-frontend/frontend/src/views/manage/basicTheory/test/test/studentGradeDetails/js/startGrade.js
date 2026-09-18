@@ -38,7 +38,7 @@ export default function startGrade() {
       activeUser.value = member
       testExam.value = exam
       questions.value = paper
-    } catch (error) {
+    } catch {
       message.error('复盘加载失败，请重新进入')
     }
   }

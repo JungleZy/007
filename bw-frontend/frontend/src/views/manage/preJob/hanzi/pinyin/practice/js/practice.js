@@ -49,7 +49,7 @@ export default function practice() {
       sessionStorage.setItem(draftKey, answers())
       if (pendingSave.value) sessionStorage.setItem(submissionKey, JSON.stringify(pendingSave.value))
       else sessionStorage.removeItem(submissionKey)
-    } catch (error) {
+    } catch {
       if (!draftWarning) {
         draftWarning = true
         Modal.error({ content: '浏览器无法暂存输入，请勿刷新或关闭页面；请联网保存后退出' })

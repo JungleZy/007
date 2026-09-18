@@ -62,7 +62,7 @@ export default function telexTrain(countDown) {
       data.errorNumber = Number(data.errorNumber)
       try {
         message.value = JSON.parse(data.content)
-      } catch (e) {
+      } catch {
         Modal.error({ content: '训练报文无效，请重试' })
         return
       }

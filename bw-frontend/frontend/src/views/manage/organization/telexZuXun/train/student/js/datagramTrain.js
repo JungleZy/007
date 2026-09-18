@@ -216,7 +216,7 @@ export default function (trainData, loading, emits) {
       const raw = window.localStorage.getItem('telexZuXun' + trainData.value.trainId)
       const saved = raw ? JSON.parse(raw) : null
       return saved && typeof saved === 'object' ? saved : null
-    } catch (e) {
+    } catch {
       return null
     }
   }

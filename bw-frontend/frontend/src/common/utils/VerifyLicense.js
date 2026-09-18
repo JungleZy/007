@@ -254,7 +254,7 @@ export default function VerifyLicense() {
 		let plain = ''
 		try {
 			plain = AES.decrypt(record.license, parse1, parse2).toString(enc.Utf8)
-		} catch (e) {
+		} catch {
 			plain = ''
 		}
 		if (!plain) {
@@ -455,7 +455,7 @@ export default function VerifyLicense() {
 					message.error('授权码中的可运行时长无效，请联系管理员重新签发')
 					return
 				}
-			} catch (e) {
+			} catch {
 				message.error("授权失败,授权码错误!")
 				return
 			}

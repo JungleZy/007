@@ -14,7 +14,7 @@ function withCredentials(url) {
   try {
     token = window.localStorage.getItem('token')
     deviceId = window.localStorage.getItem('deviceId')
-  } catch (error) {
+  } catch {
     // 存储权限被禁：照原样连接，由服务端拒绝并给出拒因帧
     return url
   }
@@ -48,7 +48,7 @@ export default class SocketConnection {
     let socket
     try {
       socket = new WebSocket(this.url)
-    } catch (error) {
+    } catch {
       this.onState?.('offline')
       this.reconnect(generation)
       return
@@ -70,7 +70,7 @@ export default class SocketConnection {
       } else if (socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(HEARTBEAT_PING)
-        } catch (error) {
+        } catch {
           disconnected()
         }
       }
