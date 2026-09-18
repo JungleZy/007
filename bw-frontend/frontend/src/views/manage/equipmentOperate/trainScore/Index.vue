@@ -202,8 +202,10 @@ const interval = ref(null)
 const trainID = ref(JSON.parse(window.localStorage.getItem('userInfo')))
 const numValue = ref(0)
 let titleHeaders = ref([]) //需要高亮的表格
-let f = ref('0000020001/源设备ID/0001/0008') //发送主题
-let s = ref('目的设备ID/0000020001/0001/0008') //收取主题
+// 主题在下面按 trainDataP.deviceId 覆盖；此处是占位默认值。原先包了 ref() 但随即被普通字符串
+// 覆盖，ref 从未生效，白留一层（vue/no-ref-as-operand 命中点）。
+let f = '0000020001/源设备ID/0001/0008' //发送主题
+let s = '目的设备ID/0000020001/0001/0008' //收取主题
 const mqttUrl = window.mqttWsUrl
 onMounted(() => {
   // 43.89 400W   43.138 125W   43.89 134A    185  / 113  173

@@ -193,12 +193,15 @@ const trainData = ref({
 const scoreList = ref([])
 const docCode = ref('')
 const loading = ref(false)
-const interval = ref(null)
 const trainID = ref(JSON.parse(window.localStorage.getItem('userInfo')))
-const numValue = ref(0)
 let titleHeaders = ref([]) //需要高亮的表格
-let f = ref('0000020001/源设备ID/0001/0008') //发送主题
-let s = ref('目的设备ID/0000020001/0001/0008') //收取主题
+// 设备通信主题格式：<目的地址>/<源地址>/0001/0008，其中 0000020001 是训练系统地址、另一段是设备地址。
+// 两者在 getDetails 拿到 deviceId 后才能确定，故此处留空并在 establishMQTT 里设卡，
+// 不能用占位串（原实现是 ref('0000020001/源设备ID/0001/0008')，且从未赋 .value
+// 就被裸传给 paho 的 subscribe/send，等于把 Ref 对象当主题名）。
+// 主题构造与 equipmentOperate/trainScore/Index.vue 同构（那份用 trainDataP.deviceId）。
+let sendTopic = '' // 发送主题：系统 → 设备
+let recvTopic = '' // 收取主题：设备 → 系统
 const mqttUrl = window.mqttWsUrl
 onMounted(() => {
   generalGroupNetRuleFindAll().then(res => {
@@ -211,6 +214,8 @@ onMounted(() => {
       message.error(res?.message || '获取训练详情失败')
       return
     }
+    sendTopic = `0000020001/${res.data.deviceId}/0001/0008`
+    recvTopic = `${res.data.deviceId}/0000020001/0001/0008`
     trainData.value.trainStatus = res.data.trainStatus
     if (res.data.trainType == 0) {
       tableData.value = llwjData
@@ -296,6 +301,10 @@ const establishMQTT = () => {
     message.error('未配置MQTT WebSocket服务地址')
     return
   }
+  if (!sendTopic || !recvTopic) {
+    message.error('训练详情未加载完成或缺少设备编号，无法建立设备通信')
+    return
+  }
   if (loading.value) {
     message.error('通信呼叫中，请不要重复点击')
     return
@@ -321,7 +330,7 @@ const establishMQTT = () => {
   loading.value = true
   setTimeout(() => {
     try {
-      mqttClint.subscribe(s, { qos: 1 })
+      mqttClint.subscribe(recvTopic, { qos: 1 })
     } catch (e) {
       loading.value = false
       message.error('通信呼叫失败，请刷新后尝试')
@@ -353,37 +362,13 @@ const cliceTd = (i, n) => {}
 
 //通知设备结束训练
 const finishTrain = () => {
-  mqttClint.send(f, JSON.stringify({ 指令: '查询', trainID: trainID.value.id }), 1)
+  mqttClint.send(sendTopic, JSON.stringify({ 指令: '查询', trainID: trainID.value.id }), 1)
   setTimeout(() => {
     if (loading.value) {
       loading.value = false
       message.error('通信呼叫失败，请刷新后尝试')
     }
   }, 2000)
-
-  // if (!loading.value) {
-  //       mqttClint.send(f, JSON.stringify({指令: '查询', trainID: trainID.value.id}), 1)
-  //   } else {
-  //       message.error('通信呼叫中，请不要重复点击')
-  //       return
-  //   }
-  //   setTimeout(() => {
-  //       if (loading.value) {
-  //           interval.value = setInterval(() => {
-  //               if (!loading.value) {
-  //                   clearInterval(interval.value)
-  //               }
-  //               mqttClint.send(f, JSON.stringify({指令: '查询', trainID: trainID.value.id}), 1)
-  //               numValue.value = numValue.value + 1
-  //               if (numValue.value > 1) {
-  //                   numValue.value = 0;
-  //                   clearInterval(interval.value)
-  //                   loading.value = false
-  //                   message.error('通信呼叫失败，请刷新后尝试')
-  //               }
-  //           }, 2000)
-  //       }
-  //   }, 2000)
 }
 //结束训练获取参数后逻辑
 const endTrain = messages => {
