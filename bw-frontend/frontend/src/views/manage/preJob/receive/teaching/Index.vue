@@ -45,7 +45,6 @@ import * as dat from 'dat.gui'
 const progress = ref(0);
 const scene = ref(null);
 const camera = ref(null);
-const armature = ref(null);
 const transformNode = ref(null);
 const cool = inject('cool');
 const isWindow=ref(false);
@@ -100,7 +99,6 @@ const init = () => {
 
   BABYLON.SceneLoader.ImportMesh("", window.fileUrl + "/006/model/", "wb3.glb", scene.value, (newMeshes, particleSystems, skeletons) => {
     if (scene.value) {
-      let skeleton = skeletons[0];
       transformNode.value = newMeshes[0];
       //解决模型反光问题
       for (let i = 0; i < scene.value.materials.length; i++) {

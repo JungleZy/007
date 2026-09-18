@@ -59,7 +59,6 @@ export default function telegramList(addDrillModal) {
     article:[],
     wordId:""
   });
-  const content = ref([]);
   onMounted(() => {
     init()
     getArticle()

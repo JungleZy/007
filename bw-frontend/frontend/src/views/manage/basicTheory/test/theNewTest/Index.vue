@@ -550,10 +550,8 @@ const IconFont = createFromIconfontCN({
 })
 
 provide('realTimeAnwser', '')
-const openMenu = ref(true)
 const preview = ref(false)
 const roomtest = ref()
-const activeKnowledge = ref({})
 const iconList = ref([
   'icon-zhiyudingceng1',
   'icon-a-houyiyicengfuben1',

@@ -114,7 +114,7 @@ import moment from 'moment'
   import {
     FileTextOutlined,
     FormOutlined,
-    PlusOutlined, createFromIconfontCN,
+     createFromIconfontCN,
   } from '@ant-design/icons-vue';
   import useList from "./js/useList.js";
   import useTable from "../../../../../../common/mixin/useTable.js";
@@ -143,14 +143,13 @@ import moment from 'moment'
     scriptUrl: window.iconUrl,
   });
   const {
-    isTableStriped,
-    tableSize,
-    page,
-    changeTableSize
+    
+    
+    page
   } = useTable();
 
   const {
-    columns,tableData,tableList,currTablePage,selectTablePage,tableLoading,searchList,addDrillModal,addtype,addClassify,classifyName,classifyID,deleteClassify,selectItem
+    columns,tableData,tableList,currTablePage,selectTablePage,searchList,addDrillModal,addtype,addClassify,classifyName,classifyID,deleteClassify,selectItem
   } = useList();
   const modelTitle=ref('新增')
   const openModel = (type,v)=>{

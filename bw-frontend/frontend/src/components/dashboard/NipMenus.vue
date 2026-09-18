@@ -76,7 +76,6 @@
       fontSizeDispose();
     })
   })
-  const move = ref({})
   const emit = defineEmits(['handleMenuClick'])
   const handleMouseStatus = (m, status,index) => {
     m.in = status;

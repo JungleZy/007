@@ -342,7 +342,6 @@
     year:'',
     remaks:''
   })
-  const telegraghNumber = ref(100)
   const disturbArray = ref([])
   const formData = ref({
     name: '收报训练-' + timeFormatInfo(new Date().getTime(), 'string'),
@@ -377,8 +376,6 @@
   const selectCable = ref(null)
   const cableList = ref([])
   const content = ref([]);
-  const ruleId = ref('');
-  const ruleList = ref([]);
   provide("selectCable",selectCable)
   provide("formData",formData)
   provide("cableList",cableList)

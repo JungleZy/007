@@ -42,7 +42,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     alter: '001100', // 改错符号-当前组
     next: '001011' // 改错符号-前一组
   })
-  const antiShakeStatus = ref(true)
   const oldPatStandard = ref({
     dot: 0,
     line: 0,

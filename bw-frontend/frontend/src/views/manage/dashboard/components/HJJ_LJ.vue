@@ -169,7 +169,6 @@
   const userInfo = ref({})
   const userRole = ref({})
   const userModalVis = ref(false)
-  const isShow = ref(false)
   const noOff = ref(false)
   useNumRain('numRain')
   const settingData = ref({

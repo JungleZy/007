@@ -134,7 +134,6 @@ export default function equipment_125W(formData){
   //生成信道频率
   const frequency_125W = ()=>{
     let arr = []
-    const num = Math.floor(Math.random()*50)
     for (let i=1;i<2;i++){
       arr.push({
         "信道号":{value:i,equipmentValue:''},

@@ -61,7 +61,6 @@ export default function telegramList(addDrillModal) {
     type: 0,
     mode: 0
   })
-  const content = ref([])
   onMounted(() => {
     init()
   })

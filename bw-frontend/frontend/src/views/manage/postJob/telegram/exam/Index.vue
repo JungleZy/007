@@ -188,7 +188,6 @@ const route = useRoute()
 const loading = ref(false)
 const addDrillModal = ref(false)
 const gradingRuleModal = ref(false)
-const basicTrainDeployModal = ref(false)
 const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
 const deleteModel = (v)=>{
   Modal.confirm({
@@ -215,7 +214,7 @@ const {
   addTelexTrain,
   getGradingRuleList, selectIsCable,deleteHistory,
   ruleId,
-  ruleList, selectCable, cableList
+  ruleList, selectCable
 } = telegramList(addDrillModal)
 
 /**

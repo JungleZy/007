@@ -135,8 +135,6 @@
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const loading = ref(false)
   const addDrillModal = ref(false)
-  const basicTrainDeployModal = ref(false)
-  const hp = new homophone()
   const items = ref([
     { type: 'LYCZ', text: '军语词组', value: 3 },
     { type: 'WZLX', text: '文章练习', value: 4 }
@@ -171,8 +169,8 @@
     currTablePage,
     selectTablePage,
     tableLoading,
-    selectType,
-    initContent,
+    
+    
     trainData,
     addTelexTrain,
     article,

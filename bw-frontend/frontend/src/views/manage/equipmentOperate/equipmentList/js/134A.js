@@ -21,7 +21,6 @@ export default function equipment_134A(formData){
       dp["收频"] = (Math.random()*(29.9999-1.6)+1.6).toFixed(4)
       dp["发频"] = dp["收频"]
       dp['功率'] = power[p]
-      const m = Math.round(Math.random()*2)
       dp['工作方式'] = gzfs[n]
       for (let i in dp){
         dp[i] = {value:dp[i],equipmentValue:''}

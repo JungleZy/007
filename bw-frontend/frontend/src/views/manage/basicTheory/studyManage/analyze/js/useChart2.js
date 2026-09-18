@@ -111,8 +111,6 @@ export default function useChart2(currentYear1) {
     if (data.theChart2) {
       data.theChart2.destroy()
     }
-    const data1 = ref([])
-    const data2 = ref([])
     const x = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
     const interfaceStyle = window.interfaceStyle
     const color = {

@@ -106,7 +106,6 @@ const selectType = () => {
   }
   formData.value = generateData_400W(trainData.value.type)
 }
-let arr = []
 const cancelTrainModal = () => {
   addDrillModal.value = false
 }

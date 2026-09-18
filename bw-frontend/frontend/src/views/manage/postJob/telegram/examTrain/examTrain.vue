@@ -204,9 +204,9 @@ import {ref} from "vue"
 const autoLine = ref(true)
 const {
   submissionError, submissionBusy, retrySubmit,
-  loading, patValBoxRef, patKeyBoxRef, wsOnline, devOnline, trainData, countDown, currPage, allPage, patCodeLogs,
+  loading, patValBoxRef, patKeyBoxRef,   trainData, countDown, currPage, allPage, patCodeLogs,
   patKeysLogs, pauseDuration,currPageIndex, switchPage, startTrain, endTrain,changePlaySpeed,
-  playSpeed,lastPatKey
+  playSpeed
 } = telexTrain()
 </script>
 

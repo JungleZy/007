@@ -168,13 +168,13 @@ const wpmTOmm = inject('wpmTOmm')
 const showSetting = ref('')
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const {
-  downTimeRef,
+  
   hearPlayVoice,
   validTime,
   frequency,
   freqGather,
   audioVolume,
-  downTime,
+  
   speedRate,
   loop,
   short,

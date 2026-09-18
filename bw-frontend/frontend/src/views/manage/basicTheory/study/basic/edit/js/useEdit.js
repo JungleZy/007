@@ -7,7 +7,6 @@ import {useRouter, useRoute} from 'vue-router'
 import 'moment/dist/locale/zh-cn.js'
 import {fontSizeDispose} from '../../../../../../../common/utils/Utils'
 export default function useEdit(roomtest, selectedKnowledgeSwfs, tData, content, selectedKnowledgeSwfsIndex, right, handleSelectedKnowledgeSwfs) {
-  const route = useRoute()
   const router = useRouter()
   const textArray = ref(['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十'])
   const leftArr = ref([

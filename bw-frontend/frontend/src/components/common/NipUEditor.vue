@@ -14,7 +14,6 @@
 
   const content = inject('content')
   const uploadFile = inject('uploadFile')
-  const editorConfig = ref(null)
   const props = defineProps({
     top: {
       default: 0,

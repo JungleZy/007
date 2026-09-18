@@ -203,9 +203,6 @@ import iconImage from "../../../postJob/js/iconImage";
 const {topBg} = iconImage()
 
 const route = useRoute()
-const loading = ref(true)
-const minSpeed = ref(60)
-const showTipSymbol = ref(true)
 const roomValue = ref('280px')
 const roomState = ref(true)
 const printShow = ref(false)
@@ -248,22 +245,22 @@ const trainData = ref({
 const {
   lssuedText,
   sendLessudText,
-  getRoomDetails,
+  
   sendUserList,
   putAwayUserList,
   sendLessudTextList,
   buttonState,
   disturbVolume,
-  checkedDisturb,
+  
   disturbList,
   handleStartTrain,
   handleBeginTrain,
   handleEndTrain,
-  overBulletin,
+  
   changeDisturbInfo,
   switchTelegram,
   activePutAway,
-  activeSend,
+  
   handleActivePutAway,
   handlePageTurn,
   a,

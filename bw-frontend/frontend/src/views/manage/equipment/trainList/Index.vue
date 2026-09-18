@@ -113,8 +113,8 @@ const {
   columns,
   tableData,
   tableList,
-  currTablePage,
-  selectTablePage,
+  
+  
   tableLoading,
   equipmentLists,
   liaisonDoc,

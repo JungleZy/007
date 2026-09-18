@@ -32,7 +32,6 @@
     import {analyzeChannel,netIP,applyScoringDetails} from "../contactDocuments/J210_742";
     import {ref,onMounted} from 'vue'
     import {useRoute, useRouter} from "vue-router";
-    const unityPath=ref('')
     const route = useRoute();
     const router = useRouter();
     const {J210_742}=table();

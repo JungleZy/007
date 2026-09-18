@@ -187,7 +187,7 @@
 </script>
 <script setup>
   import {
-    FormOutlined,
+    
     PlusOutlined,
     DeleteOutlined,
     createFromIconfontCN,
@@ -219,13 +219,13 @@
   const router = useRouter()
   const route = useRoute()
   const {
-    typeCheckList,
-    difficulty,
+    
+    
     listData,
-    takeNew,
-    knowledgeShow,
-    params,
-    takeNoTestVisible,
+    
+    
+    
+    
     testPaper,
     deletePaper
   } = knowledgeTabel()

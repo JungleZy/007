@@ -33,10 +33,8 @@ export default function telegramList(wpmTOmm) {
   })
   const audioData = ref([])
   const audioSpeed = ref(60)
-  const audioDataNext = ref([])
   const allPage = ref(0)
   let pageNumber = ref(0)
-  const active = ref(0)
   const audioTest = ref(false)
   let isActive = ref(0) //判断何时添加开始结束
   let listAll = ref([]) //所有播放流数组

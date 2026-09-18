@@ -83,7 +83,6 @@ export default function lineNotify(selectCable) {
   const newCheckBoxList = ref([])
   const tableData = ref([])
   const tableList = ref([])
-  const dibaoList = ref([])
   const currTablePage = ref(0)
   const loading = ref(false)
   const visibleModal = ref(false)

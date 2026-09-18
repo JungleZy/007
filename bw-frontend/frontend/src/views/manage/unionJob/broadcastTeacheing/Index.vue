@@ -199,7 +199,7 @@ import {
   PlusOutlined,
   WarningOutlined,
   FileTextOutlined,
-  FundViewOutlined,
+  
   PlayCircleOutlined,
   DeleteOutlined
 } from '@ant-design/icons-vue'
@@ -219,13 +219,11 @@ import {global} from "../../../../config/pinia";
   const selectCable = ref(null)
   const cableList = ref([])
   const content = ref([]);
-  const ruleId = ref('');
-  const ruleList = ref([]);
   const fileUrl = window.fileUrl
 const userInfo = JSON.parse(localStorage.getItem('userInfo'))
 
   const { columns, tableData, totalPage, cacheData, currPage, tableLoading, addDrillModal,isHeader,
-    messageHeader,  userList, checkUser, formData,trainData, isRandom, isAverage, checked, selectUserLIst,deleteModel,
+    messageHeader,  userList, checkUser, formData, isRandom, isAverage, checked, deleteModel,
     cancelTrainModal, addTelexTrain,isHeaderChange,changeListPage,
     changeChecked, changeUserList } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容
 

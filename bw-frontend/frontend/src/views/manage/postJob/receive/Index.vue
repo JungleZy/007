@@ -28,7 +28,6 @@
   const router = useRouter();
   const atMenus = ref({});
   const atRoute = ref({});
-  const openMenu = ref(true);
   const leftMenuWidth = ref(useGlobalStore.leftWidth);
   provide('atRoute', route.matched[4]);
   provide('leftMenuWidth', leftMenuWidth);

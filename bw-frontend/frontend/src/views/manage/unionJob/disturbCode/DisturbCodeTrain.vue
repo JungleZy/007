@@ -323,7 +323,7 @@ const {
   storage,
   examinerStatus,
   ban,
-  cacheDispose,
+  
   openTrainInfo,
   closeTrainInfo,
   pageTurn,

@@ -173,13 +173,11 @@ const leftMenuWidth = ref(useGlobalStore.leftWidth);
 const selectCable = ref(null)
 const cableList = ref([])
 const content = ref([]);
-const ruleId = ref('');
-const ruleList = ref([]);
 const {
   columns,
   tableData,
   tableList,
-  currTablePage,
+  
   loading,
   visibleModal,
   tableLoading,
@@ -195,7 +193,7 @@ const {
   cancelTrianModal,
   handlSelectChange,
   targetKeys,
-  selectedKeys,
+  
   getSimulationRouterFindRoomList,
   handleChange,
   getAllTeacherList,

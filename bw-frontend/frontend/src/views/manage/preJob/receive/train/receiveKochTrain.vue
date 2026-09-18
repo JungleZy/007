@@ -240,8 +240,8 @@ const {
   switchDelay,
   startTrain,
   stopTrain,
-  nextTrain,
-  lastTrain,
+  
+  
   saveStageInfo
 } = kochTrain(wpmTOmm)
 

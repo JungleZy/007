@@ -230,7 +230,7 @@ export default {
   const showMessage = ref(true)
   const interfaceStyle = window.interfaceStyle
   const {
-    receiveBgRef,downTimeRef,trainKeyCodeRef,receiveData,validTime,frequency,freqGather,audioVolume,voicePlayData,rateWpm,
+    receiveBgRef,receiveData,validTime,frequency,freqGather,audioVolume,voicePlayData,rateWpm,
     plugData,disturbList,checkedDisturb,disturbVol,auditionInfo,startTrainInfo,pauseTrainInfo,continueTrainInfo,
     endTrainInfo,repeatTrainInfo,changePage,onOffDisturb,changeDisturbInfo,activeIndex
   } = receiveTrain(wpmTOmm);

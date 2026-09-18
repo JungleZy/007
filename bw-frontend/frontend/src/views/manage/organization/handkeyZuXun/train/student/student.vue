@@ -277,7 +277,7 @@
 
   const {
     submissionError, submissionBusy, retrySubmit,
-    patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
+    patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol,  currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
     switchTelegram, resetPatStart,handleReceiveKeyCode, timeAreaShow, getScoreOffsetInfo,readyTrainPat,connectWebsocket,
     initTrainTimeInfo,cutTime,cutTimer,showPatCodeLog
   } = details(trainData, patStandard, initFloat, wsOnline, devOnline, loading,emits)

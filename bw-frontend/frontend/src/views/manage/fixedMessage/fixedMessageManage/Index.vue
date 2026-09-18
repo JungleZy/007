@@ -145,7 +145,7 @@
     currTablePage,
     columns,
     listData,addDrillModal,cableTypeTitle,
-    cableTypeTitleID,openModel,cancelModal,
+    openModel,cancelModal,
     addCableType,deleteCableType,findMessageDetails,selectType,useType,addMessage,deleteHistory
   } = fixedMessageManage()
 </script>

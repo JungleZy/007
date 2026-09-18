@@ -88,7 +88,6 @@ export default function equipmentFore(){
   //生成信道频率
   const frequency_400W = (type)=>{
     let arr = []
-    const num = Math.floor(Math.random()*(50-1)+1)
     for (let i=1;i<51;i++){
       const xdh = i<10?"00"+i:"0"+i
       const s = (Math.random()*(29.999999-2)+2).toFixed(6)

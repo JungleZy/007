@@ -274,7 +274,6 @@
     return h + ' : ' + m + ' : ' + s
   }
   const patHairTrendBoxRef = ref(null)
-  const activeMenu = ref(0)
   const { selfId } = defineProps({
     selfId: {
       type: String,

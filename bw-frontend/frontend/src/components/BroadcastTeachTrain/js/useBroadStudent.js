@@ -284,7 +284,6 @@ export default function useBroadStudent() {
     isOnline.value = true
     socket.send(JSON.stringify(data))
   }
-  const trainTimeRef = ref(null)
   const trainData = ref({
     status: 0
   })

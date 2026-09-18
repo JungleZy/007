@@ -68,7 +68,6 @@ export default function wordList() {
     disturb: [],
     name: ''
   })
-  const content = ref([])
   const basicDeployData = ref([])
   const gradingRuleModal = ref(false)
   onMounted(() => {

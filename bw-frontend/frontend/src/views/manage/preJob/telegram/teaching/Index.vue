@@ -36,11 +36,9 @@
   const activeS = ref(0);
   const activeTwo = ref(0);
   const transformNode = ref(null);
-  const list = ref([]);
   const actionList = ref(null)
   const cool = inject('cool');
   const num = ref(0);
-  const topLeft=ref({});
   const isWindow=ref(false);
   const handkeyMp4 = ref(window.fileUrl+'/006/video/handkey.mp4');
   const examMp4 = ref(window.fileUrl+'/006/video/exam.mp4');

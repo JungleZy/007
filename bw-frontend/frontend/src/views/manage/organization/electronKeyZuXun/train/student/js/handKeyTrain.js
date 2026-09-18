@@ -24,7 +24,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
   const cacheKey = ref([]); // 缓存字码 - 还未转换成词组的字码集合
   const cacheKeyCode = ref([]); // 缓存电码 - 还未转换成词组的电码码集合
   const logsPatStandardCode = ref([]); // 待转换拍发基准值的数据集合
-  const cachePatKey = ref([]); // 缓存字码 - 还未翻页提交的字码集合
   const currPatKeyIndex = ref(-1); // 正在拍发的电报纸字码的下标
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
   const router = useRouter();
@@ -48,12 +47,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
     g_gap: 0
   });
   const pagePatStandard = ref([]);
-  const pageHandleIndex = ref(0);
   const finishPatLogs = ref([]);
-  const wordTimer = ref(null);
-  const groupTimer = ref(null);
-  const textTimer = ref(null);
-  const firstStandard = ref(false);
   const alter = ref(0);
   let isFirstKey = true
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))

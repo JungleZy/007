@@ -50,7 +50,6 @@ export default function () {
   })
   onUnmounted(() => {
     closeWebSocket()
-    let dom = null;
     clearInterval(trainTimer.value)
   })
 

@@ -231,8 +231,8 @@
 
   const {
     submissionError, submissionBusy, retrySubmit,
-    patKeyBoxRef, patValBoxRef, trainTimeRef, initSymbol, errorText, currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
-    switchTelegram, resetPatStart,handleReceiveKeyCode, timeAreaShow,readyTrainPat,connectWebsocket,
+    patKeyBoxRef, patValBoxRef, trainTimeRef,   currPatKeyIndex,readyPat,patUser,getPostTrainKeyInfo,
+    switchTelegram, handleReceiveKeyCode, timeAreaShow,readyTrainPat,connectWebsocket,
     initTrainTimeInfo,cutTime,cutTimer
   } = details(trainData, wsOnline, devOnline, loading, emits, voiceCode, changeCriterion)
 

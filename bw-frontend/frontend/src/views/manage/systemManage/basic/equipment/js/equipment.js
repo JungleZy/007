@@ -43,13 +43,11 @@ export default function equipmentList(addDrillModal) {
   const currTablePage = ref(0)
   const tableLoading = ref(true)
   const router = useRouter()
-  const route = useRoute()
   const wztype = ref('0')
   const trainData = ref({
     type: 0,
     mode: 0
   })
-  const content = ref([])
   onMounted(() => {
     init()
   })

@@ -153,16 +153,12 @@
   const {labSpeed, labNum, keyBg} = imgs
   const prevIMG = imgs.prev
   const nextIMG = imgs.next
-  const route = useRoute()
   const loading = ref(true)
-  const minSpeed = ref(60)
   const countDown = ref(null)
-  const isfocus = ref(true)
-  const isTips = ref(false)
   const {
     failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult,
     trainData,
-    code,
+    
     activeIndex,
     page,
     pageCodes,

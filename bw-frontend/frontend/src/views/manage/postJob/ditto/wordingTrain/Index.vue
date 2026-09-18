@@ -422,8 +422,8 @@
     inputIndex,
     finish,
     disturbList,
-    changeVolume,
-    changeAudioPlay,
+    
+    
     showResultModal,
     gradeTypeList
   } = wordingTrain(countDownRef)

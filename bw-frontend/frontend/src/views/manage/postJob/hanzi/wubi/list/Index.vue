@@ -123,8 +123,6 @@
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const loading = ref(false)
   const addDrillModal = ref(false)
-  const basicTrainDeployModal = ref(false)
-  const hp = new homophone()
   const gradingRuleModal = ref(false)
   const items = ref([
     { type: 'LYCZ', text: '军语词组', value: 1 },

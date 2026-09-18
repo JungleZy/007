@@ -241,4 +241,3 @@ export default class WB_ColorSHow {
     return a = a.replace("Z", "32")
   }
 }
-var kuw_load_WB_ColorSHow = "ok";

@@ -20,7 +20,6 @@ export default function equipment_121C(formData,dpData){
       }else if (index==3){
         num2 = 3
       }
-      let n = 0
       for(let i in item){
         dpData.value[num][num2].value = item[i].value
         if (type){

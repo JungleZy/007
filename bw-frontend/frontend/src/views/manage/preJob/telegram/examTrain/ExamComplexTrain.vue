@@ -297,7 +297,6 @@ const IconFont = createFromIconfontCN({
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const fs = ref(JSON.parse(localStorage.getItem('fs')))
 const router = useRouter()
-const trainDeploy = ref(0)
 const showResultModal = ref(true)
 const codeTypeArr = ref([
   { type: 'gradient', name: '渐变' },
@@ -308,7 +307,7 @@ const codeTypeArr = ref([
 const codeType = ref('gradient')
 
 const { messageData, nowTime, trainData, activeMessage, isfocus, activeIndex, pauseDuration,
-  selectCard, changeSwitch, selectMessage, endExamTrain, changeMessage, changeFocus, beginExamTrain } = examTrain()
+  selectCard,  selectMessage,  changeMessage, changeFocus } = examTrain()
 
 /**
  * 格式化时间

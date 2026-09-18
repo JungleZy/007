@@ -32,7 +32,6 @@ export default function wordingTrain(countDown) {
   })
   const router = useRouter()
   const route = useRoute()
-  let focusIndex = 0
   const showResultModal = ref(false)
   let morseVoice = new MorseVoice()
   const cutDown = ref(null)

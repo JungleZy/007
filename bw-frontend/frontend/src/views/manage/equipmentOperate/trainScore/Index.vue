@@ -80,7 +80,6 @@ import equipment_173 from './js/173'
 import equipment_121C from '../../equipment/trainScore/js/121C'
 import {addTrain, generalGroupNetRuleFindAll} from '../../../../common/api/equipment'
 
-const route = useRoute()
 const router = useRouter()
 const disturbList = ref([
   {

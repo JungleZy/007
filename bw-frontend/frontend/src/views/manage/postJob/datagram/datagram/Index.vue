@@ -197,7 +197,6 @@
   const loading = ref(false)
   const addDrillModal = ref(false)
   const gradingRuleModal = ref(false)
-  const basicTrainDeployModal = ref(false)
   const selectCable = ref(null)
   const cableList = ref([])
   const gradingRuleModalInfo = () => {
@@ -254,13 +253,13 @@
   }
   const {
     columns,
-    tableData,
+    
     tableList,
-    currTablePage,
+    
     selectTablePage,
     tableLoading,
     selectType,
-    initContent,
+    
     trainData,
     addTelexTrain,
     rule,

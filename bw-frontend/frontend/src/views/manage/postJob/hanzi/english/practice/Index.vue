@@ -247,19 +247,18 @@ const codeTypeArr = ref([
   { type: 'white', name: '纯白' }
 ])
 
-const codeType = ref('gradient')
 const {
   message,
   trainData,
-  correct,
-  activeMessage,
+  
+  
   isfocus,
-  activeIndex,
-  inputIndex,
+  
+  
   beginTrain,
-  changeSwitch,
+  
   saveTest,
-  goback,
+  
   gradeTypeList
 } = practice(countDownRef)
 </script>

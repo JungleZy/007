@@ -79,7 +79,6 @@ export default function useBroadTeacher(countDown) {
     }
     refresh()
   }
-  const stopIndex = 0
   let selfId = ref()
   selfId.value = JSON.parse(localStorage.getItem('userInfo')).id
   let socket = new SocketConnection()

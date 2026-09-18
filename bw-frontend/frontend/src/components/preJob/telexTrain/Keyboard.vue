@@ -222,7 +222,6 @@
       const location = ref("")
       const keyStyle = ref("")
       const area = ref(false)
-      const _this = getCurrentInstance()
       const { targetKey,telexPat } = toRefs(props)
       //是否显示手指提示区域
       const openarea = ()=>{

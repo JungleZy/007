@@ -163,7 +163,6 @@
   const {labSpeed, labNum, labType, keyBg, prev, next} = iconImage()
   const route = useRoute()
   const loading = ref(true)
-  const showTipSymbol = ref(true)
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const printShow = ref(false)
   const print = {

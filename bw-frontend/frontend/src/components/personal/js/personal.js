@@ -9,7 +9,6 @@ export default function Personal(props) {
   const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
   const activeKey = ref('3')
   const router = useRouter()
-  const route = useRoute()
   const time = ref(null)
   const editPasswordData = ref({
     oldPassword: '',

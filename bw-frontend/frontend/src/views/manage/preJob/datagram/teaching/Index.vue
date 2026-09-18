@@ -54,11 +54,9 @@
   const activeS = ref(0);
   const activeTwo = ref(2);
   const transformNode = ref(null);
-  const list = ref([]);
   const actionList = ref(null)
   const cool = inject('cool');
   const num = ref(0);
-  const topLeft=ref({});
   const isWindow=ref(false);
   const text=ref('')
   const datagramMp4 = ref(window.fileUrl+'/006/video/datagram.mp4');

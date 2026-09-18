@@ -230,7 +230,6 @@ export default {
     const location = ref('')
     const keyStyle = ref('')
     const area = ref(false)
-    const _this = getCurrentInstance()
     const { ZG_key, activeBtn } = toRefs(props)
     watch(activeBtn, () => {
       //仅拆字训练使用

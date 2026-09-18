@@ -353,7 +353,6 @@
     scriptUrl: window.iconUrl
   })
   const fs = ref(JSON.parse(localStorage.getItem('fs')));
-  const trainDeploy = ref(0)
   //格式化时间
   const computationTime = total => {
     let hour

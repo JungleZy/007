@@ -49,7 +49,6 @@ const childRef = ref(null);
 
 const cool = ref(false)
 const wpmTOmm = ref(true) //是否使用码/分
-const routeName = ref('')
 const dataChecked = ref()
 onMounted(() => {
   if (childRef.value) {

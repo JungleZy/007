@@ -291,7 +291,7 @@ const {
   hardHearingInfo,
   updateTelegraph,
   generateMessageHeader,
-    showCode,
+    
   allPage
 } = receiveTrain(wpmTOmm)
 const handleItem = item => {

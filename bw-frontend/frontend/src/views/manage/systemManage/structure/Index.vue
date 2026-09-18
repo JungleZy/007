@@ -139,7 +139,7 @@ import 'moment/dist/locale/zh-cn.js'
 
 let {
   columns,
-  tableData,
+  
   tableList,
   currTablePage,
   selectTablePage,
@@ -159,10 +159,10 @@ let {
   // handleChange,
   handleIdCard,
   userRoleId,
-  findRoleList,
+  
   roleList,
   userFormRef,
-  inputValue,
+  
   handleSearch,
   searchData,
   searchUsersData,

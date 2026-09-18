@@ -198,9 +198,9 @@ export default {
 <script setup>
 import {
   PlusOutlined,
-  WarningOutlined,
+  
   FileTextOutlined,
-  FundViewOutlined,
+  
   PlayCircleOutlined,
   DeleteOutlined
 } from '@ant-design/icons-vue'
@@ -212,8 +212,6 @@ import {getCableAll} from "../../../../common/api/CableApi";
 const selectCable = ref(null)
 const cableList = ref([])
 const content = ref([]);
-const ruleId = ref('');
-const ruleList = ref([]);
 const userInfo = JSON.parse(localStorage.getItem('userInfo'));
 
 const fileUrl = ref(window.fileUrl)

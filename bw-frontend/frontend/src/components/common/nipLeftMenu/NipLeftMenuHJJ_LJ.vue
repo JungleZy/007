@@ -52,7 +52,6 @@
   // const leftMenuWidth = inject("leftMenuWidth");
   const interfaceStyle = window.interfaceStyle
   const leftMenuWidth = ref(useGlobalStore.leftWidth)
-  const openMenu = ref({name: '', childName: ''});
   const children = atRoute.children.find(item=>item.children.length>0)
   //系统管理需要单独处理
   if(route.path.indexOf("systemManage")==-1){

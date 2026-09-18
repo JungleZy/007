@@ -617,9 +617,7 @@
   const loading = ref(true)
   const baoWenLoading = ref(true)
   const patHairTrendBoxRef = ref(null)
-  const trainDeploy = ref(0)
   const handKeyWidth = ref(112)
-  const minSpeed = ref(60)
   const volume = ref(50)
   const labs = ref(['status', 'totalNumber', 'errorNumber', 'accuracy', 'totalKnockNumber', 'speed', 'nowFloorId', 'type'])
   /** gradient:渐变; metal:金属; chapped:皲裂; white:纯白;  */
@@ -691,7 +689,7 @@
     focusTrainThumbRef,
     lastBaoDiIndex,
     nowTime,
-    trainTimeRef,
+    
     currBaoWen,
     currBaoDiIndex,
     editBaoDiIndex,
@@ -711,10 +709,10 @@
     logsContainerRef,
     modifyBaoDiIds,
     isTrainFocusMode,
-    switchTrainMode,
+    
     getTrainSendRecordLog,
-    handleAchievementChart,
-    handleChartData,
+    
+    
     lineChart,
     chartData,
     proportion,

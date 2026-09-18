@@ -25,9 +25,7 @@ export default {
   const leftMenuWidth = ref(useGlobalStore.leftWidth);
   const route = useRoute();
   const router = useRouter();
-  const atMenus = ref({});
   const atRoute = ref({});
-  const openMenu = ref(true);
   provide('atRoute', route.matched[route.matched.length-1]);
   provide('leftMenuWidth', leftMenuWidth);
 </script>

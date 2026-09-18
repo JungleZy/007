@@ -60,7 +60,6 @@
   import {onMounted, ref} from "vue"
   import {useRouter, useRoute} from "vue-router"
   const router = useRouter();
-  const route = useRoute();
   const menus = ref([]);
   const fileUrl = ref(window.fileUrl);
   onMounted(() => {
@@ -79,7 +78,6 @@
         });
     });
   });
-  const move = ref({});
   const emit = defineEmits(["handleMenuClick"]);
   const handleMenuClick = (e) => {
     handleItemClick(e.children[0], e);

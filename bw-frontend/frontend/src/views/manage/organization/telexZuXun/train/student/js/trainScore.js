@@ -19,7 +19,6 @@ export default function telegramList(showChart,selfId) {
     if (!value) return []
     try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : String(parsed).split('') } catch { return String(value).split('') }
   }
-  const short = ref(null);
   const scoreData = ref({
     trainId: '',
     scale: {d: 1,l: 3,c: 1,w: 3,g: 5},
@@ -38,10 +37,7 @@ export default function telegramList(showChart,selfId) {
     next: '0010,11',
   });
   const alter = ref(0);
-  let timeChartData = ref([]);
-  let numberChartData = ref([]);
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
-  const successResolver = ref([])
   const resolve = ref([])
 
   onMounted(() => {

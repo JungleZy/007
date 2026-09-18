@@ -240,7 +240,6 @@
   const autoLine = ref(true)
   const route = useRoute()
   const loading = ref(true)
-  const minSpeed = ref(60)
   const showTipSymbol = ref(true)
   const messageBodyList = ref([])
   const printShow = ref(false)

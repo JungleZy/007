@@ -46,7 +46,6 @@ export default function telexTrain(countDown) {
   const autoTime = ref(null)
   const route = useRoute()
   const router = useRouter()
-  const queryID = route.query.id
   const correct = ref(0)
   const trainData = ref({})
   //统计时间

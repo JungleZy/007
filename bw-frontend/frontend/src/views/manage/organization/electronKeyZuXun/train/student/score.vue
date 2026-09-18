@@ -372,7 +372,7 @@
     }
   })
   const {
-    speedUnit,moreLine,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,resolve,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,moreLine,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,switchTelegram,seeCurrKeysHairTrend
   } = trainScore(showChart,selfId);
 
 </script>

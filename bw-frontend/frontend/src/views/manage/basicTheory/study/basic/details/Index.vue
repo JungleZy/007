@@ -77,7 +77,6 @@
   import {useRoute} from 'vue-router'
   import {onMounted, onBeforeUnmount, ref} from 'vue'
   import useDetails from './js/useDetails.js'
-  const route = useRoute()
   const data = ref({ knowledge: { title: '' }, knowledgeSwfs: [{ content: '' }] })
   const fileUrl = ref(window.fileUrl)
   let boo = true

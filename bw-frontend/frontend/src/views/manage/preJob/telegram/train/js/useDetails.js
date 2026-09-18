@@ -48,7 +48,6 @@ export default function (trainData, patStandard, loading, title, handleBaoWenKey
   const trendLogData = ref([])
   const initFloat = ref(50)
 
-  const route = useRoute()
   const { morseCode } = useMorse()
   let wsBackend = new Ws()
 

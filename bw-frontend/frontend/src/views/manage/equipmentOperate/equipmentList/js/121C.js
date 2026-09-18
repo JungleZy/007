@@ -17,8 +17,6 @@ export default function equipment_121C(formData){
     "网号":'',//0-9
     "密钥":'',//0-9
   }
-  const wlms = ["战斗网CNR","分组网PRN","数据链LINK-地空","数据链LINK-地面","兼容体制-121-无线分组","兼容体制-121-点点数传","兼容体制-96G"]
-  const gzms = ["定明","定密","数话",'低数据通信']
   //生成定频数据
   const dp_121C = ()=>{
     const dparr = []

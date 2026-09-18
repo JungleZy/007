@@ -42,7 +42,6 @@ export default function issue(trainData, trainTimeRef) {
   // const currPatKeyIndex = ref(1)
   const sendUserList = ref([])
   const putAwayUserList = ref([])
-  const channels = ref([])
   const buttonState = ref(true)
 
   const userId = JSON.parse(localStorage.getItem('userInfo'))

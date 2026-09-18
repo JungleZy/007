@@ -185,9 +185,9 @@
 <script setup>
 import {
   PlusOutlined,
-  WarningOutlined,
+  
   FileTextOutlined,
-  FundViewOutlined,
+  
   PlayCircleOutlined, DeleteOutlined
 } from '@ant-design/icons-vue'
   import NipLeftMenu from '../../../../../components/common/NipLeftMenu.vue'
@@ -225,9 +225,9 @@ import {
   }
   const fileUrl = window.fileUrl
   const {
-    columns, tableData, totalPage, cacheData, currPage, tableLoading, addDrillModal,totalAll,
-    changeListPage, cancelTrainModal, trainData, addTelexTrain, userList, checkUser, formData, ruleList, loading,
-    isRandom, isAverage, checked, changeChecked, selectUserLIst, changeUserList,deleteModel
+    columns, tableData, totalPage,  currPage, tableLoading, addDrillModal,totalAll,
+    changeListPage, cancelTrainModal,  addTelexTrain, userList, checkUser, formData, ruleList, loading,
+    isRandom, isAverage, checked, changeChecked,  changeUserList,deleteModel
   } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容.
 
   const selectIsCable = () => {

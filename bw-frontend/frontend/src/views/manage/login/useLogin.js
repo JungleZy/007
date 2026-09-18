@@ -271,7 +271,6 @@ export default function (formState) {
   }
   //身份证验证
   const idCardMessage = () => {
-    const that = this
     if (!userData.value.ID_number) {
       return
     }

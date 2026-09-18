@@ -50,7 +50,6 @@ export default function () {
       slots: {customRender: 'action'},
     },
   ]);
-  const listData = ref([]);
   const tableData = ref([]);
   const tableList = ref([]);
   const currTablePage = ref(0);
@@ -66,7 +65,6 @@ export default function () {
   });
   const addtype = ref(0)
   const addDrillModal = ref(false)
-  const content = ref([]);
   onMounted(() => {
     init()
     initPageClassify()

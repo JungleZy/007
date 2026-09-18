@@ -98,8 +98,8 @@
   }
   const {
     listData,
-    takeNew,
-    userRole,
+    
+    
     testPaper,
   }= knowledgeTabel()
 </script>

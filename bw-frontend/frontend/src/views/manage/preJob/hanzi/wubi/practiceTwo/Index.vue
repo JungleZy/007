@@ -188,12 +188,10 @@
   import {ref} from "vue"
   import {createFromIconfontCN} from "@ant-design/icons-vue"
   const fileUrl = ref(window.fileUrl+'/006/code/');
-  const countDown = ref(null)
   const showResultModal = ref(true)
   const IconFont = createFromIconfontCN({
     scriptUrl: window.iconUrl,
   });
-  const trainDeploy = ref(0);
   //格式化时间
   const computationTime = (total)=> {
     let hour;
@@ -233,7 +231,6 @@
     {type: 'white', name: '纯白'}
   ]);
 
-  const codeType = ref('gradient');
   const { message, trainData, activeMessage, isfocus, activeIndex, inputIndex, big, small,
     nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = practice()
 </script>

@@ -231,7 +231,7 @@ const {
   wrapperCol,
   menuFormState,
   permissionsState,
-  selectPermission,
+  
   selectPermissionIndex,
   showModal,
   handleCancel,

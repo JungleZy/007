@@ -422,7 +422,7 @@
     return data?data:'--'
   }
   const {
-    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,successResolver,switchTelegram,seeCurrKeysHairTrend
   } = trainScore(showChart,selfId);
 
 </script>

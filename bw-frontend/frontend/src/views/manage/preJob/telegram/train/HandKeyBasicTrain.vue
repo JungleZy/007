@@ -135,7 +135,7 @@ const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 });
 const {
-  handKeyDown, patStandard, onKey, wsOnline,devOnline,audioVolume,init
+  handKeyDown,  onKey, init
 } = useControl(trainData);
 
 onMounted(()=>{

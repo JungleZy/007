@@ -100,8 +100,6 @@
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const loading = ref(false)
   const addDrillModal = ref(false)
-  const basicTrainDeployModal = ref(false)
-  const hp = new homophone()
   const items = ref([{ type: 'WZLX', text: '英语文章', value: 2 }])
   const gradingRuleModal = ref(false)
   const deleteModel = (v)=>{
