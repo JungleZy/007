@@ -60,7 +60,7 @@
   const props = defineProps({
     pageData:{
       type:Array,
-      default:[]
+      default:()=>[]
     },
     allPage:{
       type: Number,

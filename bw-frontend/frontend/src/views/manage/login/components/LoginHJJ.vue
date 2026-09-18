@@ -27,7 +27,7 @@
               </a-form-item>
               <a-form-item class="layout-center" style="margin-bottom: 20px">
                 <div class="w-full h-full layout-center">
-                  <div class="loginBtn cursor-pointer-def layout-center relative" style="background-position: center; background-repeat: no-repeat; background-size: contain" @keyup.enter.native="onLogin" @click="onLogin">
+                  <div class="loginBtn cursor-pointer-def layout-center relative" style="background-position: center; background-repeat: no-repeat; background-size: contain" @keyup.enter="onLogin" @click="onLogin">
                     <img :src="staticButton" alt="" class="loginImg" />
                     <div v-if="formState.isLoading" style="position: absolute; padding-left: 10px">登录中...</div>
                     <div v-else style="position: absolute; padding-left: 10px">登 录</div>

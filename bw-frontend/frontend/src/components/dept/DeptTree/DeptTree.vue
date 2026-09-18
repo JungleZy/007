@@ -30,7 +30,7 @@ export default defineComponent({
   props: {
     data: {
       type: Array,
-      default: []
+      default: () => []
     }
   },
   setup(props, context) {

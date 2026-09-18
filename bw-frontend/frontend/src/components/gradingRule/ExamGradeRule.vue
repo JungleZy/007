@@ -82,7 +82,7 @@
                 <a-row class="w-full">
                   <a-col :span="6" class="layout-center cursor-pointer-def">
                     <a-tooltip class="layout-left-center" color="orange">
-                      <template style="" #title>错码</template>
+                      <template #title>错码</template>
                       错码&nbsp;<QuestionCircleOutlined style="color: orange"/>
                     </a-tooltip>
                   </a-col>

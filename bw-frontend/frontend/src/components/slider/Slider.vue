@@ -39,7 +39,7 @@
       type: Number
     },
     list: {
-      default: [],
+      default: () => [],
       type: Array
     },
     val: {

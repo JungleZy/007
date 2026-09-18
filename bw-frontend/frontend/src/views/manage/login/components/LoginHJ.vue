@@ -90,7 +90,7 @@
                     :style="{
                       background: 'url(' + (cool ? lu : staticButton) + ')'
                     }"
-                    @keyup.enter.native="onLogin"
+                    @keyup.enter="onLogin"
                     @click="onLogin"
                   >
                     <!--                    {{ formState.buttonMsg }}-->

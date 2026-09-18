@@ -135,7 +135,7 @@ const props = defineProps({
   },
   editTelegraph: {
     type: Array,
-    default: []
+    default: () => []
   }
 })
 const emits = defineEmits(['save'])

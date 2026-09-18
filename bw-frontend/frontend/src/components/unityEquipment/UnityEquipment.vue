@@ -31,10 +31,9 @@
     const props = defineProps({
         unityPath: {
             type: String,
-            default: true
+            default: ''
         }
     });
-    console.log(55555555)
     const isLoading=ref(true);
     const emit=defineEmits(['addParam','isShow'])
     onMounted(()=>{

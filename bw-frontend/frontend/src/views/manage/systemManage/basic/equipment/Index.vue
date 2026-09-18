@@ -21,7 +21,7 @@
                     </div>
 
                     <a-popconfirm placement="top" ok-text="删除" title="是否删除该设备。" cancel-text="取消" @confirm="deleteEquipment(record.id)">
-                      <div class="table_btn" title="删除设备" @click="">
+                      <div class="table_btn" title="删除设备">
                         <IconFont type="icon-delete" style="font-size: 20px; color: red"></IconFont>
                       </div>
                     </a-popconfirm>

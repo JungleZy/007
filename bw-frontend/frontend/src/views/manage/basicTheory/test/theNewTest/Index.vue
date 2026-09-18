@@ -324,7 +324,6 @@
           class="init_modal_style footer-border-none"
           destroyOnClose="true"
           v-model:visible="selectDrillModal"
-          @cancel=""
         >
           <template #title>
             <strong>{{ randomValue ? '随机选题' : '从题库中选择' }}</strong>

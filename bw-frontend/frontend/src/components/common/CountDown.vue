@@ -275,7 +275,9 @@ export default {
       }
     }
   },
-  destroyed() {
+  // Vue 3 已移除 destroyed 钩子（改名 unmounted）：原先写 destroyed 等于这段清理从不执行，
+  // 组件卸载后 setInterval 继续跑。本组件被考试/训练等 5 个页面使用，泄漏是真实的。
+  unmounted() {
     this.clearInterval()
   }
 }

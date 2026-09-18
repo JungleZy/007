@@ -59,7 +59,7 @@
                   <div
                     class="loginBtn cursor-pointer-def layout-center relative"
                     style="background-position: center; background-repeat: no-repeat; background-size: contain"
-                    @keyup.enter.native="onLogin"
+                    @keyup.enter="onLogin"
                     @click="onLogin">
                     <img :src="staticButton" alt="" class="loginImg" />
                     <div style="position: absolute; padding-left: 10px;white-space:nowrap">{{ formState.isLoading ? '登录中...' : '登 录' }}</div>
