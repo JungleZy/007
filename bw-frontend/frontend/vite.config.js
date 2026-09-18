@@ -18,8 +18,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '/src'),
-      '@assets': path.resolve(__dirname, '/src/assets')
+      // 注意别加前导斜杠：path.resolve 遇到绝对路径片段会丢弃 __dirname，
+      // 原写法 path.resolve(__dirname, '/src') 实际指向文件系统根 /src，别名一启用就断。
+      '@': path.resolve(__dirname, 'src'),
+      '@assets': path.resolve(__dirname, 'src/assets')
     }
   },
   server: {
