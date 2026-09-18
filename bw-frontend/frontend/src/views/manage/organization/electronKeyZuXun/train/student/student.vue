@@ -295,10 +295,10 @@
   onUnmounted(() => {
     if (trainData.value.status == 1) {
       let obj = {
-        patPage: trainData.floorNow,
+        patPage: trainData.value.floorNow,
         patKeyIndex: currPatKeyIndex.value,
         time: trainData.value.validTime,
-        speed: trainData.speed
+        speed: trainData.value.speed
       }
       window.localStorage.setItem('electronKeyZuXun'+trainData.value.trainId, JSON.stringify(obj))
     }
@@ -307,10 +307,10 @@
   window.onbeforeunload = () => {
     if (trainData.value.status == 1) {
       let obj = {
-        patPage: trainData.floorNow,
+        patPage: trainData.value.floorNow,
         patKeyIndex: currPatKeyIndex.value,
         time: trainData.value.validTime,
-        speed: trainData.speed
+        speed: trainData.value.speed
       }
       window.localStorage.setItem('electronKeyZuXun'+trainData.value.trainId, JSON.stringify(obj))
     }
