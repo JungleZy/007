@@ -6,7 +6,9 @@
     "test": "node --test test/*.test.mjs src/views/manage/basicTheory/test/questionBank/js/questionImport.test.mjs",
     "test:question-import": "node --test src/views/manage/basicTheory/test/questionBank/js/questionImport.test.mjs",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=9600 vite build && node ../scripts/artifact-manifest.cjs frontend",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -47,14 +49,17 @@
     "@vitejs/plugin-vue": "^4.2.3",
     "@vue/compiler-sfc": "^3.5.42",
     "autoprefixer": "^10.4.4",
-    "babel-eslint": "^10.1.0",
     "cross-env": "^7.0.3",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "globals": "^17.12.0",
     "less": "^4.1.2",
     "tailwindcss": "^3.0.23",
+    "terser": "^5.51.2",
     "unplugin-auto-import": "^0.16.5",
     "unplugin-vue-components": "^0.25.1",
     "vite": "^4.3.9",
-    "vue-eslint-parser": "^9.3.1"
+    "vue-eslint-parser": "^10.4.1"
   },
   "browserslist": [
     "last 1 version",
