@@ -90,7 +90,7 @@
 
   import {useRouter, useRoute} from 'vue-router'
   import {ref, createVNode} from 'vue'
-  import {PlayCircleOutlined, DeleteOutlined, SettingOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {PlayCircleOutlined, DeleteOutlined, SettingOutlined, FileTextOutlined, PlusOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
   import homophone from '../../../../../../common/utils/Homophone.js'

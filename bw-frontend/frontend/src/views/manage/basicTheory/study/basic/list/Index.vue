@@ -103,7 +103,7 @@
 </script>
 <script setup>
 import moment from 'moment'
-  import {SettingOutlined, EditOutlined, EllipsisOutlined, createFromIconfontCN, PlayCircleOutlined} from '@ant-design/icons-vue'
+  import {createFromIconfontCN, PlayCircleOutlined} from '@ant-design/icons-vue'
   import useList from "./js/useList.js";
   import {useRouter, useRoute} from 'vue-router'
   import {ref, onMounted, nextTick} from "vue"

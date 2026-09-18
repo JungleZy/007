@@ -65,7 +65,7 @@
 </script>
 
 <script setup>
-  import {FormOutlined, PlusOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
+  import {createFromIconfontCN} from '@ant-design/icons-vue'
   import knowledgeTabel from './js/knowledgeTabel'
   import nomore from '../../../../../../components/nomore/nomore.vue'
   import {onMounted} from "vue"

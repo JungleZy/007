@@ -271,7 +271,7 @@ const props = defineProps({
 })
 import useQuestionBank from './js/useQuestionBank.js'
 import knowledgeTabel from './js/knowledgeTabel.js'
-import {PlusOutlined, FileSearchOutlined, FormOutlined, DeleteOutlined, CloseCircleOutlined, CloseOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
+import {PlusOutlined, FileSearchOutlined, FormOutlined, DeleteOutlined, CloseCircleOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
 import NipLeftMenu from "../../../../../components/common/NipLeftMenu.vue";
 import RoomTest from '../../../../../components/test/roomTest/RoomTest.vue'
 import PreviewTheTopic from '../../../../../components/test/previewTheTopic/PreviewTheTopic.vue'

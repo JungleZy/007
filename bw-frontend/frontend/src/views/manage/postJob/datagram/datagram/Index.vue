@@ -180,7 +180,7 @@
   import Pagination from '../../../../../components/common/Pagination.vue'
   import {useRouter, useRoute} from 'vue-router'
   import {ref, provide, createVNode} from 'vue'
-  import {CheckOutlined, PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, WarningOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
   import {partTimeFormatInfo} from '../../../../../common/utils/Utils.js'

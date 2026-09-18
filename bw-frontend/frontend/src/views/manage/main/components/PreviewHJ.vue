@@ -456,7 +456,7 @@
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, provide, watch, onMounted, nextTick, inject} from 'vue'
   import {Modal, message} from 'ant-design-vue'
-  import {ExclamationCircleOutlined, CloseOutlined, GlobalOutlined, ReloadOutlined, PauseCircleOutlined, PlayCircleOutlined, PlusOutlined} from '@ant-design/icons-vue'
+  import {ExclamationCircleOutlined, CloseOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
   import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
   import {fontSizeDispose} from '../../../../common/utils/Utils'

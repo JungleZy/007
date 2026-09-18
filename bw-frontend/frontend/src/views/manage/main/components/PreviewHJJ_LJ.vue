@@ -169,7 +169,7 @@
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, onBeforeMount, watch, onMounted, nextTick, inject, provide} from 'vue'
   import {Modal} from 'ant-design-vue'
-  import {ExclamationCircleOutlined, CloseOutlined, GlobalOutlined, ReloadOutlined, PauseCircleOutlined, PlayCircleOutlined} from '@ant-design/icons-vue'
+  import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'

@@ -125,7 +125,7 @@
   import {useRouter, useRoute} from 'vue-router'
   import {ref, createVNode} from 'vue'
   import GradeModal from '../../../ditto/component/GradeModal.vue'
-  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
   import homophone from '../../../../../../common/utils/Homophone.js'

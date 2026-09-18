@@ -6,7 +6,7 @@
         <count-down
           class="width-100-per layout-center"
           color="#70c9ff"
-          ref="countDown"
+          ref="countDownRef"
           style="height: 55px"
         />
       </template>
@@ -169,7 +169,6 @@ import practice from './js/practice.js'
 import TrainLeft from '../../../../../../components/postJob/trainLeft/TrainLeft.vue'
 import WZTrain from './components/WZTrain.vue'
 import CountDown from '../../../../../../components/common/CountDown.vue'
-import Number from '../../../../../../components/number/Number.vue'
 import resspeed from '../../../../../../assets/LJ/train/new-lab-speed.png'
 import resspeedKJ from '../../../../../../assets/KJ/train/new-lab-speed.png'
 import detailexercise from '../../../../../../assets/HJ/train/detail-exercise.png'
@@ -203,7 +202,7 @@ const {labSpeed,laberr,labNum,labCheck} = iconImage()
 import { ref } from 'vue'
 import { createFromIconfontCN } from '@ant-design/icons-vue'
 const fileUrl = ref(window.fileUrl + '/006/code/')
-const countDown = ref(null)
+const countDownRef = ref(null)
 const showResultModal = ref(true)
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
@@ -262,7 +261,7 @@ const {
   saveTest,
   goback,
   gradeTypeList
-} = practice(countDown)
+} = practice(countDownRef)
 </script>
 
 <style scoped lang="less">

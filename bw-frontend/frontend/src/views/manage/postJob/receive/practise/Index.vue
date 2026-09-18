@@ -290,7 +290,7 @@
 <script setup>
   import {useRouter} from 'vue-router'
   import {ref, inject, provide, createVNode} from 'vue'
-  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, FundViewOutlined, CloseCircleOutlined, WarningOutlined, createFromIconfontCN, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, FundViewOutlined, CloseCircleOutlined, WarningOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {message, Modal} from 'ant-design-vue'
   import telegramList from './js/telegram'
   import useMorse from '../../../../../common/mixin/useMorse.js'

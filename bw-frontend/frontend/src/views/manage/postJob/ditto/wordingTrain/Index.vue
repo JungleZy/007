@@ -7,7 +7,7 @@
           <count-down
             class="width-100-per layout-center"
             color="#70c9ff"
-            ref="countDown"
+            ref="countDownRef"
             style="height: 55px"
           />
         </template>
@@ -339,16 +339,11 @@
   import CountDown from '../../../../../components/common/CountDown.vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 
-  import play from '../../../../../assets/HJ/term/play-ico.png'
-  import pause from '../../../../../assets/HJ/term/pause-ico.png'
 
   import scoreSuperb from '../../../../../assets/HJ/postTrain/score-superb.png'
   import scoreSuffice from '../../../../../assets/HJ/postTrain/score-suffice.png'
   import scoreFailed from '../../../../../assets/HJ/postTrain/score-failed.png'
   import detailexercise from '../../../../../assets/HJ/train/detail-exercise.png'
-  import tagscrapsuccess from '../../../../../assets/HJ/train/tag-scrap-success.png'
-  import tagscrapwarning from '../../../../../assets/HJ/train/tag-scrap-warning.png'
-  import tagscraperror from '../../../../../assets/HJ/train/tag-scrap-error.png'
   import resaccuracy from '../../../../../assets/HJ/train/res-accuracy.png'
   import resTime from '../../../../../assets/HJ/train/res-time.png'
 
@@ -363,7 +358,7 @@
 
   import wordingTrain from './js/wordTrain'
   import { ref } from 'vue'
-  const countDown = ref(null)
+  const countDownRef = ref(null)
   let videoV,videoP
   const interfaceStyle = window.interfaceStyle
   if(interfaceStyle==='HJ'){
@@ -431,7 +426,7 @@
     changeAudioPlay,
     showResultModal,
     gradeTypeList
-  } = wordingTrain(countDown)
+  } = wordingTrain(countDownRef)
   const getFocus = index => {
     if (trainData.value.trainType == 1) {
       trainData.value.index = index

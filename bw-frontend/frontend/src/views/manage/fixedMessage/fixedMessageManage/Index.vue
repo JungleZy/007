@@ -103,7 +103,7 @@
   }
 </script>
 <script setup>
-  import {FileTextOutlined, FormOutlined, PlusOutlined, createFromIconfontCN, ExclamationCircleOutlined, DeleteOutlined} from '@ant-design/icons-vue'
+  import {FormOutlined, PlusOutlined, createFromIconfontCN, ExclamationCircleOutlined, DeleteOutlined} from '@ant-design/icons-vue'
   import fixedMessageManage from "./js/index";
   const IconFont = createFromIconfontCN({
     scriptUrl: window.iconUrl,

@@ -66,7 +66,6 @@ import moment from 'moment'
 import personal from './js/personal'
 import {ref} from 'vue'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
-import zhCN1 from 'ant-design-vue/lib/date-picker/locale/zh_CN'
 
 const qwe = ref(zhCN)
 

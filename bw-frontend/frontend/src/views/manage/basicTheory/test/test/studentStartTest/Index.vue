@@ -6,7 +6,7 @@
       </div>
       <div class="cutDown">
         <div class="text">距离考试结束还有</div>
-        <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" @commitTest="commitTest" style="height: 55px" />
+        <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDownRef" @commitTest="commitTest" style="height: 55px" />
       </div>
       <div class="line"  v-if="interfaceStyle==='HJ'">
         <div style="width: 100%;height: 8px;background: #253554"></div>
@@ -57,11 +57,11 @@ export default {
 <script setup>
 import CountDown from '../../../../../../components/common/CountDown.vue'
 import StudentPreviewTest from '../../../../../../components/test/studentPreviewTest/StudentPreviewTest.vue'
-import { ref, onMounted } from 'vue'
+import {ref} from 'vue'
 import startTest from './js/startTest'
-const countDown = ref(null)
+const countDownRef = ref(null)
 const interfaceStyle = window.interfaceStyle
-const { userInfo, fileUrl, questions, bankList, testTime, isShow, commitTest, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDown)
+const { userInfo, fileUrl, questions, bankList, testTime, isShow, commitTest, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDownRef)
 </script>
 
 <style lang="less" scoped>

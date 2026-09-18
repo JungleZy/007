@@ -1,7 +1,7 @@
 import {message, Modal} from 'ant-design-vue'
 import {ref, createVNode} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
-import {getUserAll, apiSimulationRouterAddRoom, apiSimulationRouterRoomDetail, apiSimulationRouterFindRoom, getRoomUserList, deleteTrain} from '../../../../../common/api/UserApi'
+import {getUserAll, apiSimulationRouterAddRoom, apiSimulationRouterFindRoom, getRoomUserList, deleteTrain} from '../../../../../common/api/UserApi'
 import useMorse from '../../../../../common/mixin/useMorse'
 import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 

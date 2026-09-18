@@ -10,7 +10,7 @@
             {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '训练正在进行，当前总耗时' : trainData.status == 2 ? '本次练习已结束,总用时' : '' }}
           </div>
           <div>
-            <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 40px" />
+            <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDownRef" style="height: 40px" />
             <div style="font-size: 30px; height: 30px; display: flex; justify-content: center; margin-top: 20px" v-if="trainData.status == 1">
               <!--  暂停-->
               <PauseCircleOutlined v-if="!isStop" @click="stop(1)"></PauseCircleOutlined>
@@ -119,15 +119,15 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { PauseCircleFilled, PlayCircleFilled, StopFilled, CheckCircleFilled, PauseCircleOutlined, PlayCircleOutlined, FileTextOutlined } from '@ant-design/icons-vue'
+import {ref} from 'vue'
+import {PauseCircleOutlined, PlayCircleOutlined, FileTextOutlined} from '@ant-design/icons-vue'
 import CountDown from '../../components/common/CountDown.vue'
 import TrainResult from '../../views/manage/unionJob/disturbCode/TrainResult.vue'
 
 import useBroadTeacher from './js/useBroadTeacher'
 const fileUrl = ref(window.fileUrl)
-const countDown = ref(null)
-const { trainTimeRef, trainData,maskShow, openTrainInfo,continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, allBaoWen, modelPageTurn, recoveryError, socketStatus } = useBroadTeacher(countDown)
+const countDownRef = ref(null)
+const { trainTimeRef, trainData,maskShow, openTrainInfo,continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, allBaoWen, modelPageTurn, recoveryError, socketStatus } = useBroadTeacher(countDownRef)
 </script>
 
 <style lang="less" scoped>

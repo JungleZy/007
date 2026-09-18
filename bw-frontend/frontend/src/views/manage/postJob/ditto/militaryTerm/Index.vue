@@ -122,7 +122,7 @@ export default {
 import {useRouter} from 'vue-router'
 import {message, Modal} from 'ant-design-vue'
 import GradeModal from '../component/GradeModal.vue'
-  import {PlusOutlined, PlayCircleOutlined, FileTextOutlined, CloseCircleOutlined, DeleteOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {PlusOutlined, PlayCircleOutlined, FileTextOutlined, DeleteOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import termList from './js/list.js'
 import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
 import {getMilitaryType, addPostMilitaryTrain} from '../../../../../common/api/MilitaryTermApi.js'
