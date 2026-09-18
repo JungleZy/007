@@ -61,5 +61,15 @@ export default [
     rules: {
       'no-console': 'off'
     }
+  },
+  {
+    // components/style/*.vue 是「皮肤样式载体」：模板故意为空，全部内容在 <style> 里，
+    // 由 GlobalStyle.vue 按 window.interfaceStyle 动态 import 后用 <component :is> 挂载。
+    // valid-template-root 要求模板必须有子元素，对这个模式属误报；
+    // 删掉空模板反而会触发 Vue「缺少 template 或 render」的运行时告警。
+    files: ['src/components/style/*.vue'],
+    rules: {
+      'vue/valid-template-root': 'off'
+    }
   }
 ]

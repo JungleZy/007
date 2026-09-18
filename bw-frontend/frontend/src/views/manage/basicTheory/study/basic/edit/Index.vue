@@ -59,7 +59,7 @@
         <div class="w-full mb-1">
           <div class="takenew">
             <div class="title">课件列表</div>
-            <div class="layout-center mr-1 cursor-pointer-def addClass"@click="addSwf"><PlusOutlined style="margin-right: 5px"></PlusOutlined>新增课件</div>
+            <div class="layout-center mr-1 cursor-pointer-def addClass" @click="addSwf"><PlusOutlined style="margin-right: 5px"></PlusOutlined>新增课件</div>
           </div>
         </div>
         <div class="w-full overflow-auto" style="height: calc(100% - 443px - 100px)">

@@ -2,8 +2,7 @@
   <div class="w-full h-full overflow-hidden layout-side" style="padding:0px 12px 12px 0px">
     <nip-left-menu/>
     <div class="h-full transition-all duration-300" :style="{width: 'calc(100% - '+(leftMenuWidth+12)+'px)'}">
-      <router-view v-slot="{Component}">
-      </router-view>
+      <router-view />
     </div>
   </div>
 </template>

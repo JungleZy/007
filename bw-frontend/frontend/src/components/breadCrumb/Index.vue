@@ -15,7 +15,7 @@
           您的位置：
         </div>
         <a-breadcrumb separator="" style="height: 30px;line-height: 30px;font-size: 13px;">
-          <template v-for="(item,index) in route.matched">
+          <template v-for="(item,index) in route.matched" :key="index">
             <a-breadcrumb-item href="" v-if="item.meta.isBread" @click="skipDetails(item)">
               <span style="text-decoration: underline">{{ item.meta.title }}</span>
               <a-breadcrumb-separator v-if="index!==0"><span

@@ -198,7 +198,8 @@
 </template>
 <script>
 export default {
-  name: "Menu"
+  // 原为 name:"Menu" —— Menu 是 HTML 保留元素名，组件名与之冲突（vue/no-reserved-component-names）
+  name: "MenuManage"
 }
 </script>
 <script setup>

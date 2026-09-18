@@ -3,7 +3,7 @@
     <div class="checkType w-full" style="position: relative">
       <a-radio-group v-model:value="question.type" name="radioGroup" :disabled="question.isType">
         <span style="font-size: 15px;color: #e2f2ff;"><span v-if="indexShow">{{index+1}}、</span><span v-else>题目类型：</span></span>
-        <template v-for="( item , i ) in typeCheckList" >
+        <template v-for="( item , i ) in typeCheckList" :key="i" >
           <a-radio :value="item.id"  v-if="item.name==='简答'?isShort===1?false:true:true" @change="changeType" >
             <span style="color:#e2f2ff">{{item.name}}</span>
           </a-radio>
