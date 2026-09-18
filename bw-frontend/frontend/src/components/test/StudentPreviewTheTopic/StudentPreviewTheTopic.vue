@@ -225,15 +225,12 @@ export default defineComponent({
       fun.realTimeAnwser()
     }
     return {
-      params,
       typeList,
       Earray,
       changeAnswer,
-      clearAnswer,
       changeSelect,
       userRole,
       examState,
-      noFirst
     }
   }
 })

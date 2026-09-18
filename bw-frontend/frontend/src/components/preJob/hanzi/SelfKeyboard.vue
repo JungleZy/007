@@ -232,7 +232,7 @@ export default {
     const keyStyle = ref('')
     const area = ref(false)
     const _this = getCurrentInstance()
-    const { targetKey, telexPat, ZG_key, activeBtn } = toRefs(props)
+    const { ZG_key, activeBtn } = toRefs(props)
     watch(activeBtn, () => {
       //仅拆字训练使用
       if (route.query.type == 2) {
@@ -352,13 +352,10 @@ export default {
       wbCZ,
       keyCodeDown,
       keyStyle,
-      targetKey,
-      telexPat,
       area,
       fingerPosition,
       changeSwitch,
-      openarea,
-      ZG_key
+      openarea
     }
   }
 }

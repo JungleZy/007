@@ -293,13 +293,10 @@ export default defineComponent({
       typeList,
       Earray,
       changeAnswer,
-      clearAnswer,
       changeSelect,
       userRole,
       examState,
-      noFirst,
       isShow,
-      paramsT,
       changeScore
     }
   }

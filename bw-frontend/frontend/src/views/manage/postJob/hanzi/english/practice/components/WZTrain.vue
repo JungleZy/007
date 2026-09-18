@@ -137,8 +137,6 @@ export default {
     return {
       activeIndex,
       inputIndex,
-      message,
-      trainData,
       keyCodeDown
     }
   }

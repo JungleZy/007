@@ -233,9 +233,6 @@
       return{
         activeIndex,
         inputIndex,
-        message,
-        trainData,
-        isfocus,
         activeMessage,
         inputFocus,
         statistics2,

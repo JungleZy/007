@@ -321,7 +321,7 @@
       })
       return{
         firstKey,secondKey,thirdKey,fourthKey,fifthKey,lastKey,activeKey,location,
-        keyCodeDown,keyStyle,targetKey,telexPat,area,fingerPosition,changeSwitch,openarea,pointp
+        keyCodeDown,keyStyle,area,fingerPosition,changeSwitch,openarea,pointp
       }
     }
   }
