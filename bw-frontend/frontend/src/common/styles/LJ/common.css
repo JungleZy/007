@@ -450,7 +450,6 @@
 
 .tooltipItem {height: 26px;display: flex;align-items: center;justify-content: space-between;width: 140px;}
 
-.luckysheet-cell-input {color: #333;}
 
 .btn.oper {width: 102px;height: 38px;background: url("../../../assets/LJ/postTrain/btn-bg.png") no-repeat;background-size: 100% auto;
   font-weight: bold;font-size: 16px;display: flex;align-items: center;justify-content: center;color: #4c2600;cursor: pointer}

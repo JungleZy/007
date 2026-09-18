@@ -295,7 +295,6 @@
 
 .tooltipItem {height: 26px;display: flex;align-items: center;justify-content: space-between;width: 140px;}
 
-.luckysheet-cell-input {color: #333;}
 
 .btn.oper {width: 120px;height: calc(120px * 49 / 131);background: url("../../../assets/HJ/postTrain/btn-bg.png") no-repeat;background-size: 100% auto;
   font-weight: bold;font-size: 20px;display: flex;align-items: center;justify-content: center;color: #7d1a10;text-shadow: 1px 1px 1px rgba(255, 255, 255, .6);}

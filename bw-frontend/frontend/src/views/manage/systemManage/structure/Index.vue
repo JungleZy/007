@@ -18,8 +18,6 @@
           <!--            <template #overlay>-->
           <!--              <a-menu @click="onClickDropdown">-->
           <!--                <a-menu-item :key="0">导出模板</a-menu-item>-->
-          <!--                <a-menu-divider/>-->
-          <!--                <a-menu-item :key="1">导入人员</a-menu-item>-->
           <!--              </a-menu>-->
           <!--            </template>-->
           <!--            <div class="item_group btn">导入导出-->
@@ -131,32 +129,6 @@
             </a-form-item>
           </a-form>
         </a-modal>
-
-        <a-modal title="导入人员" :destroyOnClose="true" width="96%" centered v-model:visible="userImportVisible" style="padding-bottom: 0">
-          <template #footer>
-            <div class="w-full layout-right-center">
-              <a-button key="back" @click="userImportVisible = false">取消</a-button>
-              <a-button key="submit" type="primary" @click="userImportSubmitInfo">提交</a-button>
-            </div>
-          </template>
-          <div class="w-full overflow-hidden relative" style="height: calc(100vh - 160px); padding-top: 10px">
-            <div class="importLoadBox" v-if="importLoading">
-              <div class="layout-center" v-if="errorImportUser.length == 0">
-                <a-spin tip="数据正在提交..."></a-spin>
-              </div>
-              <div class="importErrorBox" v-else>
-                <div class="title">导入失败人员</div>
-                <div class="errorBox overflow-auto">
-                  <div class="item" v-for="(user, index) in errorImportUser" :key="index">
-                    <div class="name">{{ user.userName }}</div>
-                    {{ user.idCard }}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <excel ref="userExcelRef" />
-          </div>
-        </a-modal>
       </div>
     </div>
   </div>
@@ -181,17 +153,11 @@ import {
 } from '@ant-design/icons-vue'
 // import avatarDef from '../../../assets/HJ/main/avatar-def.png';
 import avatarDef from '../../../../assets/HJ/main/avatar-def.png'
-import { ref } from 'vue'
 import useStructure from './js/useStructure'
-import { message } from 'ant-design-vue'
 import locale from 'ant-design-vue/es/locale/zh_CN'
 import moment from 'moment'
 import useUpload from '../../../../common/mixin/useUpload.js'
-import { parseIdCard } from '../../../../common/utils/Utils.js'
-import { importUser } from '../../../../common/api/UserApi'
-import pinyin from 'pinyin'
 import 'moment/dist/locale/zh-cn.js'
-import Excel from '../../../../components/excel/Excel.vue'
 
 let {
   columns,
@@ -229,76 +195,14 @@ let { loading, fileUrl, uploadFileUrl, fileList, handleChange, beforeUpload } = 
   userFormState.value.userImg = res
 })
 
-const userImportVisible = ref(false)
-const importLoading = ref(false)
-const userExcelRef = ref(null)
-const errorImportUser = ref([])
 const onClickDropdown = e => {
   switch (e.key) {
     case 0:
       window.location.href = `${window.fileUrl}/006/userTemp/员工花名册-模板.xlsx`
       break
-    case 1:
-      userImportVisible.value = true
-      errorImportUser.value = []
-      setTimeout(() => {
-        userExcelRef.value.handleExcelData([{ name: 'sheet1' }])
-      }, 100)
-      break
     default:
       break
   }
-}
-const userImportSubmitInfo = () => {
-  if (importLoading.value) return false
-  let excel = userExcelRef.value.getExcelData(),
-    excelData = [],
-    subData = []
-  importLoading.value = true
-
-  excel.data[0].data.forEach(d => {
-    let filter = d.filter(item => item)
-    if (filter.length > 0 && filter[0].v && filter[1].v) {
-      excelData.push(filter)
-    }
-  })
-  if (excel.data[0].celldata.length === 0 || excelData.length <= 1) {
-    message.error('数据不能为空')
-    importLoading.value = false
-    return
-  }
-
-  for (let i = 1, row = null; i < excelData.length; i++) {
-    row = excelData[i]
-    let sex = parseIdCard(row[1].v, 2)
-    subData.push({
-      id: '',
-      userImg: sex === 1 ? '/userImages/1.png' : '/userImages/0.png',
-      userAccount: pinyin(row[0].v, { style: pinyin.STYLE_NORMAL }).join(''),
-      userName: row[0].v,
-      phone: '',
-      idCard: row[1].v,
-      password: '123456',
-      userSex: sex,
-      status: '2',
-      bday: parseIdCard(row[1].v, 1),
-      eday: ''
-    })
-  }
-
-  importUser(subData).then(res => {
-    if (res.code === 200) {
-      if (res.data && res.data.length > 0) {
-        errorImportUser.value = res.data
-      } else {
-        importLoading.value = false
-        userImportVisible.value = false
-      }
-    } else {
-      importLoading.value = false
-      message.error(res.message)
-    }
-  })
 }
 </script>
 
@@ -315,50 +219,5 @@ const userImportSubmitInfo = () => {
 .grouping_content {
   display: flex;
   flex-direction: column;
-}
-
-.importLoadBox {
-  background-color: rgba(29, 41, 66, 0.8);
-  padding-top: 8%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-}
-
-.importErrorBox .title {
-  font-weight: bolder;
-  font-size: 15px;
-  color: #d11d1d;
-  text-align: center;
-}
-
-.importErrorBox {
-  width: 320px;
-  margin: 20px auto;
-}
-
-.errorBox {
-  padding-left: 14px;
-  height: calc(80vh - 100px);
-  max-height: 320px;
-  margin-top: 4px;
-  width: 320px;
-}
-
-.errorBox .item {
-  display: flex;
-  align-items: center;
-  height: 30px;
-  color: #d0d6e2;
-}
-
-.errorBox .item .name {
-  width: 100px;
-  text-align: right;
-  padding-right: 20px;
-  flex-shrink: 0;
 }
 </style>
