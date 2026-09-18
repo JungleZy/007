@@ -17,7 +17,6 @@
       muted
       loop
     ></video>
-    <!--    <waves-page v-if="cool" class="absolute"/>-->
     <div class="h-full login layout-center" style="pointer-events: none">
       <!--      :style="{background:'url('+lm+')'}"-->
       <div
@@ -245,7 +244,6 @@
   import ll from '../../../../assets/HJ/login/login-logo.png'
   import lu from '../../../../assets/HJ/login/login-button.gif'
   import staticButton from '../../../../assets/HJ/login/staticButton.png'
-  import WavesPage from '../../../../components/common/Waves.vue'
   import moment from 'moment'
   import locale from 'ant-design-vue/es/locale/zh_CN'
   import { fontSizeDispose } from '../../../../common/utils/Utils'

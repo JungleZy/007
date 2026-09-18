@@ -2,7 +2,6 @@
   <div class="w-full h-full layout-left-center relative loginbg" style="background-repeat: no-repeat; background-size: cover; background-position: center">
     <!--    <video v-if="cool" src="../../../../assets/HJJ/login/login.mp4" style="height: 100%;width: 100%;object-fit: fill;position: absolute;top: 0;left: 0"-->
     <!--           autoplay muted loop></video>-->
-    <!--    <waves-page v-if="cool" class="absolute"/>-->
     <div class="h-full relative login layout-center" style="pointer-events: none">
       <div class="w-full layout-center relative inputs">
         <div class="w-full content primary-color layout-center" style="pointer-events: auto">

@@ -3,7 +3,6 @@
     class="w-full h-full layout-left-center relative loginbg"
     style="background-repeat: no-repeat; background-size: cover; background-position: center"
   >
-    <!--    <waves-page v-if="cool" class="absolute"/>-->
 
     <div class="h-full relative login layout-center" style="pointer-events: none">
 
