@@ -159,17 +159,6 @@ export default function telexTrain() {
   /**
    * 暂停练习
    */
-  const stopExamTrain = () => {
-    clearInterval(autoTime.value)
-    flushPendingCode()
-    const payload = {id: route.query.id, content: JSON.stringify(messageData.value)}
-    return submission.run(async request => {
-      const response = await request(config => stopExamTrainInfo(payload, config))
-      if (response?.data) Object.assign(trainData.value, response.data, {duration: Number(response.data.duration || 0)})
-      trainData.value.status = 2
-      PubSub.publish('callback_closeExamTrainPage', true)
-    })
-  }
 
   /**
    * 继续练习

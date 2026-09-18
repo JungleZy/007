@@ -93,21 +93,6 @@
   const isChildern = (v)=>{
     return route.matched[route.matched.length-2].children.some(item=>item.path==v.path)
   }
-  const leftMenuEnter =(index,p)=>{
-    if(p.children.length==0){
-      return
-    }
-    const dom = document.querySelectorAll('.menuBox'+index )
-    const dom2 = document.querySelectorAll('.secondMenu'+index)
-    dom[0]?dom[0].style.display = 'none':''
-    dom2[0]? dom2[0].style.display = 'flex':''
-  }
-  const leftMenuLeave =(index)=>{
-    const dom = document.querySelectorAll('.menuBox'+index )
-    const dom2 = document.querySelectorAll('.secondMenu'+index)
-    dom[0]?dom[0].style.display = 'flex':""
-    dom2[0]?dom2[0].style.display = 'none':''
-  }
   const activeSec = ref(route.query.key?route.query.key:sessionStorage.getItem("activeSec")?sessionStorage.getItem("activeSec"):route.query.key=0)
   activeT.value =sessionStorage.getItem("activefist")?sessionStorage.getItem("activefist"):0
   const handleItemClick = (e,p,index=0,key)=>{

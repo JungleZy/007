@@ -507,17 +507,6 @@
   const cancelEditPasswordModel = ()=>{
     editPasswordModel.value = false
   }
-  const editPassword = ()=>{
-    editPasswordData.value.userId = userInfo.value.id
-    changePassword(editPasswordData.value).then(res=>{
-      if(res.data){
-        message.success('修改密码成功')
-        router.replace('/login').then()
-      }else {
-        message.error(res.message)
-      }
-    })
-  }
   onMounted(() => {
     if(localSerial.value!==null){
       linkPort(localSerial.value)

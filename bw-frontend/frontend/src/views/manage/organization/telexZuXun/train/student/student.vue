@@ -171,9 +171,6 @@
       printShow.value = false
     }
   }
-  const printClick = () => {
-    printShow.value = true
-  }
   const trainData = ref({
     trainId: '',
     telegraph: [],

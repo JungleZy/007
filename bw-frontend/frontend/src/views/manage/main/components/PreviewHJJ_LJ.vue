@@ -305,9 +305,6 @@
     router.push('/preview/dashboard')
     sessionStorage.setItem('activefist', 0)
   }
-  const handBackMenu = () => {
-    router.push(route.matched[2].path)
-  }
   const goBack = () => {
     if(route.name==='electronKeyZuXunTrain'){
       router.push({

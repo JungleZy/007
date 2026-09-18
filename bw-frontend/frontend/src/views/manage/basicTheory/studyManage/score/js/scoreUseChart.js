@@ -6,17 +6,6 @@ import {getScoreChartsDataByTypeAndTime} from '../../../../../../common/api/Stud
 // const G = G2.getEngine('canvas')
 
 // 处理小数点
-function formatDecimal(num, decimal) {
-  decimal = 2
-  // num = num.toString()
-  // let index = num.indexOf('.')
-  // if (index !== -1) {
-  //   num = num.substring(0, decimal + index + 1)
-  // } else {
-  //   num = num.substring(0)
-  // }
-  return parseFloat(num).toFixed(decimal)
-}
 
 // 三个参数都是外面传进来 会随外面改变而改变
 // theDate具体哪年哪月 走接口数据的时候会用上

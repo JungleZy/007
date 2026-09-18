@@ -216,9 +216,6 @@ const print = {
     printShow.value = false
   }
 }
-const printClick = () => {
-  printShow.value = true
-}
 const trainData = ref({
   trainId: '',
   tapNumber: 0,

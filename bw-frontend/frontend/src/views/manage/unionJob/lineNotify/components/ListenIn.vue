@@ -255,14 +255,6 @@ const getDisturbAudioSource = () => {
   })
 }
 
-const handlerZoom = () => {
-  roomState.value = !roomState.value
-  if (roomState.value) {
-    roomValue.value = '0px'
-  } else {
-    roomValue.value = '-300px'
-  }
-}
 let gain, osc
 let audio = null
 const voiceFreq = ref(800)
@@ -468,17 +460,6 @@ const handleStart = () => {
   })
 }
 
-const overBulletin = () => {
-  Modal.confirm({
-    content: '确定要结束训练吗?',
-    onOk() {
-      //清楚定时器
-      clearInterval(autoTime.value)
-      isEnd.value = false
-      getSimulationRouterRoomDetail()
-    }
-  })
-}
 
 const getSimulationRouterRoomChannels = () => {
   apiSimulationRouterRoomChannels({

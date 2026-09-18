@@ -261,9 +261,6 @@ const addLIneBulletin = () => {
   const name = `线路通报${moment().format('YYMMDDHHmmss')}`
   roomName.value = name
 }
-const cancelTrainModal = () => {
-  visibleModal.value = false
-}
 </script>
 
 <style scoped lang="less">

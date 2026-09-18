@@ -123,9 +123,6 @@ export default function () {
       message.error(res.message);
     }
   }
-  const selectType = ()=>{
-
-  }
   /**
    * 列表分页切换
    * @param pag

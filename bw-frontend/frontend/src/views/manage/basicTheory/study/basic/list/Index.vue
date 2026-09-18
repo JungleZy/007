@@ -159,11 +159,6 @@ import moment from 'moment'
     searchList,difficulty,specialty
   } = useList(computeCardWidth);
 
-  const clearSearch = ()=>{
-    difficulty.value = []
-    specialty.value = []
-    getList()
-  }
   const skipDetails = (e) => {
     router.push({
       path: route.matched[4].path + "/theoryDetails",

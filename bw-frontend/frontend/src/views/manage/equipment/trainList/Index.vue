@@ -166,9 +166,6 @@ const gradingRuleModalInfo = () => {
 /**
  * 新增码率
  */
-const createBasicNorm = () => {
-  basicDeployData.value.push({ name: '', speed: '', text: '' })
-}
 /**
  * 删除码率
  * @param index
@@ -179,21 +176,6 @@ const closeBasicNorm = index => {
 /**
  * 基础练习数据处理
  */
-const handleBasicData = () => {
-  let res = []
-  for (let item of basicDeployData.value) {
-    if (!item.name || !item.speed || !item.text) {
-      return false
-    } else {
-      res.push({
-        type: item.name,
-        rate: item.speed,
-        text: item.text
-      })
-    }
-  }
-  return res
-}
 </script>
 <style scoped>
 .grouping_content {

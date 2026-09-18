@@ -199,21 +199,6 @@ export default function telexTrain(countDown) {
       }
     }
   }
-  const generateMessage = (keyboard, num) => {
-    for (let i = 0; i < 100; i++) {
-      let ct = ''
-      for (let j = 0; j < 4; j++) {
-        const mat = Math.floor(Math.random() * num)
-        ct += keyboard[mat].text2 ? keyboard[mat].text2 : keyboard[mat].text
-      }
-      message.value.push({
-        value: '',
-        text: ct.toString(),
-        type: true,
-        isFocus: false
-      })
-    }
-  }
   const changeSwitch = item => {
     isfocus.value = item
     if (item) {

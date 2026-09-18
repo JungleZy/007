@@ -307,8 +307,6 @@
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   const drillPath = ref('')
   const scorePath = ref('')
-  const changeAnswer = (e)=>{
-  }
   router.getRoutes().forEach(r => {
     if (r.name === 'ReceivePostTrain') {
       drillPath.value = r.path

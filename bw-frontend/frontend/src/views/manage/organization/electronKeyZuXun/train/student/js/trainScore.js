@@ -161,35 +161,6 @@ export default function telegramList(showChart,selfId) {
     })
   };
 
-  const resDataHandle = (leaf,finishInfo) => {
-    let leafLogs = finishInfo&&finishInfo.patLogs?finishInfo.patLogs:[],
-        pushNumber=0,cacheArr = [];
-
-    if (leafLogs.length > 0) {
-      leafLogs = leafLogs.filter((a,b) => b>0)
-    }
-    leaf = JSON.parse(leaf).map(item => {
-      item['patLog'] = [];
-      item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
-      item.patKeys = JSON.parse(item.patKeys);
-      item.moresValue = JSON.parse(item.moresValue);
-      item.moresTime = JSON.parse(item.moresTime);
-      item.patLogs = JSON.parse(item.patLogs);
-      if (leafLogs.length > 0) {
-        item.moresTime.map(cod => {
-          cacheArr = leafLogs.filter((log,lo) => lo>=pushNumber&&lo<(pushNumber+cod.length*2));
-          item['patLog'].push(cacheArr);
-          pushNumber += cod.length * 2
-          if (pushNumber > leafLogs.length) {
-            item['patLog'][item['patLog'].length-1].push({key: 2, name: "间隔"+pushNumber, value: 1000})
-          }
-        })
-      }
-      return item
-    });
-    trendLogKeyData.value.push(leaf);
-    return leaf
-  }
 
   /**
    * 统计当前电报纸拍发数据信息

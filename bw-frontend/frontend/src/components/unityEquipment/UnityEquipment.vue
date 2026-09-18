@@ -58,9 +58,6 @@
         emit('addParam',e)
     }
     //给unity发送消息
-    const unitySend=()=>{
-        iframeDom.value.contentWindow.send('DWM')
-    }
 </script>
 
 <style scoped>

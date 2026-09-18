@@ -199,26 +199,12 @@
   const cancelEditPasswordModel = ()=>{
     editPasswordModel.value = false
   }
-  const editPassword = ()=>{
-    editPasswordData.value.userId = userInfo.value.id
-    changePassword(editPasswordData.value).then(res=>{
-      if(res.data){
-        message.success('修改密码成功')
-        router.replace('/login').then()
-      }else {
-        message.error(res.message)
-      }
-    })
-  }
 
   const getSettingData = async () => {
     const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.getConfig)
     settingData.value.dataUrl = data.dataUrl.url
     settingData.value.fileUrl = data.fileUrl.url
   };
-  const openUserModal = () => {
-    userModalVis.value = !userModalVis.value
-  }
   let path = ''
   const handleMenuClick = (e, m) => {
     const q = e.children.find((item) => item.meta.isMenu)
@@ -258,9 +244,6 @@
   }
   const jumpSystemManage = () => {
     router.push(`/preview/${systemPath.value}`)
-  }
-  const goHandKeyTrain = (data) => {
-    router.push({ path: data.path, query: { id: data.id } })
   }
   const handleKB = () => {
     userModalVis.value = false

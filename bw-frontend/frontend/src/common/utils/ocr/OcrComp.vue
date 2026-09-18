@@ -351,13 +351,6 @@ const afreshData = () => {
 }
 
 /** 重新扫描 */
-const afreshOcr = () => {
-  ocrResult.value = []
-  cutResult.value = null
-  removeAnime()
-  step.value = 0
-  createCropper()
-}
 
 /** 扫描 */
 const handleOcr = () => {
