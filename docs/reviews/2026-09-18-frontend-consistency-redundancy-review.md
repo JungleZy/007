@@ -193,7 +193,24 @@
 | 后端 `POST /api/user/importUser` 去留 | **保留**（挂着密码迁移与 207 授权两条活测试契约，日后重做导入 UI 可复用） | 前端 `UserApi.js` 的 `importUser` 导出一并保留，并就地注明「死代码扫除勿删」，避免单删前端造出孤儿端点 |
 | 联合训练大厅页菜单路由 | **不补充**——该页系早期实验功能 | 不再投入；档 0 的建连与码表修复已落地，功能面维持实验状态 |
 
-**仍未闭合的最大风险不变**：档 0 未做真实建连的页面级可视验证（全新浏览器配置会撞离线授权闸，需真实授权码，未做伪造）。已完成的是协议级运行时验证 —— 后端实跑下依次收到 `10 USER_LIST` / `11 ROOM_LIST` / `120 ADD_ROOM_SUCCESS` / `121 UPDATE_ROOM_INFO` / `122 ADD_ROOM_FAIL(data=undefined)`，证实 121 与失败帧已彻底分开，且失败帧确实不带 data。
+### 3.4 页面级可视验收（2026-09-18 晚，最大未决风险已闭合）
+
+此前 §4.2-1 记录的「全程未做页面级可视验证」已闭合：业主告知**可使用内置管理员万能码**
+（`common/utils/VerifyLicense.js:8` 的 `testCode = 'wjkj2025~'`，`:241` 跳过解密与设备码比对）。
+据此起真实环境验收：后端 `quarkus:dev` + MySQL `project006` + `vite dev` + 无头 Chromium，
+以免鉴权 `signin` 注册一次性账号走真实登录（事后已连 `t_user_role` 一并删除，`admin`/`user` 角色映射未动）。
+
+| 验收对象 | 结果 |
+|---|---|
+| **联合训练房间页**（档 0 核心） | **通过，且验收中又发现并修掉一层缺陷**。建连修复（`1eefd1a`）让 loading 自旋退出，但房间标题恒 `--`、人数恒 `/` —— 根因是 `WebSocketUnionService.onMessage` 对入站 `data` 一律 `JSONUtils.toJson`，字符串 id 被加引号，`onlineRooms.get("\"id\"")` 永远查不到（另致 `Integer.parseInt` 抛异常被兜底 catch 吞成「处理失败」）。修复见 `4ace543`（新增 `scalarOrJson`：字符串原样、对象才序列化）+ 回归测试 `roomIdSentAsStringResolvesRoom`。修复后页面渲染「验收房间-1-0」、人数「2/4」、两成员入座，建房方 WS 依次收到 `2`(USER_JOIN)、`121`、`111`(ROOM_USER_BROADCAST `{"type":"join",...}`) |
+| **404 页**（`1eb1a53`） | 通过。未知路径重定向到 `/404` 后渲染「404 / 页面不存在或当前账号无权访问 / 返回上一页」，修复前是全白 |
+| **固定报文区段**（`1eb1a53`） | 通过。`fixedMessageManage` 子页面完整渲染（筛选、5 条数据表格、分页、新增按钮）；修复前空 `v-slot` 会让子页面完全不渲染 |
+| **组织结构页**（`f34c1c5` 删 luckysheet 链、`930354f` 删注释态入口） | 通过。检索/新增人员/7 条人员表格/分页/每行 4 个操作按钮齐全，**无 pageerror**（头像的 `ERR_CONNECTION_REFUSED` 是未起文件服务 8000 端口，与改动无关） |
+| **设备考核页**（`f32ea3a` MQTT 主题） | 页面加载无 pageerror（删掉的 `interval`/`numValue`、改名的 `f`/`s`、新增就绪守卫均未破坏模块）；但设备训练列表无数据、也无真实 MQTT broker，**呼叫路径仍需现场带设备验收** |
+| **`@` 别名**（`f9f7224`） | 通过。临时把 `runtime.js:2` 改成 `@/common/http/endpoint.js`，`vite build` 无 `Could not resolve`；临时改动已还原 |
+
+仍需现场/实机验收的剩余项：设备 MQTT 呼叫（需真实设备与 broker）、Electron 桌面壳侧（网络设置页 sendSync 路径、串口连接）、生产菜单表相关判定。
+
 
 ---
 
