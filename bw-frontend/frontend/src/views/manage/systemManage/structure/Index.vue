@@ -14,16 +14,6 @@
           </div>
           <div class="item_group btn" @click="handleSearch"><span class="ico"></span> 检索</div>
           <div class="item_group btn" @click="editUser(false, 2)"><span class="ico add"></span>新增人员</div>
-          <!--          <a-dropdown class="mr-1">-->
-          <!--            <template #overlay>-->
-          <!--              <a-menu @click="onClickDropdown">-->
-          <!--                <a-menu-item :key="0">导出模板</a-menu-item>-->
-          <!--              </a-menu>-->
-          <!--            </template>-->
-          <!--            <div class="item_group btn">导入导出-->
-          <!--              <DownOutlined style="margin-left:4px"/>-->
-          <!--            </div>-->
-          <!--          </a-dropdown>-->
         </div>
         <div class="w-full" style="height: calc(100% - 48px)">
           <!--              表格-->
@@ -147,7 +137,6 @@ import {
   FileSearchOutlined,
   PlusOutlined,
   LoadingOutlined,
-  DownOutlined,
   ReloadOutlined,
   DeleteOutlined
 } from '@ant-design/icons-vue'
@@ -194,16 +183,6 @@ let {
 let { loading, fileUrl, uploadFileUrl, fileList, handleChange, beforeUpload } = useUpload(res => {
   userFormState.value.userImg = res
 })
-
-const onClickDropdown = e => {
-  switch (e.key) {
-    case 0:
-      window.location.href = `${window.fileUrl}/006/userTemp/员工花名册-模板.xlsx`
-      break
-    default:
-      break
-  }
-}
 </script>
 
 <style scoped>
