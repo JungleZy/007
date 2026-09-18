@@ -141,25 +141,12 @@
         </div>
       </div>
     </div>
-    <!--    model-->
-    <!--    <model-self ref="modelSelf" :title="'考卷预览'">-->
-    <!--      <template v-slot:center >-->
-    <!--        <div style="width: 100%;height: 100%;overflow: hidden">-->
-    <!--&lt;!&ndash;          <StudentQues v-for="(item,index) in questions"  :index="index" :params="item" :score="100">&ndash;&gt;-->
-    <!--&lt;!&ndash;          </StudentQues>&ndash;&gt;-->
-    <!--          <previewTest :paperData="questions"></previewTest>-->
-    <!--        </div>-->
-    <!--      </template>-->
-    <!--    </model-self>-->
   </div>
 </template>
 
 <script>
-import ModelSelf from '../../../../../../components/modelSelf/ModelSelf.vue'
-import StudentQues from '../../../../../../components/test/studentQues/StudentQues.vue'
 export default {
-  name: 'AddTest',
-  components: { ModelSelf, StudentQues }
+  name: 'AddTest'
 }
 </script>
 <script setup>

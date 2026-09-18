@@ -68,20 +68,12 @@
 <script>
 import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
 import useMember from './js/useMember'
-import { FormOutlined, DeleteOutlined, CaretRightFilled, ApartmentOutlined, PlusOutlined, DeleteFilled, SearchOutlined, FileTextOutlined, UserDeleteOutlined, UserAddOutlined } from '@ant-design/icons-vue'
+import { UserDeleteOutlined, UserAddOutlined } from '@ant-design/icons-vue'
 
 export default {
   name: 'Member',
   emits: ['childThing'],
   components: {
-    FormOutlined,
-    DeleteOutlined,
-    CaretRightFilled,
-    ApartmentOutlined,
-    PlusOutlined,
-    DeleteFilled,
-    SearchOutlined,
-    FileTextOutlined,
     UserDeleteOutlined,
     UserAddOutlined
   },

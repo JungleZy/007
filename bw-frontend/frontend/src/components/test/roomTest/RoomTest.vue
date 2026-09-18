@@ -85,20 +85,13 @@
 <script>
   import {defineComponent, toRefs, ref, watch} from "vue"
   import useRoomTest from './js/useRoomTest.js'
-  import {
-    PlusSquareOutlined,
-    DeleteOutlined,
-    CloseCircleOutlined,
-    CloseOutlined
-  } from '@ant-design/icons-vue';
+  import {PlusSquareOutlined, CloseOutlined} from '@ant-design/icons-vue';
   // import useRoomTest from './js/useRoomTest'
   export default defineComponent ({
     name: "RoomTest",
     // props:{params:Object},
     components: {
       PlusSquareOutlined,
-      DeleteOutlined,
-      CloseCircleOutlined,
       CloseOutlined
     },
     props: {

@@ -85,16 +85,7 @@
 </template>
 <script>
 import {ref, reactive, toRaw, onMounted, toRefs, watch, provide} from 'vue';
-import {
-  FormOutlined,
-  DeleteOutlined,
-  CaretRightFilled,
-  ApartmentOutlined,
-  PlusOutlined,
-  DeleteFilled,
-  SearchOutlined,
-  UserAddOutlined
-} from '@ant-design/icons-vue';
+import {FormOutlined, DeleteOutlined, UserAddOutlined} from '@ant-design/icons-vue';
 import useJob from "./js/useJob"
 
 export default {
@@ -103,11 +94,6 @@ export default {
   components: {
     FormOutlined,
     DeleteOutlined,
-    CaretRightFilled,
-    ApartmentOutlined,
-    PlusOutlined,
-    DeleteFilled,
-    SearchOutlined,
     UserAddOutlined
   },
   setup(props,context) {

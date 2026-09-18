@@ -155,11 +155,8 @@
 </template>
 
 <script>
-  import ModelSelf from '../../../../../../components/modelSelf/ModelSelf.vue'
-  import StudentQues from '../../../../../../components/test/studentQues/StudentQues.vue'
   export default {
-    name: 'AddTest',
-    components: { ModelSelf, StudentQues }
+    name: 'AddTest'
   }
 </script>
 <script setup>
