@@ -274,7 +274,6 @@ export default function issue(trainData, trainTimeRef) {
     }
   }
 
-  const patValBoxRef = ref(null)
   let gap, diff
   let time1 = null //按下
   let time2 = null //抬起
@@ -556,7 +555,7 @@ export default function issue(trainData, trainTimeRef) {
       })
     }
   }
-  const {} = useTraffic(true, handleHandKeysData)
+  useTraffic(true, handleHandKeysData)
 
   return {
     trainData,

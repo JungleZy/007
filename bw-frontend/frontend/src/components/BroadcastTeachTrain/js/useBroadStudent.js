@@ -386,32 +386,6 @@ export default function useBroadStudent() {
     operation({type: 'configure', data: {...calculateTiming({rate, type, lowRate: rate < 35}), frequency: frequency.value, volume: 1, model: true}})
   }
 
-  const handlePlayCodeData = (pag, _data) => {
-    if (pag == 1) {
-      _data.pageCode.push(...symbol.value.start)
-    }
-    _data.pageCode.push(4)
-    let keyArr = [],
-        codeArr = [],
-        type = trainData.value.bwType == 1 ? 'short' : 'mix'
-    _data.pageVos.map((item, x) => {
-      keyArr = item.key.split('')
-      keyArr.map((key, k) => {
-        codeArr = morseCode[type][key].value.split('').map(c => Number(c))
-        _data.pageCode.push(...codeArr)
-        if (k < keyArr.length - 1) {
-          _data.pageCode.push(2)
-        }
-      })
-      if (x < _data.pageVos.length - 1) {
-        _data.pageCode.push(3)
-      }
-    })
-    if (pag == trainData.value['pag']) {
-      _data.pageCode.push(4)
-      _data.pageCode.push(...symbol.value.end)
-    }
-  }
 
   /**
    * 学员回来继续抄收

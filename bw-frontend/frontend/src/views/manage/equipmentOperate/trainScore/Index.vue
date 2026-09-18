@@ -71,7 +71,7 @@ export default {
 import {ref, onMounted, onUnmounted, onBeforeUnmount, defineProps} from 'vue'
 import {message} from 'ant-design-vue'
 import Paho from '../../../../common/mqtt/paho-mqtt'
-import {useRoute, useRouter} from 'vue-router'
+import { useRouter} from 'vue-router'
 import table from '../../equipment/trainScore/js/table'
 import equipment_171 from '../../equipment/trainScore/js/171'
 import equipment_125W_400W from './js/125W_400W'
@@ -80,7 +80,6 @@ import equipment_173 from './js/173'
 import equipment_121C from '../../equipment/trainScore/js/121C'
 import {addTrain, generalGroupNetRuleFindAll} from '../../../../common/api/equipment'
 
-const router = useRouter()
 const disturbList = ref([
   {
     type: 1,
@@ -192,9 +191,7 @@ const trainData = ref({
 const scoreList = ref([])
 const docCode = ref('')
 const loading = ref(false)
-const interval = ref(null)
 const trainID = ref(JSON.parse(window.localStorage.getItem('userInfo')))
-const numValue = ref(0)
 let titleHeaders = ref([]) //需要高亮的表格
 // 主题在下面按 trainDataP.deviceId 覆盖；此处是占位默认值。原先包了 ref() 但随即被普通字符串
 // 覆盖，ref 从未生效，白留一层（vue/no-ref-as-operand 命中点）。

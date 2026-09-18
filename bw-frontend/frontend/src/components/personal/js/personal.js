@@ -2,7 +2,7 @@ import {ref,onMounted} from "vue";
 import {getUserTrainDurationStat,getRecentHandKeyTrains,getRecentElectronicKeyTrains} from "../../../common/api/trainingStatistics";
 import {changePassword} from "../../../common/api/UserApi";
 import {message} from "ant-design-vue";
-import {useRoute, useRouter} from "vue-router";
+import { useRouter} from "vue-router";
 import moment from "moment";
 import * as echarts from 'echarts'
 export default function Personal(props) {
@@ -176,37 +176,6 @@ export default function Personal(props) {
     })
   }
 //格式化时间
-  const computationTime = total => {
-    let hour
-    let min
-    let sec
-    let day
-    let h
-    let m
-    let s
-    hour = Math.floor((total / 60 / 60) % 24)
-    min = Math.floor((total / 60) % 60)
-    sec = Math.floor(total % 60)
-    day = Math.floor(total / 60 / 60 / 24)
-    // 计算总小时数
-    hour = hour + day * 24
-    if (hour < 10 && hour >= 0) {
-      h = '0' + hour
-    } else {
-      h = hour.toString()
-    }
-    if (min < 10 && min >= 0) {
-      m = '0' + min
-    } else {
-      m = min
-    }
-    if (sec < 10 && sec >= 0) {
-      s = '0' + sec
-    } else {
-      s = sec
-    }
-    return h + ' : ' + m + ' : ' + s
-  }
 
   let myChart10 = null
   //近十次训练统计类型 切换

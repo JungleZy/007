@@ -95,7 +95,6 @@ watch(cool, () => {
 const handleMenuMouse = e => {
   hoverMenu.value = e
 }
-const userRole = localStorage.getItem('userRole')
 const handleMenuClick = (r, m, key) => {
   if (r.path === 'theoryStudy') {
     router.push({

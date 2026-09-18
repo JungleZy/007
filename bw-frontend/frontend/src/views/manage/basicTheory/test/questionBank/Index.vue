@@ -294,13 +294,6 @@ if (interfaceStyle === "HJJ") {
 } else {
   leftMenuWidth.value = 170
 }
-const atRoute = ref({
-  name: ''
-})
-const page = ref({
-  showQuickJumper: true,
-  showSizeChanger: true,
-});
 onMounted(() => {
   queryKnowledgeTree()
   clickKnowledge('知识总览', -1);
@@ -374,13 +367,6 @@ const uploadChange = async (options) => {
   }
   return uploadQuestionFile(options)
 }
-const atMenus = ref({
-  children: [{
-    meta: {
-      isMenu: true
-    }
-  }]
-})
 const getDayjs = (text) => {
   return moment(Number(text)).format('YYYY-MM-DD HH:mm:ss')
 }

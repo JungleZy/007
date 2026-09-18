@@ -128,7 +128,6 @@
   import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
-  import homophone from '../../../../../../common/utils/Homophone.js'
   const router = useRouter()
   const route = useRoute()
   // 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。
@@ -196,11 +195,6 @@
   }
 
   //开始训练
-  const goWordTrain = () => {
-    router.push({
-      path: route.matched[4].path + '/postPractice'
-    })
-  }
   /**
    * 新增训练
    */

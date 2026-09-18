@@ -286,7 +286,6 @@ export default function (formState) {
       userData.value.ID_number = ''
       return
     }
-    const y = userData.value.ID_number.substr(6, 4)
     const m = userData.value.ID_number.substr(10, 2)
     const d = userData.value.ID_number.substr(12, 2)
     if (parseInt(m) === 0 || parseInt(m) > 12) {

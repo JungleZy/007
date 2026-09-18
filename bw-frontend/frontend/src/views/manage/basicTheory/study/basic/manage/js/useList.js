@@ -54,15 +54,10 @@ export default function () {
   const tableList = ref([]);
   const currTablePage = ref(0);
   const tableLoading = ref(true);
-  const router = useRouter()
   const route = useRoute()
   const searchList = ref({})
   const classifyName = ref('')
   const classifyID= ref('')
-  const trainData = ref({
-    type:0,
-    mode:0
-  });
   const addtype = ref(0)
   const addDrillModal = ref(false)
   onMounted(() => {

@@ -37,9 +37,6 @@
   import {global} from "../../../config/pinia/index.js"
 
   const useGlobalStore = global.useGlobalStore();
-  const IconFont = createFromIconfontCN({
-    scriptUrl: window.iconUrl,
-  });
   const route = useRoute();
   const router = useRouter();
   let atRoute =route.matched[3]

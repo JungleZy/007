@@ -102,7 +102,7 @@ export default {
 }
 </script>
 <script setup>
-import {useRouter, useRoute} from 'vue-router'
+import {useRouter} from 'vue-router'
 import {ref, createVNode} from 'vue'
 import {addPostArticle, deleteArticleByID} from '../../../../../common/api/postHanZi'
 import telegramList from './js/telex'
@@ -113,7 +113,6 @@ import * as mammoth from "mammoth";
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })
-const router = useRouter()
 const loading = ref(false)
 const addDrillModal = ref(false)
 const data = ref({

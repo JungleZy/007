@@ -1,7 +1,7 @@
 import {message} from 'ant-design-vue'
 import {ref, onMounted} from 'vue'
 import {getEquipmentAll} from '../../../../../../common/api/equipment.js'
-import {useRouter, useRoute} from 'vue-router'
+import {useRouter} from 'vue-router'
 
 export default function equipmentList(addDrillModal) {
   const columns = ref([
@@ -42,7 +42,6 @@ export default function equipmentList(addDrillModal) {
   const tableList = ref([])
   const currTablePage = ref(0)
   const tableLoading = ref(true)
-  const router = useRouter()
   const wztype = ref('0')
   const trainData = ref({
     type: 0,

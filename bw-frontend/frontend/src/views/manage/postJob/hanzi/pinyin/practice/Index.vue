@@ -210,9 +210,6 @@ import { createFromIconfontCN } from '@ant-design/icons-vue'
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const countDownRef = ref(null)
 const showResultModal = ref(true)
-const IconFont = createFromIconfontCN({
-  scriptUrl: window.iconUrl
-})
 const trainDeploy = ref(0)
 //格式化时间
 const computationTime = total => {
@@ -246,12 +243,6 @@ const computationTime = total => {
   }
   return h + ' : ' + m + ' : ' + s
 }
-const codeTypeArr = ref([
-  { type: 'gradient', name: '渐变' },
-  { type: 'metal', name: '金属' },
-  { type: 'chapped', name: '皲裂' },
-  { type: 'white', name: '纯白' }
-])
 
 const {
   message,

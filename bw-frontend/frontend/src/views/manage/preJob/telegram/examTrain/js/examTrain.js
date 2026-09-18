@@ -4,7 +4,7 @@ import {onUnmounted, onMounted, ref, onBeforeUnmount, createVNode, nextTick} fro
 import {useRoute, useRouter} from 'vue-router'
 import useControl from './useControl.js'
 import {codeInKey, codeOnKey} from './keyCode.js'
-import {findExamPatTrainById, beginExamTrainInfo, stopExamTrainInfo, goTopExamTrainInfo, endExamTrainInfo} from '../../../../../../common/api/examApi.js'
+import {findExamPatTrainById, beginExamTrainInfo, goTopExamTrainInfo, endExamTrainInfo} from '../../../../../../common/api/examApi.js'
 import {PubSub} from '../../../../../../common/utils/PubSub.js'
 import useMorse from '../../../../../../common/mixin/useMorse'
 import {audioOperation} from '../../../../../../common/utils/MorseVoice'
@@ -19,7 +19,6 @@ export default function telexTrain() {
   const messageData = ref(null)
   const autoTime = ref(null)
   const route = useRoute()
-  const router = useRouter()
   const {baseCode} = useMorse();
   const correct = ref(0)
   const trainData = ref({})

@@ -110,9 +110,6 @@ import moment from 'moment'
   import {fontSizeDispose} from "../../../../../../common/utils/Utils"
   const router = useRouter();
   const route = useRoute();
-  const IconFont = createFromIconfontCN({
-    scriptUrl: window.iconUrl,
-  });
   const myref=ref([]);//存储dom数组；
   const list=(el)=>{
     // console.log(el);
@@ -150,13 +147,12 @@ import moment from 'moment'
   const fileUrl = ref(window.fileUrl);
   const {
     listData,
-    getList,
     selectItem,
     showData,
     currTablePage,
     columns,
     selectTablePage,
-    searchList,difficulty,specialty
+    searchList,difficulty
   } = useList(computeCardWidth);
 
   const skipDetails = (e) => {

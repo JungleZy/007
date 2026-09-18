@@ -112,7 +112,6 @@ import locking from "../../../../assets/HJ/union/locking.png";
 let unionWs = null
 const router = useRouter();
 const isLoading = ref(true)
-const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
 const onlineUsers = ref([])
 const onlineRooms = ref([])
 const addRoomModalVisible = ref(false)

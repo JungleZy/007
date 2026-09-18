@@ -200,9 +200,6 @@ export default function telegramList(addDrillModal) {
   const getRule = () => {
     gr.getGradingRuleListByType({type: 2}).then(res => {
       rule.value = res.data
-      const list = res.data.filter(item => {
-        return item.isDefault == 0
-      })
       res.data.forEach(item=>{
         if(item.isDefault===0){
           trainData.value.ruleId = item.id

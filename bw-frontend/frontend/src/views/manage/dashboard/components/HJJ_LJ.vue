@@ -147,7 +147,6 @@
   import Personal from "../../../../components/personal/Personal.vue";
   import useNumRain from '../../../../common/utils/useNumRain.js'
   import {useRouter} from 'vue-router'
-  import {changePassword} from '../../../../common/api/UserApi'
   import {createVNode, onMounted, ref, inject, provide} from 'vue'
   import {Modal} from 'ant-design-vue'
   import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
@@ -155,7 +154,6 @@
   import pagWoman from '../../../../assets/HJJ/home-avatar-man.png'
   import Instructions from "../../../../components/instructions/instructions.vue"
   import NipMenusHJJ from "../../../../components/dashboard/NipMenusHJJ_LJ.vue";
-  import {message} from 'ant-design-vue'
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
   import {closeSession} from '../../../../common/session/logout.js'
   // import homeTitle from '../../../../assets/HJJ/homeTitle.png'
@@ -188,11 +186,6 @@
     })
   })
   const editPasswordModel = ref(false)
-  const editPasswordData = ref({
-    oldPassword:'',
-    newPassword:'',
-    newPasswordV:'',
-  })
   const openEditPasswordModel = ()=>{
     editPasswordModel.value = true
   }
@@ -247,11 +240,6 @@
   }
   const handleKB = () => {
     userModalVis.value = false
-  }
-  const closeAnimation = () => {
-    window.cool = !window.cool
-    cool.value = window.cool
-    localStorage.setItem('cool', cool.value)
   }
   const reloadWindow = () => {
     window.location.reload(true)

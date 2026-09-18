@@ -243,7 +243,6 @@ provide('uploadFile', uploadFile)
 const backFlag = ref(true)
 import {deleteThroyKnowledgeById} from '../../../../../../common/api/TestApi.js'
 const route = useRoute()
-const router = useRouter()
 const { tData, selectedKnowledgeSwfs, selectedKnowledgeSwfsIndex, addSwf, handleSelectedKnowledgeSwfs, handleOptions, deleteCurseware } = useForm(content, backFlag)
 const right = ref(null)
 const { uploadFileUrl, fileList, loading, handleChange, beforeUpload } = useUpload(res => {

@@ -273,11 +273,6 @@
   const jumpSystemManage = () => {
     router.push(`/preview/${systemPath.value.path}/${systemPath.value.children[0].path}`)
   }
-  const closeAnimation = () => {
-    window.cool = !window.cool
-    cool.value = window.cool
-    localStorage.setItem('cool', cool.value)
-  }
   nextTick(() => {
     routeName.value = route.name
     routeMatched.value = route.matched.length

@@ -74,7 +74,6 @@
   import CutDown from '../../../../../../components/cutDown/CutDown.vue'
   import moment from 'moment'
 
-  import {useRoute} from 'vue-router'
   import {onMounted, onBeforeUnmount, ref} from 'vue'
   import useDetails from './js/useDetails.js'
   const data = ref({ knowledge: { title: '' }, knowledgeSwfs: [{ content: '' }] })

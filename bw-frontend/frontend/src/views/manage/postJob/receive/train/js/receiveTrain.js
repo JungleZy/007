@@ -309,35 +309,6 @@ export default function telegramList(wpmTOmm) {
   /**
    * 听报字码转换成播放数据流
    */
-  const handleVoicePlayCode = codeBox => {
-    let voicePlayData = []
-    if (isActive.value == 1) {
-      symbol.value.start.map(c => {
-        voicePlayData.push(c)
-      })
-      voicePlayData.push(4)
-    }
-    codeBox.map((item, x) => {
-      item.value.map((c, y) => {
-        c.map((k, z) => {
-          voicePlayData.push(parseInt(k))
-          if (((x + 1) % 100 === 0 || x === codeBox.length - 1) && y === item.value.length - 1 && z === c.length - 1) {
-            voicePlayData.push(4)
-          } else if (y === item.value.length - 1 && z === c.length - 1) {
-            voicePlayData.push(3)
-          } else if (z === c.length - 1) {
-            voicePlayData.push(2)
-          }
-        })
-      })
-    })
-    if (isActive.value == allPage.value) {
-      symbol.value.end.map(c => {
-        voicePlayData.push(c)
-      })
-    }
-    listAll.value.push(voicePlayData)
-  }
 
   /**
    * 开始播放数据流

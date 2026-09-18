@@ -30,7 +30,6 @@ export default function wordingTrain(countDown) {
     })
     init()
   })
-  const router = useRouter()
   const route = useRoute()
   const showResultModal = ref(false)
   let morseVoice = new MorseVoice()

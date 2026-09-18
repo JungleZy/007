@@ -274,9 +274,6 @@
   }
   const patHairTrendBoxRef = ref(null)
   const activeMenu = ref(0)
-  const selectMenu = index => {
-    activeMenu.value = index
-  }
   const { scoreData, loading, loadScore, scoreReady, page, testData, pageTurn, showChart } = trainScore(patHairTrendBoxRef)
 </script>
 <style scoped lang="less">

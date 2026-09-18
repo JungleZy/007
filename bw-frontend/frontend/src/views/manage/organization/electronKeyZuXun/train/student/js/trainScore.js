@@ -28,10 +28,6 @@ export default function telegramList(showChart,selfId) {
     telegraph: null,
   });
   const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '四码组/分' : '码/分（历史）');
-  const initSymbol = ref({
-    alter: '001100',
-    next: '0010,11',
-  });
   const alter = ref(0);
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const resolve = ref([])
@@ -142,24 +138,6 @@ export default function telegramList(showChart,selfId) {
    * 获取指定页的报底
    * @param
    */
-  const getPostTrainKeyInfo = (num) => {
-    let page =scoreData.value.currPage+num
-    if(page>scoreData.value.pag || page < 1)return false
-    getElectronKeyZuXunPageNumber({
-      trainId: route.query.id,
-      userId: selfId,
-      pageNumber: page
-    }).then(res => {
-      if (res.code === 200) {
-        let arr = formatData(res.data.messageVO)
-        if(num==1){
-          scoreData.value.nextContent = arr
-        }else{
-          scoreData.value.preContent = arr
-        }
-      }
-    })
-  };
 
 
   /**

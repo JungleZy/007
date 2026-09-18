@@ -31,7 +31,6 @@ export default {
   setup(props, content) {
     const activeIndex = ref(0)
     const inputIndex = ref(0)
-    const activeMessage = ref(null)
     const { message, trainData } = toRefs(props)
     // activeMessage.value = message.value[0]
     onMounted(() => {

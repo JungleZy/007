@@ -13,7 +13,6 @@ export default {
 import {useRouter, useRoute} from 'vue-router'
 import ListenIn from './components/ListenIn.vue'
 import Issue from './components/Issue.vue'
-const router = useRouter()
 const route = useRoute()
 </script>
 

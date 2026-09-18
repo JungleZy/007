@@ -170,7 +170,6 @@ export default defineComponent({
     const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
     const route = useRoute()
     const examState = ref(route.query.state)
-    const router = useRouter()
     const isShow = ref(true)
     const { paramsT, clearAnswer, noFirst, isGarde } = toRefs(props)
     if(paramsT.value.type==1){

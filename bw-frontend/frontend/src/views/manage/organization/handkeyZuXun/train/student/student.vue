@@ -261,9 +261,6 @@
       printShow.value = false
     }
   }
-  const printClick = () => {
-    printShow.value = true
-  }
   const trainData = ref({
     trainId: '',
     process: 0, // 0：未开始，1：试机，2：开始符号，3：正式开始,-1:试机失败，-2：开始失败

@@ -160,7 +160,6 @@ export default defineComponent({
     const Earray = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
     const route = useRoute()
     const examState = ref(route.query.state)
-    const router = useRouter()
     const { params, clearAnswer, noFirst, isGarde } = toRefs(props)
     if (clearAnswer.value && !noFirst.value) {
       params.value.correctAnswer = deepClone(params.value.answer)

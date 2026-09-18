@@ -13,7 +13,6 @@
   import Editor from '@tinymce/tinymce-vue'
 
   const content = inject('content')
-  const uploadFile = inject('uploadFile')
   const props = defineProps({
     top: {
       default: 0,

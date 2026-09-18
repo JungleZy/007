@@ -218,11 +218,6 @@
 
   const ruleList = ref([])
   const pickRuleIndex = ref(-1)
-  const marks = ref({
-    20: '低偏移',
-    50: '中偏移',
-    80: '高偏移'
-  })
 
   onMounted(() => {
     getGradingRule()
@@ -274,23 +269,6 @@
   }
   const pickGradingRuleInfo = index => {
     pickRuleIndex.value = index
-  }
-  const js = type => {
-    if (type === 0) {
-      return '0~' + ((1200 / ruleList.value[pickRuleIndex.value].content.wpm.base) * (1 + ruleList.value[pickRuleIndex.value].content.skew / 100)).toFixed(0)
-    }
-    if (type === 1) {
-      return (
-          ((1200 / ruleList.value[pickRuleIndex.value].content.wpm.base) * (1 + ruleList.value[pickRuleIndex.value].content.skew / 100) + 1).toFixed(0) + '~' + ((1200 / ruleList.value[pickRuleIndex.value].content.wpm.base) * 3 * (1 + ruleList.value[pickRuleIndex.value].content.skew / 100)).toFixed(0)
-      )
-    }
-    if (type === 2) {
-      return (
-          ((1200 / ruleList.value[pickRuleIndex.value].content.wpm.base) * 3 * (1 + ruleList.value[pickRuleIndex.value].content.skew / 100) + 1).toFixed(0) +
-          '~' +
-          ((1200 / ruleList.value[pickRuleIndex.value].content.wpm.base) * 5 * (1 + ruleList.value[pickRuleIndex.value].content.skew / 100)).toFixed(0)
-      )
-    }
   }
   const handleCancel = () => {
     if (ruleList.value[pickRuleIndex.value].id === undefined) {

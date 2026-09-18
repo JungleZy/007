@@ -188,7 +188,6 @@ const route = useRoute()
 const loading = ref(false)
 const addDrillModal = ref(false)
 const gradingRuleModal = ref(false)
-const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
 const deleteModel = (v)=>{
   Modal.confirm({
     class: 'init_modal_style',
@@ -214,26 +213,13 @@ const {
   addTelexTrain,
   getGradingRuleList, selectIsCable,deleteHistory,
   ruleId,
-  ruleList, selectCable
+  ruleList
 } = telegramList(addDrillModal)
 
 /**
  * 格式化时间
  * @param total
  */
-const computationTime = total => {
-  let hour, min, sec, day, h, m, s
-  hour = Math.floor((total / 60 / 60) % 24)
-  min = Math.floor((total / 60) % 60)
-  sec = Math.floor(total % 60)
-  day = Math.floor(total / 60 / 60 / 24)
-
-  hour = hour + day * 24
-  h = hour < 10 ? '0' + hour : hour
-  m = min < 10 ? '0' + min : min
-  s = sec < 10 ? '0' + sec : sec
-  return h + ' : ' + m + ' : ' + s
-}
 
 /**
  * 开始训练

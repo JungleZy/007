@@ -219,12 +219,6 @@
     }
     return h+" : "+m+" : "+s
   }
-  const codeTypeArr = ref([
-    {type: 'gradient', name: '渐变'},
-    {type: 'metal', name: '金属'},
-    {type: 'chapped', name: '皲裂'},
-    {type: 'white', name: '纯白'}
-  ]);
 
   const { message, trainData, activeMessage, isfocus, activeIndex, inputIndex, big, small,
     nowTime, busy, ready, practiceArea, pendingKey, uncertain, terminalConflict, confirmWrite, retryWrite, saveTest, stopTest, resumeTest } = practice()

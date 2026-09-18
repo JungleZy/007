@@ -360,9 +360,6 @@
   import chartIcoOn3 from "../../../../../../assets/HJ/train/chart-ico-3-on.png";
   import scoreSuperbHJJ from '../../../../../../assets/HJ/postTrain/topBox-after.png'
   import {createFromIconfontCN, QuestionCircleOutlined} from "@ant-design/icons-vue"
-  const IconFont = createFromIconfontCN({
-    scriptUrl: window.iconUrl,
-  });
   const interfaceStyle = window.interfaceStyle
   const showChart = ref('total');
   const { selfId } = defineProps({

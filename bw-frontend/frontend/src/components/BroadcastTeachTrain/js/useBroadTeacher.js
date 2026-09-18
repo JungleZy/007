@@ -354,32 +354,6 @@ export default function useBroadTeacher(countDown) {
       }
     })
   }
-  const handlePlayCodeData = (pag, _data) => {
-    if (pag == 1) {
-      _data.pageCode.push(...symbol.value.start)
-    }
-    _data.pageCode.push(4)
-    let keyArr = [],
-        codeArr = [],
-        type = trainData.value.bwType == 1 ? 'short' : 'mix'
-    _data.pageVos.map((item, x) => {
-      keyArr = item.key.split('')
-      keyArr.map((key, k) => {
-        codeArr = morseCode[type][key].value.split('').map(c => Number(c))
-        _data.pageCode.push(...codeArr)
-        if (k < keyArr.length - 1) {
-          _data.pageCode.push(2)
-        }
-      })
-      if (x < _data.pageVos.length - 1) {
-        _data.pageCode.push(3)
-      }
-    })
-    if (pag == trainData.value['pag']) {
-      _data.pageCode.push(4)
-      _data.pageCode.push(...symbol.value.end)
-    }
-  }
   const autoTime = ref(null)
   const trainTime = () => {
     autoTime.value = setInterval(() => {

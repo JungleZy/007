@@ -61,9 +61,6 @@
   import PreviewMessage from "../previewMessage/PreviewMessage.vue";
   import {watchDeep} from "@vueuse/core"
 
-  const IconFont = createFromIconfontCN({
-    scriptUrl: window.iconUrl
-  })
   const selectCable = inject('selectCable')
   const cableList = inject('cableList')
   const formData = inject('formData')

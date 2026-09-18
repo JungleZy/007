@@ -51,29 +51,6 @@ export default function addTest(modelSelf) {
     })
   })
   //组织知识节点类型
-  const KnowledgeP = data => {
-    for (let v of data) {
-      if (v.parentId == 1) {
-        KnowledgeData.value.push({
-          label: v.name,
-          value: v.id,
-          options: []
-        })
-      }
-    }
-  }
-  const KnowledgeChildren = data => {
-    for (let v of data) {
-      for (let i in KnowledgeData.value) {
-        if (KnowledgeData.value[i].id == v.parentId) {
-          KnowledgeData.value[i].options.push({
-            value: v.id,
-            label: v.name
-          })
-        }
-      }
-    }
-  }
   const testPaper = () => {
     findAllTestPaper().then(res => {
       if (res.code === 200) {

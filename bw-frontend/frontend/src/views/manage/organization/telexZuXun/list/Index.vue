@@ -199,7 +199,6 @@ const userInfo = JSON.parse(localStorage.getItem('userInfo'))
 const selectCable = ref(null)
 const cableList = ref([])
 const content = ref([]);
-const ruleId = ref('');
 /**
  * 开始训练
  * @param item
@@ -219,7 +218,7 @@ const fileUrl = window.fileUrl
 const {
   columns, tableData, totalPage, totalAll, currPage, tableLoading, addDrillModal,
   changeListPage, cancelTrainModal,  addTelexTrain, userList, checkUser, formData, ruleList, loading,
-  isRandom, isAverage, checked, changeChecked,  changeUserList
+    checked, changeChecked,  changeUserList
 } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容.
 
 const selectIsCable = () => {

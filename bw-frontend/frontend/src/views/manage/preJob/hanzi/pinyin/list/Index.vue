@@ -62,7 +62,6 @@ const interfaceStyle = window.interfaceStyle
 const router = useRouter()
 const route = useRoute()
 const totalList = ref([])
-const fs = ref(JSON.parse(localStorage.getItem('fs')));
 onMounted(() => {
   setTimeout(() => {
     findPinYinTrainTotal().then(res => {

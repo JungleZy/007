@@ -203,37 +203,6 @@
     })
   }
   //格式化时间
-  const computationTime = total => {
-    let hour
-    let min
-    let sec
-    let day
-    let h
-    let m
-    let s
-    hour = Math.floor((total / 60 / 60) % 24)
-    min = Math.floor((total / 60) % 60)
-    sec = Math.floor(total % 60)
-    day = Math.floor(total / 60 / 60 / 24)
-    // 计算总小时数
-    hour = hour + day * 24
-    if (hour < 10 && hour >= 0) {
-      h = '0' + hour
-    } else {
-      h = hour.toString()
-    }
-    if (min < 10 && min >= 0) {
-      m = '0' + min
-    } else {
-      m = min
-    }
-    if (sec < 10 && sec >= 0) {
-      s = '0' + sec
-    } else {
-      s = sec
-    }
-    return h + ' : ' + m + ' : ' + s
-  }
   const { columns, tableList, selectTablePage, tableLoading, selectType, trainData, addTelexTrain, rule, getRule, deleteHistory, page } = telegramList(addDrillModal)
   provide("selectCable",selectCable)
   provide("formData",trainData)

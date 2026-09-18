@@ -55,7 +55,6 @@
   const activeTwo = ref(2);
   const transformNode = ref(null);
   const actionList = ref(null)
-  const cool = inject('cool');
   const num = ref(0);
   const isWindow=ref(false);
   const text=ref('')
@@ -67,114 +66,6 @@
   onMounted(() => {
     // init();
   });
-  const init = () => {
-    let interval = setInterval(() => {
-      progress.value = progress.value + 1
-      if (progress.value > 80) {
-        clearInterval(interval);
-      }
-    }, 100);
-    let canvas = document.getElementById("rc");
-    let engine = new BABYLON.Engine(canvas, true, {
-      preserveDrawingBuffer: true,
-      stencil: true,
-      disableWebGL2Support: false,
-    });
-    scene.value = new BABYLON.Scene(engine);
-    scene.value.onPointerObservable.add(function (e) {
-      isWindow.value=false;
-      setTimeout(()=>{
-        isWindow.value=true;
-        textModel(e.pickInfo.pickedMesh.id)
-      })
-    },BABYLON.PointerEventTypes.POINTERPICK)
-
-    camera.value = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 4, 3, new BABYLON.Vector3(0, 1.9, 0), scene.value);
-    camera.value.attachControl(canvas, true);
-
-    camera.value.lowerRadiusLimit = 2.14;
-    camera.value.upperRadiusLimit = 400;
-    camera.value.wheelDeltaPercentage = 0.01;
-    camera.value.setPosition(new BABYLON.Vector3(13.38,13.35,13.84))
-    let light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene.value);
-    light.intensity = 0.6;
-    light.specular = BABYLON.Color3.Black();
-    let time = new Date().getHours();
-    let light2 = new BABYLON.DirectionalLight("dir01", new BABYLON.Vector3((12 - time) / 2, -0.5, -1.0), scene.value);
-    light2.position = new BABYLON.Vector3(0, 5, 5);
-
-    // Shadows
-    let shadowGenerator = new BABYLON.ShadowGenerator(1024, light2);
-    shadowGenerator.useBlurExponentialShadowMap = true;
-    shadowGenerator.blurKernel = 32;
-
-    BABYLON.SceneLoader.ImportMesh("", window.fileUrl + "/006/model/", "classroom3.glb", scene.value, (newMeshes, particleSystems, skeletons) => {
-          if (scene.value) {
-            let skeleton = skeletons[0];
-            transformNode.value = newMeshes[0];
-            armature.value = skeletons[0].bones;
-            for (let j of skeleton.getScene().rootNodes[3].getChildren()[9].getChildren()) {
-              if (j.id === "mixamorig9:Hips") {
-                actionList.value = j;
-              }
-            }
-
-            //   let plane=BABYLON.Mesh.CreatePlane('plane',2,scene.value);
-            //   plane.position.y=20;
-            //   plane.position.z=50;
-            //   plane.position.x=-5;
-            // console.log(BABYLON.GUI);
-            // let adv=BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(plane);
-            //   let button1=BABYLON.GUI.Button.CreateSimpleButton("btn",'asd')
-            // button1.onPointerUpObservable.add(()=>{
-            //    // console.log(123)
-            // })
-            // adv.addController(button1)
-            patHair(2, 0,true)
-            //解决模型反光问题
-            for (let i = 0; i < scene.value.materials.length; i++) {
-              if (scene.value.materials[i].name === 'Ch31_body.001' || scene.value.materials[i].name === 'Ch31_hair.001') {
-                scene.value.materials[i].metallicF0Factor = 0
-                scene.value.materials[i].metallic = 0
-              }
-            }
-            shadowGenerator.addShadowCaster(scene.value.meshes[0], true);
-            for (let index = 0; index < newMeshes.length; index++) {
-              if (newMeshes[index].receiveShadows){
-                newMeshes[index].receiveShadows = false;
-              }
-            }
-            let helper = scene.value.createDefaultEnvironment({
-              enableGroundShadow: true,
-              skyboxTexture: window.fileUrl + '/006/model/dds/backgroundSkybox.dds',
-              groundTexture: window.fileUrl + '/006/model/dds/backgroundGround.png',
-              environmentTexture: window.fileUrl + '/006/model/dds/environmentSpecular.env'
-            });
-            helper.setMainColor(BABYLON.Color3.Gray());
-            helper.ground.position.y += 0.001;
-            clearInterval(interval);
-            let ff = setInterval(() => {
-              progress.value = progress.value + 1
-              if (progress.value > 100) {
-                clearInterval(ff);
-                //   let animateCameraToPosition = function (cam, speed, frameCount, newPos) {
-                //     let ease = new BABYLON.CubicEase();
-                //     ease.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEINOUT);   //帧/秒  总帧数
-                //     BABYLON.Animation.CreateAndStartAnimation('at5', cam, 'position', speed, frameCount, cam.position, newPos, 0, ease);
-                //   }
-                //   animateCameraToPosition(camera.value, 50, 200, new BABYLON.Vector3(207, 150, -150));
-                //   animateCameraToPosition(camera.value, 50, 200, new BABYLON.Vector3(-3.38,3.35,3.84));
-              }
-            }, 30);
-          }
-        }
-    );
-    engine.runRenderLoop(() => {
-      if (scene.value && scene.value.activeCamera) {
-        scene.value.render();
-      }
-    })
-  }
   const patHair = (e, it,bool) => {
     isWindow.value=false;
     if (bool) {

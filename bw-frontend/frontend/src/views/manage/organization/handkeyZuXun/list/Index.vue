@@ -191,7 +191,6 @@ import {
   const selectCable = ref(null)
   const cableList = ref([])
   const content = ref([]);
-  const ruleId = ref('');
   const useGlobalStore = global.useGlobalStore()
   const leftMenuWidth = ref(useGlobalStore.leftWidth);
   const route = useRoute()
@@ -216,7 +215,7 @@ import {
   const {
     columns, tableData, totalPage,  currPage, tableLoading, addDrillModal,totalAll,
     changeListPage, cancelTrainModal,  addTelexTrain, userList, checkUser, formData, ruleList, loading,
-    isRandom, isAverage, checked, changeChecked,  changeUserList,deleteModel
+     isAverage, checked, changeChecked,  changeUserList,deleteModel
   } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容
   /**
    * 切换训练类型

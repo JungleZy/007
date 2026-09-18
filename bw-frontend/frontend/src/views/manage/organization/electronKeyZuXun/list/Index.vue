@@ -207,7 +207,6 @@ import {
   const selectCable = ref(null)
   const cableList = ref([])
   const content = ref([]);
-  const ruleId = ref('');
   /**
    * 开始训练
    * @param item
@@ -227,7 +226,7 @@ import {
   const {
     columns, tableData, totalPage,  currPage, tableLoading, addDrillModal,totalAll,
     changeListPage, cancelTrainModal,  addTelexTrain, userList, checkUser, formData, ruleList, loading,
-    isRandom, isAverage, checked, changeChecked,  changeUserList,deleteModel
+     isAverage, checked, changeChecked,  changeUserList,deleteModel
   } = broaddcastTeacheing(selectCable) //引入内容为弹窗内容.
 
   const selectIsCable = () => {

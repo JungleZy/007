@@ -112,7 +112,6 @@
 <script setup>
 import moment from 'moment'
   import {
-    FileTextOutlined,
     FormOutlined,
      createFromIconfontCN,
   } from '@ant-design/icons-vue';
@@ -145,7 +144,6 @@ import moment from 'moment'
   const {
     
     
-    page
   } = useTable();
 
   const {

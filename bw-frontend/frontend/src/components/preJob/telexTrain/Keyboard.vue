@@ -162,7 +162,7 @@
 </template>
 
 <script>
-  import {ref,onBeforeUnmount,getCurrentInstance,nextTick,toRefs,onMounted} from 'vue'
+  import {ref,onBeforeUnmount,nextTick,toRefs,onMounted} from 'vue'
   import {first,second,third,fourth,fifth,last} from './js/enum.js'
   import point from '../../../assets/HJ/telexTrain/point.png'
   export default {
@@ -283,22 +283,6 @@
           }
         }
         content.emit("keyboardClick",v)
-      }
-      const scaleKeyBoard = ()=>{
-        const screenW = document.body.clientWidth
-        if(screenW<1919){
-          anime({
-            targets:['.keys'],
-            duration:1000,
-            scale:0.8,
-          })
-        }else {
-          anime({
-            targets:['.keys'],
-            duration:1000,
-            scale:1,
-          })
-        }
       }
       const keyCodeUp = (v)=>{
         flag = true

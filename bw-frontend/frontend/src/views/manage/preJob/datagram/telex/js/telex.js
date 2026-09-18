@@ -49,17 +49,6 @@ export default function telegramList(addDrillModal) {
     // findPrevTrainMsg();
   };
 
-  const findPrevTrainMsg = ()=>{
-    findPrevPatTrainInfo({type: trainData.value.type-1}).then(res => {
-      if (res.code === 200 && res.data) {
-        trainData.value.prev.status = res.data.status;
-        trainData.value.prev.id = res.data.id;
-      } else {
-        trainData.value.prev.status = 0;
-        trainData.value.prev.id = '';
-      }
-    })
-  };
 
   // 生成随机报文
   const initContent = (keyboard,num)=>{

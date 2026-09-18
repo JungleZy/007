@@ -159,7 +159,7 @@
 </template>
 
 <script>
-import {ref, onBeforeUnmount, getCurrentInstance, nextTick, toRefs, onMounted, inject, watch} from 'vue'
+import {ref, onBeforeUnmount, nextTick, toRefs, onMounted, inject, watch} from 'vue'
 import {first, second, third, fourth, fifth, last} from './js/enum.js'
 import {useRoute} from 'vue-router'
 export default {

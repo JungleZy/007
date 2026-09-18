@@ -90,7 +90,7 @@ import {ref, onUnmounted, onMounted, nextTick} from 'vue'
 import {apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList} from '../../../../../common/api/UserApi'
 import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
-import {message, Modal} from 'ant-design-vue'
+import {message} from 'ant-design-vue'
 import FillInResult from '../../disturbCode/FillInResult.vue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
 import {useRoute} from 'vue-router'
@@ -105,7 +105,6 @@ const pinUserId = ref('')
 const pinUserState = ref(0)
 const isShow = ref(true)
 const roomValue = ref('0px')
-const roomState = ref(true)
 const pinList = ref([])
 const sendLessudTextList = ref([])
 const buttonState = ref(true)
@@ -514,7 +513,6 @@ const getSimulationRouterRoomDetail = async () => {
   }
 }
 
-const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
 
 const fillInTrainResult = res => {
   let arr,

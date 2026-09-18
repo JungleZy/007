@@ -29,10 +29,6 @@ export default function telegramList(showChart) {
   });
   const speedUnit = computed(() => scoreData.value.protocolVersion === 1
     ? '字符/分' : (scoreData.value.ruleContent?.wpm?.type ? 'wpm' : '码/分') + '（历史）');
-  const initSymbol = ref({
-    alter: '001100',
-    next: '0010,11',
-  });
   const alter = ref(0);
   let timeChartData = ref([]);
   let numberChartData = ref([]);

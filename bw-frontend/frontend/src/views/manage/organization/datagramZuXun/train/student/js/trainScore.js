@@ -122,25 +122,6 @@ export default function telegramList(patHairTrendBoxRef,selfId) {
   }
 
   //获取指定分页低报
-  const getPostTelexPatTrainGetPage = num => {
-    // setTimeout(() => {
-    //   computedCharts()
-    // }, 1000)
-    let number = page.value.current + num
-    if (number > page.value.pageAll || number < 1) return
-    getDatagramZuXunPageNumber({
-      pageNumber: number,
-      userId: selfId,
-      trainId: scoreData.value.trainId
-    }).then(res => {
-      if (num == 1) {
-        scoreData.value.nextContent = res.data.messageVO.filter(item=>item.sort>-1)
-        testData.value.push(res.data.messageVO[0])
-      } else {
-        scoreData.value.preContent = res.data.messageVO.filter(item=>item.sort>-1)
-      }
-    })
-  }
   const showChart = ref('total')
 
   /**

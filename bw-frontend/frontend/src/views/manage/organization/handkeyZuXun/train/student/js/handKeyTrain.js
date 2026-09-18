@@ -57,7 +57,6 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
   const wordTimer = ref(null);
   const groupTimer = ref(null);
   const textTimer = ref(null);
-  const firstStandard = ref(false);
   const alter = ref(0);
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const readyPat = ref(false);

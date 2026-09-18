@@ -39,13 +39,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
     alter: '001100', // 改错符号-当前组
     next: '0010,11', // 改错符号-前一组
   });
-  const oldPatStandard = ref({
-    dot: 0,
-    line: 0,
-    c_gap: 0,
-    w_gap: 0,
-    g_gap: 0
-  });
   const pagePatStandard = ref([]);
   const finishPatLogs = ref([]);
   const alter = ref(0);

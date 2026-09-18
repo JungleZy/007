@@ -15,7 +15,7 @@ export default function train() {
   const totalTime = ref(0)
   const route = useRoute()
   const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
-  const { dots, morseCode } = useMorse()
+  const { dots } = useMorse()
   const trainData = ref(null)
   const allBaoWen = ref({})
   const joinTrainUser = ref([])
@@ -25,10 +25,6 @@ export default function train() {
   const student = ref({
     road: '0',
     msg: null
-  })
-  const symbol = ref({
-    start: [1, 0, 0, 0, 1],
-    end: [0, 1, 0, 1, 0]
   })
   const disturbList = ref([
     {

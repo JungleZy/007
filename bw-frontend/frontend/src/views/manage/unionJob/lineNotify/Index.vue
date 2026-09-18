@@ -172,7 +172,6 @@ const useGlobalStore = global.useGlobalStore()
 const leftMenuWidth = ref(useGlobalStore.leftWidth);
 const selectCable = ref(null)
 const cableList = ref([])
-const content = ref([]);
 const {
   columns,
   tableData,
@@ -184,7 +183,6 @@ const {
   seeData,
   roomName,
   trainData,
-  formData,
   checkBoxList,
   newCheckBoxList,
   checkboxOptions,
@@ -197,8 +195,6 @@ const {
   getSimulationRouterFindRoomList,
   handleChange,
   getAllTeacherList,
-  isAverage,
-  isRandom,
   deleteModel
 } = lineNotify(selectCable)
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
@@ -232,17 +228,6 @@ const getTableList = val => {
 }
 
 //处理人员数组
-const handlerChange = list => {
-  newCheckboxOptions.value = JSON.parse(JSON.stringify(checkboxOptions.value))
-  newCheckBoxList.value = []
-  list.forEach(a => {
-    const index = newCheckboxOptions.value.findIndex(item => item.value == a)
-    if (index != -1) {
-      newCheckboxOptions.value.splice(index, 1)
-    }
-  })
-  setCategoryOptions(checkBoxList.value)
-}
 //处理选中人数
 const setCategoryOptions = value => {
   if (value.length <= 8) {

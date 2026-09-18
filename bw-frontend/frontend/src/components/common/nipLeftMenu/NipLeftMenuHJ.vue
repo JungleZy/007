@@ -169,10 +169,6 @@
   /**
    * 收起/展开左侧菜单
    */
-  const handleMenuShrink = () => {
-    isShrink.value = !isShrink.value;
-    leftMenuWidth.value = isShrink.value ? 56 : 232;
-  }
 
 </script>
 

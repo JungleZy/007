@@ -25,7 +25,6 @@ export default function telegramList(patHairTrendBoxRef) {
     pageAll: 0,
     current: 1
   })
-  let lineData = []
   const testData = ref({
     codeAll: []
   })

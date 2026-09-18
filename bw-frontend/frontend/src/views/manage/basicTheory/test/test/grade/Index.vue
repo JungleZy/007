@@ -144,23 +144,12 @@ import {ref, onMounted} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
 import llcy from '../../../../../../assets/HJJ/test/llcy.png'
 
-const IconFont = createFromIconfontCN({
-  scriptUrl: window.iconUrl
-})
 const router = useRouter()
 const route = useRoute()
 onMounted(() => {
   testPaper()
 })
 const searchType = ref('0')
-const skipDetails = e => {
-  router.push({
-    path: route.matched[4].path + '/addTest',
-    query: {
-      id: e.id
-    }
-  })
-}
 const startGrade = e => {
   router.push({
     path: route.matched[4].path + '/startGrade',

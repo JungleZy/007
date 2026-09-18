@@ -39,7 +39,6 @@ export default function telegramList() {
       slots: {customRender: 'action'},
     }
   ]);
-  const router = useRouter()
   const route = useRoute()
   const tableData = ref([]);
   const currTablePage = ref(0);

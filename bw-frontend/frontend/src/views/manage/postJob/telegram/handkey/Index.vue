@@ -196,7 +196,6 @@
   import {getCableAll} from "../../../../../common/api/CableApi.js";
   import SelectCable from "../../../../../components/cable/SelectCable.vue"
 
-  const {baseCode} = useMorse()
   const router = useRouter()
   const drillPath = ref('')
   const scorePath = ref('')
@@ -214,7 +213,6 @@
       }
     })
   }
-  const userRole = ref(JSON.parse(localStorage.getItem('userRole')))
   router.getRoutes().forEach(r => {
     if (r.name === 'HandKeyPostJobTrain') {
       drillPath.value = r.path

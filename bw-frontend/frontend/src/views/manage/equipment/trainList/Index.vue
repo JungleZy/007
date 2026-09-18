@@ -125,7 +125,6 @@ const {
   addDrillModal,
   addAndUpdate,
   gradingRuleModal,
-  allScore,
   saveDeploy,
   addScore,
   selectDev,
@@ -170,9 +169,6 @@ const gradingRuleModalInfo = () => {
  * 删除码率
  * @param index
  */
-const closeBasicNorm = index => {
-  basicDeployData.value = basicDeployData.value.filter((item, i) => i !== index)
-}
 /**
  * 基础练习数据处理
  */

@@ -32,10 +32,6 @@ export default function telegramList(showChart,selfId) {
     },
     telegraph: null,
   });
-  const initSymbol = ref({
-    alter: '001100',
-    next: '0010,11',
-  });
   const alter = ref(0);
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const resolve = ref([])

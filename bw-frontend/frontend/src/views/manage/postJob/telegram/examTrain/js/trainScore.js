@@ -124,31 +124,6 @@ export default function telegramList(showChart) {
    * 获取指定页的报底
    * @param
    */
-  const getPostTelegraphKeyPatTrainGetPage = num => {
-    let page = scoreData.value.currPage + num
-    if (page > scoreData.value.pag || page < 1) {
-      totalTelegraghMsg()
-    }
-    else {
-      apiPostTelegraphKeyPatTrainGetPage({
-        pageNumber: page,
-        trainId: scoreData.value.trainId
-      }).then(res => {
-        let arr = formatData(res.data.messageVO)
-        // res.data.messageVO.forEach((item)=>{
-        //   item.key = JSON.parse(item.key)
-        //   item.time = JSON.parse(item.time)
-        //   item.value = item.value==''?[]:JSON.parse(item.value)
-        // })
-        if (num == 1) {
-          scoreData.value.nextContent = arr
-        } else {
-          scoreData.value.preContent = arr
-        }
-        totalTelegraghMsg()
-      })
-    }
-  }
   //格式化数据
   const formatData = (data)=>{
     let arr = []

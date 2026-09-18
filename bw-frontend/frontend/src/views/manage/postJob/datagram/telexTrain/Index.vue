@@ -220,7 +220,6 @@
 </script>
 <script setup>
   import {ref} from 'vue'
-  import {useRoute} from 'vue-router'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
   import telexTrain from './js/telexTrain.js'
   import NipMagicSpace from "../../../../../components/common/NipMagicSpace.vue";

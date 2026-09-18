@@ -191,7 +191,6 @@ import {
   const selectCable = ref(null)
   const cableList = ref([])
   const content = ref([]);
-  const ruleId = ref('');
   /**
    * 开始训练
    * @param item

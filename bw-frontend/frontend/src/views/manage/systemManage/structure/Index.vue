@@ -140,7 +140,6 @@ import 'moment/dist/locale/zh-cn.js'
 let {
   columns,
   
-  tableList,
   currTablePage,
   selectTablePage,
   // fileUrl,

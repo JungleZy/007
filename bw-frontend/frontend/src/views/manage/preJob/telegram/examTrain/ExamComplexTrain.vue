@@ -297,7 +297,6 @@ const IconFont = createFromIconfontCN({
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const fs = ref(JSON.parse(localStorage.getItem('fs')))
 const router = useRouter()
-const showResultModal = ref(true)
 const codeTypeArr = ref([
   { type: 'gradient', name: '渐变' },
   { type: 'metal', name: '金属' },
@@ -307,38 +306,13 @@ const codeTypeArr = ref([
 const codeType = ref('gradient')
 
 const { messageData, nowTime, trainData, activeMessage, isfocus, activeIndex, pauseDuration,
-  selectCard,  selectMessage,  changeMessage, changeFocus } = examTrain()
+  selectCard, selectMessage, changeMessage } = examTrain()
 
 /**
  * 格式化时间
  * @param total
  * @returns {string}
  */
-const computationTime = total => {
-  let hour, min, sec, day, h, m, s
-  hour = Math.floor((total / 60 / 60) % 24)
-  min = Math.floor((total / 60) % 60)
-  sec = Math.floor(total % 60)
-  day = Math.floor(total / 60 / 60 / 24)
-  // 计算总小时数
-  hour = hour + day * 24
-  if (hour < 10 && hour >= 0) {
-    h = '0' + hour
-  } else {
-    h = hour.toString()
-  }
-  if (min < 10 && min >= 0) {
-    m = '0' + min
-  } else {
-    m = min
-  }
-  if (sec < 10 && sec >= 0) {
-    s = '0' + sec
-  } else {
-    s = sec
-  }
-  return h + ' : ' + m + ' : ' + s
-}
 const goBack = () => {
   router.go(-1)
 }

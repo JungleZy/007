@@ -149,7 +149,6 @@ const {
   onLogoClick,
   resetCode,
   submitLicense,
-  generateLicense,
   triggerFileUpload,
   handleFileUpload
 } = VerifyLicense()

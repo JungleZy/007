@@ -464,7 +464,6 @@
   import Instructions from '../../../../components/instructions/instructions.vue'
   import useFontSize from "../../../../common/mixin/useFontSize.js";
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
-  import {changePassword} from "../../../../common/api/UserApi"
   import {closeSession} from '../../../../common/session/logout.js'
 
   const interfaceStyle = window.interfaceStyle
@@ -496,11 +495,6 @@
   const {routePaths, lineDevicePaths} = routeConfig()
   const {fontSizeScale, fontSizeVisible, reloadWindow, settingFontSize} = useFontSize()
   const editPasswordModel = ref(false)
-  const editPasswordData = ref({
-    oldPassword:'',
-    newPassword:'',
-    newPasswordV:'',
-  })
   const openEditPasswordModel = ()=>{
     editPasswordModel.value = true
   }
@@ -550,17 +544,6 @@
   })
   const setting = () => {
     isShow.value = true
-  }
-  const linkWsOnInfo = async () => {
-    //桌面端
-    // if (ipc.value){
-    //   serialProtList.value = await ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.getSerialPorts)
-    //   serialShow.value = true
-    //   localSerial.value = localStorage.getItem('serial')
-    // }else {
-      localStorage.setItem('serialChrome',true)
-      webSerialChannel('reset', 'reset')
-    // }
   }
   //连接串口
   const linkPort = (portName)=>{

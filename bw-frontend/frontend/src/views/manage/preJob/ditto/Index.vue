@@ -46,10 +46,6 @@ router.getRoutes().forEach(r => {
  * 菜单选择切换
  * @param sub
  */
-const handleMenuClick = sub => {
-  atRoute.value = sub
-  router.push(atMenus.value.path + '/' + sub.path)
-}
 </script>
 <style scoped lang="less">
 :deep {

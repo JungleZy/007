@@ -55,7 +55,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   const wordTimer = ref(null);
   const groupTimer = ref(null);
   const textTimer = ref(null);
-  const firstStandard = ref(false);
   const alter = ref(0);
   const startStatus = ref(false);
   router.getRoutes().forEach(r => {

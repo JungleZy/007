@@ -618,7 +618,6 @@
   const baoWenLoading = ref(true)
   const patHairTrendBoxRef = ref(null)
   const handKeyWidth = ref(112)
-  const volume = ref(50)
   const labs = ref(['status', 'totalNumber', 'errorNumber', 'accuracy', 'totalKnockNumber', 'speed', 'nowFloorId', 'type'])
   /** gradient:渐变; metal:金属; chapped:皲裂; white:纯白;  */
   const codeTypeArr = ref([
@@ -701,9 +700,7 @@
     pauseExerciseInfo,
     initTrainTimeInfo,
     initMorseCodeInfo,
-    editHandKeyInfo,
     beginExerciseInfo,
-    endExerciseInfo,
     selectedBaoDiInfo,
     handKeyLogs,
     logsContainerRef,

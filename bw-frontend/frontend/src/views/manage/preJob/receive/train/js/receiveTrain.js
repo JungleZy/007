@@ -31,10 +31,6 @@ export default function telegramList(wpmTOmm) {
   const audioVolume = ref(60);
   const rateWpm = ref(35);
   const trainTimer = ref(null);
-  const symbol = ref({
-    start: [1,0,0,0,1],
-    end: [0,1,0,1,0]
-  });
   /** 播报配置 */
   const frequency = ref(1000);
   const freqGather = ref({

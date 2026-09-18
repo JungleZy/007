@@ -204,18 +204,11 @@ const {topBg} = iconImage()
 
 const route = useRoute()
 const roomValue = ref('280px')
-const roomState = ref(true)
 const printShow = ref(false)
 const url = window.fileUrl
 const trainTimeRef = ref(0)
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
 
-const print = {
-  id: 'keyBox',
-  beforeOpenCallback() {
-    printShow.value = false
-  }
-}
 const trainData = ref({
   trainId: '',
   tapNumber: 0,

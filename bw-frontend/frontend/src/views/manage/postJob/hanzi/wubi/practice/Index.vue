@@ -229,9 +229,6 @@ const {labSpeed, laberr, labCheck} = iconImage()
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const countDownRef = ref(null)
 const showResultModal = ref(true)
-const IconFont = createFromIconfontCN({
-  scriptUrl: window.iconUrl
-})
 const inputeMethod = ref(false)
 const changeInputeMethod = () => {}
 const trainDeploy = ref(0)
@@ -267,12 +264,6 @@ const computationTime = total => {
   }
   return h + ' : ' + m + ' : ' + s
 }
-const codeTypeArr = ref([
-  { type: 'gradient', name: '渐变' },
-  { type: 'metal', name: '金属' },
-  { type: 'chapped', name: '皲裂' },
-  { type: 'white', name: '纯白' }
-])
 
 const {
   message,

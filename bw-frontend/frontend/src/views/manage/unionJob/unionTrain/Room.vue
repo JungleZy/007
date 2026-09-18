@@ -191,46 +191,6 @@ const fileUrl = ref(window.fileUrl)
 const processedUsers = ref([])
 const readyUsers = ref([])
 const roomModalVisible = ref(false)
-const seats = ref({
-  0: [
-    {
-      key: '发送席',
-      type: 1,
-      num: 1
-    },
-    {
-      key: '接收席',
-      type: 2,
-      num: 2
-    }
-  ],
-  1: [
-    {
-      key: '发送席',
-      type: 1,
-      num: 2
-    },
-    {
-      key: '接收席',
-      type: 2,
-      num: 2
-    }
-  ],
-  2: [
-    {
-      key: '接收席',
-      type: 2,
-      num: 2
-    }
-  ],
-  3: [
-    {
-      key: '发送席',
-      type: 1,
-      num: 2
-    }
-  ]
-})
 const isOpenInspectWindow = ref(false)
 const messageBox = ref(false)
 const messageType = ref(false) //收到消息图标闪烁
@@ -393,11 +353,6 @@ const handleIsOpen = () => {
       }, 0)
     }
   }, 100)
-}
-const terminalCallback = data => {
-  if (data.t !== 3) {
-    unionWs.sendReceiveData(UnionWsCode.ROOM_MESSAGE, unionWs.userInfo.id, roomInfo.value.id, JSON.stringify(data))
-  }
 }
 const handleExitRoom = () => {
   if (roomInfo.value.admin === userInfo.value.id) {

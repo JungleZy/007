@@ -270,7 +270,6 @@ const openMessageModel = ()=>{
 }
 const {labType, labNum, labSpeed} = iconImage()
 const trainDeploy = ref(0)
-const cool = inject('cool')
 const wpmTOmm = inject('wpmTOmm')
 const {
   receiveBgRef,
@@ -290,7 +289,6 @@ const {
   endTrainInfo,
   hardHearingInfo,
   updateTelegraph,
-  generateMessageHeader,
     
   allPage
 } = receiveTrain(wpmTOmm)

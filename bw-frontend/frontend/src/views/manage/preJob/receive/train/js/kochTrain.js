@@ -110,10 +110,6 @@ export default function kochTrain(wpmTOmm) {
     { label: '五', value: 1.0 }
   ])
   const checkedNoise = ref(0)
-  const NUM_TYPE = {
-    LONG: 'long',
-    SHORT: 'short'
-  }
   let noiseAudio = null
   let activeIndex = -1
   let playbackGeneration = 0

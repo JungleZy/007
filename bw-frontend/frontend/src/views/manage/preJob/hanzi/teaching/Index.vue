@@ -46,7 +46,6 @@ const transformNode = ref(null)
 const num = ref(0)
 const armature = ref(null)
 const actionList = ref(null)
-const cool = inject('cool')
 const isWindow = ref(false)
 const text = ref('')
 document.onkeydown = e => {

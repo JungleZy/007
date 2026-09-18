@@ -206,7 +206,6 @@
   const autoLine = ref(true)
   const route = useRoute()
   const loading = ref(true)
-  const showTipSymbol = ref(true)
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const printShow = ref(false)
   const print = {
@@ -214,9 +213,6 @@
     beforeOpenCallback() {
       printShow.value = false
     }
-  }
-  const printClick = () => {
-    printShow.value = true
   }
   const trainData = ref({
     trainId: '',

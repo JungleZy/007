@@ -95,7 +95,7 @@ export default {
 }
 </script>
 <script setup>
-import {useRouter, useRoute} from 'vue-router'
+import {useRouter} from 'vue-router'
 import {ref} from 'vue'
 import {deleteEquipmentById, addEquipments, editEquipments} from '../../../../../common/api/equipment.js'
 import equipmentList from './js/equipment'
@@ -104,7 +104,6 @@ import {message} from 'ant-design-vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })
-const router = useRouter()
 const loading = ref(false)
 const addDrillModal = ref(false)
 const data = ref({

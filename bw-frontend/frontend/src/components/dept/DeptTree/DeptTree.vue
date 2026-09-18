@@ -34,7 +34,6 @@ export default defineComponent({
     }
   },
   setup(props, context) {
-    const onDragEnter = info => {}
     onMounted(() => {
       getTree()
     })
