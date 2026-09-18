@@ -30,7 +30,7 @@
       </a-row>
       <a-radio-group v-else @change="changeSelect" class="w-full" v-model:value="params.answer" :disabled="!clearAnswer">
         <a-row class="w-full">
-          <a-col style="margin: 5px 0" :span="12" v-for="item in params.options">
+          <a-col style="margin: 5px 0" :span="12" v-for="(item, kIdx) in params.options" :key="kIdx">
             <a-radio style="color: #e2f2ff" :value="item.value">{{ Earray[item.value] + '、' + item.label }} </a-radio>
           </a-col>
         </a-row>
@@ -49,7 +49,7 @@
       </a-row>
       <a-checkbox-group v-else @change="changeSelect" class="w-full" v-model:value="params.answer" :disabled="!clearAnswer">
         <a-row class="w-full">
-          <a-col v-for="item in params.options" style="margin: 5px 0" :span="12">
+          <a-col v-for="(item, kIdx) in params.options" :key="kIdx" style="margin: 5px 0" :span="12">
             <a-checkbox style="color: #8fa3be" :value="item.value">{{ Earray[item.value] + '、' + item.label }} </a-checkbox>
           </a-col>
         </a-row>
@@ -68,7 +68,7 @@
       </a-row>
       <a-radio-group v-else @change="changeSelect" v-model:value="params.answer" :disabled="!clearAnswer">
         <a-row class="w-full">
-          <a-col style="margin: 10px 0" :span="12" v-for="item in params.options">
+          <a-col style="margin: 10px 0" :span="12" v-for="(item, kIdx) in params.options" :key="kIdx">
             <a-radio style="color: #e2f2ff" :value="item.id">{{ item.name }}</a-radio>
           </a-col>
         </a-row>

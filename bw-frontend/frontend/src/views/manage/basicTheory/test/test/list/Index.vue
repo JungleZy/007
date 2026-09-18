@@ -12,7 +12,7 @@
         </div>
         <div v-else class="overflow-auto w-full" style="height: calc(100% - 45px)">
           <a-row >
-            <a-col v-for="(d,i) in listData"  :xs="{span:12,offset:0}" :md="{span:12,offset:0}" :lg="{span:12,offset:0}" :xl="{span:8,offset:0}" :xxl="{span:6,offset:0}">
+            <a-col v-for="(d,i) in listData" :key="i"  :xs="{span:12,offset:0}" :md="{span:12,offset:0}" :lg="{span:12,offset:0}" :xl="{span:8,offset:0}" :xxl="{span:6,offset:0}">
               <div class=" list relative" >
 <!--                <div class="theLabel" v-if="d.state==1"  v-per="'edit'" @click.stop="skipDetails(d)">-->
                 <div class="theLabel" v-if="d.state==1&& userRole.id == 1" @click.stop="skipDetails(d)">

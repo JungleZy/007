@@ -81,7 +81,7 @@
     <a-modal :destroyOnClose="true"
              :width="350"
              class="init_modal_style footer-border-none"
-             destroyOnClose="true"
+            
              v-model:visible="addDrillModal">
       <template #title>
         <strong>{{modelTitle}}{{addtype==0?'专业岗位':'人员类别'}}</strong>

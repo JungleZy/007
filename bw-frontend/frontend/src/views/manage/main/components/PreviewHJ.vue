@@ -371,7 +371,7 @@
       :width="350"
       title="字体大小配置"
       class="init_modal_style footer-border-none"
-      destroyOnClose="true"
+     
       v-model:visible="fontSizeVisible"
     >
       <template #footer>

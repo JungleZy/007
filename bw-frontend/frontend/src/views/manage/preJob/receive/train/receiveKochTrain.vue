@@ -126,7 +126,7 @@
     </div>
 
     <!--配置阶段-->
-    <a-modal :destroyOnClose="true" :width="750" class="init_modal_style footer-border-none" destroyOnClose="true" v-model:visible="stageVisible">
+    <a-modal :destroyOnClose="true" :width="750" class="init_modal_style footer-border-none" v-model:visible="stageVisible">
       <template #title>
         <strong>连贯阶段配置</strong>
       </template>

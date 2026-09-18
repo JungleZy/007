@@ -71,7 +71,7 @@
                  style="margin-top: 10px;margin-left: 8px;width: 270px;display: flex;height: 30px;">
               <a-select v-model:value="difficulty" style="width: 120px;height: 30px!important;"
                         placeholder="请选择类型">
-                <a-select-option v-for="(item,index) in typeCheckList" :value="item.id">{{ item.name }}
+                <a-select-option v-for="(item,index) in typeCheckList" :key="index" :value="item.id">{{ item.name }}
                 </a-select-option>
               </a-select>
               <a-input placeholder="标题" style="width: 78px;border: 1px transparent;height: 30px;"
@@ -167,7 +167,7 @@
         :destroyOnClose="true"
         :width="300"
         class="init_modal_style footer-border-none"
-        destroyOnClose="true"
+       
         v-model:visible="addDrillModal"
         @cancel="addDrillModal = false"
     >

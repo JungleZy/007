@@ -44,7 +44,7 @@
     <a-modal :destroyOnClose="true"
              :width="560"
              class="init_modal_style footer-border-none"
-             destroyOnClose="true"
+            
              v-model:visible="addDrillModal"
              @cancel="cancelTrainModal">
       <template #title>
@@ -151,7 +151,7 @@
     <a-modal :destroyOnClose="true"
              :width="660"
              class="init_modal_style footer-border-none"
-             destroyOnClose="true"
+            
              v-model:visible="basicTrainDeployModal"
              @cancel="cancelTrainModal">
       <template #title>

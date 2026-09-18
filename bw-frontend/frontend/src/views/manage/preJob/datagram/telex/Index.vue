@@ -42,7 +42,7 @@
     <a-modal :destroyOnClose="true"
              :width="560"
              class="init_modal_style footer-border-none"
-             destroyOnClose="true"
+            
              v-model:visible="addDrillModal"
              @cancel="cancelTrainModal">
       <template #title>

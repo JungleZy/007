@@ -40,7 +40,7 @@
 
     <!--新增训练-->
     <a-modal :destroyOnClose="true" :width="560" class="init_modal_style footer-border-none"
-             destroyOnClose="true" v-model:visible="addDrillModal" @cancel="addDrillModal=false">
+             v-model:visible="addDrillModal" @cancel="addDrillModal=false">
       <template #title>
         <strong :style="{fontSize: (fs * 2 + 16) + 'px'}">电子键综合拍发练习</strong>
       </template>

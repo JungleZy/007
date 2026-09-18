@@ -51,7 +51,7 @@
       <a-modal :destroyOnClose="true"
                :width="560"
                class="init_modal_style footer-border-none"
-               destroyOnClose="true"
+              
                v-model:visible="addDrillModal"
                @cancel="cancelTrainModal">
         <template #title>
@@ -115,7 +115,7 @@
                 <div class="item" style="width: 200px;">
                   <a-select v-model:value="playRate" placeholder="请选择播报码率" @change="selectRateInfo"
                             style="width: 200px;text-align: left">
-                    <a-select-option v-for="(item, index) in basicDeployData" :value="item.speed">{{ item.name }}
+                    <a-select-option v-for="(item, index) in basicDeployData" :key="index" :value="item.speed">{{ item.name }}
                       ({{ item.speed }}{{wpmTOmm?'码/分':'WPM'}})
                     </a-select-option>
                     <a-select-option :value="0">自定义</a-select-option>
@@ -147,7 +147,7 @@
       <a-modal :destroyOnClose="true"
                :width="530"
                class="init_modal_style footer-border-none"
-               destroyOnClose="true"
+              
                v-model:visible="basicTrainDeployModal"
                @cancel="cancelTrainModal">
         <template #title>

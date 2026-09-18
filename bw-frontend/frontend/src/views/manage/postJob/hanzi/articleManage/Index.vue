@@ -54,7 +54,7 @@
       </div>
     </div>
     <!--新增训练-->
-    <a-modal :destroyOnClose="true" :width="720" class="init_modal_style footer-border-none" destroyOnClose="true" v-model:visible="addDrillModal" @cancel="cancelTrainModal">
+    <a-modal :destroyOnClose="true" :width="720" class="init_modal_style footer-border-none" v-model:visible="addDrillModal" @cancel="cancelTrainModal">
       <template #title>
         <strong>新增文章</strong>
       </template>

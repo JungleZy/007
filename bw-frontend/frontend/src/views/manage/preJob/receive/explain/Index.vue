@@ -63,7 +63,7 @@
 <!--        next-->
 <!--      </div>-->
     </div>
-    <a-modal :destroyOnClose="true" :width="900" class="init_modal_style footer-border-none" destroyOnClose="true" v-model:visible="addDrillModal" @cancel="addDrillModal = false">
+    <a-modal :destroyOnClose="true" :width="900" class="init_modal_style footer-border-none" v-model:visible="addDrillModal" @cancel="addDrillModal = false">
       <template #title>
         <strong>{{ newKnowledge.update ? '修改要点' : '新增要点' }} </strong>
       </template>

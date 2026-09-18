@@ -74,7 +74,7 @@
     <a-modal :destroyOnClose="true"
              :width="350"
              class="init_modal_style footer-border-none"
-             destroyOnClose="true"
+            
              v-model:visible="addDrillModal">
       <template #title>
         <strong>{{cableTypeTitle===null?'新增':'修改'}}报底类型</strong>

@@ -65,7 +65,7 @@
             :destroyOnClose="true"
             :width="900"
             class="init_modal_style footer-border-none"
-            destroyOnClose="true"
+           
             v-model:visible="addDrillModal"
             @cancel="addDrillModal = false"
     >

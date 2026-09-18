@@ -7,7 +7,7 @@
         </div>
         <div v-else class="overflow-auto w-full h-full">
           <a-row v-if="userRole.id == 1">
-            <a-col v-for="(d, i) in listData" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
+            <a-col v-for="(d, i) in listData" :key="i" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
               <div class="list relative">
                 <a-popconfirm
                     title="是否删除该场测试?"

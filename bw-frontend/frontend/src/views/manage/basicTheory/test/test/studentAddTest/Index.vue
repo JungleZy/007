@@ -21,7 +21,7 @@
         </div>
         <div class="w-full overflow-y-auto" style="height: calc(100% - 90px - 8px - 8px)">
           <a-row>
-            <a-col v-for="(d, i) in listData" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
+            <a-col v-for="(d, i) in listData" :key="i" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
               <div class="list relative" @click="selectPaper(d)" :class="[selectedPaper === d.id ? 'listActive' : '']">
                 <div class="absolute listBg" style="z-index: 2; top: 1px; left: 1px; right: 1px; bottom: 1px">
 <!--                  <div class="theLabel" @click.stop="previewModel(d)">-->

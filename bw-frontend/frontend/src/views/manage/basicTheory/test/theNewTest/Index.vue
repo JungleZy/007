@@ -322,7 +322,7 @@
           :destroyOnClose="true"
           :width="1280"
           class="init_modal_style footer-border-none"
-          destroyOnClose="true"
+         
           v-model:visible="selectDrillModal"
         >
           <template #title>

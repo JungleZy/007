@@ -12,7 +12,7 @@
         </div>
         <div v-else class="overflow-auto w-full">
           <a-row >
-            <a-col v-for="(d,i) in listData" class="card"  :xs="{span:12,offset:0}" :md="{span:12,offset:0}" :lg="{span:12,offset:0}" :xl="{span:8,offset:0}" :xxl="{span:6,offset:0}">
+            <a-col v-for="(d,i) in listData" :key="i" class="card"  :xs="{span:12,offset:0}" :md="{span:12,offset:0}" :lg="{span:12,offset:0}" :xl="{span:8,offset:0}" :xxl="{span:6,offset:0}">
               <div class=" list relative">
                 <img class="imgs" :src="llcy" alt="">
                 <div class="listLabel" :title="d.title">

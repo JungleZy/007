@@ -148,7 +148,7 @@
           </div>
           <div class="w-full pl-1 pr-1 overflow-auto" style="height: calc(100% - 30px)">
             <div class="w-full">
-              <a-row v-for="(p,index) of permissionsState"  style="height: 40px;border-bottom: 1px solid #354971;padding: 5px 0;box-sizing: content-box">
+              <a-row v-for="(p,index) of permissionsState" :key="index"  style="height: 40px;border-bottom: 1px solid #354971;padding: 5px 0;box-sizing: content-box">
                 <a-col :span="3">
                   <div class="w-full h-full layout-right-center fontColor">名称:</div>
                 </a-col>

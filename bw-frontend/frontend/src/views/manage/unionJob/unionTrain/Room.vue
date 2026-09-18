@@ -91,7 +91,7 @@
           </div>
         </div>
       </div>
-      <a-modal :destroyOnClose="true" :width="560" class="init_modal_style footer-border-none" destroyOnClose="true" v-model:visible="roomModalVisible" @cancel="cancelRoomModal">
+      <a-modal :destroyOnClose="true" :width="560" class="init_modal_style footer-border-none" v-model:visible="roomModalVisible" @cancel="cancelRoomModal">
         <template #title>
           <strong>更新房间信息</strong>
         </template>

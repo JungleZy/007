@@ -75,7 +75,7 @@
             <a-modal :destroyOnClose="true"
                      :width="350"
                      class="init_modal_style footer-border-none"
-                     destroyOnClose="true"
+                    
                      v-model:visible="typeFormData.visible">
                 <template #title>
                     <strong>{{typeFormData.type==0?'新增':'编辑'}}设备分类</strong>
@@ -94,7 +94,7 @@
             <!--添加设备-->
             <a-modal :destroyOnClose="true"
                      class="init_modal_style footer-border-none addEquipmentModal"
-                     destroyOnClose="true"
+                    
                      v-model:visible="addDrillModal"
                      @cancel="cancelModal">
                 <template #title>
@@ -209,7 +209,7 @@
             <!--添加设备说明-->
             <a-modal :destroyOnClose="true"
                      class="init_modal_style footer-border-none addEquipmentModal"
-                     destroyOnClose="true"
+                    
                      v-model:visible="addDescModal"
                      @cancel="cancelModal">
                 <template #title>

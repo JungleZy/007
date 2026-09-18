@@ -40,7 +40,7 @@
       </div>
       <div class="manyCheck layout-left-top">
         <a-row class="w-full" v-if="question.type!=3">
-          <a-col  :span="11" :offset="(index+1) % 2 == 0 ? '2':'0'" v-for="(item,index) in question.options" class="mt-4px">
+          <a-col  :span="11" :offset="(index+1) % 2 == 0 ? '2':'0'" v-for="(item,index) in question.options" :key="index" class="mt-4px">
             <div class="layout-left-center w-full relative" style="margin-bottom: 6px">
               <div style="width: 19px;" class="layout-left-center">{{Earray[index]}}</div>
               <a-input v-model:value="item.label" style="width: calc(100% - 20px);background-color:rgb(23 41 67);"></a-input>
@@ -49,14 +49,14 @@
           </a-col>
         </a-row>
         <a-radio-group v-model:value="question.answer" name="radioGroup" v-if="question.type==3" class="mt-4px">
-          <a-radio :value="item.id" v-for="( item , i ) in question.options"  >
+          <a-radio :value="item.id" v-for="( item , i ) in question.options" :key="i"  >
             <span style="color:#e2f2ff">{{item.name}}</span>
           </a-radio>
         </a-radio-group>
       </div>
       <div class="quesTitle mt-20px layout-left-center c-53a165" v-if="question.type!=3">正解</div>
       <a-row class="w-full" v-if="question.type==4">
-        <a-col  :span="11" :offset="(index+1) % 2 == 0 ? '2':'0'" v-for="(item,index) in question.answer" class="p-1">
+        <a-col  :span="11" :offset="(index+1) % 2 == 0 ? '2':'0'" v-for="(item,index) in question.answer" :key="index" class="p-1">
           <div class="layout-left-center w-full">
             <!--                <div style="width: 18px;" class="layout-left-center"></div>-->
             <a-input v-model:value="question.answer[index]" style="width: calc(100% - 18px);background-color:rgb(23 41 67);"></a-input>
@@ -67,11 +67,11 @@
 
       <div class="greenInput mt-4px">
         <a-select v-model:value="question.answer" class="w-full" v-if="question.type==1" dropdowmClassName="infoDrop">
-          <a-select-option v-for="(item,index) in question.options" :value="item.value" > {{Earray[index]}} {{item.label}}</a-select-option>
+          <a-select-option v-for="(item,index) in question.options" :key="index" :value="item.value" > {{Earray[index]}} {{item.label}}</a-select-option>
         </a-select>
         <!--              option-label-prop="label" -->
         <a-select v-model:value="question.answer" class="w-full" v-if="question.type==2"  mode="multiple" >
-          <a-select-option v-for="(item,index) in question.options" :value="item.value"> {{Earray[index]}} {{item.label}}</a-select-option>
+          <a-select-option v-for="(item,index) in question.options" :key="index" :value="item.value"> {{Earray[index]}} {{item.label}}</a-select-option>
         </a-select>
       </div>
       <div class="quesTitle mt-20px layout-left-center c-8b5f2f">解析</div>

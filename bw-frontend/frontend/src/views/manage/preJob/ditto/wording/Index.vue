@@ -37,7 +37,7 @@
                 <div class="lab">字头播报：</div>
                 <div class="cont">
                   <a-select v-model:value="trainData.prefix" placeholder="字头" @change="changePrefix('prefix')" :disabled="trainData.status > 0" style="width: 80px">
-                    <a-select-option v-for="(item, index) in prefixList" :value="item">{{ item == '' ? '全部' : item }}</a-select-option>
+                    <a-select-option v-for="(item, index) in prefixList" :key="index" :value="item">{{ item == '' ? '全部' : item }}</a-select-option>
                   </a-select>
                 </div>
               </div>
@@ -56,7 +56,7 @@
                 <div class="lab">用语间隔：</div>
                 <div class="cont">
                   <a-select v-model:value="trainData.gap" style="width: 80px" placeholder="间隔(ms)">
-                    <a-select-option v-for="(item, index) in gapList" :value="item.value">{{ item.text }}</a-select-option>
+                    <a-select-option v-for="(item, index) in gapList" :key="index" :value="item.value">{{ item.text }}</a-select-option>
                   </a-select>
                 </div>
               </div>
