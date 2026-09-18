@@ -224,7 +224,7 @@ if(interfaceStyle==='KJ'){
 }
 
 
-const {labSpeed,laberr,labNum,labCheck} = iconImage()
+const {labSpeed, laberr, labCheck} = iconImage()
 
 const fileUrl = ref(window.fileUrl + '/006/code/')
 const countDownRef = ref(null)

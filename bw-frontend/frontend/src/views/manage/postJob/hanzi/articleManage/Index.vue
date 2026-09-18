@@ -179,7 +179,7 @@ const articleTYpe = ref([
     text: '英文文章'
   }
 ])
-const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, selectType, initContent, trainData, addTelexTrain, init, wztype } = telegramList(addDrillModal)
+const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, init, wztype } = telegramList(addDrillModal)
 const editArticle = list => {
   addDrillModal.value = true
   data.value.name = list.name

@@ -203,7 +203,7 @@ if(interfaceStyle==='KJ'){
 
 
 import iconImage from "../../../js/iconImage";
-const {labSpeed,laberr,labNum,labCheck} = iconImage()
+const {labSpeed, laberr, labCheck} = iconImage()
 
 import { ref } from 'vue'
 import { createFromIconfontCN } from '@ant-design/icons-vue'

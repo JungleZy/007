@@ -198,7 +198,7 @@ if(interfaceStyle==='KJ'){
   speed = speedHJ
 }
 
-const {labSpeed,laberr,labNum,labCheck} = iconImage()
+const {labSpeed, laberr, labCheck} = iconImage()
 import { ref } from 'vue'
 import { createFromIconfontCN } from '@ant-design/icons-vue'
 const fileUrl = ref(window.fileUrl + '/006/code/')

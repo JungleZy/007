@@ -393,7 +393,7 @@
     { type: 'white', name: '纯白' }
   ])
   const codeType = ref('gradient')
-  const { message, finalizing, trainData, correct, activeMessage, isfocus, activeIndex, nowTime, selectCard, keyCodeDown, keyCodeDown2, changeSwitch, changeMessage, changeFocus, divChange, beginTrain, selectMessage, getFocus, goback, endExerciseInfo } = telexTrain(countDown)
+  const { message, finalizing, trainData, correct, activeMessage, isfocus, activeIndex, nowTime, selectCard, keyCodeDown, keyCodeDown2, changeMessage, divChange, selectMessage, getFocus, goback } = telexTrain(countDown)
 </script>
 
 <style scoped lang="less">

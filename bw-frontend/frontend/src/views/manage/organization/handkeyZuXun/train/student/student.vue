@@ -248,7 +248,7 @@
   import reset from '../../../../../../assets/HJ/postTrain/reset.png'
 
   import iconImage from "../../../../postJob/js/iconImage";
-  const {labSpeed,labNum,labType,topBg,keyBg,prev,next,textBg} = iconImage()
+  const {labSpeed, labNum, topBg, keyBg, prev, next, textBg} = iconImage()
   const autoLine = ref(true)
   const route = useRoute()
   const loading = ref(true)
@@ -273,7 +273,7 @@
   })
   const emits = defineEmits(['changeStatus'])
 
-  const { handKeyDown, patStandard, initFloat, onKey, wsOnline, devOnline, audioVolume } = useControl(trainData)
+  const { patStandard, initFloat, onKey, wsOnline, devOnline } = useControl(trainData)
 
   const {
     submissionError, submissionBusy, retrySubmit,

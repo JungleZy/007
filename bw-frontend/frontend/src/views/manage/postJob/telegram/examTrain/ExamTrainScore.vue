@@ -349,7 +349,6 @@
 <script setup>
   import {ref} from 'vue'
   import trainScore from './js/trainScore.js'
-  import useMorse from '../../../../../common/mixin/useMorse.js'
   import scoreSuperb from '../../../../../assets/HJ/postTrain/score-superb.png'
   import scoreSuffice from '../../../../../assets/HJ/postTrain/score-suffice.png'
   import scoreFailed from '../../../../../assets/HJ/postTrain/score-failed.png'
@@ -365,10 +364,9 @@
     scriptUrl: window.iconUrl,
   });
   const interfaceStyle = window.interfaceStyle
-  const { morseCode } = useMorse()
   const showChart = ref('total')
 
-  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, resolve,moreLine, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart)
+  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, moreLine, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart)
 </script>
 
 <style scoped lang="less">

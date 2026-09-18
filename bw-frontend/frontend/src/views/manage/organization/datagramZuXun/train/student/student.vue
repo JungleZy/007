@@ -160,7 +160,7 @@
 
   import {getDatagramDetail} from "../../../../../../common/api/datagramZuXun"
   import iconImage from "../../../../postJob/js/iconImage";
-  const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()
+  const {labSpeed, labNum, labType, keyBg, prev, next} = iconImage()
   const route = useRoute()
   const loading = ref(true)
   const showTipSymbol = ref(true)

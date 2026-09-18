@@ -150,7 +150,7 @@
   import iconImage from "../../js/iconImage";
 
   const imgs = iconImage()
-  const {labSpeed, labNum, labType, topBg, keyBg} = imgs
+  const {labSpeed, labNum, keyBg} = imgs
   const prevIMG = imgs.prev
   const nextIMG = imgs.next
   const route = useRoute()

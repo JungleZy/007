@@ -76,7 +76,7 @@ import { partTimeFormatInfo } from '../../common/utils/Utils'
 import { ref } from 'vue'
 
 const userInfo = ref(JSON.parse(window.localStorage.getItem('userInfo')))
-const { trainData, isOnline, readyForTest, fillInTrainResult, step, result, storage, newUser, againPlayCode, allBaoWen, pageTurn, recoveryError, socketStatus } = useBroadStudent()
+const { trainData, isOnline, readyForTest, fillInTrainResult, step, storage, newUser, againPlayCode, allBaoWen, pageTurn, recoveryError, socketStatus } = useBroadStudent()
 </script>
 <style lang="less" scoped>
   .HJJ{

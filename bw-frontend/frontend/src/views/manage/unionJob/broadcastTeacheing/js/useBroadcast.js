@@ -1,10 +1,8 @@
 import {ref} from 'vue'
-import useMorse from '../../../../../common/mixin/useMorse.js'
 import {useRouter, useRoute} from 'vue-router'
 export default function useBroadcast() {
   const router = useRouter()
   const route = useRoute()
-  const { baseCode, morseCode } = useMorse()
   const drillPath = ref('')
   router.getRoutes().forEach(r => {
     if (r.name === 'BroadcastTeachTrain'&&route.name!=='ReceiveZuXunList') {

@@ -58,7 +58,6 @@
   import {ref, inject, watch} from "vue"
   import {CheckOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
   import {getCableFloorAllByID} from "../../common/api/CableApi"
-  import iconImage from "../../views/manage/postJob/js/iconImage";
   import PreviewMessage from "../previewMessage/PreviewMessage.vue";
   import {watchDeep} from "@vueuse/core"
 
@@ -68,7 +67,6 @@
   const selectCable = inject('selectCable')
   const cableList = inject('cableList')
   const formData = inject('formData')
-  const {prev, next} = iconImage()
   const previewModal = ref(false)
   const activeIndex = ref(0)
   const pageData = ref([])

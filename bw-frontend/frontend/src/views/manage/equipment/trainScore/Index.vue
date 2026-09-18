@@ -176,7 +176,7 @@ const disturbList = ref([
   }
 ])
 //联络文件样式
-const { llwjData, llwjData2, dpData_220, tpData_220, dptpData, zdkzData, zsyData, dpData_171, tpData_171, dpData_173, tpData_173 } = table()
+const { llwjData, llwjData2, dpData_220, tpData_220, zdkzData, zsyData, dpData_171, tpData_171, dpData_173, tpData_173 } = table()
 const { initData_171, endTrain_171, titleHeader_171 } = equipment_171()
 const { initData_125W_400W, endTrain_400W, endTrain_125W, titleHeader } = equipment_125W_400W()
 const { initData_134A, endTrain_134A, titleHeader_134A } = equipment_134A()

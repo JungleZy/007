@@ -161,7 +161,7 @@ const IconFont = createFromIconfontCN({
 })
 const fs = ref(JSON.parse(localStorage.getItem('fs')));
 provide('realTimeAnwser', {})
-const { listData, selectedPaper, questions, studentsList, KnowledgeData, searchStudentStr, teachers, params, selectPaper, searchPaperObj, preview, takeNoTestVisible, searchPaper, clearSearch, commitTest, previewModel, goBack, selectAllStu } = addTest()
+const { listData, selectedPaper, questions, KnowledgeData, selectPaper, searchPaperObj, preview, searchPaper, clearSearch } = addTest()
 </script>
 
 <style lang="less" scoped>

@@ -1,6 +1,5 @@
 import {onMounted, onUnmounted, ref, watch, nextTick} from 'vue'
 import {deepClone} from "../../../../../../../common/utils/Utils.js"
-import useMorse from "../../../../../../../common/mixin/useMorse.js";
 import {message, Modal} from "ant-design-vue"
 import {codeInKey, codeOnKey} from './keyCode.js'
 import {useRouter} from "vue-router"
@@ -27,7 +26,6 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
   const logsPatStandardCode = ref([]); // 待转换拍发基准值的数据集合
   const cachePatKey = ref([]); // 缓存字码 - 还未翻页提交的字码集合
   const currPatKeyIndex = ref(-1); // 正在拍发的电报纸字码的下标
-  const {morseCode,codeKey,dots} = useMorse();
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
   const router = useRouter();
   const scorePath = ref('');

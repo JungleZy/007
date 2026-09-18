@@ -281,7 +281,7 @@
       default: ''
     }
   })
-  const { scoreData, loading, page, testData, pageTurn, changeChart, showChart, situaData } = trainScore(patHairTrendBoxRef,selfId)
+  const { scoreData, loading, page, testData, pageTurn, changeChart, showChart } = trainScore(patHairTrendBoxRef,selfId)
 </script>
 <style scoped lang="less">
 

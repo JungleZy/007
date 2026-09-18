@@ -152,7 +152,7 @@
     }
     addTelexTrain()
   }
-  const { columns, tableData, tableList, currTablePage, deleteHistory,selectTablePage, tableLoading, selectType, initContent, trainData, addTelexTrain, article, getArticle } = telegramList(addDrillModal)
+  const { columns, tableData, tableList, currTablePage, deleteHistory, selectTablePage, tableLoading, trainData, addTelexTrain, article, getArticle } = telegramList(addDrillModal)
   const selectWZ = (id, index) => {
     trainData.value.wordId = id
     addTelexTrain()

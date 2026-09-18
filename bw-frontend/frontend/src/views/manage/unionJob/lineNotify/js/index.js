@@ -2,13 +2,11 @@ import {message, Modal} from 'ant-design-vue'
 import {ref, createVNode} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
 import {getUserAll, apiSimulationRouterAddRoom, apiSimulationRouterFindRoom, getRoomUserList, deleteTrain} from '../../../../../common/api/UserApi'
-import useMorse from '../../../../../common/mixin/useMorse'
 import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function lineNotify(selectCable) {
   const router = useRouter()
   const route = useRoute()
-  const {baseCode, morseCode} = useMorse()
   const columns = ref([
     {
       title: '房间名称',

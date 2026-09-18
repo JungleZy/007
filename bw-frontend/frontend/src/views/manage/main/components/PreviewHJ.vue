@@ -478,7 +478,7 @@
   const routeMatched = ref(0)
   const fileUrl = ref('')
   const tUrl = ref('')
-  const {wsOnline, devOnline} = useTraffic()
+  useTraffic()
   const ipc = ref(ipcRenderer.isEE)
   let {isShowBackground} = getBackByRouter()
   const openSettingWindow = inject('openSettingWindow')

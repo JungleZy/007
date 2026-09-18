@@ -87,7 +87,7 @@ export default defineComponent({
     score: Number
   },
   setup(props, context) {
-    const { params, index, score } = toRefs(props)
+    const { params, index } = toRefs(props)
     const { typeCheckList, question, Earray } = useStudentQues(params, index)
     let arr
     if (question.value.topic.indexOf('________') !== -1) {

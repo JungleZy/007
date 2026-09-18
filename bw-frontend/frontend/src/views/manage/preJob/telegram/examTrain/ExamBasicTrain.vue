@@ -177,7 +177,7 @@
   const nowTime = ref({ h1: 0, h2: 0, m1: 0, m2: 0, s1: 0, s2: 0 })
   const route = useRoute()
   const router = useRouter()
-  const { wsOnline, devOnline, onKey, changeCriterion, voiceCode } = useControl()
+  const { onKey, changeCriterion, voiceCode } = useControl()
   const timer = ref(null)
   const dataTime = ref(0)
   const fileUrl = ref(window.fileUrl + '/006/code/big/gradient/')

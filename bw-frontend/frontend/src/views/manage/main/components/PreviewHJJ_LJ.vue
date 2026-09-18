@@ -228,7 +228,7 @@
 
   const tUrl = ref('')
   tUrl.value = window.fileUrl + '/006/TrafficService.exe'
-  const {wsOnline, devOnline} = useTraffic()
+  useTraffic()
   const ipc = ref(ipcRenderer.isEE)
   let {isShowBackground} = getBackByRouter()
   const openSettingWindow = inject('openSettingWindow')
@@ -237,7 +237,7 @@
     isShow.value = false
     openSettingWindow()
   }
-  const {routePaths, lineDevicePaths} = routeConfig()
+  const {lineDevicePaths} = routeConfig()
   const editPasswordModel = ref(false)
 
 

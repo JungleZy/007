@@ -28,7 +28,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
   const cachePatKey = ref([]); // 缓存字码 - 还未翻页提交的字码集合
   const showPatCodeLog = ref([]); // 展示的拍发记录
   const currPatKeyIndex = ref(-1); // 正在拍发的电报纸字码的下标
-  const {morseCode,codeKey} = useMorse();
+  const {codeKey} = useMorse();
   const {countPatStandardInfo,countAverageStandard} = countPatStandard();
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
   const router = useRouter();

@@ -147,7 +147,7 @@ const trainPath = ref('')
       }
     })
   }
-const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, selectType, initContent, formData, addWordTrain, getGradeTypeList, addGradeType, basicDeployData, deleteGradeType, gradingRuleModal,deleteHistory } = wordList()
+const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, formData, addWordTrain, gradingRuleModal, deleteHistory } = wordList()
 
 const interfereOption = ref([
   {

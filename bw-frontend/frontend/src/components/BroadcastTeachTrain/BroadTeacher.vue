@@ -127,7 +127,7 @@ import TrainResult from '../../views/manage/unionJob/disturbCode/TrainResult.vue
 import useBroadTeacher from './js/useBroadTeacher'
 const fileUrl = ref(window.fileUrl)
 const countDownRef = ref(null)
-const { trainTimeRef, trainData,maskShow, openTrainInfo,continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, allBaoWen, modelPageTurn, recoveryError, socketStatus } = useBroadTeacher(countDownRef)
+const { trainData, maskShow, openTrainInfo, continuePlay, closeTrainInfo, pageTurn, stop, isStop, check, takeCheck, result, modelPageTurn, recoveryError, socketStatus } = useBroadTeacher(countDownRef)
 </script>
 
 <style lang="less" scoped>

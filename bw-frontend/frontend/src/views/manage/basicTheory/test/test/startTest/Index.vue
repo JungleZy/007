@@ -85,7 +85,7 @@ import {ref} from 'vue'
 import startTest from './js/startTest'
 const countDownRef = ref(null)
 const interfaceStyle = window.interfaceStyle
-const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, clearAnswer, commitTest, getStudentInfo, paperLoding, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDownRef)
+const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, commitTest, getStudentInfo, paperLoding, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDownRef)
 </script>
 
 <style lang="less" scoped>

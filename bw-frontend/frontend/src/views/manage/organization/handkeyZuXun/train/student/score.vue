@@ -398,7 +398,6 @@
 <script setup>
   import {ref, defineProps} from 'vue'
   import trainScore from "./js/trainScore.js";
-  import useMorse from "../../../../../../common/mixin/useMorse.js";
   import scoreSuperb from "../../../../../../assets/HJ/postTrain/score-superb.png";
   import scoreSuffice from "../../../../../../assets/HJ/postTrain/score-suffice.png";
   import scoreFailed from "../../../../../../assets/HJ/postTrain/score-failed.png";
@@ -411,7 +410,6 @@
   import chartIco3 from "../../../../../../assets/HJ/train/chart-ico-3.png";
   import chartIcoOn3 from "../../../../../../assets/HJ/train/chart-ico-3-on.png";
   import scoreSuperbHJJ from '../../../../../../assets/HJ/postTrain/topBox-after.png'
-  const {morseCode} = useMorse();
   const interfaceStyle = window.interfaceStyle
   const showChart = ref('total');
   const { selfId } = defineProps({

@@ -142,7 +142,7 @@ const beforeUpload = file => {
   return isJpgOrPng && isLt2M
 }
 
-const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, selectType, initContent, trainData, init } = equipmentList(addDrillModal)
+const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, init } = equipmentList(addDrillModal)
 const editEquipment = list => {
   addDrillModal.value = true
   data.value.name = list.name

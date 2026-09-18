@@ -4,13 +4,11 @@ import {getUserDirectory, addRoom, findRoom, addRoomZuXun, findRoomZuXun, delete
 
 import {message, Modal} from 'ant-design-vue'
 import {useRoute} from 'vue-router'
-import useMorse from '../../../../../common/mixin/useMorse.js'
 import {saveHeader} from "../../../../../common/api/ReceiveApi"
 import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框
-  const {baseCode, morseCode} = useMorse()
   const route = useRoute()
   const trainData = ref({
     type: 0,

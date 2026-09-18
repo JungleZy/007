@@ -235,7 +235,7 @@
     }
     return h + ' : ' + m + ' : ' + s
   }
-  const { columns, tableData, tableList, currTablePage, selectTablePage, tableLoading, selectType, initContent, trainData, addTelexTrain, rule, getRule,deleteHistory,page } = telegramList(addDrillModal)
+  const { columns, tableList, selectTablePage, tableLoading, selectType, trainData, addTelexTrain, rule, getRule, deleteHistory, page } = telegramList(addDrillModal)
   provide("selectCable",selectCable)
   provide("formData",trainData)
   provide("cableList",cableList)

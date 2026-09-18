@@ -94,7 +94,7 @@
       boo = false
     }
   })
-  const { hour, min, sec, score, knowledgeSwfsId, Knowledge, checkKnowledge, checkItem, nowTime, getToken, showTest, testVisible, rightShow, rightValue, bornTest, activeTile, takeNoTestVisible, loginAndLogoutTwo } = useDetails(data)
+  const { score, knowledgeSwfsId, Knowledge, checkKnowledge, checkItem, nowTime, getToken, showTest, testVisible, rightValue, bornTest, activeTile, takeNoTestVisible, loginAndLogoutTwo } = useDetails(data)
   const getDayjs = data => {
     return moment(Number(data.knowledge.createTime)).format('YYYY-MM-DD HH:mm:ss')
   }

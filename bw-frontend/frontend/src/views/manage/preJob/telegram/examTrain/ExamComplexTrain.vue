@@ -307,7 +307,7 @@ const codeTypeArr = ref([
 ])
 const codeType = ref('gradient')
 
-const { wsOnline, devOnline, messageData, nowTime, trainData, activeMessage, isfocus, activeIndex, pauseDuration,
+const { messageData, nowTime, trainData, activeMessage, isfocus, activeIndex, pauseDuration,
   selectCard, changeSwitch, selectMessage, endExamTrain, changeMessage, changeFocus, beginExamTrain } = examTrain()
 
 /**

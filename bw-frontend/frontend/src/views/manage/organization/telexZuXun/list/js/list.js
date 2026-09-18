@@ -5,11 +5,9 @@ import {addTrain, findDatagramList} from '../../../../../../common/api/datagramZ
 import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 
 import {message} from 'ant-design-vue'
-import useMorse from '../../../../../../common/mixin/useMorse.js'
 
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框
-  const {baseCode, morseCode} = useMorse()
   const trainData = ref({patType: 0})
   const columns = ref([
     {

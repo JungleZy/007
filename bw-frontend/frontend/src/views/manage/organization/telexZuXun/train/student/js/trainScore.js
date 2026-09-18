@@ -1,6 +1,5 @@
 import {ref, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
-import useMorse from "../../../../../../../common/mixin/useMorse.js";
 import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
 import {endPatDetail, getDatagramZuXunPageNumber} from '../../../../../../../common/api/datagramZuXun.js'
 import * as echarts from "echarts"
@@ -15,7 +14,6 @@ export default function telegramList(showChart,selfId) {
   const patHairTrendBoxRef = ref(null);
   const trendLogKeyData = ref([]);
   const patTotal = ref([]);
-  const {codeKey} = useMorse();
   const parseList = value => {
     if (Array.isArray(value)) return value
     if (!value) return []

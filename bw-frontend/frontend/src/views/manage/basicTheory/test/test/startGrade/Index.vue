@@ -126,7 +126,7 @@ const closeModel = ()=>{
 onMounted(() => {
   initPaper()
 })
-const { initPaper, questions, students, fileUrl, examState, isShow, activeUser, userRole, testExam, analyseData, endGrade, goback, commitScore, selelctStu, isInvigilator } = startGrade()
+const { initPaper, questions, students, fileUrl, examState, isShow, activeUser, userRole, testExam, analyseData, endGrade, goback, commitScore, selelctStu } = startGrade()
 </script>
 
 <style lang="less" scoped>

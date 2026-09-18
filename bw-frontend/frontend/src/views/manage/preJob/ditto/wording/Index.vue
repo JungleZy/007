@@ -157,7 +157,7 @@ router.getRoutes().forEach(r => {
   }
 })
 
-const { fileUrl, trainData, validTimes, wpms, noises, gapList, prefixList, frequency, rateWpm, volume, disturbList, handleTrain, handleVoiceData, switchRead, changeAudioPlay, changeVolume, changeMute, changeSort, changePrefix } = termTrain(wpmTOmm)
+const { trainData, validTimes, wpms, noises, gapList, prefixList, frequency, rateWpm, volume, disturbList, handleTrain, handleVoiceData, switchRead, changeAudioPlay, changeVolume, changeMute, changeSort, changePrefix } = termTrain(wpmTOmm)
 
 const checkWpm = val => {
   rateWpm.value = val

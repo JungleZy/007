@@ -11,7 +11,7 @@
 </template>
 
 <script>
-import {ref, toRefs} from 'vue'
+import {ref} from 'vue'
 import trainTimeHJ from '../../assets/HJ/receive/trainTime.png'
 import trainTimeHJJ from '../../assets/HJJ/receive/trainTime.png'
 import trainTimeLJ from '../../assets/LJ/receive/trainTime.png'
@@ -22,7 +22,6 @@ export default {
     nowTime: Object
   },
   setup(props) {
-    const { nowTime } = toRefs(props)
     const trainTime = ref('')
     const interfaceStyle = window.interfaceStyle
     if(interfaceStyle==="HJJ"){

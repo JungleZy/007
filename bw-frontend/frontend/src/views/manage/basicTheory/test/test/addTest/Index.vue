@@ -171,7 +171,7 @@
   })
   const fs = ref(JSON.parse(localStorage.getItem('fs')));
   provide('realTimeAnwser', {})
-  const { listData, selectedPaper, questions, studentsList, KnowledgeData, searchStudentStr, teachers, params, selectPaper, searchPaperObj, preview, takeNoTestVisible, searchPaper, clearSearch, commitTest, searchStudent, selectStudent, previewModel, goBack, selectAllStu } = addTest()
+  const { listData, selectedPaper, questions, studentsList, KnowledgeData, searchStudentStr, teachers, params, selectPaper, searchPaperObj, preview, searchPaper, clearSearch, commitTest, searchStudent, selectStudent, previewModel, goBack, selectAllStu } = addTest()
 </script>
 
 <style lang="less" scoped>

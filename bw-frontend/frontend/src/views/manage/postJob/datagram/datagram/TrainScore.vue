@@ -277,7 +277,7 @@
   const selectMenu = index => {
     activeMenu.value = index
   }
-  const { scoreData, loading, loadScore, scoreReady, page, testData, pageTurn, showChart, situaData } = trainScore(patHairTrendBoxRef)
+  const { scoreData, loading, loadScore, scoreReady, page, testData, pageTurn, showChart } = trainScore(patHairTrendBoxRef)
 </script>
 <style scoped lang="less">
   @import "../../../../../common/styles/css/score";

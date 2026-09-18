@@ -178,7 +178,7 @@ const golist = e => {
     }
   })
 }
-const { listData, takeNew, userRole, testPaper , deleteTest} = knowledgeTabel()
+const { listData, userRole, testPaper, deleteTest } = knowledgeTabel()
 </script>
 
 <style lang="less" scoped>

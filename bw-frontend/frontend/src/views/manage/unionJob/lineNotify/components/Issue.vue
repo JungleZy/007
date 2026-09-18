@@ -198,10 +198,9 @@ import next from '../../../../../assets/HJ/postTrain/next.png'
 
 
 import issue from '../js/Issue'
-import useMorse from '../../../../../common/mixin/useMorse.js'
 import TrainResult from '../../disturbCode/TrainResult.vue'
 import iconImage from "../../../postJob/js/iconImage";
-const {topBg,labNum} = iconImage()
+const {topBg} = iconImage()
 
 const route = useRoute()
 const loading = ref(true)
@@ -214,7 +213,6 @@ const url = window.fileUrl
 const trainTimeRef = ref(0)
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
 
-const { morseCode } = useMorse()
 const print = {
   id: 'keyBox',
   beforeOpenCallback() {

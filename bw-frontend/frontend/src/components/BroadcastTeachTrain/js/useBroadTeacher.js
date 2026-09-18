@@ -18,7 +18,7 @@ export default function useBroadTeacher(countDown) {
     status: 0
   })
   const allBaoWen = ref({})
-  const { dots, morseCode, scatter } = useMorse()
+  const { morseCode } = useMorse()
   const isRefresh = ref(false)//是否刷新
   let check = ref(null)
   let result = ref({

@@ -90,8 +90,6 @@
 <script setup>
   import StudentScore from '../student/score.vue';
   import CountDown from '../../../../../../components/common/CountDown.vue';
-  import iconImage from "../../../../postJob/js/iconImage";
-  const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()
   import teacher from './js/teacher.js'
 
   const {

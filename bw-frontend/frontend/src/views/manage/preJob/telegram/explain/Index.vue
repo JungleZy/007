@@ -115,7 +115,7 @@ const interfaceStyle = window.interfaceStyle
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })
-const { uploadFileUrl, fileUrl, fileList, listData, active, activeS, addDrillModal, newKnowledge, mainPointsType, clickTitle, labelClick, openAddMainPoints, modifyMainPoints, deleteMainPoints, addMainPoints, clickMainPoints, handleChange, beforeUpload } = explain()
+const { uploadFileUrl, fileUrl, fileList, listData, active, activeS, addDrillModal, newKnowledge, clickTitle, labelClick, openAddMainPoints, modifyMainPoints, deleteMainPoints, addMainPoints, clickMainPoints, handleChange, beforeUpload } = explain()
 </script>
 <style scoped lang="less">
   @import "../../../../../common/styles/css/explain.less";

@@ -293,7 +293,6 @@
   import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, FundViewOutlined, CloseCircleOutlined, WarningOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {message, Modal} from 'ant-design-vue'
   import telegramList from './js/telegram'
-  import useMorse from '../../../../../common/mixin/useMorse.js'
   import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
   import {getPostReceiveSetting, savePostReceiveSetting, saveReceivePostTrain, saveHeader} from '../../../../../common/api/ReceiveApi.js'
   import operationMorseVoice from '../../../../../common/utils/voice/operationMorseVoice'
@@ -303,7 +302,6 @@
 
   import Pagination from '../../../../../components/common/Pagination.vue'
   const wpmTOmm = inject('wpmTOmm')
-  const { baseCode, morseCode } = useMorse()
   const {operation, ensureReady} = operationMorseVoice()
   const router = useRouter()
   const userRole = ref(JSON.parse(localStorage.getItem('userRole')))

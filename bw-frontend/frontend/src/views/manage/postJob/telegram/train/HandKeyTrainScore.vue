@@ -401,7 +401,6 @@
 <script setup>
   import {ref} from "vue"
   import trainScore from "./js/trainScore.js";
-  import useMorse from "../../../../../common/mixin/useMorse.js";
   import scoreSuperb from "../../../../../assets/HJ/postTrain/score-superb.png";
   import scoreSuffice from "../../../../../assets/HJ/postTrain/score-suffice.png";
   import scoreFailed from "../../../../../assets/HJ/postTrain/score-failed.png";
@@ -415,13 +414,12 @@
   import chartIcoOn3 from "../../../../../assets/HJ/train/chart-ico-3-on.png";
   import scoreSuperbHJJ from '../../../../../assets/HJ/postTrain/topBox-after.png'
   const interfaceStyle = window.interfaceStyle
-  const {morseCode} = useMorse();
   const showChart = ref('total');
   const formatData = data=>{
     return data?data:'--'
   }
 
-  const { speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend } = trainScore(showChart);
+  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, successResolver, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart);
 
 </script>
 

@@ -6,12 +6,10 @@ import {getElectronKeyZuXunList, saveElectronKeyZuXunTrain, deleteTrain} from '.
 import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 
 import {message, Modal} from 'ant-design-vue'
-import useMorse from '../../../../../../common/mixin/useMorse.js'
 import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框
-  const {baseCode, morseCode} = useMorse()
   const trainData = ref({
     type: 0,
     count: 100,

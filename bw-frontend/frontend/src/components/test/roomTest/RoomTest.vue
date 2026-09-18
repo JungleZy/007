@@ -107,7 +107,7 @@
       isShort:Number,
     },
     setup(props,context){
-      const {params,selectedKnowledgeSwfs,index,indexShow,selectTree,selectValue}=toRefs(props);
+      const {params, selectedKnowledgeSwfs, index, selectTree}=toRefs(props);
       const selectTruelyValue=ref('');//选中节点//需要外部自行组装
       const findFirSon=(tree)=>{
         for(let i in tree){

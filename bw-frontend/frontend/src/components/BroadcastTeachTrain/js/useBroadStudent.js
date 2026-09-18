@@ -18,7 +18,7 @@ export default function useBroadStudent() {
   let result = ref({})
   selfId.value = JSON.parse(localStorage.getItem('userInfo')).id
   const route = useRoute()
-  const { dots, morseCode, scatter } = useMorse()
+  const { morseCode } = useMorse()
   const frequency = ref(1000)
   const isRefresh = ref(false)//是否刷新
   const isFirst = ref(true) //是否第一次进入页面，播放音频

@@ -130,7 +130,7 @@ const startTest = e => {
     }
   })
 }
-const { listData, userRole, takeNew, testPaper ,deleteTest} = knowledgeTabel()
+const { listData, userRole, testPaper, deleteTest } = knowledgeTabel()
 </script>
 
 <style lang="less" scoped>

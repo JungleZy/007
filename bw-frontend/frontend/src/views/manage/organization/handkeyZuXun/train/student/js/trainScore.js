@@ -1,6 +1,5 @@
 import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
-import useMorse from "../../../../../../../common/mixin/useMorse.js";
 import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
 import {getHandKeyZuXunPageNumber, getHandKeyZuXunDetails} from "../../../../../../../common/api/handkeyZuXun.js"
 import * as echarts from "echarts"
@@ -13,7 +12,6 @@ export default function telegramList(showChart,selfId) {
   let LineChart = null;
   const patHairTrendBoxRef = ref(null);
   const trendLogKeyData = ref([]);
-  const {codeKey} = useMorse();
   const short = ref(null);
   const scoreData = ref({
     trainId: '',

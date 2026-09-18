@@ -122,7 +122,7 @@
     trainData.value.wordId = wordId
     addTelexTrain()
   }
-  const { columns, tableData, tableList, currTablePage, deleteHistory,selectTablePage, tableLoading, selectType, initContent, trainData, addTelexTrain } = telegramList(addDrillModal)
+  const { columns, tableData, tableList, currTablePage, deleteHistory, selectTablePage, tableLoading, trainData, addTelexTrain } = telegramList(addDrillModal)
   const startTrain = id => {
     router.push({
       path: route.matched[4].path + '/postEnglishPractice',
