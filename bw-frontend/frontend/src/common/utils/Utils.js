@@ -130,4 +130,22 @@ export const fontSizeDispose = () => {
   }
 }
 
-
+/**
+ * 按 path 前缀解析同级菜单路由。
+ *
+ * 菜单 path 带皮肤后缀（equipmentScoreHJJ / equipmentListHJJ），硬编码裸名拼路径会跳 404；
+ * 且 config/router/guards.js 的 nestedPatDown 会在导航中 splice 掉 TransitionPage 层，
+ * route.matched 的下标语义不稳定，所以这里不按下标取父级，而是在 matched 链上找
+ * 「真正拥有该前缀子节点」的那一层。
+ *
+ * @param route useRoute() 返回的当前路由
+ * @param prefix 目标菜单 path 前缀，如 'equipmentScore'
+ * @returns {string|null} 可直接 push 的绝对路径；菜单里没有该项时返回 null
+ */
+export const resolveSiblingPath = (route, prefix) => {
+  for (const record of route.matched) {
+    const child = (record.children || []).find(c => typeof c.path === 'string' && c.path.startsWith(prefix))
+    if (child) return record.path + '/' + child.path
+  }
+  return null
+}

@@ -66,6 +66,7 @@ import equipment_173 from './js/173'
 import equipment_121C from './js/121C'
 import moment from 'moment'
 import {message} from 'ant-design-vue'
+import {resolveSiblingPath} from '../../../../common/utils/Utils'
 const route = useRoute()
 const router = useRouter()
 const leftMenuWidth = ref(215)
@@ -174,8 +175,13 @@ const addEquipmentTrain = () => {
   const data = trainData.value
   addTrain(data).then(res => {
     openEquipment()
+    const scorePath = resolveSiblingPath(route, 'equipmentScore')
+    if (!scorePath) {
+      message.error('菜单中缺少装备考核页，无法跳转')
+      return
+    }
     router.push({
-      path: route.matched[3].path + '/equipmentScore',
+      path: scorePath,
       query: {
         id: res.data
       }

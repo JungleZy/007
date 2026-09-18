@@ -97,6 +97,8 @@ import {PlayCircleOutlined, FileTextOutlined, PlusOutlined, SettingOutlined} fro
 import {ref, provide} from 'vue'
 import equipmentList from './js/equipmentList'
 import {global} from "../../../../config/pinia/index.js"
+import {message} from 'ant-design-vue'
+import {resolveSiblingPath} from '../../../../common/utils/Utils'
 
 const useGlobalStore = global.useGlobalStore()
 const leftMenuWidth = ref(useGlobalStore.leftWidth);
@@ -133,17 +135,25 @@ const {
   deleteById
 } = equipmentList()
 const startTrain = record => {
+  const scorePath = resolveSiblingPath(route, 'equipmentScore')
+  if (!scorePath) {
+    message.error('菜单中缺少装备考核页，无法跳转')
+    return
+  }
   router.push({
-    path: route.matched[3].path + '/equipmentScore',
+    path: scorePath,
     query: {
       id: record.id
     }
   })
 }
 const addTrain = () => {
-  router.push({
-    path: route.matched[3].path + '/equipmentList'
-  })
+  const listPath = resolveSiblingPath(route, 'equipmentList')
+  if (!listPath) {
+    message.error('菜单中缺少装备列表页，无法跳转')
+    return
+  }
+  router.push({path: listPath})
 }
 const getTableList = data => {
   tableList.value = data
