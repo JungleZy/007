@@ -128,15 +128,6 @@ export default function () {
   const selectType = ()=>{
 
   }
-  const article = ref([])
-  const getArticle = ()=>{
-    getArticleList({type:0}).then(res=>{
-      if (res.data && res.data.length > 0) {
-        trainData.value.wordId = res.data[0].id
-        article.value = res.data
-      }
-    })
-  }
   /**
    * 列表分页切换
    * @param pag

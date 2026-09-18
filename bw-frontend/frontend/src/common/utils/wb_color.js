@@ -72,44 +72,6 @@ export default class WB_ColorSHow {
       this.d_B.measureText(a)
     }
     ;
-    this.d_Au = function(a, b) {
-      var c;
-      if ("0" == a)
-        c = unescape("%u952E%u540D%u5B57");
-      else if ("1" == a)
-        c = unescape("%u6210%u5B57%u5B57%u6839");
-      else if ("2" == a)
-        c = unescape("%u4E00%u7EA7%u7B80%u7801");
-      else if ("3" == a)
-        c = unescape("%u4E94%u7B14%u89C4%u5B9A");
-      else {
-        var d = "#666666";
-        1 == b ? d = this.FillColor1 : 2 == b ? d = this.FillColor2 : 3 == b ? d = this.FillColor3 : 4 == b && (d = this.FillColor4);
-        c = "";
-        -1 != "gfd".indexOf(a) && (c = unescape("%u6A2A"));
-        -1 != "gfd".indexOf(a) && (c = unescape("%u7AD6"));
-        -1 != "tre".indexOf(a) && (c = unescape("%u6487"));
-        -1 != "yui".indexOf(a) && (c = unescape("%u637A"));
-        -1 != "nbv".indexOf(a) && (c = unescape("%u6298"));
-        var g = "";
-        -1 != "ghtyn".indexOf(a) && (g = unescape("%u5DE6%u53F3"));
-        -1 != "fjrub".indexOf(a) && (g = unescape("%u4E0A%u4E0B"));
-        -1 != "dkeiv".indexOf(a) && (g = unescape("%u6742%u5408"));
-        c = unescape("%u8BC6%u522B%u7801%3A%u672B%u7B14") + c + unescape("%u533A-") + g + unescape("%u7ED3%u6784");
-        this.d_B.font = "200px " + unescape("%u5B8B%u4F53");
-        this.d_B.textBaseline = "top";
-        a = a.toUpperCase();
-        this.d_B.fillStyle = d;
-        this.d_B.fillText(a, 50, 10);
-        this.d_B.measureText(a)
-      }
-      this.d_B.font = "normal 14px " + unescape("%u5B8B%u4F53");
-      this.d_B.textBaseline = "top";
-      this.d_B.fillStyle = "#666666";
-      this.d_B.fillText(c, 5, 3);
-      this.d_B.measureText(c)
-    }
-    ;
     this.FillColorZG = "#98a26f";
     this.ZG_Show = function(a) {
       this.init();
@@ -131,14 +93,6 @@ export default class WB_ColorSHow {
         this.d_B.putImageData(c, 0, 0)
       }
 
-    }
-    ;
-    this.d_BB = function(a) {
-      this.d_B.font = "14px " + unescape("%u5B8B%u4F53");
-      this.d_B.textBaseline = "top";
-      this.d_B.fillStyle = "#666";
-      this.d_B.fillText(a, 0, 196);
-      this.d_B.measureText(a)
     }
     ;
     this.d_Aw = function(a) {
@@ -185,36 +139,6 @@ export default class WB_ColorSHow {
           this.d_B.putImageData(e, 0, 0)
         }
       }
-    }
-    ;
-    this.d_BA = function(a) {
-      var b = this.d_B.getImageData(0, 0, this.d_h.width, this.d_h.height);
-      a = a.split("|");
-      var c = "";
-      for (x = 0; x < a.length; x++) {
-        var d = a[x].split(",");
-        1 == parseInt(d[0]) ? c = this.FillColor1 : 2 == parseInt(d[0]) ? c = this.FillColor2 : 3 == parseInt(d[0]) ? c = this.FillColor3 : 4 == parseInt(d[0]) && (c = this.FillColor4);
-        b = m(b, c, parseInt(g(d[1]), 16), parseInt(g(d[2]), 16))
-      }
-      this.d_B.putImageData(b, 0, 0)
-    }
-    ;
-    this.d_AS = function() {
-      var a;
-      a = "" + String.fromCharCode(119);
-      a = a + "w" + String.fromCharCode(119);
-      a = a + "." + String.fromCharCode(100);
-      a += String.fromCharCode(97);
-      a += String.fromCharCode(122);
-      a += String.fromCharCode(105);
-      a += String.fromCharCode(98);
-      a += String.fromCharCode(97);
-      a = a + ".c" + String.fromCharCode(110);
-      this.d_B.font = "14px " + unescape("%u5B8B%u4F53");
-      this.d_B.textBaseline = "top";
-      this.d_B.fillStyle = "#b8b8b8";
-      this.d_B.fillText(a, 80, 196);
-      this.d_B.measureText(a)
     }
     ;
   }

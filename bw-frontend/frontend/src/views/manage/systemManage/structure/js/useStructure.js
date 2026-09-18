@@ -35,7 +35,6 @@ export default function useStructure() {
       }
     })
   }
-  const uploadLoading = ref(false)
   const inputValue = ref('')
   const userFormRef = ref()
   const userRoleId = ref('')
@@ -47,17 +46,6 @@ export default function useStructure() {
     userAccount: ''
   })
   const dataList = ref([])
-  const beforeUpload = file => {
-    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png'
-    if (!isJpgOrPng) {
-      message.error('上传文件格式错误，只支持jpg或者png图片!')
-    }
-    const isLt2M = file.size / 1024 / 1024 < 4
-    if (!isLt2M) {
-      message.error('上传文件超出4MB大小限制！')
-    }
-    return isJpgOrPng && isLt2M
-  }
   const handleIdCard = () => {
     let bday = parseIdCard(userFormState.value.idCard, 1)
     let sex = parseIdCard(userFormState.value.idCard, 2)
@@ -65,19 +53,6 @@ export default function useStructure() {
       userFormState.value.bday = moment(bday)
     }
     userFormState.value.userSex = sex
-  }
-  const handleChange = info => {
-    if (info.file.status === 'uploading') {
-      uploadLoading.value = true
-      return
-    }
-    if (info.file.status === 'done') {
-      callback(`/${info.file.response.data}`)
-    }
-    if (info.file.status === 'error') {
-      uploadLoading.value = false
-      message.error('上传错误')
-    }
   }
   const userFormState = ref({
     id: null,
@@ -140,7 +115,6 @@ export default function useStructure() {
       roleList.value = res.data
     })
   }
-  const fileUrl = ref(window.fileUrl)
   let isEdit = ref(0) //1 修改 ,0查看，2增加
   let showModal = ref(false)
   const columns = ref([
@@ -200,7 +174,6 @@ export default function useStructure() {
   const tableData = ref([])
   const tableList = ref([])
   const currTablePage = ref(1)
-  const fileList = ref([])
   const selectTablePage = pag => {
     if (pag === '-' && currTablePage.value === 1) return false
     else if (pag === '+' && currTablePage.value === Math.ceil(total.value / 10)) return false
@@ -412,27 +385,21 @@ export default function useStructure() {
     tableList,
     selectTablePage,
     currTablePage,
-    fileUrl,
     isEdit,
     editUser,
     onResetPassword,
     showModal,
     takeModel,
-    uploadFileUrl: window.uploadFileUrl,
-    beforeUpload,
     userFormState,
-    fileList,
     labelCol: {span: 5},
     wrapperCol: {span: 17},
     rules,
-    handleChange,
     handleIdCard,
     userRoleId,
     findRoleList,
     roleList,
     userFormRef,
     inputValue,
-    uploadLoading,
     getUser,
     searchUsersData,
     total,

@@ -98,13 +98,6 @@ export default function wordList() {
 
     })
   }
-  const article = ref([])
-  const getArticle = () => {
-    getArticleList({ type: 0 }).then(res => {
-      trainData.value.wordId = res.data[0].id
-      article.value = res.data
-    })
-  }
   /**
    * 列表分页切换
    * @param pag
@@ -193,8 +186,6 @@ export default function wordList() {
     tableLoading,
     formData,
     addWordTrain,
-    article,
-    getArticle,
     addGradeType,
     getGradeTypeList,
     deleteGradeType,
