@@ -32,10 +32,10 @@
             <div class="key">9</div>
             <div class="key">10</div>
           </div>
-          <div class="keyBox" v-if="pageData.length>0">
+          <div class="keyBox" v-if="pageRows.length>0">
             <template v-for="index in 100" :key="index">
               <div :class="{ key: true}">
-                <span>{{ pageData[index-1].key }}</span>
+                <span>{{ pageRows[index-1].key }}</span>
               </div>
             </template>
           </div>
@@ -83,7 +83,10 @@
 
     // getMessage()
   })
-  const pageData = ref([])
+// 当前页的 100 格视图，由接口结果或 props.pageData[当前页] 展开而来 —— 不是 prop 的副本。
+// 原先这个 ref 也叫 pageData，与同名 prop 撞车（vue/no-dupe-keys），
+// 而两者语义不同（prop 是全部页，本地是当前页），同名尤其误导，故改名。
+const pageRows = ref([])
   const changePage = (num) => {
     loading.value = true
     page.value.current = page.value.current + num
@@ -105,16 +108,16 @@
       trainId: route.query.id
     }).then(res=>{
       loading.value = false
-      pageData.value = res.data.messageBody;
+      pageRows.value = res.data.messageBody;
     })
   }
   const getMessage = ()=>{
-    pageData.value = []
+    pageRows.value = []
     const message = props.pageData[page.value.current-1]
     loading.value = false
     // console.log(message);
     message.forEach((item,index)=>{
-      pageData.value.push({key:item.join('')})
+      pageRows.value.push({key:item.join('')})
     })
   }
 </script>

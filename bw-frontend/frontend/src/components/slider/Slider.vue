@@ -4,17 +4,17 @@
       <div class="text">
         <template v-if="type=='max'">
 <!--          <div>{{min}}</div>-->
-          <div class="on" :style="{left: 'calc(' + ((val-min)/(max-min)*100)+'% - 10px)'}">{{val}}</div>
+          <div class="on" :style="{left: 'calc(' + ((current-min)/(max-min)*100)+'% - 10px)'}">{{current}}</div>
 <!--          <div>{{max}}</div>-->
         </template>
         <template v-else>
-          <div v-for="(item,i) in list" :key="i" :class="{on: item.value==val}">{{item.label}}</div>
+          <div v-for="(item,i) in list" :key="i" :class="{on: item.value==current}">{{item.label}}</div>
         </template>
       </div>
     </div>
     <div style="display: flex;justify-content: space-between;align-items: center;">
       <div @click="changeSliderMin" v-if="type!='max'" style="width: 20px;height: 10px;cursor: pointer;flex-shrink: 0;position: relative;"></div>
-      <a-slider v-model:value="val" :min="min" :max="max" :step="step" @change="changeSliderVal" style="width: 100%"></a-slider>
+      <a-slider v-model:value="current" :min="min" :max="max" :step="step" @change="changeSliderVal" style="width: 100%"></a-slider>
       <div @click="changeSliderMax" v-if="type!='max'" style="width: 20px;height: 10px;cursor: pointer;flex-shrink: 0;position: relative;"></div>
     </div>
   </div>
@@ -59,25 +59,28 @@
       type: Number
     }
   });
-  const val = ref(0);
+  // 本地当前值，初值与后续变更都从 props.val 同步过来。
+  // 原先这个 ref 也叫 val，与同名 prop 撞车（setup 绑定会盖住 prop，vue/no-dupe-keys），
+  // 模板里的 val 到底指哪个要靠读代码才能确定，故改名。
+  const current = ref(0);
   watch(props, () => {
-    val.value = props.val;
+    current.value = props.val;
   },{
     immediate:true
   });
 
   const changeSliderMin = () => {
-    val.value = props.min;
+    current.value = props.min;
     emits('callback', props.min);
   };
 
   const changeSliderMax = () => {
-    val.value = props.max;
+    current.value = props.max;
     emits('callback', props.max);
   };
 
   const changeSliderVal = () => {
-    emits('callback', val.value)
+    emits('callback', current.value)
   };
 
 </script>

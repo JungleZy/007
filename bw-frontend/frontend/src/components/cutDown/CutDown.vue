@@ -35,16 +35,11 @@ export default {
     else{
       trainTime.value=trainTimeLJ
     }
-    return { trainTime, nowTime }
+    return { trainTime }
   }
 }
 </script>
-<!--<script setup>-->
-<!--  import trainTime from '../../assets/HJ/receive/trainTime.png'-->
-<!--  import {ref,toRefs} from 'vue'-->
-<!--  const props = defineProps({nowTime:{type:Object}})-->
-<!--  const nowTime = ref(props.nowTime)-->
-<!--</script>-->
+
 
 <style scoped lang="less">
 

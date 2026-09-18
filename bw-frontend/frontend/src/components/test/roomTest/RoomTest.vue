@@ -152,15 +152,13 @@
       question.value.type = ""+ question.value.type
       selectTruelyValue.value = question.value.levelId
       return{
-        changeTitle,question,typeCheckList,Earray,addSelect,changeType,spacing, spacingLength,index,addSpacing,deleteClass,selectTruelyValue
+        changeTitle,question,typeCheckList,Earray,addSelect,changeType,spacing, spacingLength,addSpacing,deleteClass,selectTruelyValue
       }
     },
   })
 </script>
 
-<script setup>
 
-</script>
 
 <style lang="less" scoped>
   .padding{

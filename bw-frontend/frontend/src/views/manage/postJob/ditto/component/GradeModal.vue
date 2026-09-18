@@ -1,5 +1,5 @@
 <template>
-  <a-modal :destroyOnClose="true" :width="530" class="init_modal_style footer-border-none" v-model:visible="props.gradingRuleModal" @cancel="handleCancel">
+  <a-modal :destroyOnClose="true" :width="530" class="init_modal_style footer-border-none" :visible="props.gradingRuleModal" @cancel="handleCancel">
     <template #title>
       <strong>评分规则</strong>
     </template>
@@ -36,7 +36,7 @@
     </a-spin>
     <template #footer>
       <div class="w-full layout-center">
-        <div :class="{ createDrillBtn: true, 'btn-animate': !loading, loadingBtn: loading }" @click="props.gradingRuleModal = false"><a-spin v-if="loading" size="small" /> 取消编辑</div>
+        <div :class="{ createDrillBtn: true, 'btn-animate': !loading, loadingBtn: loading }" @click="handleCancel"><a-spin v-if="loading" size="small" /> 取消编辑</div>
         <div :class="{ createDrillBtn: true, 'btn-animate': !loading, loadingBtn: loading }" @click="saveDeploy"><a-spin v-if="loading" size="small" /> 保存配置</div>
       </div>
     </template>
@@ -53,11 +53,12 @@ import { apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPos
 const props = defineProps(['gradingRuleModal', 'type'])
 const emit = defineEmits(['update:gradingRuleModal'])
 
-const gradingRuleModal = ref(false)
+// 显隐完全由父组件的 v-model:gradingRuleModal 驱动：本组件只读 props、关闭时 emit。
+// 原先另有一个同名本地 ref（vue/no-dupe-keys），只在 onMounted 和保存成功时被赋值、从不被读取，
+// 属只写死状态，已删除。
 const loading = ref(false)
 const basicDeployData = ref([])
 onMounted(() => {
-  gradingRuleModal.value = props.gradingRuleModal
   getGradeTypeList()
 })
 
@@ -111,7 +112,6 @@ const saveDeploy = () => {
     apiPostTrainGlobalRuleAddRule(data).then(res => {
       if (res.code == 200) {
         message.success('保存成功！')
-        gradingRuleModal.value = false
         emit('update:gradingRuleModal', false)
       } else {
         message.error('保存失败！')
