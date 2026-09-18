@@ -65,6 +65,7 @@ import equipment_134A from './js/134A'
 import equipment_173 from './js/173'
 import equipment_121C from './js/121C'
 import moment from 'moment'
+import {message} from 'ant-design-vue'
 const route = useRoute()
 const router = useRouter()
 const leftMenuWidth = ref(215)
@@ -209,24 +210,28 @@ const trainName = () => {
 
 //打开设备
 const openEquipment = () => {
+  if (!window.mqttUrl) {
+    message.error('未配置 MQTT 服务地址，无法启动装备程序')
+    return
+  }
   const v = trainData.value
   if (v.deviceName === '173') {
-    window.open('equipment173://' + mqttUrl + ',' + trainID.value.id)
+    window.open('equipment173://' + window.mqttUrl + ',' + trainID.value.id)
   } else if (v.deviceName === '171') {
-    window.open('equipment171://' + mqttUrl + ',' + trainID.value.id)
+    window.open('equipment171://' + window.mqttUrl + ',' + trainID.value.id)
   } else if (v.deviceName === '121C') {
-    window.open('equipment121C://' + mqttUrl + ',' + trainID.value.id)
+    window.open('equipment121C://' + window.mqttUrl + ',' + trainID.value.id)
   } else if (v.deviceName === '134A') {
-    window.open('equipment134A://' + mqttUrl + ',' + trainID.value.id)
+    window.open('equipment134A://' + window.mqttUrl + ',' + trainID.value.id)
   } else if (v.deviceName === '125W') {
-    window.open('equipment125W://' + mqttUrl + ',' + trainID.value.id)
+    window.open('equipment125W://' + window.mqttUrl + ',' + trainID.value.id)
   } else if (v.deviceName === '400W') {
     if (trainData.value.type == '0') {
-      window.open('equipment400WJ://' + mqttUrl + ',' + trainID.value.id)
+      window.open('equipment400WJ://' + window.mqttUrl + ',' + trainID.value.id)
     } else if (trainData.value.type == '1') {
-      window.open('equipment400WF://' + mqttUrl + ',' + trainID.value.id)
+      window.open('equipment400WF://' + window.mqttUrl + ',' + trainID.value.id)
     } else if (trainData.value.type == '2') {
-      window.open('equipment400WK://' + mqttUrl + ',' + trainID.value.id)
+      window.open('equipment400WK://' + window.mqttUrl + ',' + trainID.value.id)
     }
   }
 

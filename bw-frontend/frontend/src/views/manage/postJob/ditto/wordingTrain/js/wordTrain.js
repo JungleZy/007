@@ -330,7 +330,7 @@ export default function wordingTrain(countDown) {
   const changeAudioPlay = status => {
     disturbList.value.forEach((item, index) => {
       var ctx = new AudioContext()
-      var url = fileUrl + item.url
+      var url = window.fileUrl + item.url
       let request = new XMLHttpRequest()
       request.open('GET', url, true)
       request.responseType = 'arraybuffer'

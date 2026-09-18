@@ -80,9 +80,9 @@ import equipment_121C from './js/121C'
 import {getDetails, addTrain, generalGroupNetRuleFindAll} from '../../../../common/api/equipment'
 import play from '../../../../assets/HJ/term/play-ico.png'
 import pause from '../../../../assets/HJ/term/pause-ico.png'
+import {useRoute} from 'vue-router'
 
 const route = useRoute()
-const router = useRouter()
 const disturbList = ref([
   {
     type: 1,
