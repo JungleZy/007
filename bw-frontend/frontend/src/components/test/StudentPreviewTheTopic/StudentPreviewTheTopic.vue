@@ -80,10 +80,18 @@
     <div v-if="!isAnswer" style="color: #78e775">
       正解：
       <span v-if="params.type == '1'">{{ Earray[params.answer] }}</span>
-      <span v-if="params.type == '2'" v-for="(ite, index) in params.answer">{{ Earray[ite] }}{{ index == params.answer.length - 1 ? '' : '、' }}</span>
-      <span v-if="params.type == '3'" v-for="(ite, index) in params.answer">{{ ite == '1' ? '对' : '错' }}</span>
-      <span v-if="params.type == '4'" v-for="(ite, index) in params.answer">{{ ite }}{{ index == params.answer.length - 1 ? '' : '、' }}</span>
-      <span v-if="params.type == '5'" v-for="(ite, index) in params.answer">{{ ite }}</span>
+      <template v-if="params.type == '2'">
+        <span v-for="(ite, index) in params.answer" :key="index">{{ Earray[ite] }}{{ index == params.answer.length - 1 ? '' : '、' }}</span>
+      </template>
+      <template v-if="params.type == '3'">
+        <span v-for="(ite, index) in params.answer" :key="index">{{ ite == '1' ? '对' : '错' }}</span>
+      </template>
+      <template v-if="params.type == '4'">
+        <span v-for="(ite, index) in params.answer" :key="index">{{ ite }}{{ index == params.answer.length - 1 ? '' : '、' }}</span>
+      </template>
+      <template v-if="params.type == '5'">
+        <span v-for="(ite, index) in params.answer" :key="index">{{ ite }}</span>
+      </template>
     </div>
     <div class="layout-left-top" style="color: #78e775; padding-bottom: 10px" v-if="isGarde">
       正确答案：

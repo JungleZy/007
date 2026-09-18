@@ -55,7 +55,8 @@
             </a-select>
             <div class="overflow-auto" style="height: calc(100% - 50px)">
               <a-row>
-                <a-col v-if="searchType != 2" v-for="(d, i) in listData.exam" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
+                <template v-if="searchType != 2">
+                <a-col v-for="(d, i) in listData.exam" :key="i" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
                   <div class="list relative">
                     <div class="listBg">
                       <img class="imgs" :src="llcy" alt="" />
@@ -88,7 +89,9 @@
                     <div v-if="d.state == 4 && userRole.id == 2" class="startTest" @click="startGrade(d)">查看详情</div>
                   </div>
                 </a-col>
-                <a-col v-if="searchType != 1" v-for="(d, i) in listData.examSelf" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
+                </template>
+                <template v-if="searchType != 1">
+                <a-col v-for="(d, i) in listData.examSelf" :key="i" class="card" :xs="{ span: 12, offset: 0 }" :md="{ span: 12, offset: 0 }" :lg="{ span: 12, offset: 0 }" :xl="{ span: 8, offset: 0 }" :xxl="{ span: 6, offset: 0 }">
                   <div class="list relative">
                     <div class="listBg">
                       <img class="imgs" :src="llcy" alt="" />
@@ -117,6 +120,7 @@
                     <div class="startTest" @click="golist(d)">查看详情</div>
                   </div>
                 </a-col>
+                </template>
               </a-row>
             </div>
           </div>

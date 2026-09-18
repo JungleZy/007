@@ -105,7 +105,8 @@
               <img :src="keyBg" class="bg" />
               <div class="keys overflow-auto" ref="patKeyBoxRef" style="display: block">
                 <div class="layout-left-top" v-for="(row,r) of patKeysLogs" :key="r" >
-                  <template v-if="r===patKeysLogs.length - 1||r===patKeysLogs.length - 2" v-for="(key, k) of row" :key="k">
+                  <template v-if="r===patKeysLogs.length - 1||r===patKeysLogs.length - 2">
+                  <template v-for="(key, k) of row" :key="k">
                     <div class="key layout-left-top" style="font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;">
                       {{ key.join('') }}
                       <div class="cursor" v-if="r == patKeysLogs.length-1 && k == row.length-1"></div>
@@ -113,6 +114,7 @@
                     <template v-if="autoLine">
                       <div v-if="k % 10 == 9 && k != 0" style="width: 100%; height: 1px"></div>
                     </template>
+                  </template>
                   </template>
                 </div>
               </div>

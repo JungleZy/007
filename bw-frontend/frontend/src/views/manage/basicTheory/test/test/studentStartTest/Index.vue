@@ -22,7 +22,8 @@
           </div>
         </div>
         <div class="question">
-          <div v-if="questions" v-for="v of bankList">
+          <template v-if="questions">
+          <div v-for="v of bankList" :key="v.key">
             <div class="questionTitle">
               <div style="display: flex">
                 <div class="quesTypebg" style="height: 100%; line-height: 30px; padding: 0 30px 0 10px">{{ v.name }}</div>
@@ -35,6 +36,7 @@
               <!--            <div class="questionItem questionItemActive">2</div>-->
             </div>
           </div>
+          </template>
         </div>
         <div v-if="terminalMessage" role="status" style="padding: 12px; color: #ffd591">{{ terminalMessage }}</div>
         <div class="commit btn-animate btn-animate-orange" @click="commitTest">{{ terminal ? '退出查看' : '交卷评分' }}</div>

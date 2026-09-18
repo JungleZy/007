@@ -67,7 +67,8 @@
       <div class="w-full absolute "  style="left: 0px; "  :style="[isfocus?'height: calc(100% - 330px)':'height:100%']">
         <div class="w-full h-full layout-left-top scorebox" style="overflow: auto;max-height: max-content">
           <div  style="max-height: max-content;width: 100% ;display: flex;flex-wrap: wrap;padding: 0 4px;" :style="[trainData.type>1?'justify-content: space-between':'']">
-            <div v-if="trainData.type!=4" class="cardBox" style="display: flex;height: max-content;" v-for=" (v,index) of message" :style="[trainData.type>1?'min-width:16%':'width: 10%']" >
+            <template v-if="trainData.type!=4">
+            <div class="cardBox" style="display: flex;height: max-content;" v-for=" (v,index) of message" :key="index" :style="[trainData.type>1?'min-width:16%':'width: 10%']" >
               <div class="messageBox"
                    v-if="index>=small&&index<big"
                    :class="[!v.trueOrfalse&&v.trueOrfalse!=null&&(v.isFocus)?'erroyMessageBox':'',v.trueOrfalse&&(v.isFocus)?'successMessageBox':'',activeIndex==index&&trainData.status==1?'activeBox':'']">
@@ -82,9 +83,12 @@
                 </div>
               </div>
             </div>
-            <div v-else class="h-full w-full ">
+            </template>
+            <template v-else>
+            <div class="h-full w-full ">
               <WZTrain :message="message" :trainData="trainData" :activeIndex="activeIndex" :inputIndex="inputIndex"></WZTrain>
             </div>
+            </template>
           </div>
         </div>
       </div>

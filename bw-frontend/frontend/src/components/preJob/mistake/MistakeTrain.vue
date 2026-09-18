@@ -43,14 +43,18 @@
           <div class="questionTitle">{{activeQuestionIndex+1}}、{{activeQuestion.title}}</div>
           <div class="layout-left-top" style="margin-bottom: 10px">
             <div class="codeText">正确报文</div>
-            <div v-for="item of activeQuestion.code" v-if="activeQuestion.type!=1" class="layout-center code">{{item}}</div>
+            <template v-if="activeQuestion.type!=1">
+              <div v-for="(item, index) of activeQuestion.code" :key="index" class="layout-center code">{{item}}</div>
+            </template>
             <div style="width: 600px" class="layout-center" v-if="activeQuestion.type==1">
               <div v-for="(item,index) of activeQuestion.code" class="layout-center code" :style="[index%10==9?'border-right:1px solid #70a3b8!important':'']">{{item}}</div>
             </div>
           </div>
           <div class="layout-left-top" style="margin-bottom: 10px">
             <div  class="codeText">已输入报文</div>
-            <div v-if="activeQuestion.type!=1" v-for="(item,index) of activeQuestion.compileCode.split(' ')" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'']" class="layout-center code">{{item}}</div>
+            <template v-if="activeQuestion.type!=1">
+              <div v-for="(item,index) of activeQuestion.compileCode.split(' ')" :key="index" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'']" class="layout-center code">{{item}}</div>
+            </template>
             <div style="width: 600px" class="layout-center" v-if="activeQuestion.type==1">
               <div v-for="(item,index) of activeQuestion.compileCode.split(' ')" :style="[item!==activeQuestion.code[index]&&item.length>0?'color:  red':'',index%10==9?'border-right: 1px solid #70a3b8':'']" class="layout-center code">{{item}}</div>
             </div>
