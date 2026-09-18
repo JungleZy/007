@@ -305,7 +305,6 @@
     getPostTelegramTrainById({
       id: trainData.value.trainId
     }).then(res => {
-      console.log(res)
       loading.value = false
       if (res.code === 200) {
         for (let key in res.data) {

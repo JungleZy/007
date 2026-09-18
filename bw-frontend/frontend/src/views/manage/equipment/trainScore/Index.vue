@@ -321,9 +321,6 @@ const establishMQTT = () => {
   mqttClint.connect({ userName: '', password: '' })
   mqttClint.onMessageArrived = w => {
     const messages = JSON.parse(w.payloadString)
-    console.log("messages")
-    console.log(messages)
-    console.log("messages")
     loading.value = false
     endTrain(messages)
   }

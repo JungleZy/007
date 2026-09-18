@@ -80,7 +80,6 @@ export default function network(selectTablePage) {
     }
     //
     const cliceTd=(y,x)=>{
-        console.log(y,x);
     }
     //判断联络文件是否该有高亮头部
     const isTitle = (value)=>{

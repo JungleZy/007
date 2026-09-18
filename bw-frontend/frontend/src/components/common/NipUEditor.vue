@@ -77,13 +77,12 @@
 
         xhr.onload = function () {
           if (xhr.status !== 200) {
-            console.log('HTTP Error: ' + xhr.status)
+            console.error('[ueditor] 上传失败 HTTP ' + xhr.status)
             return
           }
           let json = JSON.parse(xhr.responseText)
-          console.log(json)
           if (!json || typeof json.data[0] != 'string') {
-            console.log('Invalid JSON: ' + xhr.responseText)
+            console.error('[ueditor] 上传响应不是预期 JSON: ' + xhr.responseText)
             return
           }
           callback(`${window.fileUrl}/${json.data}`, {

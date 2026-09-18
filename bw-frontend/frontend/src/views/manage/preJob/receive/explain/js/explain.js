@@ -24,7 +24,6 @@ export default function explain() {
       findReceivePointsByType({type:e}).then(res=>{
          if (res.data){
             listData.value=JSON.parse(res.data.content)
-           console.log(listData.value)
             clickId.value=res.data.id;
          }
       })

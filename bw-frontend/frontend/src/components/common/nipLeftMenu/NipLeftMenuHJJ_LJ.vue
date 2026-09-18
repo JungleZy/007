@@ -45,7 +45,6 @@
   let atRoute =route.matched[3]
   //系统管理需要单独处理
   if(route.path.indexOf("systemManage")>-1){
-    console.log(route.matched[2])
     atRoute = route.matched[2]
   }else {
     atRoute =route.matched[3]

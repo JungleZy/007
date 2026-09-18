@@ -126,7 +126,6 @@ export default function equipment_134A(formData, Data) {
   }
 
   const endTrain_134A = (formData, Data, messages, trainType, scoreList) => {
-    console.log(formData, Data, messages, trainType, scoreList)
     if (trainType == 1) {
       endTrain_dp(formData, messages, scoreList)
     } else if (trainType == 2) {
@@ -138,7 +137,6 @@ export default function equipment_134A(formData, Data) {
   }
   //定频结束
   const endTrain_dp = (formData, messages, scoreList) => {
-    console.log(formData, messages, scoreList)
     formData.value.dp.forEach((item, index) => {
       const xdData = messages.paramList.find(i => i['信道'] == item['信道'].value)
       if (xdData) {
@@ -185,7 +183,6 @@ export default function equipment_134A(formData, Data) {
   }
   //跳频结束
   const endTrain_tp = (formData, messages, scoreList) => {
-    console.log(formData, messages, scoreList)
     for (let item in formData.value.tp) {
       const xdData = messages['param跳频List'].find(i => i['参数号'] == formData.value.tp['参数号'].value)
       if (xdData) {
@@ -221,7 +218,6 @@ export default function equipment_134A(formData, Data) {
   }
   //自适应结束
   const endTrain_zsy = (formData, messages, scoreList) => {
-    console.log(formData, messages, scoreList)
     const messageData = messages['param自适应']
     formData.value.zsy['分组'].forEach((item, index) => {
       const xdData = messageData['信道组'].find(i => i['分组'] == item['分组'].value)

@@ -175,9 +175,6 @@ const disturbList = ref([
   }
 ])
 const {trainDataP} = defineProps({trainDataP: Object})
-console.log("trainDataP")
-console.log(trainDataP)
-console.log("trainDataP")
 //联络文件样式
 const { llwjData, llwjData2, dpData_220, tpData_220, dptpData, zdkzData, zsyData, dpData_171, tpData_171, dpData_173, tpData_173 } = table()
 const { initData_171, endTrain_171, titleHeader_171 } = equipment_171()
@@ -314,9 +311,6 @@ const establishMQTT = () => {
   mqttClint.connect({ userName: '', password: '' })
   mqttClint.onMessageArrived = w => {
     const messages = JSON.parse(w.payloadString)
-    console.log("messages")
-    console.log(messages)
-    console.log("messages")
     loading.value = false
     endTrain(messages)
   }

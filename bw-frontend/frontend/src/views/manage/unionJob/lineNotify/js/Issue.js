@@ -129,8 +129,6 @@ export default function issue(trainData, trainTimeRef) {
       }
       else if (newData.topic == 'online') {
         //上线
-        console.log(putAwayUserList.value)
-        console.log( newData.body.id)
         putAwayUserList.value.forEach(item => {
           if (item.id == newData.body.id) {
             item.socketStatus = 1

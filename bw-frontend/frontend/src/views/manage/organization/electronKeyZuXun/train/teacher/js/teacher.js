@@ -323,7 +323,6 @@ export default function () {
 
   /** 查看学员成绩 */
   const seeStudentScore = (user) => {
-    console.log(user)
     if (trainData.value.status < 2) return false;
     activeUserId.value = (user.userId==activeUserId.value?null:user.userId)
     isFinish.value = user.isFinish
@@ -386,9 +385,6 @@ export default function () {
   const renderColumnChart = () => {
 
     nextTick(()=>{
-      console.log("chartData");
-      console.log(chartData.value);
-      console.log("chartData");
       let column=document.getElementById("columnChart")
       column.removeAttribute('_echarts_instance_')
       columnChart = echarts.init(column);

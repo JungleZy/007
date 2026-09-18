@@ -292,7 +292,6 @@ export default function broaddcastTeacheing(selectCable) {
   const generateMessageHeader = (data)=>{
     let header = `NR${messageHeader.value.nr} CK${formData.value.bwCount} ${messageHeader.value.plb} ${messageHeader.value.year.replaceAll("0","T")} ${messageHeader.value.date.replaceAll("0","T")}`
     if(messageHeader.value.remaks)header+=' RMKS '+messageHeader.value.remaks
-    console.log(header);
     return header.toUpperCase()
 
   }

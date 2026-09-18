@@ -351,7 +351,6 @@ export default function useBroadTeacher(countDown) {
           }
           allCode.push('!')
         }
-        console.log(allCode)
         // handlePlayCodeData(pag, res.data)
       }
     })

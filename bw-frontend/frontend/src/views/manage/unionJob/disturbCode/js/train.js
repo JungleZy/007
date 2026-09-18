@@ -338,10 +338,8 @@ export default function train() {
                     changePlayDisposeInfo(body)
                   }
                   if(student.value.msg.status == 2){
-                    console.log('继续')
                     operation({type:'continue'})
                   }else {
-                    console.log('开始')
                     playTrainCodeInfo()
                   }
 

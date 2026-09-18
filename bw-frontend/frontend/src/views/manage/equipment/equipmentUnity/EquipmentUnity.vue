@@ -17,11 +17,9 @@ const route = useRoute()
 const equipmentName = ref("")
 const equipmentUrl = ref("")
 onMounted(()=>{
-  console.log(route)
   equipmentName.value = route.query.name
   // equipmentUrl.value = `${fileUrl.value}/equipment/${equipmentName.value}/index.html`
   equipmentUrl.value = `./equipment/${equipmentName.value}/index.html`
-  console.log(`${fileUrl.value}/equipment/${equipmentName.value}/index.html`);
 })
 
 </script>

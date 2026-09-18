@@ -65,14 +65,12 @@ export default function Personal(props) {
   })
   // 切换tab
   const changeTab = ()=>{
-    console.log(activeKey.value);
     if(activeKey.value === '2'){
       handleChangeTrainType()
     }
   }
 // 训练统计修改时间区间
   const changeTime = ()=>{
-    console.log(time.value);
     getTrainData()
   }
 // 获取训练统计数据
@@ -294,7 +292,6 @@ export default function Personal(props) {
           type: 'shadow'
         },
         formatter:(e)=>{
-          console.log(e);
           let a = '第 '+`<span style="color: #0a9a89;font-weight: bold">${e[0].name}</span>` + ' 次<br/>'
           a+=e[0].marker + ' 分数：' +e[0].data + '分<br/>'
           a+=e[1].marker + ' 用时：' +e[1].data + '分钟<br/>'

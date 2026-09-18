@@ -310,7 +310,6 @@
   const drillPath = ref('')
   const scorePath = ref('')
   const changeAnswer = (e)=>{
-    console.log(e.target.innerText)
   }
   router.getRoutes().forEach(r => {
     if (r.name === 'ReceivePostTrain') {
@@ -398,7 +397,6 @@
       formData.value.cableId = null
       selectCable.value = null
     }
-    console.log(formData.value)
   }
   const { columns, tableData, currTablePage, selectTablePage, tableLoading,deleteHistory } = telegramList()
 

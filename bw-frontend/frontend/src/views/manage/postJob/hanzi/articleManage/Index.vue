@@ -155,7 +155,6 @@ const uploadChange = async (e)=>{
   } else {
     reader.readAsArrayBuffer(e.file)
     reader.onload = (ev) => {
-      console.log(e);
       mammoth.extractRawText({arrayBuffer: ev.target.result}).then(res => {
         data.value.content = res.value
       })

@@ -212,7 +212,6 @@ const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 });
 const selectNode = (data)=>{
-console.log(data)
 }
 const {
   isTableStriped,

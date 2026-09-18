@@ -362,7 +362,6 @@ const afreshOcr = () => {
 /** 扫描 */
 const handleOcr = () => {
   step.value = 1
-  console.time()
   ocrLoading.value = true
   new OCR().dispose(cutResult.value, res => {
     ocrResult.value = res.map(row => {
@@ -380,7 +379,6 @@ const handleOcr = () => {
         ocrResult.value.push([[''], [''], [''], [''], [''], [''], [''], [''], [''], ['']])
       }
     }
-    console.timeEnd()
     removeAnime()
     step.value = 2
   })

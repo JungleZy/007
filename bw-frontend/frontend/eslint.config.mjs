@@ -47,8 +47,10 @@ export default [
       'no-unused-vars': ['warn', { args: 'none', ignoreRestSiblings: true }],
       'no-undef': 'warn',
       'no-debugger': 'warn',
-      // 存量 console 较多，先计入基线；清零后再升 error
-      'no-console': 'warn',
+      // console.error / console.warn 是本仓唯一的故障上报通道（授权、串口、会话保存、
+      // PubSub 订阅者异常等 27 处都靠它），删掉等于制造静默失败，故显式放行；
+      // console.log / time 属调试残留，保持告警。生产构建另有 terser drop_console 兜底。
+      'no-console': ['warn', { allow: ['error', 'warn'] }],
       // 关掉：本仓的路由组件文件名与后端 t_menus.component 路径绑定（guards.js 按路径匹配），
       // 上百个 Index.vue 不是风格随意，改名必须同步菜单表，属评审档 5 的门控项。
       // 留着它只会产生 67 条永远不会被处理的噪音，反而盖住真缺陷。

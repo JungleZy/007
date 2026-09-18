@@ -377,7 +377,6 @@ export default function telegramList(wpmTOmm) {
         if (receiveBgRef.value) {
           receiveBgRef.value.play();
         }
-        console.log(receiveData.value.validTime)
         if(playType.value === 'playing' || playType.value === 'pause'){
           operation({type:'continue'})
         }else {

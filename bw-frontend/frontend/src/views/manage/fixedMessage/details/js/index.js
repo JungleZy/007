@@ -25,7 +25,6 @@ export default function details(){
   onMounted(()=>{
     if(route.query.id){
       getCableAllByID({id:route.query.id}).then(res=>{
-        console.log(res)
         messageData.value.id = res.data.id
         messageData.value.title = res.data.title
         messageData.value.typeId = res.data.typeId
@@ -105,7 +104,6 @@ export default function details(){
   }
   //添加报底
   const addPageMessage = ()=>{
-    console.log(pageData.value)
     let isFalseCode = regLastPage()
     if(isFalseCode){
       message.error('不规范报底请核对后在新增！')
@@ -176,7 +174,6 @@ export default function details(){
   }
   //导入报底
   const uploadChange = async (e)=>{
-    console.log(e)
     if (!e.file) return false
     let i = e.file.name.lastIndexOf('.')
     let str = ''
@@ -192,16 +189,13 @@ export default function details(){
       reader.readAsText(e.file,'UTF-8')
       reader.onload = (ev) => {
         str = ev.target.result
-        console.log(JSON.stringify(str))
         regTest(str)
       }
     } else {
       reader.readAsArrayBuffer(e.file)
       reader.onload = (ev) => {
-        console.log(e);
         mammoth.extractRawText({arrayBuffer: ev.target.result}).then(res => {
           str = res.value
-          console.log(JSON.stringify(str))
           regTest(str)
         })
       }
@@ -216,7 +210,6 @@ export default function details(){
   }
   //导入正则验证
   const regTest = (text)=>{
-    console.log(text);
     if(messageData.value.codeType===0){
       //数码
       const isTrue = /^[0-9 \r\n\t]+$/.test(text)

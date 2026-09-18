@@ -359,7 +359,6 @@ export default function useBroadStudent() {
           }
           allCode.push('!')
         }
-        console.log(allCode)
         // handlePlayCodeData(pag, res.data)
       }
     })

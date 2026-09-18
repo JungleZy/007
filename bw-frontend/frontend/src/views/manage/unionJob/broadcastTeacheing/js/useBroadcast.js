@@ -15,7 +15,6 @@ export default function useBroadcast() {
     }
   })
   const intoTrainRoom = item => {
-    console.log(drillPath.value)
     router.push({ path: drillPath.value, query: { id: item.id, createUserId: item.createUserId } })
   }
   return {

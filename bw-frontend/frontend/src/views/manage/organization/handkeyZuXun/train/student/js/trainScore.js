@@ -334,7 +334,6 @@ export default function telegramList(showChart,selfId) {
    */
   const renderColumnChart = () => {
     let data = [],xTxt = [];
-    console.log(timeChartData.value)
     timeChartData.value.map((item) => {
       xTxt.push(item.name);
       data.push(Number(item.value))

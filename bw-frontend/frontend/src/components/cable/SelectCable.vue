@@ -91,7 +91,6 @@
     totalPage.value = maxPage.value
   })
   watch(totalPage, (o, n) => {
-    console.log(totalPage.value)
     if (hasKeyInRef(formData, 'totalNumber')) {
       formData.value.totalNumber = totalPage.value * 100
     } else if (hasKeyInRef(formData, 'messageNumber')) {

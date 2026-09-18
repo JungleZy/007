@@ -23,7 +23,6 @@ export default function equipment_173(formData, dpData) {
     })
   }
   const endTrain_173 = (formData, dpData, messages, scoreList) => {
-    console.log(formData, dpData, messages, scoreList)
     formData.value.data.forEach((item, index) => {
       const xdData = messages.param.find(i => i['信道'] == item['信道'].value)
       // const xdData = messages.paramList[index+1]

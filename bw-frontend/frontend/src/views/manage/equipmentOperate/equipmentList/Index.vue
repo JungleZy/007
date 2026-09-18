@@ -117,7 +117,6 @@ const selectEquipment = v => {
   if (v.name == '400W') {
     addDrillModal.value = true
   }else {
-    console.log(route.matched[3].path+"/equipmentUnityHJJ")
     router.push({
       path:route.matched[3].path+"/equipmentUnityHJJ",
       query:{

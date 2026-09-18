@@ -54,7 +54,6 @@ const dataChecked = ref()
 onMounted(() => {
   if (childRef.value) {
     dataChecked.value = childRef.value.dataChecked;
-    console.log(dataChecked.value)
   }
   localforage.getItem('cool').then((e) => {
     cool.value = e
@@ -65,7 +64,6 @@ onMounted(() => {
   }
 })
 const changeChecked = (data)=>{
-  console.log(route)
   dataChecked.value = data
 }
 const closeAnimation = () => {

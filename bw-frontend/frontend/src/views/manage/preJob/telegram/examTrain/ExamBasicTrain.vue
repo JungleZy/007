@@ -350,7 +350,6 @@
     rote.value = 180 + rote.value
     if (queryType.value == 1 && tabIndex.value == 1) {
       mat = Math.floor(Math.random()*26);
-      console.log(letterArr.value[mat])
       letterText.value = letterArr.value[mat]
       letter.value.push(...letterKey[letterText.value])
     } else {

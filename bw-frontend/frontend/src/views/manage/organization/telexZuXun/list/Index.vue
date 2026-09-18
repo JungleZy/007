@@ -206,8 +206,6 @@ const ruleId = ref('');
  */
 const startTrain = item => {
   let isFinish = item.userInfoList.filter(use => use.userId == userInfo.id)[0].isFinish
-  console.log(isFinish)
-  console.log(route.matched)
   router.push({
     path: route.matched[3].path + '/datagramZuXunTrain',
     query: {

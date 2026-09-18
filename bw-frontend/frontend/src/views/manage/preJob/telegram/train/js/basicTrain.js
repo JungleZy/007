@@ -117,7 +117,6 @@ export default function (trainData) {
      lastTime = now
      fps.value = frameCount;              // 1 秒内渲染了多少帧
      frameCount = 0;                // 重置计数
-     console.log('FPS:', fps.value);      // 或者更新到 UI
      lastTime = now;                // 重新计时
    }
     rafId = requestAnimationFrame(useFps);     // 继续下一帧

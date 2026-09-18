@@ -205,11 +205,9 @@ const {
 } = lineNotify(selectCable)
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
 const render = $event => {
-  console.log($event)
 }
 
 const selectIsCable = () => {
-  console.log(tableData.value.isCable)
   if (trainData.value.isCable === 1) {
     getCableAll({scope: [0, 1, 2]}).then(res => {
       cableList.value = res.data

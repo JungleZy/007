@@ -266,7 +266,6 @@ export default class MorseVoice {
    */
 
   changeFre(fre) {
-    console.log(fre)
     this.fre = fre
     if (this.osc) {
       this.osc.frequency.value = fre

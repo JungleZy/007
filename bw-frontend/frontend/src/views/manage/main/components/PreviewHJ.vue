@@ -578,7 +578,6 @@
     if (!ipc.value) return
     try {
       const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,portName)
-      console.log(data)
       // linkPort uses sendSync and returns the selected port string; failures return ''.
       if (data) {
         localStorage.setItem('serial',data)

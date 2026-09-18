@@ -150,7 +150,6 @@ onMounted(() => {
   }
   //初始化drag2的位置
   if (dragCoordinateTwo) {
-    console.log(dragCoordinateTwo.width)
     secondZone.value.style.left = dragCoordinateTwo.left
     secondZone.value.style.top = dragCoordinateTwo.top
     twoWidth.value = dragCoordinateTwo.width || 1000
@@ -217,13 +216,11 @@ let top2 = 0 //按钮、容器到屏幕顶部的值
 let screenLeft2 = 0 //最外层容器到屏幕左侧的值
 //鼠标按下
 const downON2 = (e) => {
-  console.log(e)
   isDrag2.value = true
   if (top2 === 0) {
     screenLeft2 = e.x - secondZoneleft - dragleft2
   }
   top2 = e.y - secondZone.value.offsetTop
-  console.log(secondZone)
 }
 //鼠标释放
 const upOFF2 = () => {

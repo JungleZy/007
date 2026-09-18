@@ -110,7 +110,6 @@ export default function (formState) {
       })
     }
 
-    console.log(data.menus)
     if (!data.token || !data.deviceId) throw new Error('登录响应缺少会话凭证，请联系管理员')
     try {
       const storage = window.localStorage

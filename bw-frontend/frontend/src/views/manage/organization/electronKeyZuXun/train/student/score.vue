@@ -373,7 +373,6 @@
       default: ''
     }
   })
-  console.log(selfId)
   const {
     speedUnit,moreLine,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,resolve,switchTelegram,seeCurrKeysHairTrend
   } = trainScore(showChart,selfId);

@@ -98,7 +98,6 @@ export default function equipment_125W_400W(formData, dpData) {
     }
   }
   const endTrain_400W = (formData, tableData, tableData2, messages, trainName, scoreList) => {
-    console.log(formData, tableData, tableData2, messages, trainName, scoreList)
     let equipmentData = messages
     if (trainName.indexOf('控制器') > -1) {
       equipmentData = messages.paramList[0]

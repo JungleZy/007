@@ -68,14 +68,12 @@ import {ref} from 'vue'
 import zhCN from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import zhCN1 from 'ant-design-vue/lib/date-picker/locale/zh_CN'
 
-console.log(zhCN1);
 const qwe = ref(zhCN)
 
 qwe.value.months=["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
 qwe.value.lang.months=["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
 qwe.value.weekdays=["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 qwe.value.lang.weekdays=["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-console.log(qwe.value);
 const {trainType,trainData,
   changeTime,editPassword,
   userInfo,editPasswordData,
