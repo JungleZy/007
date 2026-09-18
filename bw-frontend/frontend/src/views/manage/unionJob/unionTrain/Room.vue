@@ -261,6 +261,7 @@ onMounted(() => {
   PubSub.subscribe(UnionWsCode.SEAT_INSPECT_ACCEPT, seatInspectAccept)
   PubSub.subscribe(UnionWsCode.SEAT_INSPECT_BROADCAST, seatInspectBroadcast)
   unionWs = UnionWs.getInstance()
+  unionWs.run()
   handleIsOpen()
 })
 

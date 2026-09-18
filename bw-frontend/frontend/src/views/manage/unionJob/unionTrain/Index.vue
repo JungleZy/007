@@ -164,7 +164,15 @@ onMounted(() => {
   PubSub.subscribe(UnionWsCode.JOIN_ROOM_SUCCESS, (data) => {
     router.push({path: '/preview/basicSkill/unionJob/unionTrainRoom', query: {id: JSON.parse(data).id}})
   })
+  // 失败帧不带 data（后端单参构造 + Gson 不序列化 null），故此处不得 JSON.parse
+  PubSub.subscribe(UnionWsCode.ADD_ROOM_FAIL, () => {
+    notification['error']({
+      message: "提示",
+      description: '创建房间失败，请重试'
+    })
+  })
   unionWs = UnionWs.getInstance()
+  unionWs.run()
   handleIsOpen()
 })
 const handleIsOpen = () => {
@@ -184,10 +192,11 @@ onUnmounted(() => {
   PubSub.unsubscribe(UnionWsCode.USER_LIST)
   PubSub.unsubscribe(UnionWsCode.ROOM_LIST)
   PubSub.unsubscribe(UnionWsCode.USER_EXIT)
-  PubSub.unsubscribe(UnionWsCode.ROOM_LIST)
+  PubSub.unsubscribe(UnionWsCode.USER_JOIN)
   PubSub.unsubscribe(UnionWsCode.ADD_ROOM_SUCCESS)
   PubSub.unsubscribe(UnionWsCode.UPDATE_ROOM_INFO)
   PubSub.unsubscribe(UnionWsCode.JOIN_ROOM_SUCCESS)
+  PubSub.unsubscribe(UnionWsCode.ADD_ROOM_FAIL)
 })
 
 const handleAddRoom = () => {
