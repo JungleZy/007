@@ -12,11 +12,13 @@ ipcMain.handle("controller.system.getConfig", async (event) => {
   const findOne = await context.db.findOne({_id: 2});
   return findOne.text
 })
-ipcMain.on("controller.system.changeConfig", async (event,args) => {
-  const findOne = await context.db.update({_id: 2}, {$set: {text: args}})
-  const result = findOne.text
-  event.returnValue = result;
-  event.reply(`controller.system.changeConfig`, result);
+ipcMain.on("controller.system.changeConfig", async (event, args) => {
+  // db.update 返回的是 numAffected（数字），原实现对它取 .text 恒得 undefined，
+  // 渲染侧因此永远拿不到写入结果。这里回填布尔成功标志，NetSetting 据此决定是否重载。
+  const numAffected = await context.db.update({_id: 2}, {$set: {text: args}})
+  const ok = numAffected > 0
+  event.returnValue = ok;
+  event.reply(`controller.system.changeConfig`, ok);
 })
 
 ipcMain.on("controller.system.getLocalIP", async (event) => {

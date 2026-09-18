@@ -209,18 +209,14 @@ function fileUpload(req, res, next) {
 }
 
 function generateFilename(filename) {
-  let names = filename.split('.')
-  if (names.length > 1) {
-    return `${filename.substring(
-      0,
-      filename.lastIndexOf('.')
-    )}-${NodeCoreUtils.genRandomName()}.${names[names.length - 1]}`
-  } else {
-    return `${filename.substring(
-      0,
-      filename.lastIndexOf('.')
-    )}-${NodeCoreUtils.genRandomName()}`
+  const dot = filename.lastIndexOf('.')
+  const random = NodeCoreUtils.genRandomName()
+  // dot <= 0 覆盖两种情况：无扩展名（lastIndexOf 返回 -1）与以点开头的隐藏文件。
+  // 原实现在无扩展名分支里仍按 substring(0, -1) 取名，得到空串，产物只剩 `-随机串`、原名丢失。
+  if (dot <= 0) {
+    return `${filename}-${random}`
   }
+  return `${filename.substring(0, dot)}-${random}${filename.substring(dot)}`
 }
 
 module.exports = {

@@ -16,10 +16,5 @@ const ipcApiRoute = {
   licenseClear: 'controller.license.clear',
   licenseFingerprint: 'controller.license.fingerprint',
 }
-/**
- * 自定义频道
- * custom chennel
- */
-const specialIpcRoute = {}
 
-export {ipcApiRoute, specialIpcRoute}
+export {ipcApiRoute}

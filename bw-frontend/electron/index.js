@@ -17,7 +17,8 @@ class Index {
     }else {
       app.on("second-instance",(event,commandLine,workingDirectory)=>{
         if(context.mainWindow){
-          if(context.mainWindow.isMinimized()) context.mainWindow.restore(context.mainWindow.focus)
+          if(context.mainWindow.isMinimized()) context.mainWindow.restore()
+          context.mainWindow.focus()
         }
       })
     }

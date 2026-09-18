@@ -4,7 +4,6 @@
     :width="350"
     :title="dataChecked?'网络配置(单机版)':'网络配置（局域网版）'"
     class="init_modal_style footer-border-none"
-    destroyOnClose="true"
     v-model:visible="isOpen"
   >
     <template #footer>
@@ -246,7 +245,7 @@
         return
       }
     }
-    let a = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.changeConfig, {
+    const saved = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.changeConfig, {
       dataUrl: {
         url: dataChecked.value ? 'localhost' : `${dus.value[0]}.${dus.value[1]}.${dus.value[2]}.${dus.value[3]}`,
         port: dus.value[4]
@@ -257,6 +256,10 @@
       }
     })
     confirmLoading.value = false
+    if (!saved) {
+      message.error('保存服务地址失败，请重试')
+      return
+    }
     window.location.reload(true)
     router.replace('/login').then()
   }

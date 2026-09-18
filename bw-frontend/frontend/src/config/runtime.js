@@ -1,6 +1,7 @@
 import localforage from 'localforage'
 import {endpointUrl} from '../common/http/endpoint.js'
 import {ipc, isEE} from '../electron/ipcRenderer.js'
+import {ipcApiRoute} from '../electron/api.js'
 
 const securePage = window.location.protocol === 'https:'
 
@@ -45,7 +46,7 @@ function desktopAddress(setting) {
 export async function configureRuntime() {
   let fileBase
   if (isEE) {
-    const settings = await ipc.invoke('controller.system.getConfig')
+    const settings = await ipc.invoke(ipcApiRoute.getConfig)
     window.httpUrl = desktopAddress(settings?.dataUrl)
     fileBase = desktopAddress(settings?.fileUrl)
     const socket = new URL(window.httpUrl)
