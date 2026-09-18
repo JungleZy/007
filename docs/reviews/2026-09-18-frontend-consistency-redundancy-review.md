@@ -214,8 +214,70 @@
 
 仍需现场/实机验收的剩余项：设备 MQTT 呼叫（需真实设备与 broker）、Electron 桌面壳侧（网络设置页 sendSync 路径、串口连接）、生产菜单表相关判定。
 
+### 3.5 档 2 基线清零（2026-09-18 深夜，commits `eb03616`→`3486cb0`）
 
----
+档 2 只建了 lint 基线（2444 problems = 487 error + 1957 warning / 363 文件）、不设失败闸。
+本轮把基线按「每类一个可独立回滚的 commit」清到：**error 487→11、warning 1957→163、解析失败 1→0**。
+
+| 类别 | 处置 | 结果 | 提交 |
+|---|---|---|---|
+| 未使用 import | codemod 逐名摘除具名说明符，摘空则整条删；232 文件 | `no-unused-vars` 1799→793 | `eb03616` |
+| `no-undef` 40 | 分真缺陷与裸用全局两类，见下 | **40→0** | `ad7b4ef`、`0fcd14a`、`99bfd49` |
+| `no-console` 109 | 删 80 处调试输出；27 处 `console.error`/`warn` 是唯一故障上报通道，改 lint 规则显式放行；2 处上传失败诊断由 `log` 升 `error` | **109→0** | `fda8dc7` |
+| `no-unused-vars` 余量 | 四批：残余 import + CountDown 碰撞治根、catch 绑定、解构成员、声明与死函数 | 793→163 | `d185a13`、`85ecc98`、`5c0aeed`、`04d148b`、`25dd429`、`3486cb0` |
+| `vue/no-mutating-props` 11 | **未改，见 §4.2-9** | 11 | — |
+
+**本轮修掉的运行时缺陷（都做了「修复前坏、修复后好」的同环境 A/B 实测）**
+
+1. **报务用语训练页整页白屏**：`preJob/ditto/wording/js/termTrain.js` 用 `wpms` 但从未声明，
+   且该名出现在 setup 的 return 对象里，ReferenceError 在 setup 阶段抛出。
+   实测修复前 `#app` 仅 31 节点（只剩外壳），修复后完整渲染、播放码率 40/45/…/95 共 12 档。
+2. **装备考核页整页白屏**：`equipment/trainScore/Index.vue` 用 `useRoute()`/`useRouter()`
+   却无 vue-router import（孪生页有）。实测 31 节点 → 92 节点（干扰音列表齐全）。
+3. **注册表单性别不回填**：`login/useLogin.js` 的 `idCardMessage` 用 `moment()` 但该模块未 import
+   （5 个登录皮肤各自 import 的是 .vue 模块作用域，composable 取不到；`window.moment` 实测不存在）。
+   页内直接 import 真实模块调用：修复前抛 `moment is not defined`，修复后正常置 `userSex`。
+   症状静默——Vue 把 handler 异常吞在错误边界里，用户只看到「失焦后什么也没发生」。
+4. **装备训练三处跳转必跳 404**：三处 `router.push` 把子菜单 path 写成裸名
+   （`/equipmentScore`×2、`/equipmentList`×1），而菜单里带皮肤后缀（`equipmentScoreHJJ` 等）。
+   新增 `Utils.js: resolveSiblingPath(route, prefix)` 在 matched 链上找真正持有该前缀子节点的层级
+   （不按下标，因 `guards.js:112` 的 `nestedPatDown` 会 splice 掉 TransitionPage 层使下标漂移）。
+   实测：生成训练→考核页 624 节点、开始训练→考核页、新增训练→装备列表 4 张卡，此前三者全 404。
+5. **装备启动缺配置闸**：`openEquipment()` 在 `window.mqttUrl` 缺失时会把
+   `equipment173://undefined,<id>` 传给外部装备程序（裸 `mqttUrl` 则直接 ReferenceError）。
+   已在唯一入口加闸：地址缺失 `message.error` 并返回。
+6. **`wb_color.js` 的 `d_BA` 是 `d_AO` 的过期副本**：仍用裸 `x` 与裸 `m()`/`g()`（活方法已改 `this.m`/`this.g`），
+   调用即抛；零引用，连同另 3 个死方法删除（−128 行），并在真实页面实测活方法链
+   `init→d_AE→Line→ZG_FillColor→ZG_Show→d_AO` 全跑通且真实写入像素。
+
+**执行期踩到并记录的三个坑（均已回退重做，供后人规避）**
+
+1. **`no-unused-vars` 对「模板 kebab 标签 + 脚本同名 camelCase 变量」恒误报**：7 个文件
+   `<count-down ref="countDown">` + `import CountDown` + `const countDown = ref(null)`，
+   Vue 解析 `<count-down>` 时先命中 ref，于是 `CountDown` 被判未使用；删掉后编译产物从
+   `$setup["CountDown"]` 退化为 `$setup["countDown"]`（即 `ref(null)`），倒计时废掉。
+   第一次（`eb03616`）靠「kebab 碰撞审计」抓出并整体回退，第二次（`d185a13`）治根——
+   把碰撞的 ref 改名 `countDownRef`，lint 不再误报，无需抑制注释。
+   **此后每批删改都强制重跑该审计**（逐文件比对「删掉的名字 camelize 后是否仍被模板用作标签」）。
+2. **`no-unused-vars` 也报「只写不读」的变量**：按「右值是纯调用」直接删声明，会把后续赋值
+   变成未声明标识符（ESM 严格模式运行即抛）。`trainScore.js` 的 `numberChart`/`columnChart`、
+   `Room.vue` 的 `type_1`/`type_2` 就这样被误删，lint 立刻冒出 8 条 `no-undef`。
+   加两条守卫后重做：① 该标识符（剔除注释与字符串后）在代码里只出现一次；② 行尾带逗号的
+   多声明符语句一律不动（`NipSerial.vue:53` 跨行多声明符被删首行即失去 `let`）。
+3. **块级删除器不能用「括号配平」找函数体**：箭头函数参数表 `(a, b) =>` 会让配平在 `)` 处提前收尾，
+   切在语句中间，当场 28 个解析错误。改为只按函数体 `{` 配平；删除区间起点放行首、
+   结尾只吞本行剩余与一个换行（否则残留缩进会粘到下一行，制造伪"新增"行）。
+
+**验证口径**：每批都跑 lint（含解析失败计数）+ `vite build` + node 测试 39/39，
+并对该批改动中**菜单可达**的路由做整页加载巡检（捕获 pageerror 与组件解析失败）。
+累计巡检覆盖 20/31/42/58/11/24 条路由，节点数区间 72–624，零 pageerror。
+
+**更正一条执行期误判**：`ad7b4ef` 的提交正文曾把 `/api/radiotelephone/listPage` 的 500 记为
+「快照落后于迁移」。**该判断错误**——`backend/scripts/rehearse-migrations.sh` 的口径是
+「导入快照 → 顺序执行全部迁移 → 实体 schema 差分为空」，快照本就是迁移起点而非终态。
+真实原因是本地 `project006` 只导了快照没跑迁移；按序补跑 21 个迁移（全部成功、幂等无报错）后
+该端点实测恢复 200。仓库无缺陷。
+
 
 ## 四、置信度与未决风险
 
@@ -235,6 +297,23 @@
 6. 死依赖/零引用资产删除的动态引用盲区（动态字符串拼接 require、打包后手工注入）——静态检测已证为零但非穷尽，以档 1 删后 build+全路由冒烟兜底；零引用 102.8MiB 批删前须先跑「删除子集构建+冒烟」回归闸。
 7. tinymce vendored 版本与 npm 7.2.0 同代性——富文本升级路径决策前需核。
 8. `UnionWs.js:17` 帧级空 catch（连 console.error 都没有，比 safeExecute 更静默）与 `PubSub.unsubscribe(null)` 清全场脚枪——记录在案，档 0 不强制处理。
+9. **`vue/no-mutating-props` 11 条（答题预览三件套）—— 有意不动，需考试 E2E 才能安全改**：
+   `components/test/previewTheTopic/PreviewTheTopic.vue`、`PreviewTheTopicTwo.vue`、
+   `StudentPreviewTheTopic/StudentPreviewTheTopic.vue` 用 `v-model:value="params.answer"`
+   直接写父级题目对象。**这不是笔误而是当前数据通路**：父页 `startTest.js:46/113` 往
+   `question.answer` 写回服务器答卷，`:152` 提交时又从同一批对象读
+   （`questions.value[key].map(({id, answer, isAnswer}) => …)`）；子组件 setup
+   （`PreviewTheTopic.vue:165-181`）还会写 `params.value.correctAnswer` 与清空 `answer`。
+   改 emit 需同时动 3 个题目组件 + `previewTest`/`StudentPreviewTest` 两个包装 +
+   约 5 个持有 `questions` 的父页，且验收必须覆盖「建卷→分配→作答→交卷→服务器答卷回读」全链，
+   本轮环境无考试业务数据，盲改风险是**答案丢失**。故保留 11 条 error 如实暴露，
+   不加 `eslint-disable` 掩盖；该项应与考试链重构一并排期。
+10. **`no-unused-vars` 剩 163 条为「只写不读」的状态变量**（如
+    `organization/*/train/student/js/trainScore.js` 的 `numberChart`/`columnChart`、
+    `PublicSocket.js` 的 `flag`/`url`、`OcrComp.vue` 的 `mediaStreamTrack`）。
+    删除须连同赋值链一起判断——赋值右值若是 `echarts.init(...)` 一类有副作用的调用，
+    只能去掉赋值目标、保留调用；机械批量会误删渲染逻辑（本轮已实测踩过一次，见 §3.5 坑 2）。
+    属个案清理，不建议再上 codemod。
 
 ---
 
