@@ -96,10 +96,10 @@ const IconFont = createFromIconfontCN({
 })
 export default {
   name: 'WZTrain',
+  // 不声明 activeIndex prop，理由同 english 版：由本地 ref 维护、使用方不传、组件内不读
   props: {
     message: Object,
     trainData: Object,
-    activeIndex: Number,
     isfocus: Boolean,
     inputeMethod: Boolean
   },

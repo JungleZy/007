@@ -20,10 +20,13 @@
 import { nextTick, ref, toRefs, onMounted, watch, onBeforeUnmount } from 'vue'
 export default {
   name: 'WZTrain',
+  // 不声明 activeIndex prop：光标位置由下面的本地 activeIndex ref 维护（@focus 时更新），
+  // 三个使用方（postJob 的 english/pinyin/wubi practice/Index.vue，均为显式 import）都不传它，
+  // 组件内也从不读 props.activeIndex。留着只会被同名本地 ref 遮蔽，
+  // 让 vue/no-dupe-keys 与 vue/no-mutating-props 同时误报。
   props: {
     message: Object,
-    trainData: Object,
-    activeIndex: Number
+    trainData: Object
   },
   setup(props, content) {
     const activeIndex = ref(0)
