@@ -18,7 +18,7 @@ public enum UnionConstants {
   ROOM_STATUS_CHANGE(112, "改变房间状态"),
   ADD_ROOM(12, "添加房间"),
   ADD_ROOM_SUCCESS(120, "添加房间成功"),
-  ADD_ROOM_FAIL(121, "添加房间失败"),
+  ADD_ROOM_FAIL(122, "添加房间失败"),
   UPDATE_ROOM_INFO(121, "更新房间信息"),
   JOIN_ROOM(13, "进入房间"),
   JOIN_ROOM_SUCCESS(130, "进入房间成功"),
