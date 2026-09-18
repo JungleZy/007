@@ -215,7 +215,7 @@
   const focusInput = ref(-1)
   const cool = inject('cool')
   const pwd = ref({ type: 'text', auto: 'off' })
-  const disabledDate = (current = Moment) => {
+  const disabledDate = current => {
     return current && current > moment().endOf('day')
   }
   const openModel = () => {

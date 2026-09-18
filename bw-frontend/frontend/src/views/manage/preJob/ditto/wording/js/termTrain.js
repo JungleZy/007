@@ -24,6 +24,7 @@ export default function termTrain(wpmTOmm) {
   const { dots } = useMorse()
   const fileUrl = ref(window.fileUrl)
   const validTimes = ref([0, 0, 0, 0, 0, 0])
+  const wpms = ref([])
   const termTimer = ref(null)
   const totalime = ref(0)
   let sessionId = null
