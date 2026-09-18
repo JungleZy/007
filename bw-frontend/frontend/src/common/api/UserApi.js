@@ -68,6 +68,11 @@ export const changePassword = (data) => {
     config: {skipErrorToast: true}
   })
 }
+// 有意保留，当前无前端调用点：luckysheet 版员工在线导入已于 f34c1c5 整链下线，
+// 但后端 POST /api/user/importUser 按决策保留（它挂着两条活的测试契约：
+// PasswordMigrationTest 断言批量导入写入新密码哈希、AdminAuthorizationTest 断言非管理员得 207），
+// 日后若重做导入 UI（xlsx 已是在用依赖）可直接复用。
+// 死代码扫除请勿删除本导出 —— 单删前端会把后端端点变成孤儿（AGENTS.md 红线 5）。
 export const importUser = (data) => {
   return axios({
     method: "post",

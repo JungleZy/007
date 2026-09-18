@@ -165,6 +165,36 @@
 | **4b. 按部署皮肤裁剪产物（独立立项）** | 构建期只保留 interfaceStyle 对应皮肤+共享层——**资产侧唯一真实产物体积杠杆**（4 套不可达皮肤被引用差异字节实测占 dist ≈30MiB：GD 1.7+HJ 21.0+KJ 6.4+LJ 2.0） | 先解 HJ 全局承重（main.js:1-2 等 26.2MiB 引用迁到部署变量）+ 部署形态确认 | 是（构建管线单点） | 否 | 承重迁移与管线改造分 commit |
 | **5. 维持门控（不提前）** | 446 深路径 codemod、365 业务码 helper、defineOptions 批改、preJob/postJob 35 同名、organization/equipment 双树、broadcastTeacheing 改名（菜单同事务）、window 总线 27 处单独立项、UnionWs 迁 common/ws（**须在档 0 验证后**——功能未复活前做结构合并等于给死代码搬家）、mqttClint/hasPermission/WZTrain-48 行版改名等小修 | 生产菜单表复核 / 业务确认（J2/J3 闸门不变）；codemod 类等档 2 | 各项独立 | 否（broadcastTeacheing 需同步本地菜单数据，非代码契约） | 按原 P2/P3 分批 |
 
+### 3.3 执行进展与决策回填（2026-09-18 当日，评审后执行）
+
+本节记录路线图落地情况与三处待决项的业主决策，文档其余部分维持评审当时的结论口径不改写。
+
+| 档 | 状态 | 提交 |
+|---|---|---|
+| 0 unionJob WS 修复包 | ✅ 已执行。Commit 1 后端 `UnionConstants.java` `ADD_ROOM_FAIL(121→122)` + 前端码表同 commit（红线 5），并加 `UnionConstantsTest` 守 `getByCode` 往返（撞号还原即失败）；Commit 2 两页补 `run()` 建连、分发规格固定在 `UnionWs` 内（按 code 广播 `frame.data`）、修 `Index.vue` 退订错位、新增 `ADD_ROOM_FAIL` 弹错（回调不 parse） | `3c424f1`、`1eefd1a` |
+| 0b luckysheet 决策闸 | ✅ 业主决策 **预案乙（整链删除）**，已执行 | `f34c1c5` |
+| 1 纯删除批 | ✅ 已执行：死依赖 40 条 + tauri 死脚本 3 个；vendored 9.9MB；luckysheet 链 8.9MB；electron 子进程脚手架（`node_core_utils` 223→90 行、子进程 ctx 20→8 行）；`Waves.vue`；零引用资产 541 文件/68.0MB；structure 页注释态导入导出入口 | `4bad88c`、`d3e1183`、`a4cccbb`、`da82e06`、`8f24764`、`930354f` |
+| 2 lint 重建 | ✅ 已执行：迁 `eslint.config.mjs` 扁平配置，显式声明 eslint/eslint-plugin-vue/globals，`vue-eslint-parser` 升为 v10 必需 peer，删废弃 `babel-eslint` 与失效 `prettierrc.js`，新增 `lint`/`lint:fix` 脚本。**基线 2444 problems = 487 error + 1957 warning / 363 文件**，不设失败闸 | `8f4239a` |
+| 3 外壳小修批 | 未执行 | — |
+| 4 / 4b / 5 | 未执行（门控与决策条件不变） | — |
+
+**执行期新增发现（评审与两轮裁判均未覆盖）**
+
+1. **`terser` 从未声明却是构建必需**：`vite.config.js:55` 用 `minify:'terser'`。档 1 删掉 40 条死声明后 npm 首次真正剪枝（removed 1229 packages），terser 随传递树消失，构建立即报 `terser not found`。已显式声明 —— 与 eslint/prettier/animejs 同属「已装未声明」缺口，说明该类缺口的危害不止于认知失真，会在依赖清理时变成真实故障。
+2. **零引用资产删除集不能按扩展名建语料**：`src/views/manage/basicTheory/**/css/` 下有 9 个**无扩展名**的 CSS 文件带活的 `url()` 引用；纳入语料后 13 个文件（各皮肤 `test/newJt.png`、`test/jt.png`、`test/titleTop.png`）退出删除集，否则会误删（dist 里 `newJt-*.png` 证明其在产出）。引用语料必须按内容遍历。
+3. **lint 上线即抓出三类真缺陷**：① `components/danmaku/Danmaku.vue:27` 解析失败（活文件带解析错早会打断构建，反向印证其为死代码，属评审 §1.5 的零引用候选之一）；② 组训 `student.vue` 续训快照漏 `.value`，`patPage`/`speed` 落盘恒 undefined（已修 `4e99bb1`；另查明该快照 key 全仓无读取方，活模块实际走 `useConfirmedSubmission`）；③ `equipment/trainScore/Index.vue`（菜单 id 190012，活页）把 Ref 对象裸传给 paho 当 MQTT 主题名、`f`/`s` 从未赋 `.value`（已修 `f32ea3a`，按孪生页语义以 `res.data.deviceId` 构造主题并加就绪守卫）。
+4. **联合训练大厅页无菜单路由**：`t_menus` 只有 `unionTrainRoom`（id 1509、`isMenu:false`、需 `?id=`），大厅 `unionTrain/Index` 无任何路由，而 `Room.vue:311` 解散房间后正指向该不存在的路由。
+
+**三处待决项的业主决策**
+
+| 待决项 | 决策 | 处置 |
+|---|---|---|
+| luckysheet 员工在线导入存废（§4.2-2） | 预案乙，整链删除 | 已执行 `f34c1c5` |
+| 后端 `POST /api/user/importUser` 去留 | **保留**（挂着密码迁移与 207 授权两条活测试契约，日后重做导入 UI 可复用） | 前端 `UserApi.js` 的 `importUser` 导出一并保留，并就地注明「死代码扫除勿删」，避免单删前端造出孤儿端点 |
+| 联合训练大厅页菜单路由 | **不补充**——该页系早期实验功能 | 不再投入；档 0 的建连与码表修复已落地，功能面维持实验状态 |
+
+**仍未闭合的最大风险不变**：档 0 未做真实建连的页面级可视验证（全新浏览器配置会撞离线授权闸，需真实授权码，未做伪造）。已完成的是协议级运行时验证 —— 后端实跑下依次收到 `10 USER_LIST` / `11 ROOM_LIST` / `120 ADD_ROOM_SUCCESS` / `121 UPDATE_ROOM_INFO` / `122 ADD_ROOM_FAIL(data=undefined)`，证实 121 与失败帧已彻底分开，且失败帧确实不带 data。
+
 ---
 
 ## 四、置信度与未决风险
