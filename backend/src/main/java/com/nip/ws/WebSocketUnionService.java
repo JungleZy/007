@@ -138,7 +138,7 @@ public class WebSocketUnionService {
       msg.setCode(code);
       msg.setSendUser(Optional.ofNullable(map.get("sendUser")).map(Object::toString).orElse(""));
       msg.setReceiveUser(Optional.ofNullable(map.get("receiveUser")).map(Objects::toString).orElse(""));
-      msg.setData(Optional.ofNullable(map.get("data")).map(JSONUtils::toJson).orElse(""));
+      msg.setData(Optional.ofNullable(map.get("data")).map(WebSocketUnionService::scalarOrJson).orElse(""));
       byCode = UnionConstants.getByCode(code);
     } catch (Exception e) {
       log.warn("联合训练收到无法解析的报文，忽略:{}", message, e);
@@ -153,6 +153,32 @@ public class WebSocketUnionService {
       send(me.session(),
         new ResponseModel(UnionConstants.UNKNOWN.getCode(), byCode.getContent() + "处理失败"));
     }
+  }
+
+  /**
+   * 入站帧 data 字段的取值口径。
+   *
+   * <p>原实现一律走 {@link JSONUtils#toJson}，但 data 的消费方绝大多数要的是**裸值**：
+   * {@code onlineRooms.get(msg.getData())} 要房间 id（:311/:398/:403/:416/:467）、
+   * {@code Integer.parseInt(msg.getData())} 要状态数字（:541/:567/:589）、{@code String type} 要类型串。
+   * 字符串经 Gson 序列化会带上引号（{@code abc} → {@code "abc"}），于是按 id 查房间永远查不到、
+   * 状态解析抛 NumberFormatException 被 dispatch 的兜底 catch 吞成「处理失败」。
+   * 前端 {@code sendData(code, 房间id)} 传的正是裸字符串，这条路径因此一直是坏的。
+   * 真正需要 JSON 的只有 addRoom 与更新房间两处 {@code fromJson(..., RoomModel.class)}，
+   * 它们收到的是对象，仍走 JSON 序列化。
+   *
+   * <p>数字一律用 {@code toString()} 而非先转 double：{@link JSONUtils} 的 Gson 配了
+   * {@link com.google.gson.ToNumberPolicy#LAZILY_PARSED_NUMBER}，数字是 LazilyParsedNumber、
+   * toString 返回原始字面量，19 位 Snowflake 房间 id 能原样取回；若经 double 中转会丢精度。
+   */
+  private static String scalarOrJson(Object value) {
+    if (value instanceof String text) {
+      return text;
+    }
+    if (value instanceof Number || value instanceof Boolean) {
+      return value.toString();
+    }
+    return JSONUtils.toJson(value);
   }
 
   private void dispatch(Client me, RequestModel msg, UnionConstants byCode) {

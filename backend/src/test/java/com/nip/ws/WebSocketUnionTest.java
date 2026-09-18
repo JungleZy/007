@@ -172,9 +172,12 @@ class WebSocketUnionTest {
 
   // 用例B：房间消息路由——u1 建房，u2 入房，u1 发 ROOM_MESSAGE(receiveUser=房间id)：
   // u2 收到、房间外 u3 收不到。
-  // 协议依据源码：ADD_ROOM(12) data=RoomModel JSON；JOIN_ROOM(13) data=房间id（服务端 onMessage 会把
-  // data 再经 Gson 序列化，字符串会带引号导致 onlineRooms 查不到键，故以数字字面量发送 Snowflake id）；
+  // 协议依据源码：ADD_ROOM(12) data=RoomModel JSON；JOIN_ROOM(13) data=房间id；
   // ROOM_MESSAGE(20) sendUser=用户id、receiveUser=房间id。
+  // 注：房间 id 这里按数字字面量发送。历史上此处注释称「服务端会把 data 再经 Gson 序列化、
+  // 字符串会带引号导致 onlineRooms 查不到键」——那是 onMessage 的缺陷而非协议约定，
+  // 已修（scalarOrJson：字符串原样、对象才序列化），字符串形式的 id 现在同样可用，
+  // 见 roomIdSentAsStringResolvesRoom。
   @Test
   void roomMessageReachesRoomMemberOnly() throws Exception {
     TestUser u1 = user("t-ws-b1");
@@ -378,6 +381,51 @@ class WebSocketUnionTest {
       assertNotNull(roomInfo, "发送者的连接必须仍在连接表里，否则后续消息会被直接丢弃");
       assertTrue(roomInfo.get("data").toString().contains(ownerId),
           "发送者必须仍在房间成员列表里");
+    } finally {
+      unionTable("onlineRooms").clear();
+    }
+  }
+
+  // 用例E：房间 id 以「字符串」形式送达时必须能查到房间 —— 前端 sendData(code, route.query.id)
+  // 传的就是裸字符串。修复前 onMessage 对 data 一律 JSONUtils.toJson，字符串被加上引号，
+  // onlineRooms.get("\"id\"") 永远查不到：GET_ROOM_INFO 回一条 data 为空的帧，
+  // 前端 handleUpdateRoomInfo(null) 于是房间标题与人数恒为空。
+  // 本用例同时覆盖 JOIN_ROOM，它同样按 data 查房间。
+  @Test
+  void roomIdSentAsStringResolvesRoom() throws Exception {
+    WebSocketStateReset.clearAll();
+    TestUser ownerUser = user("t-ws-strid-owner");
+    TestUser memberUser = user("t-ws-strid-member");
+    String ownerId = ownerUser.id();
+    WebSocketContainer c = ContainerProvider.getWebSocketContainer();
+    Probe ownerP = new Probe();
+    Probe memberP = new Probe();
+    try (Session owner = c.connectToServer(ownerP, uri(ownerUser));
+         Session member = c.connectToServer(memberP, uri(memberUser))) {
+      awaitRegistered(owner, ownerP);
+      awaitRegistered(member, memberP);
+
+      // 建房仍按对象发送（addRoom 走 fromJson(RoomModel)，这条路径不受影响）
+      owner.getBasicRemote().sendText("{\"code\":12,\"data\":{\"name\":\"room-strid\"}}");
+      Map added = pollForCode(ownerP, 120, 5);
+      assertNotNull(added, "建房必须收到 ADD_ROOM_SUCCESS(120)");
+      String roomId = JSONUtils.fromJson(added.get("data").toString(), Map.class).get("id").toString();
+
+      // 关键：房间 id 加引号按字符串发送（前端的真实形态）
+      ownerP.received.clear();
+      owner.getBasicRemote().sendText("{\"code\":1,\"data\":\"" + roomId + "\"}");
+      Map roomInfo = pollForCode(ownerP, 1, 5);
+      assertNotNull(roomInfo, "GET_ROOM_INFO 必须回帧");
+      assertNotNull(roomInfo.get("data"), "data 不得为空——为空即房间按字符串 id 没查到");
+      assertTrue(roomInfo.get("data").toString().contains(roomId),
+          "回帧必须是该房间本身：" + roomInfo.get("data"));
+      assertTrue(roomInfo.get("data").toString().contains(ownerId),
+          "房主必须在成员列表里");
+
+      // JOIN_ROOM 同样按字符串 id 发送
+      member.getBasicRemote().sendText("{\"code\":13,\"data\":\"" + roomId + "\"}");
+      assertNotNull(pollForCode(memberP, 130, 5),
+          "字符串 id 入房必须收到 JOIN_ROOM_SUCCESS(130)");
     } finally {
       unionTable("onlineRooms").clear();
     }
