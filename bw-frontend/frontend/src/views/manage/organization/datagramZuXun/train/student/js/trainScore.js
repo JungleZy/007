@@ -1,11 +1,7 @@
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
-import useMorse from '../../../../../../../common/mixin/useMorse.js'
-import { partTimeFormatInfo } from '../../../../../../../common/utils/Utils.js'
-import { getTelexTrainByID, apiPostTelexPatTrainGetPage } from '../../../../../../../common/api/TelegramApi.js'
-import {endPatDetail, getDatagramZuXunPageNumber,getPatValue} from '../../../../../../../common/api/datagramZuXun'
-import { deepClone } from '../../../../../../../common/utils/Utils.js'
+import {ref, onMounted, nextTick} from 'vue'
+import {useRoute} from 'vue-router'
+import {endPatDetail, getDatagramZuXunPageNumber} from '../../../../../../../common/api/datagramZuXun'
+import {deepClone} from '../../../../../../../common/utils/Utils.js'
 import * as echarts from 'echarts'
 
 export default function telegramList(patHairTrendBoxRef,selfId) {

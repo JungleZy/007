@@ -178,8 +178,7 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, inject } from 'vue'
-  import { useRoute } from 'vue-router'
+  import {inject} from 'vue'
   import trainScore from './js/trainScore.js'
   import thumbEmpty from '../../../../../assets/HJ/postTrain/thume-empty.png'
   import thumbEmptyOn from '../../../../../assets/HJ/postTrain/thume-empty-on.png'

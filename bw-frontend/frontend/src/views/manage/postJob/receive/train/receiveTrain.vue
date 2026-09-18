@@ -215,15 +215,11 @@ export default {
 }
 </script>
 <script setup>
-import {ref, onMounted, onUnmounted, watch, inject} from 'vue'
-import {useRoute} from 'vue-router'
+import {ref, inject} from 'vue'
 import receiveTrain from './js/receiveTrain.js'
-import Number from '../../../../../components/number/Number.vue'
 import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 import PreviewMessage from "../../../../../components/previewMessage/PreviewMessage.vue";
 
-import end from '../../../../../assets/HJ/receive/end.png'
-import reset from '../../../../../assets/HJ/receive/reset.png'
 import volume1 from '../../../../../assets/HJ/train/volume-none.png'
 import volume2 from '../../../../../assets/HJ/train/volume-mini.png'
 import volume3 from '../../../../../assets/HJ/train/volume-big.png'
@@ -245,16 +241,6 @@ import receiveBgPngKJ from '../../../../../assets/KJ/receive/receiveBg.png'
 import tipsBgKJ from '../../../../../assets/KJ/postTrain/tipsBg.png'
 
 import iconImage from "../../js/iconImage";
-import labTypeHJ from "../../../../../assets/HJ/train/lab-type.png";
-import labNumHJ from "../../../../../assets/HJ/train/lab-num.png";
-import labSpeedHJ from "../../../../../assets/HJ/train/lab-speed.png";
-import labTypeHJJ from "../../../../../assets/HJJ/train/new-lab-type.png";
-import labNumHJJ from "../../../../../assets/HJJ/train/lab-number.png";
-import labSpeedHJJ from "../../../../../assets/HJJ/train/new-lab-speed.png";
-import labTypeLJ from "../../../../../assets/LJ/train/lab-type.png";
-import labNumLJ from "../../../../../assets/LJ/train/lab-num.png";
-import labSpeedLJ from "../../../../../assets/LJ/train/lab-speed.png";
-import {QuestionCircleOutlined} from "@ant-design/icons-vue";
 
 const interfaceStyle = window.interfaceStyle
 let receiveBgMP4, receiveBgPng, tipsBg

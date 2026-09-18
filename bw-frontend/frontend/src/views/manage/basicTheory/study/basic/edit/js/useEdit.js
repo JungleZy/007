@@ -1,14 +1,11 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject, nextTick } from 'vue'
+import {message, Modal} from 'ant-design-vue'
+import {ref, onMounted, nextTick} from 'vue'
 // import {getAllUser,getUserAndRoleById,getRoleAll,addUserRole,saveUser } from "../../../../../common/api/StructureApi.js";
-import { saveTheoryKnowledge, getById, listPageClassify } from '../../../../../../../common/api/TheoryKnowledgeApi.js'
-import { useRouter, useRoute } from 'vue-router'
+import {listPageClassify} from '../../../../../../../common/api/TheoryKnowledgeApi.js'
+import {useRouter, useRoute} from 'vue-router'
 
-import { saveTheoryKnowledgeTest, getTestBySwfId } from '../../../../../../../common/api/TestApi.js'
-import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
-import { deepClone } from '../../../../../../../common/utils/Utils.js'
-import { fontSizeDispose } from '../../../../../../../common/utils/Utils'
+import {fontSizeDispose} from '../../../../../../../common/utils/Utils'
 export default function useEdit(roomtest, selectedKnowledgeSwfs, tData, content, selectedKnowledgeSwfsIndex, right, handleSelectedKnowledgeSwfs) {
   const route = useRoute()
   const router = useRouter()

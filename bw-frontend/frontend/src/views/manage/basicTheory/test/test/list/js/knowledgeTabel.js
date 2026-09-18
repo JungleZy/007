@@ -1,16 +1,9 @@
-import {message, Modal} from "ant-design-vue";
-import {ref} from 'vue';
-import {useRouter, useRoute} from "vue-router";
-import moment from "moment";
+import {message, Modal} from "ant-design-vue"
+import {ref} from 'vue'
 import 'moment/dist/locale/zh-cn.js';
-import {
-  deleteTheoryKnowledgeExam,
-  findAllTheoryKnowledgeExam,
-  findAllTheoryKnowledgeExamUser
-} from "../../../../../../../common/api/TestApi";
-import {findAllTheoryKnowledgeQuestionLevel} from "../../../../../../../common/api/TheoryQuestionBankApi";
-import {PubSub} from "../../../../../../../common/utils/PubSub.js";
-import {listSort} from "../../../../../../../components/test/nodeTree/listSort";
+import {deleteTheoryKnowledgeExam, findAllTheoryKnowledgeExam, findAllTheoryKnowledgeExamUser} from "../../../../../../../common/api/TestApi"
+import {PubSub} from "../../../../../../../common/utils/PubSub.js"
+import {listSort} from "../../../../../../../components/test/nodeTree/listSort"
 export default function knowledgeTabel() {
    const knowledgeShow = ref(false);
    const listData = ref([]);

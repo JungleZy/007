@@ -1,8 +1,8 @@
-import { reactive, ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { saveTheoryKnowledge, getById } from '../../../../../../../common/api/TheoryKnowledgeApi.js'
-import { message } from 'ant-design-vue'
-import { saveTheoryKnowledgeTest, deleteThroyKnowledgeById, getTestBySwfId } from '../../../../../../../common/api/TestApi'
+import {ref} from 'vue'
+import {useRouter, useRoute} from 'vue-router'
+import {saveTheoryKnowledge, getById} from '../../../../../../../common/api/TheoryKnowledgeApi.js'
+import {message} from 'ant-design-vue'
+import {deleteThroyKnowledgeById} from '../../../../../../../common/api/TestApi'
 
 export default function (content, backFlag) {
   const route = useRoute()

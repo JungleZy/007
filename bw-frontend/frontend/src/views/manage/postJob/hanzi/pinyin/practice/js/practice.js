@@ -1,12 +1,11 @@
-import { onUnmounted, onMounted, ref, onBeforeUnmount, createVNode, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getById, begin, hanziFinish } from '../../../../../../../common/api/postHanZi'
-import { PubSub } from '../../../../../../../common/utils/PubSub.js'
-import { Modal, message as notification } from 'ant-design-vue'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import Homophone from '../../../../../../../common/utils/Homophone'
+import {onUnmounted, onMounted, ref, createVNode, nextTick} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {getById, begin, hanziFinish} from '../../../../../../../common/api/postHanZi'
+import {PubSub} from '../../../../../../../common/utils/PubSub.js'
+import {Modal, message as notification} from 'ant-design-vue'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
   
-import { apiPostTrainGlobalRuleType } from '../../../../../../../common/api/postWording'
+import {apiPostTrainGlobalRuleType} from '../../../../../../../common/api/postWording'
 
 export default function practice(countDown) {
   onMounted(() => {

@@ -109,26 +109,14 @@
   }
 </script>
 <script setup>
-  import NipUEditor from '../../../../../../components/common/NipUEditor.vue'
   import GradeModal from '../../../ditto/component/GradeModal.vue'
 
-  import { useRouter, useRoute } from 'vue-router'
-  import {ref, onMounted, provide, createVNode} from 'vue'
-  import {
-    PlayCircleOutlined,
-    DeleteOutlined,
-    SettingOutlined,
-    FileTextOutlined,
-    PlusOutlined,
-    CloseCircleOutlined,
-    WarningOutlined,
-    ExclamationCircleOutlined
-  } from '@ant-design/icons-vue'
-  import {message, Modal} from 'ant-design-vue'
+  import {useRouter, useRoute} from 'vue-router'
+  import {ref, createVNode} from 'vue'
+  import {PlayCircleOutlined, DeleteOutlined, SettingOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
-  import { timeFormatInfo, partTimeFormatInfo } from '../../../../../../common/utils/Utils.js'
   import homophone from '../../../../../../common/utils/Homophone.js'
-  import { apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType } from '../../../../../../common/api/postWording'
   const router = useRouter()
   const route = useRoute()
   // 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。

@@ -44,10 +44,10 @@
 </template>
 
 <script setup>
-import { message, Modal } from 'ant-design-vue'
-import { ref, defineEmits, watch, onMounted } from 'vue'
-import { CloseCircleOutlined, PlusOutlined } from '@ant-design/icons-vue'
-import { apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType } from '../../../../../common/api/postWording'
+import {message} from 'ant-design-vue'
+import {ref, defineEmits, onMounted} from 'vue'
+import {CloseCircleOutlined, PlusOutlined} from '@ant-design/icons-vue'
+import {apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType} from '../../../../../common/api/postWording'
 
 //type 0 勤务用语 1军语密语 2拼音训练 3英语训练 4五笔训练
 const props = defineProps(['gradingRuleModal', 'type'])

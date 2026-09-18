@@ -1,11 +1,9 @@
-import { ref, onMounted, onBeforeUnmount, onUnmounted, watch, createVNode, inject, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
-import { getReceiveTrainDetails, startReceivePostTrain, endReceivePostTrain, resetReceivePostTrain, apiPostTickerTapeTrainFindPage,findHeader } from '../../../../../../common/api/ReceiveApi.js'
-import { PubSub } from '../../../../../../common/utils/PubSub'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import { deepClone } from '../../../../../../common/utils/Utils.js'
-import { all } from 'ramda'
+import {ref, onMounted, onBeforeUnmount, onUnmounted, watch, createVNode} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {message, Modal} from 'ant-design-vue'
+import {getReceiveTrainDetails, startReceivePostTrain, endReceivePostTrain, resetReceivePostTrain, apiPostTickerTapeTrainFindPage, findHeader} from '../../../../../../common/api/ReceiveApi.js'
+import {PubSub} from '../../../../../../common/utils/PubSub'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
 import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 

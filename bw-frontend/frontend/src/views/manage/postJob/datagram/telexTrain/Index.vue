@@ -219,14 +219,10 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch } from 'vue'
-  import { useRoute } from 'vue-router'
-  import { message } from 'ant-design-vue'
-  import CountDown from '../../../../../components/common/CountDown.vue'
-  import Number from '../../../../../components/number/Number.vue'
+  import {ref} from 'vue'
+  import {useRoute} from 'vue-router'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
   import telexTrain from './js/telexTrain.js'
-  import { getPostTelegramTrainById } from '../../../../../common/api/TelegramApi.js'
   import NipMagicSpace from "../../../../../components/common/NipMagicSpace.vue";
 
   import iconImage from "../../js/iconImage";

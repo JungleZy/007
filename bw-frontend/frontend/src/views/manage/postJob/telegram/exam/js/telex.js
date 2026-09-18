@@ -1,11 +1,10 @@
-import {message} from "ant-design-vue";
+import {message} from "ant-design-vue"
 import moment from 'moment'
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {findPostExamTrainList, addPostExamTrainList, deleteExamList} from "../../../../../../common/api/TelegramApi.js";
-import {getGradingRuleListByType} from "../../../../../../common/api/GradingRuleApi.js";
-import {numberKey} from '../../../../../../components/preJob/telexTrain/js/enum.js'
+import {ref, onMounted, provide} from 'vue'
+import {findPostExamTrainList, addPostExamTrainList, deleteExamList} from "../../../../../../common/api/TelegramApi.js"
+import {getGradingRuleListByType} from "../../../../../../common/api/GradingRuleApi.js"
 import {useRouter, useRoute} from 'vue-router'
-import {getCableAll} from "../../../../../../common/api/CableApi.js";
+import {getCableAll} from "../../../../../../common/api/CableApi.js"
 
 export default function telegramList(addDrillModal) {
   const columns = ref([

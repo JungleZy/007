@@ -175,22 +175,12 @@ export default {
 </script>
 <script setup>
 import {useRouter, useRoute} from 'vue-router'
-import {ref, onMounted, provide, createVNode} from 'vue'
-import {
-  CheckOutlined,
-  PlayCircleOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  PlusOutlined,
-  CloseCircleOutlined,
-  WarningOutlined,
-  SettingOutlined, ExclamationCircleOutlined
-} from '@ant-design/icons-vue'
-import {message, Modal} from 'ant-design-vue'
+import {ref, createVNode} from 'vue'
+import {CheckOutlined, PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+import {Modal} from 'ant-design-vue'
 import telegramList from './js/telex'
-import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
+import {partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
 import ExamGradeRule from '../../../../../components/gradingRule/ExamGradeRule.vue'
-import {getCableAll} from "../../../../../common/api/CableApi.js";
 import SelectCable from "../../../../../components/cable/SelectCable.vue"
 
 const router = useRouter()

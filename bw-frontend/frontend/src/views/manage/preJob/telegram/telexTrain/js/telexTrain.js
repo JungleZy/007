@@ -1,11 +1,10 @@
-import { onUnmounted, onMounted, ref, onBeforeUnmount, createVNode, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { findTexPatTrainById, saveTexPatTrain } from '../../../../../../common/api/TelegramApi.js'
-import { PubSub } from '../../../../../../common/utils/PubSub.js'
-import { Modal } from 'ant-design-vue'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import {onUnmounted, onMounted, ref, createVNode, nextTick} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {findTexPatTrainById, saveTexPatTrain} from '../../../../../../common/api/TelegramApi.js'
+import {PubSub} from '../../../../../../common/utils/PubSub.js'
+import {Modal} from 'ant-design-vue'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
   
-import { letterKey, numberKey } from '../../../../../../components/preJob/telexTrain/js/enum'
 
 export default function telexTrain(countDown) {
   onMounted(() => {

@@ -86,16 +86,16 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onUnmounted, onMounted, nextTick } from 'vue'
-import { apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList, apiSimulationRouterSendFinish } from '../../../../../common/api/UserApi'
-import { wsUrl } from '../../../../../common/http/endpoint.js'
+import {ref, onUnmounted, onMounted, nextTick} from 'vue'
+import {apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList} from '../../../../../common/api/UserApi'
+import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
-import { message, Modal } from 'ant-design-vue'
+import {message, Modal} from 'ant-design-vue'
 import FillInResult from '../../disturbCode/FillInResult.vue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
-import { useRouter, useRoute } from 'vue-router'
-import { FileTextOutlined } from '@ant-design/icons-vue'
-import { uploadUnionTrainResult, apiSimulationRouterFindPage } from '../../../../../common/api/UnionApi'
+import {useRoute} from 'vue-router'
+import {FileTextOutlined} from '@ant-design/icons-vue'
+import {uploadUnionTrainResult, apiSimulationRouterFindPage} from '../../../../../common/api/UnionApi'
 import iconImage from "../../../postJob/js/iconImage";
 
 const {receiveBg} = iconImage()

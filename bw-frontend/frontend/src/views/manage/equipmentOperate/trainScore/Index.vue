@@ -68,19 +68,17 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, nextTick, onUnmounted, onBeforeUnmount,defineProps} from 'vue'
-import { message } from 'ant-design-vue'
+import {ref, onMounted, onUnmounted, onBeforeUnmount, defineProps} from 'vue'
+import {message} from 'ant-design-vue'
 import Paho from '../../../../common/mqtt/paho-mqtt'
-import { useRoute, useRouter } from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import table from '../../equipment/trainScore/js/table'
 import equipment_171 from '../../equipment/trainScore/js/171'
 import equipment_125W_400W from './js/125W_400W'
 import equipment_134A from './js/134A'
 import equipment_173 from './js/173'
 import equipment_121C from '../../equipment/trainScore/js/121C'
-import { getDetails, addTrain, generalGroupNetRuleFindAll } from '../../../../common/api/equipment'
-import play from '../../../../assets/HJ/term/play-ico.png'
-import pause from '../../../../assets/HJ/term/pause-ico.png'
+import {addTrain, generalGroupNetRuleFindAll} from '../../../../common/api/equipment'
 
 const route = useRoute()
 const router = useRouter()

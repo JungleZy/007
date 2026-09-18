@@ -116,14 +116,8 @@ export default {
 }
 </script>
 <script setup>
-import {ref, onMounted, onUnmounted, watch} from "vue";
-import {QuestionCircleOutlined,createFromIconfontCN} from '@ant-design/icons-vue';
-import CountDown from '../../../../../components/common/CountDown.vue';
-import Number from '../../../../../components/number/Number.vue';
-import abnormalImg from '../../../../../assets/HJJ/train/lab-abnormal.png';
-import perfectImg from '../../../../../assets/HJJ/train/lab-perfect.png';
-import normalImg from '../../../../../assets/HJJ/train/lab-normal.png';
-import clockLab from '../../../../../assets/HJJ/telexTrain/clock.png';
+import {ref, onMounted, onUnmounted} from "vue"
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 import countLab from '../../../../../assets/HJJ/telexTrain/count.png';
 import errorLab from '../../../../../assets/HJJ/telexTrain/error.png';
 import successLab from '../../../../../assets/HJJ/telexTrain/success.png';
@@ -131,8 +125,7 @@ import gcLab from '../../../../../assets/HJJ/telexTrain/gc.png';
 import gxLab from '../../../../../assets/HJJ/telexTrain/gx.png';
 import useControl from "./js/useControl.js";
 import basicTrain from "./js/basicTrain.js";
-import {PubSub} from "../../../../../common/utils/PubSub";
-import {wsCode} from "../../../../../common/ws/Ws";
+import {PubSub} from "../../../../../common/utils/PubSub"
 import CutDown from "../../../../../components/cutDown/CutDown.vue";
 const fs = ref(JSON.parse(localStorage.getItem('fs')));
 const trainData = ref({

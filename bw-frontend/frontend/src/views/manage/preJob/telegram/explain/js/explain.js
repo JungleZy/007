@@ -1,12 +1,6 @@
-import { ref, onMounted } from 'vue'
-import { findKeyPointsByType, saveKeyPoints } from '../../../../../../common/api/ExplainApi'
-import num1 from '../../../../../../assets/HJ/explain/num1.png'
-import num2 from '../../../../../../assets/HJ/explain/num2.png'
-import num3 from '../../../../../../assets/HJ/explain/num3.png'
-import num11 from '../../../../../../assets/HJ/explain/num11.png'
-import num22 from '../../../../../../assets/HJ/explain/num22.png'
-import num33 from '../../../../../../assets/HJ/explain/num33.png'
-import { message, Modal } from 'ant-design-vue'
+import {ref, onMounted} from 'vue'
+import {findKeyPointsByType, saveKeyPoints} from '../../../../../../common/api/ExplainApi'
+import {message, Modal} from 'ant-design-vue'
 export default function explain() {
   const listData = ref([])
   const active = ref(0)

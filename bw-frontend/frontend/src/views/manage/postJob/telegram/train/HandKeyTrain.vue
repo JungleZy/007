@@ -222,19 +222,15 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch } from 'vue'
-  import { useRoute } from 'vue-router'
-  import { message } from 'ant-design-vue'
+  import {ref, onMounted, onUnmounted} from 'vue'
+  import {useRoute} from 'vue-router'
   import CountDown from '../../../../../components/common/CountDown.vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 
   import useControl from './js/useControl.js'
   import details from './js/details.js'
-  import { getPostTelegramTrainById, apiPostTelegramTrainPrintBottomReport } from '../../../../../common/api/TelegramApi.js'
-  import { partTimeFormatInfo, sum } from '../../../../../common/utils/Utils.js'
-  import { PubSub } from '../../../../../common/utils/PubSub.js'
-  import { wsCode } from '../../../../../common/ws/Ws.js'
-  import Number from '../../../../../components/number/Number.vue'
+  import {getPostTelegramTrainById} from '../../../../../common/api/TelegramApi.js'
+  import {PubSub} from '../../../../../common/utils/PubSub.js'
 
   import textBg from '../../../../../assets/HJ/postTrain/machineTextBg.png'
   import reset from '../../../../../assets/HJ/postTrain/reset.png'

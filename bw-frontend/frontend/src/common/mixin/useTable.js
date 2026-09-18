@@ -1,4 +1,4 @@
-import {onMounted, ref, watch,nextTick} from "vue";
+import {onMounted, ref, watch} from "vue"
 export default function () {
   const isTableStriped = ref(false);
   const tableLoading = ref(true);

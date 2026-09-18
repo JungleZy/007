@@ -68,18 +68,14 @@
   }
 </script>
 <script setup>
-  import { LoadingOutlined, PlusOutlined, SaveOutlined, EditOutlined, DeleteOutlined, CloseOutlined, RollbackOutlined, CheckOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
   import StudentQues from '../../../../../../components/test/studentQues/StudentQues.vue'
   import nomore from '../../../../../../components/nomore/nomore.vue'
-  import icoPen from '../../../../../../assets/HJ/ico/ico-pen.png'
-  import { getById, getByIdAndToken } from '../../../../../../common/api/TheoryKnowledgeApi.js'
-  import trainTime from '../../../../../../assets/HJ/receive/trainTime.png'
   import linetp from '../../../../../../assets/HJ/basicTheory/line.png'
   import CutDown from '../../../../../../components/cutDown/CutDown.vue'
   import moment from 'moment'
 
-  import { useRoute } from 'vue-router'
-  import { onMounted, onBeforeUnmount, ref } from 'vue'
+  import {useRoute} from 'vue-router'
+  import {onMounted, onBeforeUnmount, ref} from 'vue'
   import useDetails from './js/useDetails.js'
   const route = useRoute()
   const data = ref({ knowledge: { title: '' }, knowledgeSwfs: [{ content: '' }] })

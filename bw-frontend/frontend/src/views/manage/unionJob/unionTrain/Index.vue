@@ -102,11 +102,10 @@ export default {
 }
 </script>
 <script setup>
-import {onMounted, onUnmounted, ref} from "vue";
-import {CloseOutlined, LogoutOutlined, LockOutlined, UnlockOutlined} from '@ant-design/icons-vue';
-import {PubSub} from "../../../../common/utils/PubSub.js";
-import UnionWs, {UnionWsCode} from "../js/UnionWs.js";
-import {useRouter} from "vue-router";
+import {onMounted, onUnmounted, ref} from "vue"
+import {PubSub} from "../../../../common/utils/PubSub.js"
+import UnionWs, {UnionWsCode} from "../js/UnionWs.js"
+import {useRouter} from "vue-router"
 import {notification} from 'ant-design-vue'
 import locking from "../../../../assets/HJ/union/locking.png";
 

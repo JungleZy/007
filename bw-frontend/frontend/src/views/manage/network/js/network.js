@@ -1,9 +1,9 @@
-import {message, Modal} from "ant-design-vue";
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {getAllDeviceType, getDeviceTypeEquipment} from "../../../../common/api/EquipmentApi";
-import {groupNetTrainSaveTrain,deviceScoringRuleSave,deviceScoringRuleFindAllByDeviceId} from "../../../../common/api/TrainingDetails";
+import {message} from "ant-design-vue"
+import {ref, onMounted} from 'vue'
+import {getAllDeviceType, getDeviceTypeEquipment} from "../../../../common/api/EquipmentApi"
+import {groupNetTrainSaveTrain, deviceScoringRuleSave, deviceScoringRuleFindAllByDeviceId} from "../../../../common/api/TrainingDetails"
 import table from '../contactDocuments/table'
-import {useRouter,useRoute} from "vue-router";
+import {useRouter, useRoute} from "vue-router"
 
 export default function network(selectTablePage) {
     const {J210_742,J210_742Rule}=table()

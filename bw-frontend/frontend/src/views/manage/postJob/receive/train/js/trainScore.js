@@ -1,8 +1,8 @@
-import {ref, onMounted, onUnmounted, watch,nextTick} from "vue";
+import {ref, onMounted, nextTick} from "vue"
 import {useRoute} from "vue-router"
-import {message} from "ant-design-vue";
-import {partTimeFormatInfo} from "../../../../../../common/utils/Utils.js";
-import {getReceiveTrainDetails,apiPostTickerTapeTrainFindPage,findHeader} from "../../../../../../common/api/ReceiveApi.js";
+import {message} from "ant-design-vue"
+import {partTimeFormatInfo} from "../../../../../../common/utils/Utils.js"
+import {getReceiveTrainDetails, apiPostTickerTapeTrainFindPage, findHeader} from "../../../../../../common/api/ReceiveApi.js"
 
 export default function telegramList() {
   const loading = ref(true);

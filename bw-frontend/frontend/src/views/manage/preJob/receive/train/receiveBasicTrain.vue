@@ -155,11 +155,8 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, onUnmounted, watch, inject } from 'vue'
-import { useRoute } from 'vue-router'
+import {ref, inject} from 'vue'
 import basicTrain from './js/basicTrain.js'
-import Number from '../../../../../components/number/Number.vue'
-import bb from '../../../../../assets/HJ/receive/bb.png'
 import bbGif from '../../../../../assets/HJ/receive/bb.gif'
 import volumeNone from '../../../../../assets/HJ/train/volume-none.png'
 import volumeMini from '../../../../../assets/HJ/train/volume-mini.png'

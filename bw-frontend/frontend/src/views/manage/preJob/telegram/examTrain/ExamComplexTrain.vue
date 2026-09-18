@@ -273,18 +273,16 @@
   </div>
 </template>
 <script>
-import { nextTick, onBeforeUnmount } from 'vue'
 
 export default {
   name: 'ExamComplexTrain'
 }
 </script>
 <script setup>
-import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { createFromIconfontCN,QuestionCircleOutlined } from '@ant-design/icons-vue'
+import {ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {createFromIconfontCN, QuestionCircleOutlined} from '@ant-design/icons-vue'
 import examTrain from './js/examTrain.js'
-import Number from '../../../../../components/number/Number.vue'
 import hunderd from '../../../../../assets/HJ/telexTrain/telegram/hunderd.png'
 import twinkeGif from '../../../../../assets/HJ/telexTrain/telegram/twinke.gif'
 import teinke from '../../../../../assets/HJ/telexTrain/telegram/teinke.png'
@@ -292,14 +290,6 @@ import countLab from '../../../../../assets/HJJ/telexTrain/count.png'
 import errorLab from '../../../../../assets/HJJ/telexTrain/error.png'
 import successLab from '../../../../../assets/HJJ/telexTrain/success.png'
 import speedLab from '../../../../../assets/HJJ/telexTrain/speed.png'
-import restext1 from '../../../../../assets/HJ/train/res-text-1.png'
-import restext2 from '../../../../../assets/HJ/train/res-text-2.png'
-import restext3 from '../../../../../assets/HJ/train/res-text-3.png'
-import tagscrapsuccess from '../../../../../assets/HJ/train/tag-scrap-success.png'
-import tagscrapwarning from '../../../../../assets/HJ/train/tag-scrap-warning.png'
-import tagscraperror from '../../../../../assets/HJ/train/tag-scrap-error.png'
-import resaccuracy from '../../../../../assets/HJ/train/res-accuracy.png'
-import resspeed from '../../../../../assets/HJ/train/res-speed.png'
 import CutDown from '../../../../../components/cutDown/CutDown.vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl

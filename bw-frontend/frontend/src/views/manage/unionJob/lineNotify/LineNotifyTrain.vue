@@ -10,8 +10,7 @@ export default {
 </script>
 
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import { onMounted } from 'vue'
+import {useRouter, useRoute} from 'vue-router'
 import ListenIn from './components/ListenIn.vue'
 import Issue from './components/Issue.vue'
 const router = useRouter()

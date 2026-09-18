@@ -132,11 +132,11 @@
 </template>
 
 <script>
-import { defineComponent, toRefs, ref, watch, inject, onMounted } from 'vue'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
+import {defineComponent, toRefs, ref, inject, onMounted} from 'vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 // import useRoomTest from './js/usePreviewTheTopic.js'
-import { useRouter, useRoute } from 'vue-router'
-import { deepClone } from '../../../common/utils/Utils.js'
+import {useRouter, useRoute} from 'vue-router'
+import {deepClone} from '../../../common/utils/Utils.js'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })

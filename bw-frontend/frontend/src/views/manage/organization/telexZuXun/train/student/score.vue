@@ -281,19 +281,14 @@ export default {
 }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, defineProps } from 'vue'
-import {useRoute} from "vue-router";
+  import {ref, defineProps} from 'vue'
 import trainScore from "./js/trainScore.js";
-import chartLab from '../../../../../../assets/HJ/postTrain/chartLab.png';
 import useMorse from "../../../../../../common/mixin/useMorse.js";
 import scoreSuperb from "../../../../../../assets/HJ/postTrain/score-superb.png";
 import scoreSuffice from "../../../../../../assets/HJ/postTrain/score-suffice.png";
 import scoreFailed from "../../../../../../assets/HJ/postTrain/score-failed.png";
 import resAccuracy from "../../../../../../assets/HJ/postTrain/check.png";
-import resSpeed from "../../../../../../assets/HJ/train/res-speed.png";
 import resTime from "../../../../../../assets/HJ/postTrain/time.png";
-import chartIco1 from "../../../../../../assets/HJ/train/chart-ico-1.png";
-import chartIcoOn1 from "../../../../../../assets/HJ/train/chart-ico-1-on.png";
 import chartIco2 from "../../../../../../assets/HJ/train/chart-ico-2.png";
 import chartIcoOn2 from "../../../../../../assets/HJ/train/chart-ico-2-on.png";
 import chartIco3 from "../../../../../../assets/HJ/train/chart-ico-3.png";

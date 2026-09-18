@@ -1,9 +1,9 @@
-import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
+import {message} from 'ant-design-vue'
+import {useRouter} from 'vue-router'
+import {ref, onMounted} from 'vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import { timeFormatInfo } from '../../../../../../common/utils/Utils.js'
-import { getBasicSetting, saveBasicSetting, saveTelegramTrain, findReceiveTrainTotal, findPrevReceiveTrainInfo } from '../../../../../../common/api/ReceiveApi.js'
+import {timeFormatInfo} from '../../../../../../common/utils/Utils.js'
+import {getBasicSetting, saveBasicSetting, saveTelegramTrain, findReceiveTrainTotal, findPrevReceiveTrainInfo} from '../../../../../../common/api/ReceiveApi.js'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
 import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 

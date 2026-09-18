@@ -1,7 +1,6 @@
-import { reactive, ref, toRefs, nextTick, onMounted } from 'vue'
-import { analyzeDown } from '../../../../../../common/api/StudyManage_classHours'
+import {reactive, onMounted} from 'vue'
+import {analyzeDown} from '../../../../../../common/api/StudyManage_classHours'
 import * as echarts from 'echarts'
-import { sources } from '@fingerprintjs/fingerprintjs'
 export default function pointUseChart(currentYear2) {
   let data = reactive({
     theChartPoint: '',

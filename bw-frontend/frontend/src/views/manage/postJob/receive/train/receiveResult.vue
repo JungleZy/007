@@ -29,16 +29,15 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { message } from 'ant-design-vue'
-  import receiveTrain from './js/receiveTrain.js'
+  import {ref, nextTick} from 'vue'
+  import {useRoute, useRouter} from 'vue-router'
+  import {message} from 'ant-design-vue'
   import OcrComp from '../../../../../common/utils/ocr/OcrComp.vue'
   import addNextHJ from '../../../../../assets/HJ/postTrain/addNext.png'
   import addNextHJJ from '../../../../../assets/HJJ/postTrain/addNext.png'
   import addNextLJ from '../../../../../assets/LJ/postTrain/addNext.png'
   import addNextKJ from '../../../../../assets/KJ/postTrain/addNext.png'
-  import { uploadReceiveResult } from '../../../../../common/api/ReceiveApi.js'
+  import {uploadReceiveResult} from '../../../../../common/api/ReceiveApi.js'
   let addNext
   const interfaceStyle = window.interfaceStyle
   if(interfaceStyle==='HJ'){

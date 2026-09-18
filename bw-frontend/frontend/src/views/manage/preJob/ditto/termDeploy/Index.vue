@@ -69,11 +69,11 @@ export default {
 }
 </script>
 <script setup>
-import {PlusOutlined,EditOutlined,DeleteOutlined,CheckOutlined,ClearOutlined,RedoOutlined,ExclamationCircleOutlined} from '@ant-design/icons-vue';
-import {onMounted, ref, createVNode, nextTick, onBeforeUnmount} from "vue";
-import {message,Modal} from "ant-design-vue";
-import {deepClone} from "../../../../../common/utils/Utils.js";
-import {getTermDeployListData,addTermItemData,updateTermItemData,deleteTermItemData} from "../../../../../common/api/TelegramApi.js";
+import {PlusOutlined, DeleteOutlined, CheckOutlined, ClearOutlined, RedoOutlined} from '@ant-design/icons-vue'
+import {onMounted, ref, nextTick} from "vue"
+import {message} from "ant-design-vue"
+import {deepClone} from "../../../../../common/utils/Utils.js"
+import {getTermDeployListData, addTermItemData, updateTermItemData, deleteTermItemData} from "../../../../../common/api/TelegramApi.js"
 import parting from '../../../../../assets/HJ/term/parting.png';
 const interfaceStyle = window.interfaceStyle
 const termData = ref({

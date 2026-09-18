@@ -57,11 +57,8 @@
   };
 </script>
 <script setup>
-  import dashboardBottomBg from "../../assets/HJJ/main/dashboardBottomBg.png";
-  import menuBg from "../../assets/HJJ/main/menu-bg.png";
-  import menuBg2 from "../../assets/HJJ/menus/menu-bg.png";
-  import { onMounted, ref, nextTick } from "vue";
-  import { useRouter, useRoute } from "vue-router";
+  import {onMounted, ref} from "vue"
+  import {useRouter, useRoute} from "vue-router"
   const router = useRouter();
   const route = useRoute();
   const menus = ref([]);

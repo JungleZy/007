@@ -21,10 +21,9 @@ export default {
 }
 </script>
 <script setup>
-  import development from '../../../../assets/HJ/test/development.png'
   import NipLeftMenu from "../../../../components/common/NipLeftMenu.vue";
   import {useRoute} from 'vue-router'
-  import {ref, onUnmounted, provide} from 'vue'
+  import {ref, provide} from 'vue'
   import {global} from "../../../../config/pinia/index.js"
 
   const useGlobalStore = global.useGlobalStore()

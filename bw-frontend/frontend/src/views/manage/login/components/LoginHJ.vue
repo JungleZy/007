@@ -226,27 +226,15 @@
   }
 </script>
 <script setup>
-  import { reactive, ref, inject, nextTick } from 'vue'
-  import {
-    UserOutlined,
-    LockOutlined,
-    MobileOutlined,
-    IdcardOutlined,
-    MailOutlined,
-    DownCircleFilled,
-    UpCircleFilled
-  } from '@ant-design/icons-vue'
+  import {reactive, ref, inject} from 'vue'
+  import {UserOutlined, LockOutlined, MobileOutlined, IdcardOutlined, MailOutlined, DownCircleFilled, UpCircleFilled} from '@ant-design/icons-vue'
   import useLogin from '../useLogin.js'
   import icoUser from '../../../../assets/HJ/login/input-user.png'
   import icoPwd from '../../../../assets/HJ/login/input-pwd.png'
-  import lb from '../../../../assets/HJ/login/login-bg.png'
-  import lm from '../../../../assets/HJ/login/login-mask.png'
-  import ll from '../../../../assets/HJ/login/login-logo.png'
   import lu from '../../../../assets/HJ/login/login-button.gif'
   import staticButton from '../../../../assets/HJ/login/staticButton.png'
   import moment from 'moment'
   import locale from 'ant-design-vue/es/locale/zh_CN'
-  import { fontSizeDispose } from '../../../../common/utils/Utils'
   const formState = reactive({
     buttonMsg: '',
     username: '',

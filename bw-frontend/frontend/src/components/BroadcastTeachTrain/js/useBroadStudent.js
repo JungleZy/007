@@ -1,14 +1,13 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { getRoomDetail } from '../../../common/api/broadcastTeachingApi'
-import { partTimeFormatInfo } from '../../../common/utils/Utils.js'
-import { useRoute } from 'vue-router'
-import { findUserPageBaoWenInfo, uploadUnionTrainResult } from '../../../common/api/UnionApi'
+import {message} from 'ant-design-vue'
+import {ref, onMounted, onBeforeUnmount} from 'vue'
+import {getRoomDetail} from '../../../common/api/broadcastTeachingApi'
+import {useRoute} from 'vue-router'
+import {findUserPageBaoWenInfo, uploadUnionTrainResult} from '../../../common/api/UnionApi'
 import useMorse from '../../../common/mixin/useMorse'
 // import {partTimeFormatInfo} from "../../../common/utils/Utils";
 import operationMorseVoice from "../../../common/utils/voice/operationMorseVoice";
-import {PubSub} from "../../../common/utils/PubSub";
-import {findHeader} from "../../../common/api/ReceiveApi";
+import {PubSub} from "../../../common/utils/PubSub"
+import {findHeader} from "../../../common/api/ReceiveApi"
 import {calculateTiming} from '../../../common/utils/voice/MorseVoiceHighPerformance'
 import SocketConnection from '../../../common/ws/SocketConnection'
 import useSimulationRecovery from './useSimulationRecovery'

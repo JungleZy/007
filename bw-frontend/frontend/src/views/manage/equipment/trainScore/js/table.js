@@ -1,8 +1,3 @@
-import {onMounted, ref} from "vue";
-import {useRoute, useRouter} from "vue-router";
-import {getArticleList} from "../../../../../common/api/postHanZi";
-import {message} from "ant-design-vue";
-import moment from "moment";
 
 export default function table(){
   //220定频

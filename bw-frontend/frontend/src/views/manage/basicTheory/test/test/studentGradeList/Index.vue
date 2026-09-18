@@ -65,16 +65,11 @@
 </script>
 
 <script setup>
-  import {
-    FormOutlined,
-    PlusOutlined,
-    createFromIconfontCN
-  } from '@ant-design/icons-vue';
+  import {FormOutlined, PlusOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
   import knowledgeTabel from './js/knowledgeTabel'
-  import useQuestionBank from '../../questionBank/js/useQuestionBank'
   import nomore from '../../../../../../components/nomore/nomore.vue'
-  import {ref,onMounted,watch} from "vue";
-  import {useRouter,useRoute} from 'vue-router'
+  import {onMounted} from "vue"
+  import {useRouter, useRoute} from 'vue-router'
   import llcy from '../../../../../../assets/HJ/test/llcy.png'
 
   const IconFont = createFromIconfontCN({

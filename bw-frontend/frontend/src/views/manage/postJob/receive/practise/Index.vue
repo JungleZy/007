@@ -288,26 +288,17 @@
   }
 </script>
 <script setup>
-  import { useRouter } from 'vue-router'
-  import {ref, onMounted, inject, provide, createVNode} from 'vue'
-  import {
-    PlayCircleOutlined,
-    DeleteOutlined,
-    FileTextOutlined,
-    PlusOutlined,
-    FundViewOutlined,
-    CloseCircleOutlined,
-    WarningOutlined,
-    createFromIconfontCN, ExclamationCircleOutlined
-  } from '@ant-design/icons-vue'
+  import {useRouter} from 'vue-router'
+  import {ref, inject, provide, createVNode} from 'vue'
+  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, FundViewOutlined, CloseCircleOutlined, WarningOutlined, createFromIconfontCN, ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {message, Modal} from 'ant-design-vue'
   import telegramList from './js/telegram'
   import useMorse from '../../../../../common/mixin/useMorse.js'
-  import { timeFormatInfo, partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
-  import { getPostReceiveSetting, savePostReceiveSetting, saveReceivePostTrain,saveHeader } from '../../../../../common/api/ReceiveApi.js'
+  import {timeFormatInfo, partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
+  import {getPostReceiveSetting, savePostReceiveSetting, saveReceivePostTrain, saveHeader} from '../../../../../common/api/ReceiveApi.js'
   import operationMorseVoice from '../../../../../common/utils/voice/operationMorseVoice'
   import {calculateTiming} from '../../../../../common/utils/voice/MorseVoiceHighPerformance'
-  import {getCableAll} from "../../../../../common/api/CableApi";
+  import {getCableAll} from "../../../../../common/api/CableApi"
   import SelectCable from "../../../../../components/cable/SelectCable.vue"
 
   import Pagination from '../../../../../components/common/Pagination.vue'

@@ -150,9 +150,9 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, watch, provide } from 'vue'
+import {ref, provide} from 'vue'
 import addTest from './js/addTest'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 import previewTest from '../../../../../../components/test/previewTest/previewTest.vue'
 import llcy from '../../../../../../assets/HJ/test/llcy.png'
 

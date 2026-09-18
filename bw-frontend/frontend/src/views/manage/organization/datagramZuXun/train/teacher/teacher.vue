@@ -106,7 +106,6 @@
   }
 </script>
 <script setup>
-  import {ref} from "vue";
   import StudentScore from '../student/score.vue';
   import CountDown from '../../../../../../components/common/CountDown.vue';
   import iconImage from "../../../../postJob/js/iconImage";

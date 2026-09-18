@@ -1,5 +1,4 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
+import {ref} from 'vue'
 export default function useRoomTest(params, selectedKnowledgeSwfs, index) {
   const Earray = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
   const typeCheckList = ref([

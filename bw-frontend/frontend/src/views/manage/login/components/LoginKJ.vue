@@ -192,17 +192,13 @@
   }
 </script>
 <script setup>
-  import { reactive, ref, inject, nextTick } from 'vue'
-  import { UserOutlined, LockOutlined, MobileOutlined, IdcardOutlined, MailOutlined, DownCircleFilled, UpCircleFilled } from '@ant-design/icons-vue'
+  import {reactive, ref, inject} from 'vue'
   import useLogin from '../useLogin.js'
   import icoUser from '../../../../assets/KJ/login/input-user.png'
   import icoPwd from '../../../../assets/KJ/login/input-pwd.png'
-  import lb from '../../../../assets/KJ/login/login-bg.png'
-  import lm from '../../../../assets/KJ/login/login-mask.png'
   import lg from '../../../../assets/KJ/login/logo.png'
   import lt from '../../../../assets/KJ/login/login-title.png'
   //登录按钮
-  import lu from '../../../../assets/KJ/login/staticButton.png'
   import staticButton from '../../../../assets/KJ/login/staticButton.png'
 
 

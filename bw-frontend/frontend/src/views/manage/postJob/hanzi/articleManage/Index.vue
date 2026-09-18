@@ -102,13 +102,13 @@ export default {
 }
 </script>
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import {ref, onMounted, provide, createVNode} from 'vue'
-import { addPostArticle, deleteArticleByID } from '../../../../../common/api/postHanZi'
+import {useRouter, useRoute} from 'vue-router'
+import {ref, createVNode} from 'vue'
+import {addPostArticle, deleteArticleByID} from '../../../../../common/api/postHanZi'
 import telegramList from './js/telex'
-import {createFromIconfontCN, ExclamationCircleOutlined,DeleteOutlined} from '@ant-design/icons-vue'
+import {createFromIconfontCN, ExclamationCircleOutlined, DeleteOutlined} from '@ant-design/icons-vue'
 import {message, Modal} from 'ant-design-vue'
-import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
+import {isUploadSizeAllowed, uploadSizeMessage} from '../../../../../common/utils/uploadLimits.js'
 import * as mammoth from "mammoth";
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl

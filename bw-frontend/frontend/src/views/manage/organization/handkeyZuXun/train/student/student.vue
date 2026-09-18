@@ -236,18 +236,13 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, defineProps, defineEmits } from 'vue'
-  import { useRoute } from 'vue-router'
-  import { message } from 'ant-design-vue'
+  import {ref, onMounted, onUnmounted, defineEmits} from 'vue'
+  import {useRoute} from 'vue-router'
   import TrainLeft from '../../../../../../components/postJob/trainLeft/TrainLeft.vue'
-  import { PubSub } from '../../../../../../common/utils/PubSub.js'
-  import { wsCode } from '../../../../../../common/ws/Ws.js'
-  import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
-  import { getPostTelegramTrainById } from '../../../../../../common/api/TelegramApi.js'
-  import {getHandKeyZuXunDetails} from "../../../../../../common/api/handkeyZuXun.js";
+  import {PubSub} from '../../../../../../common/utils/PubSub.js'
+  import {getHandKeyZuXunDetails} from "../../../../../../common/api/handkeyZuXun.js"
   import useControl from './js/useControl.js'
   import details from './js/handKeyTrain.js'
-  import Number from '../../../../../../components/number/Number.vue'
 
 
   import reset from '../../../../../../assets/HJ/postTrain/reset.png'

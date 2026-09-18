@@ -41,11 +41,9 @@
 </template>
 
 <script>
-import { defineComponent, ref, toRefs, watch, provide } from 'vue'
-import useStudentQues from '../studentQues/js/useStudentQues'
+import {defineComponent, ref, toRefs} from 'vue'
 import PreviewTheTopic from '../previewTheTopic/PreviewTheTopic.vue'
-import PreviewTheTopicTwo from '../previewTheTopic/PreviewTheTopicTwo.vue'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })

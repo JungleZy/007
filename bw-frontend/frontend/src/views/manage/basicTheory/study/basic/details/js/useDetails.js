@@ -1,12 +1,11 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject, onBeforeUnmount } from 'vue'
+import {message, Modal} from 'ant-design-vue'
+import {ref, onMounted, onBeforeUnmount} from 'vue'
 // import {getAllUser,getUserAndRoleById,getRoleAll,addUserRole,saveUser } from "../../../../../common/api/StructureApi.js";
-import { useRouter, useRoute } from 'vue-router'
-import { deepClone } from '../../../../../../../common/utils/Utils.js'
-import { getByIdAndToken } from '../../../../../../../common/api/TheoryKnowledgeApi.js'
-import { sanitizeHtml } from '../../../../../../../common/utils/sanitizeHtml.js'
-import { getByKnowledgeSwfIdAndEnable, saveUserKnowledgeSwfTestContent, getTestContentByUserIdAndKnowledgeSwfId, saveTheoryKnowledgeRecord } from '../../../../../../../common/api/TestApi.js'
-import moment from 'moment'
+import {useRoute} from 'vue-router'
+import {deepClone} from '../../../../../../../common/utils/Utils.js'
+import {getByIdAndToken} from '../../../../../../../common/api/TheoryKnowledgeApi.js'
+import {sanitizeHtml} from '../../../../../../../common/utils/sanitizeHtml.js'
+import {getByKnowledgeSwfIdAndEnable, saveUserKnowledgeSwfTestContent, getTestContentByUserIdAndKnowledgeSwfId, saveTheoryKnowledgeRecord} from '../../../../../../../common/api/TestApi.js'
 import 'moment/dist/locale/zh-cn.js'
 export default function userDetails(data) {
   onMounted(() => {

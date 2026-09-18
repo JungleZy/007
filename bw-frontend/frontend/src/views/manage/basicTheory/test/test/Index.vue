@@ -14,8 +14,8 @@ export default {
 </script>
 <script setup>
 import NipLeftMenu from '../../../../../components/common/NipLeftMenu.vue'
-import { useRoute, useRouter } from 'vue-router'
-import { provide, ref, watch, nextTick } from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {provide, ref, watch} from 'vue'
 
 const route = useRoute()
 const router = useRouter()

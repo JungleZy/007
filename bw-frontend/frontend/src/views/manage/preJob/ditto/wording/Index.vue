@@ -125,13 +125,10 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, inject } from 'vue'
-import { LoadingOutlined } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import {ref, onMounted, inject} from 'vue'
+import {useRouter} from 'vue-router'
 import termTrain from './js/termTrain.js'
 import Slider from '../../../../../components/slider/Slider.vue'
-import timeBg from '../../../../../assets/HJ/term/time-bg.png'
-import deployGap from '../../../../../assets/HJ/term/deploy-gap.png'
 import volumeNone from '../../../../../assets/HJ/train/volume-none.png'
 import volumeMini from '../../../../../assets/HJ/train/volume-mini.png'
 import volumeBig from '../../../../../assets/HJ/train/volume-big.png'
@@ -142,7 +139,7 @@ import valEmpty from '../../../../../assets/HJ/term/val-empty.png'
 import valHideGif from '../../../../../assets/HJ/term/val-hide.gif'
 import valHide from '../../../../../assets/HJ/term/val-hide.png'
 import CutDown from '../../../../../components/cutDown/CutDown.vue'
-import {getPreTermTrainTotal} from "../../../../../common/api/TelegramApi";
+import {getPreTermTrainTotal} from "../../../../../common/api/TelegramApi"
 const wpmTOmm = inject('wpmTOmm')
 const router = useRouter()
 const drillPath = ref('')

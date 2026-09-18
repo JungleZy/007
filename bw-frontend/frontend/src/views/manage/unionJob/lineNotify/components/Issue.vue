@@ -190,24 +190,16 @@ export default {
 </script>
 
 <script setup>
-import { FileTextOutlined } from '@ant-design/icons-vue'
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import {FileTextOutlined} from '@ant-design/icons-vue'
+import {ref} from 'vue'
+import {useRoute} from 'vue-router'
 import prev from '../../../../../assets/HJ/postTrain/prev.png'
 import next from '../../../../../assets/HJ/postTrain/next.png'
-import { getPostTelegramTrainById } from '../../../../../common/api/TelegramApi.js'
-import { partTimeFormatInfo, sum } from '../../../../../common/utils/Utils.js'
-import { PubSub } from '../../../../../common/utils/PubSub.js'
 
-import textBg from '../../../../../assets/HJ/postTrain/machineTextBg.png'
-import reset from '../../../../../assets/HJ/postTrain/reset.png'
 
-import interfere from '../../../../../assets/HJ/train/interfere.png'
 import issue from '../js/Issue'
-import lineNotify from '../js'
 import useMorse from '../../../../../common/mixin/useMorse.js'
 import TrainResult from '../../disturbCode/TrainResult.vue'
-import { message, Modal } from 'ant-design-vue'
 import iconImage from "../../../postJob/js/iconImage";
 const {topBg,labNum} = iconImage()
 

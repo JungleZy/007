@@ -17,7 +17,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUpdated, ref, watch } from 'vue'
+import {ref, watch} from 'vue'
 
 const props = defineProps(['tableAllData'])
 const emit = defineEmits(['getTableList'])

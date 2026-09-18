@@ -1,10 +1,10 @@
-import { message } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
+import {message} from 'ant-design-vue'
+import {useRouter} from 'vue-router'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
-import { timeFormatInfo } from '../../../../../../common/utils/Utils.js'
-import { saveTelegramTrain, saveBasicSetting, getBasicSetting, findHandKeyTrainTotal, findPrevHandKeyTrainInfo } from '../../../../../../common/api/TelegramApi.js'
-import { parseTelegramBasicSettings, settingMilliseconds } from '../../../../../../common/utils/telegramSettings.js'
+import {ref, onMounted} from 'vue'
+import {timeFormatInfo} from '../../../../../../common/utils/Utils.js'
+import {saveTelegramTrain, saveBasicSetting, getBasicSetting, findHandKeyTrainTotal, findPrevHandKeyTrainInfo} from '../../../../../../common/api/TelegramApi.js'
+import {parseTelegramBasicSettings, settingMilliseconds} from '../../../../../../common/utils/telegramSettings.js'
 
 export default function telegramList() {
   const router = useRouter()

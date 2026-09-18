@@ -55,12 +55,10 @@ export default {
 }
 </script>
 <script setup>
-import NipLeftMenu from '../../../../components/common/NipLeftMenu.vue'
 import Score from '../trainScore/Index.vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ref, onUnmounted, provide, onMounted } from 'vue'
-import Paho from '../../../../common/mqtt/paho-mqtt'
-import { getEquipmentAll, addTrain } from '../../../../common/api/equipment'
+import {useRoute, useRouter} from 'vue-router'
+import {ref, provide, onMounted} from 'vue'
+import {getEquipmentAll} from '../../../../common/api/equipment'
 import equipmentFore from './js/400w'
 import equipment_125W from './js/125w'
 import equipment_171 from './js/171'

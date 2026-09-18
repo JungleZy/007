@@ -64,16 +64,15 @@
 <script>
   import Keyboard from '../../../../../components/preJob/telexTrain/Keyboard.vue'
   import MistakeTrain from '../../../../../components/preJob/mistake/MistakeTrain.vue'
-  import { numberKey, letterKey, specialKey } from '../../../../../components/preJob/telexTrain/js/enum'
-  import { ref, onMounted, onBeforeUnmount } from 'vue'
-  import { saveTelexPat, findTelexPatById, deleteTexPatByToken } from '../../../../../common/api/TelegramApi'
-  import { createFromIconfontCN } from '@ant-design/icons-vue'
-  import { useRouter } from 'vue-router'
+  import {numberKey, letterKey, specialKey} from '../../../../../components/preJob/telexTrain/js/enum'
+  import {ref, onMounted, onBeforeUnmount} from 'vue'
+  import {saveTelexPat, findTelexPatById, deleteTexPatByToken} from '../../../../../common/api/TelegramApi'
+  import {createFromIconfontCN} from '@ant-design/icons-vue'
+  import {useRouter} from 'vue-router'
   import clockp from '../../../../../assets/HJJ/telexTrain/clock.png'
   import countp from '../../../../../assets/HJJ/telexTrain/count.png'
   import errorp from '../../../../../assets/HJJ/telexTrain/error.png'
   import successp from '../../../../../assets/HJJ/telexTrain/success.png'
-  import CutDown from '../../../../../components/cutDown/CutDown.vue'
   const IconFont = createFromIconfontCN({
     scriptUrl: window.iconUrl
   })

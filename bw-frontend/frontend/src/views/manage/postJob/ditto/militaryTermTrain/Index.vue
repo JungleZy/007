@@ -249,14 +249,11 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import {ref} from 'vue'
 import militaryTrain from './js/militaryTrain.js'
-import Number from '../../../../../components/number/Number.vue'
 import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 
 import detailexercise from '../../../../../assets/HJ/train/detail-exercise.png'
-import dataEmpty from '../../../../../assets/HJ/train/dataEmpty.png'
 import scoreSuperb from '../../../../../assets/HJ/postTrain/score-superb.png'
 import scoreSuffice from '../../../../../assets/HJ/postTrain/score-suffice.png'
 import scoreFailed from '../../../../../assets/HJ/postTrain/score-failed.png'

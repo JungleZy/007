@@ -31,10 +31,9 @@
   }
 </script>
 <script setup>
-  import {useRoute, useRouter} from "vue-router";
-  import {ref, onMounted, inject,watch,nextTick} from "vue";
-  import {createFromIconfontCN} from '@ant-design/icons-vue';
-  import firstImg from "../../../assets/HJJ/menus/firstImg.png"
+  import {useRoute, useRouter} from "vue-router"
+  import {ref, onMounted, watch, nextTick} from "vue"
+  import {createFromIconfontCN} from '@ant-design/icons-vue'
   import {global} from "../../../config/pinia/index.js"
 
   const useGlobalStore = global.useGlobalStore();

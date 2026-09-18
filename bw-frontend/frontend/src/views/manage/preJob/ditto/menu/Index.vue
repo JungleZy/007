@@ -35,20 +35,16 @@ export default {
 }
 </script>
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { getPreTermTrainTotal } from '../../../../../common/api/TelegramApi.js'
+import {onMounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {getPreTermTrainTotal} from '../../../../../common/api/TelegramApi.js'
 import itemImg5 from '../../../../../assets/HJ/preTrain/item-img-5.png'
 import itemImg7 from '../../../../../assets/HJ/preTrain/item-img-7.png'
 import itemImg1 from '../../../../../assets/HJ/preTrain/item-img-1.png'
 import itemLab1 from '../../../../../assets/HJ/preTrain/total-data-1.png'
 import itemLab2 from '../../../../../assets/HJ/preTrain/total-data-2.png'
-import itemLab3 from '../../../../../assets/HJ/preTrain/total-data-3.png'
-import itemLab4 from '../../../../../assets/HJ/preTrain/total-data-4.png'
 import itemLabOn1 from '../../../../../assets/HJ/preTrain/total-data-on-1.png'
 import itemLabOn2 from '../../../../../assets/HJ/preTrain/total-data-on-2.png'
-import itemLabOn3 from '../../../../../assets/HJ/preTrain/total-data-on-3.png'
-import itemLabOn4 from '../../../../../assets/HJ/preTrain/total-data-on-4.png'
 
 const router = useRouter()
 const totalList = ref([])

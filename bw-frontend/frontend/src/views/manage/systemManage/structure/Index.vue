@@ -130,21 +130,10 @@ export default {
 }
 </script>
 <script setup>
-import {
-  ManOutlined,
-  WomanOutlined,
-  FormOutlined,
-  FileSearchOutlined,
-  PlusOutlined,
-  LoadingOutlined,
-  ReloadOutlined,
-  DeleteOutlined
-} from '@ant-design/icons-vue'
+import {ManOutlined, WomanOutlined, FormOutlined, FileSearchOutlined, PlusOutlined, LoadingOutlined, ReloadOutlined, DeleteOutlined} from '@ant-design/icons-vue'
 // import avatarDef from '../../../assets/HJ/main/avatar-def.png';
-import avatarDef from '../../../../assets/HJ/main/avatar-def.png'
 import useStructure from './js/useStructure'
 import locale from 'ant-design-vue/es/locale/zh_CN'
-import moment from 'moment'
 import useUpload from '../../../../common/mixin/useUpload.js'
 import 'moment/dist/locale/zh-cn.js'
 

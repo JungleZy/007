@@ -293,10 +293,10 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { PauseCircleFilled, PlayCircleFilled, StopFilled, CheckCircleFilled, FileTextOutlined } from '@ant-design/icons-vue'
+import {ref} from 'vue'
+import {PauseCircleFilled, PlayCircleFilled, StopFilled, FileTextOutlined} from '@ant-design/icons-vue'
 import trainJS from './js/train.js'
-import { partTimeFormatInfo } from '../../../../common/utils/Utils'
+import {partTimeFormatInfo} from '../../../../common/utils/Utils'
 import FillInResult from './FillInResult.vue'
 import TrainResult from './TrainResult.vue'
 import text1 from '../../../../assets/HJ/union/text-1.png'

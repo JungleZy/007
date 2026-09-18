@@ -24,7 +24,7 @@
   }
 </script>
 <script setup>
-  import {ref, onMounted, watch, defineProps} from "vue";
+  import {ref, watch, defineProps} from "vue"
 
   const num = ref([0]);
   const _num = ref([0]);

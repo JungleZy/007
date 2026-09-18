@@ -46,8 +46,8 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, nextTick, defineEmits, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import {ref, onMounted, nextTick, defineEmits} from 'vue'
+import {message, Modal} from 'ant-design-vue'
 import saveIco from '../../../../assets/HJ/postTrain/btn-ico-save.png'
 
 import iconImage from "../../postJob/js/iconImage"

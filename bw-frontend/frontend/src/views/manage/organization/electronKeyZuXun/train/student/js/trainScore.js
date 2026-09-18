@@ -1,10 +1,10 @@
-import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue";
+import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
-import {partTimeFormatInfo,sum} from "../../../../../../../common/utils/Utils.js";
-import {getElectronKeyZuXunPageNumber,updateElectronKeyPatTrainDetails} from "../../../../../../../common/api/electronKeyZuXun.js";
+import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
+import {getElectronKeyZuXunPageNumber, updateElectronKeyPatTrainDetails} from "../../../../../../../common/api/electronKeyZuXun.js"
 import * as echarts from "echarts"
-import { deepClone } from '../../../../../../../common/utils/Utils'
+import {deepClone} from '../../../../../../../common/utils/Utils'
 
 export default function telegramList(showChart,selfId) {
   const loading = ref(true);

@@ -160,27 +160,17 @@
   }
 </script>
 <script setup>
-  import NipUEditor from '../../../../../components/common/NipUEditor.vue'
-  import { useRouter, useRoute } from 'vue-router'
-  import {ref, onMounted, provide, createVNode} from 'vue'
-  import {
-    PlayCircleOutlined,
-    DeleteOutlined,
-    FileTextOutlined,
-    PlusOutlined,
-    CloseCircleOutlined,
-    WarningOutlined,
-    SettingOutlined,
-    ExclamationCircleOutlined
-  } from '@ant-design/icons-vue'
-  import {message, Modal} from 'ant-design-vue'
+  import {useRouter, useRoute} from 'vue-router'
+  import {ref, provide, createVNode} from 'vue'
+  import {PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, SettingOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
+  import {Modal} from 'ant-design-vue'
   import telegramList from './js/telex'
-  import { timeFormatInfo, partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
+  import {partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
   import TelexGradeRule from '../../../../../components/gradingRule/TelexGradeRule.vue'
   import * as gr from '../../../../../common/api/GradingRuleApi'
   import SelectCable from "../../../../../components/cable/SelectCable.vue"
   import Pagination from '../../../../../components/common/Pagination.vue'
-  import {getCableAll} from "../../../../../common/api/CableApi.js";
+  import {getCableAll} from "../../../../../common/api/CableApi.js"
   import moment from "moment";
 
   const router = useRouter()

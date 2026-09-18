@@ -43,13 +43,8 @@
   import * as BABYLON from '@babylonjs/core/Legacy/legacy'
   import * as dat from 'dat.gui'
   import '@babylonjs/loaders'
-  import {onMounted, ref, onBeforeUnmount, inject} from "vue";
-  import {rightLittleFinger1, rightLittleFinger2, rightHand, gear,foreArm,handKey, handKeyPlay, electronicKey, electronicKeyPlay, keyboard, keyboardPlay} from "./js/jsonData";
-  import ydjj03 from '../../../../../assets/HJ/explain/ydjj03.png'
-  import ydjj09 from '../../../../../assets/HJ/explain/ydjj09.png'
-  import cs from '../../../../../assets/HJ/train/cs.gif'
-  import csPng from "../../../../../assets/HJ/train/cs.png";
-  import tou from '../../../../../assets/HJ/train/tou.png'
+  import {onMounted, ref, onBeforeUnmount, inject} from "vue"
+  import {rightLittleFinger1, rightLittleFinger2, gear, foreArm, handKey, handKeyPlay, electronicKey, electronicKeyPlay, keyboard, keyboardPlay} from "./js/jsonData"
 
 
   const progress = ref(0);

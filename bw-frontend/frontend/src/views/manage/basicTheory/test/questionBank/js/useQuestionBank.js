@@ -1,16 +1,11 @@
-import {message, Modal} from "ant-design-vue";
-import {ref} from 'vue';
-import moment from "moment";
+import {message, Modal} from "ant-design-vue"
+import {ref} from 'vue'
 import 'moment/dist/locale/zh-cn.js';
-import {deepClone} from "../../../../../../common/utils/Utils.js";
-import {
-   findAllTheoryKnowledgeQuestionLevel,
-   saveTheoryKnowledgeQuestionLevel,
-   deleteTheoryKnowledgeQuestionLevelById
-} from "../../../../../../common/api/TheoryQuestionBankApi";
-import {findTestPaperByLevelIdAndName} from "../../../../../../common/api/TestApi";
+import {deepClone} from "../../../../../../common/utils/Utils.js"
+import {findAllTheoryKnowledgeQuestionLevel, saveTheoryKnowledgeQuestionLevel, deleteTheoryKnowledgeQuestionLevelById} from "../../../../../../common/api/TheoryQuestionBankApi"
+import {findTestPaperByLevelIdAndName} from "../../../../../../common/api/TestApi"
 import {treeOrganizeSb} from "../../../../../../components/test/nodeTree/organizationNodeTree"
-import {listSort} from "../../../../../../components/test/nodeTree/listSort";
+import {listSort} from "../../../../../../components/test/nodeTree/listSort"
 
 export default function useQuestionBank(listData) {
    const selecttreeA=ref([])

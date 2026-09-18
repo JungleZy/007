@@ -1,13 +1,8 @@
-import { onMounted, onUnmounted, ref, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import {onUnmounted, ref, nextTick} from 'vue'
+import {useRouter} from 'vue-router'
+import {message} from 'ant-design-vue'
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
-import {
-  getDatagramZuXunPageNumber,
-  uploadDatagramResult,
-  finishDatagramZuXun,
-  startTrainUser
-} from '../../../../../../../common/api/datagramZuXun.js'
+import {getDatagramZuXunPageNumber, uploadDatagramResult, finishDatagramZuXun, startTrainUser} from '../../../../../../../common/api/datagramZuXun.js'
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture.js'
 
 export default function (trainData, loading, emits) {

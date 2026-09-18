@@ -50,14 +50,14 @@ export default {
 </script>
 
 <script setup>
-import { onMounted, reactive, toRefs, ref, watch } from 'vue'
-import { selectTimeTagsFunc } from '../../../../../common/mixin/selectTimeTag.js'
-import { selectTypeTagsFunc } from './js/selectTypeTag.js'
+import {onMounted, ref} from 'vue'
+import {selectTimeTagsFunc} from '../../../../../common/mixin/selectTimeTag.js'
+import {selectTypeTagsFunc} from './js/selectTypeTag.js'
 import useChart from './js/useChart.js'
 import locale from 'ant-design-vue/es/date-picker/locale/zh_CN'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn'
-import { CaretDownOutlined, CaretUpOutlined } from '@ant-design/icons-vue'
+import {CaretDownOutlined, CaretUpOutlined} from '@ant-design/icons-vue'
 
 let theDate = ref('')
 // 默认选择今天

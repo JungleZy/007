@@ -1,9 +1,8 @@
-import { onMounted, ref } from 'vue'
-import { getBasicTheoryOpen, listPageClassify } from '../../../../../../../common/api/TheoryKnowledgeApi.js'
+import {onMounted, ref} from 'vue'
+import {getBasicTheoryOpen, listPageClassify} from '../../../../../../../common/api/TheoryKnowledgeApi.js'
 // import moment from "../../../../../systemManage/structure/js/useStructure";
-import { useRouter, useRoute } from 'vue-router'
+import {useRoute} from 'vue-router'
 import moment from 'moment'
-import { getBasicTheory } from '../../../../../../../common/api/TheoryKnowledgeApi'
 export default function (computeCardWidth) {
   const listData = ref([])
   const columns = ref([

@@ -211,8 +211,8 @@
 <script setup>
   import {ref, onMounted} from 'vue'
   import * as gr from '../../common/api/GradingRuleApi.js'
-  import {PlusOutlined, QuestionCircleOutlined, StopOutlined, CheckOutlined, DeleteOutlined} from '@ant-design/icons-vue'
-  import {message, Modal} from 'ant-design-vue'
+  import {PlusOutlined, QuestionCircleOutlined, CheckOutlined, DeleteOutlined} from '@ant-design/icons-vue'
+  import {message} from 'ant-design-vue'
   import {deepClone} from '../../common/utils/Utils.js'
 
   const ruleList = ref([])

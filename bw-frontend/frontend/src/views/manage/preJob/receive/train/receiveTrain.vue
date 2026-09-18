@@ -214,12 +214,8 @@ export default {
 }
 </script>
 <script setup>
-  import {ref, onMounted, onUnmounted, watch, inject, nextTick,computed} from "vue";
-  import {useRoute} from "vue-router";
+  import {ref, watch, inject, nextTick} from "vue"
   import receiveTrain from "./js/receiveTrain.js";
-  import Number from '../../../../../components/number/Number.vue';
-  import receiveBgMP4 from "../../../../../assets/HJ/receive/receiveBg.mp4";
-  import receiveBgPng from "../../../../../assets/HJ/receive/receiveBg.png";
   import labType from "../../../../../assets/HJ/receive/lab-type.png";
   import labRate from "../../../../../assets/HJ/receive/lab-rate.png";
   import volumeNone from "../../../../../assets/HJ/train/volume-none.png";

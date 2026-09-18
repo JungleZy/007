@@ -1,8 +1,7 @@
 
-import {message, Modal} from "ant-design-vue";
-import moment from 'moment'
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {listPage,getEquipmentAll,generalGroupNetRule,generalGroupNetRuleFindAll,generalGroupNetRuleDeleteById} from "../../../../../common/api/equipment.js";
+import {message, Modal} from "ant-design-vue"
+import {ref, onMounted} from 'vue'
+import {listPage, getEquipmentAll, generalGroupNetRule, generalGroupNetRuleFindAll, generalGroupNetRuleDeleteById} from "../../../../../common/api/equipment.js"
 import table from '../../trainScore/js/table'
 
 

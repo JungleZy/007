@@ -39,11 +39,11 @@ export default {
 }
 </script>
 <script setup>
-import {onMounted, onBeforeUnmount, useTemplateRef, ref, nextTick, defineModel} from 'vue'
+import {onMounted, onBeforeUnmount, useTemplateRef, ref} from 'vue'
 import {watchDeep} from '@vueuse/core'
 import {DragOutlined, PlusOutlined, MinusOutlined} from '@ant-design/icons-vue'
 import {useRoute} from 'vue-router'
-import {message} from "ant-design-vue";
+import {message} from "ant-design-vue"
 
 const mainZone = useTemplateRef('mainZone')
 const firstZone = useTemplateRef('firstZone')

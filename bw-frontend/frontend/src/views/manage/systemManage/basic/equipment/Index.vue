@@ -95,12 +95,12 @@ export default {
 }
 </script>
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import { ref, onMounted, provide } from 'vue'
-import { deleteEquipmentById, addEquipments, editEquipments } from '../../../../../common/api/equipment.js'
+import {useRouter, useRoute} from 'vue-router'
+import {ref} from 'vue'
+import {deleteEquipmentById, addEquipments, editEquipments} from '../../../../../common/api/equipment.js'
 import equipmentList from './js/equipment'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
+import {message} from 'ant-design-vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })

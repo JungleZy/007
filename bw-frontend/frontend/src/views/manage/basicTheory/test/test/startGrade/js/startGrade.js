@@ -1,10 +1,10 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, nextTick, provide, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import {message, Modal} from 'ant-design-vue'
+import {ref, nextTick, provide} from 'vue'
+import {useRouter, useRoute} from 'vue-router'
 import moment from 'moment'
 import 'moment/dist/locale/zh-cn.js'
-import { deepClone } from '../../../../../../../common/utils/Utils.js'
-import { findTheoryKnowledgeExamById, teacherUploadScore, teacherStartTheoryKnowledgeExam, getExamineAnalyse } from '../../../../../../../common/api/TestApi'
+import {deepClone} from '../../../../../../../common/utils/Utils.js'
+import {findTheoryKnowledgeExamById, teacherUploadScore, teacherStartTheoryKnowledgeExam, getExamineAnalyse} from '../../../../../../../common/api/TestApi'
 export default function startGrade() {
   const questions = ref(null)
   const questionNull = ref(null)

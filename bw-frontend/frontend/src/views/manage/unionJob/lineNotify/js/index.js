@@ -1,17 +1,9 @@
 import {message, Modal} from 'ant-design-vue'
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject, createVNode} from 'vue'
+import {ref, createVNode} from 'vue'
 import {useRouter, useRoute} from 'vue-router'
-import {letterKey, numberKey} from '../../../../../components/preJob/telexTrain/js/enum'
-import {
-  getUserAll,
-  apiSimulationRouterAddRoom,
-  apiSimulationRouterRoomDetail,
-  apiSimulationRouterFindRoom,
-  getRoomUserList,deleteTrain
-} from '../../../../../common/api/UserApi'
-import moment from 'moment'
+import {getUserAll, apiSimulationRouterAddRoom, apiSimulationRouterRoomDetail, apiSimulationRouterFindRoom, getRoomUserList, deleteTrain} from '../../../../../common/api/UserApi'
 import useMorse from '../../../../../common/mixin/useMorse'
-import {ExclamationCircleOutlined} from "@ant-design/icons-vue";
+import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function lineNotify(selectCable) {
   const router = useRouter()

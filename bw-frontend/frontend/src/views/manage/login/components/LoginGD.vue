@@ -182,16 +182,8 @@ export default {
 }
 </script>
 <script setup>
-import {reactive, ref, inject, nextTick} from 'vue'
-import {
-	UserOutlined,
-	LockOutlined,
-	MobileOutlined,
-	IdcardOutlined,
-	MailOutlined,
-	DownCircleFilled,
-	UpCircleFilled
-} from '@ant-design/icons-vue'
+import {reactive, ref, inject} from 'vue'
+import {UserOutlined, LockOutlined, MobileOutlined, IdcardOutlined, MailOutlined, DownCircleFilled, UpCircleFilled} from '@ant-design/icons-vue'
 import useLogin from '../useLogin.js'
 import icoUser from '../../../../assets/GD/login/input-user.png'
 import icoPwd from '../../../../assets/GD/login/input-pwd.png'

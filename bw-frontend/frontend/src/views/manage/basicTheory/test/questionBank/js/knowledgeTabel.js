@@ -1,15 +1,13 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, nextTick, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import moment from 'moment'
+import {message, Modal} from 'ant-design-vue'
+import {ref, nextTick} from 'vue'
 import 'moment/dist/locale/zh-cn.js'
-import { deleteTheoryKnowledgeQuestionLevelById, saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, saveBatch, exportTemplate as exportQuestionTemplate, exportQuestionBank } from '../../../../../../common/api/TheoryQuestionBankApi'
-import { deepClone } from '../../../../../../common/utils/Utils.js'
-import { listSort } from '../../../../../../components/test/nodeTree/listSort'
+import {saveTheoryKnowledgeQuestion, findAllQuestionByLevelId, deleteTheoryKnowledgeQuestion, saveBatch, exportTemplate as exportQuestionTemplate, exportQuestionBank} from '../../../../../../common/api/TheoryQuestionBankApi'
+import {deepClone} from '../../../../../../common/utils/Utils.js'
+import {listSort} from '../../../../../../components/test/nodeTree/listSort'
 import * as mammoth from "mammoth";
-import { Document, Packer, Paragraph, TextRun } from 'docx'
+import {Document, Packer, Paragraph, TextRun} from 'docx'
 import * as XLSX from 'xlsx'
-import { parseWordQuestions, parseSpreadsheetRows } from './questionImport.js'
+import {parseWordQuestions, parseSpreadsheetRows} from './questionImport.js'
 export default function knowledgeTabel(selecttreeA, roomtest, topicType, emit, activeList, activeKnowledge) {
   // onMounted(()=>{
   //   radio()

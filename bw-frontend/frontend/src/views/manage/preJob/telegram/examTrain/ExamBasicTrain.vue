@@ -138,14 +138,14 @@
   }
 </script>
 <script setup>
-  import { onMounted, ref, watch, nextTick, onBeforeUnmount } from 'vue'
-  import { createFromIconfontCN } from '@ant-design/icons-vue'
-  import { message } from 'ant-design-vue'
-  import { useRouter, useRoute } from 'vue-router'
+  import {onMounted, ref, onBeforeUnmount} from 'vue'
+  import {createFromIconfontCN} from '@ant-design/icons-vue'
+  import {message} from 'ant-design-vue'
+  import {useRouter, useRoute} from 'vue-router'
   import useControl from './js/useControl.js'
-  import { numberKey, letterKey, specialKey, electronKey, fingerKey } from './js/keyCode.js'
-  import { getExamBasicTrain, clearExamBasicTrain, saveExamBasicTrain } from '../../../../../common/api/examApi.js'
-  import { partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
+  import {numberKey, letterKey, specialKey, electronKey, fingerKey} from './js/keyCode.js'
+  import {getExamBasicTrain, clearExamBasicTrain, saveExamBasicTrain} from '../../../../../common/api/examApi.js'
+  import {partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
   import {audioOperation} from '../../../../../common/utils/MorseVoice'
   import keyboardBgHJJ from '../../../../../assets/HJJ/exam/keyborad-min.png'
   import keyboardBgHJ from '../../../../../assets/HJ/exam/keyborad-min.png'
@@ -158,10 +158,6 @@
   import successLab from '../../../../../assets/HJJ/telexTrain/success.png'
   import speed from '../../../../../assets/HJJ/telexTrain/speed.png'
 
-  import stateDev from '../../../../../assets/HJ/ico/ico-state-dev.png'
-  import stateDevOn from '../../../../../assets/HJ/ico/ico-state-dev-on.png'
-  import stateWs from '../../../../../assets/HJ/ico/ico-state-ws.png'
-  import stateWsOn from '../../../../../assets/HJ/ico/ico-state-ws-on.png'
   import keyEnter from '../../../../../assets/HJ/exam/keyEnter.png'
   import CutDown from '../../../../../components/cutDown/CutDown.vue'
   const interfaceStyle = window.interfaceStyle

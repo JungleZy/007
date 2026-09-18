@@ -1,8 +1,7 @@
-import { reactive, ref, toRefs, onMounted, nextTick } from 'vue'
+import {reactive, toRefs, onMounted, nextTick} from 'vue'
 import * as echarts from 'echarts'
 import moment from 'moment'
-import { v1 } from 'uuid-umd'
-import { getScoreChartsDataByTypeAndTime } from '../../../../../../common/api/StudyManage_classHours'
+import {getScoreChartsDataByTypeAndTime} from '../../../../../../common/api/StudyManage_classHours'
 
 // const G = G2.getEngine('canvas')
 

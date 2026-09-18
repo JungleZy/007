@@ -55,12 +55,12 @@
   }
 </script>
 <script setup>
-  import {ref, inject, onMounted, watch} from "vue";
+  import {ref, inject, watch} from "vue"
   import {CheckOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
-  import {getCableFloorAllByID} from "../../common/api/CableApi";
+  import {getCableFloorAllByID} from "../../common/api/CableApi"
   import iconImage from "../../views/manage/postJob/js/iconImage";
   import PreviewMessage from "../previewMessage/PreviewMessage.vue";
-  import {watchDeep} from "@vueuse/core";
+  import {watchDeep} from "@vueuse/core"
 
   const IconFont = createFromIconfontCN({
     scriptUrl: window.iconUrl

@@ -170,16 +170,8 @@
 <script setup>
   import practice from '../../pinyin/practice/js/practice.js'
   import WZTrain from '../../pinyin/practice/components/WZTrain.vue'
-  import { useRouter } from 'vue-router'
+  import {useRouter} from 'vue-router'
   const router = useRouter()
-  import CountDown from '../../../../../../components/common/CountDown.vue';
-  import Number from '../../../../../../components/number/Number.vue';
-  import labnum from '../../../../../../assets/HJ/train/lab-num.png'
-  import laberr from '../../../../../../assets/HJ/train/lab-err.png'
-  import labaccuracy from '../../../../../../assets/HJ/train/lab-accuracy.png'
-  import labspeed from '../../../../../../assets/HJ/train/lab-speed.png'
-  import endexercise from '../../../../../../assets/HJ/train/end-exercise.png'
-  import detailexercise from '../../../../../../assets/HJ/train/detail-exercise.png'
   import restext1 from '../../../../../../assets/HJ/train/res-text-1.png'
   import restext2 from '../../../../../../assets/HJ/train/res-text-2.png'
   import restext3 from '../../../../../../assets/HJ/train/res-text-3.png'
@@ -189,13 +181,12 @@
   import resaccuracy from '../../../../../../assets/HJ/train/res-accuracy.png'
   import resspeed from '../../../../../../assets/HJ/train/res-speed.png'
 
-  import countp from '../../../../../../assets/HJJ/telexTrain/count.png'
   import errorp from '../../../../../../assets/HJJ/telexTrain/error.png'
   import successp from '../../../../../../assets/HJJ/telexTrain/success.png'
   import speed from '../../../../../../assets/HJJ/telexTrain/speed.png'
   import CutDown from "../../../../../../components/cutDown/CutDown.vue";
-  import {ref} from "vue";
-  import {createFromIconfontCN} from "@ant-design/icons-vue";
+  import {ref} from "vue"
+  import {createFromIconfontCN} from "@ant-design/icons-vue"
   const fileUrl = ref(window.fileUrl+'/006/code/');
   const countDown = ref(null)
   const showResultModal = ref(true)

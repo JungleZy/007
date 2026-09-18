@@ -18,7 +18,7 @@
 </template>
 
 <script>
-   import {ref,onMounted,nextTick} from 'vue'
+   import {ref, onMounted} from 'vue'
    import moment from 'moment'
    export default {
       name: "playAudio",

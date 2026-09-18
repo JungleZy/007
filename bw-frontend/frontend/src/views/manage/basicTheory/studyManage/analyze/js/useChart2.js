@@ -1,7 +1,6 @@
-import { reactive, ref, toRefs, onMounted } from 'vue'
-import { Column } from '@antv/g2plot'
+import {reactive, ref, onMounted} from 'vue'
 import * as echarts from 'echarts'
-import { analyzeUp } from '../../../../../../common/api/StudyManage_classHours.js'
+import {analyzeUp} from '../../../../../../common/api/StudyManage_classHours.js'
 
 export default function useChart2(currentYear1) {
   let data = reactive({

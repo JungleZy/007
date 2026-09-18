@@ -117,14 +117,14 @@ export default {
 }
 </script>
 <script setup>
-  import {createVNode, nextTick, onMounted, ref, watch} from 'vue'
-import { useRouter } from 'vue-router'
+  import {createVNode, onMounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
   import {ExclamationCircleOutlined, PlusOutlined} from '@ant-design/icons-vue'
 import GradeModal from '../component/GradeModal.vue'
-import { FileTextOutlined, PlayCircleOutlined, SettingOutlined, CloseCircleOutlined,DeleteOutlined } from '@ant-design/icons-vue'
-import { partTimeFormatInfo } from '../../../../../common/utils/Utils.js'
+import {FileTextOutlined, PlayCircleOutlined, SettingOutlined, DeleteOutlined} from '@ant-design/icons-vue'
+import {partTimeFormatInfo} from '../../../../../common/utils/Utils.js'
 import wordList from './js/wording.js'
-  import {Modal} from "ant-design-vue";
+  import {Modal} from "ant-design-vue"
 
 const router = useRouter()
 // 评分规则是全局配置，后端已加 @RequireAdmin：普通人员点开也只会拿到 207，入口同步隐藏。

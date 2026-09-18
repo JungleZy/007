@@ -43,8 +43,8 @@ export default {
 </script>
 <script setup>
 import moment from 'moment'
-import {ref, onMounted} from 'vue'
-import {MenuOutlined, SettingOutlined, HomeFilled} from '@ant-design/icons-vue'
+import {ref} from 'vue'
+import {HomeFilled} from '@ant-design/icons-vue'
 import {useDraggable, useDateFormat, useNow} from '@vueuse/core'
 import {getNowTime} from '../../common/api/ToolsApi.js'
 import {useRouter} from 'vue-router'

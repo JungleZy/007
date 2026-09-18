@@ -38,12 +38,9 @@ export default {
 <script setup>
 import * as BABYLON from '@babylonjs/core/Legacy/legacy'
 import '@babylonjs/loaders'
-import {onMounted, ref, onBeforeUnmount, inject} from "vue";
-import {rightLittleFinger1, zuoshouzhou, zuoxiaozhi,read,read2} from "./js/jsonData";
+import {onMounted, ref, onBeforeUnmount, inject} from "vue"
+import {read, read2} from "./js/jsonData"
 import * as dat from 'dat.gui'
-import csGif from "../../../../../assets/HJ/train/cs.gif";
-import csPng from "../../../../../assets/HJ/train/cs.png";
-import tou from "../../../../../assets/HJ/train/tou.png";
 
 const progress = ref(0);
 const scene = ref(null);

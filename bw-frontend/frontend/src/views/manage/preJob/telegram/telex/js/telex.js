@@ -1,9 +1,9 @@
-import { message, Modal } from 'ant-design-vue'
+import {message} from 'ant-design-vue'
 import moment from 'moment'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
-import { findPrePatTrainTotal, findPrevPatTrainInfo, saveTexPatTrain } from '../../../../../../common/api/TelegramApi.js'
-import { numberKey, letterKey } from '../../../../../../components/preJob/telexTrain/js/enum.js'
-import { useRouter, useRoute } from 'vue-router'
+import {ref, onMounted} from 'vue'
+import {findPrePatTrainTotal, findPrevPatTrainInfo, saveTexPatTrain} from '../../../../../../common/api/TelegramApi.js'
+import {numberKey, letterKey} from '../../../../../../components/preJob/telexTrain/js/enum.js'
+import {useRouter, useRoute} from 'vue-router'
 
 export default function telegramList(addDrillModal) {
   const router = useRouter()

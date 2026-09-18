@@ -1,7 +1,7 @@
-import { getDepartmentPostsByDepartmentIdByJob, addDepartmentPost, getDepartmentPostInfoById, getUsersByDepartmentId, addDepartmentUserPosts, deleteDepartmentPostById, editDepartmentPost } from '../../../../common/api/DeptApi.js'
-import { getRoleAll } from '../../../../common/api/RoleApi.js'
-import { message, Modal, notification } from 'ant-design-vue'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide } from 'vue'
+import {getDepartmentPostsByDepartmentIdByJob, addDepartmentPost, getDepartmentPostInfoById, getUsersByDepartmentId, deleteDepartmentPostById, editDepartmentPost} from '../../../../common/api/DeptApi.js'
+import {getRoleAll} from '../../../../common/api/RoleApi.js'
+import {message, Modal} from 'ant-design-vue'
+import {ref, watch} from 'vue'
 
 export default function useJob(state, context) {
   const columns = ref([

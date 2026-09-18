@@ -87,14 +87,13 @@ export default {
 }
 </script>
 <script setup>
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ClearOutlined, RedoOutlined, ImportOutlined, ExportOutlined, ExclamationCircleOutlined, createFromIconfontCN } from '@ant-design/icons-vue'
-import { deepClone } from '../../../../../common/utils/Utils'
-import { onMounted, ref, createVNode, nextTick, onBeforeUnmount } from 'vue'
-import { message, Modal } from 'ant-design-vue'
-import { getMilitaryAll, addMilitarys, updateMilitarys, deleteMilitarys, moveMilitarys,saveBatchData } from '../../../../../common/api/MilitaryTermApi'
-import parting from '../../../../../assets/HJ/term/parting.png'
+import {PlusOutlined, ImportOutlined, ExportOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
+import {deepClone} from '../../../../../common/utils/Utils'
+import {onMounted, ref, nextTick} from 'vue'
+import {message} from 'ant-design-vue'
+import {getMilitaryAll, addMilitarys, updateMilitarys, deleteMilitarys, moveMilitarys, saveBatchData} from '../../../../../common/api/MilitaryTermApi'
 import * as xlsx from "xlsx";
-import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
+import {isUploadSizeAllowed, uploadSizeMessage} from '../../../../../common/utils/uploadLimits.js'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl
 })

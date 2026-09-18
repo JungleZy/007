@@ -1,6 +1,6 @@
-import {message, Modal} from "ant-design-vue";
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {getAllPostTelegramTrain,deleteList} from "../../../../../../common/api/TelegramApi.js";
+import {message} from "ant-design-vue"
+import {ref, onMounted} from 'vue'
+import {getAllPostTelegramTrain, deleteList} from "../../../../../../common/api/TelegramApi.js"
 
 export default function telegramList() {
   const columns = ref([

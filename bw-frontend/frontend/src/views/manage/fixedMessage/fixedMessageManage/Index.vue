@@ -103,17 +103,13 @@
   }
 </script>
 <script setup>
-  import {
-    FileTextOutlined,
-    FormOutlined,
-    PlusOutlined, createFromIconfontCN, ExclamationCircleOutlined,DeleteOutlined
-  } from '@ant-design/icons-vue';
+  import {FileTextOutlined, FormOutlined, PlusOutlined, createFromIconfontCN, ExclamationCircleOutlined, DeleteOutlined} from '@ant-design/icons-vue'
   import fixedMessageManage from "./js/index";
   const IconFont = createFromIconfontCN({
     scriptUrl: window.iconUrl,
   });
-  import {createVNode, ref} from 'vue'
-  import {Modal} from "ant-design-vue";
+  import {createVNode} from 'vue'
+  import {Modal} from "ant-design-vue"
   const deleteModel = (v)=>{
     Modal.confirm({
       class: 'init_modal_style',

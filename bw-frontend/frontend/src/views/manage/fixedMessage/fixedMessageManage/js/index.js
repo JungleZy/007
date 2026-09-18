@@ -1,7 +1,7 @@
-import {ref,onMounted} from 'vue'
-import {getCableType,getCableAll,saveCableType,deleteCableTypeByID,getCableAllByID,getCableFloorAllByID,deleteList} from '../../../../../common/api/CableApi'
+import {ref, onMounted} from 'vue'
+import {getCableType, getCableAll, saveCableType, deleteCableTypeByID, deleteList} from '../../../../../common/api/CableApi'
 import {message} from 'ant-design-vue'
-import {useRoute,useRouter} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 
 
 export default function fixedMessageManage(){

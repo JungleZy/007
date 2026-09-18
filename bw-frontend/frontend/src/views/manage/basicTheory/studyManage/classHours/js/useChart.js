@@ -1,8 +1,8 @@
-import { reactive, ref, toRefs, nextTick, onMounted } from 'vue'
+import {reactive, toRefs, nextTick, onMounted} from 'vue'
 import * as echarts from 'echarts'
-import { getClassChartsDataByTypeAndTime } from '../../../../../../common/api/StudyManage_classHours.js'
+import {getClassChartsDataByTypeAndTime} from '../../../../../../common/api/StudyManage_classHours.js'
 import moment from 'moment'
-import { v1 } from 'uuid-umd'
+import {v1} from 'uuid-umd'
 
 function formatDecimal(num, decimal) {
   decimal = 3

@@ -68,9 +68,9 @@
   </div>
 </template>
 <script>
-import { defineComponent, toRefs, ref, watch } from 'vue'
+import {defineComponent, toRefs} from 'vue'
 import useStudentQues from './js/useStudentQues.js'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 export default defineComponent({
   // 原为 name:'RoomTest' —— 从 roomTest/RoomTest.vue 复制时漏改，与真正的 RoomTest 组件同名。
   // 仓库没有任何 keep-alive include，组件名只服务 devtools 与递归引用，故直接正名。

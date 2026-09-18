@@ -137,12 +137,7 @@
   import pagWomanHJJ from '../../../../assets/HJJ/pag-avatar-man.png'
   import home2HJJ from '../../../../assets/HJJ/main/home2.png'
   import otherBgHJJ from '../../../../assets/HJJ/main/otherBg.png'
-  import ico_state_wsHJJ from '../../../../assets/HJJ/ico/ico-state-ws.png'
-  import ico_state_ws_onHJJ from '../../../../assets/HJJ/ico/ico-state-ws-on.png'
-  import ico_state_devHJJ from '../../../../assets/HJJ/ico/ico-state-dev.png'
-  import ico_state_dev_onHJJ from '../../../../assets/HJJ/ico/ico-state-dev-on.png'
   import logoTitleHJJ from '../../../../assets/HJJ/home/title-1.png'
-  import addressHJJ from '../../../../assets/HJJ/home/addres.png'
   import gobackHJJ from '../../../../assets/HJJ/home/goBack.png'
   import settingPicHJJ from '../../../../assets/HJJ/home/setting.png'
   //陆军
@@ -152,7 +147,6 @@
   import otherBgLJ from '../../../../assets/LJ/main/otherBg.png'
 
   import logoTitleLJ from '../../../../assets/LJ/home/title-1.png'
-  import addressLJ from '../../../../assets/LJ/home/addres.png'
   import gobackLJ from '../../../../assets/LJ/home/goBack.png'
   import settingPicLJ from '../../../../assets/LJ/home/setting.png'
   //陆军
@@ -162,7 +156,6 @@
   import otherBgKJ from '../../../../assets/KJ/main/otherBg.png'
 
   import logoTitleKJ from '../../../../assets/KJ/home/title-1.png'
-  import addressKJ from '../../../../assets/KJ/home/addres.png'
   import gobackKJ from '../../../../assets/KJ/home/goBack.png'
   import settingPicKJ from '../../../../assets/KJ/home/setting.png'
 
@@ -175,21 +168,12 @@
   import {useGlobalStore} from '../../../../config/pinia/global.js'
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, onBeforeMount, watch, onMounted, nextTick, inject, provide} from 'vue'
-  import {Modal, message} from 'ant-design-vue'
-  import {
-    ExclamationCircleOutlined,
-    CloseOutlined,
-    GlobalOutlined,
-    ReloadOutlined,
-    PauseCircleOutlined,
-    PlayCircleOutlined
-  } from '@ant-design/icons-vue'
+  import {Modal} from 'ant-design-vue'
+  import {ExclamationCircleOutlined, CloseOutlined, GlobalOutlined, ReloadOutlined, PauseCircleOutlined, PlayCircleOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
-  import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
-  import {changePassword} from "../../../../common/api/UserApi";
   import {closeSession} from '../../../../common/session/logout.js'
 
   let pagMan, pagWoman, home2, otherBg, logoTitle,

@@ -199,17 +199,14 @@ export default {
 }
 </script>
 <script setup>
-import { QuestionCircleFilled, SettingOutlined, PlusOutlined, MinusOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import Number from '../../../../../components/number/Number.vue'
+import {QuestionCircleFilled, SettingOutlined, PlusOutlined, MinusOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import Slider from '../../../../../components/slider/Slider.vue'
 import kochTrain from './js/kochTrain.js'
-import prevIco from '../../../../../assets/HJ/receive/ico-prev.png'
-import nextIco from '../../../../../assets/HJ/receive/ico-next.png'
 import kochEmpty from '../../../../../assets/HJ/receive/kochEmpty.png'
 import kochHide from '../../../../../assets/HJ/receive/kochHide.png'
 import CutDown from '../../../../../components/cutDown/CutDown.vue'
-import { createVNode, inject, ref } from 'vue'
-import { Modal } from 'ant-design-vue'
+import {createVNode, inject, ref} from 'vue'
+import {Modal} from 'ant-design-vue'
 const wpmTOmm = inject('wpmTOmm')
 const stayArray = ref(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
 const dragIndex = ref(null)

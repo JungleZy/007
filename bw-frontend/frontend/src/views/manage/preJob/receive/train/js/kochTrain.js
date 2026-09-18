@@ -1,9 +1,9 @@
-import { onMounted, onUnmounted, ref, watch, onBeforeUnmount, createVNode } from 'vue'
-import { createBaseReceiveSession, startReceiveTrain, pauseReceiveTrain, endReceiveTrain, discardBaseReceiveSession, findPrevReceiveTrainInfo, getPreKochStageArray, updatePreKochStageArray } from '../../../../../../common/api/ReceiveApi'
-import { Modal } from 'ant-design-vue'
-import { ExclamationCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
+import {onMounted, onUnmounted, ref, watch, onBeforeUnmount, createVNode} from 'vue'
+import {createBaseReceiveSession, startReceiveTrain, pauseReceiveTrain, endReceiveTrain, discardBaseReceiveSession, findPrevReceiveTrainInfo, getPreKochStageArray, updatePreKochStageArray} from '../../../../../../common/api/ReceiveApi'
+import {Modal} from 'ant-design-vue'
+import {QuestionCircleOutlined} from '@ant-design/icons-vue'
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
-import {PubSub} from "../../../../../../common/utils/PubSub";
+import {PubSub} from "../../../../../../common/utils/PubSub"
 import {calculateTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
 
 export default function kochTrain(wpmTOmm) {

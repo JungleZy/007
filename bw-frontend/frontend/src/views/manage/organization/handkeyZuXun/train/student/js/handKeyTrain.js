@@ -1,13 +1,11 @@
-import { onMounted, onUnmounted, ref, watch, nextTick, inject } from 'vue'
-import {sum,deepClone} from "../../../../../../../common/utils/Utils.js";
+import {onMounted, onUnmounted, ref, watch, nextTick} from 'vue'
+import {sum, deepClone} from "../../../../../../../common/utils/Utils.js"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
-import {message, Modal} from "ant-design-vue";
-import {useRouter} from "vue-router";
+import {message, Modal} from "ant-design-vue"
+import {useRouter} from "vue-router"
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
-import {getGradingRuleById} from "../../../../../../../common/api/GradingRuleApi.js";
-import {
-  getHandKeyZuXunPageNumber,saveHandKeyZuXunData,finishHandKeyZuXunTrain,startTrainUser,resetHandKeyZuXunTrain
-} from "../../../../../../../common/api/handkeyZuXun.js";
+import {getGradingRuleById} from "../../../../../../../common/api/GradingRuleApi.js"
+import {getHandKeyZuXunPageNumber, saveHandKeyZuXunData, finishHandKeyZuXunTrain, startTrainUser, resetHandKeyZuXunTrain} from "../../../../../../../common/api/handkeyZuXun.js"
 import countPatStandard from "./patStandard.js";
 import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'

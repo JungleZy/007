@@ -1,13 +1,13 @@
 import {ref, onMounted, createVNode} from 'vue'
 import moment from 'moment'
-import {getUserDirectory, addRoom,} from '../../../../../../common/api/broadcastTeachingApi'
+import {getUserDirectory} from '../../../../../../common/api/broadcastTeachingApi'
 // import { findAll,addTrain} from '../../../../../../common/api/electronKeyZuXun'
-import {getElectronKeyZuXunList, saveElectronKeyZuXunTrain,deleteTrain} from '../../../../../../common/api/electronKeyZuXun'
-import {getGradingRuleListByType,} from '../../../../../../common/api/GradingRuleApi'
+import {getElectronKeyZuXunList, saveElectronKeyZuXunTrain, deleteTrain} from '../../../../../../common/api/electronKeyZuXun'
+import {getGradingRuleListByType} from '../../../../../../common/api/GradingRuleApi'
 
 import {message, Modal} from 'ant-design-vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import {ExclamationCircleOutlined} from "@ant-design/icons-vue";
+import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框

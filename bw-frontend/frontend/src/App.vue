@@ -28,17 +28,13 @@ export default {
 }
 </script>
 <script setup>
-import {ref, onMounted, createVNode, provide,watch} from 'vue'
-import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
-import {Modal} from 'ant-design-vue'
+import {ref, onMounted, provide} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import VerifyLicense from './components/common/VerifyLicense.vue'
 import NetSetting from './components/common/NetSetting.vue'
-import useFontSize from "./common/mixin/useFontSize.js";
 import GlobalStyle from "./components/GlobalStyle.vue";
 import localforage from 'localforage'
-import {userLoginOut} from "./common/api/UserApi";
-import {ipcRenderer, ipcApi} from './electron/index'
+import {ipcRenderer} from './electron/index'
 import NipPagePermission from "./components/common/NipPagePermission.vue";
 
 

@@ -178,21 +178,20 @@ export default {
 </script>
 
 <script setup>
-import icoPen from '../../../../../../assets/HJ/ico/ico-pen.png'
 import RoomTest from '../../../../../../components/test/roomTest/RoomTest.vue'
-import { useRouter, useRoute } from 'vue-router'
-import { LoadingOutlined, PlusOutlined, SaveOutlined, EditOutlined, DeleteOutlined, CloseOutlined, RollbackOutlined, CheckOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import {useRouter, useRoute} from 'vue-router'
+import {LoadingOutlined, PlusOutlined, DeleteOutlined, CloseOutlined, RollbackOutlined, CheckOutlined, ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import NipUEditor from '../../../../../../components/common/NipUEditor.vue'
 import leftico from '../../../../../../assets/HJ/train/left-ico.png'
-import { createVNode, onUnmounted, provide, ref } from 'vue'
+import {createVNode, onUnmounted, provide, ref} from 'vue'
 import useForm from './js/useForm.js'
 import useEdit from './js/useEdit.js'
 
 import useUpload from '../../../../../../common/mixin/useUpload.js'
-import { apiUrl } from '../../../../../../common/http/endpoint.js'
-import { PubSub } from '../../../../../../common/utils/PubSub.js'
-import { message, Modal } from 'ant-design-vue'
-import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../../common/utils/uploadLimits.js'
+import {apiUrl} from '../../../../../../common/http/endpoint.js'
+import {PubSub} from '../../../../../../common/utils/PubSub.js'
+import {message, Modal} from 'ant-design-vue'
+import {isUploadSizeAllowed, uploadSizeMessage} from '../../../../../../common/utils/uploadLimits.js'
 const roomtest = ref()
 const fileUrl = ref(window.fileUrl)
 const content = ref('')
@@ -242,7 +241,7 @@ const uploadFile = () => {
 }
 provide('uploadFile', uploadFile)
 const backFlag = ref(true)
-import { deleteThroyKnowledgeById } from '../../../../../../common/api/TestApi.js'
+import {deleteThroyKnowledgeById} from '../../../../../../common/api/TestApi.js'
 const route = useRoute()
 const router = useRouter()
 const { tData, selectedKnowledgeSwfs, selectedKnowledgeSwfsIndex, addSwf, handleSelectedKnowledgeSwfs, handleOptions, deleteCurseware } = useForm(content, backFlag)

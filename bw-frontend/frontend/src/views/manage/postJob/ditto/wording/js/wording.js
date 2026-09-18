@@ -1,8 +1,8 @@
-import { message, Modal } from 'ant-design-vue'
+import {message} from 'ant-design-vue'
 import moment from 'moment'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
-import { wordingAdd, listPage, apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType,deleteList } from '../../../../../../common/api/postWording'
-import { useRouter, useRoute } from 'vue-router'
+import {ref, onMounted} from 'vue'
+import {wordingAdd, listPage, apiPostTrainGlobalRuleAddRule, apiPostTrainGlobalRuleDeleteById, apiPostTrainGlobalRuleType, deleteList} from '../../../../../../common/api/postWording'
+import {useRouter, useRoute} from 'vue-router'
 
 export default function wordList() {
   const columns = ref([

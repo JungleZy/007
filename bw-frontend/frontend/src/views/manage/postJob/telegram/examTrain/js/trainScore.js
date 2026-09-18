@@ -1,7 +1,7 @@
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
-import { partTimeFormatInfo, sum, deepClone } from '../../../../../../common/utils/Utils.js'
-import { getPostExamTrainDetails, apiPostTelegraphKeyPatTrainGetPage } from '../../../../../../common/api/TelegramApi.js'
+import {ref, computed, onMounted, onUnmounted, watch, nextTick} from 'vue'
+import {useRoute} from 'vue-router'
+import {partTimeFormatInfo, deepClone} from '../../../../../../common/utils/Utils.js'
+import {getPostExamTrainDetails, apiPostTelegraphKeyPatTrainGetPage} from '../../../../../../common/api/TelegramApi.js'
 import * as echarts from 'echarts'
 
 export default function telegramList(showChart) {

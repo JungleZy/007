@@ -150,22 +150,15 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, defineProps, defineEmits } from 'vue'
+  import {ref, onMounted, onUnmounted, defineEmits} from 'vue'
   import TrainLeft from '../../../../../../components/postJob/trainLeft/TrainLeft.vue'
   import NipMagicSpace from "../../../../../../components/common/NipMagicSpace.vue";
-  import { useRoute } from 'vue-router'
-  import { message } from 'ant-design-vue'
-  import { PubSub } from '../../../../../../common/utils/PubSub.js'
-  import { wsCode } from '../../../../../../common/ws/Ws.js'
-  import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
+  import {useRoute} from 'vue-router'
+  import {PubSub} from '../../../../../../common/utils/PubSub.js'
   import details from './js/datagramTrain.js'
   import Number from '../../../../../../components/number/Number.vue'
 
-  import textBg from '../../../../../../assets/HJ/postTrain/machineTextBg.png'
-  import reset from '../../../../../../assets/HJ/postTrain/reset.png'
-  import {
-    getDatagramDetail
-  } from "../../../../../../common/api/datagramZuXun";
+  import {getDatagramDetail} from "../../../../../../common/api/datagramZuXun"
   import iconImage from "../../../../postJob/js/iconImage";
   const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()
   const route = useRoute()

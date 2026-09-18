@@ -16,9 +16,9 @@
   </div>
 </template>
 <script>
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue'
-import { getDepartmentAll } from '../../../common/api/DeptApi.js'
-import { defineComponent, ref, reactive, toRaw, onMounted, toRefs } from 'vue'
+import {PlusOutlined, DeleteOutlined} from '@ant-design/icons-vue'
+import {getDepartmentAll} from '../../../common/api/DeptApi.js'
+import {defineComponent, ref, reactive, onMounted, toRefs} from 'vue'
 import DeptTreeDo from './js/useDeptTree'
 
 export default defineComponent({

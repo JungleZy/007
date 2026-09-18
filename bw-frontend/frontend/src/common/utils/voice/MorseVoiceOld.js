@@ -1,4 +1,3 @@
-import { keyCode } from '../../../views/manage/preJob/ditto/wording/js/termData'
 
 const forwardTable = {
   letter: {

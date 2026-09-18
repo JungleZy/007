@@ -35,10 +35,8 @@ export default {
 <script setup>
 import * as BABYLON from '@babylonjs/core/Legacy/legacy'
 import '@babylonjs/loaders'
-import { onMounted, ref, onBeforeUnmount, inject } from 'vue'
-import { rightLittleFinger1, rightLittleFinger2, keyboard, keyboardPlay } from './js/jsonData'
-import cs from '../../../../../assets/HJ/train/cs.gif'
-import csPng from '../../../../../assets/HJ/train/cs.png'
+import {onMounted, ref, onBeforeUnmount, inject} from 'vue'
+import {rightLittleFinger1, rightLittleFinger2, keyboard, keyboardPlay} from './js/jsonData'
 import tou from '../../../../../assets/HJ/train/tou.png'
 
 const progress = ref(0)

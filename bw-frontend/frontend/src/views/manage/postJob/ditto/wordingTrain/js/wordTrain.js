@@ -1,12 +1,12 @@
-import { ref, onMounted, onUnmounted, nextTick, onBeforeUnmount, createVNode } from 'vue'
-import { wordinngDetails, wordinngBegin, wordinngFinish } from '../../../../../../common/api/postWording'
-import { useRouter, useRoute } from 'vue-router'
+import {ref, onMounted, onUnmounted, nextTick, createVNode} from 'vue'
+import {wordinngDetails, wordinngBegin, wordinngFinish} from '../../../../../../common/api/postWording'
+import {useRouter, useRoute} from 'vue-router'
 import MorseVoice from '../../../../../../common/utils/MorseVoice'
-import { PubSub } from '../../../../../../common/utils/PubSub'
-import { Modal, message } from 'ant-design-vue'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import {PubSub} from '../../../../../../common/utils/PubSub'
+import {Modal, message} from 'ant-design-vue'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import { apiPostTrainGlobalRuleType } from '../../../../../../common/api/postWording'
+import {apiPostTrainGlobalRuleType} from '../../../../../../common/api/postWording'
 
 export default function wordingTrain(countDown) {
   onMounted(() => {

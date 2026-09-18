@@ -193,19 +193,13 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch, defineProps, defineEmits } from 'vue'
-  import { useRoute } from 'vue-router'
-  import { message } from 'ant-design-vue'
-  import { PubSub } from '../../../../../../common/utils/PubSub.js'
-  import { wsCode } from '../../../../../../common/ws/Ws.js'
-  import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
-  import {getElectronKeyZuXunDetails} from "../../../../../../common/api/electronKeyZuXun.js";
+  import {ref, onMounted, onUnmounted, defineEmits} from 'vue'
+  import {useRoute} from 'vue-router'
+  import {PubSub} from '../../../../../../common/utils/PubSub.js'
+  import {getElectronKeyZuXunDetails} from "../../../../../../common/api/electronKeyZuXun.js"
   import useControl from './js/useControl.js'
   import details from './js/handKeyTrain.js'
-  import Number from '../../../../../../components/number/Number.vue'
 
-  import textBg from '../../../../../../assets/HJ/postTrain/machineTextBg.png'
-  import reset from '../../../../../../assets/HJ/postTrain/reset.png'
 
   import iconImage from "../../../../postJob/js/iconImage";
   const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()

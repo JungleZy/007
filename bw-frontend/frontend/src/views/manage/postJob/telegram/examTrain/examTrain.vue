@@ -190,22 +190,17 @@ export default {
 }
 </script>
 <script setup>
-import { QuestionCircleOutlined } from '@ant-design/icons-vue'
-import CountDown from '../../../../../components/common/CountDown.vue'
+import {QuestionCircleOutlined} from '@ant-design/icons-vue'
 import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
-import Number from '../../../../../components/number/Number.vue'
 import telexTrain from './js/examTrain.js'
 
 
 
 
-import startexercise from '../../../../../assets/HJ/train/start-exercise.png'
-import endexercise from '../../../../../assets/HJ/train/end-exercise.png'
-import detailexercise from '../../../../../assets/HJ/train/detail-exercise.png'
 import labDisturb from '../../../../../assets/HJ/train/new-lab-disturb.png'
 import iconImage from "../../js/iconImage";
 const {labSpeed,labNum,labType,topBg,keyBg,prev,next} = iconImage()
-import {ref} from "vue";
+import {ref} from "vue"
 const autoLine = ref(true)
 const {
   submissionError, submissionBusy, retrySubmit,

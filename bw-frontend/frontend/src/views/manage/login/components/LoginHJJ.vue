@@ -110,14 +110,11 @@
   }
 </script>
 <script setup>
-  import { reactive, ref, inject, nextTick } from 'vue'
-  import { UserOutlined, LockOutlined, MobileOutlined, IdcardOutlined, MailOutlined, DownCircleFilled, UpCircleFilled } from '@ant-design/icons-vue'
+  import {reactive, ref, inject} from 'vue'
   import useLogin from '../useLogin.js'
   import icoUser from '../../../../assets/HJJ/login/input-user.png'
   import icoPwd from '../../../../assets/HJJ/login/input-pwd.png'
-  import lb from '../../../../assets/HJJ/login/login-bg.png'
   //登录按钮
-  import lu from '../../../../assets/HJJ/login/staticButton.png'
   import staticButton from '../../../../assets/HJJ/login/staticButton.png'
 
   import moment from 'moment'

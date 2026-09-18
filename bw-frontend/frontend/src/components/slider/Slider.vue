@@ -26,7 +26,7 @@
   }
 </script>
 <script setup>
-  import {ref, onMounted, defineProps, defineEmits, watch} from "vue";
+  import {ref, defineProps, defineEmits, watch} from "vue"
 
   const emits = defineEmits(['callback']);
   const props = defineProps({

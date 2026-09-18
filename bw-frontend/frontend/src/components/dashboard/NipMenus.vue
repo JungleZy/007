@@ -53,12 +53,8 @@
   }
 </script>
 <script setup>
-  import dashboardBottomBg from '../../assets/HJ/main/dashboardBottomBg.png';
-  import menuBg from '../../assets/HJ/main/menu-bg.png';
-  import menuBg2 from '../../assets/HJ/menus/menu-bg.png';
-  import {nextTick, onMounted, ref} from "vue";
-  import CanvasMove from "../../views/manage/dashboard/js/canvas";
-  import {fontSizeDispose} from "../../common/utils/Utils";
+  import {nextTick, onMounted, ref} from "vue"
+  import {fontSizeDispose} from "../../common/utils/Utils"
 
   const menus = ref([]);
   const fileUrl = ref(window.fileUrl);

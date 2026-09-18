@@ -77,13 +77,12 @@ export default {
 </script>
 
 <script setup>
-import { FormOutlined, PlusOutlined, createFromIconfontCN,DeleteOutlined } from '@ant-design/icons-vue'
-import { message } from 'ant-design-vue'
+import {FormOutlined, createFromIconfontCN, DeleteOutlined} from '@ant-design/icons-vue'
+import {message} from 'ant-design-vue'
 import knowledgeTabel from './js/knowledgeTabel'
-import useQuestionBank from '../../questionBank/js/useQuestionBank'
 import nomore from '../../../../../../components/nomore/nomore.vue'
-import { ref, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import {ref, onMounted} from 'vue'
+import {useRouter, useRoute} from 'vue-router'
 import llcy from '../../../../../../assets/HJJ/test/llcy.png'
 
 const IconFont = createFromIconfontCN({

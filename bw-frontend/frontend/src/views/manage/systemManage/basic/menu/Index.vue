@@ -203,23 +203,10 @@ export default {
 }
 </script>
 <script setup>
-import {
-  SmileOutlined,
-  DownOutlined,
-  DeleteOutlined,
-  FormOutlined,
-  FileTextOutlined,
-  UserAddOutlined,
-  LoginOutlined,
-  CheckOutlined,
-  CloseOutlined,
-  StopOutlined, LoadingOutlined, PlusOutlined,
-  CheckCircleOutlined, createFromIconfontCN,
-} from '@ant-design/icons-vue';
+import {SmileOutlined, DownOutlined, DeleteOutlined, FormOutlined, FileTextOutlined, UserAddOutlined, LoginOutlined, CheckOutlined, CloseOutlined, StopOutlined, LoadingOutlined, PlusOutlined, CheckCircleOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
 import useTable from "../../../../../common/mixin/useTable.js";
 import useMenuList from "./js/useMenuList.js";
 import useMenuForm from "./js/useMenuForm.js";
-import IconFontList from "../../../../../components/common/IconFontList.vue"
 
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,

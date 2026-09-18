@@ -171,14 +171,13 @@ export default {
 }
 </script>
 <script setup>
-  import {ref,watch,onMounted} from "vue";
-  import {PlayCircleOutlined, DeleteOutlined,FileTextOutlined,PlusOutlined,FundViewOutlined,
-    CloseCircleOutlined,WarningOutlined} from '@ant-design/icons-vue';
+  import {ref, watch, onMounted} from "vue"
+  import {FileTextOutlined} from '@ant-design/icons-vue'
   import NipLeftMenu from '../../../components/common/NipLeftMenu.vue'
   import {global} from "../../../config/pinia/index.js"
   import telegramList from "./js/telegram";
   import network from "./js/network";
-  import {useRouter,useRoute} from "vue-router";
+  import {useRouter, useRoute} from "vue-router"
   const useGlobalStore = global.useGlobalStore()
   const leftMenuWidth = ref(useGlobalStore.leftWidth);
 

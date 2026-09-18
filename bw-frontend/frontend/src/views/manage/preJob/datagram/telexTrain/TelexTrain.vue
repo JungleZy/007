@@ -319,7 +319,6 @@
 </template>
 
 <script>
-  import { nextTick, onBeforeUnmount } from 'vue'
 
   export default {
     name: 'TelexTrain'
@@ -327,15 +326,6 @@
 </script>
 <script setup>
   import telexTrain from './js/telexTrain.js'
-  import CountDown from '../../../../../components/common/CountDown.vue'
-  import Number from '../../../../../components/number/Number.vue'
-  import labnum from '../../../../../assets/HJ/train/lab-num.png'
-  import laberr from '../../../../../assets/HJ/train/lab-err.png'
-  import labaccuracy from '../../../../../assets/HJ/train/lab-accuracy.png'
-  import labspeed from '../../../../../assets/HJ/train/lab-speed.png'
-  import startexercise from '../../../../../assets/HJ/train/start-exercise.png'
-  import endexercise from '../../../../../assets/HJ/train/end-exercise.png'
-  import detailexercise from '../../../../../assets/HJ/train/detail-exercise.png'
   import hunderd from '../../../../../assets/HJ/telexTrain/telegram/hunderd.png'
   import twinke from '../../../../../assets/HJ/telexTrain/telegram/twinke.gif'
   import teinke from '../../../../../assets/HJ/telexTrain/telegram/teinke.png'
@@ -354,8 +344,8 @@
   import speed from '../../../../../assets/HJJ/telexTrain/speed.png'
   import CutDown from '../../../../../components/cutDown/CutDown.vue'
 
-  import { ref } from 'vue'
-  import { createFromIconfontCN } from '@ant-design/icons-vue'
+  import {ref} from 'vue'
+  import {createFromIconfontCN} from '@ant-design/icons-vue'
   const fileUrl = ref(window.fileUrl + '/006/code/')
   const countDown = ref(null)
   const showResultModal = ref(false)

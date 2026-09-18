@@ -229,19 +229,15 @@
   }
 </script>
 <script setup>
-  import { ref, onMounted, onUnmounted, watch } from 'vue'
-  import { useRoute } from 'vue-router'
+  import {ref} from 'vue'
   import trainScore from './js/trainScore.js'
-  import chartLab from '../../../../../assets/HJ/postTrain/chartLab.png'
   import scoresuffice from '../../../../../assets/HJ/postTrain/score-suffice.png'
   import scorefailed from '../../../../../assets/HJ/postTrain/score-failed.png'
   import resaccuracy from '../../../../../assets/HJ/postTrain/check.png'
-  import resspeed from '../../../../../assets/HJ/train/res-speed.png'
   import restime from '../../../../../assets/HJ/postTrain/time.png'
 
   import chartIco3 from '../../../../../assets/HJ/train/chart-ico-3.png'
   import chartIcoOn3 from '../../../../../assets/HJ/train/chart-ico-3-on.png'
-  import dataEmpty from '../../../../../assets/HJ/train/dataEmpty.png'
   import scoreSuperbHJJ from '../../../../../assets/HJ/postTrain/topBox-after.png'
   const interfaceStyle = window.interfaceStyle
   //格式化时间

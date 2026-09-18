@@ -54,9 +54,9 @@
   }
 </script>
 <script setup>
-  import {ref,watch,onMounted} from "vue";
-  import {apiPostTickerTapeTrainFindPage} from "../../common/api/ReceiveApi";
-  import {useRoute} from "vue-router";
+  import {ref, onMounted} from "vue"
+  import {apiPostTickerTapeTrainFindPage} from "../../common/api/ReceiveApi"
+  import {useRoute} from "vue-router"
   const props = defineProps({
     pageData:{
       type:Array,

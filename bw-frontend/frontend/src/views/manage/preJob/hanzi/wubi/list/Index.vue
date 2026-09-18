@@ -51,13 +51,12 @@ export default {
 }
 </script>
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import { ref, onMounted, createVNode } from 'vue'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
-import { message, Modal } from 'ant-design-vue'
+import {useRouter, useRoute} from 'vue-router'
+import {ref, onMounted, createVNode} from 'vue'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
+import {message, Modal} from 'ant-design-vue'
 import moment from 'moment'
-import telegramList from './js/telex'
-import { findWuBiTrainTotal, hanziAdd, findPrevPYTrainTotal } from '../../../../../../common/api/TelegramApi.js'
+import {findWuBiTrainTotal, hanziAdd, findPrevPYTrainTotal} from '../../../../../../common/api/TelegramApi.js'
 
 import iconImage from "../../../js/iconImage";
 const {itemLabOn1,itemLabOn2,itemLabOn3,itemLab1,itemLab2,itemLab3,itemImg6,itemImg11,itemImg12,itemImg13} = iconImage()

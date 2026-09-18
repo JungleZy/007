@@ -1,4 +1,4 @@
-import {reactive, ref} from 'vue'
+import {ref} from 'vue'
 
 let selectTypeTagsFunc = (currentTypeTag,getChartDataSource) => {
   let typeTags = ref([

@@ -1,14 +1,12 @@
 import {ref, onMounted, createVNode} from 'vue'
 import moment from 'moment'
-import {letterKey, numberKey} from '../../../../../components/preJob/telexTrain/js/enum'
-import {getUserDirectory, addRoom, findRoom,addRoomZuXun,findRoomZuXun,deleteTrain} from '../../../../../common/api/broadcastTeachingApi'
-import {apiSimulationRouterFindPage} from '../../../../../common/api/UserApi'
+import {getUserDirectory, addRoom, findRoom, addRoomZuXun, findRoomZuXun, deleteTrain} from '../../../../../common/api/broadcastTeachingApi'
 
 import {message, Modal} from 'ant-design-vue'
 import {useRoute} from 'vue-router'
 import useMorse from '../../../../../common/mixin/useMorse.js'
-import {saveHeader} from "../../../../../common/api/ReceiveApi";
-import {ExclamationCircleOutlined} from "@ant-design/icons-vue";
+import {saveHeader} from "../../../../../common/api/ReceiveApi"
+import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function broaddcastTeacheing(selectCable) {
   const addDrillModal = ref(false) //弹框

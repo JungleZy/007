@@ -1,13 +1,8 @@
-import { onMounted, onUnmounted, ref, watch, nextTick, inject } from 'vue'
-import {sum,deepClone} from "../../../../../../../common/utils/Utils.js";
-import useMorse from "../../../../../../../common/mixin/useMorse.js";
-import {message, Modal} from "ant-design-vue";
-import {codeInKey,codeOnKey} from './keyCode.js';
-import {useRouter} from "vue-router";
+import {onUnmounted, ref, nextTick} from 'vue'
+import {message} from "ant-design-vue"
+import {useRouter} from "vue-router"
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
-import {
-  getDatagramZuXunPageNumber,uploadDatagramResult,finishDatagramZuXun,startTrainUser
-} from "../../../../../../../common/api/datagramZuXun";
+import {getDatagramZuXunPageNumber, uploadDatagramResult, finishDatagramZuXun, startTrainUser} from "../../../../../../../common/api/datagramZuXun"
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture.js'
 export default function (trainData,loading,emits) {
 

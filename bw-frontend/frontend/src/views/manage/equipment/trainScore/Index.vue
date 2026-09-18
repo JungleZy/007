@@ -68,8 +68,8 @@ export default {
 }
 </script>
 <script setup>
-import { ref, onMounted, nextTick, onUnmounted, onBeforeUnmount } from 'vue'
-import { message } from 'ant-design-vue'
+import {ref, onMounted, onUnmounted, onBeforeUnmount} from 'vue'
+import {message} from 'ant-design-vue'
 import Paho from '../../../../common/mqtt/paho-mqtt'
 import table from './js/table'
 import equipment_171 from './js/171'
@@ -77,7 +77,7 @@ import equipment_125W_400W from './js/125W_400W'
 import equipment_134A from './js/134A'
 import equipment_173 from './js/173'
 import equipment_121C from './js/121C'
-import { getDetails, addTrain, generalGroupNetRuleFindAll } from '../../../../common/api/equipment'
+import {getDetails, addTrain, generalGroupNetRuleFindAll} from '../../../../common/api/equipment'
 import play from '../../../../assets/HJ/term/play-ico.png'
 import pause from '../../../../assets/HJ/term/pause-ico.png'
 

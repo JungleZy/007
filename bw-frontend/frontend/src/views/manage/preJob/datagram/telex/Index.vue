@@ -91,9 +91,9 @@ export default {
 }
 </script>
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import { ref, onMounted, provide } from 'vue'
-import { WarningOutlined } from '@ant-design/icons-vue'
+import {useRouter, useRoute} from 'vue-router'
+import {ref} from 'vue'
+import {WarningOutlined} from '@ant-design/icons-vue'
 import telegramList from './js/telex'
 
 import iconImage from "../../js/iconImage";

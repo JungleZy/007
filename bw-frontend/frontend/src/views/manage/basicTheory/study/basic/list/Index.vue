@@ -103,14 +103,11 @@
 </script>
 <script setup>
 import moment from 'moment'
-  import {
-    SettingOutlined, EditOutlined, EllipsisOutlined, createFromIconfontCN,PlayCircleOutlined
-  } from '@ant-design/icons-vue';
+  import {SettingOutlined, EditOutlined, EllipsisOutlined, createFromIconfontCN, PlayCircleOutlined} from '@ant-design/icons-vue'
   import useList from "./js/useList.js";
-  import useTable from "../../../../../../common/mixin/useTable.js";
   import {useRouter, useRoute} from 'vue-router'
-  import {ref, onMounted, nextTick} from "vue";
-  import {fontSizeDispose} from "../../../../../../common/utils/Utils";
+  import {ref, onMounted, nextTick} from "vue"
+  import {fontSizeDispose} from "../../../../../../common/utils/Utils"
   const router = useRouter();
   const route = useRoute();
   const IconFont = createFromIconfontCN({

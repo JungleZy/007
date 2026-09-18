@@ -1,15 +1,12 @@
-import {onBeforeUnmount, onMounted, onUnmounted, ref, watch, nextTick, createVNode} from 'vue'
+import {onMounted, onUnmounted, ref, nextTick, createVNode} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {message, Modal} from 'ant-design-vue'
 import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import useControl from './useControl.js'
 import {codeInKey, codeOnKey} from './keyCode.js'
 import {PubSub} from '../../../../../../common/utils/PubSub'
-import {sum, deepClone} from '../../../../../../common/utils/Utils.js'
-import {
-  getPostExamTrainDetails, startPostExamTrainInfo, endPostExamTrainInfo, apiPostTelegraphKeyPatTrainGetPage,
-  apiPostTelegraphKeyPatTrainFinishPage
-} from '../../../../../../common/api/TelegramApi.js'
+import {deepClone} from '../../../../../../common/utils/Utils.js'
+import {getPostExamTrainDetails, startPostExamTrainInfo, endPostExamTrainInfo, apiPostTelegraphKeyPatTrainGetPage, apiPostTelegraphKeyPatTrainFinishPage} from '../../../../../../common/api/TelegramApi.js'
 import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 import {audioOperation} from '../../../../../../common/utils/MorseVoice'
 import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'

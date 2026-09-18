@@ -11,7 +11,7 @@
 </template>
 
 <script>
-import { ref, toRefs, watch } from 'vue'
+import {ref, toRefs} from 'vue'
 import trainTimeHJ from '../../assets/HJ/receive/trainTime.png'
 import trainTimeHJJ from '../../assets/HJJ/receive/trainTime.png'
 import trainTimeLJ from '../../assets/LJ/receive/trainTime.png'

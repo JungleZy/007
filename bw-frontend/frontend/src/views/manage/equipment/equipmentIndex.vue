@@ -259,11 +259,11 @@
 </script>
 <script setup>
     import NipUEditor from "../../../components/common/NipUEditor.vue";
-    import {provide, ref, watch, onMounted, onUnmounted} from 'vue'
-    import {createFromIconfontCN, PlusOutlined, LoadingOutlined, CloseCircleOutlined} from "@ant-design/icons-vue";
+    import {provide, ref, watch, onMounted} from 'vue'
+    import {createFromIconfontCN, PlusOutlined, LoadingOutlined, CloseCircleOutlined} from "@ant-design/icons-vue"
     import equipmentJS from './equipmentIndex.js'
     import {apiUrl} from '../../../common/http/endpoint.js'
-    import {useRouter,useRoute} from "vue-router";
+    import {useRouter, useRoute} from "vue-router"
     import {message} from 'ant-design-vue'
     import {sanitizeHtml} from '../../../common/utils/sanitizeHtml.js'
     import {isUploadSizeAllowed, uploadSizeMessage} from '../../../common/utils/uploadLimits.js'

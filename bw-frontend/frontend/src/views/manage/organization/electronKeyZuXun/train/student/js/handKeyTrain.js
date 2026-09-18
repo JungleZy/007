@@ -1,14 +1,11 @@
-import { onMounted, onUnmounted, ref, watch, nextTick, inject } from 'vue'
-import {sum,deepClone} from "../../../../../../../common/utils/Utils.js";
+import {onMounted, onUnmounted, ref, watch, nextTick} from 'vue'
+import {deepClone} from "../../../../../../../common/utils/Utils.js"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
-import {message, Modal} from "ant-design-vue";
-import {codeInKey,codeOnKey} from './keyCode.js';
-import {useRouter} from "vue-router";
+import {message, Modal} from "ant-design-vue"
+import {codeInKey, codeOnKey} from './keyCode.js'
+import {useRouter} from "vue-router"
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
-import {
-  finishElectronKeyZuXun,
-  getElectronKeyZuXunPageNumber,uploadElectronKeyZuXunPatResult,startTrainUser,resetElectronKeyZuXunTrain
-} from "../../../../../../../common/api/electronKeyZuXun.js";
+import {finishElectronKeyZuXun, getElectronKeyZuXunPageNumber, uploadElectronKeyZuXunPatResult, startTrainUser, resetElectronKeyZuXunTrain} from "../../../../../../../common/api/electronKeyZuXun.js"
 import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
 import {audioOperation} from '../../../../../../../common/utils/MorseVoice'
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'

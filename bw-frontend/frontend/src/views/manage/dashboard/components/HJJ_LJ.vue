@@ -146,12 +146,11 @@
   import NetSetting from "../../../../components/common/NetSetting.vue";
   import Personal from "../../../../components/personal/Personal.vue";
   import useNumRain from '../../../../common/utils/useNumRain.js'
-  import { useRouter } from 'vue-router'
+  import {useRouter} from 'vue-router'
   import {changePassword} from '../../../../common/api/UserApi'
-  import { createVNode, onMounted, ref, inject,provide } from 'vue'
-  import { Ws } from '../../../../common/ws/Ws.js'
-  import { Modal } from 'ant-design-vue'
-  import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+  import {createVNode, onMounted, ref, inject, provide} from 'vue'
+  import {Modal} from 'ant-design-vue'
+  import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import pagMan from '../../../../assets/HJJ/home-avatar-woman.png'
   import pagWoman from '../../../../assets/HJJ/home-avatar-man.png'
   import Instructions from "../../../../components/instructions/instructions.vue"

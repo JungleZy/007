@@ -1,8 +1,8 @@
-import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue";
+import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import useMorse from "../../../../../../../common/mixin/useMorse.js";
-import {partTimeFormatInfo,sum} from "../../../../../../../common/utils/Utils.js";
-import {getHandKeyZuXunPageNumber,getHandKeyZuXunDetails} from "../../../../../../../common/api/handkeyZuXun.js";
+import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
+import {getHandKeyZuXunPageNumber, getHandKeyZuXunDetails} from "../../../../../../../common/api/handkeyZuXun.js"
 import * as echarts from "echarts"
 
 export default function telegramList(showChart,selfId) {

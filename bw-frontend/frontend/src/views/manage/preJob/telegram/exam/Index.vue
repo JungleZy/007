@@ -99,12 +99,11 @@ export default {
 }
 </script>
 <script setup>
-import { useRouter, useRoute } from 'vue-router'
-import { ref, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import {useRouter, useRoute} from 'vue-router'
+import {ref, onMounted} from 'vue'
+import {message} from 'ant-design-vue'
 import moment from 'moment'
-import { WarningOutlined } from '@ant-design/icons-vue'
-import { totalExamComplexTrainInfo, addExamComplexTrainInfo, findPrevExamTrainInfo } from '../../../../../common/api/examApi.js'
+import {totalExamComplexTrainInfo, addExamComplexTrainInfo, findPrevExamTrainInfo} from '../../../../../common/api/examApi.js'
 
 import iconImage from "../../js/iconImage";
 const {itemImg5,itemLab1,itemLab2,itemLab3,itemLabOn1,itemLabOn3,itemLabOn2,itemImg1,itemImg14} = iconImage()

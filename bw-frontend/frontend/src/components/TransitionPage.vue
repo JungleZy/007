@@ -45,14 +45,13 @@ export default {
 }
 </script>
 <script setup>
-import { useRoute, useRouter } from 'vue-router'
-import { ref, onMounted, watch, inject } from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {ref, onMounted, watch, inject} from 'vue'
 import breadCru from '../components/breadCrumb/Index.vue'
 import mmb from '../assets/HJ/TransitionPage/menu-mask-bg.gif'
 import mmbp from '../assets/HJ/TransitionPage/menu-mask-bg2.png'
 import mmbm from '../assets/HJ/TransitionPage/menu-mask-bg-movein.png'
 import mb from '../assets/HJ/TransitionPage/menu-bg.png'
-import mbh from '../assets/HJ/TransitionPage/menu-bg-hover.png'
 import useNumRain from '../common/utils/useNumRain.js'
 import development from '../assets/HJ/test/development.png'
 

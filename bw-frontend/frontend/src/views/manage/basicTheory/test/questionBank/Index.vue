@@ -253,7 +253,7 @@
 
 <script>
 import moment from 'moment'
-import {defineComponent, toRefs} from "vue"
+import {defineComponent} from "vue"
 
 export default defineComponent({
   name: "questionBank",
@@ -271,26 +271,18 @@ const props = defineProps({
 })
 import useQuestionBank from './js/useQuestionBank.js'
 import knowledgeTabel from './js/knowledgeTabel.js'
-import {
-  PlusOutlined,
-  FileSearchOutlined,
-  FormOutlined,
-  DeleteOutlined,
-  CloseCircleOutlined,
-  CloseOutlined, createFromIconfontCN,
-} from '@ant-design/icons-vue';
+import {PlusOutlined, FileSearchOutlined, FormOutlined, DeleteOutlined, CloseCircleOutlined, CloseOutlined, createFromIconfontCN} from '@ant-design/icons-vue'
 import NipLeftMenu from "../../../../../components/common/NipLeftMenu.vue";
 import RoomTest from '../../../../../components/test/roomTest/RoomTest.vue'
 import PreviewTheTopic from '../../../../../components/test/previewTheTopic/PreviewTheTopic.vue'
-import {useRouter, useRoute} from 'vue-router'
 
 provide("realTimeAnwser", "")
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 });
-import {ref, onMounted, defineEmits} from "vue";
-import {message} from "ant-design-vue";
-import { isUploadSizeAllowed, uploadSizeMessage } from '../../../../../common/utils/uploadLimits.js'
+import {ref, onMounted, defineEmits} from "vue"
+import {message} from "ant-design-vue"
+import {isUploadSizeAllowed, uploadSizeMessage} from '../../../../../common/utils/uploadLimits.js'
 
 const userRole = ref(JSON.parse(localStorage.getItem('userRole')));
 const leftMenuWidth = ref(215)

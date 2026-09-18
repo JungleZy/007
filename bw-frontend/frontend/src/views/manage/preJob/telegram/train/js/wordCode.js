@@ -1,4 +1,3 @@
-import { onMounted, onUnmounted, ref, watch } from 'vue'
 import useMorse from '../../../../../../common/mixin/useMorse'
 
 export default function (trainData, currBaoWen, currBaoWenIndex, handKeyBoardBoxRef) {

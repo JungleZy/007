@@ -1,7 +1,7 @@
-import {Button, notification} from "ant-design-vue";
-import {h} from 'vue';
-import {MessageFilled, SendOutlined} from '@ant-design/icons-vue';
-import {useRoute, useRouter} from "vue-router";
+import {notification} from "ant-design-vue"
+import {h} from 'vue'
+import {MessageFilled, SendOutlined} from '@ant-design/icons-vue'
+import {useRoute, useRouter} from "vue-router"
 
 export default function () {
   const networkBasePath = '/preview/networkUsing/equipmentNetwork'

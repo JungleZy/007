@@ -45,9 +45,8 @@ export default {
 }
 </script>
 <script setup>
-import { ref, toRefs, onMounted, defineProps, nextTick } from 'vue'
-import { createFromIconfontCN } from '@ant-design/icons-vue'
-import { deepClone } from '../../../common/utils/Utils'
+import {ref, onMounted, defineProps, nextTick} from 'vue'
+import {deepClone} from '../../../common/utils/Utils'
 import * as echarts from 'echarts'
 
 let pieChart = null

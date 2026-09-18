@@ -9,7 +9,6 @@
 
 <script>
 import Canvas from './js/canvas'
-import canBg from '../../../../../assets/HJ/canBg.png'
 export default {
   name: 'Index',
   data() {

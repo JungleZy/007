@@ -1,15 +1,14 @@
-import { onMounted, onUnmounted, ref, createVNode, watch, nextTick, markRaw } from 'vue'
-import { useRoute } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
-import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
+import {onUnmounted, ref, createVNode, nextTick, markRaw} from 'vue'
+import {useRoute} from 'vue-router'
+import {message, Modal} from 'ant-design-vue'
+import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
-import { partTimeFormatInfo, sum } from '../../../../../../common/utils/Utils.js'
-import { PubSub } from '../../../../../../common/utils/PubSub.js'
-import { Ws, wsCode } from '../../../../../../common/ws/Ws.js'
-import { startTelegramTrain, pauseTelegramTrain, endTelegramTrain, saveFloorContent, getTelegramTrainLog } from '../../../../../../common/api/TelegramApi.js'
+import {sum} from '../../../../../../common/utils/Utils.js'
+import {PubSub} from '../../../../../../common/utils/PubSub.js'
+import {Ws, wsCode} from '../../../../../../common/ws/Ws.js'
+import {startTelegramTrain, pauseTelegramTrain, endTelegramTrain, getTelegramTrainLog} from '../../../../../../common/api/TelegramApi.js'
 import * as echarts from 'echarts'
-import { last } from 'ramda'
-import {getFloorContentByFloor} from "../../../../../../common/api/TelegramApi";
+import {getFloorContentByFloor} from "../../../../../../common/api/TelegramApi"
 
 export default function (trainData, patStandard, loading, title, handleBaoWenKeyInfo, handKeyWidth, wsOnline, devOnline, wpmTOmm,findLastPage) {
   let lineChart = null

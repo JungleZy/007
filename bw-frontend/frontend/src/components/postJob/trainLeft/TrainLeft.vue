@@ -43,7 +43,7 @@
   }
 </script>
 <script setup >
-  import {ref,defineEmits} from 'vue'
+  import {defineEmits} from 'vue'
   import startExercise from '../../../assets/HJ/postTrain/start-exercise.png';
   import endExercise from '../../../assets/HJ/postTrain/end-exercise.png';
   const interfaceStyle = window.interfaceStyle

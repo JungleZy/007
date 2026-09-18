@@ -1,14 +1,14 @@
-import { ref, onMounted } from 'vue'
+import {ref, onMounted} from 'vue'
 import moment from 'moment'
-import { message } from 'ant-design-vue'
+import {message} from 'ant-design-vue'
 import 'moment/dist/locale/zh-cn.js'
-import { useRoute, useRouter } from 'vue-router'
-import { findAllTestPaper, saveTheoryKnowledgeExamSelfTesting, findTheoryKnowledgeExamById, findTestPaperByLevelIdAndName } from '../../../../../../../common/api/TestApi'
-import { findAllTheoryKnowledgeQuestionLevel } from '../../../../../../../common/api/TheoryQuestionBankApi'
-import { getAllStudent, getAllTeacher } from '../../../../../../../common/api/UserApi'
-import { deepClone } from '../../../../../../../common/utils/Utils.js'
-import { treeOrganizeSb } from '../../../../../../../components/test/nodeTree/organizationNodeTree'
-import { listSort } from '../../../../../../../components/test/nodeTree/listSort'
+import {useRoute, useRouter} from 'vue-router'
+import {findAllTestPaper, saveTheoryKnowledgeExamSelfTesting, findTestPaperByLevelIdAndName} from '../../../../../../../common/api/TestApi'
+import {findAllTheoryKnowledgeQuestionLevel} from '../../../../../../../common/api/TheoryQuestionBankApi'
+import {getAllStudent, getAllTeacher} from '../../../../../../../common/api/UserApi'
+import {deepClone} from '../../../../../../../common/utils/Utils.js'
+import {treeOrganizeSb} from '../../../../../../../components/test/nodeTree/organizationNodeTree'
+import {listSort} from '../../../../../../../components/test/nodeTree/listSort'
 export default function addTest(modelSelf) {
   const listData = ref([])
   const selectedPaper = ref('')

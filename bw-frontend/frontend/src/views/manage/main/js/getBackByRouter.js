@@ -1,5 +1,5 @@
-import {useRoute, useRouter, onBeforeRouteUpdate} from "vue-router";
-import {onMounted, ref, watch} from "vue";
+import {useRouter, onBeforeRouteUpdate} from "vue-router"
+import {onMounted, ref} from "vue"
 export default function getBackByRouter() {
   const router = useRouter();
   let isShowBackground = ref(false);

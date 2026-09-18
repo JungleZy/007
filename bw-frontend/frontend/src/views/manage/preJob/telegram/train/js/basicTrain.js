@@ -1,9 +1,9 @@
-import {onMounted, onUnmounted, ref,onBeforeUnmount,nextTick,watch} from "vue";
-import {useRouter, useRoute} from "vue-router"
-import {getBasicSetting,saveHandKeyBasicTrain} from "../../../../../../common/api/TelegramApi.js";
-import {sum} from "../../../../../../common/utils/Utils.js";
+import {onMounted, onUnmounted, ref, onBeforeUnmount, nextTick, watch} from "vue"
+import {useRouter} from "vue-router"
+import {getBasicSetting, saveHandKeyBasicTrain} from "../../../../../../common/api/TelegramApi.js"
+import {sum} from "../../../../../../common/utils/Utils.js"
 import * as echarts from "echarts";
-import { parseTelegramBasicSettings } from '../../../../../../common/utils/telegramSettings.js'
+import {parseTelegramBasicSettings} from '../../../../../../common/utils/telegramSettings.js'
 
 export default function (trainData) {
   const barrageBoxRef = ref(null);

@@ -100,13 +100,12 @@
 </template>
 
 <script setup>
-import { onMounted, defineProps, onBeforeUnmount, ref, onUpdated, watch, nextTick } from 'vue'
-import { CheckOutlined, CloseOutlined, TranslationOutlined, ReloadOutlined, UploadOutlined, SyncOutlined } from '@ant-design/icons-vue'
+import {onMounted, defineProps, onBeforeUnmount, ref, onUpdated, watch, nextTick} from 'vue'
 import 'cropperjs/dist/cropper.css'
 import Cropper from 'cropperjs'
 import OCR from './OCR.js'
-import { useRoute, useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import {useRoute} from 'vue-router'
+import {message} from 'ant-design-vue'
 import photoIco from '../../../assets/HJ/postTrain/btn-ico-photo.png'
 import cropIco from '../../../assets/HJ/postTrain/btn-ico-crop.png'
 import rotateIco from '../../../assets/HJ/postTrain/btn-ico-rotate.png'
@@ -119,10 +118,6 @@ import resetPhotoIco from '../../../assets/HJ/postTrain/btn-ico-reset-photo.png'
 import resetCropIco from '../../../assets/HJ/postTrain/btn-ico-reset-crop.png'
 import resetScanIco from '../../../assets/HJ/postTrain/btn-ico-reset-scan.png'
 import noLinkCamera from '../../../assets/HJ/postTrain/no-link-camera.png'
-import thumbManual from '../../../assets/HJ/postTrain/thume-manual.png'
-import addNextHJ from "../../../assets/HJ/postTrain/addNext.png";
-import addNextHJJ from "../../../assets/HJJ/postTrain/addNext.png";
-import addNextLJ from "../../../assets/LJ/postTrain/addNext.png";
 
 
 let cropper,

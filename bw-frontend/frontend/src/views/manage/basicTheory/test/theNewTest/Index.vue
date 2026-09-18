@@ -537,14 +537,14 @@ export default {
 }
 </script>
 <script setup>
-import { PlusOutlined, createFromIconfontCN } from '@ant-design/icons-vue'
+import {createFromIconfontCN} from '@ant-design/icons-vue'
 import theNewTest from './js/theNewTest'
 import addAndSelectTopic from './js/addAndSelectTopic'
 import previewTest from '../../../../../components/test/previewTest/previewTest.vue'
 import nomore from '../../../../../components/nomore/nomore.vue'
 import PreviewTheTopic from '../../../../../components/test/previewTheTopic/PreviewTheTopic.vue'
 import questionBank from '../questionBank/Index.vue'
-import { ref, onMounted, toRefs, getCurrentInstance, provide } from 'vue'
+import {ref, onMounted, provide} from 'vue'
 const IconFont = createFromIconfontCN({
   scriptUrl: window.iconUrl,
 })

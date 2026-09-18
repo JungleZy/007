@@ -1,10 +1,7 @@
-import { message, Modal } from 'ant-design-vue'
-import wubi from 'qq-wubi'
-import moment from 'moment'
-import { ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject } from 'vue'
-import { getEquipmentAll } from '../../../../../../common/api/equipment.js'
-import { numberKey, letterKey } from '../../../../../../components/preJob/telexTrain/js/enum.js'
-import { useRouter, useRoute } from 'vue-router'
+import {message} from 'ant-design-vue'
+import {ref, onMounted} from 'vue'
+import {getEquipmentAll} from '../../../../../../common/api/equipment.js'
+import {useRouter, useRoute} from 'vue-router'
 
 export default function equipmentList(addDrillModal) {
   const columns = ref([

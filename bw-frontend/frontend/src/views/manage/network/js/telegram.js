@@ -1,7 +1,7 @@
-import {message, Modal} from "ant-design-vue";
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {groupNetTrainListPage} from "../../../../common/api/TrainingDetails.js";
-import {useRoute, useRouter} from "vue-router";
+import {message} from "ant-design-vue"
+import {ref, onMounted, watch} from 'vue'
+import {groupNetTrainListPage} from "../../../../common/api/TrainingDetails.js"
+import {useRoute, useRouter} from "vue-router"
 
 export default function telegramList() {
   const columns = ref([

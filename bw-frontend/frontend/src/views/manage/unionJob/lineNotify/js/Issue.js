@@ -1,10 +1,10 @@
-import { ref, reactive, onMounted, nextTick, onUnmounted } from 'vue'
+import {ref, onMounted, nextTick, onUnmounted} from 'vue'
 import useTraffic from '../../../../../common/mixin/useTraffic'
-import { deepClone } from '../../../../../common/utils/Utils.js'
-import { useRouter, useRoute } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
-import { apiSimulationRouterRoomChannels, apiSimulationRouterRoomDetail, apiSimulationRouterSendFinish, getRoomUserList, apiSimulationRouterFindPage } from '../../../../../common/api/UserApi'
-import { wsUrl } from '../../../../../common/http/endpoint.js'
+import {deepClone} from '../../../../../common/utils/Utils.js'
+import {useRoute} from 'vue-router'
+import {message, Modal} from 'ant-design-vue'
+import {apiSimulationRouterRoomDetail, apiSimulationRouterSendFinish, getRoomUserList, apiSimulationRouterFindPage} from '../../../../../common/api/UserApi'
+import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
 
 export default function issue(trainData, trainTimeRef) {

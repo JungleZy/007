@@ -1,13 +1,13 @@
-import { message, Modal } from 'ant-design-vue'
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { getDisturbCodeTrainData, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo } from '../../../../../common/api/UnionApi.js'
+import {message} from 'ant-design-vue'
+import {ref, onMounted, onBeforeUnmount, nextTick} from 'vue'
+import {getDisturbCodeTrainData, getDisturbCodeTrainUserList, uploadUnionTrainResult, updateTrainRoomDispose, findUserPageBaoWenInfo} from '../../../../../common/api/UnionApi.js'
 import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
-import { useRoute } from 'vue-router'
+import {useRoute} from 'vue-router'
 import Voice from '../../../../../common/utils/MorseVoice'
 import useMorse from '../../../../../common/mixin/useMorse'
 import operationMorseVoice from "../../../../../common/utils/voice/operationMorseVoice";
-import {PubSub} from "../../../../../common/utils/PubSub";
+import {PubSub} from "../../../../../common/utils/PubSub"
 
 export default function train() {
   const trainTimeRef = ref(null)

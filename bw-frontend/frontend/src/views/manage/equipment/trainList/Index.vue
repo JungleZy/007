@@ -92,9 +92,9 @@ export default {
 import NipLeftMenu from '../../../../components/common/NipLeftMenu.vue'
 import Pagination from '../../../../components/pagination/Pagination.vue'
 
-import { useRoute, useRouter } from 'vue-router'
-import { PlayCircleOutlined, DeleteOutlined, FileTextOutlined, PlusOutlined, CloseCircleOutlined, WarningOutlined, SettingOutlined } from '@ant-design/icons-vue'
-import { ref, onUnmounted, provide, onMounted } from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {PlayCircleOutlined, FileTextOutlined, PlusOutlined, SettingOutlined} from '@ant-design/icons-vue'
+import {ref, provide} from 'vue'
 import equipmentList from './js/equipmentList'
 import {global} from "../../../../config/pinia/index.js"
 

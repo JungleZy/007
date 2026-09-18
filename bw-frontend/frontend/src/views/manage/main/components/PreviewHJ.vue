@@ -450,33 +450,21 @@
 
   import homeMenu from '../../../../assets/HJ/homeMenu.mp4'
   import pageBg from '../../../../assets/HJ/pageBg.mp4'
-  import ico_state_ws from '../../../../assets/HJ/ico/ico-state-ws.png'
-  import ico_state_ws_on from '../../../../assets/HJ/ico/ico-state-ws-on.png'
-  import ico_state_dev from '../../../../assets/HJ/ico/ico-state-dev.png'
-  import ico_state_dev_on from '../../../../assets/HJ/ico/ico-state-dev-on.png'
   import logoTitle from '../../../../assets/HJ/home/title-1.png'
   import address from '../../../../assets/HJ/home/addres.png'
-  import {useRoute, useRouter, onBeforeRouteUpdate} from 'vue-router'
+  import {useRoute, useRouter} from 'vue-router'
   import getBackByRouter from '../js/getBackByRouter.js'
   import {createVNode, ref, provide, watch, onMounted, nextTick, inject} from 'vue'
   import {Modal, message} from 'ant-design-vue'
-  import {
-    ExclamationCircleOutlined,
-    CloseOutlined,
-    GlobalOutlined,
-    ReloadOutlined,
-    PauseCircleOutlined,
-    PlayCircleOutlined, PlusOutlined
-  } from '@ant-design/icons-vue'
+  import {ExclamationCircleOutlined, CloseOutlined, GlobalOutlined, ReloadOutlined, PauseCircleOutlined, PlayCircleOutlined, PlusOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
   import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
   import {fontSizeDispose} from '../../../../common/utils/Utils'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
-  import ShortcutMenu from '../../../../components/common/ShortcutMenu.vue'
   import useFontSize from "../../../../common/mixin/useFontSize.js";
   import {ipcRenderer, ipcApi} from '../../../../electron/index'
-  import {changePassword} from "../../../../common/api/UserApi";
+  import {changePassword} from "../../../../common/api/UserApi"
   import {closeSession} from '../../../../common/session/logout.js'
 
   const interfaceStyle = window.interfaceStyle

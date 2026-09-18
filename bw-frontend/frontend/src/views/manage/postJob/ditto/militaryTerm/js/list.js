@@ -1,6 +1,6 @@
-import {message, Modal} from "ant-design-vue";
-import {ref, reactive, toRaw, onMounted, toRefs, watch, provide, inject} from 'vue';
-import {getPostMilitaryTrainList,deleteList} from "../../../../../../common/api/MilitaryTermApi.js";
+import {message} from "ant-design-vue"
+import {ref, onMounted} from 'vue'
+import {getPostMilitaryTrainList, deleteList} from "../../../../../../common/api/MilitaryTermApi.js"
 
 export default function termList() {
   const columns = ref([
