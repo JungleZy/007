@@ -208,6 +208,9 @@
 | **组织结构页**（`f34c1c5` 删 luckysheet 链、`930354f` 删注释态入口） | 通过。检索/新增人员/7 条人员表格/分页/每行 4 个操作按钮齐全，**无 pageerror**（头像的 `ERR_CONNECTION_REFUSED` 是未起文件服务 8000 端口，与改动无关） |
 | **设备考核页**（`f32ea3a` MQTT 主题） | 页面加载无 pageerror（删掉的 `interval`/`numValue`、改名的 `f`/`s`、新增就绪守卫均未破坏模块）；但设备训练列表无数据、也无真实 MQTT broker，**呼叫路径仍需现场带设备验收** |
 | **`@` 别名**（`f9f7224`） | 通过。临时把 `runtime.js:2` 改成 `@/common/http/endpoint.js`，`vite build` 无 `Could not resolve`；临时改动已还原 |
+| **Slider**（`bb16c12` 本地 `val`→`current`） | 通过。收报 Koch 训练页 3 个 `radioSlider` 全部渲染，档位标签取到真实值（`60`/`六`/`关`）、手柄位于 `left:100%` —— 标签的 `.on` 命中与手柄位置**都由 `current` 计算**，若绑定失效两者都不会成立。拖拽交互被页面遮罩（「请开始练习」蒙层与残留弹窗）拦住，未能实测滑动 |
+| **Pagination**（`bb16c12` 本地 `tableAllData`→`rows`） | 结构通过。线路通报、装备训练列表两页渲染「共 0 条数据」（即模板读 `rows.length` 生效）与上下页按钮，无 pageerror；但这几页无业务数据，**翻页切片逻辑未能实测** |
+| **PreviewMessage / GradeModal**（`bb16c12`） | 未覆盖。二者分别依赖收报训练记录与评分规则弹窗入口，本轮环境无对应业务数据 |
 
 仍需现场/实机验收的剩余项：设备 MQTT 呼叫（需真实设备与 broker）、Electron 桌面壳侧（网络设置页 sendSync 路径、串口连接）、生产菜单表相关判定。
 
