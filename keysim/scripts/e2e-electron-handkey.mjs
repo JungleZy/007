@@ -278,15 +278,16 @@ async function enterTrainPage(cdp, trainId) {
     }
     await delay(2000)
   }
-  // 串口自愈重连 + 通帧探针。dev 模式走模块 import（生产同源入口 messageWebSocket，
-  // 与 NipSerial「重连」同路径）；打包态模块已打包不可按路径 import，退回
-  // 列表↔训练页往返强制 NipSerial 重挂载（其 onMounted 自动重连）。
+  // 串口自愈重连 + 通帧探针。dev 模式走模块 import（生产同源入口 webSerialChannel，
+  // 与 NipSerial「重连」同路径；该模块 f043d30 由 MessageWebSocket 更名 WebSerialChannel）；
+  // 打包态模块已打包不可按路径 import，退回列表↔训练页往返强制 NipSerial 重挂载
+  //（其 onMounted 自动重连）。
   const probeOk = await cdp.eval(`(async () => {
     try {
       const { PubSub } = await import('/src/common/utils/PubSub.js')
       let frames = 0
       PubSub.subscribe('traffic:frame', () => frames++)
-      const mw = (await import('/src/common/ws/MessageWebSocket.js')).default
+      const mw = (await import('/src/common/ws/WebSerialChannel.js')).default
       mw('reset')
       await new Promise(r => setTimeout(r, 1500))
       window.__keysimSerial.bytes([1, 0])
