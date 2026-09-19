@@ -2,6 +2,7 @@ const {fork, spawn} = require("child_process");
 const context = require("../core/node_core_ctx");
 const path = require("node:path");
 const {tryUsePort} = require("../utils/utils");
+const {BACKEND_PORT} = require("../shared/ports");
 
 function onHttpService() {
 	context.httpService = fork(
@@ -18,7 +19,7 @@ function onHttpService() {
 }
 
 function onBackendService() {
-	tryUsePort(18001).then((port) => {
+	tryUsePort(BACKEND_PORT).then((port) => {
 		if (port) {
 			let serverPath
 			if (process.platform === 'win32') {

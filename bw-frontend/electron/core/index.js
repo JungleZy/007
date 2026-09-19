@@ -1,6 +1,7 @@
 const path = require("node:path")
 const context = require("./node_core_ctx")
 const Datastore = require('nedb-promises')
+const {HTTP_HOST, HTTP_PORT, BACKEND_HOST, BACKEND_PORT} = require("../shared/ports")
 
 // 随包 bin/nip.db 已是发布态默认：_id:2 指向本机后端（localhost:18001）与本机文件服务（127.0.0.1:8000），
 // 不预置 _id:3（串口号由用户在串口页选定后写入）。
@@ -13,12 +14,12 @@ function loadConfig() {
 		return context.db.insert({
 			_id: 2, text: {
 				dataUrl: {
-					url: 'localhost',
-					port: '18001'
+					url: BACKEND_HOST,
+					port: String(BACKEND_PORT)
 				},
 				fileUrl: {
-					url: '127.0.0.1',
-					port: '8000'
+					url: HTTP_HOST,
+					port: String(HTTP_PORT)
 				}
 			}
 		})

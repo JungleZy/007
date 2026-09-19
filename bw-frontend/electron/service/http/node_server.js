@@ -4,10 +4,7 @@ const bodyParser = require('body-parser')
 const fileRoute = require('./routers/file')
 const context = require('./core/node_core_ctx')
 
-const HTTP_PORT = 8000
-// 默认只监听本机回环：文件服务无鉴权，绑 0.0.0.0 等于把整个资源目录暴露到局域网。
-// 仍保留可配置能力 —— UI 的「资源服务地址」明示支持填远端。
-const HTTP_HOST = '127.0.0.1'
+const {HTTP_PORT, HTTP_HOST} = require('../../shared/ports')
 
 class NodeServer {
   constructor(config) {
