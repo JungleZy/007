@@ -183,9 +183,8 @@
       fus.value = num2String(s1, settingData.value.fileUrl.port)
     }
   }
-  const getSettingData = () => {
-    const sd = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.getConfig)
-    // const sd = await invoke('get_config')
+  const getSettingData = async () => {
+    const sd = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.getConfig)
     settingData.value.dataUrl = sd.dataUrl
     if (sd.dataUrl.url !== 'localhost') {
       dataChecked.value = false
@@ -200,9 +199,8 @@
     }
   }
 
-  const getLocalIP = () => {
-    const sd = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.getLocalIP)
-    localIP.value = sd
+  const getLocalIP = async () => {
+    localIP.value = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.getLocalIP)
   }
 
   const handleInput = (index, type, port) => {
@@ -217,7 +215,7 @@
 
   };
 
-  const updateSettingData = () => {
+  const updateSettingData = async () => {
     confirmLoading.value = true
     if (!dataChecked.value) {
       const dip = dus.value.slice(0, 4).join('.')
@@ -245,7 +243,7 @@
         return
       }
     }
-    const saved = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.changeConfig, {
+    const saved = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.changeConfig, {
       dataUrl: {
         url: dataChecked.value ? 'localhost' : `${dus.value[0]}.${dus.value[1]}.${dus.value[2]}.${dus.value[3]}`,
         port: dus.value[4]

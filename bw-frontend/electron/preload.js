@@ -6,12 +6,12 @@
  * { invoke, send, sendSync, on, once, off } 这一组方法，别的一律不给。
  *
  * 几条不可改的约定（改了会直接弄坏生产页面，见每处说明）：
- * 1. 必须暴露 sendSync —— 网络设置页（components/common/NetSetting.vue 的 getConfig /
- *    getLocalIP / changeConfig）与串口连接（components/common/NipSerial.vue、
- *    views/manage/main/components/PreviewHJ.vue 的 linkPort）共 5 处同步调用；
- *    缺了它网络设置页进不去（改不了后端地址）、串口连不上，直接 TypeError。
- *    对应的 ipcMain.on 处理器回填的 event.returnValue 都是纯数据（对象 / 数组 / 字符串），
- *    结构化克隆安全，可以经 contextBridge 回传。
+ * 1. 不暴露 sendSync —— 2026-09-19 已把存量 5 处同步调用全部迁到 invoke/handle：
+ *    网络设置页（components/common/NetSetting.vue 的 getConfig / getLocalIP / changeConfig）
+ *    与串口连接（components/common/NipSerial.vue、views/manage/main/components/PreviewHJ.vue
+ *    的 linkPort）。sendSync 会同步阻塞渲染进程（linkPort 那条要等 nedb 两次写盘），
+ *    而这四条都没有同步返回值的语义需求。主进程侧对应的 ipcMain.on 已改成 ipcMain.handle，
+ *    新通道一律走 invoke/handle，不要再把 sendSync 加回来。
  * 2. on / once 的回调必须保持 (event, data) 两参签名 —— 唯一活的消费点
  *    components/common/NipSerial.vue 就是这么写的。这里用 null 占位第一个参数：
  *    既保住签名，又不把真的 IpcRendererEvent 代理进主世界（它的 sender 就是完整的
@@ -59,7 +59,6 @@ contextBridge.exposeInMainWorld('electron', {
 		send: (channel, ...args) => {
 			ipcRenderer.send(assertChannel(channel), ...args)
 		},
-		sendSync: (channel, ...args) => ipcRenderer.sendSync(assertChannel(channel), ...args),
 		// 不返回 ipcRenderer 自身（原生 on/once 会返回 this），避免链式写法把实例带进主世界。
 		on: (channel, listener) => {
 			subscribe('on', channel, listener)

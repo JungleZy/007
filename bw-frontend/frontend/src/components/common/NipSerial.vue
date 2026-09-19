@@ -47,7 +47,7 @@ import ico_state_dev from '../../assets/LJ/ico/ico-state-dev.png'
 import ico_state_dev_on from '../../assets/LJ/ico/ico-state-dev-on.png'
 import {ref, onMounted, onUnmounted} from "vue";
 import {ipcApi, ipcRenderer} from "../../electron";
-import webSerialChannel from "../../common/ws/WebSerialChannel";
+import webSerialChannel, {shutdownWebSerialChannel} from "../../common/ws/WebSerialChannel";
 import useTraffic from "../../common/mixin/useTraffic";
 
 let ico_state_wsLJ = ico_state_ws, ico_state_ws_onLJ = ico_state_ws_on,
@@ -104,12 +104,12 @@ const linkWsOnInfo = () => {
 	}
 }
 //连接串口
-const linkPort = (portName) => {
+const linkPort = async (portName) => {
   let arr =[]
   if(portName.path){
     arr = portName.path.split('/')
   }
-	const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort, portName.path?arr[2]:portName)
+	const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.linkPort, portName.path?arr[2]:portName)
 	if (data) {
 		localStorage.setItem('serial', data)
 		webSerialChannel('reset')
@@ -124,7 +124,10 @@ const grantAccess = (port) => {
 	ipcRenderer.ipc.send(ipcApi.ipcApiRoute.grantAccess, port && port.path ? [port.path] : [])
 }
 
+// 串口通道的清理必须在 setup 同步期注册：linkPort 走 ipc.invoke，重置通道发生在 await 之后，
+// 那时注册 onUnmounted 会被 Vue 丢弃（组件卸载后串口不关）。
 onUnmounted(() => {
+	shutdownWebSerialChannel()
 	if (ipc.value) {
 		ipcRenderer.ipc.off(ipcApi.ipcApiRoute.getSerialPorts)
 		ipcRenderer.ipc.off(ipcApi.ipcApiRoute.grantAccess)

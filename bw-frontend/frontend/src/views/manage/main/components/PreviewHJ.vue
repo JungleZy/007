@@ -454,11 +454,11 @@
   import address from '../../../../assets/HJ/home/addres.png'
   import {useRoute, useRouter} from 'vue-router'
   import getBackByRouter from '../js/getBackByRouter.js'
-  import {createVNode, ref, provide, watch, onMounted, nextTick, inject} from 'vue'
+  import {createVNode, ref, provide, watch, onMounted, onUnmounted, nextTick, inject} from 'vue'
   import {Modal, message} from 'ant-design-vue'
   import {ExclamationCircleOutlined, CloseOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
-  import webSerialChannel from '../../../../common/ws/WebSerialChannel.js'
+  import webSerialChannel, {shutdownWebSerialChannel} from '../../../../common/ws/WebSerialChannel.js'
   import {fontSizeDispose} from '../../../../common/utils/Utils'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
@@ -501,6 +501,12 @@
   const cancelEditPasswordModel = ()=>{
     editPasswordModel.value = false
   }
+  // 串口通道清理必须在 setup 同步期注册（webSerialChannel 已不再自注册，
+  // 因为 linkPort 走 ipc.invoke 后会在 await 之后重置通道，那时钩子会被 Vue 丢弃）。
+  onUnmounted(() => {
+    shutdownWebSerialChannel()
+  })
+
   onMounted(() => {
     if(localSerial.value!==null){
       linkPort(localSerial.value)
@@ -546,11 +552,11 @@
     isShow.value = true
   }
   //连接串口
-  const linkPort = (portName)=>{
+  const linkPort = async (portName)=>{
     if (!ipc.value) return
     try {
-      const data = ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,portName)
-      // linkPort uses sendSync and returns the selected port string; failures return ''.
+      // linkPort 走 invoke/handle：主进程写入 nip.db 后回传选中的串口名，失败回 ''。
+      const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.linkPort, portName)
       if (data) {
         localStorage.setItem('serial',data)
         webSerialChannel('reset')

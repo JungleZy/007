@@ -8,8 +8,7 @@ const Renderer = window.electron || {}
  *
  * 可用方法仅限 preload 白名单（electron/preload.js），其余 ipcRenderer 方法一律不可用：
  * ipc.invoke(channel, param) - 发送异步消息（invoke/handle 模型），返回 Promise
- * ipc.send(channel, ...args) - 通过 channel 向主进程发送异步消息
- * ipc.sendSync(channel, param) - 发送同步消息（send/on 模型），返回主进程回填的 event.returnValue
+ * ipc.send(channel, ...args) - 单向异步消息（send/on 模型），主进程用 event.reply 回话
  * ipc.on(channel, listener) - 监听 channel；listener 签名为 (event, ...args)，其中 event 恒为 null 占位
  * ipc.once(channel, listener) - 同上，仅触发一次
  * ipc.off(channel) - 移除该 channel 上由本渲染进程注册的全部监听

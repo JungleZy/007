@@ -15,18 +15,18 @@ ipcMain.on("controller.serialPort.getSerialPortList", async (event) => {
 		event.reply(`controller.serialPort.getSerialPortList`, []);
 	}
 })
-ipcMain.on("controller.serialPort.linkPort", async (event, args) => {
-	// 这是 sendSync 路由：任何分支都必须落 event.returnValue，否则渲染进程会永久卡死。
+// linkPort 走 invoke/handle：原先是 sendSync 路由（渲染进程同步阻塞等 nedb 两次写盘）。
+// getSerialPortList / grantAccess 仍保持 send + event.reply 模型 —— 它们在渲染侧是
+// NipSerial.vue 的 ipc.on 消费点，且 grantAccess 要等 pkexec 提权框，本就不能同步。
+ipcMain.handle("controller.serialPort.linkPort", async (event, args) => {
 	try {
 		await context.db.remove({_id: 3})
 		await context.db.insert({_id: 3, text: args})
 		console.log('SelectSerialPort:' + args);
-		event.returnValue = args;
-		event.reply(`controller.serialPort.linkPort`, args);
+		return args
 	} catch (error) {
 		console.error('保存串口失败:', error.message);
-		event.returnValue = '';
-		event.reply(`controller.serialPort.linkPort`, '');
+		return ''
 	}
 })
 // 显式授权：只由用户在串口列表中点击「授权」触发，列举串口本身不再提权。

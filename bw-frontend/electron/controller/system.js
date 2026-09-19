@@ -2,27 +2,26 @@ const {ipcMain, app} = require('electron')
 const os = require('os')
 const context = require('../core/node_core_ctx')
 
-ipcMain.on("controller.system.getConfig", async (event) => {
-  const findOne = await context.db.findOne({_id: 2});
-  const result = findOne.text
-  event.returnValue = result;
-  event.reply(`controller.system.getConfig`, result);
-})
-ipcMain.handle("controller.system.getConfig", async (event) => {
+// 全部走 invoke/handle：渲染侧只用 ipc.invoke 取值，主进程 return 即返回。
+// 2026-09-19 之前 getConfig 同时注册了 on（回填 event.returnValue + event.reply）与 handle 两套，
+// changeConfig / getLocalIP 只有 on 一套且靠 sendSync 取值 —— sendSync 会阻塞渲染进程，
+// 而这三条都不是必须同步的路径（网络设置页取值/保存、本机 IP 枚举）。
+// event.reply 一并去掉：渲染侧从未 ipc.on 过这三个 channel（唯二的 on 消费者是
+// controller.serialPort.getSerialPortList / grantAccess，仍保持 send/on 模型）。
+ipcMain.handle("controller.system.getConfig", async () => {
   const findOne = await context.db.findOne({_id: 2});
   return findOne.text
 })
-ipcMain.on("controller.system.changeConfig", async (event, args) => {
+
+ipcMain.handle("controller.system.changeConfig", async (event, args) => {
   // db.update 返回的是 numAffected（数字），原实现对它取 .text 恒得 undefined，
-  // 渲染侧因此永远拿不到写入结果。这里回填布尔成功标志，NetSetting 据此决定是否重载。
+  // 渲染侧因此永远拿不到写入结果。这里回布尔成功标志，NetSetting 据此决定是否重载。
   const numAffected = await context.db.update({_id: 2}, {$set: {text: args}})
-  const ok = numAffected > 0
-  event.returnValue = ok;
-  event.reply(`controller.system.changeConfig`, ok);
+  return numAffected > 0
 })
 
-ipcMain.on("controller.system.getLocalIP", async (event) => {
-  let result = []
+ipcMain.handle("controller.system.getLocalIP", async () => {
+  const result = []
   const networkInterfaces = os.networkInterfaces();
   for (const name of Object.keys(networkInterfaces)) {
     for (const net of networkInterfaces[name]) {
@@ -31,9 +30,9 @@ ipcMain.on("controller.system.getLocalIP", async (event) => {
       }
     }
   }
-  event.returnValue = result;
-  event.reply(`controller.system.getLocalIP`, result);
+  return result
 })
+
 ipcMain.handle("controller.system.closeApp", async (event) => {
   if(context.httpService){
     context.httpService.kill()

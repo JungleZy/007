@@ -1,4 +1,4 @@
-import {onUnmounted, ref} from 'vue'
+import {ref} from 'vue'
 import {traffic} from '../../config/pinia/index.js'
 import WebSerial from '../utils/WebSerial.js'
 
@@ -36,6 +36,14 @@ export async function shutdownWebSerialChannel() {
 // select-serial-port/权限处理器，requestPort 由主进程按已存口名自动应答）。
 // 历史上的 ws://localhost:18765/echo 桥接是 TrafficService 时代的遗留，
 // 该服务退役后仓内无人服务此端口，已随本次清理删除。
+/**
+ * 打开/重置串口通道。
+ *
+ * 注意：本函数**不再**自行 onUnmounted 注册清理 —— 它会被放在 await 之后调用
+ * （NipSerial.vue / PreviewHJ.vue 的 linkPort 走 ipc.invoke 取结果后才重置通道），
+ * 那时已无 active component instance，Vue 会丢掉钩子、清理永不执行（串口不关）。
+ * 清理改由调用方在 setup 同步期注册：`onUnmounted(() => shutdownWebSerialChannel())`。
+ */
 export default function webSerialChannel(type, reset) {
 	active = true
 	lifecycleGeneration++
@@ -44,9 +52,6 @@ export default function webSerialChannel(type, reset) {
 		window.addEventListener('beforeunload', handleBeforeUnload)
 		beforeUnloadInstalled = true
 	}
-	onUnmounted(() => {
-		shutdownWebSerialChannel()
-	})
 	const num = ref(0)
 	const connect = async (reset) => {
 		await webSerial.close()
