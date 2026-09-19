@@ -317,8 +317,21 @@ Vue 报 `onUnmounted is called when there is no active component instance`，钩
 | 文件服务 | 仍监听 8000（`GET /api/file/getFile/...` 返回 404 = 服务已响应），日志 `Listen ports: 127.0.0.1:8000` |
 | 回归检查 | 修复后重启、两次挂载主页：日志只有正常的 `SelectSerialPort:KEYSIM-VIRTUAL`，无 `No handler registered`、无生命周期警告 |
 
-仍未实机验的外壳能力：**真实串口硬件**（本环境只有 KEYSIM 虚拟口、`getSerialPortList` 返回空）、
-`grantAccess` 的 pkexec 提权框、装备 MQTT 呼叫。§4.2-2 相应收窄为这三项。
+**串口链路已用 keysim 虚拟串口补验（2026-09-19，commit `35c44dc`）**：
+`keysim/scripts/e2e-electron-handkey.mjs` 跑通 keysim 控制台(18700) 注入 `navigator.serial`
+→ Electron 学员登录 → `localStorage.serial='KEYSIM-VIRTUAL'` → `NipSerial.onMounted`
+→ `linkPort`（已改 ipc.invoke）→ `webSerialChannel('reset')` → WebSerial 解码
+→ 后端(18001) 结算：`--domain postJob --rate 120 --groups 30` 得
+score=149 / accuracy=100.00% / speed=119字/分 / errors=0 / validTime=60s，复跑同样通过。
+顺带修掉该脚本一处失效断言：通帧探针仍按 `f043d30` 更名前的 `MessageWebSocket.js` 路径 import，
+失败被 catch 成 `'no-modules'` 后**恒走降级分支**，那条断言一直没真正执行过。
+卸载清理也单独测了：在 `shutdownWebSerialChannel` 内临时打点，挂载后 0 次、离开页面后 1 次，
+确认 `0d35210` 的生命周期修复生效（修复前钩子被 Vue 丢弃，串口不关）。
+
+仍未实机验的外壳能力收窄为两项：**真实串口硬件**下的主进程枚举
+（`NativeSerialPort.list()` / `getSerialPortList`；keysim 注入的是 Web Serial 层虚拟口，
+不经过主进程枚举）与 `grantAccess` 的 pkexec 提权框；另有装备 MQTT 呼叫需真实 broker。
+§4.2-3 相应收窄。
 
 
 ## 四、置信度与未决风险
@@ -333,7 +346,7 @@ Vue 报 `onUnmounted is called when there is no active component instance`，钩
 
 1. **【最大缺口】本次全程为静态 + 构建验证，没有做过真实的联合训练建连运行时验证**——档 0 修复后的 PubSub 载荷时序（publish 走微任务异步投递）、重连链路、登出四通道清理、USER_JOIN 残留修复效果全部未经运行验证。移交执行方作为修复包 Commit 4 验收标准：进大厅 loading 消失 → 建房成功收 120 跳房间页 → 建房失败弹错 → 二次进大厅 onlineUsers 无重复。
 2. luckysheet 员工导入存废（0b）——业务决策，辩论无法收敛。
-3. Electron 桌面包 4 个设备页 MQTT 是否业务需要（桌面 mqttWsUrl 恒空是代码事实，是否缺陷取决于部署形态）。**外壳侧 2026-09-19 已首次实机验收**（§3.6：IPC 四条 channel、网络设置页读写、nip.db 默认值分支、文件服务监听），剩余未实机项收窄为三项：真实串口硬件、`grantAccess` 的 pkexec 提权框、装备 MQTT 呼叫。
+3. Electron 桌面包 4 个设备页 MQTT 是否业务需要（桌面 mqttWsUrl 恒空是代码事实，是否缺陷取决于部署形态）。**外壳侧 2026-09-19 已首次实机验收**（§3.6：IPC 四条 channel、网络设置页读写、nip.db 默认值分支、文件服务监听），剩余未实机项收窄为：真实串口硬件下的主进程枚举（`NativeSerialPort.list()`）、`grantAccess` 的 pkexec 提权框、装备 MQTT 呼叫；**串口业务链路已用 keysim 虚拟串口跑通并结算**（§3.6、commit `35c44dc`）。
 4. 生产菜单表复核：datagramZuXun/telexZuXun 死活、broadcastTeacheing 改名、organization 三胞胎——本轮全部菜单证据仅及本地库 project006。
 5. 952 组同字节资产是否存在刻意皮肤隔离——产品逐组放行（档 4 语义闸）。
 6. 死依赖/零引用资产删除的动态引用盲区（动态字符串拼接 require、打包后手工注入）——静态检测已证为零但非穷尽，以档 1 删后 build+全路由冒烟兜底；零引用 102.8MiB 批删前须先跑「删除子集构建+冒烟」回归闸。
