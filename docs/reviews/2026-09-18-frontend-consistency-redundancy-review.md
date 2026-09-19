@@ -174,8 +174,8 @@
 | 0 unionJob WS 修复包 | ✅ 已执行。Commit 1 后端 `UnionConstants.java` `ADD_ROOM_FAIL(121→122)` + 前端码表同 commit（红线 5），并加 `UnionConstantsTest` 守 `getByCode` 往返（撞号还原即失败）；Commit 2 两页补 `run()` 建连、分发规格固定在 `UnionWs` 内（按 code 广播 `frame.data`）、修 `Index.vue` 退订错位、新增 `ADD_ROOM_FAIL` 弹错（回调不 parse） | `3c424f1`、`1eefd1a` |
 | 0b luckysheet 决策闸 | ✅ 业主决策 **预案乙（整链删除）**，已执行 | `f34c1c5` |
 | 1 纯删除批 | ✅ 已执行：死依赖 40 条 + tauri 死脚本 3 个；vendored 9.9MB；luckysheet 链 8.9MB；electron 子进程脚手架（`node_core_utils` 223→90 行、子进程 ctx 20→8 行）；`Waves.vue`；零引用资产 541 文件/68.0MB；structure 页注释态导入导出入口 | `4bad88c`、`d3e1183`、`a4cccbb`、`da82e06`、`8f24764`、`930354f` |
-| 2 lint 重建 | ✅ 已执行：迁 `eslint.config.mjs` 扁平配置，显式声明 eslint/eslint-plugin-vue/globals，`vue-eslint-parser` 升为 v10 必需 peer，删废弃 `babel-eslint` 与失效 `prettierrc.js`，新增 `lint`/`lint:fix` 脚本。**基线 2444 problems = 487 error + 1957 warning / 363 文件**，不设失败闸 | `8f4239a` |
-| 3 外壳小修批 | 未执行 | — |
+| 2 lint 重建 | ✅ 已执行：迁 `eslint.config.mjs` 扁平配置，显式声明 eslint/eslint-plugin-vue/globals，`vue-eslint-parser` 升为 v10 必需 peer，删废弃 `babel-eslint` 与失效 `prettierrc.js`，新增 `lint`/`lint:fix` 脚本。**基线 2444 problems = 487 error + 1957 warning / 363 文件**，不设失败闸。**基线已清零至 11 error / 163 warning / 0 解析失败，见 §3.5** | `8f4239a`，清零批 `eb03616`→`3486cb0` |
+| 3 外壳小修批 | ✅ 已执行（2026-09-19）：① IPC 全面收敛 invoke/handle，`getConfig` 双注册合一、`changeConfig`/`getLocalIP`/`linkPort` 由 on 改 handle，preload 下线 `sendSync`；② 端口与默认服务地址收敛到新增的 `electron/shared/ports.js`（原本四处各写一遍）。其余条目（`restore()/focus()` 误传参、survival 死键、generateFilename、`routers/file.js` 空 bind、specialIpcRoute、changeConfig 返回值）逐项核对**已在档 0/1 期间修掉**，现不存在。**首次在 WSLg 下真启 Electron 外壳验收**，详见 §3.6 | `0d35210`、`14d9528` |
 | 4 / 4b / 5 | 未执行（门控与决策条件不变） | — |
 
 **执行期新增发现（评审与两轮裁判均未覆盖）**
@@ -278,6 +278,48 @@
 真实原因是本地 `project006` 只导了快照没跑迁移；按序补跑 21 个迁移（全部成功、幂等无报错）后
 该端点实测恢复 200。仓库无缺陷。
 
+### 3.6 档 3 外壳小修与首次 Electron 实机验收（2026-09-19，commits `0d35210`、`14d9528`）
+
+此前所有验收都在浏览器里做，Electron 外壳侧（§4.2-2 列的 sendSync 路径、串口连接）**从未实机验过**。
+本轮发现 WSL2 的 WSLg 提供 `DISPLAY=:0`，可以真启外壳：
+`electron . --remote-debugging-port=9333` + CDP 接入，并用 `Runtime.evaluate` 打**主世界**
+（Puppeteer 默认落在隔离世界，看不到 contextBridge 注入的 `window.electron`，
+ 连 `window.interfaceStyle` 都取不到 —— 这一点后人复现时必须注意）。
+
+**改动一：IPC 收敛（`0d35210`）**
+`getConfig` 原先 `ipcMain.on` 与 `ipcMain.handle` 双注册；`changeConfig`/`getLocalIP`/`linkPort`
+只有 on 一套且靠 `sendSync` 取值 —— 同步阻塞渲染进程，其中 linkPort 那条要等 nedb 两次写盘。
+四条全改 handle，渲染侧 5 处 `sendSync` 改 `await invoke`，preload 白名单摘掉 `sendSync`。
+`getSerialPortList`/`grantAccess` 保持 send + `event.reply`（渲染侧是 `ipc.on` 消费，
+且 grantAccess 要等 pkexec 提权框）。
+
+**该改动引入过一处真回归，由实机日志里的 Vue 警告抓到**：
+`WebSerialChannel.js` 的 `webSerialChannel()` 自己在内部 `onUnmounted` 注册清理，
+要求必须在 setup 同步期调用；linkPort 改 await 后它落到 await 之后，
+Vue 报 `onUnmounted is called when there is no active component instance`，钩子被丢弃，
+**组件卸载后串口通道不再关闭**。修法是把生命周期注册上移到消费组件
+（`NipSerial.vue`、`PreviewHJ.vue` 各在 setup 同步期注册一次 `shutdownWebSerialChannel`），
+工具函数不再自注册。附带补上了 PreviewHJ 一直缺失的卸载清理。
+
+**改动二：端口单一出处（`14d9528`）**
+`8000`/`18001` 原本在 `node_server.js`、`service/http/index.js`、`service/index.js`、
+`core/index.js`（nip.db 默认值）四处各写一遍，改一处漏三处就会「服务监听 A、nip.db 告诉前端连 B」。
+新增 `electron/shared/ports.js` 作为唯一出处（纯常量，主进程与 fork 子进程都能安全引入）。
+
+**实机验收结果**
+
+| 验收项 | 结果 |
+|---|---|
+| preload 白名单 | 实测 `[invoke, send, on, once, off]`，`typeof ipc.sendSync === 'undefined'` |
+| 四条 channel | invoke 实测全部返回正确值：getConfig 取到 nip.db 两组地址、getLocalIP 返回两个网卡 IP、changeConfig 返回 true、linkPort 回显写入值 |
+| 网络设置页真实 UI | 主页 popover → 网络设置 → 弹窗渲染「本机地址 / 数据服务=本机 / 资源服务=远程 127.0.0.1:8000」；点确定后 reload 跳 `/login`，`bin/nip.db` 内容与保存前一致 |
+| 默认配置分支 | 删掉 nip.db 的 `_id:2` 重启外壳，`loadConfig` 用共享常量重建出 `localhost:18001`/`127.0.0.1:8000`，`_id:3` 串口值未被触碰 |
+| 文件服务 | 仍监听 8000（`GET /api/file/getFile/...` 返回 404 = 服务已响应），日志 `Listen ports: 127.0.0.1:8000` |
+| 回归检查 | 修复后重启、两次挂载主页：日志只有正常的 `SelectSerialPort:KEYSIM-VIRTUAL`，无 `No handler registered`、无生命周期警告 |
+
+仍未实机验的外壳能力：**真实串口硬件**（本环境只有 KEYSIM 虚拟口、`getSerialPortList` 返回空）、
+`grantAccess` 的 pkexec 提权框、装备 MQTT 呼叫。§4.2-2 相应收窄为这三项。
+
 
 ## 四、置信度与未决风险
 
@@ -291,7 +333,7 @@
 
 1. **【最大缺口】本次全程为静态 + 构建验证，没有做过真实的联合训练建连运行时验证**——档 0 修复后的 PubSub 载荷时序（publish 走微任务异步投递）、重连链路、登出四通道清理、USER_JOIN 残留修复效果全部未经运行验证。移交执行方作为修复包 Commit 4 验收标准：进大厅 loading 消失 → 建房成功收 120 跳房间页 → 建房失败弹错 → 二次进大厅 onlineUsers 无重复。
 2. luckysheet 员工导入存废（0b）——业务决策，辩论无法收敛。
-3. Electron 桌面包 4 个设备页 MQTT 是否业务需要（桌面 mqttWsUrl 恒空是代码事实，是否缺陷取决于部署形态）。
+3. Electron 桌面包 4 个设备页 MQTT 是否业务需要（桌面 mqttWsUrl 恒空是代码事实，是否缺陷取决于部署形态）。**外壳侧 2026-09-19 已首次实机验收**（§3.6：IPC 四条 channel、网络设置页读写、nip.db 默认值分支、文件服务监听），剩余未实机项收窄为三项：真实串口硬件、`grantAccess` 的 pkexec 提权框、装备 MQTT 呼叫。
 4. 生产菜单表复核：datagramZuXun/telexZuXun 死活、broadcastTeacheing 改名、organization 三胞胎——本轮全部菜单证据仅及本地库 project006。
 5. 952 组同字节资产是否存在刻意皮肤隔离——产品逐组放行（档 4 语义闸）。
 6. 死依赖/零引用资产删除的动态引用盲区（动态字符串拼接 require、打包后手工注入）——静态检测已证为零但非穷尽，以档 1 删后 build+全路由冒烟兜底；零引用 102.8MiB 批删前须先跑「删除子集构建+冒烟」回归闸。
