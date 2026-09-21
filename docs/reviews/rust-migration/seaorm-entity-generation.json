@@ -1,0 +1,40 @@
+{
+  "schema": "rust-migration-seaorm-entity-generation/v1",
+  "generated_at_utc": "2026-09-21T09:59:31Z",
+  "generator": "sea-orm-cli v1.1.14",
+  "command": "sea generate entity -u mysql://<redacted>@127.0.0.1:3306/project006 -o crates/persistence/src/entity --with-prelude all --impl-active-model-behavior=true --ignore-tables seaql_migrations,seq,t_post_ticker_tape_train_setting,t_ticker_tape_train_setting",
+  "source": {
+    "database": "project006 local schema; credentials not persisted",
+    "schema_inventory": "docs/reviews/rust-migration/schema-inventory.tsv",
+    "post_migration_tables": 106,
+    "schema_sha256": {
+      "current_snapshot": "902a46d9d39fd8463ac866530a6bd6124c6f09a6818c7da6edbb768d49fba57f",
+      "base_snapshot": "725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a"
+    }
+  },
+  "result": {
+    "generated_entity_modules": 103,
+    "generated_files": 105,
+    "support_files": ["mod.rs", "prelude.rs"],
+    "excluded_no_primary_key_tables": [
+      "seq",
+      "t_post_ticker_tape_train_setting",
+      "t_ticker_tape_train_setting"
+    ],
+    "excluded_table_policy": "These three schema tables have no primary key in both snapshots; they remain addressable only through explicit raw SQL/repository code. No synthetic primary key was invented."
+  },
+  "type_mapping": {
+    "nullable_columns": "Option<T>",
+    "datetime": "chrono::DateTime",
+    "decimal": "rust_decimal::Decimal",
+    "uuid_and_string_ids": "String",
+    "json_or_text_payloads": "String",
+    "serde_response_derives": false
+  },
+  "safety": {
+    "auto_ddl": false,
+    "business_writes": false,
+    "credentials_in_generated_sources": false,
+    "generated_entities_are_response_dtos": false
+  }
+}

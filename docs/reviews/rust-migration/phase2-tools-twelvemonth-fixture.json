@@ -1,0 +1,50 @@
+{
+  "schema": "rust-migration-phase2-tools-twelvemonth/v1",
+  "captured_at_utc": "2026-09-21T09:17:01Z",
+  "java_endpoint": "GET /api/tools/getTwelvemonth",
+  "rust_endpoint": "GET /api/tools/getTwelvemonth",
+  "frontend_consumers": [
+    "bw-frontend/frontend/src/common/api/CableApi.js#getTwelvemonth",
+    "bw-frontend/frontend/src/common/api/ToolsApi.js#getTwelvemonth"
+  ],
+  "routing": {
+    "rust_flag": "RUST_PHASE2_TOOLS_ENABLED=true",
+    "default_flag": false,
+    "rollback_when_disabled": "Rust endpoint returns HTTP404; Java route remains available"
+  },
+  "observed_java_response": {
+    "code": 200,
+    "data": [
+      {"month": 9, "year": 2026},
+      {"month": 8, "year": 2026},
+      {"month": 7, "year": 2026},
+      {"month": 6, "year": 2026},
+      {"month": 5, "year": 2026},
+      {"month": 4, "year": 2026},
+      {"month": 3, "year": 2026},
+      {"month": 2, "year": 2026},
+      {"month": 1, "year": 2026},
+      {"month": 12, "year": 2025},
+      {"month": 11, "year": 2025},
+      {"month": 10, "year": 2025}
+    ],
+    "message": "ok",
+    "description": ""
+  },
+  "comparison": {
+    "java_http_status": 200,
+    "rust_http_status": 200,
+    "envelope_fields_equal": true,
+    "code_equal": true,
+    "message_equal": true,
+    "data_equal": true,
+    "comparison_evidence": "artifact://273"
+  },
+  "contract": {
+    "source_behavior": "java.time.YearMonth.now(); current month first, then minus one month for 12 rows",
+    "rust_behavior": "UTC current year/month with integer month rollover and same descending sequence",
+    "writes": false,
+    "database": false,
+    "authentication": "free endpoint in Java; no auth middleware applied"
+  }
+}

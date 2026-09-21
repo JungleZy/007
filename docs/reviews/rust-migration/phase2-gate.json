@@ -1,0 +1,61 @@
+{
+  "schema": "rust-migration-phase2-gate/v1",
+  "recorded_at_utc": "2026-09-21T10:33:23Z",
+  "source_commit": "156659a",
+  "status": "PASS_WITH_TRAFFIC_OFF",
+  "scope": "Phase 2 database/common foundation and one low-coupling read-only pilot; production routing remains unchanged",
+  "candidate_domain": {
+    "name": "tools.getTwelvemonth",
+    "java_endpoint": "GET /api/tools/getTwelvemonth",
+    "rust_endpoint": "GET /api/tools/getTwelvemonth",
+    "frontend_consumers": [
+      "bw-frontend/frontend/src/common/api/CableApi.js#getTwelvemonth",
+      "bw-frontend/frontend/src/common/api/ToolsApi.js#getTwelvemonth"
+    ],
+    "database_dependency": false,
+    "writes": false,
+    "auth": "free endpoint, matching Java controller.free.ToolsController",
+    "feature_flag": "RUST_PHASE2_TOOLS_ENABLED",
+    "default": false
+  },
+  "checks": {
+    "java_rust_json_comparison": "PASS: HTTP200, envelope fields/code/message/data equal on the same current-month fixture",
+    "rollback_switch": "PASS: flag disabled returns Rust HTTP404; Java remains the fallback route",
+    "phase2_tool_unit_contract": "PASS: descending 12-month sequence including year rollover",
+    "seaorm_entity_generation": "PASS: 103 entity modules / 105 generated files from 106-table schema",
+    "no_primary_key_boundary": "PASS: seq, t_post_ticker_tape_train_setting and t_ticker_tape_train_setting excluded without synthetic keys",
+    "repository_transaction": "PASS: isolated temporary MySQL database rollback test; inserted probe row absent after intentional error",
+    "readonly_fixture": "PASS: isolated clone of project006 schema/data; ORDER BY/LIMIT/OFFSET, nullable text/int and Decimal projections passed",
+    "workspace_tests": "PASS: cargo test --workspace --locked; 6 passed, 2 opt-in integration tests separately executed",
+    "workspace_check": "PASS: cargo check --workspace --locked",
+    "schema_rehearsal_entry": "PASS: phase2-schema-rehearsal.sh generated entities and cargo checked workspace without DDL"
+  },
+  "persistence": {
+    "crate": "backend-rust/crates/persistence",
+    "seaorm_runtime": "1.1.x locked release",
+    "generated_entities": "backend-rust/crates/persistence/src/entity",
+    "repository_context": "explicit begin/commit/rollback wrapper",
+    "pagination": "bounded PageRequest (max 200), SortDirection, PageResult",
+    "schema_fixture": "backend-rust/crates/persistence/tests/schema_readonly.rs",
+    "transaction_fixture": "backend-rust/crates/persistence/tests/mysql_transaction.rs",
+    "generation_evidence": "docs/reviews/rust-migration/seaorm-entity-generation.json"
+  },
+  "safety": {
+    "rust_port": 18002,
+    "java_port": 18001,
+    "production_traffic_enabled": false,
+    "frontend_routes_changed": false,
+    "gateway_routes_changed": false,
+    "business_writes_enabled": false,
+    "java_rust_same_domain_dual_write": false,
+    "automatic_ddl": false,
+    "temporary_fixture_databases_cleaned": true
+  },
+  "evidence": [
+    "docs/reviews/rust-migration/phase2-tools-twelvemonth-fixture.json",
+    "docs/reviews/rust-migration/seaorm-entity-generation.json",
+    "docs/reviews/rust-migration/schema-inventory-metadata.json",
+    "backend-rust/scripts/phase2-schema-rehearsal.sh"
+  ],
+  "next_boundary": "Phase 3 user/session/role migration is not authorized by this gate; first perform review of the read-only pilot and routing rollback before any user or write domain work."
+}
