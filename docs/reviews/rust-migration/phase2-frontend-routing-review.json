@@ -1,0 +1,52 @@
+{
+  "schema": "rust-migration-phase2-frontend-routing-review/v1",
+  "reviewed_at_utc": "2026-09-21T10:55:23Z",
+  "candidate_domain": "/api/tools/**",
+  "findings": {
+    "api_wrappers": [
+      "bw-frontend/frontend/src/common/api/CableApi.js#getTwelvemonth -> GET /api/tools/getTwelvemonth",
+      "bw-frontend/frontend/src/common/api/ToolsApi.js#getTwelvemonth -> GET /api/tools/getTwelvemonth"
+    ],
+    "active_page_consumers": {
+      "getTwelvemonth": "none found in bw-frontend/frontend/src",
+      "getNowTime": [
+        "bw-frontend/frontend/src/components/common/ShortcutMenu.vue:80",
+        "bw-frontend/frontend/src/components/common/ShortcutMenu.vue:93"
+      ]
+    },
+    "java_tools_domain": [
+      "GET /api/tools/getNowTime",
+      "GET /api/tools/getTwelvemonth"
+    ],
+    "rust_tools_domain": [
+      "GET /api/tools/getTwelvemonth only when RUST_PHASE2_TOOLS_ENABLED=true",
+      "GET /api/tools/getNowTime is not implemented"
+    ]
+  },
+  "runtime_base_url": {
+    "web": "src/config/runtime.js sets window.httpUrl from runtime-config.js and appends port 18001 by default",
+    "runtime_config": "public/runtime-config.js uses current hostname",
+    "electron": "bin/nip.db and electron defaults use localhost:18001",
+    "frontend_default_target": "Java :18001",
+    "rust_target": "not selected by frontend runtime configuration"
+  },
+  "routing_and_rollback": {
+    "repository_gateway_config": "no nginx/reverse-proxy/gateway route configuration found in repository",
+    "plan_route": "complete domain route through gateway; /api/tools/** is a candidate only",
+    "rust_flag_off_test": "PASS: RUST_PHASE2_TOOLS_ENABLED unset makes Rust /api/tools/getTwelvemonth return HTTP404",
+    "java_rust_contract_test": "PASS: Java :18001 and Rust :18002 returned equal HTTP200 envelope/data for getTwelvemonth",
+    "frontend_rollback": "frontend already remains on Java :18001; no runtime switch to Rust exists",
+    "operational_rollback_required": [
+      "If a gateway later sends /api/tools/** to Rust, turn that route back to Java :18001",
+      "Set RUST_PHASE2_TOOLS_ENABLED=false or stop Rust",
+      "Confirm Java /api/tools/getNowTime remains reachable before declaring rollback complete"
+    ]
+  },
+  "decision": {
+    "approve_complete_tools_domain_canary": false,
+    "reason": "getNowTime is an active page consumer but Rust only implements getTwelvemonth; routing the complete /api/tools/** domain would break ShortcutMenu.",
+    "safe_current_state": "Java remains the only frontend target and Rust has no production traffic.",
+    "next_required_work": "Implement and compare Rust getNowTime, then repeat browser/network smoke before any complete tools-domain route change."
+  },
+  "evidence_boundary": "The getTwelvemonth wrapper is statically present but has no static page call. Direct Java/Rust HTTP comparison is not evidence of active browser traffic."
+}
