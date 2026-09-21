@@ -5,7 +5,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use axum::{
@@ -199,7 +199,9 @@ fn build_router(state: AppState) -> Router {
         .nest("/api/phase1/contract", protected.merge(admin))
         .route("/q/openapi", get(openapi));
     if state.config.tools_readonly_enabled {
-        api = api.route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
+        api = api
+            .route("/api/tools/getNowTime", get(tools_get_now_time))
+            .route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
@@ -391,6 +393,23 @@ fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
         .collect()
 }
 
+fn now_time_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after Unix epoch")
+        .as_millis() as u64
+}
+
+async fn tools_get_now_time() -> Response {
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!(now_time_millis())),
+        "ok",
+        "",
+    )
+}
+
 async fn tools_get_twelve_month() -> Response {
     let current = OffsetDateTime::now_utc();
     let data = twelve_month_data(current.year(), u8::from(current.month()));
@@ -404,6 +423,7 @@ async fn openapi() -> Json<Value> {
         "paths": {
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
+            "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}}
         }
     }))

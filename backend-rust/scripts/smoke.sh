@@ -120,10 +120,15 @@ case "$request_id_headers" in
   *) echo "request ID was not propagated: $request_id_headers" >&2; exit 1 ;;
 esac
 if [[ "${RUST_PHASE2_TOOLS_ENABLED:-false}" == "true" ]]; then
+  tools_now_body=$(request_body /api/tools/getNowTime)
+  case "$tools_now_body" in
+    *'"code":200'*'"data":'*) ;;
+    *) echo "unexpected Phase 2 getNowTime response: $tools_now_body" >&2; exit 1 ;;
+  esac
   tools_body=$(request_body /api/tools/getTwelvemonth)
   case "$tools_body" in
     *'"code":200'*'"data":[{'*) ;;
-    *) echo "unexpected Phase 2 tools response: $tools_body" >&2; exit 1 ;;
+    *) echo "unexpected Phase 2 getTwelvemonth response: $tools_body" >&2; exit 1 ;;
   esac
 fi
 
