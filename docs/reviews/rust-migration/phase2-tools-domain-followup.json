@@ -1,0 +1,50 @@
+{
+  "schema": "rust-migration-phase2-tools-domain-followup/v1",
+  "verified_at_utc": "2026-09-21T11:16:22Z",
+  "commit": "df2d849",
+  "domain": "/api/tools/**",
+  "implemented_rust_endpoints": [
+    "GET /api/tools/getNowTime",
+    "GET /api/tools/getTwelvemonth"
+  ],
+  "feature_flag": {
+    "name": "RUST_PHASE2_TOOLS_ENABLED",
+    "default": false,
+    "disabled_behavior": "both Rust tools routes absent; HTTP404 fallback remains available"
+  },
+  "java_rust_http_comparison": {
+    "getNowTime": {
+      "java_status": 200,
+      "rust_status": 200,
+      "code_equal": true,
+      "message_equal": true,
+      "data_type": "integer",
+      "millis_delta": 37,
+      "accepted_delta_ms": 5000
+    },
+    "getTwelvemonth": {
+      "java_status": 200,
+      "rust_status": 200,
+      "code_equal": true,
+      "message_equal": true,
+      "data_equal": true
+    }
+  },
+  "browser_wrapper_smoke": {
+    "surface": "Vite dev page http://127.0.0.1:18010/#/login",
+    "method": "dynamic import of /src/common/api/ToolsApi.js after setting window.httpUrl to Rust :18002",
+    "getNowTime": {"code": 200, "data_type": "number"},
+    "getTwelvemonth": {"code": 200, "data_length": 12, "first": {"month": 9, "year": 2026}, "last": {"month": 10, "year": 2025}},
+    "result": "PASS"
+  },
+  "static_consumers": {
+    "getNowTime": ["bw-frontend/frontend/src/components/common/ShortcutMenu.vue:80", "bw-frontend/frontend/src/components/common/ShortcutMenu.vue:93"],
+    "getTwelvemonth": "no page call found; API wrappers remain in CableApi.js and ToolsApi.js"
+  },
+  "production_routing": {
+    "frontend_default": "Java :18001",
+    "gateway_config_in_repo": false,
+    "rust_production_traffic": false,
+    "complete_domain_canary": "not authorized until an actual gateway route and rollback drill exist"
+  }
+}

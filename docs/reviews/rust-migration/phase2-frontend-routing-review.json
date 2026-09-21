@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-phase2-frontend-routing-review/v1",
-  "reviewed_at_utc": "2026-09-21T10:55:23Z",
+  "reviewed_at_utc": "2026-09-21T11:16:22Z",
   "candidate_domain": "/api/tools/**",
   "findings": {
     "api_wrappers": [
@@ -19,8 +19,8 @@
       "GET /api/tools/getTwelvemonth"
     ],
     "rust_tools_domain": [
-      "GET /api/tools/getTwelvemonth only when RUST_PHASE2_TOOLS_ENABLED=true",
-      "GET /api/tools/getNowTime is not implemented"
+      "GET /api/tools/getNowTime when RUST_PHASE2_TOOLS_ENABLED=true",
+      "GET /api/tools/getTwelvemonth when RUST_PHASE2_TOOLS_ENABLED=true"
     ]
   },
   "runtime_base_url": {
@@ -33,8 +33,9 @@
   "routing_and_rollback": {
     "repository_gateway_config": "no nginx/reverse-proxy/gateway route configuration found in repository",
     "plan_route": "complete domain route through gateway; /api/tools/** is a candidate only",
-    "rust_flag_off_test": "PASS: RUST_PHASE2_TOOLS_ENABLED unset makes Rust /api/tools/getTwelvemonth return HTTP404",
-    "java_rust_contract_test": "PASS: Java :18001 and Rust :18002 returned equal HTTP200 envelope/data for getTwelvemonth",
+    "rust_flag_off_test": "PASS: RUST_PHASE2_TOOLS_ENABLED unset makes both Rust tools routes return HTTP404",
+    "java_rust_contract_test": "PASS: Java :18001 and Rust :18002 returned equal code/message/data contracts for both endpoints; getNowTime millis delta was 37ms",
+    "browser_wrapper_smoke": "PASS: Vite page dynamically imported ToolsApi.js with window.httpUrl overridden to Rust :18002; both wrapper calls returned expected code/data",
     "frontend_rollback": "frontend already remains on Java :18001; no runtime switch to Rust exists",
     "operational_rollback_required": [
       "If a gateway later sends /api/tools/** to Rust, turn that route back to Java :18001",
@@ -44,9 +45,9 @@
   },
   "decision": {
     "approve_complete_tools_domain_canary": false,
-    "reason": "getNowTime is an active page consumer but Rust only implements getTwelvemonth; routing the complete /api/tools/** domain would break ShortcutMenu.",
+    "reason": "Rust now implements both Java tools endpoints and browser wrapper smoke passes, but no actual gateway route configuration exists in the repository; production canary cannot be executed or rolled back from repository state alone.",
     "safe_current_state": "Java remains the only frontend target and Rust has no production traffic.",
-    "next_required_work": "Implement and compare Rust getNowTime, then repeat browser/network smoke before any complete tools-domain route change."
+    "next_required_work": "Deployment must add and rehearse a complete /api/tools/** gateway route to Rust :18002 with an explicit Java :18001 rollback switch."
   },
   "evidence_boundary": "The getTwelvemonth wrapper is statically present but has no static page call. Direct Java/Rust HTTP comparison is not evidence of active browser traffic."
 }
