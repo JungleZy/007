@@ -8,10 +8,11 @@
     "name": "tools.getTwelvemonth",
     "java_endpoint": "GET /api/tools/getTwelvemonth",
     "rust_endpoint": "GET /api/tools/getTwelvemonth",
-    "frontend_consumers": [
+    "frontend_api_exports": [
       "bw-frontend/frontend/src/common/api/CableApi.js#getTwelvemonth",
       "bw-frontend/frontend/src/common/api/ToolsApi.js#getTwelvemonth"
     ],
+    "frontend_page_call_static_search": "not found in src; wrappers are preserved contract evidence, not proof of active page traffic",
     "database_dependency": false,
     "writes": false,
     "auth": "free endpoint, matching Java controller.free.ToolsController",
