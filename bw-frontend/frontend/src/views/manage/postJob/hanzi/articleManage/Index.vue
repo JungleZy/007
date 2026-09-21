@@ -196,20 +196,24 @@ const addDrillModalInfo = () => {
 }
 const deleteArticle = id => {
   deleteArticleByID({ id }).then(res => {
-    message.success('删除成功。')
-    init()
+    if (res.code === 200) {
+      message.success('删除成功。')
+      init()
+    } else {
+      message.error(res.message || '删除失败。')
+    }
   })
 }
 const addArticle = () => {
   const data2 = data.value
-  data2.content = data2.content
+  const editing = Boolean(data.value.id)
   addPostArticle(data2).then(res => {
-    addDrillModal.value = false
-    if (data.value.id) {
-      message.success('编辑成功。')
-    } else {
-      message.success('新增成功。')
+    if (res.code !== 200) {
+      message.error(res.message || (editing ? '编辑失败。' : '新增失败。'))
+      return
     }
+    addDrillModal.value = false
+    message.success(editing ? '编辑成功。' : '新增成功。')
     init()
     data.value = {
       name: '',

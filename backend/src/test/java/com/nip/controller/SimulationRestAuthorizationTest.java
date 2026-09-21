@@ -3,8 +3,10 @@ package com.nip.controller;
 import com.nip.dao.RoleDao;
 import com.nip.dao.UserDao;
 import com.nip.dao.UserRoleDao;
+import com.nip.dao.simulation.SimulationRouterRoomContentDao;
 import com.nip.dao.simulation.SimulationRouterRoomDao;
 import com.nip.dao.simulation.SimulationRouterRoomUserDao;
+import com.nip.entity.simulation.router.SimulationRouterRoomContentEntity;
 import com.nip.entity.RoleEntity;
 import com.nip.entity.UserEntity;
 import com.nip.entity.UserRoleEntity;
@@ -41,6 +43,46 @@ class SimulationRestAuthorizationTest {
   @Inject UserRoleDao userRoleDao;
   @Inject SimulationRouterRoomDao roomDao;
   @Inject SimulationRouterRoomUserDao memberDao;
+  @Inject SimulationRouterRoomContentDao contentDao;
+  @Test
+  void sendFinishCompletesOnlySenderAndReceiversOnTheirChannel() {
+    int roomId = room(0);
+    addMember(roomId, outsider, 1, 9, 0);
+    addMember(roomId, owner, 1, 1, 0);
+    addMember(roomId, admin, 0, 1, 0);
+    int otherRoom = room(0);
+    addContent(roomId);
+
+    request(sender).queryParam("roomId", roomId)
+        .post("/api/simulation/router/sendFinish")
+        .then().statusCode(200).body("code", is(200), "data.currentUserStatus", is(1));
+
+    assertEquals(1, status(roomId, sender));
+    assertEquals(1, status(roomId, receiver));
+    assertEquals(0, status(roomId, outsider));
+    assertEquals(1, status(roomId, owner));
+    assertEquals(0, status(roomId, admin));
+    assertEquals(0, status(otherRoom, sender));
+    assertEquals(0, status(otherRoom, receiver));
+  }
+
+  @Test
+  void failedSendFinishDoesNotChangeAnyMemberStatus() {
+    int roomId = room(0);
+
+    for (UserEntity actor : List.of(outsider, receiver)) {
+      request(actor).queryParam("roomId", roomId)
+          .post("/api/simulation/router/sendFinish")
+          .then().statusCode(200).body("code", is(202));
+      assertEquals(0, status(roomId, sender));
+      assertEquals(0, status(roomId, receiver));
+    }
+    request(sender).body(Map.of("roomId", roomId))
+        .post("/api/simulation/router/sendFinish")
+        .then().statusCode(200).body("code", is(202));
+    assertEquals(0, status(roomId, sender));
+    assertEquals(0, status(roomId, receiver));
+  }
 
   private final List<Integer> roomIds = new ArrayList<>();
   private UserEntity owner;
@@ -67,6 +109,7 @@ class SimulationRestAuthorizationTest {
       SimulationGlobal.disturbRoom.remove(roomId);
       QuarkusTransaction.requiringNew().run(() -> {
         memberDao.delete("roomId", roomId);
+        contentDao.delete("roomId", roomId);
         roomDao.deleteById(roomId);
       });
     }
@@ -209,6 +252,38 @@ class SimulationRestAuthorizationTest {
     return QuarkusTransaction.requiringNew().call(() ->
         memberDao.findByUserIdAndRoomId(actor.getId(), roomId).getChannel());
   }
+  private int status(int roomId, UserEntity actor) {
+    return QuarkusTransaction.requiringNew().call(() ->
+        memberDao.findByUserIdAndRoomId(actor.getId(), roomId).getUserStatus());
+  }
+
+  private void addMember(int roomId, UserEntity actor, int userType, int channel, int userStatus) {
+    QuarkusTransaction.requiringNew().run(() -> {
+      SimulationRouterRoomUserEntity member = new SimulationRouterRoomUserEntity();
+      member.setRoomId(roomId);
+      member.setUserId(actor.getId());
+      member.setUserType(userType);
+      member.setChannel(channel);
+      member.setUserStatus(userStatus);
+      memberDao.save(member);
+    });
+  }
+
+  private void addContent(int roomId) {
+    QuarkusTransaction.requiringNew().run(() -> {
+      SimulationRouterRoomContentEntity content = new SimulationRouterRoomContentEntity();
+      content.setRoomId(roomId);
+      content.setContent("[]");
+      content.setMainSignal("100");
+      content.setInterferenceSignal("");
+      content.setBdType(1);
+      content.setBwType(1);
+      content.setBwCount(100);
+      content.setIsRandom(0);
+      contentDao.save(content);
+    });
+  }
+
 
   private String setting(int roomId) {
     return QuarkusTransaction.requiringNew().call(() -> roomDao.findById(roomId).getSetting());

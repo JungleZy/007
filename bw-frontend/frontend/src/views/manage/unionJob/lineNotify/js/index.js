@@ -156,11 +156,10 @@ export default function lineNotify(selectCable) {
       sendUserList: checkBoxList.value,
       receiveUserList: newCheckBoxList.value,
       content: '',
-      bdType: 1,
+      bdType: trainData.value.isAverage ? 1 : 2,
       bwType: trainData.value.bwType,
       bwCount: trainData.value.bwCount,
       isRandom: trainData.value.isRandom ? 1 : 0,
-      isAverage: trainData.value.isAverage,
       isCable: trainData.value.isCable,
       cableId: trainData.value.cableId,
       startPage: trainData.value.startPage
@@ -180,12 +179,15 @@ export default function lineNotify(selectCable) {
   }
 
   const getSimulationRouterFindRoomList = () => {
-    apiSimulationRouterFindRoom().then(data => {
-      tableList.value = data.data
-      tableData.value = data.data
-      tableList.value = tableData.value.filter((item, i) => {
-        return i < 10
-      })
+    apiSimulationRouterFindRoom().then(res => {
+      if (res?.code !== 200 || !Array.isArray(res.data)) {
+        message.error(res?.message || '读取线路通报失败，请重试')
+        return
+      }
+      tableData.value = res.data
+      tableList.value = res.data.slice(0, 10)
+    }).catch(error => {
+      message.error(error?.message || '读取线路通报失败，请重试')
     })
   }
   //获取学员列表

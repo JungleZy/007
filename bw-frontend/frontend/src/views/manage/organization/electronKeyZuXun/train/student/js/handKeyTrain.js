@@ -507,7 +507,12 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
   const cutTime = ref(5)
   const cutTimer = ref(null)
   const receiveWebSocketMessage = (e) => {
-    let data = JSON.parse(JSON.parse(e.data).data);
+    const response = JSON.parse(e.data)
+    if (response.code === -1) {
+      message.error(response.data)
+      return
+    }
+    let data = JSON.parse(response.data);
     if(data.topic == 'online'){
       message.success('教员已回来！')
     }

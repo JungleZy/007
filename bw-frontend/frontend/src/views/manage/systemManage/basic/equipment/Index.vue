@@ -121,7 +121,13 @@ const handleChange = info => {
     return
   }
   if (info.file.status === 'done') {
-    data.value.image = info.file.response.data
+    const paths = info.file.response?.data
+    const path = Array.isArray(paths) ? paths[0] : undefined
+    if (typeof path === 'string' && path.trim() !== '') {
+      data.value.image = path
+    } else {
+      message.error('上传响应无有效文件')
+    }
   }
   if (info.file.status === 'error') {
     message.error('上传错误')
@@ -148,24 +154,27 @@ const editEquipment = list => {
   data.value.image = list.image
   data.value.deviceId = list.deviceId
 }
-/**
- * 新增训练
- */
-const addDrillModalInfo = () => {
-  addDrillModal.value = true
-}
 const deleteEquipment = id => {
   deleteEquipmentById({ id }).then(res => {
-    message.success('删除成功。')
-    init()
+    if (res.code === 200) {
+      message.success('删除成功。')
+      init()
+    } else {
+      message.error(res.message || '删除失败。')
+    }
   })
 }
 const addEquipment = () => {
-  data.value.isEnable = data.value.isEnable ? 1 : 0
-  const data2 = data.value
-  data2.content = data2.content
+  const payload = {
+    ...data.value,
+    isEnable: data.value.isEnable ? 1 : 0
+  }
   if (!data.value.id) {
-    addEquipments(data2).then(res => {
+    addEquipments(payload).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '添加失败。')
+        return
+      }
       addDrillModal.value = false
       message.success('添加成功。')
       init()
@@ -178,7 +187,11 @@ const addEquipment = () => {
       }
     })
   } else {
-    editEquipments(data2).then(res => {
+    editEquipments(payload).then(res => {
+      if (res.code !== 200) {
+        message.error(res.message || '编辑失败。')
+        return
+      }
       addDrillModal.value = false
       message.success('编辑成功。')
       init()

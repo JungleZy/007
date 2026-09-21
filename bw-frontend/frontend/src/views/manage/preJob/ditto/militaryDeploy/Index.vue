@@ -149,14 +149,19 @@ const uploadChange = async (e) => {
       })
     })
   })
-  e.file.status = 'done';
-  e.onSuccess()
-
   saveBatchData(arr).then(res => {
-    if (res.code === 200) {
-      message.success('数据导入成功！')
-      init();
+    if (res.code !== 200) {
+      message.error(res.message || '数据导入失败！')
+      e.onError?.(new Error(res.message || '数据导入失败！'))
+      return
     }
+    e.file.status = 'done'
+    e.onSuccess()
+    message.success('数据导入成功！')
+    init()
+  }).catch(error => {
+    message.error(error?.message || '数据导入失败！')
+    e.onError?.(error)
   })
 }
 let dragItem = null
@@ -172,25 +177,31 @@ const dragDrop = (v, arr, index, type) => {
     targetId: v.id
   }
   const num = arr.findIndex(item => item.id == dragItem.id)
-  const n = arr[num]
-  arr[num] = arr[index]
-  arr[index] = n
-  if (type == 0) {
-    selectItem(index)
-  } else {
-    selectItem2(index)
-  }
   moveMilitarys(data).then(res => {
     if (res.code !== 200) {
-      init()
-      message.error('拖动失败！')
+      message.error(res.message || '拖动失败！')
+      return
     }
+    const n = arr[num]
+    arr[num] = arr[index]
+    arr[index] = n
+    if (type == 0) {
+      selectItem(index)
+    } else {
+      selectItem2(index)
+    }
+  }).catch(error => {
+    message.error(error?.message || '拖动失败！')
   })
 }
 //初始化菜单
 const init = index => {
   getMilitaryAll().then(res => {
     sprinShow.value = false
+    if (res.code !== 200 || !Array.isArray(res.data)) {
+      message.error(res.message || '读取军语数据失败！')
+      return
+    }
     listData.value = res.data
     serchData1 = res.data
     if (index || index == 0) {
@@ -201,6 +212,9 @@ const init = index => {
     nextTick(() => {
       document.querySelectorAll('.itemBox1')[0].scrollTop = 0
     })
+  }).catch(error => {
+    sprinShow.value = false
+    message.error(error?.message || '读取军语数据失败！')
   })
 }
 //选择左侧菜单
@@ -262,6 +276,10 @@ const addMilitary = type => {
     data.key = itemInfo.value.key
   }
   addMilitarys(data).then(res => {
+    if (res.code !== 200) {
+      message.error(res.message || '添加失败！')
+      return
+    }
     init()
     message.success('添加成功！')
     inputsData.value.militarySecret = ''
@@ -284,6 +302,10 @@ const deleteType = id => {
     return
   }
   deleteMilitarys({ id }).then(res => {
+    if (res.code !== 200) {
+      message.error(res.message || '删除失败！')
+      return
+    }
     init(0)
     message.success('删除成功！')
   })
@@ -291,7 +313,12 @@ const deleteType = id => {
 //删除类型
 const deleteMilitary = id => {
   deleteMilitarys({ id }).then(res => {
+    if (res.code !== 200) {
+      message.error(res.message || '删除失败！')
+      return
+    }
     init()
+    message.success('删除成功！')
   })
 }
 
@@ -310,7 +337,12 @@ const saveTermItemDataInfo = () => {
     parentId: listData.value[listDataIndex.value].id
   }
   updateMilitarys(data).then(res => {
+    if (res.code !== 200) {
+      message.error(res.message || '修改失败！')
+      return
+    }
     init()
+    message.success('修改成功！')
   })
 }
 

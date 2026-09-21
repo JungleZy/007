@@ -1,4 +1,5 @@
 import {onMounted, ref, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {message} from "ant-design-vue";
 import {
   getElectronKeyZuXunDetails,resetElectronKeyZuXunStatistics,updateElectronKeyTrainStatus
 } from "../../../../../../../common/api/electronKeyZuXun.js";
@@ -118,7 +119,12 @@ export default function () {
    * @param e
    */
   const receiveWebSocketMessage = (e) => {
-    let data = JSON.parse(JSON.parse(e.data).data);
+    const response = JSON.parse(e.data)
+    if (response.code === -1) {
+      message.error(response.data)
+      return
+    }
+    let data = JSON.parse(response.data);
     // console.log(data)
     if(data.topic == 'online'){
       trainData.value.userInfoList.forEach(item=>{

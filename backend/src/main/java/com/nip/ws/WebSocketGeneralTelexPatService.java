@@ -1,6 +1,8 @@
 package com.nip.ws;
 
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.utils.JSONUtils;
 import com.nip.common.utils.PojoUtils;
@@ -150,28 +152,42 @@ public class WebSocketGeneralTelexPatService {
     if (sender == null) {
       return;
     }
-    Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
-    });
-    if (Objects.equals("ready", msg.get(TOPIC).toString())) {
-      //学员准备消息
-      msg.put(ID, uid);
-      //给教员发送消息
-      if (trainRoomUser.getGroupUser() != null) {
-        sendMessage(trainRoomUser.getGroupUser().getSession(), JSONObject.toJSONString(msg), "", "");
-      }
-      sender.setStatus(2);
-      return;
-    } else if (Objects.equals("pat", msg.get(TOPIC).toString())) {
-      //学员拍内容
-      msg.put(ID, uid);
-      //给教员发送消息
-      if (trainRoomUser.getGroupUser() != null) {
-        sendMessage(trainRoomUser.getGroupUser().getSession(), JSONObject.toJSONString(msg), "", "");
-      }
+    JsonObject msg;
+    try {
+      msg = JSONUtils.fromJson(message, JsonObject.class);
+    } catch (JsonParseException | IllegalStateException malformed) {
+      sendErrMessage(session, "消息格式错误", "", "");
       return;
     }
-    //教员的消息需要给所有学员发送消息
-    trainRoomUser.getJoinUser().forEach(userModel -> sendMessage(userModel.getSession(), message, "", ""));
+    JsonElement topicValue = msg == null ? null : msg.get(TOPIC);
+    if (topicValue == null || !topicValue.isJsonPrimitive()
+        || !topicValue.getAsJsonPrimitive().isString() || topicValue.getAsString().isBlank()) {
+      sendErrMessage(session, "消息格式错误", "", "");
+      return;
+    }
+    String topic = topicValue.getAsString();
+    boolean control = TRAIN_BEGIN.equals(topic) || TRAIN_END.equals(topic);
+    boolean participant = TRAIN_READY.equals(topic) || TRAIN_PAT.equals(topic) || TRAIN_FINISH.equals(topic);
+    if (!control && !participant) {
+      sendErrMessage(session, "未知主题", "", "");
+      return;
+    }
+    if (!Objects.equals(sender.getRole(), control ? 1 : 0)) {
+      sendErrMessage(session, "无权限操作", "", "");
+      return;
+    }
+    msg.addProperty(ID, uid);
+    String outbound = JSONUtils.toJson(msg);
+    if (control) {
+      trainRoomUser.getJoinUser().forEach(userModel -> sendMessage(userModel.getSession(), outbound, "", ""));
+      return;
+    }
+    if (trainRoomUser.getGroupUser() != null) {
+      sendMessage(trainRoomUser.getGroupUser().getSession(), outbound, "", "");
+    }
+    if (TRAIN_READY.equals(topic)) {
+      sender.setStatus(2);
+    }
   }
 
   @OnClose

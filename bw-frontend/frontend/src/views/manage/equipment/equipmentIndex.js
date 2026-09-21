@@ -165,8 +165,14 @@ export default function equipmentOperation() {
       return;
     }
     if (info.file.status === 'done') {
+      const paths = info.file.response?.data;
+      const path = Array.isArray(paths) ? paths[0] : undefined;
       upLoading.value = false;
-      formData.value.deviceImg = '/'+info.file.response.data
+      if (typeof path === 'string' && path.trim() !== '') {
+        formData.value.deviceImg = '/' + path;
+      } else {
+        message.error('上传响应无有效文件');
+      }
     }
     if (info.file.status === 'error') {
       upLoading.value = false;

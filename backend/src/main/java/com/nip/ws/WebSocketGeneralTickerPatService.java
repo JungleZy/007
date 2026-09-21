@@ -1,6 +1,8 @@
 package com.nip.ws;
 
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.nip.common.constants.BaseConstants;
 import com.nip.common.utils.JSONUtils;
 import com.nip.dto.general.GeneralPatTrainUserDto;
@@ -189,48 +191,43 @@ public class WebSocketGeneralTickerPatService {
     if (sender == null) {
       return;
     }
-    Map<String, Object> msg = JSONUtils.fromJson(message, new TypeToken<>() {
-    });
-    String topic = msg.get(BaseConstants.TOPIC).toString();
-    switch (topic) {
-      case TRAIN_READY -> {
-        sender.setStatus(2);
-        if (roomUser.getGroupUser() != null) {
-          sendMessage(roomUser.getGroupUser().getSession(), message, "", "");
-        }
-//        log.info("完成给==教员==推送==准备==消息:{}", message);
-      }
-      case TRAIN_PAT -> {
-        //给老师推送
-        if (roomUser.getGroupUser() != null) {
-          sendMessage(roomUser.getGroupUser().getSession(), message, "", "");
-        }
-      }
-      case TRAIN_FINISH -> {
-        sender.setStatus(3);
-        //给老师推送
-        if (roomUser.getGroupUser() != null) {
-          sendMessage(roomUser.getGroupUser().getSession(), message, "", "");
-//          log.info("完成给==教员==推送==学员完成拍发==消息:{}", message);
-        }
-      }
-      case TRAIN_BEGIN -> {
-        //给学员推送
-        roomUser.getJoinUser().forEach(item -> {
-          sendMessage(item.getSession(), message, "", "");
-        });
-//        log.info("完成给==学员==推送==开始训练==消息:{},学员人数：{}", message, roomUser.getJoinUser().size());
-      }
-      case TRAIN_END ->
-        //给学员推送
-          roomUser.getJoinUser().forEach(item -> {
-            sendMessage(item.getSession(), message, "", "");
-//            log.info("完成给==学员==推送==结束训练==消息:{},学员人数：{}", message, roomUser.getJoinUser().size());
-          });
-      case null, default -> {
-        sendErrMessage(session, "未知主题", "", "");
-//        log.error("手键拍发位置主体：{}", msg);
-      }
+    JsonObject msg;
+    try {
+      msg = JSONUtils.fromJson(message, JsonObject.class);
+    } catch (JsonParseException | IllegalStateException malformed) {
+      sendErrMessage(session, "消息格式错误", "", "");
+      return;
+    }
+    JsonElement topicValue = msg == null ? null : msg.get(BaseConstants.TOPIC);
+    if (topicValue == null || !topicValue.isJsonPrimitive()
+        || !topicValue.getAsJsonPrimitive().isString() || topicValue.getAsString().isBlank()) {
+      sendErrMessage(session, "消息格式错误", "", "");
+      return;
+    }
+    String topic = topicValue.getAsString();
+    boolean control = TRAIN_BEGIN.equals(topic) || TRAIN_END.equals(topic);
+    boolean participant = TRAIN_READY.equals(topic) || TRAIN_PAT.equals(topic) || TRAIN_FINISH.equals(topic);
+    if (!control && !participant) {
+      sendErrMessage(session, "未知主题", "", "");
+      return;
+    }
+    if (!Objects.equals(sender.getRole(), control ? 1 : 0)) {
+      sendErrMessage(session, "无权限操作", "", "");
+      return;
+    }
+    msg.addProperty(ID, uid);
+    String outbound = JSONUtils.toJson(msg);
+    if (control) {
+      roomUser.getJoinUser().forEach(userModel -> sendMessage(userModel.getSession(), outbound, "", ""));
+      return;
+    }
+    if (TRAIN_READY.equals(topic)) {
+      sender.setStatus(2);
+    } else if (TRAIN_FINISH.equals(topic)) {
+      sender.setStatus(3);
+    }
+    if (roomUser.getGroupUser() != null) {
+      sendMessage(roomUser.getGroupUser().getSession(), outbound, "", "");
     }
   }
 

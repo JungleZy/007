@@ -1,5 +1,7 @@
 package com.nip.ws;
 
+import com.google.gson.JsonObject;
+import com.nip.common.utils.JSONUtils;
 import com.nip.dto.general.GeneralPatTrainRoomUserDto;
 import com.nip.dto.general.GeneralPatTrainUserModelDto;
 import com.nip.testsupport.WebSocketSessionProbe;
@@ -9,6 +11,10 @@ import com.nip.ws.model.GeneralTickerPatTrainUserModel;
 import jakarta.websocket.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.IntSupplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -156,6 +162,223 @@ class WebSocketGeneralSessionLifecycleTest {
     assertEquals(1, current.getStatus());
     assertTrue(teacher.outbound().isEmpty());
   }
+
+  @Test
+  void keyMalformedFramesReturnErrorsAndReadyHeartbeatRemainUsable() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("key-malformed", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("key-teacher", "teacher");
+    GeneralPatTrainUserModelDto studentModel = generalUser("student", student.session());
+    GeneralPatTrainRoomUserDto room = generalRoom(studentModel);
+    room.setGroupUser(generalUser("teacher", teacher.session()));
+    WebSocketGeneralKeyPatService.ROOM.put(401, room);
+    WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
+
+    for (String frame : malformedFrames()) {
+      endpoint.onMessage("401", frame, student.session());
+      assertFormatError(student, frame);
+    }
+    assertEquals(1, studentModel.getStatus());
+    assertSame(room, WebSocketGeneralKeyPatService.ROOM.get(401));
+    assertTrue(teacher.outbound().isEmpty());
+    assertTrue(student.session().isOpen());
+
+    endpoint.onMessage("401", "{\"topic\":\"ready\"}", student.session());
+    endpoint.onMessage("401", WebSocketHeartbeat.PING, student.session());
+    assertEquals(2, studentModel.getStatus());
+    assertEquals(List.of(WebSocketHeartbeat.PONG), student.outbound());
+    assertReady(teacher);
+  }
+
+  @Test
+  void telexMalformedFramesReturnErrorsAndReadyHeartbeatRemainUsable() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("telex-malformed", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("telex-teacher", "teacher");
+    GeneralPatTrainUserModelDto studentModel = generalUser("student", student.session());
+    GeneralPatTrainRoomUserDto room = generalRoom(studentModel);
+    room.setGroupUser(generalUser("teacher", teacher.session()));
+    WebSocketGeneralTelexPatService.ROOM.put("train-401", room);
+    WebSocketGeneralTelexPatService endpoint = new WebSocketGeneralTelexPatService();
+
+    for (String frame : malformedFrames()) {
+      endpoint.onMessage("train-401", frame, student.session());
+      assertFormatError(student, frame);
+    }
+    assertEquals(1, studentModel.getStatus());
+    assertSame(room, WebSocketGeneralTelexPatService.ROOM.get("train-401"));
+    assertTrue(teacher.outbound().isEmpty());
+    assertTrue(student.session().isOpen());
+
+    endpoint.onMessage("train-401", "{\"topic\":\"ready\"}", student.session());
+    endpoint.onMessage("train-401", WebSocketHeartbeat.PING, student.session());
+    assertEquals(2, studentModel.getStatus());
+    assertEquals(List.of(WebSocketHeartbeat.PONG), student.outbound());
+    assertReady(teacher);
+  }
+
+  @Test
+  void tickerMalformedFramesReturnErrorsAndReadyHeartbeatRemainUsable() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("ticker-malformed", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("ticker-teacher", "teacher");
+    GeneralTickerPatTrainUserModel studentModel = tickerUser("student", student.session());
+    studentModel.setRole(0);
+    GeneralTickerPatTrainUserModel teacherModel = tickerUser("teacher", teacher.session());
+    teacherModel.setRole(1);
+    GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
+    room.getJoinUser().add(studentModel);
+    room.setGroupUser(teacherModel);
+    WebSocketGeneralTickerPatService.PAT_ROOM.put(402, room);
+    WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
+
+    for (String frame : malformedFrames()) {
+      endpoint.onMessage("402", frame, student.session());
+      assertFormatError(student, frame);
+    }
+    assertEquals(1, studentModel.getStatus());
+    assertSame(room, WebSocketGeneralTickerPatService.PAT_ROOM.get(402));
+    assertTrue(teacher.outbound().isEmpty());
+    assertTrue(student.session().isOpen());
+    endpoint.onMessage("402", "{\"topic\":\"ready\"}", student.session());
+    endpoint.onMessage("402", WebSocketHeartbeat.PING, student.session());
+    assertEquals(2, studentModel.getStatus());
+    assertEquals(List.of(WebSocketHeartbeat.PONG), student.outbound());
+    assertReady(teacher);
+  }
+
+  @Test
+  void keyTopicsRequireBoundSenderRoleAndIdentity() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("key-role-student", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("key-role-teacher", "teacher");
+    GeneralPatTrainUserModelDto member = generalUser("student", student.session());
+    GeneralPatTrainUserModelDto group = generalUser("teacher", teacher.session());
+    group.setRole(1);
+    GeneralPatTrainRoomUserDto room = generalRoom(member);
+    room.setGroupUser(group);
+    WebSocketGeneralKeyPatService.ROOM.put(501, room);
+    WebSocketGeneralKeyPatService endpoint = new WebSocketGeneralKeyPatService();
+    assertTopicPermissions((frame, session) -> endpoint.onMessage("501", frame, session),
+        student, teacher, member::getStatus, group::getStatus, 1);
+    assertSame(room, WebSocketGeneralKeyPatService.ROOM.get(501));
+  }
+
+  @Test
+  void telexTopicsRequireBoundSenderRoleAndIdentity() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("telex-role-student", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("telex-role-teacher", "teacher");
+    GeneralPatTrainUserModelDto member = generalUser("student", student.session());
+    GeneralPatTrainUserModelDto group = generalUser("teacher", teacher.session());
+    group.setRole(1);
+    GeneralPatTrainRoomUserDto room = generalRoom(member);
+    room.setGroupUser(group);
+    WebSocketGeneralTelexPatService.ROOM.put("train-501", room);
+    WebSocketGeneralTelexPatService endpoint = new WebSocketGeneralTelexPatService();
+    assertTopicPermissions((frame, session) -> endpoint.onMessage("train-501", frame, session),
+        student, teacher, member::getStatus, group::getStatus, 1);
+    assertSame(room, WebSocketGeneralTelexPatService.ROOM.get("train-501"));
+  }
+
+  @Test
+  void tickerTopicsRequireBoundSenderRoleAndIdentity() {
+    WebSocketSessionProbe student = WebSocketSessionProbe.bound("ticker-role-student", "student");
+    WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("ticker-role-teacher", "teacher");
+    GeneralTickerPatTrainUserModel member = tickerUser("student", student.session());
+    GeneralTickerPatTrainUserModel group = tickerUser("teacher", teacher.session());
+    group.setRole(1);
+    GeneralTickerPatTrainRoomUserModel room = new GeneralTickerPatTrainRoomUserModel();
+    room.getJoinUser().add(member);
+    room.setGroupUser(group);
+    WebSocketGeneralTickerPatService.PAT_ROOM.put(501, room);
+    WebSocketGeneralTickerPatService endpoint = new WebSocketGeneralTickerPatService();
+    assertTopicPermissions((frame, session) -> endpoint.onMessage("501", frame, session),
+        student, teacher, member::getStatus, group::getStatus, 3);
+    assertSame(room, WebSocketGeneralTickerPatService.PAT_ROOM.get(501));
+  }
+
+  private static void assertTopicPermissions(BiConsumer<String, Session> receive,
+      WebSocketSessionProbe student, WebSocketSessionProbe teacher,
+      IntSupplier studentStatus, IntSupplier teacherStatus, int finishStatus) {
+    for (String topic : List.of("begin", "end", "unknown")) {
+      receive.accept(topicFrame(topic, "teacher", 1), student.session());
+      assertRejectedTopic(student);
+      assertTrue(teacher.outbound().isEmpty(), "学生控制帧不得通知教员");
+      assertEquals(1, studentStatus.getAsInt());
+      assertEquals(1, teacherStatus.getAsInt());
+    }
+    for (String topic : List.of("ready", "pat", "finish", "unknown")) {
+      receive.accept(topicFrame(topic, "student", 0), teacher.session());
+      assertRejectedTopic(teacher);
+      assertTrue(student.outbound().isEmpty(), "教员不得伪造学员进度");
+      assertEquals(1, studentStatus.getAsInt());
+      assertEquals(1, teacherStatus.getAsInt());
+    }
+    for (String topic : List.of("begin", "end")) {
+      receive.accept(topicFrame(topic, "forged", 0), teacher.session());
+      assertDeliveredTopic(student, topic, "teacher");
+      assertTrue(teacher.outbound().isEmpty());
+    }
+    for (String topic : List.of("finish", "ready", "pat")) {
+      receive.accept(topicFrame(topic, "teacher", 1), student.session());
+      assertDeliveredTopic(teacher, topic, "student");
+      assertTrue(student.outbound().isEmpty(), "学员消息只能发给教员，不能广播给学员");
+      assertEquals("finish".equals(topic) ? finishStatus : 2, studentStatus.getAsInt());
+      assertEquals(1, teacherStatus.getAsInt());
+    }
+    assertTrue(student.session().isOpen());
+    assertTrue(teacher.session().isOpen());
+  }
+
+  private static String topicFrame(String topic, String forgedId, int forgedRole) {
+    JsonObject body = new JsonObject();
+    body.addProperty("topic", topic);
+    body.addProperty("id", forgedId);
+    body.addProperty("role", forgedRole);
+    body.addProperty("log", "payload");
+    return JSONUtils.toJson(body);
+  }
+
+  private static void assertRejectedTopic(WebSocketSessionProbe sender) {
+    assertEquals(1, sender.outbound().size());
+    JsonObject envelope = JSONUtils.fromJson(sender.outbound().getFirst(), JsonObject.class);
+    assertEquals(-1, envelope.get("code").getAsInt());
+    assertTrue(envelope.getAsJsonPrimitive("data").isString());
+    assertTrue(sender.session().isOpen());
+    sender.outbound().clear();
+  }
+
+  private static void assertDeliveredTopic(WebSocketSessionProbe recipient, String topic, String userId) {
+    assertEquals(1, recipient.outbound().size());
+    JsonObject envelope = JSONUtils.fromJson(recipient.outbound().getFirst(), JsonObject.class);
+    assertEquals(1, envelope.get("code").getAsInt());
+    JsonObject body = JSONUtils.fromJson(envelope.get("data").getAsString(), JsonObject.class);
+    assertEquals(topic, body.get("topic").getAsString());
+    assertEquals(userId, body.get("id").getAsString());
+    assertEquals("payload", body.get("log").getAsString());
+    recipient.outbound().clear();
+  }
+
+  private static void assertFormatError(WebSocketSessionProbe probe, String input) {
+    assertTrue(probe.session().isOpen(), "坏帧不得关闭连接：" + input);
+    assertEquals(1, probe.outbound().size(), "每个坏帧应只返回一个错误：" + input);
+    JsonObject envelope = JSONUtils.fromJson(probe.outbound().getFirst(), JsonObject.class);
+    assertEquals(-1, envelope.get("code").getAsInt());
+    assertTrue(envelope.get("data").isJsonPrimitive());
+    assertTrue(envelope.getAsJsonPrimitive("data").isString());
+    assertEquals("消息格式错误", envelope.get("data").getAsString());
+    probe.outbound().clear();
+  }
+  private static List<String> malformedFrames() {
+    return List.of("not-json", "{", "null", "[]", "[[\"topic\",\"ready\"]]", "42",
+        "{}", "{\"topic\":null}", "{\"topic\":123}", "{\"topic\":true}",
+        "{\"topic\":{}}", "{\"topic\":[]}", "{\"topic\":\" \"}");
+  }
+
+  private static void assertReady(WebSocketSessionProbe teacher) {
+    assertEquals(1, teacher.outbound().size(), "只有合法 ready 能通知教员");
+    JsonObject envelope = JSONUtils.fromJson(teacher.outbound().getFirst(), JsonObject.class);
+    assertEquals(1, envelope.get("code").getAsInt());
+    JsonObject body = JSONUtils.fromJson(envelope.get("data").getAsString(), JsonObject.class);
+    assertEquals("ready", body.get("topic").getAsString());
+  }
+
 
   @Test
   void deletedGeneralRoomSnapshotsCloseEverySession() {

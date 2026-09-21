@@ -11,7 +11,15 @@ export default function (callback) {
       return;
     }
     if (info.file.status === 'done') {
-      callback(`/${info.file.response.data}`);
+      const paths = info.file.response?.data;
+      const path = Array.isArray(paths) ? paths[0] : undefined;
+      if (typeof path === 'string' && path.trim() !== '') {
+        uploadLoading.value = false;
+        callback(`/${path}`);
+      } else {
+        uploadLoading.value = false;
+        message.error('上传响应无有效文件');
+      }
     }
     if (info.file.status === 'error') {
       uploadLoading.value = false;

@@ -51,7 +51,7 @@
             <div class="title">切换频段</div>
             <div class="select_box">
               <p>当前频段：{{ pinValue + 1 }}频段</p>
-              <a-select v-model:value="pinValue" placeholder="请选择频段" @change="changePin" style="width: 100%">
+              <a-select :value="pinValue" :disabled="channelChanging" placeholder="请选择频段" @change="changePin" style="width: 100%">
                 <a-select-option :value="item" v-for="item in pinList" :key="item"> {{ item + 1 }}频段 </a-select-option>
               </a-select>
             </div>
@@ -124,6 +124,7 @@ let disposed = false
 let recovering = false
 let recoveryPending = false
 let recoveryTimer = null
+const channelChanging = ref(false)
 let loaded = false
 const requireData = res => {
   if (res?.code != 200 || !res.data) throw new Error(res?.message || '训练结果读取失败，请重试')
@@ -283,24 +284,31 @@ const clearVoice = () => {
   osc = null
 }
 
-const changePin = val => {
-  const userId = JSON.parse(localStorage.getItem('userInfo'))
-  const roomId = route.query.id
-  apiSimulationRouterChangeChannel({
-    channel: val,
-    roomId: route.query.id,
-    userId: userId.id
-  }).then(res => {
-    message.success('切换成功')
-    const obj = {
-      topic: 'change',
-      body: {
-        id: userId.id,
-        val: val
-      }
+const changePin = async val => {
+  if (channelChanging.value) return
+  channelChanging.value = true
+  try {
+    const res = await apiSimulationRouterChangeChannel({
+      channel: val,
+      roomId: route.query.id,
+      userId: user.id
+    })
+    if (res?.code != 200) {
+      recoveryError.value = res?.message || '切换频段失败，请重试'
+      return
     }
-    ws.send(JSON.stringify(obj))
-  })
+    pinValue.value = val
+    recoveryError.value = ''
+    message.success('切换成功')
+    ws.send(JSON.stringify({
+      topic: 'change',
+      body: { id: user.id, val }
+    }))
+  } catch (error) {
+    recoveryError.value = error?.message || '切换频段失败，请重试'
+  } finally {
+    channelChanging.value = false
+  }
 }
 
 const ws = new SocketConnection()

@@ -127,11 +127,10 @@ export const apiSimulationRouterChangeChannel = (data) => {
   })
 }
 
-export const apiSimulationRouterSendFinish = (data) => {
+export const apiSimulationRouterSendFinish = (roomId) => {
   return axios({
     method: "post",
-    url: '/api/simulation/router/sendFinish',
-    data
+    url: `/api/simulation/router/sendFinish?roomId=${encodeURIComponent(roomId)}`
   })
 }
 

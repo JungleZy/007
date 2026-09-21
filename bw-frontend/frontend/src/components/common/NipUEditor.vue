@@ -78,13 +78,21 @@
             console.error('[ueditor] 上传失败 HTTP ' + xhr.status)
             return
           }
-          let json = JSON.parse(xhr.responseText)
-          if (!json || typeof json.data[0] != 'string') {
+          let json
+          try {
+            json = JSON.parse(xhr.responseText)
+          } catch (error) {
+            console.error('[ueditor] 上传响应不是有效 JSON: ' + xhr.responseText)
+            return
+          }
+          const paths = json?.data
+          const path = Array.isArray(paths) ? paths[0] : undefined
+          if (typeof path !== 'string' || path.trim() === '') {
             console.error('[ueditor] 上传响应不是预期 JSON: ' + xhr.responseText)
             return
           }
-          callback(`${window.fileUrl}/${json.data}`, {
-            text: "/"+json.data[0]
+          callback(`${window.fileUrl}/${path}`, {
+            text: "/" + path
           })
         }
         xhr.send(formData)

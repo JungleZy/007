@@ -68,6 +68,7 @@ export default function issue(trainData, trainTimeRef) {
   let recovering = false
   let recoveryPending = false
   let recoveryTimer = null
+  let finishPending = false
   let loaded = false
   const waitingForResults = () => !loaded || trainData.value.stats != 2 || putAwayUserList.value.some(item => item.status != 1)
   const scheduleRecovery = () => {
@@ -440,36 +441,42 @@ export default function issue(trainData, trainTimeRef) {
     ws.send(JSON.stringify(obj))
   }
   //结束训练
+  const finishSending = async showSuccess => {
+    if (finishPending) return
+    finishPending = true
+    try {
+      const res = await apiSimulationRouterSendFinish(route.query.id)
+      if (res?.code != 200 || !res.data) throw new Error(res?.message || '结束训练失败，请重试')
+      clearInterval(autoTime.value)
+      trainData.value.userStatus = res.data.currentUserStatus
+      trainData.value.currPatKeyIndex = 100
+      recoveryError.value = ''
+      getApiRoomUserList()
+      ws.send(JSON.stringify({
+        topic: 'play',
+        body: { type: 4, value: '结束' }
+      }))
+      if (showSuccess) message.success('发报结束')
+    } catch (error) {
+      recoveryError.value = error.message || '结束训练失败，请重试'
+    } finally {
+      finishPending = false
+    }
+  }
+
+  //结束训练
   const overBulletin = () => {
     Modal.confirm({
       content: '确定要结束训练吗?',
       onOk() {
-        //清楚定时器
-        clearInterval(autoTime.value)
-        const fromData = new FormData()
-        fromData.append('roomId', route.query.id)
-        const obj = {
-          topic: 'play',
-          body: {
-            type: 4,
-            value: '结束'
-          }
-        }
-        ws.send(JSON.stringify(obj))
-        apiSimulationRouterSendFinish(fromData).then(res => {
-          if (res.code == 200) {
-            trainData.value.userStatus = res.data.currentUserStatus
-            getApiRoomUserList()
-          } else {
-            recoveryError.value = res.message || '结束训练失败，请重试'
-          }
-        }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
+        finishSending(false)
       }
     })
   }
 
   //开始发报
   const handleHandKeysData = data => {
+    if (finishPending || trainData.value.userStatus == 1) return
     if (trainData.value.currPatKeyIndex == -1) {
       if (trainData.value.stats != 1) {
         return
@@ -490,32 +497,13 @@ export default function issue(trainData, trainTimeRef) {
       if (gap > patStandard.value.wordGap * (1 + initFloat.value / 100)) {
         trainData.value.currPatKeyIndex++
         if (trainData.value.currPatKeyIndex == trainData.value.telegraph.curr.length) {
-          trainData.value.currPatKeyIndex = -1
           if (trainData.value.telegraph.prev < trainData.value.telegraph.allPage) {
+            trainData.value.currPatKeyIndex = -1
             switchTelegram(1)
           } else {
-            message.success('发报结束')
-            trainData.value.currPatKeyIndex = 100
-            //清楚定时器
-            clearInterval(autoTime.value)
-            const obj = {
-              topic: 'play',
-              body: {
-                type: 4,
-                value: '结束'
-              }
-            }
-            ws.send(JSON.stringify(obj))
-            const fromData = new FormData()
-            fromData.append('roomId', route.query.id)
-            apiSimulationRouterSendFinish(fromData).then(res => {
-              if (res.code == 200) {
-                trainData.value.userStatus = res.data.currentUserStatus
-                getApiRoomUserList()
-              } else {
-                recoveryError.value = res.message || '结束训练失败，请重试'
-              }
-            }).catch(() => { recoveryError.value = '结束训练失败，请重试' })
+            trainData.value.currPatKeyIndex--
+            finishSending(true)
+            return
           }
         }
       }
