@@ -26,21 +26,21 @@
 - Hibernate ORM / Panache + MySQL 8；
 - 自研 `token + deviceId` 会话校验和服务端管理员授权；
 - 理论学习、题库、考试、手键、电传、报底、抄报、汉字录入、军语、设备、组网和仿真等业务域；
-- 约 100 张业务表、约 744 个 Java main 文件、61 个 controller、73 个 service、103 个 entity、101 个 dao、26 个 WebSocket 类（以 `backend/README.md` 记录为基线）。
+- 约 100 张业务表。controller、route、DAO、实体和 WebSocket 数量以 Phase 0 生成的 inventory 为准，不再引用已漂移的历史文件计数。
 
 前端是 Electron 外壳 + Vue 页面，API 模块直接使用 `/api/...`，请求拦截器自动附加 `token` 和 `deviceId`。
 
-### 2.2 基线数字先重新冻结
+### 2.2 当前行为基线
 
-仓库文档中存在不同历史测试数字：根 README 记录 228 个测试，联合整改计划的最新出口记录 240 个测试。因此重写开始前必须重新执行一次：
+本计划修订时已完成的 Java/前端整改不能被 Rust 迁移重新解释为开放缺陷：
 
-```bash
-cd backend
-export JAVA_HOME=$HOME/.local/opt/jdk21
-./mvnw -B clean verify
-```
+- `3e4dc05`：联合训练契约、失败状态、上传消费和无引用部门死子树整改；
+- `5193463`：组训 WebSocket 空角色学员授权兼容；
+- 当前后端 `JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`：512 tests，0 failures / errors / skipped；
+- 当前前端 `npm test`：39/39，通过生产构建；
+- 2026-09-19 跨栈复核的 P1/P2 活跃契约项已按上述提交闭合；其余静态观察必须在 Phase 0 清单中标记为“迁移必须保持 / 独立整改 / 接受风险”，不能静默带入 Rust。
 
-该结果、当前 commit、数据库快照校验和前端构建结果写入 Phase 0 证据文件。后续不能继续引用旧数字。
+后续基线必须写入 `docs/reviews/rust-migration/2026-09-21-java-baseline.json`，并记录基线 commit、命令完整输出、数据库快照校验和前端构建产物校验；不得继续引用 228、240、442 等历史测试数字。
 
 ### 2.3 不在本计划中偷偷改变的内容
 
@@ -48,13 +48,14 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - REST 路径、HTTP 方法、请求字段、响应字段和业务码；
 - HTTP 200 + `Response<T>` 信封语义；
-- 203、204、206 的码值和文案；
+- 203、204、206 的码值与文案；授权拒绝 207、业务终态 208；
 - WebSocket 路径、握手方式、消息码、心跳和业务帧结构；
 - 现有数据库表名、字段、主键、历史数据和迁移顺序；
 - 训练评分、报文生成、finish、pause、resume 和房间生命周期的业务含义；
 - Electron 外壳对后端可执行文件、端口和启动参数的既有要求。
 
 如果希望借重写机会改协议、改数据库或改认证，必须先把它们拆成独立版本化变更；不能混在“语言替换”中。
+
 
 ## 3. 目标架构
 
@@ -69,13 +70,13 @@ backend-rust/
 ├── crates/
 │   ├── app/             # 进程入口、配置、路由装配、启动检查
 │   ├── api/             # REST DTO、响应信封、路由 handler、OpenAPI
-│   ├── auth/            # 会话认证、管理员授权、密码迁移
+│   ├── auth/            # token/deviceId 会话认证、管理员授权；密码迁移另立阶段
 │   ├── domain/          # 业务模型、状态机、领域错误、纯函数算法
 │   ├── persistence/     # SeaORM entity、repository、事务和查询
 │   ├── realtime/        # WebSocket、连接、房间、广播、心跳
 │   ├── file-service/    # 上传、解析、导入、导出
 │   └── observability/   # tracing、指标、请求 ID、脱敏规则
-├── migration/           # Rust 侧版本化迁移；初期只做校验和新增变更
+├── migration/           # 初期仅做 schema 校验与 rehearsal，不自动改生产库
 ├── tests/
 │   ├── contract/        # Java/Rust 共享 REST fixture
 │   ├── websocket/       # 协议与生命周期测试
@@ -83,7 +84,7 @@ backend-rust/
 └── deploy/              # Docker、systemd/Electron 运行包、CI 辅助文件
 ```
 
-这是逻辑边界，不要求一开始拆成大量独立微服务。优先使用一个 Rust 二进制、一个 MySQL 连接池和清晰的 crate 边界，避免语言迁移同时变成微服务迁移。
+这是逻辑边界，不要求一开始拆成大量独立微服务。优先使用一个 Rust 二进制、一个 MySQL 连接池和清晰的 crate 边界，避免语言迁移同时变成微服务迁移。试点服务默认监听 **18002**，与 Java 生产兼容端口 **18001** 并行；只有域切换窗口才允许网关把该域路由到 18002，不能让 Rust 直接抢占 18001。
 
 ### 3.2 技术基线
 
@@ -93,12 +94,13 @@ backend-rust/
 | HTTP | Axum + Tower / tower-http | middleware 显式实现认证、授权、超时、CORS、追踪 |
 | JSON | serde / serde_json | DTO 与数据库模型分离，禁止实体直接作为敏感响应 |
 | ORM | SeaORM | 先生成实体再人工校正；生产禁止自动 schema sync |
-| SQL | SeaORM query / raw SQL | 复杂查询必须有 SQL 和结果 fixture；不默认引入第二套连接池 |
+| SQL | SeaORM query / raw SQL | 复杂查询必须有 SQL 和结果 fixture；同一服务只保留一个连接池 |
 | WebSocket | Axum `extract::ws` | 连接态按连接保存，房间态由显式 manager 管理 |
-| 错误 | `thiserror` + 统一 response mapper | 领域错误、认证错误、系统错误分层 |
-| 日志 | tracing | token、password、deviceId、完整请求体脱敏 |
-| 密码 | 兼容现有版本化哈希并渐进升级 | 不新增旧 MD5 写入；存量迁移另有回归 |
-| 迁移 | 版本化 SQL / SeaORM migration | 初期不重建既有 schema；任何 DDL 先 rehearsal |
+| 错误 | `thiserror` + 统一 response mapper | 领域错误、认证错误、系统错误分层；系统故障不得伪装成成功 |
+| 日志 | tracing | token、password、deviceId、完整请求体脱敏；request ID 全链路传递 |
+| 会话 | SHA-256(token) 等值查找 + deviceId | REST 凭据只读 header；WS 因浏览器限制仍按既有 query 握手规则 |
+| 授权 | 显式 policy / RequireAdmin | `is_admin=0` 才是管理员；必须查询“存在管理员角色” |
+| 迁移 | 版本化 SQL / SeaORM migration | 初期只校验既有 schema；禁止启动自动 DDL，禁止 Rust/Java 同域双写 |
 | 测试 | unit + MySQL integration + REST contract + WS lifecycle | 不以编译通过替代行为验收 |
 
 ### 3.3 Rust 服务内部分层
@@ -153,17 +155,16 @@ Rust 版本与 Java 版本对同一 fixture 的响应必须在契约允许范围
 
 ### 4.3 会话和授权不变量
 
-- `token + deviceId` 仍从 header 读取；
-- 缺 token、缺 deviceId、凭证异常保持 203/204/206；
-- 管理员授权由服务端完成，不依赖前端 `v-per`；
-- 多角色判断使用“存在管理员角色”，不能取任意第一条；
+- REST `token + deviceId` 只从请求 header 读取；WebSocket 握手继续使用既有 query 凭据规则，不新增 REST query token 回退；
+- 缺 token、缺 deviceId、凭证异常保持 203/204/206；授权拒绝统一 207；不可重试终态统一 208；未处理系统故障保持 HTTP500/code500；
+- 管理员授权由服务端完成，不依赖前端 `v-per`；`is_admin=0` 才是管理员，必须判断“存在管理员角色”，不能取任意第一条；
 - 普通用户、无角色、匿名调用管理端点必须保持目标数据不变；
 - 登录、用户资料、用户目录和管理列表继续使用不同 DTO；
 - 任何日志和错误追踪不得泄露凭据。
 
 ### 4.4 WebSocket 不变量
 
-- 路径和消息码保持不变；
+- 路径和消息码保持不变；REST 与 WS 的凭据传输边界不混用；
 - 单连接、在线用户、房间成员和房间广播状态边界明确；
 - 重复连接、断线、心跳超时、手动关闭、重连和房间销毁有确定顺序；
 - 坏消息返回协议错误，不触发无关用户清理；
@@ -173,55 +174,60 @@ Rust 版本与 Java 版本对同一 fixture 的响应必须在契约允许范围
 
 ## 5. 阶段计划
 
-### Phase 0：冻结基线和建立重写分支
+### Phase 0：冻结基线和建立无流量 Rust 骨架
 
-目标：在任何 Rust 代码开始前，把 Java 当前行为变成可重复的迁移基线。
+目标：把 Java 当前行为变成可重复的迁移基线，同时建立不接管流量的 Rust 空服务。Phase 0 的“冻结基线”必须先于任何 Rust 业务域实现；健康检查骨架可以并行建立，但不得接入前端或生产网关。
 
 任务：
 
-- 重新执行后端 clean verify，记录测试总数和完整输出；
-- 执行前端 `npm ci` 和 `npm run build`；
-- 固化当前 OpenAPI 输出、路由清单和前端 API 调用清单；
-- 扫描 REST controller、WebSocket endpoint、上传/导出端点；
-- 从 `backend/database/project006.sql` 和 migration 生成 schema inventory；
-- 记录所有表的引擎、主键、索引、关联、nullable 和默认值；
-- 建立测试用户、普通用户、无角色用户、管理员和训练样本 fixture；
+- 重新执行后端 `JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`，记录测试总数和完整输出；
+- 执行前端 `npm ci`、`npm test` 和 `npm run build`，记录完整输出；
+- 固化当前 `/q/openapi`、REST 路由清单和前端真实 API 调用清单；
+- 扫描 REST controller、WebSocket endpoint、上传/导出端点，并把实际消费者标到端点级；
+- 从 `backend/database/project006.sql`、`project006-base.sql` 和全部 migration 生成 schema inventory；
+- 记录所有表的引擎、主键、索引、关联、nullable、默认值和 migration 顺序；
+- 建立匿名、普通用户、无角色用户、管理员和训练样本 fixture，但凭据只存测试 fixture，不进入日志或生产配置；
 - 记录训练纯函数、评分和报文生成的特征样本；
-- 记录 WebSocket 握手、心跳、消息码、关闭和重连样本；
-- 建立 `backend-rust/` 初始工程和 CI 最小骨架，但不接管流量。
+- 记录 WebSocket 握手、身份覆盖、消息码、心跳、断线、重连、重复连接和关闭样本；
+- 将证据写入 `docs/reviews/rust-migration/`：`2026-09-21-java-baseline.json`、`rest-endpoints.tsv`、`frontend-callers.tsv`、`ws-contracts.tsv`、`schema-inventory.tsv`、`fixture-manifest.json`；
+- 建立 `backend-rust/` Cargo workspace 和独立 `rust-backend` CI job，但不接管流量、不修改现有 schema、不修改前端路由。
 
 出口门禁：
 
 - Java 后端、前端构建和数据库 rehearsal 有可重复证据；
-- OpenAPI、前端调用清单、WS 协议清单和 schema inventory 入库；
+- OpenAPI、前端调用清单、WS 协议清单和 schema inventory 已入库，且清单有生成命令、commit 和时间戳；
 - 所有未决历史问题已标记为“迁移必须保持 / 独立整改 / 接受风险”；
-- Rust 空服务可构建、启动、健康检查和优雅退出。
+- Rust 空服务默认监听 18002，可构建、启动、健康检查、readiness 检查和优雅退出；
+- Java 仍占用 18001，前端和生产网关没有任何 Rust 流量。
 
 ### Phase 1：Rust 平台基础设施
 
-目标：完成所有业务域共用的运行时能力。
+目标：完成所有业务域共用的运行时能力，不迁移复杂训练逻辑，不切换生产流量。
 
 任务：
 
-- 配置加载：端口 18001、数据库 URL、body limit、CORS、日志等级；
-- `/api` 路由前缀和统一 `Response<T>`；
-- 错误分类与 mapper：参数错误、认证错误、授权错误、业务错误、系统错误；
-- MySQL 连接池、超时、TLS、启动连接检查；
-- token/deviceId 认证 middleware；
-- RequireAdmin policy；
+- 配置加载：试点默认监听 18002；最终切换时才复用 Java 兼容端口 18001；数据库 URL、body limit、CORS、日志等级显式配置；
+- `/api` 路由前缀和统一 `Response<T>` 信封；保留 `code/data/message/description` 字段和 null 语义；
+- 错误分类与 mapper：参数错误、认证错误、授权错误、业务错误、系统错误；不把系统异常吞成成功；
+- MySQL 连接池、超时、TLS、启动连接检查；连接失败只影响 readiness，不允许自动建表或自动改表；
+- token/deviceId 认证 middleware：REST 只认 header，token 按 Java 的 SHA-256 摘要口径等值查询；
+- RequireAdmin policy：`is_admin=0` 管理员语义与 Java 一致；
 - request ID、结构化日志、敏感字段脱敏；
 - health/readiness/liveness；
 - graceful shutdown 和连接清理；
 - Docker、Linux amd64/arm64 构建和启动 smoke test；
-- OpenAPI 输出和契约 fixture 测试框架。
+- OpenAPI 输出和契约 fixture 测试框架；
+- 独立 CI 执行 `cargo test --locked`、`cargo build --locked` 和启动健康检查，不与 `keysim` job 混为同一工作目录。
 
 出口门禁：
 
-- 缺 token、缺 deviceId、无效凭证和无管理员权限的响应与 Java 基线一致；
+- 缺 token、缺 deviceId、无效凭证和无管理员权限的响应与 Java 基线一致：203/204/206/207；
+- 业务终态保持 208，未处理系统故障保持 HTTP500/code500；
 - 未捕获错误不会被吞成成功；
 - HTTP 200 与业务码边界通过测试；
-- Rust 服务不修改业务表；
-- CI 能构建并启动 Rust 二进制。
+- Rust 服务不修改业务表、不执行生产 DDL；
+- CI 能构建并启动 Rust 二进制；
+- Java 仍为唯一生产写者，Rust 仍可立即停止且不会改变 Java 状态。
 
 ### Phase 2：数据库和通用基础域
 
@@ -458,18 +464,17 @@ Rust 版本与 Java 版本对同一 fixture 的响应必须在契约允许范围
 
 ### 6.1 路由原则
 
-迁移期间由反向代理或网关按**完整业务域**路由，不按单个请求随机分流：
+迁移期间由反向代理或网关按**完整业务域**路由，不按单个请求随机分流。Rust 试点服务监听 18002，Java 继续监听 18001；前端不直接感知两个后端地址。
 
 ```text
-/api/tools/**                         -> Rust
-/api/cable/**                         -> Rust 或 Java，单域单写者
-/api/user/**                          -> Java，直到 Phase 3 完成
-/api/theoryKnowledge/**               -> Java，直到 Phase 5 完成
-/api/*training*/**                    -> Java，直到对应训练阶段完成
-/websocket*                           -> Java，直到 Phase 8 完成
+/api/<Phase0确认的只读域>/**       -> Rust :18002（仅通过网关灰度）
+/api/user/**                        -> Java :18001，直到 Phase 3 完成
+/api/theoryKnowledge/**            -> Java :18001，直到 Phase 5 完成
+/api/*training*/**                  -> Java :18001，直到对应训练阶段完成
+/websocket*                         -> Java :18001，直到 Phase 8 完成
 ```
 
-具体路由以 Phase 0 生成的真实端点清单为准。不得把同一域的读请求切到 Rust、写请求留在 Java，却没有明确一致性策略。
+`/api/tools/**` 只能作为候选示例，不能在 Phase 0 inventory 未确认前写死为路由；`/api/cable/**` 同理。具体路由以 Phase 0 生成的真实端点清单和域级单写者决议为准。不得把同一域的读请求切到 Rust、写请求留在 Java，却没有明确一致性策略；不得让 Rust 在没有网关回滚开关时直接占用 18001。
 
 ### 6.2 切换模式
 
@@ -613,13 +618,13 @@ Rust 版本与 Java 版本对同一 fixture 的响应必须在契约允许范围
 执行时按以下顺序开始，不跳过 Phase 0：
 
 1. 重新冻结 Java 测试、前端构建和数据库迁移基线；
-2. 生成 REST、WebSocket、前端 API、数据库 schema 四张清单；
-3. 创建 `backend-rust/` Cargo workspace 和最小 CI；
-4. 实现配置、日志、健康检查、统一响应和错误 mapper；
-5. 建立 MySQL 连接池、SeaORM entity 生成和 schema 对账工具；
-6. 实现 header 会话认证和管理员授权；
-7. 选择 tools / 固定报文目录只读接口做第一条完整域链路；
-8. 完成 Java/Rust 共享 fixture、路由切换、回滚和浏览器 smoke；
+2. 生成 REST、WebSocket、前端 API、数据库 schema 四张清单并写入 Phase 0 证据目录；
+3. 创建 `backend-rust/` Cargo workspace 和独立 `rust-backend` CI；
+4. 实现配置、日志、健康检查、统一响应和错误 mapper，默认只监听 18002；
+5. 建立 MySQL 连接池、SeaORM entity 生成和 schema 对账工具，禁止自动 DDL；
+6. 实现 header 会话认证和管理员授权，锁定 203/204/206/207/208 语义；
+7. 从 Phase 0 inventory 选择并冻结一条低耦合只读域，不预设 tools/cable 必然可迁移；
+8. 完成 Java/Rust 共享 fixture、网关路由、回滚和浏览器 smoke；
 9. 通过 Phase 2 出口门禁后再进入用户域和写入域；
 10. 每个阶段结束立即更新本计划的证据和终态，不把未执行项写成完成。
 
@@ -641,8 +646,8 @@ Rust 版本与 Java 版本对同一 fixture 的响应必须在契约允许范围
 ## 13. 关联文档
 
 - 可行性评估：[`../specs/2026-09-10-rust-backend-feasibility.md`](../specs/2026-09-10-rust-backend-feasibility.md)
-- 当前全项目评审：[`../reviews/2026-09-08-full-project-review.md`](../reviews/2026-09-08-full-project-review.md)
+- 当前全项目与核心训练复核：[`../reviews/2026-09-15-full-project-review.md`](../reviews/2026-09-15-full-project-review.md)
+- 最新跨栈一致性复核：[`../reviews/2026-09-19-multi-model-debate-cross-stack-review.md`](../reviews/2026-09-19-multi-model-debate-cross-stack-review.md)
 - 跨栈整改规格：[`../specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md)
-- 当前联合整改计划：[`2026-09-08-joint-fix-plan.md`](2026-09-08-joint-fix-plan.md)
 - 后端技术和运行说明：[`../../backend/README.md`](../../backend/README.md)
 - 工程约束：[`../../AGENTS.md`](../../AGENTS.md)

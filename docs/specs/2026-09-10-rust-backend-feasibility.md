@@ -27,25 +27,27 @@
 | HTTP | REST，统一 `/api` 前缀，响应主体为 `Response<T>` | 不能只迁移路径；必须逐字段保持 JSON、业务码、HTTP 语义 |
 | 实时通道 | Jakarta WebSocket，多类训练和仿真端点 | 需要重建连接生命周期、房间状态、心跳、广播、关闭和并发控制 |
 | 持久化 | MySQL 8，Hibernate ORM/Panache，约 100 张业务表 | 既有表和历史数据应作为兼容边界，不宜与语言迁移同时改模型 |
-| Java 代码 | `backend/README.md` 记录约 744 个 main Java 文件、61 个 controller、73 个 service、103 个 entity、101 个 dao、26 个 WebSocket 类 | 全量翻译成本高；必须按业务域切分，不能按 Java 包逐文件机械翻译 |
-| 测试 | Quarkus Testcontainers + REST Assured；仓库 README 记录后端 228 个测试全绿 | 现有测试可作为行为基线，但不能假设迁移后可直接复用；应增加跨实现契约测试 |
+| 当前验证 | Java 512 tests 全绿；前端 39/39 且生产构建成功；P1/P2 跨栈修复提交 `3e4dc05`、`5193463` | 现有 Java 是已验证行为基线；这些证据不等于 Rust 已实现 |
 | 前端 | Electron 外壳 + Vue；API 模块直接使用 `/api/...`，请求头为 `token` + `deviceId` | Rust 服务必须先兼容现有前端，不应同步重做前端请求层 |
 | 交付 | JVM、原生镜像、Docker、Linux/ARM64/Windows 构建矩阵 | Rust 可替换运行时，但必须重新证明各目标平台的启动、数据库、WebSocket 和文件能力 |
 
+controller、route、DAO、实体和 WebSocket 数量以 Phase 0 inventory 为准；历史文档中的 744/61/73/103/101/26 与 228/442 等数字不再作为当前基线。
+
 ### 1.2 当前关键契约
 
-1. **路径契约**：REST 根路径是 `/api`；WebSocket 路径不复用 `/api` 前缀，具体路径见 `backend/README.md` 的 WebSocket 表。
+1. **路径契约**：REST 根路径是 `/api`；WebSocket 路径不复用 `/api` 前缀，具体路径以 Phase 0 清单为准。
 2. **响应契约**：业务成功和失败均通过 JSON 信封表达，通常仍为 HTTP 200：
 
    ```json
    {"code": 200, "data": {}, "message": "ok", "description": ""}
    ```
 
-3. **鉴权契约**：当前实际是自研 `token + deviceId` 会话校验，不应在迁移时误当作标准 JWT。缺 token、缺 deviceId、凭证异常对应的 203/204/206 码值和文案属于客户端契约，不能在语言迁移中顺便改掉。
-4. **授权契约**：认证不等于授权。管理端点需要服务端管理员判定，前端按钮权限不能作为安全边界。
-5. **数据库契约**：生产使用 schema validate，实体、表和迁移必须保持一致；现有迁移还承担 MyISAM→InnoDB 的事务安全前置。
-6. **训练契约**：评分、训练状态、完成/暂停/续训、房间生命周期和 WebSocket 消息码都是行为契约，不是普通 CRUD。
-7. **文件契约**：当前上传能力存在纯文本边界，前端还涉及导入、导出和模板；Rust 迁移不能通过改变 MIME、字节流或错误码来“简化”实现。
+3. **业务码契约**：203/204/206 的码值与文案不能改变；授权拒绝为 207；终态拒绝为 208；未处理系统故障保持 HTTP500/code500。
+4. **鉴权契约**：当前实际是自研 `token + deviceId` 会话校验，不应在迁移时误当作标准 JWT。REST 只从 header 读取；WS 因浏览器限制继续按 query 完成握手。token 是不透明随机串，数据库保存 SHA-256 摘要。
+5. **授权契约**：认证不等于授权。管理端点需要服务端管理员判定；`is_admin=0` 才是管理员；前端按钮权限不能作为安全边界。
+6. **数据库契约**：生产使用 schema validate，实体、表和迁移必须保持一致；Rust 试点不得自动 DDL、不得与 Java 同域双写。
+7. **训练契约**：评分、训练状态、完成/暂停/续训、房间生命周期和 WebSocket 消息码都是行为契约，不是普通 CRUD。
+8. **文件契约**：上传能力、MIME、编码、导出字节流和错误码必须逐端点冻结，不能通过 Rust 迁移“简化”。
 
 ## 2. Rust 是否能覆盖当前技术需求
 
@@ -137,20 +139,20 @@ Rust 中应建立：
 | 只重写 WebSocket，REST 保持 Java | 中 | 中高 | 中 | 可作为后续专项，不作为第一步；实时协议本身风险最高 |
 | 只做 Rust read-only 查询旁路 | 低 | 低 | 快 | **适合作为试点第一阶段** |
 
-推荐采用双服务路由：
+推荐采用双服务路由：Rust 试点默认监听 18002，Java 保持 18001；生产网关按完整业务域路由，前端不直接感知端口差异。
 
 ```text
 Electron/Vue
     |
     v
 反向代理 / API Gateway
-    |-- /api/tools、只读目录、试点域 --> Rust
-    `-- 其他 REST、训练 WebSocket --> Java/Quarkus
-                         |
-                         `--> 共享 MySQL（迁移期间单写者原则）
+    |-- Phase 0 确认的低耦合只读域 --> Rust :18002
+    `-- 其他 REST、训练 WebSocket --> Java/Quarkus :18001
+                                   |
+                                   `--> 共享 MySQL（迁移期间单写者）
 ```
 
-迁移阶段应尽量避免同一张业务表由两个服务同时写入。若必须双写，必须先定义幂等键、写入顺序、冲突解决和补偿机制；否则优先采用“一个域一个写者”的路由策略。
+`/api/tools/**`、`/api/cable/**` 仅是候选示例，不能在 Phase 0 inventory 确认前写死。迁移阶段应尽量避免同一张业务表由两个服务同时写入；若必须双写，必须先定义幂等键、写入顺序、冲突解决和补偿机制，否则优先采用“一个域一个写者”的路由策略。
 
 ## 5. 推荐迁移路线
 
@@ -158,24 +160,31 @@ Electron/Vue
 
 交付物：
 
-- 现有 OpenAPI 快照和前端真实调用清单；
-- REST 请求/响应 fixture，覆盖成功、业务错误、认证错误、未捕获异常；
-- WebSocket 握手、消息码、心跳、断线、重连、重复连接和关闭的协议样本；
+- 现有 `/q/openapi` 快照和真实前端调用清单；
+- REST 请求/响应 fixture，覆盖成功、业务错误、203/204/206、207、208 和未捕获异常；
+- WebSocket 握手、身份覆盖、消息码、心跳、断线、重连、重复连接和关闭的协议样本；
 - 数据库 schema、索引、存储引擎、迁移顺序和关键存量数据样本；
-- 关键写路径的事务不变量和回滚测试。
+- 关键写路径的事务不变量和回滚测试；
+- Rust 空服务、独立 CI 和 18002 启动/健康检查 smoke test，但不接管流量。
 
-门禁：现有 Java 端保持全绿，且不因 Rust 试点修改既有业务契约。
+证据路径：`docs/reviews/rust-migration/` 下的 `2026-09-21-java-baseline.json`、`rest-endpoints.tsv`、`frontend-callers.tsv`、`ws-contracts.tsv`、`schema-inventory.tsv`、`fixture-manifest.json`。每份证据必须记录来源 commit、生成命令和验证时间。
+
+门禁：现有 Java 端保持全绿；前端构建和数据库 rehearsal 可复现；Rust 监听 18002 且不修改业务表；Rust 试点不因建立骨架而改变既有业务契约。
 
 ### 阶段 1：Rust 最小运行骨架
 
 只实现以下能力，不迁移复杂训练逻辑：
 
-- 配置、日志、健康检查、优雅关闭；
+- 配置、日志、健康检查、readiness/liveness、优雅关闭；
+- 试点默认监听 18002，Java 继续使用 18001；
 - `/api` 路由和统一 `Response<T>` 信封；
-- `token + deviceId` header 认证；
-- MySQL 连接池、超时、迁移检查；
-- tracing、请求 ID、敏感字段脱敏；
-- Docker、CI、Linux 目标平台启动 smoke test。
+- REST `token + deviceId` header 认证，保持 203/204/206；管理员 policy 保持 207，终态保持 208；
+- MySQL 连接池、超时、TLS、启动连接检查；生产禁止自动 schema sync；
+- tracing、request ID、敏感字段脱敏；
+- Docker、CI、Linux 目标平台启动 smoke test；
+- OpenAPI 和 REST fixture runner 的最小框架。
+
+门禁：Rust 能独立构建、启动、健康检查和优雅退出；不接管前端流量、不写业务表、不改变既有契约。
 
 ### 阶段 2：只读试点
 
@@ -263,48 +272,50 @@ Electron/Vue
 
 ### 可以进入 Rust 试点的条件
 
+- 当前 Java/前端 P1/P2 阻断项已经闭合并有运行证据；
 - 明确一个独立业务边界和唯一写者；
 - 已冻结该域的前端调用面和 JSON 契约；
 - 有可复现的 MySQL 测试环境；
-- 有 Java 基线 fixture 和回滚路由；
+- 有 Java 基线 fixture 和网关回滚路由；
 - 至少一名能负责生产 Rust 的维护者；
-- CI 能构建并启动 Rust 服务；
-- 试点不修改 203/204/206，也不改变现有数据库 schema。
+- CI 能构建、启动 Rust 服务并执行健康检查；
+- 试点使用独立端口/域级路由，不接管 Java 18001，不修改 203/204/206，不改变现有数据库 schema。
 
 ### 暂不应开始全量重构的条件
 
-- 仍未完成当前 P0/P1 安全和跨栈整改；
-- 没有 WebSocket 协议样本和生命周期测试；
-- 无法确定前端真实调用点；
+- 没有 Phase 0 的端点、前端调用、WS、schema 和 fixture 清单；
 - 计划同时改语言、数据库 schema、API 形态和身份认证；
 - 没有灰度、回滚和双服务观测方案；
-- 主要目标只是“Rust 更快”，但没有业务负载基线。
+- 主要目标只是“Rust 更快”，但没有业务负载基线；
+- 试点会让 Java/Rust 同时写同一业务域。
 
 ## 9. 最终建议
 
-1. **近期不做全量 Rust 重写。** 当前最优先事项仍是现有评审确认的安全、授权、跨栈契约、WebSocket 生命周期和部署闭环；语言迁移不能掩盖这些问题。
+1. **不要把历史测试数字当作当前状态。** 当前 Java/前端基线以 2026-09-21 实际命令和 Phase 0 证据为准。
 2. **可以立项 Rust 试点。** 试点应以只读、低耦合域开始，验证 HTTP 信封、鉴权、MySQL、测试、CI、日志和回滚，而不是直接碰训练结算或联合 WebSocket。
-3. **将 API 契约和数据库 schema 当作迁移资产。** 先冻结并测试，再写 Rust；不要把 Java 类结构当作目标架构。
-4. **将复杂训练逻辑按状态机和纯函数重建。** 评分和报文生成先做输出特征测试，WebSocket 后做；不要机械翻译 service 类。
-5. **以可回滚、可观测、单域单写者作为上线标准。** 达不到这些条件时，保留 Quarkus 是更安全的工程决策。
+3. **迁移期间 Rust 默认使用 18002，Java 保持 18001。** 端口复用只在域级切换窗口发生，必须经过网关和回滚演练。
+4. **将 API 契约和数据库 schema 当作迁移资产。** 先冻结并测试，再写 Rust；不要把 Java 类结构当作目标架构。
+5. **将复杂训练逻辑按状态机和纯函数重建。** 评分和报文生成先做输出特征测试，WebSocket 后做；不要机械翻译 service 类。
+6. **以可回滚、可观测、单域单写者作为上线标准。** 达不到这些条件时，保留 Quarkus 是更安全的工程决策。
 
-因此，本项目的答案是：**能用 Rust 重构，但应当把 Rust 作为渐进式后端替代路线，而不是立即进行全量重写。**
+因此，本项目的答案是：**可以进入 Rust Phase 0/1 的无流量建设和只读试点准备，但不可以立即全量替换 Java。**
 
 ## 10. 证据与参考资料
 
 ### 仓库证据
 
-- [`backend/README.md`](../../backend/README.md)：后端技术栈、规模、REST/响应/WebSocket/数据库/构建边界。
-- [`backend/pom.xml`](../../backend/pom.xml)：Quarkus REST、WebSocket、Hibernate ORM/Panache、MySQL、JWT、OpenAPI、Testcontainers 依赖。
-- [`backend/src/main/java/com/nip/common/MainApplication.java`](../../backend/src/main/java/com/nip/common/MainApplication.java)：`/api` 应用前缀。
-- [`backend/src/main/java/com/nip/common/response/Response.java`](../../backend/src/main/java/com/nip/common/response/Response.java)：响应信封字段。
-- [`backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java`](../../backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java)：`token + deviceId`、203/204/206 兼容行为。
-- [`backend/src/main/java/com/nip/ws/WebSocketUnionService.java`](../../backend/src/main/java/com/nip/ws/WebSocketUnionService.java)：连接、在线用户、房间状态和广播并发边界。
-- [`backend/src/main/java/com/nip/service/PostTelexPatTrainService.java`](../../backend/src/main/java/com/nip/service/PostTelexPatTrainService.java)：复杂训练事务、生成、评分和多 DAO 协作示例。
-- [`backend/database/migrations/2026-08-26-01-schema-sync.sql`](../../backend/database/migrations/2026-08-26-01-schema-sync.sql) 与 [`2026-08-26-02-engine-innodb.sql`](../../backend/database/migrations/2026-08-26-02-engine-innodb.sql)：schema 对齐和 InnoDB 事务前置。
-- [`bw-frontend/frontend/src/common/http/axios.js`](../../bw-frontend/frontend/src/common/http/axios.js) 与 [`bw-frontend/frontend/src/common/http/index.js`](../../bw-frontend/frontend/src/common/http/index.js)：前端请求方法、header 和错误码消费。
-- [`docs/reviews/2026-09-08-full-project-review.md`](../reviews/2026-09-08-full-project-review.md)：当前安全、契约、WebSocket 和交付风险基线。
-- [`docs/specs/2026-09-08-joint-fix-spec.md`](../specs/2026-09-08-joint-fix-spec.md)：跨栈契约和验收约束。
+- [`backend/README.md`](../../backend/README.md)：后端技术栈、REST/响应/WebSocket/数据库/构建边界；
+- [`backend/pom.xml`](../../backend/pom.xml)：Quarkus REST、WebSocket、Hibernate ORM/Panache、MySQL、JWT、OpenAPI、Testcontainers 依赖；
+- [`backend/src/main/java/com/nip/common/MainApplication.java`](../../backend/src/main/java/com/nip/common/MainApplication.java)：`/api` 应用前缀；
+- [`backend/src/main/java/com/nip/common/response/Response.java`](../../backend/src/main/java/com/nip/common/response/Response.java)：响应信封字段；
+- [`backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java`](../../backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java)：`token + deviceId`、203/204/206 兼容行为；
+- [`backend/src/main/java/com/nip/ws/WebSocketUnionService.java`](../../backend/src/main/java/com/nip/ws/WebSocketUnionService.java)：连接、在线用户、房间状态和广播并发边界；
+- [`backend/src/main/java/com/nip/service/PostTelexPatTrainService.java`](../../backend/src/main/java/com/nip/service/PostTelexPatTrainService.java)：复杂训练事务、生成、评分和多 DAO 协作示例；
+- [`backend/database/migrations/2026-08-26-01-schema-sync.sql`](../../backend/database/migrations/2026-08-26-01-schema-sync.sql) 与 [`2026-08-26-02-engine-innodb.sql`](../../backend/database/migrations/2026-08-26-02-engine-innodb.sql)：schema 对齐和 InnoDB 事务前置；
+- [`bw-frontend/frontend/src/common/http/axios.js`](../../bw-frontend/frontend/src/common/http/axios.js) 与 [`bw-frontend/frontend/src/common/http/index.js`](../../bw-frontend/frontend/src/common/http/index.js)：前端请求方法、header 和错误码消费；
+- [`docs/reviews/2026-09-15-full-project-review.md`](../reviews/2026-09-15-full-project-review.md)：当前运行、测试、迁移和交付基线；
+- [`docs/reviews/2026-09-19-multi-model-debate-cross-stack-review.md`](../reviews/2026-09-19-multi-model-debate-cross-stack-review.md)：最新跨栈静态清单及剩余风险；
+- [`docs/specs/2026-09-08-joint-fix-spec.md`](2026-09-08-joint-fix-spec.md)：跨栈契约和验收约束。
 
 ### 官方生态资料
 
