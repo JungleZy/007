@@ -84,9 +84,45 @@ case "$ready_body" in
   *'"status":"ready"'*'"readiness":"process-only"'*'"dependencies":false'*) ;;
   *) echo "unexpected /ready response: $ready_body" >&2; exit 1 ;;
 esac
+openapi_body=$(request_body /q/openapi)
+case "$openapi_body" in
+  *'"openapi":"3.1.0"'*) ;;
+  *) echo "unexpected /q/openapi response: $openapi_body" >&2; exit 1 ;;
+esac
+
+missing_token_body=$(curl --silent --show-error --fail-with-body "http://$host:$port/api/phase1/contract/auth")
+case "$missing_token_body" in
+  *'"code":203'*'"message":"token不能为空"'*) ;;
+  *) echo "unexpected missing-token response: $missing_token_body" >&2; exit 1 ;;
+esac
+
+query_credentials_body=$(curl --silent --show-error --fail-with-body "http://$host:$port/api/phase1/contract/auth?token=ignored&deviceId=ignored")
+case "$query_credentials_body" in
+  *'"code":203'*) ;;
+  *) echo "query credentials were accepted: $query_credentials_body" >&2; exit 1 ;;
+esac
+
+missing_device_body=$(curl --silent --show-error --fail-with-body -H 'token: phase1-smoke-token' "http://$host:$port/api/phase1/contract/auth")
+case "$missing_device_body" in
+  *'"code":204'*'"message":"设备标识不能为空"'*) ;;
+  *) echo "unexpected missing-device response: $missing_device_body" >&2; exit 1 ;;
+esac
+
+invalid_credentials_body=$(curl --silent --show-error --fail-with-body -H 'token: phase1-smoke-token' -H 'deviceId: phase1-smoke-device' "http://$host:$port/api/phase1/contract/auth")
+case "$invalid_credentials_body" in
+  *'"code":206'*'"message":"账号登录凭证异常"'*) ;;
+  *) echo "unexpected invalid-credentials response: $invalid_credentials_body" >&2; exit 1 ;;
+esac
+
+request_id_headers=$(curl --silent --show-error --dump-header - --output /dev/null -H 'x-request-id: phase1-smoke-request' "http://$host:$port/health")
+case "$request_id_headers" in
+  *$'x-request-id: phase1-smoke-request'*) ;;
+  *) echo "request ID was not propagated: $request_id_headers" >&2; exit 1 ;;
+esac
+
 
 api_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "http://$host:$port/api")
-if [[ "$api_status" != 404 ]]; then
+if [[ "$api_status" != "404" ]]; then
   echo "expected /api to be absent (404), got HTTP $api_status" >&2
   exit 1
 fi
@@ -114,5 +150,4 @@ if [[ "$exit_code" -ne 0 ]]; then
   cat "$log_file" >&2
   exit 1
 fi
-
-echo "rust-backend smoke OK: /health /live /ready served, /api returned 404, SIGTERM exited cleanly"
+echo "rust-backend smoke OK: health/live/ready, OpenAPI, 203/204/206 header auth, request ID, /api=404, SIGTERM clean exit"

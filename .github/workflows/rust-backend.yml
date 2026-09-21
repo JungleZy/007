@@ -20,6 +20,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
 
       - name: Test Rust backend
         run: cargo test --locked
