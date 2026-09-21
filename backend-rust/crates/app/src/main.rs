@@ -21,6 +21,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool, Row};
 use thiserror::Error;
+use time::OffsetDateTime;
 use tokio::{net::TcpListener, signal, time::timeout};
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
@@ -28,6 +29,8 @@ use uuid::Uuid;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
+const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
+
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
 const DEFAULT_BODY_LIMIT: usize = 11 * 1024 * 1024;
 
@@ -49,6 +52,7 @@ struct AppConfig {
     db_timeout: Duration,
     body_limit: usize,
     cors_origin: String,
+    tools_readonly_enabled: bool,
 }
 
 #[derive(Clone)]
@@ -109,6 +113,7 @@ async fn run() -> Result<(), AppError> {
     info!(
         listen_addr = %config.listen_addr,
         database_configured = config.database_url.is_some(),
+        tools_readonly_enabled = config.tools_readonly_enabled,
         max_connections = config.max_connections,
         body_limit = config.body_limit,
         "rust backend listening"
@@ -151,6 +156,7 @@ impl AppConfig {
                 AppError::Config("RUST_BACKEND_CORS_ORIGIN must be '*' or one valid origin".into())
             })?;
         }
+        let tools_readonly_enabled = parse_bool(TOOLS_READONLY_ENV, false)?;
         Ok(Self {
             listen_addr,
             database_url,
@@ -158,6 +164,7 @@ impl AppConfig {
             db_timeout: Duration::from_secs(timeout_seconds),
             body_limit,
             cors_origin,
+            tools_readonly_enabled,
         })
     }
 }
@@ -187,11 +194,13 @@ fn build_router(state: AppState) -> Router {
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let admin = Router::new()
         .route("/admin", get(admin_probe))
-        .route_layer(middleware::from_fn_with_state(state.clone(), require_admin))
-        .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-    let api = Router::new()
+        .route_layer(middleware::from_fn_with_state(state.clone(), require_admin));
+    let mut api = Router::new()
         .nest("/api/phase1/contract", protected.merge(admin))
         .route("/q/openapi", get(openapi));
+    if state.config.tools_readonly_enabled {
+        api = api.route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
+    }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
     } else {
@@ -369,13 +378,33 @@ async fn admin_probe(Extension(user): Extension<AuthUser>) -> Response {
     )
 }
 
+fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
+    let current_index = year * 12 + i32::from(month) - 1;
+    (0..12)
+        .map(|offset| {
+            let index = current_index - offset;
+            json!({
+                "year": index.div_euclid(12),
+                "month": index.rem_euclid(12) + 1,
+            })
+        })
+        .collect()
+}
+
+async fn tools_get_twelve_month() -> Response {
+    let current = OffsetDateTime::now_utc();
+    let data = twelve_month_data(current.year(), u8::from(current.month()));
+    envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
+}
+
 async fn openapi() -> Json<Value> {
     Json(json!({
         "openapi": "3.1.0",
-        "info": {"title": "Rust backend Phase 1 infrastructure", "version": "0.1.0"},
+        "info": {"title": "Rust backend Phase 1/2 infrastructure", "version": "0.1.0"},
         "paths": {
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
-            "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}}
+            "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
+            "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}}
         }
     }))
 }
@@ -403,6 +432,14 @@ fn envelope_json(
         .into_response()
 }
 
+fn parse_bool(name: &str, default: bool) -> Result<bool, AppError> {
+    match env::var(name) {
+        Ok(value) if value.eq_ignore_ascii_case("true") => Ok(true),
+        Ok(value) if value.eq_ignore_ascii_case("false") => Ok(false),
+        Ok(_) => Err(AppError::Config(format!("{name} must be true or false"))),
+        Err(_) => Ok(default),
+    }
+}
 fn header_text<'a>(request: &'a Request, name: &str) -> Option<&'a str> {
     request
         .headers()
@@ -538,6 +575,16 @@ mod tests {
             token_digest("password"),
             "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
         );
+    }
+
+    #[test]
+    fn twelve_month_data_matches_java_descending_year_month_order() {
+        let data = twelve_month_data(2026, 1);
+        assert_eq!(data.first().expect("first month")["year"], 2026);
+        assert_eq!(data.first().expect("first month")["month"], 1);
+        assert_eq!(data.last().expect("last month")["year"], 2025);
+        assert_eq!(data.last().expect("last month")["month"], 2);
+        assert_eq!(data.len(), 12);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/app"]
+members = ["crates/app", "crates/persistence"]
 resolver = "2"
 
 [workspace.package]
@@ -18,4 +18,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net
 tower-http = { version = "0.6", features = ["cors", "limit"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+time = "0.3"
 uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["clock"] }
+rust_decimal = "1"
+sea-orm = { version = "1.1.14", default-features = false, features = ["macros", "sqlx-mysql", "runtime-tokio-rustls", "with-chrono", "with-rust_decimal"] }
