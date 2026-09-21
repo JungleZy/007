@@ -1,0 +1,28 @@
+kind	name	value	path	sha256
+run	commit	a1395ad281d3aba1fb0a8ca0cdd29004a53d0c1a		
+run	command	bash /home/zhang/workspace/007/backend/scripts/rehearse-migrations.sh		
+run	utc	2026-09-21T04:59:15Z		
+snapshot	current		/home/zhang/workspace/007/backend/database/project006.sql	902a46d9d39fd8463ac866530a6bd6124c6f09a6818c7da6edbb768d49fba57f
+snapshot	base		/home/zhang/workspace/007/backend/database/project006-base.sql	725632dcb9e7b100cce09ff55d6135385387659bb831a2ca77c77dd713f11c0a
+migration	001	2026-08-26-01-schema-sync.sql	/home/zhang/workspace/007/backend/database/migrations/2026-08-26-01-schema-sync.sql	6a4da93d898fdb8fc7cc3f2e12c71adb86d955e7dce388276d5cbe0981e50f37
+migration	002	2026-08-26-02-engine-innodb.sql	/home/zhang/workspace/007/backend/database/migrations/2026-08-26-02-engine-innodb.sql	7c12c188c6550be280def4a59d6183e3c136b8080c638a5009ace6146cf65cf1
+migration	003	2026-09-08-01-unique-lazy-create.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-08-01-unique-lazy-create.sql	a255b66c84f44e17c0871caa05ab76f878bb9155990468588aac537b8b9c67d8
+migration	004	2026-09-10-01-theory-json-capacity.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-10-01-theory-json-capacity.sql	f7845e5115b2bf4d150f2a1e64ba94ab06b1b200abd4cf74340ed442f69b7230
+migration	005	2026-09-10-02-scoring-json-capacity.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-10-02-scoring-json-capacity.sql	8b1221d2a8e9e11dfe55dbe5611bc0eb496c8954ec9f93030d9eb46bd88cbf7a
+migration	006	2026-09-11-01-group-net-scoring.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-01-group-net-scoring.sql	6c6c7cc6d488339653b48208d2cc1e13af6afe078af46283bca59eec5d804a96
+migration	007	2026-09-11-01-simulation-page-uniqueness.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-01-simulation-page-uniqueness.sql	12c91bf0060e9abc15b01dc72b8f75a2eaa3fb8de4d9592433c849dd8bc322b2
+migration	008	2026-09-11-03-personal-electronic-capture.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-03-personal-electronic-capture.sql	82e7fbfa29b03636096c91b1b7b26cd7b5c3c14d914dc5dc5c85ecbf9a57782d
+migration	009	2026-09-11-03-post-telex-capture-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-03-post-telex-capture-clock.sql	de654419172e8d6cfc223314d05a10b2f08648ed063cb1806b71425d9abd0ade
+migration	010	2026-09-11-04-general-capture-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-04-general-capture-clock.sql	5bbc204d937813a5e7062038c856b10193710b17da8452db43e73921661d0803
+migration	011	2026-09-11-04-personal-handkey-capture.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-11-04-personal-handkey-capture.sql	22dc4640d222ae93b441424b5f6da542a0aebb409db8cb9c11ce8ef1b2831d67
+migration	012	2026-09-12-01-general-telex-capture.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-01-general-telex-capture.sql	cce4b5045318d9d1eaaafd67d180fca0417ea8247c664ee5084cf8e7a9d06ff0
+migration	013	2026-09-12-02-post-telex-due-index.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-02-post-telex-due-index.sql	404d49b52fb9ce9cd76d299e472654ffe77accd70925dbd0f6030a27f44281bb
+migration	014	2026-09-12-03-menu-telex-component-path.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-03-menu-telex-component-path.sql	8c1cc9930b36f65ea7932dfcbdd649513c8b3903e36bffe776fc6c267a299c54
+migration	015	2026-09-12-04-comprehensive-key-authority.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-04-comprehensive-key-authority.sql	7ee504d2b332da57769a2f92110837735ebb808d670b6b559e841840f5acf2cc
+migration	016	2026-09-12-05-radio-study-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-05-radio-study-clock.sql	a7174a2773fe0e15aa752e768281ad3090bb52991fd1b343c4f7b24ddc5ed083
+migration	017	2026-09-12-06-entering-accuracy-capacity.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-12-06-entering-accuracy-capacity.sql	74a849b60372a27f6b681d94decdd42be2d5b0773f7d676620d3263ea9c7e18b
+migration	018	2026-09-14-01-classic-telegram-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-14-01-classic-telegram-clock.sql	264c483f30af7cd555559995d02556f76f2a384e373f1ddfd6a58286373cf748
+migration	019	2026-09-14-02-classic-telex-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-14-02-classic-telex-clock.sql	ae691d9aaf608905513a33722581b8f0ae2411a508df40a3aa190408425b28a0
+migration	020	2026-09-14-03-classic-receive-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-14-03-classic-receive-clock.sql	70f9667508e0faa904046e5db28110d81358ddb47ae835eea2bc002d66e280fe
+migration	021	2026-09-15-01-entering-exercise-clock.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-15-01-entering-exercise-clock.sql	acf7c7ea04ab833765da909206f556137252ecdbf668104c520a87fd2ea99356
+migration	022	2026-09-15-02-electronic-statistics-time.sql	/home/zhang/workspace/007/backend/database/migrations/2026-09-15-02-electronic-statistics-time.sql	c030d4a1c3613ad53226f464c23741a01f357c412555d137b0a1b565f3a1322b

@@ -1,0 +1,95 @@
+{
+  "schema": "rust-migration-java-baseline/v1",
+  "recorded_at_utc": "2026-09-21T05:45:04Z",
+  "source_commit": "a1395ad281d3aba1fb0a8ca0cdd29004a53d0c1a",
+  "phase0_tooling_commit": "10c97f22153177bb5e9d8bbf965e354c266c3558",
+  "source_tree_note": "Java full verify and frontend baseline were observed at source commit a1395ad. Phase 0 tooling/Rust bootstrap was then committed as 10c97f2; opt-in WS/Rust checks and inventory regeneration were rerun on that commit. The canonical dual-snapshot rehearsal evidence remains the completed run under backend/database/rehearsal/2026-09-21-phase0.",
+  "commands": {
+    "java_verify": "cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B clean verify",
+    "frontend_install_test_build": "cd bw-frontend/frontend && npm ci && npm run test && npm run build",
+    "entity_schema": "cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test",
+    "migration_rehearsal": "cd backend && REHEARSAL_OUT_NAME=2026-09-21-phase0 bash scripts/rehearse-migrations.sh",
+    "openapi_snapshot": "GET http://127.0.0.1:18001/q/openapi from a prod-profile Java process",
+    "rest_inventory": "python3 backend/scripts/generate-rest-inventory.py --backend-root backend --frontend-root bw-frontend/frontend --output-dir docs/reviews/rust-migration --openapi docs/reviews/rust-migration/openapi.json",
+    "ws_inventory": "python3 backend/scripts/generate-ws-contract-inventory.py --output-dir docs/reviews/rust-migration",
+    "ws_samples": "cd backend && export JAVA_HOME=$HOME/.local/opt/jdk21 && ./mvnw -B -Dtest=WebSocketContractSnapshotRehearsal -Dmigration.evidence.dir=../docs/reviews/rust-migration test",
+    "schema_inventory": "python3 backend/scripts/generate-schema-inventory.py --rehearsal-dir backend/database/rehearsal/2026-09-21-phase0 --out-dir docs/reviews/rust-migration --snapshot-current backend/database/project006.sql --snapshot-base backend/database/project006-base.sql --migrations-dir backend/database/migrations",
+    "rust_lock_build_test_smoke": "cd backend-rust && cargo generate-lockfile && cargo test --locked && cargo build --locked && ./scripts/smoke.sh target/debug/rust-backend"
+  },
+  "results": {
+    "java": {
+      "tests": 512,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "result": "BUILD SUCCESS"
+    },
+    "frontend": {
+      "tests": 39,
+      "passed": 39,
+      "failed": 0,
+      "result": "npm test passed; Vite production build passed",
+      "warnings_observed": ["deprecated npm packages", "Vue/compiler deprecation warnings", "large chunks"]
+    },
+    "openapi": {
+      "http_status": 200,
+      "format": "application/yaml",
+      "path_count": 359,
+      "operation_count": 359,
+      "snapshot": "docs/reviews/rust-migration/openapi.yaml",
+      "sha256": "2a3b97e0f213cb570cde0ecdc4a78194104608bacaba13515929e8c4fb91de06"
+    },
+    "rest_inventory": {
+      "controller_files": 62,
+      "frontend_api_modules": 28,
+      "frontend_source_files": 497,
+      "frontend_http_calls": 332,
+      "frontend_consumer_rows": 512,
+      "openapi_crosscheck": "pass",
+      "openapi_operations": 359,
+      "static_operations": 359
+    },
+    "websocket": {
+      "server_endpoint_count": 7,
+      "protocol_sample_events": 19,
+      "sample_result": "Maven opt-in rehearsal passed",
+      "sample_output": "docs/reviews/rust-migration/ws-protocol-samples.ndjson"
+    },
+    "database": {
+      "migration_file_count": 22,
+      "pre_current_table_count": 105,
+      "pre_base_table_count": 100,
+      "post_current_table_count": 106,
+      "post_base_table_count": 106,
+      "post_current_myisam_tables": 0,
+      "post_base_myisam_tables": 0,
+      "current_schema_diff": "empty",
+      "base_schema_diff": "empty",
+      "rehearsal_output": "backend/database/rehearsal/2026-09-21-phase0"
+    },
+    "rust_bootstrap": {
+      "cargo_test": "passed; 0 tests in management-only binary crate",
+      "cargo_build": "passed",
+      "smoke": "passed: /health, /live, /ready; /api=404; SIGTERM clean exit",
+      "default_address": "127.0.0.1:18002",
+      "java_address_unchanged": "18001"
+    }
+  },
+  "verification_notes": [
+    "The canonical phase0 dual-snapshot run completed with both current/base post states and empty diffs; a later refresh attempt using a new output directory was stopped at the 600-second tool deadline during the base replay and its partial output was removed. It is not used as evidence.",
+    "The timeout is an execution-duration observation, not a schema assertion failure; the completed canonical output remains the accepted rehearsal evidence."
+  ],
+  "evidence": {
+    "rest": ["docs/reviews/rust-migration/rest-endpoints.tsv", "docs/reviews/rust-migration/frontend-callers.tsv", "docs/reviews/rust-migration/file-endpoints.tsv", "docs/reviews/rust-migration/rest-inventory-metadata.json"],
+    "websocket": ["docs/reviews/rust-migration/ws-contracts.tsv", "docs/reviews/rust-migration/ws-inventory-metadata.json", "docs/reviews/rust-migration/ws-protocol-samples.ndjson", "docs/reviews/rust-migration/ws-protocol-samples-metadata.json"],
+    "database": ["docs/reviews/rust-migration/schema-inventory.tsv", "docs/reviews/rust-migration/schema-inventory-metadata.json", "backend/database/rehearsal/2026-09-21-phase0/rehearsal-provenance.tsv"],
+    "fixtures": ["docs/reviews/rust-migration/fixture-manifest.json"],
+    "command_outputs": ["artifact://155", "artifact://149", "artifact://227", "artifact://189", "artifact://168"]
+  },
+  "scope_boundary": [
+    "Rust has no business endpoint, database connection, schema DDL, frontend route, or production traffic.",
+    "REST/frontend and WebSocket inventories are static source evidence; dynamic runtime activity and browser-network coverage remain outside Phase 0.",
+    "WebSocket samples use real CDI callbacks and isolated Session probes, not a browser or external network client.",
+    "Real hardware, desktop packaging, customer environment, and production credential validation are not Phase 0 evidence."
+  ]
+}

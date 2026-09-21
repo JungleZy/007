@@ -1,0 +1,172 @@
+{
+  "schema": "rust-migration-ws-inventory/v1",
+  "generated_at_utc": "2026-09-21T05:47:13.257431+00:00",
+  "source_commit": "10c97f22153177bb5e9d8bbf965e354c266c3558",
+  "generator_command": "backend/scripts/generate-ws-contract-inventory.py --output-dir docs/reviews/rust-migration",
+  "generator": "backend/scripts/generate-ws-contract-inventory.py",
+  "generator_sha256": "232679540dea8f1f184a506bea8039111d7cf9a2d4f75627618f0aa1a63d7548",
+  "protocol_sample_generator": "backend/src/test/java/com/nip/rehearsal/WebSocketContractSnapshotRehearsal.java",
+  "sample_output": "ws-protocol-samples.ndjson",
+  "endpoint_count": 7,
+  "endpoint_families": [
+    "status",
+    "classic-hand",
+    "union",
+    "simulation",
+    "general-key",
+    "general-telex",
+    "general-ticker"
+  ],
+  "source_files": [
+    {
+      "path": "backend/src/main/java/com/nip/ws/StatusWebSocket.java",
+      "sha256": "8ab73e2f2d4e6669cf0a57b2afd80f214b7ff71bfabb049c8a4a9249034e77d4"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketGeneralKeyPatService.java",
+      "sha256": "9ce406b8b4df317eca787b7e7b5d0f37d48af19d8127a69e3db8049fe237451f"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketGeneralTelexPatService.java",
+      "sha256": "a236b50b5e0de3246a55538aabeb15f95b0646e9f6c97ed93276a7687e81ca94"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketGeneralTickerPatService.java",
+      "sha256": "fc54cb50c72b7c37549b1f85daa35e0264891937ec925d728ab8740e94e67548"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketHandshake.java",
+      "sha256": "dddd3c6e22ab4285a39984b7addca72cff2c25be15d29fdde33ce0780b27a53b"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketHeartbeat.java",
+      "sha256": "1d3edb18e7a0d0fa578fa32203a70f4f14c72ab88a484262cdd67466abdf2271"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketService.java",
+      "sha256": "900d20ab6f3a9b8fa1123beb8b6745a178a20759d671f93d166b7965455e2059"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketSimulationService.java",
+      "sha256": "e76da1d5e1e0dd841f10d739b6a756b28de920f5ad05d71a8ebba162cee15edb"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/WebSocketUnionService.java",
+      "sha256": "5a5008bbd79236b6ee8bbef842db2556cc8e18c6ac7e4289eca53a42f2343a5f"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/GeneralTickerPatTrainRoomUserModel.java",
+      "sha256": "ad44c235f90b6d01b2cdf772db256316c9a71aad97fa84e6e38e7aeb6c39a666"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/GeneralTickerPatTrainUserModel.java",
+      "sha256": "55b920362ca15d55bff2202edca4f2217d2a8eaab50c581fd157e7f1d1b816c0"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/RequestModel.java",
+      "sha256": "5c8a71875083c0b76879291630f7919a9b4a4d61c436e03933a1277c66da2797"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/ResponseModel.java",
+      "sha256": "cde7540e8a7676c21d4cc39731e89be150c594e7cb279a0175f23475df8b9de1"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/RoomModel.java",
+      "sha256": "e9a12d7998603d5a50d745db78d3b1156dc655ece339e4ef5bae4049b0bc0002"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/SimulationResponseModel.java",
+      "sha256": "a6b98f54838dca1d412f4f3062c7953f431dd6e394be48fa7cce556f8ec44270"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/SimulationSessionHolder.java",
+      "sha256": "624ec891ea0a45a9b98c13d926f47bd5c851ea1a8ec703bfd286e2f3a10287c7"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/SimulationUserModel.java",
+      "sha256": "42aa59b1c444a7865f709b32a79dc29162ee473fc8e1089cc30bbf63d64ea92e"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/SocketResponseModel.java",
+      "sha256": "187ce0aa53b21f8aeb095d48a62ada9544af5a7c66e9c366c01234b46d6e5c24"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/SocketResponseModelEnum.java",
+      "sha256": "c51905a94d19c8ac6f91436d6b7e754a4d338c9bdcc6b3d185b96afcc86442cf"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/model/UserModel.java",
+      "sha256": "533738bd2d5a0f7a6a06c7bd3a702ef4ec16834545b51efa03a9d51460ae009c"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/RoomDeletionTransaction.java",
+      "sha256": "f3ac3db74e392453f3920ed586489a3038b447784b0cdfe9e2c6a121c44279c4"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/RoomLifecycleLocks.java",
+      "sha256": "ff01ca25fbcc1dfcc10a2318f165b256dc74854b10d98229c2c623577d953194"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/general/GeneralKeyPatSocketService.java",
+      "sha256": "6adf15030cbd108253fecfe7d547ad386425c682725c824e7604c5345d1e5891"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/general/GeneralTickerPatSocketService.java",
+      "sha256": "6619d8daaea55034246bcf03a1cc42a49f83d74810d9efd592e137208230a916"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/simulation/SimulationGlobal.java",
+      "sha256": "23e8385df392ecc49937f3a41199f5f106f65b8e1ab58ff34effc574f7e55593"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/simulation/SimulationRoomLifecycle.java",
+      "sha256": "88b8bdf2c885675fe8d6a58234b3cced77baadc03f8cbe419e8e4eaee020c4b4"
+    },
+    {
+      "path": "backend/src/main/java/com/nip/ws/service/simulation/SimulationSocketService.java",
+      "sha256": "0d18fdcd1b91cf51d3e433eb854fd9baa834a954d153d8ff252f3f44c6ba373e"
+    },
+    {
+      "path": "backend/src/test/java/com/nip/testsupport/Fixtures.java",
+      "sha256": "8b5bbf8f8941817a31d153790bb404d8793f9627b11497c5832009e1a9ca163e"
+    },
+    {
+      "path": "backend/src/test/java/com/nip/testsupport/WebSocketSessionProbe.java",
+      "sha256": "73abd6b97b73ac78466010a49a959f00ecc6d2002db56b2ce756cf906f814663"
+    },
+    {
+      "path": "backend/src/test/java/com/nip/testsupport/WebSocketStateReset.java",
+      "sha256": "b7ba4c7864daf589b80ca88033580c0d7a0c520f142614ba26d56c2aa7b8636f"
+    },
+    {
+      "path": "bw-frontend/frontend/src/common/ws/SocketConnection.js",
+      "sha256": "dbe858ffa9d23a9f8f6e9e841f696974e81667d502751af1f9dc5204786eb09d"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/organization/datagramZuXun/train/student/js/datagramTrain.js",
+      "sha256": "e2b6c005695e1eae4f5be08d6f85612387bf3aceaa8b04a5e9a5ead31fb77188"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/organization/electronKeyZuXun/train/student/js/handKeyTrain.js",
+      "sha256": "c60462a425e6209575498726777e48a0771f9287c2cb09fb838bb5a794ad1ce0"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/organization/handkeyZuXun/train/student/js/handKeyTrain.js",
+      "sha256": "782ce881a930f3b21b63687a9bfac80cb11d2cdf09c3808f868123d1dd3c2128"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/organization/telexZuXun/train/student/js/datagramTrain.js",
+      "sha256": "f7e037b8f61fece28a5f7c9e901476bb6ddef949ae35175124916014eb841414"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/unionJob/disturbCode/js/train.js",
+      "sha256": "a4f4b95fb2c5cbc81ddde8f8c3096a0c5a1db0047497a6172c563b301d5644b8"
+    },
+    {
+      "path": "bw-frontend/frontend/src/views/manage/unionJob/js/UnionWs.js",
+      "sha256": "153d92c25271e6fd62e06064345fec6127b17e2fc9a7efb3fa455ee5874999dd"
+    }
+  ],
+  "credentials_policy": "No credential values are written; rehearsal uses isolated fixture references and redacts query values.",
+  "coverage_boundary": "Static inventory covers all @ServerEndpoint declarations under backend/src/main/java/com/nip/ws; runtime rehearsal covers synthetic handshake/frame/close sequences and does not claim container/network coverage."
+}

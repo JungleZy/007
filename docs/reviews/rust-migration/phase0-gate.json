@@ -1,0 +1,30 @@
+{
+  "schema": "rust-migration-phase0-gate/v1",
+  "recorded_at_utc": "2026-09-21T05:45:04Z",
+  "source_commit": "10c97f22153177bb5e9d8bbf965e354c266c3558",
+  "status": "PASS",
+  "checks": {
+    "java_full_verify": "PASS: 512 tests, 0 failures, 0 errors, 0 skipped",
+    "frontend_test": "PASS: 39/39",
+    "frontend_production_build": "PASS",
+    "openapi_snapshot": "PASS: HTTP 200, 359 operations",
+    "rest_frontend_inventory": "PASS: 62 controller files, 28 API modules, 359/359 OpenAPI reconciliation",
+    "websocket_inventory": "PASS: 7 @ServerEndpoint classes",
+    "websocket_runtime_samples": "PASS: opt-in CDI rehearsal, 1 test, 0 failures/errors, 19 redacted events",
+    "entity_schema_snapshot": "PASS: opt-in rehearsal generated entity-schema.tsv",
+    "dual_snapshot_migration_rehearsal": "PASS: current/base post states each 106 tables, MyISAM=0, current/base diffs empty",
+    "fixture_manifest": "PASS: synthetic personas, training, pure-function and protocol sample manifest generated",
+    "rust_empty_service": "PASS: cargo test/build; real binary health/live/ready smoke; /api=404; SIGTERM clean exit"
+  },
+  "routing_safety": {
+    "java_port": 18001,
+    "rust_trial_port": 18002,
+    "rust_traffic_enabled": false,
+    "frontend_routes_changed": false,
+    "rust_business_writes": false,
+    "java_rust_same_domain_dual_write": false,
+    "production_ddl_executed": false
+  },
+  "evidence": "2026-09-21-java-baseline.json plus adjacent REST, WebSocket, schema and fixture evidence files",
+  "phase_boundary": "Phase 0 is complete. Phase 1 platform infrastructure may begin; no business-domain or production traffic cutover is authorized by this evidence."
+}

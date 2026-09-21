@@ -1,0 +1,210 @@
+{
+  "schema": "rust-migration-fixture-manifest/v1",
+  "generatedAt": "2026-09-21T05:47:13.270288+00:00",
+  "generator": "backend/scripts/generate-fixture-manifest.py",
+  "command": "python3 backend/scripts/generate-fixture-manifest.py --backend-root backend --output-dir docs/reviews/rust-migration",
+  "fixturePolicy": {
+    "credentials": "never persisted in this manifest; runtime tests generate isolated UUID credentials",
+    "businessData": "synthetic test rows only; no production rows or response bodies",
+    "identitySource": "server-side token and deviceId fixture headers; WS credentials remain query-only"
+  },
+  "personas": [
+    {
+      "id": "anonymous",
+      "setup": "no token/deviceId",
+      "representativeExpectation": "JWT endpoint returns HTTP 200 envelope code 203"
+    },
+    {
+      "id": "ordinary-user",
+      "setup": "Fixtures.user + role is_admin=1",
+      "representativeExpectation": "admin-only write returns HTTP 200 envelope code 207 and data is unchanged"
+    },
+    {
+      "id": "no-role-user",
+      "setup": "Fixtures.user without UserRole row",
+      "representativeExpectation": "admin-only write returns HTTP 200 envelope code 207 and data is unchanged"
+    },
+    {
+      "id": "administrator",
+      "setup": "Fixtures.user + role is_admin=0",
+      "representativeExpectation": "authorized admin operation may return code 200"
+    }
+  ],
+  "trainingSamples": [
+    {
+      "id": "classic-handkey",
+      "source": "service/ClassicHandSettlementRegressionTest.java",
+      "coverage": [
+        "submit",
+        "pause",
+        "finish",
+        "terminal guard",
+        "score and clock"
+      ]
+    },
+    {
+      "id": "general-ticker",
+      "source": "service/GeneralTickerPatScoreTest.java",
+      "coverage": [
+        "full page",
+        "partial final page",
+        "missing report",
+        "deduction"
+      ]
+    },
+    {
+      "id": "general-telex",
+      "source": "service/GeneralTelexPatMessageBodyTest.java",
+      "coverage": [
+        "message body shape",
+        "capture timing"
+      ]
+    },
+    {
+      "id": "theory-exam",
+      "source": "controller/TheoryExamIdentityAuthorizationTest.java",
+      "coverage": [
+        "server-authoritative score",
+        "owner identity",
+        "terminal state"
+      ]
+    },
+    {
+      "id": "simulation",
+      "source": "controller/SimulationRestAuthorizationTest.java",
+      "coverage": [
+        "room membership",
+        "admin control",
+        "channel state"
+      ]
+    }
+  ],
+  "pureFunctionSamples": [
+    {
+      "id": "score-math",
+      "source": "utils/ScoreMathTest.java",
+      "cases": [
+        "rate(120,60000)=120",
+        "rate(7,120000)=4",
+        "accuracy(1,3)=33.00",
+        "zero denominator=0"
+      ]
+    },
+    {
+      "id": "ticker-message-resolution",
+      "source": "common/utils/TickerPatUtilsCharacterizationTest.java",
+      "cases": [
+        "resolver message/log/time/value arrays stay aligned",
+        "malformed pat keys are rejected"
+      ]
+    },
+    {
+      "id": "password-verification",
+      "source": "common/security/PasswordHasherTest.java",
+      "cases": [
+        "PBKDF2 vector",
+        "legacy MD5 verification and upgrade",
+        "corrupt metadata rejection"
+      ]
+    }
+  ],
+  "protocolSamples": [
+    {
+      "id": "rest-auth",
+      "source": "common/exception/ExceptionBoundaryTest.java + interceptor/InterceptorCredentialSourceTest.java",
+      "cases": [
+        "missing token=203",
+        "missing deviceId=204",
+        "unknown token=206",
+        "query credentials rejected"
+      ]
+    },
+    {
+      "id": "business-boundary",
+      "source": "common/exception/TerminalBusinessCodeContractTest.java",
+      "cases": [
+        "retryable invalid page=202",
+        "terminal finished state=208",
+        "HTTP status remains 200"
+      ]
+    },
+    {
+      "id": "websocket-lifecycle",
+      "source": "ws/WebSocketHeartbeatTest.java + ws/WebSocketUnionLifecycleTest.java",
+      "cases": [
+        "handshake",
+        "heartbeat",
+        "disconnect",
+        "reconnect",
+        "close cleanup"
+      ]
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "src/test/java/com/nip/testsupport/Fixtures.java",
+      "sha256": "8b5bbf8f8941817a31d153790bb404d8793f9627b11497c5832009e1a9ca163e"
+    },
+    {
+      "path": "src/test/java/com/nip/common/exception/ExceptionBoundaryTest.java",
+      "sha256": "77371056416d0e8caae0778dfe6c1b4a474558c9d3e281863c958ac821672feb"
+    },
+    {
+      "path": "src/test/java/com/nip/controller/AdminAuthorizationTest.java",
+      "sha256": "1b4fb300472a5e412cbc74fa69a1c9d92f5ac7262a81d889fc9b97ba203ebf50"
+    },
+    {
+      "path": "src/test/java/com/nip/controller/RuleAndQuestionBankAuthorizationTest.java",
+      "sha256": "9b744fcb4c83040920782835295a8d983027c0098a8d89717b1f807d6f04bee2"
+    },
+    {
+      "path": "src/test/java/com/nip/controller/ControllerAuthorizationGuardTest.java",
+      "sha256": "4532237ef75e50272f27cad9f1540e9163d8a40ebd118adc06e3f9a7d623dbc1"
+    },
+    {
+      "path": "src/test/java/com/nip/common/security/PasswordHasherTest.java",
+      "sha256": "7f95c1f7098202da91881b717252ebcffce3c8b4aa585a2b071a47161e147ffd"
+    },
+    {
+      "path": "src/test/java/com/nip/controller/OpaqueSessionTokenTest.java",
+      "sha256": "52b557d55deb047b3f2abe1a12466743e367dad903f267f033a95d94040a8188"
+    },
+    {
+      "path": "src/test/java/com/nip/common/utils/ScoreMathTest.java",
+      "sha256": "3054ac660e04685db81c43a25516a833fcb0e35a6566572492af65114437b44a"
+    },
+    {
+      "path": "src/test/java/com/nip/common/utils/TickerPatUtilsCharacterizationTest.java",
+      "sha256": "ae60e2d7beae4612949bd83b31b7e3e660f08fa842242d8ecfd663d668c8aa0a"
+    },
+    {
+      "path": "src/test/java/com/nip/service/ClassicHandSettlementRegressionTest.java",
+      "sha256": "d8f3560346ec9688981d4942f268eaedc6ac2d07be97a1b198c9be592a9046e4"
+    },
+    {
+      "path": "src/test/java/com/nip/service/GeneralTickerPatScoreTest.java",
+      "sha256": "61656c58e126de3b4d06f8d40d51a6508f47a5b562c301fa91155136eeb9844a"
+    },
+    {
+      "path": "src/test/java/com/nip/service/GeneralTelexPatMessageBodyTest.java",
+      "sha256": "19441e84ef358c68f9491744e846472a631c426229fb8586405ebed784c79634"
+    },
+    {
+      "path": "src/test/java/com/nip/ws/WebSocketHandshakeAuthorizationTest.java",
+      "sha256": "f0faf0bb97a04004d2984532cc5b36245fb939417f6d2c72c10d63f235aca714"
+    },
+    {
+      "path": "src/test/java/com/nip/ws/WebSocketHeartbeatTest.java",
+      "sha256": "882812d0ddc4776ee9ecc1922b0c0e0263a4a910bb71bc42e6535275613fa2ca"
+    },
+    {
+      "path": "src/test/java/com/nip/ws/WebSocketUnionLifecycleTest.java",
+      "sha256": "e35ff3fb05d2fbbf326597364f51da54cf751a676b9a54e131b5b470df174a2d"
+    },
+    {
+      "path": "src/test/java/com/nip/controller/SimulationRestAuthorizationTest.java",
+      "sha256": "9021d9a810a1ca6347137139a43476da4438513b5472938ff72888acf69f25cf"
+    }
+  ],
+  "sourceCommit": "10c97f22153177bb5e9d8bbf965e354c266c3558"
+}
