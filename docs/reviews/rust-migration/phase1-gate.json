@@ -1,0 +1,49 @@
+{
+  "schema": "rust-migration-phase1-gate/v1",
+  "recorded_at_utc": "2026-09-21T06:03:00Z",
+  "source_commits": [
+    "8bad84e feat(rust): 完成Phase 1平台基础设施",
+    "798e9f0 test(rust): 固化Phase 1授权响应契约"
+  ],
+  "status": "PASS",
+  "scope": "Rust platform infrastructure only; no migrated business domain and no production traffic",
+  "checks": {
+    "cargo_format": "PASS: cargo fmt --all -- --check",
+    "cargo_tests": "PASS: 3 tests",
+    "cargo_build": "PASS: cargo build --locked",
+    "runtime_smoke": "PASS: health/live/ready, OpenAPI, 203/204/206 header auth, request ID, /api=404, SIGTERM clean exit",
+    "invalid_configuration": "PASS: invalid RUST_BACKEND_ADDR exits non-zero",
+    "database_readiness_failure": "PASS: configured unreachable MySQL returns HTTP503 /ready with database-unavailable while process remains alive",
+    "admin_policy": "PASS: middleware contract test returns HTTP200/code207 for is_admin=false and HTTP200/code200 for is_admin=true",
+    "token_digest": "PASS: SHA-256 vector matches Java SessionToken contract",
+    "response_null_semantics": "PASS: missing envelope data serializes as JSON null",
+    "ci": "PASS: independent Rust workflow includes format, test, build and real-binary smoke"
+  },
+  "routes": {
+    "management": ["/health", "/live", "/ready", "/q/openapi"],
+    "contract_probes": ["/api/phase1/contract/auth", "/api/phase1/contract/admin"],
+    "business_routes": "none"
+  },
+  "configuration": {
+    "listen_env": "RUST_BACKEND_ADDR",
+    "default_listen": "127.0.0.1:18002",
+    "database_env": "RUST_BACKEND_DATABASE_URL",
+    "pool_max_env": "RUST_BACKEND_MAX_CONNECTIONS",
+    "timeout_env": "RUST_BACKEND_DB_TIMEOUT_SECS",
+    "body_limit_env": "RUST_BACKEND_BODY_LIMIT_BYTES",
+    "cors_env": "RUST_BACKEND_CORS_ORIGIN",
+    "schema_sync": "not implemented; Rust performs no DDL"
+  },
+  "contract_boundaries": {
+    "rest_credentials": "token and deviceId headers only",
+    "websocket_credentials": "unchanged Java query handshake; not implemented in Phase 1 Rust",
+    "codes": "203/204/206 authentication, 207 authorization, 208 reserved terminal, 500 system error",
+    "system_error_http": 500,
+    "java_port": 18001,
+    "rust_trial_port": 18002,
+    "rust_traffic_enabled": false,
+    "same_domain_dual_write": false,
+    "production_ddl_executed": false
+  },
+  "known_validation_boundary": "Positive authentication against a production-like database row was not run because the local opaque token plaintext is intentionally unavailable; the Java-compatible SHA-256 vector, missing/partial/invalid header responses, SQL lookup implementation, and admin middleware response contract were verified without exposing credentials."
+}
