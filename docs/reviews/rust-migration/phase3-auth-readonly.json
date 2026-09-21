@@ -1,0 +1,43 @@
+{
+  "schema": "rust-migration-phase3-auth-readonly/v1",
+  "verified_at_utc": "2026-09-21T11:48:13Z",
+  "source_commit": "fae4f0b",
+  "status": "PASS_NO_TRAFFIC",
+  "route": "GET /api/user/getUsersByToken",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "traffic": "disabled by default"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase3_auth_*",
+    "user_id": "u1",
+    "token_policy": "plaintext token supplied only to request; database stores SHA-256 digest",
+    "role": "ordinary user is_admin=1",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "valid_headers": {
+      "http_status": 200,
+      "code": 200,
+      "profile_id": "u1",
+      "profile_fields": ["id", "wkno", "phone", "email", "userAccount", "userImg", "userName", "idCard", "userSex", "updateFlag", "status", "bday", "eday", "dday"]
+    },
+    "missing_token": {"http_status": 200, "code": 203},
+    "invalid_token_device": {"http_status": 200, "code": 206}
+  },
+  "dto_safety": {
+    "password_present": false,
+    "token_present": false,
+    "deviceId_present": false,
+    "profile_matches_java_UserProfile_shape": true
+  },
+  "verification": {
+    "cargo_test_workspace": "6 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "valid/203/206 responses observed",
+    "database_writes": false,
+    "production_route_changed": false
+  },
+  "next_boundary": "Role/menu read-only routes and login/password/session writes remain unimplemented; Java remains the only production Auth implementation."
+}
