@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{
     env,
     net::SocketAddr,
@@ -66,6 +67,22 @@ struct AppState {
 struct AuthUser {
     id: String,
     is_admin: bool,
+}
+#[derive(Clone)]
+struct MenuRow {
+    id: String,
+    parent_id: String,
+    key: Option<String>,
+    path: Option<String>,
+    name: Option<String>,
+    icon: Option<String>,
+    icon_f: Option<String>,
+    height: Option<String>,
+    title: Option<String>,
+    is_menu: Option<i32>,
+    is_bread: Option<i32>,
+    component: Option<String>,
+    sort: Option<i32>,
 }
 
 #[derive(Serialize)]
@@ -210,7 +227,12 @@ fn build_router(state: AppState) -> Router {
         let user_routes = Router::new()
             .route("/getUsersByToken", get(user_get_by_token))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/user", user_routes);
+        let menu_routes = Router::new()
+            .route("/getMenusAll", get(menu_get_all))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/user", user_routes)
+            .nest("/api/menus", menu_routes);
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
@@ -429,6 +451,110 @@ async fn user_get_by_token(
         }
     }
 }
+fn menu_tree(
+    parent_id: &str,
+    by_parent: &HashMap<String, Vec<MenuRow>>,
+    permissions: &HashMap<String, Vec<Value>>,
+    include_permissions: bool,
+) -> Vec<Value> {
+    let mut rows = by_parent.get(parent_id).cloned().unwrap_or_default();
+    rows.sort_by_key(|row| row.sort.unwrap_or(0));
+    rows.into_iter()
+        .map(|row| {
+            let children = menu_tree(&row.id, by_parent, permissions, false);
+            let row_permissions = if include_permissions {
+                permissions.get(&row.id).cloned().unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            json!({
+                "id": row.id,
+                "parentId": row.parent_id,
+                "key": row.key,
+                "path": row.path,
+                "name": row.name,
+                "meta": {
+                    "icon": row.icon,
+                    "iconF": row.icon_f,
+                    "height": row.height,
+                    "title": row.title,
+                    "isMenu": row.is_menu == Some(0),
+                    "isBread": row.is_bread == Some(0)
+                },
+                "component": row.component,
+                "sort": row.sort.unwrap_or(0),
+                "permissions": row_permissions,
+                "children": children
+            })
+        })
+        .collect()
+}
+
+async fn menu_get_all(State(state): State<AppState>, _user: Extension<AuthUser>) -> Response {
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let menu_rows = sqlx::query(
+        "SELECT id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort FROM t_menus ORDER BY sort",
+    )
+    .fetch_all(pool)
+    .await;
+    let button_rows = sqlx::query("SELECT id, menus_id, title, `key` FROM t_menus_button")
+        .fetch_all(pool)
+        .await;
+    match (menu_rows, button_rows) {
+        (Ok(menu_rows), Ok(button_rows)) => {
+            let mut by_parent: HashMap<String, Vec<MenuRow>> = HashMap::new();
+            for row in menu_rows {
+                let menu = MenuRow {
+                    id: row.get("id"),
+                    parent_id: row
+                        .get::<Option<String>, _>("parent_id")
+                        .unwrap_or_else(|| "-1".into()),
+                    key: row.get("key"),
+                    path: row.get("path"),
+                    name: row.get("name"),
+                    icon: row.get("icon"),
+                    icon_f: row.get("icon_f"),
+                    height: row.get("height"),
+                    title: row.get("title"),
+                    is_menu: row.get("is_menu"),
+                    is_bread: row.get("is_bread"),
+                    component: row.get("component"),
+                    sort: row.get("sort"),
+                };
+                by_parent
+                    .entry(menu.parent_id.clone())
+                    .or_default()
+                    .push(menu);
+            }
+            let mut permissions: HashMap<String, Vec<Value>> = HashMap::new();
+            for row in button_rows {
+                let menus_id: String = row.get("menus_id");
+                permissions
+                    .entry(menus_id.clone())
+                    .or_default()
+                    .push(json!({
+                        "id": row.get::<String, _>("id"),
+                        "menusId": menus_id,
+                        "title": row.get::<Option<String>, _>("title"),
+                        "key": row.get::<Option<String>, _>("key")
+                    }));
+            }
+            envelope_json(
+                StatusCode::OK,
+                200,
+                Some(json!(menu_tree("-1", &by_parent, &permissions, true))),
+                "ok",
+                "",
+            )
+        }
+        (Err(error), _) | (_, Err(error)) => {
+            warn!(error = %error, "menu tree query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
 
 fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
     let current_index = year * 12 + i32::from(month) - 1;
@@ -475,7 +601,8 @@ async fn openapi() -> Json<Value> {
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
-            "/api/user/getUsersByToken": {"get": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
+            "/api/user/getUsersByToken": {"get": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
     }))
 }
