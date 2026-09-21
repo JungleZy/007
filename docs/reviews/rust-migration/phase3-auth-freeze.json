@@ -1,0 +1,89 @@
+{
+  "schema": "rust-migration-phase3-auth-freeze/v1",
+  "reviewed_at_utc": "2026-09-21T11:24:17Z",
+  "status": "FROZEN_NO_RUST_TRAFFIC",
+  "java_source": "backend/src/main/java/com/nip/controller + docs/reviews/rust-migration/rest-endpoints.tsv",
+  "rest_contract": {
+    "anonymous": [
+      "POST /api/user/login",
+      "POST /api/user/signin"
+    ],
+    "authenticated_self_or_read": [
+      "POST /api/user/userOut",
+      "POST /api/user/changePassword",
+      "POST /api/user/getUsersByToken",
+      "POST /api/user/verifyPassword",
+      "POST /api/user/getUserDirectory",
+      "POST /api/user/getUsersByIds",
+      "POST /api/user/findAllTeacher",
+      "POST /api/user/findAllStu",
+      "POST /api/role/getRoleAll",
+      "GET /api/role/getRoleById",
+      "GET /api/role/getRoleMenusInfo",
+      "GET /api/menus/getMenusAll",
+      "GET /api/menus/getMenuById"
+    ],
+    "admin_required": [
+      "POST /api/user/saveUser",
+      "POST /api/user/importUser",
+      "POST /api/user/addUserRole",
+      "POST /api/user/getAllUser",
+      "POST /api/user/getUserInfoAllByStatusDesc",
+      "POST /api/user/getUserById",
+      "POST /api/user/getUserAndRoleById",
+      "GET /api/user/delete",
+      "GET /api/user/resetPassword",
+      "POST /api/role/addRole",
+      "POST /api/menus/addMenu"
+    ]
+  },
+  "response_dtos": {
+    "login": "LoginSessionDto: UserProfile + role + menus + explicit token/deviceId only here",
+    "profile": "UserProfile: no password/token/deviceId",
+    "directory": "UserSummary: id/userName/userAccount/userImg only",
+    "admin_user_info": "UserInfoDto: UserProfile + role + menus; must not expose credentials",
+    "role_reads": "RoleInfoDto/RoleMenusDto; do not return raw user credentials",
+    "menu_reads": "MenusDto/MenusButtonDto",
+    "existing_error_codes": [202, 203, 204, 206, 207, 208, 500]
+  },
+  "frontend_session_chain": {
+    "request_headers": "src/common/http/index.js reads localStorage token/deviceId and adds both headers",
+    "login_exports": "src/common/api/UserApi.js userLogin/addSignin/userSignIn",
+    "logout_export": "src/common/api/UserApi.js userLoginOut",
+    "logout_flow": "src/common/session/logout.js calls userLoginOut, then closes WS/serial/public sockets and clears token/deviceId/userInfo/userRole/userRouter",
+    "auth_failure_handling": "src/common/http/index.js maps 203/204/206 to login/session prompts; it must remain unchanged during Rust migration",
+    "route_guard": "src/config/router/guards.js clears session keys and routes anonymous users to /login"
+  },
+  "security_invariants": [
+    "REST token/deviceId are header-only; no query fallback",
+    "WS query credentials remain a separate unchanged protocol",
+    "token is opaque and database stores SHA-256 digest",
+    "is_admin=0 is administrator; policy checks existence of an admin role",
+    "client userId is never an authentication source",
+    "password/token/deviceId never appear in non-login response DTOs",
+    "logout invalidates the token and preserves local cleanup even if network logout fails"
+  ],
+  "rust_auth_context_design": {
+    "fields": ["authenticated_user_id", "device_id_validated", "is_admin", "request_id"],
+    "sources": "validated token/deviceId headers plus database role existence query",
+    "no_client_identity_override": true,
+    "no_password_migration_in_freeze": true,
+    "traffic": "none; Java remains sole production implementation",
+    "rollback": "route complete auth domain back to Java :18001 before any Rust writes"
+  },
+  "failure_matrix": [
+    {"case": "missing token", "http": 200, "code": 203},
+    {"case": "missing deviceId", "http": 200, "code": 204},
+    {"case": "invalid token/deviceId", "http": 200, "code": 206},
+    {"case": "ordinary user invokes admin endpoint", "http": 200, "code": 207},
+    {"case": "fixable request parameter error", "http": 200, "code": 202},
+    {"case": "terminal business state", "http": 200, "code": 208},
+    {"case": "unhandled system failure", "http": 500, "code": 500}
+  ],
+  "not_yet_implemented": [
+    "Rust login/signin/password/session/user/role/menu business routes",
+    "Rust password hash migration and legacy compatibility",
+    "Rust gateway route or canary configuration",
+    "production user fixture or traffic cutover"
+  ]
+}
