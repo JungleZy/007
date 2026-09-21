@@ -30,7 +30,7 @@ use uuid::Uuid;
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
-
+const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
 const DEFAULT_BODY_LIMIT: usize = 11 * 1024 * 1024;
 
@@ -53,6 +53,7 @@ struct AppConfig {
     body_limit: usize,
     cors_origin: String,
     tools_readonly_enabled: bool,
+    auth_readonly_enabled: bool,
 }
 
 #[derive(Clone)]
@@ -111,9 +112,9 @@ async fn run() -> Result<(), AppError> {
     let app = build_router(state.clone());
 
     info!(
-        listen_addr = %config.listen_addr,
         database_configured = config.database_url.is_some(),
         tools_readonly_enabled = config.tools_readonly_enabled,
+        auth_readonly_enabled = config.auth_readonly_enabled,
         max_connections = config.max_connections,
         body_limit = config.body_limit,
         "rust backend listening"
@@ -157,6 +158,7 @@ impl AppConfig {
             })?;
         }
         let tools_readonly_enabled = parse_bool(TOOLS_READONLY_ENV, false)?;
+        let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
         Ok(Self {
             listen_addr,
             database_url,
@@ -165,6 +167,7 @@ impl AppConfig {
             body_limit,
             cors_origin,
             tools_readonly_enabled,
+            auth_readonly_enabled,
         })
     }
 }
@@ -202,6 +205,12 @@ fn build_router(state: AppState) -> Router {
         api = api
             .route("/api/tools/getNowTime", get(tools_get_now_time))
             .route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
+    }
+    if state.config.auth_readonly_enabled {
+        let user_routes = Router::new()
+            .route("/getUsersByToken", get(user_get_by_token))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/user", user_routes);
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
@@ -380,6 +389,47 @@ async fn admin_probe(Extension(user): Extension<AuthUser>) -> Response {
     )
 }
 
+async fn user_get_by_token(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let row = sqlx::query(
+        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday FROM t_user WHERE id = ? LIMIT 1",
+    )
+    .bind(&user.id)
+    .fetch_optional(pool)
+    .await;
+    match row {
+        Ok(Some(row)) => {
+            let data = json!({
+                "id": row.get::<String, _>("id"),
+                "wkno": row.get::<Option<String>, _>("wkno"),
+                "phone": row.get::<Option<String>, _>("phone"),
+                "email": row.get::<Option<String>, _>("email"),
+                "userAccount": row.get::<Option<String>, _>("user_account"),
+                "userImg": row.get::<Option<String>, _>("user_img"),
+                "userName": row.get::<Option<String>, _>("user_name"),
+                "idCard": row.get::<Option<String>, _>("id_card"),
+                "userSex": row.get::<Option<i32>, _>("user_sex"),
+                "updateFlag": row.get::<Option<String>, _>("update_flag"),
+                "status": row.get::<Option<i32>, _>("status"),
+                "bday": row.get::<Option<String>, _>("bday"),
+                "eday": row.get::<Option<String>, _>("eday"),
+                "dday": row.get::<Option<String>, _>("dday")
+            });
+            envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
+        }
+        Ok(None) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+        Err(error) => {
+            warn!(error = %error, "user profile query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
 fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
     let current_index = year * 12 + i32::from(month) - 1;
     (0..12)
@@ -424,7 +474,8 @@ async fn openapi() -> Json<Value> {
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
-            "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}}
+            "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
+            "/api/user/getUsersByToken": {"get": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
     }))
 }
