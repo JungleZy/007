@@ -249,6 +249,7 @@ class WebSocketGeneralSessionLifecycleTest {
     WebSocketSessionProbe student = WebSocketSessionProbe.bound("key-role-student", "student");
     WebSocketSessionProbe teacher = WebSocketSessionProbe.bound("key-role-teacher", "teacher");
     GeneralPatTrainUserModelDto member = generalUser("student", student.session());
+    member.setRole(null);
     GeneralPatTrainUserModelDto group = generalUser("teacher", teacher.session());
     group.setRole(1);
     GeneralPatTrainRoomUserDto room = generalRoom(member);

@@ -211,7 +211,8 @@ public class WebSocketGeneralTickerPatService {
       sendErrMessage(session, "未知主题", "", "");
       return;
     }
-    if (!Objects.equals(sender.getRole(), control ? 1 : 0)) {
+    boolean controlSender = Objects.equals(sender.getRole(), 1);
+    if (control != controlSender) {
       sendErrMessage(session, "无权限操作", "", "");
       return;
     }
