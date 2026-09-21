@@ -38,6 +38,7 @@ done
 # PROJECT_ROOT = backend/：库快照、迁移脚本、演练证据（database/）与构建产物（target/）都在其下
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd -- "$PROJECT_ROOT/.." && pwd)"
 
 IMAGE="mysql:8.0"
 ROOT_PASSWORD="rehearsal-$(date +%s)-$$"
@@ -77,6 +78,7 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-11-04-personal-handkey-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-01-general-telex-capture.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-02-post-telex-due-index.sql"
+  "$PROJECT_ROOT/database/migrations/2026-09-12-03-menu-telex-component-path.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-04-comprehensive-key-authority.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-05-radio-study-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-12-06-entering-accuracy-capacity.sql"
@@ -86,7 +88,51 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-15-01-entering-exercise-clock.sql"
 )
 STATISTICS_MIGRATION="$PROJECT_ROOT/database/migrations/2026-09-15-02-electronic-statistics-time.sql"
-for f in "$ENTITY_SCHEMA" "${MIGRATIONS[@]}" "$STATISTICS_MIGRATION"; do
+
+# Keep the explicit, reviewable execution order above, but fail closed if it ever
+# drifts from the migration directory. No SQL file may be silently omitted.
+mapfile -t DISCOVERED_MIGRATIONS < <(printf '%s\n' "$PROJECT_ROOT"/database/migrations/*.sql | LC_ALL=C sort)
+ALL_MIGRATIONS=("${MIGRATIONS[@]}" "$STATISTICS_MIGRATION")
+declare -A DECLARED_MIGRATIONS=()
+for f in "${ALL_MIGRATIONS[@]}"; do
+  [[ -f "$f" ]] || { echo "Missing required migration: $f" >&2; exit 3; }
+  [[ -z "${DECLARED_MIGRATIONS[$f]+x}" ]] || { echo "Duplicate migration declaration: $f" >&2; exit 3; }
+  DECLARED_MIGRATIONS["$f"]=1
+done
+if [[ "${#DISCOVERED_MIGRATIONS[@]}" -ne "${#ALL_MIGRATIONS[@]}" ]]; then
+  echo "MIGRATIONS coverage mismatch: directory has ${#DISCOVERED_MIGRATIONS[@]}, declared ${#ALL_MIGRATIONS[@]}" >&2
+  for f in "${DISCOVERED_MIGRATIONS[@]}"; do [[ -n "${DECLARED_MIGRATIONS[$f]+x}" ]] || echo "  unlisted: $f" >&2; done
+  for f in "${ALL_MIGRATIONS[@]}"; do [[ -f "$f" ]] || echo "  missing: $f" >&2; done
+  exit 3
+fi
+for f in "${DISCOVERED_MIGRATIONS[@]}"; do
+  [[ -n "${DECLARED_MIGRATIONS[$f]+x}" ]] || { echo "Unlisted migration: $f" >&2; exit 3; }
+done
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1
+  else echo "sha256sum or shasum is required for provenance" >&2; exit 3
+  fi
+}
+BASELINE_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+COLLECTOR_COMMAND="bash $SCRIPT_DIR/$(basename -- "$0")"
+COLLECTOR_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+{
+  printf 'kind\tname\tvalue\tpath\tsha256\n'
+  printf 'run\tcommit\t%s\t\t\n' "$BASELINE_COMMIT"
+  printf 'run\tcommand\t%s\t\t\n' "$COLLECTOR_COMMAND"
+  printf 'run\tutc\t%s\t\t\n' "$COLLECTOR_UTC"
+  printf 'snapshot\tcurrent\t\t%s\t%s\n' "$PROJECT_ROOT/database/project006.sql" "$(sha256_file "$PROJECT_ROOT/database/project006.sql")"
+  printf 'snapshot\tbase\t\t%s\t%s\n' "$PROJECT_ROOT/database/project006-base.sql" "$(sha256_file "$PROJECT_ROOT/database/project006-base.sql")"
+  local_order=0
+  for f in "${ALL_MIGRATIONS[@]}"; do
+    local_order=$((local_order + 1))
+    printf 'migration\t%03d\t%s\t%s\t%s\n' "$local_order" "$(basename -- "$f")" "$f" "$(sha256_file "$f")"
+  done
+} > "$OUTDIR/rehearsal-provenance.tsv"
+
+for f in "$ENTITY_SCHEMA" "${ALL_MIGRATIONS[@]}"; do
   [[ -f "$f" ]] || { echo "Missing required file: $f" >&2;
     [[ "$f" == "$ENTITY_SCHEMA" ]] && echo "  Run: ./mvnw -B -Dtest=EntitySchemaSnapshotRehearsal test  (产物 target/migration-rehearsal/entity-schema.tsv 会被本脚本自动复制到 $OUTDIR/)" >&2
     exit 3; }
@@ -113,6 +159,26 @@ trap cleanup EXIT INT TERM
 
 mysql_exec() { docker exec -i -e MYSQL_PWD="$ROOT_PASSWORD" "$1" mysql -uroot --default-character-set=utf8mb4 "${@:2}"; }
 mysql_scalar() { docker exec -e MYSQL_PWD="$ROOT_PASSWORD" "$1" mysql -uroot -N -B project006 -e "$2"; }
+
+# Export every table (not only entity tables) as normalized metadata rows. The
+# state prefix makes pre-current/pre-base distinct from post-current/post-base;
+# these files are collected before the temporary container is destroyed.
+export_metadata() {
+  local cname="$1" state="$2" out="$3"
+  printf 'state\trecord_type\ttable_name\tobject_name\tordinal_position\tcolumn_name\tdata_type\tcolumn_type\tis_nullable\tcolumn_default\textra\tcollation_name\tengine\tindex_non_unique\tindex_type\treferenced_table\treferenced_column\n' > "$out"
+  mysql_scalar "$cname" \
+    "select table_name, coalesce(engine,'<NULL>') from information_schema.tables where table_schema=database() and table_type='BASE TABLE' order by table_name" \
+    | awk -F'\t' -v OFS='\t' -v s="$state" '{print s,"TABLE",$1,"","","","","","","","","",$2,"","","",""}' >> "$out"
+  mysql_scalar "$cname" \
+    "select table_name, column_name, ordinal_position, data_type, column_type, is_nullable, replace(replace(replace(coalesce(column_default,'<NULL>'),char(9),'\\\\t'),char(10),'\\\\n'),char(13),'\\\\r'), coalesce(extra,'<NULL>'), coalesce(collation_name,'<NULL>') from information_schema.columns where table_schema=database() order by table_name, ordinal_position" \
+    | awk -F'\t' -v OFS='\t' -v s="$state" '{print s,"COLUMN",$1,"",$3,$2,$4,$5,$6,$7,$8,$9,"","","","",""}' >> "$out"
+  mysql_scalar "$cname" \
+    "select table_name, index_name, seq_in_index, column_name, non_unique, index_type from information_schema.statistics where table_schema=database() order by table_name, index_name, seq_in_index" \
+    | awk -F'\t' -v OFS='\t' -v s="$state" '{kind=($2=="PRIMARY" ? "PRIMARY_KEY" : "INDEX"); print s,kind,$1,$2,$3,$4,"","","","","","","",$5,$6,"",""}' >> "$out"
+  mysql_scalar "$cname" \
+    "select table_name, constraint_name, ordinal_position, column_name, referenced_table_name, referenced_column_name from information_schema.key_column_usage where table_schema=database() and referenced_table_name is not null order by table_name, constraint_name, ordinal_position" \
+    | awk -F'\t' -v OFS='\t' -v s="$state" '{print s,"FOREIGN_KEY",$1,$2,$3,$4,"","","","","","","","","",$5,$6}' >> "$out"
+}
 
 # 规范化投影：schema TSV(6 列,带表头) → 排序去重的 (table, lower(column), norm_type)。
 # 字符串族(char/varchar/*text/enum/set)归一为 string,以匹配 Hibernate validate 的类型族容忍。
@@ -168,6 +234,7 @@ rehearse() {
 
   # 导入快照（仅 docker exec -i）
   mysql_exec "$cname" project006 < "$snapshot"
+  export_metadata "$cname" "pre-$label" "$OUTDIR/${label}-pre-metadata.tsv"
 
   # base 快照：迁移前 id 类型断言（integer）
   if [[ "$label" == "base" ]]; then
@@ -349,6 +416,7 @@ SQL
   else
     pass "[$label] entity-table schema diff empty (entity columns ⊆ snapshot, validate-equivalent)"
   fi
+  export_metadata "$cname" "post-$label" "$OUTDIR/${label}-post-metadata.tsv"
 }
 
 : > "$OUTDIR/timings.tsv"

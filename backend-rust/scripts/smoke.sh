@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: smoke.sh PATH_TO_RUST_BACKEND_BINARY [HOST:PORT]
+
+Starts the real rust-backend binary, verifies /health, /live, /ready, and
+that /api is absent, then sends SIGTERM and requires a clean exit.
+The default address is 127.0.0.1:18002. RUST_BACKEND_ADDR is set by this
+script and is overridden by the optional HOST:PORT argument.
+EOF
+}
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  usage
+  exit 64
+fi
+
+binary=$1
+address=${2:-127.0.0.1:18002}
+if [[ ! -x "$binary" ]]; then
+  echo "binary is missing or not executable: $binary" >&2
+  exit 66
+fi
+
+host=${address%:*}
+port=${address##*:}
+if [[ "$host" == "$address" || -z "$host" || -z "$port" ]]; then
+  echo "address must be HOST:PORT: $address" >&2
+  exit 64
+fi
+
+log_file=$(mktemp "${TMPDIR:-/tmp}/rust-backend-smoke.XXXXXX.log")
+pid=''
+cleanup() {
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  fi
+  rm -f "$log_file"
+}
+trap cleanup EXIT
+
+RUST_BACKEND_ADDR="$address" "$binary" >"$log_file" 2>&1 &
+pid=$!
+
+for _ in $(seq 1 100); do
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "rust-backend exited before becoming ready" >&2
+    cat "$log_file" >&2
+    exit 1
+  fi
+  if curl --silent --show-error --connect-timeout 1 "http://$host:$port/health" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+
+if ! kill -0 "$pid" 2>/dev/null; then
+  echo "rust-backend exited before health check completed" >&2
+  cat "$log_file" >&2
+  exit 1
+fi
+
+request_body() {
+  local path=$1
+  curl --silent --show-error --fail-with-body "http://$host:$port$path"
+}
+
+health_body=$(request_body /health)
+live_body=$(request_body /live)
+ready_body=$(request_body /ready)
+
+case "$health_body" in
+  *'"status":"ok"'*) ;;
+  *) echo "unexpected /health response: $health_body" >&2; exit 1 ;;
+esac
+case "$live_body" in
+  *'"status":"ok"'*) ;;
+  *) echo "unexpected /live response: $live_body" >&2; exit 1 ;;
+esac
+case "$ready_body" in
+  *'"status":"ready"'*'"readiness":"process-only"'*'"dependencies":false'*) ;;
+  *) echo "unexpected /ready response: $ready_body" >&2; exit 1 ;;
+esac
+
+api_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "http://$host:$port/api")
+if [[ "$api_status" != 404 ]]; then
+  echo "expected /api to be absent (404), got HTTP $api_status" >&2
+  exit 1
+fi
+
+kill -TERM "$pid"
+
+# wait(1) gives the real child exit status; the watchdog prevents a hung
+# server from blocking the CI job forever while preserving a clean-exit check.
+(
+  sleep 10
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+) &
+watchdog_pid=$!
+set +e
+wait "$pid"
+exit_code=$?
+set -e
+kill "$watchdog_pid" 2>/dev/null || true
+wait "$watchdog_pid" 2>/dev/null || true
+
+if [[ "$exit_code" -ne 0 ]]; then
+  echo "rust-backend exited with status $exit_code after SIGTERM" >&2
+  cat "$log_file" >&2
+  exit 1
+fi
+
+echo "rust-backend smoke OK: /health /live /ready served, /api returned 404, SIGTERM exited cleanly"
