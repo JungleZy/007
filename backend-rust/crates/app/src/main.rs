@@ -14,7 +14,7 @@ use axum::{
     http::{HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use serde::Serialize;
@@ -230,9 +230,13 @@ fn build_router(state: AppState) -> Router {
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let role_routes = Router::new()
+            .route("/getRoleAll", post(role_get_all))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/user", user_routes)
-            .nest("/api/menus", menu_routes);
+            .nest("/api/menus", menu_routes)
+            .nest("/api/role", role_routes);
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
@@ -556,6 +560,71 @@ async fn menu_get_all(State(state): State<AppState>, _user: Extension<AuthUser>)
     }
 }
 
+async fn role_get_all(State(state): State<AppState>, _user: Extension<AuthUser>) -> Response {
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let roles =
+        match sqlx::query("SELECT id, title, remark, is_admin, is_default FROM t_role ORDER BY id")
+            .fetch_all(pool)
+            .await
+        {
+            Ok(rows) => rows,
+            Err(error) => {
+                warn!(error = %error, "role query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+    let mut result = Vec::with_capacity(roles.len());
+    for role in roles {
+        let role_id: String = role.get("id");
+        let menus = match sqlx::query(
+            "SELECT m.id, m.parent_id, m.`key`, m.path, m.name, m.icon, m.icon_f, m.height, m.title, m.is_menu, m.is_bread, m.component, m.sort, rm.per FROM t_menus m JOIN t_role_menus rm ON rm.menu_id = m.id WHERE rm.role_id = ? ORDER BY m.sort",
+        )
+        .bind(&role_id)
+        .fetch_all(pool)
+        .await
+        {
+            Ok(rows) => rows
+                .into_iter()
+                .map(|menu| {
+                    json!({
+                        "id": menu.get::<String, _>("id"),
+                        "parentId": menu.get::<Option<String>, _>("parent_id"),
+                        "key": menu.get::<Option<String>, _>("key"),
+                        "path": menu.get::<Option<String>, _>("path"),
+                        "name": menu.get::<Option<String>, _>("name"),
+                        "icon": menu.get::<Option<String>, _>("icon"),
+                        "iconF": menu.get::<Option<String>, _>("icon_f"),
+                        "height": menu.get::<Option<String>, _>("height"),
+                        "title": menu.get::<Option<String>, _>("title"),
+                        "isMenu": menu.get::<Option<i32>, _>("is_menu"),
+                        "isBread": menu.get::<Option<i32>, _>("is_bread"),
+                        "component": menu.get::<Option<String>, _>("component"),
+                        "sort": menu.get::<Option<i32>, _>("sort"),
+                        "per": menu.get::<Option<String>, _>("per")
+                    })
+                })
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                warn!(error = %error, role_id = %role_id, "role menu query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+        result.push(json!({
+            "role": {
+                "id": role_id,
+                "title": role.get::<Option<String>, _>("title"),
+                "remark": role.get::<Option<String>, _>("remark"),
+                "isAdmin": role.get::<Option<i32>, _>("is_admin"),
+                "isDefault": role.get::<Option<i32>, _>("is_default")
+            },
+            "menus": menus
+        }));
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!(result)), "ok", "")
+}
+
 fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
     let current_index = year * 12 + i32::from(month) - 1;
     (0..12)
@@ -602,7 +671,8 @@ async fn openapi() -> Json<Value> {
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/user/getUsersByToken": {"get": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
-            "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
+            "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
     }))
 }
