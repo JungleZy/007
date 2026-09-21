@@ -1410,7 +1410,10 @@ dependencies = [
 name = "rust-persistence"
 version = "0.1.0"
 dependencies = [
+ "rust_decimal",
  "sea-orm",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2370,6 +2373,7 @@ dependencies = [
  "cfg-if",
  "once_cell",
  "rustversion",
+ "serde",
  "wasm-bindgen-macro",
  "wasm-bindgen-shared",
 ]

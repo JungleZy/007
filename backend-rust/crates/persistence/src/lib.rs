@@ -1,6 +1,6 @@
 pub mod entity;
 pub mod pagination;
-use std::future::Future;
+use std::{future::Future, pin::Pin};
 
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, TransactionTrait};
 
@@ -38,10 +38,11 @@ impl RepositoryContext {
         self.database.begin().await
     }
 
-    pub async fn transaction<T, F, Fut>(&self, operation: F) -> Result<T, DbErr>
+    pub async fn transaction<T, F>(&self, operation: F) -> Result<T, DbErr>
     where
-        F: FnOnce(&DatabaseTransaction) -> Fut,
-        Fut: Future<Output = Result<T, DbErr>>,
+        F: for<'a> FnOnce(
+            &'a DatabaseTransaction,
+        ) -> Pin<Box<dyn Future<Output = Result<T, DbErr>> + 'a>>,
     {
         let transaction = self.begin().await?;
         match operation(&transaction).await {
