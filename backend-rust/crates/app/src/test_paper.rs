@@ -1,9 +1,15 @@
-use axum::{extract::State, http::StatusCode, response::Response, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    response::Response,
+    Json,
+};
 use serde_json::{json, Value};
 use sqlx::Row;
 use std::collections::HashMap;
+use uuid::Uuid;
 
-use super::{envelope_json, envelope_response, AppState};
+use super::{envelope_json, envelope_response, AppState, AuthUser};
 
 fn question_json(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({"id":row.get::<String,_>("id"),"testpaperId":row.get::<Option<String>,_>("test_paper_id"),"parentId":row.get::<Option<String>,_>("parent_id"),"score":row.get::<Option<i32>,_>("score"),"sort":row.get::<Option<i32>,_>("sort"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis")})
@@ -73,4 +79,92 @@ pub(crate) async fn by_level_name(
         }
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
+}
+
+pub(crate) async fn save(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    if body.get("id").and_then(Value::as_str).is_some() {
+        if sqlx::query("DELETE FROM t_theory_knowledge_test_paper_question WHERE test_paper_id=?")
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+            .is_err()
+        {
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    }
+    if sqlx::query("INSERT INTO t_theory_knowledge_test_paper (id,name,level_id,total,pass_the_exam_than,pass_mark,create_user_id) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),level_id=VALUES(level_id),total=VALUES(total),pass_the_exam_than=VALUES(pass_the_exam_than),pass_mark=VALUES(pass_mark),create_user_id=VALUES(create_user_id)").bind(&id).bind(body.get("name").and_then(Value::as_str)).bind(body.get("levelId").and_then(Value::as_str)).bind(body.get("total").and_then(Value::as_i64)).bind(body.get("passTheExamThan").and_then(Value::as_str)).bind(body.get("passMark").and_then(Value::as_i64)).bind(&user.id).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    for (kind, key) in [
+        (1, "singleChoice"),
+        (2, "multipleChoice"),
+        (3, "judge"),
+        (4, "completion"),
+        (5, "shortAnswer"),
+    ] {
+        if let Some(items) = body.get(key).and_then(Value::as_array) {
+            for (sort, item) in items.iter().enumerate() {
+                if sqlx::query("INSERT INTO t_theory_knowledge_test_paper_question (id,test_paper_id,parent_id,score,sort,type,topic,options,answer,analysis) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(Uuid::new_v4().to_string()).bind(&id).bind(item.get("parentId").and_then(Value::as_str)).bind(item.get("score").and_then(Value::as_i64)).bind(sort as i32).bind(kind).bind(item.get("topic").and_then(Value::as_str)).bind(item.get("options").and_then(Value::as_str)).bind(item.get("answer").and_then(Value::as_str)).bind(item.get("analysis").and_then(Value::as_str)).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+            }
+        }
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
+
+pub(crate) async fn delete(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    let Some(id) = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("DELETE FROM t_theory_knowledge_test_paper_question WHERE test_paper_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+        || sqlx::query("DELETE FROM t_theory_knowledge_test_paper WHERE id=?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
 }

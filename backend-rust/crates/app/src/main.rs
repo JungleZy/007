@@ -446,7 +446,15 @@ fn build_router(state: AppState) -> Router {
                 post(test_paper::by_level_name),
             )
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/theoryKnowledgeTestPaper", paper_routes);
+        let admin_paper_routes = Router::new()
+            .route("/saveTestPaper", post(test_paper::save))
+            .route("/deleteTestPaper", post(test_paper::delete))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest(
+            "/api/theoryKnowledgeTestPaper",
+            paper_routes.merge(admin_paper_routes),
+        );
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1513,6 +1521,8 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTestPaper/findAllTestPaper": {"post": {"responses": {"200": {"description": "Test paper list; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeTestPaper/findTestPaperById": {"post": {"responses": {"200": {"description": "Test paper detail; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName": {"post": {"responses": {"200": {"description": "Filtered test paper list; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTestPaper/saveTestPaper": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/theoryKnowledgeTestPaper/deleteTestPaper": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
