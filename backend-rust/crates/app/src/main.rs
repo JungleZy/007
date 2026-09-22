@@ -36,6 +36,7 @@ mod equipment_train;
 mod grading;
 mod password;
 mod theory;
+mod theory_detail;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
@@ -388,6 +389,8 @@ fn build_router(state: AppState) -> Router {
         let theory_routes = Router::new()
             .route("/listPageClassify", post(theory::list_classify))
             .route("/getBasicTheory", post(theory::list_basic))
+            .route("/getById", post(theory_detail::by_id))
+            .route("/getByIdAndToken", post(theory_detail::by_id_and_token))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/theoryKnowledge", theory_routes);
     }
@@ -1446,6 +1449,8 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentTrain/add": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner-scoped write"}}}},
             "/api/theoryKnowledge/listPageClassify": {"post": {"responses": {"200": {"description": "Theory classification envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledge/getBasicTheory": {"post": {"responses": {"200": {"description": "Theory knowledge list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledge/getById": {"post": {"responses": {"200": {"description": "Theory knowledge detail envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledge/getByIdAndToken": {"post": {"responses": {"200": {"description": "Theory knowledge detail with user progress; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
