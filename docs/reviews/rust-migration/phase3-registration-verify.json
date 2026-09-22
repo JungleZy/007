@@ -1,0 +1,63 @@
+{
+  "schema": "rust-migration-phase3-registration-verify/v1",
+  "verified_at_utc": "2026-09-22T04:31:53Z",
+  "source_commit": "b384e72",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "routes": ["POST /api/user/signin", "POST /api/user/verifyPassword"],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "registration": {
+      "accepted_fields": ["userAccount", "userName", "idCard", "userSex", "password", "userImg", "eday"],
+      "client_id": "non-empty supplied id rejected with code 202",
+      "account_policy": "4-32 ASCII alphanumeric or Han characters",
+      "id_card_policy": "15 or 18 characters; birthday projected from Java-compatible positions",
+      "status": 0,
+      "default_avatar": "/userImages/pag-avatar-man.png",
+      "password_storage": "PBKDF2-HMAC-SHA256",
+      "session_fields": "token and deviceId remain NULL until login",
+      "default_role": "first role with is_default=0",
+      "response": "UserSummary projection only"
+    },
+    "verify_password": {
+      "identity_source": "authenticated token owner",
+      "body": "plain text password",
+      "success": "HTTP 200 envelope code 200 with boolean data",
+      "missing_token": "HTTP 200 envelope code 203"
+    }
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase3_reg_*",
+    "default_role": "r-default with is_default=0",
+    "existing_user": "existing account used for duplicate check",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "valid_registration": {"http_status": 200, "code": 200, "summary_fields": ["id", "userName", "userAccount", "userImg"]},
+    "duplicate_account": {"http_status": 200, "code": 500, "message": "用户名已被注册"},
+    "invalid_account": {"http_status": 200, "code": 500, "message_prefix": "账户格式不正确"},
+    "spoofed_id": {"http_status": 200, "code": 202},
+    "verify_correct": {"http_status": 200, "code": 200, "data": true},
+    "verify_wrong": {"http_status": 200, "code": 200, "data": false},
+    "verify_missing_token": {"http_status": 200, "code": 203}
+  },
+  "database_observations": {
+    "registered_password_prefix": "pbkdf2_sha256",
+    "registered_status": 0,
+    "birthday": "1990-01-02",
+    "default_avatar_written": true,
+    "default_role_assigned": true,
+    "client_token_ignored": true,
+    "client_device_id_ignored": true,
+    "token_not_usable_before_login": true
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "registration, duplicate/account/id validation, login, authenticated true/false password verification observed"
+  },
+  "next_boundary": "user-management admin writes and production traffic remain unimplemented; Java remains the production Auth implementation."
+}
