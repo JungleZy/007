@@ -358,7 +358,17 @@ fn build_router(state: AppState) -> Router {
             .route("/listPage", post(equipment::list_devices))
             .route("/listKeyPoints", post(equipment::list_key_points))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/equipmentDevice", equipment_routes);
+        let admin_equipment_routes = Router::new()
+            .route("/add", post(equipment::add))
+            .route("/update", post(equipment::update))
+            .route("/delete", post(equipment::delete))
+            .route("/addKeyPoints", post(equipment::add_key_points))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest(
+            "/api/equipmentDevice",
+            equipment_routes.merge(admin_equipment_routes),
+        );
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1406,6 +1416,10 @@ async fn openapi() -> Json<Value> {
             "/api/device/addDeviceDescription": {"post": {"responses": {"200": {"description": "Device description envelope; admin only"}}}},
             "/api/equipmentDevice/listPage": {"post": {"responses": {"200": {"description": "Equipment device list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
             "/api/equipmentDevice/listKeyPoints": {"post": {"responses": {"200": {"description": "Equipment key-points list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
+            "/api/equipmentDevice/add": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/equipmentDevice/update": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/equipmentDevice/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/equipmentDevice/addKeyPoints": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
