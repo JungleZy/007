@@ -1,0 +1,56 @@
+{
+  "schema": "rust-migration-phase4-auth-cutover-audit/v1",
+  "verified_at_utc": "2026-09-22T05:20:00Z",
+  "source_commits": ["65f244f", "56b0de1", "b384e72", "28a1162", "f2e21d2"],
+  "status": "GATE_NOT_READY_FOR_PRODUCTION_CUTOVER",
+  "default_flag": {"name": "RUST_PHASE3_AUTH_ENABLED", "value": false},
+  "routes_audited": 15,
+  "default_disabled_probe": {
+    "http_status": 404,
+    "body_bytes": 0,
+    "all_routes_absent": true,
+    "routes": [
+      "POST /api/user/login",
+      "POST /api/user/signin",
+      "POST /api/user/getUsersByToken",
+      "POST /api/user/userOut",
+      "POST /api/user/changePassword",
+      "POST /api/user/verifyPassword",
+      "POST /api/user/saveUser",
+      "POST /api/user/importUser",
+      "POST /api/user/addUserRole",
+      "GET /api/user/delete",
+      "GET /api/user/resetPassword",
+      "GET /api/menus/getMenusAll",
+      "POST /api/menus/addMenu",
+      "POST /api/role/getRoleAll",
+      "POST /api/role/addRole"
+    ]
+  },
+  "frontend_contract_checks": {
+    "login": "POST /api/user/login",
+    "registration": "POST /api/user/signin",
+    "logout": "POST /api/user/userOut",
+    "profile": "POST /api/user/getUsersByToken",
+    "password": "POST /api/user/changePassword",
+    "structure": ["POST /api/user/saveUser", "POST /api/user/addUserRole", "GET /api/user/resetPassword", "GET /api/user/delete"],
+    "role_menu": ["POST /api/role/addRole", "POST /api/menus/addMenu", "POST /api/role/getRoleAll", "GET /api/menus/getMenusAll"]
+  },
+  "cutover_blockers": [
+    "Rust implementation remains feature-flagged and has no production shadow traffic",
+    "Remaining non-Auth business domains are still Java-only",
+    "No full frontend production run has been performed against Rust Auth",
+    "No concurrent production-session compatibility window has been approved"
+  ],
+  "required_before_cutover": [
+    "run complete frontend smoke flow against isolated Rust Auth",
+    "compare Java/Rust envelopes for all listed routes",
+    "define session/token ownership during Java-to-Rust transition",
+    "enable only in isolated staging before any production flag change"
+  ],
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "default_disabled_http_matrix": "15 routes all returned HTTP 404 with empty bodies"
+  }
+}
