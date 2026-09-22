@@ -69,3 +69,30 @@ pub(crate) async fn detail(
         "",
     )
 }
+
+pub(crate) async fn self_test(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let exam_id = uuid::Uuid::new_v4().to_string();
+    let snap_id = uuid::Uuid::new_v4().to_string();
+    let now = crate::now_time_millis().to_string();
+    let paper = body.get("testPaper").cloned().unwrap_or_else(|| json!({}));
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,state) VALUES (?,?,?,?,?,?,2)").bind(&exam_id).bind(body.get("title").and_then(Value::as_str)).bind(&now).bind(body.get("duration").and_then(Value::as_str)).bind(&user.id).bind(&now).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,name,test_paper_id,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(&snap_id).bind(paper.get("name").and_then(Value::as_str)).bind(paper.get("id").and_then(Value::as_str)).bind(paper.get("total").and_then(Value::as_i64)).bind(paper.get("passTheExamThan").and_then(Value::as_str)).bind(&exam_id).bind(paper.get("passMark").and_then(Value::as_i64)).bind(paper.get("singleChoice").unwrap_or(&Value::Array(Vec::new())).to_string()).bind(paper.get("multipleChoice").unwrap_or(&Value::Array(Vec::new())).to_string()).bind(paper.get("judge").unwrap_or(&Value::Array(Vec::new())).to_string()).bind(paper.get("completion").unwrap_or(&Value::Array(Vec::new())).to_string()).bind(paper.get("shortAnswer").unwrap_or(&Value::Array(Vec::new())).to_string()).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam_user (id,exam_id,user_id,state,score,is_self_testing,start_time) VALUES (?,?,?,2,0,0,?)").bind(uuid::Uuid::new_v4().to_string()).bind(&exam_id).bind(&user.id).bind(&now).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!({"id":exam_id})), "ok", "")
+}

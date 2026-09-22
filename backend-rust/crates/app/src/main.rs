@@ -461,6 +461,7 @@ fn build_router(state: AppState) -> Router {
         let exam_routes = Router::new()
             .route("/findAllTheoryKnowledgeExam", post(exam::list))
             .route("/findTheoryKnowledgeExamById", post(exam::detail))
+            .route("/saveTheoryKnowledgeExamSelfTesting", post(exam::self_test))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/theoryKnowledgeExam", exam_routes);
     }
@@ -1533,6 +1534,7 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTestPaper/deleteTestPaper": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/theoryKnowledgeExam/findAllTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam list envelope; token-scoped"}}}},
             "/api/theoryKnowledgeExam/findTheoryKnowledgeExamById": {"post": {"responses": {"200": {"description": "Exam detail envelope; owner/controller-scoped"}}}},
+            "/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting": {"post": {"responses": {"200": {"description": "Self-test creation envelope; token-scoped"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
