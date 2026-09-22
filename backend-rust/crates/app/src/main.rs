@@ -37,6 +37,7 @@ mod grading;
 mod password;
 mod theory;
 mod theory_detail;
+mod theory_question;
 mod theory_test;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
@@ -409,6 +410,19 @@ fn build_router(state: AppState) -> Router {
         api = api
             .nest("/api/theoryKnowledge", theory_routes)
             .nest("/api/theoryKnowledgeTest", test_routes);
+    }
+    if state.config.theory_readonly_enabled {
+        let question_routes = Router::new()
+            .route(
+                "/findAllTheoryKnowledgeQuestionLevel",
+                post(theory_question::list_levels),
+            )
+            .route(
+                "/findAllQuestionByLevelId",
+                post(theory_question::list_questions),
+            )
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/theoryKnowledgeQuestion", question_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1472,6 +1486,8 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId": {"post": {"responses": {"200": {"description": "User test result list; token-scoped"}}}},
             "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
             "/api/theoryKnowledgeTest/getTestContentById": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
+            "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
