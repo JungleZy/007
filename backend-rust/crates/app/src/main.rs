@@ -29,11 +29,13 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
 mod cable;
+mod grading;
 mod password;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
 const CABLE_READONLY_ENV: &str = "RUST_PHASE4_CABLE_ENABLED";
+const GRADING_READONLY_ENV: &str = "RUST_PHASE4_GRADING_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
@@ -59,6 +61,7 @@ struct AppConfig {
     cors_origin: String,
     cable_readonly_enabled: bool,
     tools_readonly_enabled: bool,
+    grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
 }
 
@@ -217,6 +220,7 @@ impl AppConfig {
         }
         let tools_readonly_enabled = parse_bool(TOOLS_READONLY_ENV, false)?;
         let cable_readonly_enabled = parse_bool(CABLE_READONLY_ENV, false)?;
+        let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
         Ok(Self {
             listen_addr,
@@ -227,6 +231,7 @@ impl AppConfig {
             cors_origin,
             cable_readonly_enabled,
             tools_readonly_enabled,
+            grading_readonly_enabled,
             auth_readonly_enabled,
         })
     }
@@ -294,6 +299,13 @@ fn build_router(state: AppState) -> Router {
                 cable_type_routes.merge(admin_cable_type_routes),
             )
             .nest("/api/cable/floor", cable_floor_routes);
+    }
+    if state.config.grading_readonly_enabled {
+        let grading_routes = Router::new()
+            .route("/getGradingRuleListByType", post(grading::list_by_type))
+            .route("/getGradingRuleById", post(grading::by_id))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/gradingRule", grading_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1326,6 +1338,8 @@ async fn openapi() -> Json<Value> {
             "/api/cable/type/save": {"post": {"responses": {"200": {"description": "Cable type list envelope; admin only"}}}},
             "/api/cable/type/delete": {"post": {"responses": {"200": {"description": "Boolean envelope; admin only"}}}},
             "/api/cable/floor/find": {"post": {"responses": {"200": {"description": "Cable floor envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/gradingRule/getGradingRuleListByType": {"post": {"responses": {"200": {"description": "Grading rule list envelope; enabled only by RUST_PHASE4_GRADING_ENABLED"}}}},
+            "/api/gradingRule/getGradingRuleById": {"post": {"responses": {"200": {"description": "Grading rule envelope; enabled only by RUST_PHASE4_GRADING_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
