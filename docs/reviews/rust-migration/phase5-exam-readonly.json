@@ -1,0 +1,38 @@
+{
+  "schema": "rust-migration-phase5-exam-readonly/v1",
+  "verified_at_utc": "2026-09-22T14:16:27Z",
+  "source_commit": "cef60c7",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": ["POST /api/theoryKnowledgeExam/findAllTheoryKnowledgeExam", "POST /api/theoryKnowledgeExam/findTheoryKnowledgeExamById"],
+    "ownership": "exam list filtered by admin/creator/teacher; detail requires controller or candidate",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "list_request": {"state": "boolean"},
+    "detail_request": {"id": "string"},
+    "list_projection": ["id", "title", "startTime", "endTime", "duration", "createUserId", "createTime", "teacher", "state"],
+    "detail_projection": ["exam", "user", "paper"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_exam_*",
+    "exam": "one exam owned by u1 and candidate u1",
+    "users": "owner u1 and unrelated u2",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "owner_list": {"http_status": 200, "code": 200, "count": 1},
+    "owner_detail": {"http_status": 200, "code": 200},
+    "foreign_detail": {"http_status": 200, "code": 207}
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, owner-filtered list, owner detail and foreign detail rejection observed"
+  },
+  "known_boundary": "exam paper snapshot projection, lifecycle writes, scoring and realtime notifications remain incomplete and Java-only."
+}
