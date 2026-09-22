@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use axum::{
-    extract::{Extension, Query, State},
+    extract::{Query, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -12,7 +12,6 @@ use uuid::Uuid;
 
 use super::{
     envelope_json, envelope_response, password, registration_birthday, valid_account, AppState,
-    AuthUser,
 };
 
 fn string_field(body: &Value, name: &str) -> Option<String> {
@@ -348,6 +347,51 @@ pub(crate) async fn add_user_role(
     envelope_json(StatusCode::OK, 200, Some(json!("数据正常")), "ok", "")
 }
 
+pub(crate) async fn delete_user(
+    State(state): State<AppState>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let Some(user_id) = query.get("userId").filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(error) => {
+            tracing::warn!(error = %error, "delete user transaction could not start");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if let Err(error) = sqlx::query("DELETE FROM t_user_role WHERE user_id = ?")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        tracing::warn!(error = %error, "delete user role associations failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let deleted = match sqlx::query("DELETE FROM t_user WHERE id = ?")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+    {
+        Ok(result) => result.rows_affected() == 1,
+        Err(error) => {
+            let _ = tx.rollback().await;
+            tracing::warn!(error = %error, "delete user row failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if let Err(error) = tx.commit().await {
+        tracing::warn!(error = %error, "delete user transaction commit failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!(deleted)), "ok", "")
+}
+
 pub(crate) async fn reset_password(
     State(state): State<AppState>,
     Query(query): Query<HashMap<String, String>>,
@@ -563,6 +607,3 @@ pub(crate) async fn add_menu(State(state): State<AppState>, Json(body): Json<Val
         "",
     )
 }
-
-#[allow(dead_code)]
-fn _admin_user_marker(_user: Extension<AuthUser>) {}

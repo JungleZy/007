@@ -278,6 +278,7 @@ fn build_router(state: AppState) -> Router {
             .route("/saveUser", post(admin::save_user))
             .route("/importUser", post(admin::import_user))
             .route("/addUserRole", post(admin::add_user_role))
+            .route("/delete", get(admin::delete_user))
             .route("/resetPassword", get(admin::reset_password))
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
@@ -1292,6 +1293,7 @@ async fn openapi() -> Json<Value> {
             "/api/user/saveUser": {"post": {"responses": {"200": {"description": "UserProfile envelope; admin only"}}}},
             "/api/user/importUser": {"post": {"responses": {"200": {"description": "UserProfile list envelope; admin only"}}}},
             "/api/user/addUserRole": {"post": {"responses": {"200": {"description": "Message envelope; admin only"}}}},
+            "/api/user/delete": {"get": {"responses": {"200": {"description": "Boolean envelope; admin only"}}}},
             "/api/user/resetPassword": {"get": {"responses": {"200": {"description": "Temporary password envelope; admin only"}}}},
             "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/menus/addMenu": {"post": {"responses": {"200": {"description": "Menu envelope; admin only"}}}},
