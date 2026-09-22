@@ -1,0 +1,37 @@
+{
+  "schema": "rust-migration-phase4-equipment-device-readonly/v1",
+  "verified_at_utc": "2026-09-22T08:52:19Z",
+  "source_commit": "7d08077",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_EQUIPMENT_ENABLED",
+    "default": false,
+    "routes": ["POST /api/equipmentDevice/listPage", "POST /api/equipmentDevice/listKeyPoints"],
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/equipment.js",
+    "device_list": "POST /api/equipmentDevice/listPage",
+    "device_fields": ["id", "deviceId", "name", "image", "option", "isEnable", "createTime"],
+    "key_points_fields": ["deviceName", "connect"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_equipment_*",
+    "devices": 2,
+    "key_points": 1,
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "device_list": {"http_status": 200, "code": 200, "count": 2},
+    "key_points_list": {"http_status": 200, "code": 200, "count": 2}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, equipment device list and key-points projection observed",
+    "database_writes": false
+  },
+  "next_boundary": "Equipment device writes and equipment train routes remain Java-only; Rust equipment routes remain disabled by default."
+}
