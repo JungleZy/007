@@ -1,0 +1,45 @@
+{
+  "schema": "rust-migration-phase4-user-delete/v1",
+  "verified_at_utc": "2026-09-22T05:13:14Z",
+  "source_commit": "f2e21d2",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "route": "GET /api/user/delete",
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "consumer": "bw-frontend/frontend/src/common/api/StructureApi.js",
+    "method": "GET",
+    "query": "userId",
+    "success": {"http_status": 200, "code": 200, "data": true},
+    "missing_parameter": {"http_status": 200, "code": 202},
+    "ordinary_user": {"http_status": 200, "code": 207},
+    "repeat_delete": {"http_status": 200, "code": 200, "data": false},
+    "transaction": "delete t_user_role associations before t_user row; rollback on SQL failure"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_delete_*",
+    "users": "admin u-admin and target u-target with role associations",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_delete_admin": {"http_status": 200, "code": 207},
+    "missing_user_id": {"http_status": 200, "code": 202},
+    "admin_delete_target": {"http_status": 200, "code": 200, "data": true},
+    "repeat_delete_target": {"http_status": 200, "code": 200, "data": false}
+  },
+  "database_observations": {
+    "target_user_rows_after_delete": 0,
+    "target_user_role_rows_after_delete": 0,
+    "ordinary_delete_side_effect": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "admin/ordinary authorization, parameter boundary, deletion, association cleanup and repeat-delete behavior observed"
+  },
+  "next_boundary": "Auth production cutover audit remains; Java remains the production Auth implementation and all Rust Auth routes remain feature-flagged off by default."
+}
