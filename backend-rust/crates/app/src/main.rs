@@ -27,6 +27,8 @@ use tokio::{net::TcpListener, signal, time::timeout};
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
 use uuid::Uuid;
+#[allow(dead_code)]
+mod password;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
