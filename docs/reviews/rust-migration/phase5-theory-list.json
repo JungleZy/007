@@ -1,0 +1,36 @@
+{
+  "schema": "rust-migration-phase5-theory-list/v1",
+  "verified_at_utc": "2026-09-22T12:34:43Z",
+  "source_commit": "7315136",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "route": "POST /api/theoryKnowledge/getBasicTheory",
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "request": {"type": "integer"},
+    "response": ["swfs", "createUserName", "specialtyName", "difficultyName", "title", "cover", "createTime", "createUserId", "id", "status", "type"],
+    "derived_field": "swfs counts t_theory_knowledge_swf rows",
+    "scope": "type-filtered theory knowledge list"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_theory_list_*",
+    "knowledge_rows": 1,
+    "chapter_rows": 2,
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "valid_type_list": {"http_status": 200, "code": 200, "knowledge_count": 1, "swfs": 2}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, type filter, list projection and chapter count observed",
+    "database_writes": false
+  },
+  "known_boundary": "createUserName remains null until a user join projection is added; createTime is returned from the persisted string field."
+}
