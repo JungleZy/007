@@ -1,0 +1,41 @@
+{
+  "schema": "rust-migration-phase5-test-paper-readonly/v1",
+  "verified_at_utc": "2026-09-22T13:47:09Z",
+  "source_commit": "307ca1d",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": [
+      "POST /api/theoryKnowledgeTestPaper/findAllTestPaper",
+      "POST /api/theoryKnowledgeTestPaper/findTestPaperById",
+      "POST /api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName"
+    ],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "paper_fields": ["id", "name", "levelId", "total", "passTheExamThan", "passMark", "createTime"],
+    "question_buckets": ["singleChoice", "multipleChoice", "judge", "completion", "shortAnswer"],
+    "filters": ["levelId", "name"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_paper_*",
+    "papers": 1,
+    "questions": 1,
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "list": {"http_status": 200, "code": 200, "paper_count": 1, "single_choice_count": 1},
+    "detail": {"http_status": 200, "code": 200},
+    "level_name_filter": {"http_status": 200, "code": 200, "paper_count": 1}
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, paper list, question bucket, detail and level/name filter observed",
+    "database_writes": false
+  },
+  "next_boundary": "Test paper save/delete and exam lifecycle domains remain Java-only."
+}
