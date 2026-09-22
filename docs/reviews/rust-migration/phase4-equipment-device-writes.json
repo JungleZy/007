@@ -1,0 +1,51 @@
+{
+  "schema": "rust-migration-phase4-equipment-device-writes/v1",
+  "verified_at_utc": "2026-09-22T09:40:16Z",
+  "source_commit": "e367d31",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_EQUIPMENT_ENABLED",
+    "default": false,
+    "admin_routes": [
+      "POST /api/equipmentDevice/add",
+      "POST /api/equipmentDevice/update",
+      "POST /api/equipmentDevice/delete",
+      "POST /api/equipmentDevice/addKeyPoints"
+    ],
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/equipment.js",
+    "add": ["deviceId", "name", "image", "option", "isEnable", "keyPoints"],
+    "update": ["id", "name", "image", "option", "isEnable"],
+    "delete": ["id"],
+    "key_points": ["deviceId", "content"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_equipment_write_*",
+    "users": "admin is_admin=0 and ordinary is_admin=1",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_add": {"http_status": 200, "code": 207},
+    "admin_add": {"http_status": 200, "code": 200},
+    "admin_update": {"http_status": 200, "code": 200},
+    "admin_key_points": {"http_status": 200, "code": 200},
+    "ordinary_delete": {"http_status": 200, "code": 207},
+    "admin_delete": {"http_status": 200, "code": 200}
+  },
+  "database_observations": {
+    "device_inserted": true,
+    "device_updated": true,
+    "key_points_updated": true,
+    "deleted_device_rows": 0,
+    "ordinary_write_side_effect": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "ordinary/admin add, update, key-points and delete matrix observed"
+  },
+  "next_boundary": "Equipment training list/detail/add remains Java-only; Rust equipment flag remains disabled by default."
+}
