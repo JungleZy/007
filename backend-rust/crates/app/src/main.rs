@@ -271,15 +271,28 @@ fn build_router(state: AppState) -> Router {
             .route("/find", post(cable::find))
             .route("/findById", post(cable::find_by_id))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_cable_routes = Router::new()
+            .route("/save", post(cable::save))
+            .route("/delete", post(cable::delete))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let cable_type_routes = Router::new()
             .route("/find", post(cable::find_types))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_cable_type_routes = Router::new()
+            .route("/save", post(cable::save_type))
+            .route("/delete", post(cable::delete_type))
+            .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let cable_floor_routes = Router::new()
             .route("/find", post(cable::find_floor))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
-            .nest("/api/cable", cable_routes)
-            .nest("/api/cable/type", cable_type_routes)
+            .nest("/api/cable", cable_routes.merge(admin_cable_routes))
+            .nest(
+                "/api/cable/type",
+                cable_type_routes.merge(admin_cable_type_routes),
+            )
             .nest("/api/cable/floor", cable_floor_routes);
     }
     if state.config.auth_readonly_enabled {
@@ -1307,7 +1320,11 @@ async fn openapi() -> Json<Value> {
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/cable/find": {"post": {"responses": {"200": {"description": "Cable list envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
             "/api/cable/findById": {"post": {"responses": {"200": {"description": "Cable envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/cable/save": {"post": {"responses": {"200": {"description": "Cable envelope; admin only"}}}},
+            "/api/cable/delete": {"post": {"responses": {"200": {"description": "Boolean envelope; admin only"}}}},
             "/api/cable/type/find": {"post": {"responses": {"200": {"description": "Cable type list envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/cable/type/save": {"post": {"responses": {"200": {"description": "Cable type list envelope; admin only"}}}},
+            "/api/cable/type/delete": {"post": {"responses": {"200": {"description": "Boolean envelope; admin only"}}}},
             "/api/cable/floor/find": {"post": {"responses": {"200": {"description": "Cable floor envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},

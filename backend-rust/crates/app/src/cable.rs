@@ -1,4 +1,11 @@
-use axum::{extract::State, http::StatusCode, response::Response, Json};
+use std::collections::HashMap;
+
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    response::Response,
+    Json,
+};
 use serde_json::{json, Value};
 use sqlx::{MySqlPool, Row};
 
@@ -176,4 +183,236 @@ pub(crate) async fn find_floor(State(state): State<AppState>, Json(body): Json<V
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     }
+}
+
+pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let Some(type_id) = body
+        .get("typeId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let type_row = match sqlx::query("SELECT title FROM t_cable_type WHERE id = ? LIMIT 1")
+        .bind(type_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该电缆类型", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, "cable type lookup failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let title = body.get("title").and_then(Value::as_str);
+    let scope = body.get("scope").and_then(Value::as_i64);
+    let code_type = body.get("codeType").and_then(Value::as_i64);
+    let code_sort = body.get("codeSort").and_then(Value::as_i64);
+    let remark = body.get("remark").and_then(Value::as_str);
+    let floors = body
+        .get("floors")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut group_count = 0i32;
+    let mut code_count = 0i32;
+    for page in &floors {
+        let Some(groups) = page.as_array() else {
+            return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+        };
+        for group in groups {
+            let Some(codes) = group.as_array() else {
+                return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+            };
+            group_count += 1;
+            code_count += codes.len() as i32;
+        }
+    }
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(error) => {
+            tracing::warn!(error = %error, "cable save transaction could not start");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if let Err(error) = sqlx::query("INSERT INTO t_cable (id,title,type_id,type_title,scope,floor_count,group_count,code_count,code_type,code_sort,remark) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),type_id=VALUES(type_id),type_title=VALUES(type_title),scope=VALUES(scope),floor_count=VALUES(floor_count),group_count=VALUES(group_count),code_count=VALUES(code_count),code_type=VALUES(code_type),code_sort=VALUES(code_sort),remark=VALUES(remark)")
+        .bind(&id).bind(title).bind(type_id).bind(type_row.get::<Option<String>, _>("title"))
+        .bind(scope).bind(floors.len() as i32).bind(group_count).bind(code_count).bind(code_type).bind(code_sort).bind(remark)
+        .execute(&mut *tx).await {
+        let _ = tx.rollback().await; tracing::warn!(error = %error, "cable head write failed"); return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if let Err(error) = sqlx::query("DELETE FROM t_cable_floor WHERE cable_id = ?")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        tracing::warn!(error = %error, "cable floor replacement delete failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    for (floor_number, page) in floors.iter().enumerate() {
+        let Some(groups) = page.as_array() else {
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+        };
+        for (sort, group) in groups.iter().enumerate() {
+            let Some(codes) = group.as_array() else {
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+            };
+            let content = codes.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+            if let Err(error) = sqlx::query("INSERT INTO t_cable_floor (id,cable_id,type_id,floor_number,sort,mores_key) VALUES (?,?,?,?,?,?)")
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(&id)
+                .bind(type_id)
+                .bind(floor_number as i32)
+                .bind(sort as i32)
+                .bind(serde_json::to_string(&content).unwrap_or_else(|_| "[]".into()))
+                .execute(&mut *tx)
+                .await
+            {
+                let _ = tx.rollback().await;
+                tracing::warn!(error = %error, "cable floor write failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
+    }
+    if let Err(error) = tx.commit().await {
+        tracing::warn!(error = %error, "cable save commit failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    find_by_id(State(state), Json(json!({"id": id}))).await
+}
+
+pub(crate) async fn delete(
+    State(state): State<AppState>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let Some(id) = query.get("id").filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("DELETE FROM t_cable_floor WHERE cable_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let result = match sqlx::query("DELETE FROM t_cable WHERE id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+    {
+        Ok(result) => result.rows_affected() == 1,
+        Err(_) => {
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!(result)), "ok", "")
+}
+
+pub(crate) async fn save_type(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    let Some(title) = body
+        .get("title")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("INSERT INTO t_cable_type (id,title) VALUES (?,?) ON DUPLICATE KEY UPDATE title=VALUES(title)").bind(&id).bind(title).execute(&mut *tx).await.is_err() { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
+    if sqlx::query("UPDATE t_cable SET type_title = ? WHERE type_id = ?")
+        .bind(title)
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    find_types(State(state)).await
+}
+
+pub(crate) async fn delete_type(
+    State(state): State<AppState>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let Some(id) = query.get("id").filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("DELETE FROM t_cable_floor WHERE type_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+        || sqlx::query("DELETE FROM t_cable WHERE type_id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .is_err()
+        || sqlx::query("DELETE FROM t_cable_type WHERE id = ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", "")
 }
