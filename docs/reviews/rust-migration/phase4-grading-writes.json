@@ -1,0 +1,47 @@
+{
+  "schema": "rust-migration-phase4-grading-writes/v1",
+  "verified_at_utc": "2026-09-22T06:44:24Z",
+  "source_commit": "eeb2d58",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_GRADING_ENABLED",
+    "default": false,
+    "admin_routes": [
+      "POST /api/gradingRule/saveGradingRule",
+      "POST /api/gradingRule/updateGradingRuleStatus",
+      "POST /api/gradingRule/changeGradingRuleIsDefault",
+      "POST /api/gradingRule/deleteGradingRule"
+    ],
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "save": "upsert rule fields and preserve one default per type",
+    "status": "update status by id",
+    "default": "clear same-type defaults and set selected rule default",
+    "delete": "delete rule row in transactional write path",
+    "response": "HTTP 200 business envelope"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_grading_write_*",
+    "users": "admin is_admin=0 and ordinary is_admin=1",
+    "rules": "two type-0 rules",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_save": {"http_status": 200, "code": 207},
+    "ordinary_status": {"http_status": 200, "code": 207},
+    "ordinary_default": {"http_status": 200, "code": 207},
+    "ordinary_delete": {"http_status": 200, "code": 207},
+    "admin_save": {"http_status": 200, "code": 200},
+    "admin_status": {"http_status": 200, "code": 200},
+    "admin_default": {"http_status": 200, "code": 200},
+    "admin_delete": {"http_status": 200, "code": 200, "deleted_row_count": 0}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "ordinary-user 207 matrix and admin save/status/default/delete success observed"
+  },
+  "next_boundary": "Rust grading writes remain feature-flagged off; device/equipment domains remain Java-only."
+}
