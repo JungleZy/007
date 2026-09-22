@@ -28,10 +28,12 @@ use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
+mod cable;
 mod password;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
+const CABLE_READONLY_ENV: &str = "RUST_PHASE4_CABLE_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
@@ -55,6 +57,7 @@ struct AppConfig {
     db_timeout: Duration,
     body_limit: usize,
     cors_origin: String,
+    cable_readonly_enabled: bool,
     tools_readonly_enabled: bool,
     auth_readonly_enabled: bool,
 }
@@ -213,6 +216,7 @@ impl AppConfig {
             })?;
         }
         let tools_readonly_enabled = parse_bool(TOOLS_READONLY_ENV, false)?;
+        let cable_readonly_enabled = parse_bool(CABLE_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
         Ok(Self {
             listen_addr,
@@ -221,6 +225,7 @@ impl AppConfig {
             db_timeout: Duration::from_secs(timeout_seconds),
             body_limit,
             cors_origin,
+            cable_readonly_enabled,
             tools_readonly_enabled,
             auth_readonly_enabled,
         })
@@ -260,6 +265,22 @@ fn build_router(state: AppState) -> Router {
         api = api
             .route("/api/tools/getNowTime", get(tools_get_now_time))
             .route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
+    }
+    if state.config.cable_readonly_enabled {
+        let cable_routes = Router::new()
+            .route("/find", post(cable::find))
+            .route("/findById", post(cable::find_by_id))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let cable_type_routes = Router::new()
+            .route("/find", post(cable::find_types))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let cable_floor_routes = Router::new()
+            .route("/find", post(cable::find_floor))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/cable", cable_routes)
+            .nest("/api/cable/type", cable_type_routes)
+            .nest("/api/cable/floor", cable_floor_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1284,6 +1305,10 @@ async fn openapi() -> Json<Value> {
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
+            "/api/cable/find": {"post": {"responses": {"200": {"description": "Cable list envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/cable/findById": {"post": {"responses": {"200": {"description": "Cable envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/cable/type/find": {"post": {"responses": {"200": {"description": "Cable type list envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
+            "/api/cable/floor/find": {"post": {"responses": {"200": {"description": "Cable floor envelope; enabled only by RUST_PHASE4_CABLE_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
