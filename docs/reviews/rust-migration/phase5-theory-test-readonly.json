@@ -1,0 +1,44 @@
+{
+  "schema": "rust-migration-phase5-theory-test-readonly/v1",
+  "verified_at_utc": "2026-09-22T13:15:48Z",
+  "source_commit": "8c8f466",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": [
+      "POST /api/theoryKnowledgeTest/getTestBySwfId",
+      "POST /api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+      "POST /api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId",
+      "POST /api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId",
+      "POST /api/theoryKnowledgeTest/getTestContentById"
+    ],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "test_projection": ["knowledgeTest", "knowledgeTestContents"],
+    "content_fields": ["id", "knowledgeId", "knowledgeSwfId", "knowledgeTestId", "type", "topic", "options", "answer", "analysis", "sort", "createUserId", "createTime"],
+    "user_record_scope": "all token-scoped user result queries filter by authenticated user id",
+    "foreign_result": "207"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_theory_test_*",
+    "tests": "one enabled test with one content question",
+    "answers": "owner answer and foreign answer",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "test_list": {"http_status": 200, "code": 200, "tests": 1, "contents": 1},
+    "enabled_content": {"http_status": 200, "code": 200, "count": 1},
+    "owner_answers": {"http_status": 200, "code": 200, "count": 1},
+    "foreign_answer_by_id": {"http_status": 200, "code": 207}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "test tree, enabled content, owner-scoped answers and foreign-answer rejection observed",
+    "database_writes": false
+  },
+  "known_boundary": "test submission write and exam/question-bank domains remain Java-only."
+}
