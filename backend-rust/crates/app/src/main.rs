@@ -35,6 +35,7 @@ mod equipment;
 mod equipment_train;
 mod grading;
 mod password;
+mod test_paper;
 mod theory;
 mod theory_detail;
 mod theory_question;
@@ -435,6 +436,17 @@ fn build_router(state: AppState) -> Router {
             "/api/theoryKnowledgeQuestion",
             question_routes.merge(admin_question_routes),
         );
+    }
+    if state.config.theory_readonly_enabled {
+        let paper_routes = Router::new()
+            .route("/findAllTestPaper", post(test_paper::list))
+            .route("/findTestPaperById", post(test_paper::by_id))
+            .route(
+                "/findTestPaperByLevelIdAndName",
+                post(test_paper::by_level_name),
+            )
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/theoryKnowledgeTestPaper", paper_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1498,6 +1510,9 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId": {"post": {"responses": {"200": {"description": "User test result list; token-scoped"}}}},
             "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
             "/api/theoryKnowledgeTest/getTestContentById": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
+            "/api/theoryKnowledgeTestPaper/findAllTestPaper": {"post": {"responses": {"200": {"description": "Test paper list; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTestPaper/findTestPaperById": {"post": {"responses": {"200": {"description": "Test paper detail; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName": {"post": {"responses": {"200": {"description": "Filtered test paper list; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
