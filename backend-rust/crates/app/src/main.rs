@@ -131,6 +131,23 @@ struct PasswordChangeRequest {
     new_password_verification: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RegistrationRequest {
+    id: Option<String>,
+    #[serde(rename = "userAccount")]
+    user_account: Option<String>,
+    #[serde(rename = "userName")]
+    user_name: Option<String>,
+    #[serde(rename = "idCard")]
+    id_card: Option<String>,
+    #[serde(rename = "userSex")]
+    user_sex: Option<i32>,
+    password: Option<String>,
+    #[serde(rename = "userImg")]
+    user_img: Option<String>,
+    eday: Option<String>,
+}
+
 #[tokio::main]
 async fn main() {
     init_tracing();
@@ -248,6 +265,7 @@ fn build_router(state: AppState) -> Router {
             .route("/getUsersByToken", post(user_get_by_token))
             .route("/userOut", post(user_logout))
             .route("/changePassword", post(change_password))
+            .route("/verifyPassword", post(verify_password))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
@@ -257,6 +275,7 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let user_api = Router::new()
             .route("/login", post(user_login))
+            .route("/signin", post(user_signin))
             .merge(user_routes);
         api = api
             .nest("/api/user", user_api)
@@ -542,6 +561,165 @@ async fn change_password(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     envelope_json(StatusCode::OK, 200, Some(json!(true)), "数据正常", "")
+}
+
+async fn user_signin(
+    State(state): State<AppState>,
+    Json(request): Json<RegistrationRequest>,
+) -> Response {
+    if request.id.as_deref().is_some_and(|id| !id.is_empty()) {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    }
+    let Some(user_account) = request.user_account.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    if !valid_account(&user_account) {
+        return envelope_response(
+            StatusCode::OK,
+            500,
+            "账户格式不正确，最少4位最多32位，只能是数字或字母或汉字",
+            "",
+        );
+    }
+    let Some(id_card) = request.id_card.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
+    };
+    let Some(bday) = registration_birthday(&id_card) else {
+        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
+    };
+    let Some(plaintext) = request.password.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            warn!(error = %error, "registration transaction could not start");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let account_exists = sqlx::query("SELECT 1 FROM t_user WHERE user_account = ? LIMIT 1")
+        .bind(&user_account)
+        .fetch_optional(&mut *transaction)
+        .await;
+    match account_exists {
+        Ok(Some(_)) => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 500, "用户名已被注册", "");
+        }
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error = %error, "registration duplicate query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+        Ok(None) => {}
+    }
+    let default_role =
+        match sqlx::query("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id LIMIT 1")
+            .fetch_optional(&mut *transaction)
+            .await
+        {
+            Ok(Some(row)) => row.get::<String, _>("id"),
+            Ok(None) => {
+                let _ = transaction.rollback().await;
+                warn!("registration cannot proceed without a default role");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+            Err(error) => {
+                let _ = transaction.rollback().await;
+                warn!(error = %error, "registration default role query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+    let password_hash = match password::hash(&plaintext) {
+        Ok(hash) => hash,
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error, "registration password hash failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let user_id = Uuid::new_v4().to_string();
+    let user_img = request
+        .user_img
+        .unwrap_or_else(|| "/userImages/pag-avatar-man.png".into());
+    if let Err(error) = sqlx::query(
+        "INSERT INTO t_user (id, user_account, user_img, user_name, id_card, user_sex, password, status, bday, eday) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
+    )
+    .bind(&user_id)
+    .bind(&user_account)
+    .bind(&user_img)
+    .bind(&request.user_name)
+    .bind(&id_card)
+    .bind(request.user_sex)
+    .bind(password_hash)
+    .bind(&bday)
+    .bind(&request.eday)
+    .execute(&mut *transaction)
+    .await
+    {
+        let _ = transaction.rollback().await;
+        warn!(error = %error, "registration user insert failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if let Err(error) =
+        sqlx::query("INSERT INTO t_user_role (id, user_id, role_id) VALUES (?, ?, ?)")
+            .bind(Uuid::new_v4().to_string())
+            .bind(&user_id)
+            .bind(&default_role)
+            .execute(&mut *transaction)
+            .await
+    {
+        let _ = transaction.rollback().await;
+        warn!(error = %error, "registration default role insert failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if let Err(error) = transaction.commit().await {
+        warn!(error = %error, "registration transaction commit failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(
+            json!({"id": user_id, "userName": request.user_name, "userAccount": user_account, "userImg": user_img}),
+        ),
+        "ok",
+        "",
+    )
+}
+
+async fn verify_password(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    body: String,
+) -> Response {
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT password FROM t_user WHERE id = ? LIMIT 1")
+        .bind(&user.id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(json!(
+                password::verify(&body, row.get::<Option<String>, _>("password").as_deref())
+                    .matches
+            )),
+            "数据正常",
+            "",
+        ),
+        Ok(None) => envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(error) => {
+            warn!(error = %error, user_id = %user.id, "verify password query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
 }
 
 async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequest>) -> Response {
@@ -1015,6 +1193,32 @@ async fn role_get_all(State(state): State<AppState>, _user: Extension<AuthUser>)
     envelope_json(StatusCode::OK, 200, Some(json!(result)), "ok", "")
 }
 
+fn valid_account(value: &str) -> bool {
+    let length = value.chars().count();
+    (4..=32).contains(&length)
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || (('\u{4300}'..='\u{9fa5}').contains(&character))
+        })
+}
+
+fn registration_birthday(id_card: &str) -> Option<String> {
+    match id_card.chars().count() {
+        18 => Some(format!(
+            "{}-{}-{}",
+            id_card.get(6..10)?,
+            id_card.get(10..12)?,
+            id_card.get(12..14)?
+        )),
+        15 => Some(format!(
+            "19{}-{}-{}",
+            id_card.get(6..8)?,
+            id_card.get(8..10)?,
+            id_card.get(10..12)?
+        )),
+        _ => None,
+    }
+}
+
 fn twelve_month_data(year: i32, month: u8) -> Vec<Value> {
     let current_index = year * 12 + i32::from(month) - 1;
     (0..12)
@@ -1061,9 +1265,11 @@ async fn openapi() -> Json<Value> {
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/userOut": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/changePassword": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/verifyPassword": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
