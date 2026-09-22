@@ -23,6 +23,24 @@ async fn rule_by_id(
     sqlx::query("SELECT id, type, title, score, status, is_default, content FROM t_grading_rule WHERE id = ? LIMIT 1")
         .bind(id).fetch_optional(pool).await
 }
+async fn active_reference_count(
+    pool: &sqlx::MySqlPool,
+    table: &str,
+    id: &str,
+) -> Result<i64, sqlx::Error> {
+    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?")
+        .bind(table).fetch_one(pool).await?;
+    if exists == 0 {
+        return Ok(0);
+    }
+    let query = format!(
+        "SELECT COUNT(*) AS count FROM `{table}` WHERE rule_id = ? AND (status = 0 OR status = 1)"
+    );
+    Ok(sqlx::query_scalar::<_, i64>(&query)
+        .bind(id)
+        .fetch_one(pool)
+        .await?)
+}
 
 pub(crate) async fn list_by_type(
     State(state): State<AppState>,
@@ -200,6 +218,31 @@ pub(crate) async fn delete(State(state): State<AppState>, Json(body): Json<Value
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    let reference_tables = [
+        "t_post_telegram_train",
+        "t_post_telex_pat_train",
+        "t_post_telegraph_key_pat_train",
+        "general_telex_pat",
+        "general_key_pat",
+        "general_ticker_pat",
+    ];
+    for table in reference_tables {
+        match active_reference_count(pool, table, id).await {
+            Ok(count) if count > 0 => {
+                return envelope_response(
+                    StatusCode::OK,
+                    500,
+                    "存在未开始或进行中的训练引用该评分规则，禁止删除",
+                    "",
+                )
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(error = %error, table, "grading rule reference query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
+    }
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
         Err(_) => {
