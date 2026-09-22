@@ -1,0 +1,79 @@
+{
+  "schema": "rust-migration-phase3-login-isolation/v1",
+  "verified_at_utc": "2026-09-22T03:56:22Z",
+  "source_commit": "65f244f",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "login_route": "POST /api/user/login",
+    "protected_profile_route": "POST /api/user/getUsersByToken",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "request_fields": ["userAccount", "password", "deviceId"],
+    "success_message": "登陆成功",
+    "success_code": 200,
+    "missing_parameter_code": 202,
+    "inactive_account_codes": {
+      "missing_account": 500,
+      "wrong_password": 500,
+      "review": 500,
+      "disabled": 500,
+      "data_exception": 500
+    },
+    "session_fields": ["user", "role", "menus", "token", "deviceId"],
+    "token_storage": "SHA-256 lowercase hex digest; plaintext returned only in success envelope",
+    "ordinary_role_semantics": "is_admin=1",
+    "admin_role_semantics": "is_admin=0"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase3_login_*",
+    "users": [
+      "u1 valid ordinary user with legacy MD5 and role/menu permissions",
+      "u2 valid password but no role to force transaction failure"
+    ],
+    "menus": "one root and one child; root read and child edit permissions",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "valid_login": {
+      "http_status": 200,
+      "code": 200,
+      "user_id": "u1",
+      "role_is_admin": 1,
+      "root_count": 1,
+      "child_count": 1,
+      "root_permission": "read",
+      "child_permission": "edit",
+      "token_length": 43,
+      "device_id": "device-9"
+    },
+    "valid_token_profile": {
+      "http_status": 200,
+      "code": 200,
+      "profile_id": "u1"
+    },
+    "missing_login_field": {"http_status": 200, "code": 202},
+    "wrong_password": {"http_status": 200, "code": 500, "message": "密码错误"},
+    "user_without_role": {"http_status": 200, "code": 500, "message": "数据异常"},
+    "missing_token": {"http_status": 200, "code": 203},
+    "invalid_token_or_device": {"http_status": 200, "code": 206},
+    "valid_auth_wrong_method": {"http_status": 405}
+  },
+  "transaction_observations": {
+    "legacy_password_upgraded": true,
+    "successful_token_digest_persisted": true,
+    "successful_device_binding_persisted": true,
+    "failed_wrong_password_changed_session": false,
+    "missing_role_changed_password_or_session": false,
+    "password_token_device_present_in_user_projection": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "success, profile authentication, parameter, password, missing-role and auth error matrix observed",
+    "default_disabled_probe": "POST /api/user/login returned HTTP 404 with empty body when flag=false"
+  },
+  "next_boundary": "signin registration, logout, changePassword and production traffic remain unimplemented; Java remains the production Auth implementation."
+}
