@@ -27,7 +27,6 @@ use tokio::{net::TcpListener, signal, time::timeout};
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
 use uuid::Uuid;
-#[allow(dead_code)]
 mod password;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
@@ -120,6 +119,16 @@ struct LoginRequest {
     password: Option<String>,
     #[serde(rename = "deviceId")]
     device_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PasswordChangeRequest {
+    #[serde(rename = "oldPassword")]
+    old_password: Option<String>,
+    #[serde(rename = "newPassword")]
+    new_password: Option<String>,
+    #[serde(rename = "newPasswordV")]
+    new_password_verification: Option<String>,
 }
 
 #[tokio::main]
@@ -237,6 +246,8 @@ fn build_router(state: AppState) -> Router {
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
             .route("/getUsersByToken", post(user_get_by_token))
+            .route("/userOut", post(user_logout))
+            .route("/changePassword", post(change_password))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
@@ -427,6 +438,110 @@ async fn admin_probe(Extension(user): Extension<AuthUser>) -> Response {
         "ok",
         "",
     )
+}
+
+async fn user_logout(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_user SET token = NULL, device_id = NULL WHERE id = ?")
+        .bind(&user.id)
+        .execute(pool)
+        .await
+    {
+        Ok(result) if result.rows_affected() == 1 => {
+            envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", "")
+        }
+        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(false)), "ok", ""),
+        Err(error) => {
+            warn!(error = %error, user_id = %user.id, "logout update failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+async fn change_password(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(request): Json<PasswordChangeRequest>,
+) -> Response {
+    let Some(old_password) = request.old_password.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(new_password) = request.new_password.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(new_password_verification) = request
+        .new_password_verification
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            warn!(error = %error, "password change transaction could not start");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let row = match sqlx::query("SELECT password FROM t_user WHERE id = ? LIMIT 1 FOR UPDATE")
+        .bind(&user.id)
+        .fetch_optional(&mut *transaction)
+        .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", "");
+        }
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error = %error, user_id = %user.id, "password query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if !password::verify(
+        &old_password,
+        row.get::<Option<String>, _>("password").as_deref(),
+    )
+    .matches
+    {
+        let _ = transaction.rollback().await;
+        return envelope_json(StatusCode::OK, 200, Some(json!(false)), "当前密码错误", "");
+    }
+    if new_password != new_password_verification {
+        let _ = transaction.rollback().await;
+        return envelope_json(StatusCode::OK, 200, Some(json!(false)), "密码不一致", "");
+    }
+    let new_hash = match password::hash(&new_password) {
+        Ok(hash) => hash,
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error, "password hash generation failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if let Err(error) = sqlx::query("UPDATE t_user SET password = ? WHERE id = ?")
+        .bind(new_hash)
+        .bind(&user.id)
+        .execute(&mut *transaction)
+        .await
+    {
+        let _ = transaction.rollback().await;
+        warn!(error = %error, user_id = %user.id, "password update failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if let Err(error) = transaction.commit().await {
+        warn!(error = %error, user_id = %user.id, "password change commit failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(json!(true)), "数据正常", "")
 }
 
 async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequest>) -> Response {
@@ -946,6 +1061,9 @@ async fn openapi() -> Json<Value> {
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/userOut": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/changePassword": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
