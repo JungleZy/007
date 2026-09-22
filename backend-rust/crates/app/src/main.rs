@@ -35,6 +35,7 @@ mod equipment;
 mod equipment_train;
 mod grading;
 mod password;
+mod theory;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
@@ -42,6 +43,7 @@ const CABLE_READONLY_ENV: &str = "RUST_PHASE4_CABLE_ENABLED";
 const GRADING_READONLY_ENV: &str = "RUST_PHASE4_GRADING_ENABLED";
 const DEVICE_READONLY_ENV: &str = "RUST_PHASE4_DEVICE_ENABLED";
 const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
+const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
@@ -69,6 +71,7 @@ struct AppConfig {
     tools_readonly_enabled: bool,
     device_readonly_enabled: bool,
     equipment_readonly_enabled: bool,
+    theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
 }
@@ -230,6 +233,7 @@ impl AppConfig {
         let cable_readonly_enabled = parse_bool(CABLE_READONLY_ENV, false)?;
         let device_readonly_enabled = parse_bool(DEVICE_READONLY_ENV, false)?;
         let equipment_readonly_enabled = parse_bool(EQUIPMENT_READONLY_ENV, false)?;
+        let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
         Ok(Self {
@@ -243,6 +247,7 @@ impl AppConfig {
             tools_readonly_enabled,
             device_readonly_enabled,
             equipment_readonly_enabled,
+            theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
         })
@@ -378,6 +383,12 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(equipment_train::add))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/equipmentTrain", train_routes);
+    }
+    if state.config.theory_readonly_enabled {
+        let theory_routes = Router::new()
+            .route("/listPageClassify", post(theory::list_classify))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/theoryKnowledge", theory_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1432,6 +1443,7 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentTrain/listPage": {"post": {"responses": {"200": {"description": "Equipment train list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
             "/api/equipmentTrain/detail": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner only"}}}},
             "/api/equipmentTrain/add": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner-scoped write"}}}},
+            "/api/theoryKnowledge/listPageClassify": {"post": {"responses": {"200": {"description": "Theory classification envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
