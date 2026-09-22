@@ -49,3 +49,54 @@ pub(crate) async fn detail(
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
     }
 }
+
+pub(crate) async fn add(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    if let Some(id) = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    {
+        let owner = sqlx::query_scalar::<_, Option<String>>(
+            "SELECT user_id FROM t_equipment_train WHERE id=?",
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await;
+        match owner {
+            Ok(Some(owner)) if owner.as_deref() == Some(user.id.as_str()) => {}
+            Ok(Some(_)) => return envelope_response(StatusCode::OK, 207, "无权限", ""),
+            Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到训练计划", ""),
+            Err(_) => {
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+            }
+        }
+        return match sqlx::query(
+            "UPDATE t_equipment_train SET train_status=?, content=? WHERE id=?",
+        )
+        .bind(body.get("trainStatus").and_then(Value::as_i64))
+        .bind(body.get("content").and_then(Value::as_str))
+        .bind(id)
+        .execute(pool)
+        .await
+        {
+            Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(id)), "ok", ""),
+            Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+        };
+    }
+    let Some(train_type) = body.get("trainType").and_then(Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let id = uuid::Uuid::new_v4().to_string();
+    match sqlx::query("INSERT INTO t_equipment_train (id,user_id,content,device_id,train_name,train_status,train_type,device_name) VALUES (?,?,?,?,?,?,?,?)")
+        .bind(&id).bind(&user.id).bind(body.get("content").and_then(Value::as_str)).bind(body.get("deviceId").and_then(Value::as_str)).bind(body.get("trainName").and_then(Value::as_str)).bind(0i32).bind(train_type).bind(body.get("deviceName").and_then(Value::as_str)).execute(pool).await {
+        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(id)), "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+    }
+}
