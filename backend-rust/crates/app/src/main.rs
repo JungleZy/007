@@ -421,8 +421,20 @@ fn build_router(state: AppState) -> Router {
                 "/findAllQuestionByLevelId",
                 post(theory_question::list_questions),
             )
+            .route("/exportTemplate", post(theory_question::export_template))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/theoryKnowledgeQuestion", question_routes);
+        let admin_question_routes = Router::new()
+            .route("/saveBatch", post(theory_question::save_batch))
+            .route(
+                "/deleteTheoryKnowledgeQuestion",
+                post(theory_question::delete_question),
+            )
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest(
+            "/api/theoryKnowledgeQuestion",
+            question_routes.merge(admin_question_routes),
+        );
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1488,6 +1500,9 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTest/getTestContentById": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeQuestion/saveBatch": {"post": {"responses": {"200": {"description": "Question list envelope; admin only"}}}},
+            "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
