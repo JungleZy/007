@@ -1,0 +1,56 @@
+{
+  "schema": "rust-migration-phase3-session-writes/v1",
+  "verified_at_utc": "2026-09-22T04:11:09Z",
+  "source_commit": "56b0de1",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "routes": ["POST /api/user/userOut", "POST /api/user/changePassword"],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "logout": {
+      "success_code": 200,
+      "success_data": true,
+      "effect": "clear token and deviceId for authenticated token owner"
+    },
+    "change_password": {
+      "request_fields": ["oldPassword", "newPassword", "newPasswordV"],
+      "missing_parameter_code": 202,
+      "wrong_old_password": {"code": 200, "data": false, "message": "当前密码错误"},
+      "mismatched_password": {"code": 200, "data": false, "message": "密码不一致"},
+      "success": {"code": 200, "data": true, "message": "数据正常"},
+      "identity_source": "authenticated token owner; body userId ignored"
+    }
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase3_session_*",
+    "user": "u1 with legacy MD5 password, ordinary role and menu fixture",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_change_password_field": {"http_status": 200, "code": 202},
+    "wrong_old_password": {"http_status": 200, "code": 200, "data": false, "message": "当前密码错误"},
+    "mismatched_new_password": {"http_status": 200, "code": 200, "data": false, "message": "密码不一致"},
+    "valid_change_password_with_body_user_id": {"http_status": 200, "code": 200, "data": true, "message": "数据正常"},
+    "old_password_after_change": {"http_status": 200, "code": 500, "message": "密码错误"},
+    "new_password_login": {"http_status": 200, "code": 200},
+    "valid_logout": {"http_status": 200, "code": 200, "data": true},
+    "revoked_session": {"http_status": 200, "code": 206}
+  },
+  "transaction_observations": {
+    "password_written_as_pbkdf2": true,
+    "password_change_kept_session_until_logout": true,
+    "logout_cleared_token": true,
+    "logout_cleared_device_id": true,
+    "failed_password_checks_wrote_nothing": true,
+    "body_user_id_not_used_for_target_selection": true
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "parameter, old-password, mismatch, successful upgrade, re-login, logout and revoked-session behavior observed"
+  },
+  "next_boundary": "signin registration, verifyPassword, user-management writes and production traffic remain unimplemented; Java remains the production Auth implementation."
+}
