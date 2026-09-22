@@ -327,12 +327,26 @@ fn build_router(state: AppState) -> Router {
         let device_routes = Router::new()
             .route("/listPage", post(device::list_devices))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_device_routes = Router::new()
+            .route("/save", post(device::save_device))
+            .route("/delete", post(device::delete_device))
+            .route("/addDeviceDescription", post(device::add_description))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let device_type_routes = Router::new()
             .route("/findAll", post(device::list_types))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_device_type_routes = Router::new()
+            .route("/save", post(device::save_type))
+            .route("/delete", post(device::delete_type))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
-            .nest("/api/device", device_routes)
-            .nest("/api/deviceType", device_type_routes);
+            .nest("/api/device", device_routes.merge(admin_device_routes))
+            .nest(
+                "/api/deviceType",
+                device_type_routes.merge(admin_device_type_routes),
+            );
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1373,6 +1387,11 @@ async fn openapi() -> Json<Value> {
             "/api/gradingRule/deleteGradingRule": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/device/listPage": {"post": {"responses": {"200": {"description": "Device list envelope; enabled only by RUST_PHASE4_DEVICE_ENABLED"}}}},
             "/api/deviceType/findAll": {"post": {"responses": {"200": {"description": "Device type list envelope; enabled only by RUST_PHASE4_DEVICE_ENABLED"}}}},
+            "/api/deviceType/save": {"post": {"responses": {"200": {"description": "Device type envelope; admin only"}}}},
+            "/api/deviceType/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/device/save": {"post": {"responses": {"200": {"description": "Device envelope; admin only"}}}},
+            "/api/device/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/device/addDeviceDescription": {"post": {"responses": {"200": {"description": "Device description envelope; admin only"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
