@@ -1,0 +1,36 @@
+{
+  "schema": "rust-migration-phase5-theory-question-readonly/v1",
+  "verified_at_utc": "2026-09-22T13:28:50Z",
+  "source_commit": "c87461b",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": ["POST /api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel", "POST /api/theoryKnowledgeQuestion/findAllQuestionByLevelId"],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "level_fields": ["id", "parentId", "name", "createUserId", "createTime"],
+    "question_fields": ["id", "type", "topic", "options", "answer", "analysis", "createUserId", "createTime", "levelId", "createUserName"],
+    "recursive_level_scope": true,
+    "filters": ["levelId", "type", "name"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_question_*",
+    "levels": "root plus child",
+    "questions": "one question under child level",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "levels": {"http_status": 200, "code": 200, "count": 2},
+    "recursive_questions": {"http_status": 200, "code": 200, "count": 1}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, recursive child-level inclusion and question projection observed",
+    "database_writes": false
+  },
+  "next_boundary": "Question save/batch/delete/export and question-paper/exam domains remain Java-only."
+}
