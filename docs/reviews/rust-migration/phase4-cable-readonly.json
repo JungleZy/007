@@ -1,0 +1,52 @@
+{
+  "schema": "rust-migration-phase4-cable-readonly/v1",
+  "verified_at_utc": "2026-09-22T05:46:47Z",
+  "source_commit": "e526f6b",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_CABLE_ENABLED",
+    "default": false,
+    "routes": [
+      "POST /api/cable/find",
+      "POST /api/cable/findById",
+      "POST /api/cable/type/find",
+      "POST /api/cable/floor/find"
+    ],
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/CableApi.js",
+    "list": "POST /api/cable/find with optional typeId and scope array",
+    "detail": "POST /api/cable/findById with id",
+    "types": "POST /api/cable/type/find",
+    "floors": "POST /api/cable/floor/find with id and optional floorNumber"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_cable_*",
+    "cables": 2,
+    "types": 1,
+    "floors": "two pages; first page two groups, second page one group",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "all_cables": {"http_status": 200, "code": 200, "count": 2},
+    "scope_filter": {"http_status": 200, "code": 200, "scope": 2, "count": 1},
+    "type_list": {"http_status": 200, "code": 200, "count": 1},
+    "cable_detail": {"http_status": 200, "code": 200, "id": "cable-1"},
+    "all_floors": {"http_status": 200, "code": 200, "page_count": 2},
+    "single_floor": {"http_status": 200, "code": 200, "group_count": 2}
+  },
+  "dto_contract": {
+    "cable_fields": ["id", "title", "typeId", "typeTitle", "scope", "floorCount", "groupCount", "codeCount", "codeType", "codeSort", "remark", "createTime"],
+    "floor_shape": "List<List<List<String>>>",
+    "database_writes": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, list, scope filter, type, detail, all-floor and single-floor queries observed"
+  },
+  "next_boundary": "Cable save/delete and CableType save/delete remain Java-only; Rust Cable routes remain absent unless the Phase 4 flag is explicitly enabled."
+}
