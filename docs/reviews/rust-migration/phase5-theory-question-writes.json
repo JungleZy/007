@@ -1,0 +1,44 @@
+{
+  "schema": "rust-migration-phase5-theory-question-writes/v1",
+  "verified_at_utc": "2026-09-22T13:38:55Z",
+  "source_commit": "670a1ed",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "admin_routes": ["POST /api/theoryKnowledgeQuestion/saveBatch", "POST /api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion"],
+    "read_route": "POST /api/theoryKnowledgeQuestion/exportTemplate",
+    "authorization": "saveBatch/delete require is_admin=0; template is authenticated read",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "batch_fields": ["type", "topic", "options", "answer", "analysis", "levelId"],
+    "template_columns": 6,
+    "batch_transaction": "all rows commit together; malformed row returns 202 and rolls back batch changes",
+    "question_projection": "id/type/topic/options/answer/analysis/createUserId/createTime/levelId"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_question_write_*",
+    "users": "admin is_admin=0 and ordinary is_admin=1",
+    "level": "l1",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_save_batch": {"http_status": 200, "code": 207},
+    "template": {"http_status": 200, "code": 200, "column_count": 6},
+    "admin_valid_batch": {"http_status": 200, "code": 200, "saved_count": 1},
+    "admin_invalid_batch": {"http_status": 200, "code": 202, "message": "第 2 行格式不完整"}
+  },
+  "database_observations": {
+    "row_count_after_valid_batch": 1,
+    "invalid_batch_partial_write": false,
+    "ordinary_write_side_effect": false
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "admin authorization, template projection, valid batch and malformed-row rollback observed"
+  },
+  "next_boundary": "Question single-save/delete edge parity and test-paper/exam domains remain; Phase 5 remains feature-flagged off."
+}
