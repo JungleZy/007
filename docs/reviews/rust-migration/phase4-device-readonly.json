@@ -1,0 +1,39 @@
+{
+  "schema": "rust-migration-phase4-device-readonly/v1",
+  "verified_at_utc": "2026-09-22T07:00:04Z",
+  "source_commit": "d5658ba",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_DEVICE_ENABLED",
+    "default": false,
+    "routes": ["POST /api/deviceType/findAll", "POST /api/device/listPage"],
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/EquipmentApi.js",
+    "type_list": "POST /api/deviceType/findAll",
+    "device_list": "POST /api/device/listPage with id deviceTypeId",
+    "device_projection": ["id", "deviceName", "deviceNumber", "deviceImg", "deviceTypeId", "createTime", "descriptions"],
+    "description_projection": ["id", "title", "content"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_device_*",
+    "types": 2,
+    "devices": 2,
+    "descriptions": 1,
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "type_list": {"http_status": 200, "code": 200, "count": 2, "first_type_device_count": 2},
+    "device_list": {"http_status": 200, "code": 200, "count": 2, "first_device_description_count": 1}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, device type list, device type filter and description projection observed",
+    "database_writes": false
+  },
+  "next_boundary": "Device save/delete/description writes remain Java-only; Rust device routes remain absent unless the Phase 4 flag is explicitly enabled."
+}
