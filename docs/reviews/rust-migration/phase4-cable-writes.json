@@ -1,0 +1,54 @@
+{
+  "schema": "rust-migration-phase4-cable-writes/v1",
+  "verified_at_utc": "2026-09-22T06:18:37Z",
+  "source_commit": "e93abb0",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_CABLE_ENABLED",
+    "default": false,
+    "admin_routes": [
+      "POST /api/cable/save",
+      "POST /api/cable/delete",
+      "POST /api/cable/type/save",
+      "POST /api/cable/type/delete"
+    ],
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "cable_save_fields": ["id", "title", "typeId", "scope", "codeType", "codeSort", "remark", "floors"],
+    "floor_shape": "List<List<List<String>>>",
+    "derived_fields": ["typeTitle", "floorCount", "groupCount", "codeCount"],
+    "cable_delete": "delete cable floors and cable row in one transaction",
+    "type_save": "upsert type and propagate type title to cables",
+    "type_delete": "delete type, cables and floors in one transaction"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_cable_write_*",
+    "users": "admin is_admin=0 and ordinary is_admin=1",
+    "cable_type": "type-1",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_cable_save": {"http_status": 200, "code": 207},
+    "admin_cable_save": {"http_status": 200, "code": 200, "floor_count": 2, "group_count": 3, "code_count": 5},
+    "admin_type_save": {"http_status": 200, "code": 200},
+    "type_title_propagation": {"observed": true},
+    "ordinary_type_delete": {"http_status": 200, "code": 207},
+    "admin_cable_delete": {"http_status": 200, "code": 200, "data": true},
+    "admin_type_delete": {"http_status": 200, "code": 200, "data": true}
+  },
+  "database_observations": {
+    "cable_floor_replacement": true,
+    "derived_counts_persisted": true,
+    "cable_delete_removed_floors": true,
+    "ordinary_write_side_effect": false,
+    "type_update_propagated": true
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "admin/ordinary save/delete authorization, floor replacement, derived counts, type propagation and deletion observed"
+  },
+  "next_boundary": "Rust Cable flag remains disabled by default; remaining Phase 4 domains include grading rules, devices and equipment."
+}
