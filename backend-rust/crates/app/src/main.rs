@@ -32,6 +32,7 @@ mod admin;
 mod cable;
 mod device;
 mod equipment;
+mod equipment_train;
 mod grading;
 mod password;
 
@@ -369,6 +370,13 @@ fn build_router(state: AppState) -> Router {
             "/api/equipmentDevice",
             equipment_routes.merge(admin_equipment_routes),
         );
+    }
+    if state.config.equipment_readonly_enabled {
+        let train_routes = Router::new()
+            .route("/listPage", post(equipment_train::list))
+            .route("/detail", post(equipment_train::detail))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/equipmentTrain", train_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1420,6 +1428,8 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentDevice/update": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/addKeyPoints": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/equipmentTrain/listPage": {"post": {"responses": {"200": {"description": "Equipment train list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
+            "/api/equipmentTrain/detail": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner only"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
