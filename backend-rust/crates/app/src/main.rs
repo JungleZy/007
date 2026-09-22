@@ -31,6 +31,7 @@ use uuid::Uuid;
 mod admin;
 mod cable;
 mod device;
+mod equipment;
 mod grading;
 mod password;
 
@@ -39,6 +40,7 @@ const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
 const CABLE_READONLY_ENV: &str = "RUST_PHASE4_CABLE_ENABLED";
 const GRADING_READONLY_ENV: &str = "RUST_PHASE4_GRADING_ENABLED";
 const DEVICE_READONLY_ENV: &str = "RUST_PHASE4_DEVICE_ENABLED";
+const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:18002";
@@ -65,6 +67,7 @@ struct AppConfig {
     cable_readonly_enabled: bool,
     tools_readonly_enabled: bool,
     device_readonly_enabled: bool,
+    equipment_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
 }
@@ -225,6 +228,7 @@ impl AppConfig {
         let tools_readonly_enabled = parse_bool(TOOLS_READONLY_ENV, false)?;
         let cable_readonly_enabled = parse_bool(CABLE_READONLY_ENV, false)?;
         let device_readonly_enabled = parse_bool(DEVICE_READONLY_ENV, false)?;
+        let equipment_readonly_enabled = parse_bool(EQUIPMENT_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
         Ok(Self {
@@ -237,6 +241,7 @@ impl AppConfig {
             cable_readonly_enabled,
             tools_readonly_enabled,
             device_readonly_enabled,
+            equipment_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
         })
@@ -347,6 +352,13 @@ fn build_router(state: AppState) -> Router {
                 "/api/deviceType",
                 device_type_routes.merge(admin_device_type_routes),
             );
+    }
+    if state.config.equipment_readonly_enabled {
+        let equipment_routes = Router::new()
+            .route("/listPage", post(equipment::list_devices))
+            .route("/listKeyPoints", post(equipment::list_key_points))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/equipmentDevice", equipment_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1392,6 +1404,8 @@ async fn openapi() -> Json<Value> {
             "/api/device/save": {"post": {"responses": {"200": {"description": "Device envelope; admin only"}}}},
             "/api/device/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/device/addDeviceDescription": {"post": {"responses": {"200": {"description": "Device description envelope; admin only"}}}},
+            "/api/equipmentDevice/listPage": {"post": {"responses": {"200": {"description": "Equipment device list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
+            "/api/equipmentDevice/listKeyPoints": {"post": {"responses": {"200": {"description": "Equipment key-points list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
