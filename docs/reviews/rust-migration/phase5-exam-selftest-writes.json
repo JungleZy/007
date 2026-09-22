@@ -1,0 +1,41 @@
+{
+  "schema": "rust-migration-phase5-exam-selftest-writes/v1",
+  "verified_at_utc": "2026-09-22T14:28:54Z",
+  "source_commit": "5773c0b",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "route": "POST /api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting",
+    "authorization": "authenticated token owner",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "create": "exam header + paper snapshot + one self-test candidate in one transaction",
+    "state": 2,
+    "candidate_state": 2,
+    "candidate_score": 0,
+    "identity": "create_user_id and candidate user_id come from token"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_selftest_*",
+    "user": "u with valid session",
+    "paper": "one paper payload with one single-choice question",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "valid_self_test": {"http_status": 200, "code": 200, "returned_exam_id": true}
+  },
+  "database_observations": {
+    "exam_rows": 1,
+    "paper_snapshot_rows": 1,
+    "candidate_rows": 1
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "self-test exam, paper snapshot and candidate rows committed together"
+  },
+  "known_boundary": "full exam lifecycle, submission, state transitions, scoring and realtime notifications remain incomplete."
+}
