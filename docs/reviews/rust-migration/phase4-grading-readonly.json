@@ -1,0 +1,40 @@
+{
+  "schema": "rust-migration-phase4-grading-readonly/v1",
+  "verified_at_utc": "2026-09-22T06:25:51Z",
+  "source_commit": "8459dfa",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_GRADING_ENABLED",
+    "default": false,
+    "routes": [
+      "POST /api/gradingRule/getGradingRuleListByType",
+      "POST /api/gradingRule/getGradingRuleById"
+    ],
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/GradingRuleApi.js",
+    "list_request": {"type": "integer"},
+    "detail_request": {"id": "string"},
+    "response_fields": ["id", "type", "title", "score", "status", "isDefault", "content"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_grading_*",
+    "rules": "type 0 and type 2 fixtures",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "list_type_0": {"http_status": 200, "code": 200, "count": 1, "id": "g1"},
+    "detail_existing": {"http_status": 200, "code": 200, "id": "g1", "score": 100},
+    "detail_missing": {"http_status": 200, "code": 500}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, type filter, detail projection and missing-rule boundary observed",
+    "database_writes": false
+  },
+  "next_boundary": "Grading rule save/status/default/delete remain Java-only and remain behind Java production routing."
+}
