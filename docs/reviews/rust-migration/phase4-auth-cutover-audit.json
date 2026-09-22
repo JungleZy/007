@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-phase4-auth-cutover-audit/v1",
-  "verified_at_utc": "2026-09-22T05:20:00Z",
+  "verified_at_utc": "2026-09-22T05:19:18Z",
   "source_commits": ["65f244f", "56b0de1", "b384e72", "28a1162", "f2e21d2"],
   "status": "GATE_NOT_READY_FOR_PRODUCTION_CUTOVER",
   "default_flag": {"name": "RUST_PHASE3_AUTH_ENABLED", "value": false},
