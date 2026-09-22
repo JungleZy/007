@@ -1,0 +1,36 @@
+{
+  "schema": "rust-migration-phase5-theory-detail/v1",
+  "verified_at_utc": "2026-09-22T12:52:26Z",
+  "source_commit": "51250ae",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": ["POST /api/theoryKnowledge/getById", "POST /api/theoryKnowledge/getByIdAndToken"],
+    "authentication": "token and deviceId headers; getByIdAndToken includes authenticated projection",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "response": ["knowledge", "knowledgeSwfs"],
+    "knowledge_fields": ["id", "type", "status", "cover", "title", "createUserId", "createTime", "credit", "difficultyId", "specialtyId"],
+    "swf_fields": ["id", "knowledgeId", "cover", "title", "content", "createUserId", "createTime", "sort", "score", "haveTest", "record", "test"],
+    "decimal_policy": "credit read as MySQL DECIMAL and serialized as string to avoid floating conversion"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_theory_detail_*",
+    "knowledge": "one theory row with one chapter",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "public_detail": {"http_status": 200, "code": 200, "swf_count": 1},
+    "authenticated_detail": {"http_status": 200, "code": 200, "haveTest": false}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication, knowledge projection, chapter tree and DECIMAL credit projection observed",
+    "database_writes": false
+  },
+  "known_boundary": "test/content progress aggregation is currently empty/default until the theory test and study-record tables are migrated."
+}
