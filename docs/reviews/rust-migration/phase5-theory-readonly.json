@@ -1,0 +1,35 @@
+{
+  "schema": "rust-migration-phase5-theory-readonly/v1",
+  "verified_at_utc": "2026-09-22T11:37:47Z",
+  "source_commit": "687809b",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "route": "POST /api/theoryKnowledge/listPageClassify",
+    "authentication": "token and deviceId request headers",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/TheoryKnowledgeApi.js",
+    "consumer": "bw-frontend/frontend/src/views/manage/basicTheory/study/basic/*",
+    "response": ["difficultyList", "specialtyList"],
+    "item_fields": ["id", "type", "name", "createTime"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_theory_*",
+    "classification_rows": "one difficulty and one specialty",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "valid_request": {"http_status": 200, "code": 200, "difficulty_count": 1, "specialty_count": 1}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "authentication and difficulty/specialty classification projection observed",
+    "database_writes": false
+  },
+  "next_boundary": "Theory knowledge content, SWF/document projection, questions, exams and file flows remain Java-only."
+}
