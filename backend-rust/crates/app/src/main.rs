@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::{
     env,
     net::SocketAddr,
@@ -17,10 +17,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use sqlx::{mysql::MySqlPoolOptions, MySqlPool, Row};
+use sqlx::{mysql::MySqlPoolOptions, MySqlConnection, MySqlPool, Row};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{net::TcpListener, signal, time::timeout};
@@ -111,6 +111,15 @@ struct Envelope<T> {
 struct AuthProbeResponse {
     user_id: String,
     is_admin: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct LoginRequest {
+    #[serde(rename = "userAccount")]
+    user_account: Option<String>,
+    password: Option<String>,
+    #[serde(rename = "deviceId")]
+    device_id: Option<String>,
 }
 
 #[tokio::main]
@@ -227,7 +236,7 @@ fn build_router(state: AppState) -> Router {
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
-            .route("/getUsersByToken", get(user_get_by_token))
+            .route("/getUsersByToken", post(user_get_by_token))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
@@ -235,8 +244,11 @@ fn build_router(state: AppState) -> Router {
         let role_routes = Router::new()
             .route("/getRoleAll", post(role_get_all))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let user_api = Router::new()
+            .route("/login", post(user_login))
+            .merge(user_routes);
         api = api
-            .nest("/api/user", user_routes)
+            .nest("/api/user", user_api)
             .nest("/api/menus", menu_routes)
             .nest("/api/role", role_routes);
     }
@@ -417,6 +429,272 @@ async fn admin_probe(Extension(user): Extension<AuthUser>) -> Response {
     )
 }
 
+async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequest>) -> Response {
+    let Some(user_account) = request.user_account.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(plaintext) = request.password.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(device_id) = request.device_id.filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = &state.pool else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => {
+            warn!(error = %error, "login transaction could not start");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let row = match sqlx::query(
+        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, password, update_flag, status, bday, eday, dday FROM t_user WHERE user_account = ? LIMIT 1 FOR UPDATE",
+    )
+    .bind(&user_account)
+    .fetch_optional(&mut *transaction)
+    .await
+    {
+        Ok(row) => row,
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error = %error, "login user query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let Some(row) = row else {
+        let _ = transaction.rollback().await;
+        return envelope_response(StatusCode::OK, 500, "系统中不存在该账号", "");
+    };
+    let verification = password::verify(
+        &plaintext,
+        row.get::<Option<String>, _>("password").as_deref(),
+    );
+    if !verification.matches {
+        let _ = transaction.rollback().await;
+        return envelope_response(StatusCode::OK, 500, "密码错误", "");
+    }
+    match row.get::<Option<i32>, _>("status") {
+        Some(1) => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 500, "该账号正在审核中", "");
+        }
+        Some(-1) => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 500, "该账号已停用", "");
+        }
+        Some(0) => {}
+        _ => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 500, "数据异常", "");
+        }
+    }
+    let upgraded_password = if verification.needs_upgrade {
+        match password::hash(&plaintext) {
+            Ok(hash) => Some(hash),
+            Err(error) => {
+                let _ = transaction.rollback().await;
+                warn!(error, "login password upgrade failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
+    } else {
+        None
+    };
+    let role = match sqlx::query(
+        "SELECT r.id, r.title, r.remark, r.is_admin, r.is_default FROM t_role r JOIN t_user_role ur ON ur.role_id = r.id WHERE ur.user_id = ? LIMIT 1",
+    )
+    .bind(row.get::<String, _>("id"))
+    .fetch_optional(&mut *transaction)
+    .await
+    {
+        Ok(Some(role)) => role,
+        Ok(None) => {
+            let _ = transaction.rollback().await;
+            return envelope_response(StatusCode::OK, 500, "数据异常", "");
+        }
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error = %error, "login role query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let role_id: String = role.get("id");
+    let is_admin = role.get::<Option<i32>, _>("is_admin") == Some(0);
+    let menus = match load_menu_tree(
+        &mut *transaction,
+        if is_admin { None } else { Some(&role_id) },
+    )
+    .await
+    {
+        Ok(menus) => menus,
+        Err(error) => {
+            let _ = transaction.rollback().await;
+            warn!(error = %error, "login menu query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let token = password::issue_token();
+    let token_digest = token_digest(&token);
+    let update = if let Some(upgraded_password) = upgraded_password {
+        sqlx::query("UPDATE t_user SET password = ?, token = ?, device_id = ? WHERE id = ?")
+            .bind(upgraded_password)
+            .bind(&token_digest)
+            .bind(&device_id)
+            .bind(row.get::<String, _>("id"))
+            .execute(&mut *transaction)
+            .await
+    } else {
+        sqlx::query("UPDATE t_user SET token = ?, device_id = ? WHERE id = ?")
+            .bind(&token_digest)
+            .bind(&device_id)
+            .bind(row.get::<String, _>("id"))
+            .execute(&mut *transaction)
+            .await
+    };
+    if let Err(error) = update {
+        let _ = transaction.rollback().await;
+        warn!(error = %error, "login session update failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let data = json!({
+        "user": {
+            "id": row.get::<String, _>("id"),
+            "wkno": row.get::<Option<String>, _>("wkno"),
+            "phone": row.get::<Option<String>, _>("phone"),
+            "email": row.get::<Option<String>, _>("email"),
+            "userAccount": row.get::<Option<String>, _>("user_account"),
+            "userImg": row.get::<Option<String>, _>("user_img"),
+            "userName": row.get::<Option<String>, _>("user_name"),
+            "idCard": row.get::<Option<String>, _>("id_card"),
+            "userSex": row.get::<Option<i32>, _>("user_sex"),
+            "updateFlag": row.get::<Option<String>, _>("update_flag"),
+            "status": row.get::<Option<i32>, _>("status"),
+            "bday": row.get::<Option<String>, _>("bday"),
+            "eday": row.get::<Option<String>, _>("eday"),
+            "dday": row.get::<Option<String>, _>("dday")
+        },
+        "role": {
+            "id": role_id,
+            "title": role.get::<Option<String>, _>("title"),
+            "remark": role.get::<Option<String>, _>("remark"),
+            "isAdmin": role.get::<Option<i32>, _>("is_admin"),
+            "isDefault": role.get::<Option<i32>, _>("is_default")
+        },
+        "menus": menus,
+        "token": token,
+        "deviceId": device_id
+    });
+    if let Err(error) = transaction.commit().await {
+        warn!(error = %error, "login transaction commit failed");
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(data), "登陆成功", "")
+}
+
+async fn load_menu_tree(
+    connection: &mut MySqlConnection,
+    role_id: Option<&str>,
+) -> Result<Vec<Value>, sqlx::Error> {
+    let menu_rows = sqlx::query(
+        "SELECT id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort FROM t_menus ORDER BY sort",
+    )
+    .fetch_all(&mut *connection)
+    .await?;
+    let button_rows = sqlx::query("SELECT id, menus_id, title, `key` FROM t_menus_button")
+        .fetch_all(&mut *connection)
+        .await?;
+    let menus: Vec<MenuRow> = menu_rows
+        .into_iter()
+        .map(|row| MenuRow {
+            id: row.get("id"),
+            parent_id: row
+                .get::<Option<String>, _>("parent_id")
+                .unwrap_or_else(|| "-1".into()),
+            key: row.get("key"),
+            path: row.get("path"),
+            name: row.get("name"),
+            icon: row.get("icon"),
+            icon_f: row.get("icon_f"),
+            height: row.get("height"),
+            title: row.get("title"),
+            is_menu: row.get("is_menu"),
+            is_bread: row.get("is_bread"),
+            component: row.get("component"),
+            sort: row.get("sort"),
+        })
+        .collect();
+    let mut selected = role_id.map(|_| HashSet::<String>::new());
+    let mut role_permissions: HashMap<String, HashSet<String>> = HashMap::new();
+    if let Some(role_id) = role_id {
+        for row in sqlx::query("SELECT menu_id, per FROM t_role_menus WHERE role_id = ?")
+            .bind(role_id)
+            .fetch_all(&mut *connection)
+            .await?
+        {
+            let menu_id: String = row.get("menu_id");
+            selected
+                .as_mut()
+                .expect("role selection initialized")
+                .insert(menu_id.clone());
+            let permissions = row
+                .get::<Option<String>, _>("per")
+                .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            role_permissions.insert(menu_id, permissions);
+        }
+        let selected = selected.as_mut().expect("role selection initialized");
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for menu in &menus {
+                if selected.contains(&menu.id)
+                    && menu.parent_id != "-1"
+                    && selected.insert(menu.parent_id.clone())
+                {
+                    changed = true;
+                }
+            }
+        }
+    }
+    let selected_ids = selected.as_ref();
+    let mut by_parent: HashMap<String, Vec<MenuRow>> = HashMap::new();
+    for menu in menus {
+        if selected_ids.is_some_and(|ids| !ids.contains(&menu.id)) {
+            continue;
+        }
+        by_parent
+            .entry(menu.parent_id.clone())
+            .or_default()
+            .push(menu);
+    }
+    let mut permissions: HashMap<String, Vec<Value>> = HashMap::new();
+    for row in button_rows {
+        let menu_id: String = row.get("menus_id");
+        let button_key = row.get::<Option<String>, _>("key");
+        let allowed = match role_id {
+            None => true,
+            Some(_) => button_key.as_ref().is_some_and(|key| {
+                role_permissions
+                    .get(&menu_id)
+                    .is_some_and(|keys| keys.contains(key))
+            }),
+        };
+        if allowed {
+            permissions.entry(menu_id.clone()).or_default().push(json!({
+                "id": row.get::<String, _>("id"),
+                "menusId": menu_id,
+                "title": row.get::<Option<String>, _>("title"),
+                "key": button_key
+            }));
+        }
+    }
+    Ok(menu_tree("-1", &by_parent, &permissions))
+}
+
 async fn user_get_by_token(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -461,18 +739,13 @@ fn menu_tree(
     parent_id: &str,
     by_parent: &HashMap<String, Vec<MenuRow>>,
     permissions: &HashMap<String, Vec<Value>>,
-    include_permissions: bool,
 ) -> Vec<Value> {
     let mut rows = by_parent.get(parent_id).cloned().unwrap_or_default();
     rows.sort_by_key(|row| row.sort.unwrap_or(0));
     rows.into_iter()
         .map(|row| {
-            let children = menu_tree(&row.id, by_parent, permissions, false);
-            let row_permissions = if include_permissions {
-                permissions.get(&row.id).cloned().unwrap_or_default()
-            } else {
-                Vec::new()
-            };
+            let children = menu_tree(&row.id, by_parent, permissions);
+            let row_permissions = permissions.get(&row.id).cloned().unwrap_or_default();
             json!({
                 "id": row.id,
                 "parentId": row.parent_id,
@@ -550,7 +823,7 @@ async fn menu_get_all(State(state): State<AppState>, _user: Extension<AuthUser>)
             envelope_json(
                 StatusCode::OK,
                 200,
-                Some(json!(menu_tree("-1", &by_parent, &permissions, true))),
+                Some(json!(menu_tree("-1", &by_parent, &permissions))),
                 "ok",
                 "",
             )
@@ -672,7 +945,7 @@ async fn openapi() -> Json<Value> {
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
             "/api/tools/getTwelvemonth": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
-            "/api/user/getUsersByToken": {"get": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
         }
