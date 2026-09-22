@@ -37,6 +37,7 @@ mod grading;
 mod password;
 mod theory;
 mod theory_detail;
+mod theory_test;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
@@ -392,7 +393,22 @@ fn build_router(state: AppState) -> Router {
             .route("/getById", post(theory_detail::by_id))
             .route("/getByIdAndToken", post(theory_detail::by_id_and_token))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/theoryKnowledge", theory_routes);
+        let test_routes = Router::new()
+            .route("/getTestBySwfId", post(theory_test::by_swf))
+            .route("/getByKnowledgeSwfIdAndEnable", post(theory_test::enabled))
+            .route(
+                "/getTestContentByUserIdAndKnowledgeId",
+                post(theory_test::by_knowledge),
+            )
+            .route(
+                "/getTestContentByUserIdAndKnowledgeSwfId",
+                post(theory_test::by_swf_user),
+            )
+            .route("/getTestContentById", post(theory_test::by_id))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/theoryKnowledge", theory_routes)
+            .nest("/api/theoryKnowledgeTest", test_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1451,6 +1467,11 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledge/getBasicTheory": {"post": {"responses": {"200": {"description": "Theory knowledge list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledge/getById": {"post": {"responses": {"200": {"description": "Theory knowledge detail envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledge/getByIdAndToken": {"post": {"responses": {"200": {"description": "Theory knowledge detail with user progress; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTest/getTestBySwfId": {"post": {"responses": {"200": {"description": "Theory test list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable": {"post": {"responses": {"200": {"description": "Enabled test content envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId": {"post": {"responses": {"200": {"description": "User test result list; token-scoped"}}}},
+            "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
+            "/api/theoryKnowledgeTest/getTestContentById": {"post": {"responses": {"200": {"description": "User test result; token-scoped"}}}},
             "/api/user/login": {"post": {"responses": {"200": {"description": "LoginSessionDto envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/signin": {"post": {"responses": {"200": {"description": "UserSummary envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/getUsersByToken": {"post": {"responses": {"200": {"description": "UserProfile envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
