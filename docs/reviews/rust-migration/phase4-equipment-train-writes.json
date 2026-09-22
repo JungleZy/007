@@ -1,0 +1,44 @@
+{
+  "schema": "rust-migration-phase4-equipment-train-writes/v1",
+  "verified_at_utc": "2026-09-22T11:24:41Z",
+  "source_commit": "25126dc",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_EQUIPMENT_ENABLED",
+    "default": false,
+    "route": "POST /api/equipmentTrain/add",
+    "authorization": "authenticated user; create binds token owner, update requires token owner",
+    "production_cutover": false
+  },
+  "java_contract": {
+    "create_fields": ["content", "deviceId", "deviceName", "trainName", "trainType"],
+    "create_status": 0,
+    "update_fields": ["id", "content", "trainStatus"],
+    "foreign_update": "HTTP 200 + code 207",
+    "response": "created or updated train id in success data"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_equipment_train_write_*",
+    "users": "owner u1 and foreign u2",
+    "foreign_train": "train-2 owned by u2",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "owner_create": {"http_status": 200, "code": 200},
+    "owner_update": {"http_status": 200, "code": 200},
+    "foreign_update": {"http_status": 200, "code": 207}
+  },
+  "database_observations": {
+    "created_row_owner": "u1",
+    "created_status": 0,
+    "updated_status": 1,
+    "updated_content": "done",
+    "foreign_row_unchanged": true
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "owner create/update and foreign update rejection observed"
+  },
+  "next_boundary": "Equipment training remains feature-flagged off; remaining Phase 4/5 business domains are not migrated."
+}
