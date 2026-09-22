@@ -1,0 +1,78 @@
+{
+  "schema": "rust-migration-phase4-auth-admin-writes/v1",
+  "verified_at_utc": "2026-09-22T04:58:11Z",
+  "source_commit": "28a1162",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE3_AUTH_ENABLED",
+    "default": false,
+    "admin_routes": [
+      "POST /api/user/saveUser",
+      "POST /api/user/importUser",
+      "POST /api/user/addUserRole",
+      "GET /api/user/resetPassword",
+      "POST /api/role/addRole",
+      "POST /api/menus/addMenu"
+    ],
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "java_contract_sources": {
+    "frontend_consumers": [
+      "bw-frontend/frontend/src/common/api/StructureApi.js",
+      "bw-frontend/frontend/src/common/api/RoleApi.js",
+      "bw-frontend/frontend/src/common/api/MenusApi.js",
+      "bw-frontend/frontend/src/common/api/UserApi.js"
+    ],
+    "backend_contracts": [
+      "UserController.java",
+      "RoleController.java",
+      "MenusController.java",
+      "UserService.java",
+      "RoleService.java",
+      "MenusService.java"
+    ]
+  },
+  "routes": {
+    "saveUser": "admin-only create/update with PBKDF2 password, status=0, default avatar/role, UserProfile projection",
+    "importUser": "admin-only batch create; client token/deviceId ignored; duplicate rows skipped",
+    "addUserRole": "admin-only replace user-role associations",
+    "resetPassword": "admin-only PBKDF2 reset to temporary password 123456",
+    "addRole": "admin-only role upsert plus role-menu permission replacement",
+    "addMenu": "admin-only menu upsert plus button permission replacement"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_admin_*",
+    "users": [
+      "u-admin with SHA-256 token digest and is_admin=0 role",
+      "u-ordinary with SHA-256 token digest and is_admin=1 role"
+    ],
+    "menu": "one root menu and one button permission",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_add_role": {"http_status": 200, "code": 207},
+    "ordinary_save_user": {"http_status": 200, "code": 207},
+    "admin_add_role": {"http_status": 200, "code": 200},
+    "admin_add_menu": {"http_status": 200, "code": 200},
+    "admin_save_user": {"http_status": 200, "code": 200},
+    "admin_add_user_role": {"http_status": 200, "code": 200},
+    "admin_reset_password": {"http_status": 200, "code": 200, "data": "123456"},
+    "admin_import_user": {"http_status": 200, "code": 200, "created_count": 1}
+  },
+  "database_observations": {
+    "admin_created_user_credentials": "token and deviceId remain NULL",
+    "imported_user_credentials": "client token and deviceId remain NULL",
+    "admin_created_user_password": "PBKDF2 hash",
+    "role_menu_association_written": true,
+    "button_permission_written": true,
+    "ordinary_write_side_effect": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "admin and ordinary authorization matrix plus all six admin write routes observed",
+    "default_disabled": "all Phase 3/4 Auth routes remain absent when RUST_PHASE3_AUTH_ENABLED=false"
+  },
+  "next_boundary": "production traffic cutover, user deletion and remaining non-Auth business domains remain unimplemented; Java remains the production Auth implementation."
+}
