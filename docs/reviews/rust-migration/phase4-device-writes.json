@@ -1,0 +1,51 @@
+{
+  "schema": "rust-migration-phase4-device-writes/v1",
+  "verified_at_utc": "2026-09-22T08:22:40Z",
+  "source_commit": "86f3f4a",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_DEVICE_ENABLED",
+    "default": false,
+    "admin_routes": [
+      "POST /api/device/save",
+      "POST /api/device/delete",
+      "POST /api/device/addDeviceDescription",
+      "POST /api/deviceType/save",
+      "POST /api/deviceType/delete"
+    ],
+    "authorization": "authenticated token owner with is_admin=0 role only",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/EquipmentApi.js",
+    "device_save": ["id", "deviceName", "deviceNumber", "deviceImg", "deviceTypeId", "descriptions"],
+    "device_description": ["deviceId", "title", "content"],
+    "device_type": ["id", "typeName"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_device_write_*",
+    "users": "admin is_admin=0 and ordinary is_admin=1",
+    "initial_device": "device id 10 with one description",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "ordinary_device_save": {"http_status": 200, "code": 207},
+    "admin_device_save": {"http_status": 200, "code": 200},
+    "admin_description_add": {"http_status": 200, "code": 200},
+    "admin_type_save": {"http_status": 200, "code": 200},
+    "ordinary_device_delete": {"http_status": 200, "code": 207},
+    "admin_device_delete": {"http_status": 200, "code": 200}
+  },
+  "database_observations": {
+    "device_description_replaced_or_added": true,
+    "deleted_device_rows": 0,
+    "deleted_description_rows": 0,
+    "ordinary_write_side_effect": false
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "ordinary/admin save, description, type save and delete matrix observed"
+  },
+  "next_boundary": "Device routes remain feature-flagged off; equipment training and remaining Phase 4 domains are not migrated."
+}
