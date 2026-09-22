@@ -27,6 +27,7 @@ use tokio::{net::TcpListener, signal, time::timeout};
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
 use uuid::Uuid;
+mod admin;
 mod password;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
@@ -273,14 +274,32 @@ fn build_router(state: AppState) -> Router {
         let role_routes = Router::new()
             .route("/getRoleAll", post(role_get_all))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_user_routes = Router::new()
+            .route("/saveUser", post(admin::save_user))
+            .route("/importUser", post(admin::import_user))
+            .route("/addUserRole", post(admin::add_user_role))
+            .route("/resetPassword", get(admin::reset_password))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_role_routes = Router::new()
+            .route("/addRole", post(admin::add_role))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_menu_routes = Router::new()
+            .route("/addMenu", post(admin::add_menu))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let user_api = Router::new()
             .route("/login", post(user_login))
             .route("/signin", post(user_signin))
-            .merge(user_routes);
+            .merge(user_routes)
+            .merge(admin_user_routes);
+        let menu_api = menu_routes.merge(admin_menu_routes);
+        let role_api = role_routes.merge(admin_role_routes);
         api = api
             .nest("/api/user", user_api)
-            .nest("/api/menus", menu_routes)
-            .nest("/api/role", role_routes);
+            .nest("/api/menus", menu_api)
+            .nest("/api/role", role_api);
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
@@ -1270,8 +1289,14 @@ async fn openapi() -> Json<Value> {
             "/api/user/userOut": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/changePassword": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
             "/api/user/verifyPassword": {"post": {"responses": {"200": {"description": "Boolean envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/user/saveUser": {"post": {"responses": {"200": {"description": "UserProfile envelope; admin only"}}}},
+            "/api/user/importUser": {"post": {"responses": {"200": {"description": "UserProfile list envelope; admin only"}}}},
+            "/api/user/addUserRole": {"post": {"responses": {"200": {"description": "Message envelope; admin only"}}}},
+            "/api/user/resetPassword": {"get": {"responses": {"200": {"description": "Temporary password envelope; admin only"}}}},
             "/api/menus/getMenusAll": {"get": {"responses": {"200": {"description": "Menus tree envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
-            "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}}
+            "/api/menus/addMenu": {"post": {"responses": {"200": {"description": "Menu envelope; admin only"}}}},
+            "/api/role/getRoleAll": {"post": {"responses": {"200": {"description": "RoleInfoDto list envelope; enabled only by RUST_PHASE3_AUTH_ENABLED"}}}},
+            "/api/role/addRole": {"post": {"responses": {"200": {"description": "Role envelope; admin only"}}}}
         }
     }))
 }
