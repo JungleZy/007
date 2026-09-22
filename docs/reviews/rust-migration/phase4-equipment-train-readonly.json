@@ -1,0 +1,39 @@
+{
+  "schema": "rust-migration-phase4-equipment-train-readonly/v1",
+  "verified_at_utc": "2026-09-22T09:56:56Z",
+  "source_commit": "cfe7cce",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE4_EQUIPMENT_ENABLED",
+    "default": false,
+    "routes": ["POST /api/equipmentTrain/listPage", "POST /api/equipmentTrain/detail"],
+    "authentication": "token and deviceId request headers",
+    "ownership": "list is token-scoped; detail rejects foreign user with 207",
+    "production_cutover": false
+  },
+  "frontend_contract": {
+    "source": "bw-frontend/frontend/src/common/api/equipment.js",
+    "list": "POST /api/equipmentTrain/listPage",
+    "detail": "POST /api/equipmentTrain/detail with id",
+    "fields": ["id", "userId", "content", "trainTime", "deviceId", "trainName", "trainStatus", "trainType", "deviceName"]
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase4_equipment_train_*",
+    "users": "owner u1 and foreign u2",
+    "trains": "one row per user",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "missing_token": {"http_status": 200, "code": 203},
+    "owner_list": {"http_status": 200, "code": 200, "count": 1, "id": "train-1"},
+    "owner_detail": {"http_status": 200, "code": 200},
+    "foreign_detail": {"http_status": 200, "code": 207}
+  },
+  "verification": {
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "missing-token, owner-scoped list, owner detail and foreign detail authorization observed",
+    "database_writes": false
+  },
+  "next_boundary": "Equipment training add/update writes remain Java-only; Rust equipment routes remain disabled by default."
+}
