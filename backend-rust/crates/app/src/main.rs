@@ -49,6 +49,7 @@ mod post_telex_write;
 mod post_ticker;
 mod radiotelephone;
 mod receive_keypoints;
+mod scoring;
 mod simulation;
 mod telegram;
 mod telegram_write;

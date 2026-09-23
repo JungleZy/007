@@ -15,13 +15,10 @@ pub(crate) struct AddRequest {
     train_type: Option<i32>,
     #[serde(rename = "trainType")]
     train_kind: Option<i32>,
-    #[serde(rename = "groupNumber")]
-    group_number: Option<i32>,
 }
 #[derive(serde::Deserialize)]
 pub(crate) struct ActionRequest {
     id: Option<String>,
-    status: Option<i32>,
 }
 fn err(e: sqlx::Error, op: &'static str) -> Response {
     tracing::warn!(error=%e,operation=op,"post telex write failed");

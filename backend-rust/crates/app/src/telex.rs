@@ -1,10 +1,11 @@
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
     response::Response,
     Json,
 };
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -349,7 +350,6 @@ pub(crate) struct TrainRequest {
     total_number: Option<i32>,
     #[serde(rename = "errorNumber")]
     error_number: Option<i32>,
-    accuracy: Option<i32>,
     speed: Option<String>,
     content: Option<String>,
 }
@@ -407,18 +407,123 @@ pub(crate) async fn train_save(
     if !(0..=3).contains(&requested) {
         return envelope_response(StatusCode::OK, 202, "训练状态无效", "");
     }
+    let total = body.total_number.unwrap_or(0).max(0);
+    let errors = body.error_number.unwrap_or(0).clamp(0, total);
+    let accuracy = scoring::accuracy_percent(i64::from(total - errors), i64::from(total))
+        .to_i32()
+        .unwrap_or(0);
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let id = body
-        .id
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let result=sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,0) ON DUPLICATE KEY UPDATE status=VALUES(status),numbs=VALUES(numbs),title=VALUES(title),duration=VALUES(duration),total_number=VALUES(total_number),error_number=VALUES(error_number),accuracy=VALUES(accuracy),speed=VALUES(speed),content=VALUES(content)").bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind(body.duration).bind(body.total_number).bind(body.error_number).bind(body.accuracy).bind(body.speed).bind(body.content).bind(&user.id).execute(pool).await;
-    match result {
-        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", ""),
-        Err(e) => train_error(e, "save train"),
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
+        .unwrap_or(0);
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => return train_error(error, "start train save transaction"),
+    };
+    let id = if let Some(id) = body.id.filter(|value| !value.is_empty()) {
+        let row = match sqlx::query("SELECT create_user_id,status,protocol_version,active_since,accumulated_active_millis,content FROM t_telex_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+            .bind(&id)
+            .fetch_optional(&mut *transaction)
+            .await
+        {
+            Ok(Some(row)) => row,
+            Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
+            Err(error) => return train_error(error, "load train for update"),
+        };
+        if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+            return envelope_response(StatusCode::OK, 207, "无权修改他人电传训练", "");
+        }
+        if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0) < 1 {
+            return envelope_response(StatusCode::OK, 208, "旧版训练记录不可继续提交", "");
+        }
+        let current = row.get::<Option<i32>, _>("status").unwrap_or(0);
+        if current == 3 {
+            return envelope_response(StatusCode::OK, 208, "训练已结束", "");
+        }
+        let allowed = current == requested
+            || matches!(
+                (current, requested),
+                (0, 1) | (1, 2) | (1, 3) | (2, 1) | (2, 3)
+            );
+        if !allowed {
+            return envelope_response(StatusCode::OK, 208, "训练状态流转无效", "");
+        }
+        if let Some(submitted) = body.content.as_deref() {
+            let expected = row
+                .get::<Option<String>, _>("content")
+                .unwrap_or_else(|| "[]".to_owned());
+            let expected = serde_json::from_str::<Vec<Value>>(&expected);
+            let actual = serde_json::from_str::<Vec<Value>>(submitted);
+            let structure_matches = match (expected, actual) {
+                (Ok(expected), Ok(actual)) if expected.len() == actual.len() => expected
+                    .iter()
+                    .zip(actual.iter())
+                    .all(|(left, right)| left.get("text") == right.get("text")),
+                _ => false,
+            };
+            if !structure_matches {
+                return envelope_response(StatusCode::OK, 202, "训练报文结构不一致", "");
+            }
+        }
+        let mut accumulated = row
+            .get::<Option<i64>, _>("accumulated_active_millis")
+            .unwrap_or(0)
+            .max(0);
+        let active_since = row.get::<Option<i64>, _>("active_since");
+        if current == 1 && requested != 1 {
+            accumulated =
+                accumulated.saturating_add(now.saturating_sub(active_since.unwrap_or(now)));
+        }
+        let next_active_since = if current != 1 && requested == 1 {
+            Some(now)
+        } else if requested == 1 {
+            active_since
+        } else {
+            None
+        };
+        let duration = if requested == 3 {
+            (accumulated / 1000).to_string()
+        } else {
+            body.duration.unwrap_or_default()
+        };
+        let speed = if requested == 3 {
+            scoring::rate_per_minute_precise(i64::from(total), accumulated).to_string()
+        } else {
+            body.speed.unwrap_or_else(|| "0".to_owned())
+        };
+        if let Err(error) = sqlx::query("UPDATE t_telex_pat_train SET type=?,numbs=?,title=?,status=?,duration=?,total_number=?,error_number=?,accuracy=?,speed=?,content=COALESCE(?,content),active_since=?,accumulated_active_millis=? WHERE id=?")
+            .bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind(duration).bind(total).bind(errors).bind(accuracy).bind(speed).bind(body.content).bind(next_active_since).bind(accumulated).bind(&id)
+            .execute(&mut *transaction).await
+        {
+            return train_error(error, "update train");
+        }
+        id
+    } else {
+        if requested == 3 {
+            return envelope_response(StatusCode::OK, 208, "训练尚未开始，不能完成", "");
+        }
+        if let Some(content) = body.content.as_deref() {
+            if serde_json::from_str::<Vec<Value>>(content).is_err() {
+                return envelope_response(StatusCode::OK, 202, "训练报文内容无效", "");
+            }
+        }
+        let id = uuid::Uuid::new_v4().to_string();
+        let active_since = (requested == 1).then_some(now);
+        if let Err(error) = sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,0)")
+            .bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind("0").bind(total).bind(errors).bind(accuracy).bind("0").bind(body.content.unwrap_or_else(|| "[]".to_owned())).bind(&user.id).bind(active_since)
+            .execute(&mut *transaction).await
+        {
+            return train_error(error, "insert train");
+        }
+        id
+    };
+    if let Err(error) = transaction.commit().await {
+        return train_error(error, "commit train save");
     }
+    envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", "")
 }
 pub(crate) async fn train_delete(
     State(state): State<AppState>,

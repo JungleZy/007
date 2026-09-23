@@ -1,11 +1,10 @@
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
     response::Response,
     Json,
 };
-use rust_decimal::{Decimal, RoundingStrategy};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{MySql, Row, Transaction};
@@ -32,14 +31,6 @@ pub(crate) struct SaveRequest {
 fn database_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error = %error, operation, "telegraph key database operation failed");
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-}
-
-fn rate(total_num: i32, total_time: i32) -> Decimal {
-    if total_num <= 0 || total_time <= 0 {
-        return Decimal::ZERO;
-    }
-    (Decimal::from(total_num) * Decimal::from(60_000) / Decimal::from(total_time))
-        .round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero)
 }
 
 async fn lock_user(
@@ -188,7 +179,7 @@ pub(crate) async fn save(
         }
     };
 
-    let average_speed = rate(total_num, total_time);
+    let average_speed = scoring::rate_per_minute(i64::from(total_num), i64::from(total_time));
     let statistical = match sqlx::query("SELECT id,total_count FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
         .bind(&user.id)
         .bind(train_type)

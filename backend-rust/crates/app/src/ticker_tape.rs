@@ -7,7 +7,7 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{mysql::MySqlRow, MySqlPool, Row};
+use sqlx::{mysql::MySqlRow, Row};
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
@@ -293,8 +293,6 @@ pub(crate) struct UpdateRequest {
 #[derive(Debug, Deserialize)]
 pub(crate) struct BaseRequest {
     id: Option<String>,
-    #[serde(rename = "type")]
-    train_type: Option<i32>,
     mark: Option<String>,
     schedule: Option<i32>,
 }
@@ -302,13 +300,6 @@ pub(crate) struct BaseRequest {
 fn ticker_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error=%error, operation, "ticker write failed");
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-}
-async fn owned_ticker(
-    pool: &MySqlPool,
-    id: &str,
-    user_id: &str,
-) -> Result<Option<MySqlRow>, sqlx::Error> {
-    sqlx::query("SELECT id,user_id,type,status,active_since,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE").bind(id).bind(user_id).fetch_optional(pool).await
 }
 fn parse_seconds(value: Option<String>) -> i64 {
     value

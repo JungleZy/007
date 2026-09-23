@@ -1,9 +1,9 @@
 {
   "schema":"rust-migration-phase6-gate/v1",
-  "verified_at_utc":"2026-09-23T10:46:00Z",
+  "verified_at_utc":"2026-09-23T12:25:52Z",
   "status":"BLOCKED_PARTIAL_NO_PRODUCTION_TRAFFIC",
-  "plan_exit_requirements":{"scoring_equivalence":"not fully proven","state_transition_equivalence":"slice-level evidence exists; full concurrent finish/reset coverage missing","db_frontend_consistency":"fixture and frontend build evidence exists; authenticated training-page flow missing","real_training_smoke":"not complete for every Phase 6 domain"},
-  "current_evidence":{"java_clean_verify":"512 tests, 0 failures/errors/skipped; BUILD SUCCESS","frontend":"39 tests passed; production build passed; browser authorization surface loaded","rust":"cargo check/test/build passed; 9 tests passed, 2 ignored","domain_artifacts":17,"production_traffic":false},
-  "blocking_gaps":["server-authoritative scoring and elapsed-time parity for all personal domains","dedicated fixture for every Phase 6 write/read contract","authenticated browser training smoke against Rust routes","Electron shell must package and start the Rust backend artifact","Java/Rust domain cutover and rollback evidence"],
+  "plan_exit_requirements":{"scoring_equivalence":"shared Rust rate/accuracy pure functions now have Java-boundary tests; full domain scoring fixture parity remains incomplete","state_transition_equivalence":"browser exercised entering add/begin/pause/goTo/finish/getById; full concurrent finish/reset coverage remains incomplete","db_frontend_consistency":"licensed browser loaded dynamic pinyin training page and its statisticalPage request returned HTTP200 from Rust; add/list/lifecycle browser fetches returned code200","real_training_smoke":"one authenticated browser training domain passed; remaining Phase 6 pages and real device input are incomplete"},
+  "current_evidence":{"java_clean_verify":"512 tests, 0 failures/errors/skipped; BUILD SUCCESS","frontend":"39 tests passed; production build passed; licensed dynamic pinyin page loaded","rust":"cargo check/test/build passed; 11 tests passed including shared scoring boundaries, 2 ignored","electron":"Rust child backend healthy on 18001; root WS and receiveKeyPoints routes reachable when flags enabled","production_traffic":false},
+  "blocking_gaps":["server-authoritative scoring and elapsed-time parity for every personal domain","concurrent finish/reset regression for every write domain","authenticated browser smoke for remaining Phase 6 pages","real serial/device flow","Java/Rust domain cutover and rollback evidence"],
   "decision":"Do not mark Phase 6 exit gate complete; keep Java as sole production writer."
 }

@@ -24,7 +24,6 @@ pub(crate) struct AddRequest {
 #[derive(serde::Deserialize)]
 pub(crate) struct ActionRequest {
     id: Option<String>,
-    attempt: Option<i32>,
 }
 fn err(e: sqlx::Error, op: &'static str) -> Response {
     tracing::warn!(error=%e,operation=op,"post telegram write failed");
