@@ -7,7 +7,7 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{mysql::MySqlRow, Row};
+use sqlx::{mysql::MySqlRow, MySqlPool, Row};
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
@@ -269,5 +269,226 @@ pub(crate) async fn settings(State(state): State<AppState>) -> Response {
             "",
         ),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
+#[derive(Debug, Deserialize)]
+pub(crate) struct AddRequest {
+    rate: Option<i32>,
+    #[serde(rename = "type")]
+    train_type: Option<i32>,
+    #[serde(rename = "codeShort")]
+    code_short: Option<i32>,
+    #[serde(rename = "codeMessageBody")]
+    code_message_body: Option<Value>,
+    name: Option<String>,
+    #[serde(rename = "isLowRate")]
+    is_low_rate: Option<i32>,
+}
+#[derive(Debug, Deserialize)]
+pub(crate) struct UpdateRequest {
+    id: Option<String>,
+    mark: Option<String>,
+    schedule: Option<i32>,
+}
+#[derive(Debug, Deserialize)]
+pub(crate) struct BaseRequest {
+    id: Option<String>,
+    #[serde(rename = "type")]
+    train_type: Option<i32>,
+    mark: Option<String>,
+    schedule: Option<i32>,
+}
+
+fn ticker_error(error: sqlx::Error, operation: &'static str) -> Response {
+    tracing::warn!(error=%error, operation, "ticker write failed");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+}
+async fn owned_ticker(
+    pool: &MySqlPool,
+    id: &str,
+    user_id: &str,
+) -> Result<Option<MySqlRow>, sqlx::Error> {
+    sqlx::query("SELECT id,user_id,type,status,active_since,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE").bind(id).bind(user_id).fetch_optional(pool).await
+}
+fn parse_seconds(value: Option<String>) -> i64 {
+    value
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0)
+}
+
+pub(crate) async fn add(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<AddRequest>,
+) -> Response {
+    let Some(kind) = body.train_type else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = uuid::Uuid::new_v4().to_string();
+    let content = body
+        .code_message_body
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "[]".into());
+    match sqlx::query("INSERT INTO t_ticker_tape_train (id,rate,type,code_message_body,code_short,status,name,user_id,mark,schedule,is_low_rate,protocol_version,accumulated_active_millis,valid_time) VALUES (?,?,?,?,?,0,?,?,?,0,?,1,0,'0')").bind(&id).bind(body.rate).bind(kind).bind(content).bind(body.code_short).bind(body.name).bind(&user.id).bind("0,0").bind(body.is_low_rate).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id})),"ok",""),Err(e)=>ticker_error(e,"add")}
+}
+
+pub(crate) async fn begin(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<IdRequest>,
+) -> Response {
+    let Some(id) = body.id.filter(|v| !v.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_ticker_tape_train SET status=1,start_time=COALESCE(start_time,NOW(6)),active_since=COALESCE(active_since,NOW(6)) WHERE id=? AND user_id=? AND status<>3").bind(&id).bind(&user.id).execute(pool).await{Ok(_)=>envelope_response(StatusCode::OK,200,"ok",""),Err(e)=>ticker_error(e,"begin")}
+}
+
+async fn update_clock(
+    state: AppState,
+    user: AuthUser,
+    body: UpdateRequest,
+    terminal: bool,
+) -> Response {
+    let Some(id) = body.id.filter(|v| !v.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return ticker_error(e, "start lifecycle"),
+    };
+    let row=match sqlx::query("SELECT status,IF(active_since IS NULL,0,1) AS running,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE").bind(&id).bind(&user.id).fetch_optional(&mut *tx).await{Ok(Some(r))=>r,Ok(None)=>return envelope_response(StatusCode::OK,207,"无权限",""),Err(e)=>return ticker_error(e,"load lifecycle")};
+    let status = row.get::<Option<i32>, _>("status").unwrap_or(0);
+    if status == 3 {
+        return envelope_response(StatusCode::OK, 208, "训练已结束", "");
+    }
+    let running = row.get::<i64, _>("running") != 0;
+    let elapsed = if running { 1 } else { 0 };
+    let next_status = if terminal {
+        3
+    } else if body.mark.is_some() || body.schedule.is_some() {
+        2
+    } else {
+        1
+    };
+    let sql = if next_status == 3 {
+        "UPDATE t_ticker_tape_train SET status=3,end_time=NOW(6),active_since=NULL,valid_time=? ,mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
+    } else if next_status == 2 {
+        "UPDATE t_ticker_tape_train SET status=2,active_since=NULL,valid_time=?,mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
+    } else {
+        "UPDATE t_ticker_tape_train SET status=1,active_since=COALESCE(active_since,NOW(6)),mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
+    };
+    let result = if next_status == 1 {
+        sqlx::query(sql)
+            .bind(body.mark)
+            .bind(body.schedule)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+    } else {
+        sqlx::query(sql)
+            .bind(parse_seconds(row.get("valid_time")).saturating_add(elapsed))
+            .bind(body.mark)
+            .bind(body.schedule)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+    };
+    if let Err(e) = result {
+        return ticker_error(e, "update lifecycle");
+    };
+    if let Err(e) = tx.commit().await {
+        return ticker_error(e, "commit lifecycle");
+    };
+    envelope_response(StatusCode::OK, 200, "ok", "")
+}
+pub(crate) async fn pause(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<UpdateRequest>,
+) -> Response {
+    update_clock(state, user, body, false).await
+}
+pub(crate) async fn resume(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<IdRequest>,
+) -> Response {
+    let update = UpdateRequest {
+        id: body.id,
+        mark: None,
+        schedule: None,
+    };
+    update_clock(state, user, update, false).await
+}
+pub(crate) async fn finish(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<UpdateRequest>,
+) -> Response {
+    update_clock(state, user, body, true).await
+}
+pub(crate) async fn base_session(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<TypeRequest>,
+) -> Response {
+    let Some(kind) = body.train_type.filter(|v| *v == 21 || *v == 22) else {
+        return envelope_response(StatusCode::OK, 202, "基础训练类型无效", "");
+    };
+    add(
+        State(state),
+        Extension(user),
+        Json(AddRequest {
+            rate: None,
+            train_type: Some(kind),
+            code_short: None,
+            code_message_body: Some(Value::Array(Vec::new())),
+            name: None,
+            is_low_rate: None,
+        }),
+    )
+    .await
+}
+pub(crate) async fn save_base(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<BaseRequest>,
+) -> Response {
+    let update = UpdateRequest {
+        id: body.id,
+        mark: body.mark,
+        schedule: body.schedule,
+    };
+    finish(State(state), Extension(user), Json(update)).await
+}
+pub(crate) async fn discard_base(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<IdRequest>,
+) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=? AND user_id=? AND status=0")
+        .bind(id)
+        .bind(&user.id)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Err(e) => ticker_error(e, "discard base"),
     }
 }
