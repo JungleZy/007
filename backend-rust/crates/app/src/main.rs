@@ -462,6 +462,7 @@ fn build_router(state: AppState) -> Router {
             .route("/findAllTheoryKnowledgeExam", post(exam::list))
             .route("/findTheoryKnowledgeExamById", post(exam::detail))
             .route("/saveTheoryKnowledgeExamSelfTesting", post(exam::self_test))
+            .route("/finishSelfTesting", post(exam::finish_self_test))
             .route(
                 "/teacherStartTheoryKnowledgeExam",
                 post(exam::teacher_start),
@@ -1538,9 +1539,9 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName": {"post": {"responses": {"200": {"description": "Filtered test paper list; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeTestPaper/saveTestPaper": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/theoryKnowledgeTestPaper/deleteTestPaper": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
-            "/api/theoryKnowledgeExam/findAllTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam list envelope; token-scoped"}}}},
             "/api/theoryKnowledgeExam/findTheoryKnowledgeExamById": {"post": {"responses": {"200": {"description": "Exam detail envelope; owner/controller-scoped"}}}},
             "/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting": {"post": {"responses": {"200": {"description": "Self-test creation envelope; token-scoped"}}}},
+            "/api/theoryKnowledgeExam/finishSelfTesting": {"post": {"responses": {"200": {"description": "Self-test scored result envelope; token-scoped"}}}},
             "/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam state envelope; admin/controller-scoped"}}}},
             "/api/theoryKnowledgeExam/studentChangeExamState": {"post": {"responses": {"200": {"description": "Student exam state envelope; owner-scoped"}}}},
             "/api/theoryKnowledgeExam/studentSaveExamRealtimeContont": {"post": {"responses": {"200": {"description": "Realtime answer envelope; owner-scoped"}}}},

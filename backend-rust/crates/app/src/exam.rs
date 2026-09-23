@@ -229,3 +229,119 @@ pub(crate) async fn realtime(
     body["type"] = json!(2);
     student_state(State(state), Extension(user), Json(body)).await
 }
+fn score_section(snapshot: &str, answers: &Value, key: &str) -> i32 {
+    let questions = serde_json::from_str::<Vec<Value>>(snapshot).unwrap_or_default();
+    let submitted = answers.get(key).and_then(Value::as_array);
+    questions
+        .iter()
+        .map(|question| {
+            let id = question.get("id").and_then(Value::as_str);
+            let answer = submitted
+                .and_then(|items| {
+                    items
+                        .iter()
+                        .find(|item| item.get("id").and_then(Value::as_str) == id)
+                })
+                .and_then(|item| item.get("answer"));
+            if answer.is_some() && answer == question.get("answer") {
+                question.get("score").and_then(Value::as_i64).unwrap_or(0) as i32
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+pub(crate) async fn finish_self_test(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let row=sqlx::query("SELECT e.state,u.state AS student_state,u.is_self_testing,u.end_time FROM t_theory_knowledge_exam e JOIN t_theory_knowledge_exam_user u ON u.exam_id=e.id AND u.user_id=? WHERE e.id=?").bind(&user.id).bind(exam_id).fetch_optional(pool).await.ok().flatten();
+    let Some(row) = row else {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    };
+    if row.get::<Option<i32>, _>("is_self_testing") != Some(0) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    if row.get::<Option<i32>, _>("state") != Some(2)
+        || row.get::<Option<String>, _>("end_time").is_some()
+    {
+        return envelope_response(StatusCode::OK, 208, "操作已不可执行", "");
+    };
+    let content = body.get("content").and_then(Value::as_str).unwrap_or("");
+    let answers = serde_json::from_str::<Value>(content).unwrap_or(Value::Null);
+    let snapshot = sqlx::query("SELECT single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer FROM t_theory_knowledge_exam_test_paper WHERE exam_id=?").bind(exam_id).fetch_optional(pool).await.ok().flatten();
+    let Some(snapshot) = snapshot else {
+        return envelope_response(StatusCode::OK, 500, "未查询到试卷快照，无法结算自测", "");
+    };
+    let score = score_section(
+        snapshot
+            .get::<Option<String>, _>("single_choice_list")
+            .as_deref()
+            .unwrap_or("[]"),
+        &answers,
+        "singleChoice",
+    ) + score_section(
+        snapshot
+            .get::<Option<String>, _>("multiple_choice_list")
+            .as_deref()
+            .unwrap_or("[]"),
+        &answers,
+        "multipleChoice",
+    ) + score_section(
+        snapshot
+            .get::<Option<String>, _>("judge_list")
+            .as_deref()
+            .unwrap_or("[]"),
+        &answers,
+        "judge",
+    ) + score_section(
+        snapshot
+            .get::<Option<String>, _>("completion_list")
+            .as_deref()
+            .unwrap_or("[]"),
+        &answers,
+        "completion",
+    ) + score_section(
+        snapshot
+            .get::<Option<String>, _>("short_answer")
+            .as_deref()
+            .unwrap_or("[]"),
+        &answers,
+        "shortAnswer",
+    );
+    if sqlx::query("UPDATE t_theory_knowledge_exam_user SET content=?,score=?,state=4,end_time=? WHERE exam_id=? AND user_id=?")
+        .bind(content)
+        .bind(score)
+        .bind(crate::now_time_millis().to_string())
+        .bind(exam_id)
+        .bind(&user.id)
+        .execute(pool)
+        .await
+        .is_err()
+    {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if sqlx::query("UPDATE t_theory_knowledge_exam SET state=4,end_time=? WHERE id=?")
+        .bind(crate::now_time_millis().to_string())
+        .bind(exam_id)
+        .execute(pool)
+        .await
+        .is_err()
+    {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"id":exam_id,"score":score,"state":4})),
+        "ok",
+        "",
+    )
+}
