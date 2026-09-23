@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase8-websocket-connection/v1",
+  "verified_at_utc":"2026-09-23T10:20:42Z",
+  "source_commit":"9ff9a3c",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE8_WS_ENABLED","default":false,"routes":["/api/websocket/{sid}","/api/websocketUnion/{sid}","/api/startWebsocket/{sid}","/api/simulation/{id}/{roomId}","/api/generalKeyPatTrain/{uid}/{trainId}","/api/generalTelexPatTrain/{uid}/{trainId}","/api/generalTickerPat/{uid}/{trainId}/{role}"],"production_cutover":false},
+  "implemented":{"query_auth":"token/deviceId query authentication for WS handshake","connection_state":"per-connection UUID and service-level room manager","heartbeat":"__nip_heartbeat_ping__ -> __nip_heartbeat_pong__ and WebSocket Ping/Pong","broadcast":"room broadcast channel","cleanup":"connection count and empty-room removal"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_ws_smoke":["authenticated handshake emitted connected frame","heartbeat returned pong","text frame broadcast/echo returned","close reduced connections and removed room"]},
+  "known_boundary":"Java message-code dispatch, role authorization, duplicate-user replacement, reconnect generation guards, simulation room membership, and Electron/browser workflow remain incomplete."
+}
