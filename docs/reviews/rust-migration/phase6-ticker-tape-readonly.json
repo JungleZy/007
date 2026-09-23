@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-ticker-tape-readonly/v1",
+  "verified_at_utc":"2026-09-23T07:08:37Z",
+  "source_commit":"0e1c71a",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TICKER_TAPE_ENABLED","default":false,"routes":["POST /api/tickerTapeTrain/listPage","POST /api/tickerTapeTrain/getById","POST /api/tickerTapeTrain/statisticalPage","POST /api/tickerTapeTrain/lastTrain","POST /api/tickerTapeTrainSetting/findAll"],"production_cutover":false},
+  "contract":{"list":"current-user rows, bounded pagination, descending create_time, parsed codeMessageBody","detail":"distinguishes invalid id from cross-user access","statistics":"three ordered type rows with zero synthesis","settings":"authenticated setting projection","authentication":"token/deviceId"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_ticker_fixture","assertions":["two owned rows only and newest-first pagination","owned detail parses stored message body","cross-user detail returns code 207","statistics are ordered and missing type is zero-filled","setting fields and timestamp match","lastTrain filters owner and type"],"result":"6/6 passed","cleanup":"database dropped"}},
+  "known_boundary":"Begin, pause, resume, finish, base-session, and statistics persistence remain on Java; Rust receives no production traffic."
+}
