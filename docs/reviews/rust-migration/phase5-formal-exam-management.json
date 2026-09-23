@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-phase5-formal-exam-management/v1",
-  "verified_at_utc": "2026-09-23T04:20:00Z",
+  "verified_at_utc": "2026-09-23T04:12:01Z",
   "source_commit": "63fc156",
   "status": "IMPLEMENTED_COMPILE_VERIFIED_NO_DEDICATED_FIXTURE",
   "feature_flag": {"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"admin_routes":["POST /api/theoryKnowledgeExam/savetheoryKnowledgeExam","POST /api/theoryKnowledgeExam/deleteTheoryKnowledgeExam"],"production_cutover":false},
