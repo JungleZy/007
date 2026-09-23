@@ -79,3 +79,16 @@ async fn transition(
     };
     match sqlx::query("UPDATE t_entering_exercise SET status=?,content=? WHERE id=? AND create_user_id=? AND status IN (1,3)").bind(status).bind(body.get("content").and_then(Value::as_str)).bind(id).bind(&user.id).execute(pool).await {Ok(r) if r.rows_affected()==1=>envelope_json(StatusCode::OK,200,None,"ok",""),Ok(_)=>envelope_response(StatusCode::OK,207,"无权限或训练状态不可变更",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
+pub(crate) async fn telex_find(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,create_user_id,type,total_time,total_num,total_error,message_name FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1").bind(&user.id).bind(kind).fetch_optional(pool).await {Ok(Some(row))=>envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"type":row.get::<Option<i32>,_>("type"),"totalTime":row.get::<Option<i32>,_>("total_time"),"totalNum":row.get::<Option<i32>,_>("total_num"),"totalError":row.get::<Option<i32>,_>("total_error"),"messageName":row.get::<Option<String>,_>("message_name")})),"ok","") ,Ok(None)=>envelope_json(StatusCode::OK,200,Some(json!({"type":kind,"totalTime":0,"totalNum":0,"totalError":0})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+}
