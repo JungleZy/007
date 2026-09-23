@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-military-readonly/v1",
+  "verified_at_utc":"2026-09-23T06:45:00Z",
+  "source_commit":"8dfcb38",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"route":"POST /api/militaryTermData/findAll","production_cutover":false},
+  "contract":{"fields":["id","parentId","key","value","sort","child"],"authentication":"token/deviceId"},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"authenticated read projection implemented"},
+  "known_boundary":"Recursive child assembly and dedicated MySQL military-term fixture remain required."
+}
