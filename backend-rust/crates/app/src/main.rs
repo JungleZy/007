@@ -515,6 +515,8 @@ fn build_router(state: AppState) -> Router {
         let post_telegram_routes = Router::new()
             .route("/findAll", post(post_telegram::list))
             .route("/detail", post(post_telegram::detail))
+            .route("/findMessageBody", post(post_telegram_write::content))
+            .route("/saveContentValue", post(post_telegram_write::save_content))
             .route("/save", post(post_telegram_write::add))
             .route("/begin", post(post_telegram_write::begin))
             .route("/finish", post(post_telegram_write::finish))

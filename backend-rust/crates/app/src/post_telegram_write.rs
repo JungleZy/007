@@ -6,6 +6,7 @@ use axum::{
     Json,
 };
 use serde_json::json;
+use sqlx::Row;
 #[derive(serde::Deserialize)]
 pub(crate) struct AddRequest {
     name: Option<String>,
@@ -107,5 +108,53 @@ pub(crate) async fn delete(
     {
         Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", ""),
         Err(e) => err(e, "delete"),
+    }
+}
+#[derive(serde::Deserialize)]
+pub(crate) struct ContentQuery {
+    id: Option<String>,
+    #[serde(rename = "floorNumber")]
+    floor_number: Option<i32>,
+}
+pub(crate) async fn content(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ContentQuery>,
+) -> Response {
+    let Some(train_id) = body.id.filter(|v| !v.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let floor = body.floor_number.unwrap_or(1);
+    match sqlx::query("SELECT c.mores_key,c.mores_value,c.mores_time,c.pat_keys,t.protocol_version,t.attempt FROM t_post_telegram_train_floor_content c JOIN t_post_telegram_train t ON t.id=c.train_id WHERE c.train_id=? AND c.floor_number=? AND t.create_user=? ORDER BY c.sort").bind(&train_id).bind(floor).bind(&user.id).fetch_all(pool).await {
+        Ok(rows) => envelope_json(StatusCode::OK, 200, Some(json!({"protocolVersion":rows.first().map(|r|r.get::<Option<i32>,_>("protocol_version")).flatten().unwrap_or(0),"attempt":rows.first().map(|r|r.get::<Option<i32>,_>("attempt")).flatten().unwrap_or(0),"messageBody":rows.iter().map(|r|r.get::<Option<String>,_>("mores_value").unwrap_or_else(||"[]".into())).collect::<Vec<_>>(),"messageKey":rows.iter().map(|r|json!({"moresKey":r.get::<Option<String>,_>("mores_key"),"moresValue":r.get::<Option<String>,_>("mores_value"),"moresTime":r.get::<Option<String>,_>("mores_time"),"patKeys":r.get::<Option<String>,_>("pat_keys")})).collect::<Vec<_>>() })), "ok", ""),
+        Err(e) => err(e, "content"),
+    }
+}
+#[derive(serde::Deserialize)]
+pub(crate) struct ContentUpdate {
+    id: Option<String>,
+    #[serde(rename = "moresValue")]
+    mores_value: Option<String>,
+    #[serde(rename = "moresTime")]
+    mores_time: Option<String>,
+}
+pub(crate) async fn save_content(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ContentUpdate>,
+) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_post_telegram_train_floor_content c JOIN t_post_telegram_train t ON t.id=c.train_id AND t.create_user=? SET c.mores_value=?,c.mores_time=? WHERE c.id=?").bind(&user.id).bind(body.mores_value.unwrap_or_else(||"[]".into())).bind(body.mores_time.unwrap_or_else(||"[]".into())).bind(id).execute(pool).await {
+        Ok(r) if r.rows_affected()==1 => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 207, "无权限或内容不存在", ""),
+        Err(e) => err(e, "save content"),
     }
 }
