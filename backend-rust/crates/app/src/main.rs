@@ -49,6 +49,7 @@ mod post_telex_write;
 mod post_ticker;
 mod radiotelephone;
 mod receive_keypoints;
+mod simulation;
 mod telegram;
 mod telegram_write;
 mod telegraph_key;
@@ -79,6 +80,7 @@ const POST_TELEGRAPH_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEGRAPH_ENABLED";
 const POST_TICKER_READONLY_ENV: &str = "RUST_PHASE7_POST_TICKER_ENABLED";
 const GROUP_NET_READONLY_ENV: &str = "RUST_PHASE7_GROUP_NET_ENABLED";
 const RECEIVE_KEYPOINTS_READONLY_ENV: &str = "RUST_PHASE6_RECEIVE_KEYPOINTS_ENABLED";
+const SIMULATION_READONLY_ENV: &str = "RUST_PHASE7_SIMULATION_ENABLED";
 const WS_READONLY_ENV: &str = "RUST_PHASE8_WS_ENABLED";
 const TICKER_TAPE_READONLY_ENV: &str = "RUST_PHASE6_TICKER_TAPE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
@@ -121,6 +123,7 @@ struct AppConfig {
     post_ticker_readonly_enabled: bool,
     group_net_readonly_enabled: bool,
     receive_keypoints_readonly_enabled: bool,
+    simulation_readonly_enabled: bool,
     ws_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
@@ -296,6 +299,7 @@ impl AppConfig {
         let post_ticker_readonly_enabled = parse_bool(POST_TICKER_READONLY_ENV, false)?;
         let group_net_readonly_enabled = parse_bool(GROUP_NET_READONLY_ENV, false)?;
         let receive_keypoints_readonly_enabled = parse_bool(RECEIVE_KEYPOINTS_READONLY_ENV, false)?;
+        let simulation_readonly_enabled = parse_bool(SIMULATION_READONLY_ENV, false)?;
         let ws_readonly_enabled = parse_bool(WS_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
@@ -323,6 +327,7 @@ impl AppConfig {
             post_ticker_readonly_enabled,
             group_net_readonly_enabled,
             receive_keypoints_readonly_enabled,
+            simulation_readonly_enabled,
             ws_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
@@ -577,6 +582,44 @@ fn build_router(state: AppState) -> Router {
             .route("/getByType", post(receive_keypoints::get_by_type))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/receiveKeyPoints", receive_keypoint_routes);
+    }
+    if state.config.simulation_readonly_enabled {
+        let router_routes = Router::new()
+            .route("/addRoom", post(simulation::add_router))
+            .route("/findRoom", post(simulation::list_router))
+            .route("/getRoomUserList/{roomId}", get(simulation::users))
+            .route("/changeChannel", post(simulation::change_channel))
+            .route("/getRoomDetail", get(simulation::detail))
+            .route("/getRoomChannels", get(simulation::channels))
+            .route("/sendFinish", post(simulation::finish))
+            .route("/delete", get(simulation::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let report_routes = Router::new()
+            .route("/addRoom", post(simulation::add_report))
+            .route("/findRoom", post(simulation::list_report))
+            .route("/getRoomDetail", get(simulation::detail))
+            .route("/delete", get(simulation::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let recept_routes = Router::new()
+            .route("/addRoom", post(simulation::add_recept))
+            .route("/findRoom", post(simulation::list_recept))
+            .route("/getRoomDetail", get(simulation::detail))
+            .route("/delete", get(simulation::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let content_routes = Router::new()
+            .route("/addRoomAndContent", post(simulation::add_disturb))
+            .route("/findAlls", post(simulation::list_disturb))
+            .route("/findById", post(simulation::detail_body))
+            .route("/findTrainUser", post(simulation::users_body))
+            .route("/uploadResult", post(simulation::upload_result))
+            .route("/saveSetting", post(simulation::save_setting))
+            .route("/delete", get(simulation::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/simulation/router", router_routes)
+            .nest("/api/simulation/report", report_routes)
+            .nest("/api/simulation/recept", recept_routes)
+            .nest("/api/simulation/routerRoomContent", content_routes);
     }
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()

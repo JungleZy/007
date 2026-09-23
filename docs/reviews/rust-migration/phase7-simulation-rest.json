@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase7-simulation-rest/v1",
+  "verified_at_utc":"2026-09-23T12:12:30Z",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE7_SIMULATION_ENABLED","default":false},
+  "implemented":{"router":["addRoom","findRoom","getRoomUserList","changeChannel","getRoomDetail","getRoomChannels","sendFinish","delete"],"report":["addRoom","findRoom","getRoomDetail","delete"],"recept":["addRoom","findRoom","getRoomDetail","delete"],"disturb":["addRoomAndContent","findAlls","findById","findTrainUser","uploadResult","saveSetting","delete"]},
+  "transaction":"room, content and members are inserted in one transaction; delete removes page values/pages/users/content/room in one transaction",
+  "verification":{"isolated_mysql":"report room add/list/detail/delete passed; all related tables returned zero rows after delete","rust_workspace":"cargo check/test/build passed"},
+  "known_boundary":"Generated pages, domain scoring, full room-role semantics, and Java/Rust response parity remain incomplete."
+}
