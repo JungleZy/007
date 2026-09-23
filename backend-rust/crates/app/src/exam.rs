@@ -419,3 +419,15 @@ pub(crate) async fn teacher_upload_score(
     }
     envelope_json(StatusCode::OK, 200, None, "ok", "")
 }
+pub(crate) async fn self_list(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT e.title,e.start_time,u.score,u.content,u.exam_id FROM t_theory_knowledge_exam_user u LEFT JOIN t_theory_knowledge_exam e ON e.id=u.exam_id WHERE u.user_id=? AND u.is_self_testing=0 ORDER BY u.start_time DESC").bind(&user.id).fetch_all(pool).await {
+        Ok(rows)=>envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(|row|json!({"title":row.get::<Option<String>,_>("title"),"start_time":row.get::<Option<String>,_>("start_time"),"score":row.get::<Option<i32>,_>("score"),"content":row.get::<Option<String>,_>("content"),"examId":row.get::<Option<String>,_>("exam_id")})).collect::<Vec<_>>())),"ok",""),
+        Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")
+    }
+}

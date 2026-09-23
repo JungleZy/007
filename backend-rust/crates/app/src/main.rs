@@ -462,6 +462,7 @@ fn build_router(state: AppState) -> Router {
             .route("/findAllTheoryKnowledgeExam", post(exam::list))
             .route("/findTheoryKnowledgeExamById", post(exam::detail))
             .route("/saveTheoryKnowledgeExamSelfTesting", post(exam::self_test))
+            .route("/listPageSelfTesting", post(exam::self_list))
             .route("/finishSelfTesting", post(exam::finish_self_test))
             .route(
                 "/teacherStartTheoryKnowledgeExam",
