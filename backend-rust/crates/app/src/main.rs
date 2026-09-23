@@ -51,6 +51,7 @@ mod theory_file;
 mod theory_question;
 mod theory_test;
 mod ticker_tape;
+mod ws;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
@@ -64,6 +65,7 @@ const TELEGRAM_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAM_ENABLED";
 const TELEGRAPH_KEY_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAPH_KEY_ENABLED";
 const TELEX_READONLY_ENV: &str = "RUST_PHASE6_TELEX_ENABLED";
 const POST_TELEGRAM_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEGRAM_ENABLED";
+const WS_READONLY_ENV: &str = "RUST_PHASE8_WS_ENABLED";
 const TICKER_TAPE_READONLY_ENV: &str = "RUST_PHASE6_TICKER_TAPE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
@@ -100,6 +102,7 @@ struct AppConfig {
     telex_readonly_enabled: bool,
     ticker_tape_readonly_enabled: bool,
     post_telegram_readonly_enabled: bool,
+    ws_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -269,6 +272,7 @@ impl AppConfig {
         let telex_readonly_enabled = parse_bool(TELEX_READONLY_ENV, false)?;
         let ticker_tape_readonly_enabled = parse_bool(TICKER_TAPE_READONLY_ENV, false)?;
         let post_telegram_readonly_enabled = parse_bool(POST_TELEGRAM_READONLY_ENV, false)?;
+        let ws_readonly_enabled = parse_bool(WS_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -290,6 +294,7 @@ impl AppConfig {
             telex_readonly_enabled,
             ticker_tape_readonly_enabled,
             post_telegram_readonly_enabled,
+            ws_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -686,6 +691,11 @@ fn build_router(state: AppState) -> Router {
             .nest("/api/user", user_api)
             .nest("/api/menus", menu_api)
             .nest("/api/role", role_api);
+    }
+    if state.config.ws_readonly_enabled {
+        api = api
+            .route("/api/ws/status", get(ws::status))
+            .route("/api/websocket/{sid}", get(ws::open));
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
