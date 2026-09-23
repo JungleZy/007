@@ -1,0 +1,10 @@
+{
+  "schema": "rust-migration-phase5-exam-results-readonly/v1",
+  "verified_at_utc": "2026-09-23T03:33:37Z",
+  "source_commit": "d9c6284",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"route":"POST /api/theoryKnowledgeExamUser/findExamUser","authorization":"self, exam creator/teacher, or admin","production_cutover":false},
+  "contract": {"request":["examId","userId"],"response":["id","userId","content","score","state","endTime"],"foreign_user":"207"},
+  "verification": {"cargo_check_offline":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"token-derived actor authorization; target user remains explicit for teacher review"},
+  "known_boundary":"full exam analysis/statistics and teacher browser workflow remain incomplete."
+}
