@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-entering-telex-writes/v1",
+  "verified_at_utc":"2026-09-23T06:11:31Z",
+  "source_commit":"6ac5ebf",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"routes":["POST /api/enteringTelexPat/save","POST /api/enteringTelexPat/clear"],"production_cutover":false},
+  "contract":{"identity":"token-derived createUserId","save":"upsert one record per user/type","clear":"reset totalTime/totalNum/totalError for token owner"},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"user-scoped upsert and clear transactions compiled"},
+  "known_boundary":"Dedicated MySQL fixture for duplicate save and statistics update remains required."
+}
