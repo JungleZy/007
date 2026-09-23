@@ -1,9 +1,9 @@
 {
   "schema":"rust-migration-phase9-shared-contract-fixture/v1",
-  "verified_at_utc":"2026-09-23T13:20:00Z",
-  "status":"PARTIAL_RUST_SELF_DIFF_AND_JAVA_ROUTE_PROBE",
+  "verified_at_utc":"2026-09-23T14:00:00Z",
+  "status":"PARTIAL_REAL_JAVA_RUST_SEMANTIC_PROBE",
   "fixture":"docs/reviews/rust-migration/phase9-contract-fixture.json",
   "runner":"backend-rust/scripts/phase9-contract-diff.sh",
-  "result":"Rust self-diff 5/5 passed. Java dev service on 18104 and Rust service on 18105 were then probed with the same fixture; Java did not expose the generic /health or /api/phase1/contract/auth paths, so all 5 cases failed exact comparison. This is direct evidence of route-baseline mismatch, not parity.",
-  "known_boundary":"A true Java-versus-Rust business-domain diff requires selecting actual shared Java paths from the Phase0 inventory and equivalent isolated database fixtures; final Phase 9 parity remains incomplete."
+  "result":"Full cloned Java schema produced Java HTTP200 entering statisticalPage output for rust-diff-user with three zero-valued rows. Rust against a matching lightweight fixture initially exposed avgSpeed as string; Rust was corrected to numeric JSON and a follow-up Rust fixture returned numeric zeros matching Java semantics. The generic fixture still does not constitute complete all-domain parity.",
+  "known_boundary":"Full Java/Rust fixture parity for all active training and complex room domains remains incomplete; IDs and database writes require per-domain deterministic normalization rules."
 }
