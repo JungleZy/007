@@ -40,6 +40,7 @@ mod military;
 mod password;
 mod radiotelephone;
 mod telegram;
+mod telegraph_key;
 mod test_paper;
 mod theory;
 mod theory_detail;
@@ -56,6 +57,7 @@ const DEVICE_READONLY_ENV: &str = "RUST_PHASE4_DEVICE_ENABLED";
 const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
 const RADIOTELEPHONE_READONLY_ENV: &str = "RUST_PHASE6_RADIOTELEPHONE_ENABLED";
 const TELEGRAM_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAM_ENABLED";
+const TELEGRAPH_KEY_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAPH_KEY_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
@@ -87,6 +89,7 @@ struct AppConfig {
     entering_readonly_enabled: bool,
     radiotelephone_readonly_enabled: bool,
     telegram_readonly_enabled: bool,
+    telegraph_key_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -252,6 +255,7 @@ impl AppConfig {
         let entering_readonly_enabled = parse_bool(ENTERING_READONLY_ENV, false)?;
         let radiotelephone_readonly_enabled = parse_bool(RADIOTELEPHONE_READONLY_ENV, false)?;
         let telegram_readonly_enabled = parse_bool(TELEGRAM_READONLY_ENV, false)?;
+        let telegraph_key_readonly_enabled = parse_bool(TELEGRAPH_KEY_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -269,6 +273,7 @@ impl AppConfig {
             entering_readonly_enabled,
             radiotelephone_readonly_enabled,
             telegram_readonly_enabled,
+            telegraph_key_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -445,6 +450,12 @@ fn build_router(state: AppState) -> Router {
             .route("/getById", post(telegram::by_id))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telegramTrain", telegram_routes);
+    }
+    if state.config.telegraph_key_readonly_enabled {
+        let telegraph_key_routes = Router::new()
+            .route("/findByType", post(telegraph_key::find_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/telegraphKeyPatTrain", telegraph_key_routes);
     }
     if state.config.theory_readonly_enabled {
         let theory_routes = Router::new()
