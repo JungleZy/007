@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-radiotelephone-list/v1",
+  "verified_at_utc":"2026-09-23T08:08:07Z",
+  "source_commit":"8026596",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_RADIOTELEPHONE_ENABLED","default":false,"route":"POST /api/radiotelephone/listPage","production_cutover":false},
+  "contract":{"empty_body":"authenticated read-only list with no database initialization","typed_body":"authenticated type-specific initialization when aggregate is absent","ordering":"type ascending","fields":["userId","type","totalTime","totalCount","sessionId"]},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_radio_list_fixture","assertions":["empty body returns empty data and writes zero rows","typed body creates exactly one zero-valued aggregate","created aggregate is returned with requested type"],"result":"3/3 passed","cleanup":"database dropped"}},
+  "known_boundary":"The feature flag remains disabled; Java and Rust must never write this domain concurrently."
+}
