@@ -39,6 +39,7 @@ mod password;
 mod test_paper;
 mod theory;
 mod theory_detail;
+mod theory_file;
 mod theory_question;
 mod theory_test;
 
@@ -397,6 +398,7 @@ fn build_router(state: AppState) -> Router {
             .route("/gradeCount", post(theory::grade_count))
             .route("/getById", post(theory_detail::by_id))
             .route("/getByIdAndToken", post(theory_detail::by_id_and_token))
+            .route("/uploadFileToNip", post(theory_file::upload))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let test_routes = Router::new()
             .route("/getTestBySwfId", post(theory_test::by_swf))
