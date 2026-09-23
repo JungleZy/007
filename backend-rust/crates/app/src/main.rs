@@ -398,6 +398,8 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let telex_routes = Router::new()
             .route("/findByUserIdAndType", post(entering::telex_find))
+            .route("/save", post(entering::telex_save))
+            .route("/clear", post(entering::telex_clear))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let keypoint_routes = Router::new()
             .route("/getByType", post(entering::keypoints))
