@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-phase7-general-rest/v1",
+  "verified_at_utc":"2026-09-23T12:46:26Z",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE7_GENERAL_ENABLED","default":false},
+  "domains":{"generalKeyPat":["add","findAll","findPage","getPage","detail","patDetail","getPatValue","uploadResult","updateTrainStatus","finish","statistics","getOnline","startTrain","reset","delete"],"generalTelexPat":["add","findAll","findPage","getPage","detail","patDetail","getPatValue","uploadResult","updateTrainStatus","finish","statistics","getOnline","startTrain","delete"],"generalTickerPatTrain":["add","findAll","findPage","detail","uploadResult","finish","statistics","startTrain","reset","delete"]},
+  "verification":{"rust_workspace":"cargo check/test/build passed","isolated_mysql":"generalKey add/list/update status/finish/delete passed"},
+  "known_boundary":"Import/export DTOs, full participant scoring, generated page fixtures, role-specific operations and concurrent close remain incomplete."
+}

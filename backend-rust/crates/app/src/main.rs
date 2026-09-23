@@ -35,6 +35,7 @@ mod entering;
 mod equipment;
 mod equipment_train;
 mod exam;
+mod general_train;
 mod grading;
 mod group_net;
 mod group_net_write;
@@ -82,6 +83,7 @@ const POST_TICKER_READONLY_ENV: &str = "RUST_PHASE7_POST_TICKER_ENABLED";
 const GROUP_NET_READONLY_ENV: &str = "RUST_PHASE7_GROUP_NET_ENABLED";
 const RECEIVE_KEYPOINTS_READONLY_ENV: &str = "RUST_PHASE6_RECEIVE_KEYPOINTS_ENABLED";
 const SIMULATION_READONLY_ENV: &str = "RUST_PHASE7_SIMULATION_ENABLED";
+const GENERAL_TRAIN_READONLY_ENV: &str = "RUST_PHASE7_GENERAL_ENABLED";
 const WS_READONLY_ENV: &str = "RUST_PHASE8_WS_ENABLED";
 const TICKER_TAPE_READONLY_ENV: &str = "RUST_PHASE6_TICKER_TAPE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
@@ -125,6 +127,7 @@ struct AppConfig {
     group_net_readonly_enabled: bool,
     receive_keypoints_readonly_enabled: bool,
     simulation_readonly_enabled: bool,
+    general_train_readonly_enabled: bool,
     ws_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
@@ -301,6 +304,7 @@ impl AppConfig {
         let group_net_readonly_enabled = parse_bool(GROUP_NET_READONLY_ENV, false)?;
         let receive_keypoints_readonly_enabled = parse_bool(RECEIVE_KEYPOINTS_READONLY_ENV, false)?;
         let simulation_readonly_enabled = parse_bool(SIMULATION_READONLY_ENV, false)?;
+        let general_train_readonly_enabled = parse_bool(GENERAL_TRAIN_READONLY_ENV, false)?;
         let ws_readonly_enabled = parse_bool(WS_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
@@ -329,6 +333,7 @@ impl AppConfig {
             group_net_readonly_enabled,
             receive_keypoints_readonly_enabled,
             simulation_readonly_enabled,
+            general_train_readonly_enabled,
             ws_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
@@ -621,6 +626,57 @@ fn build_router(state: AppState) -> Router {
             .nest("/api/simulation/report", report_routes)
             .nest("/api/simulation/recept", recept_routes)
             .nest("/api/simulation/routerRoomContent", content_routes);
+    }
+    if state.config.general_train_readonly_enabled {
+        let key_routes = Router::new()
+            .route("/add", post(general_train::key_add))
+            .route("/findAll", post(general_train::key_list))
+            .route("/findPage", post(general_train::key_page))
+            .route("/getPage", post(general_train::key_page))
+            .route("/detail", post(general_train::key_detail))
+            .route("/patDetail", post(general_train::key_members))
+            .route("/getPatValue", post(general_train::key_members))
+            .route("/uploadResult", post(general_train::key_upload))
+            .route("/updateTrainStatus", post(general_train::key_update))
+            .route("/finish", post(general_train::key_finish))
+            .route("/statistics", post(general_train::key_statistics))
+            .route("/getOnline", get(general_train::key_online))
+            .route("/startTrain", get(general_train::key_start))
+            .route("/reset", post(general_train::key_reset))
+            .route("/delete", get(general_train::key_delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let telex_routes = Router::new()
+            .route("/add", post(general_train::telex_add))
+            .route("/findAll", post(general_train::telex_list))
+            .route("/findPage", post(general_train::telex_page))
+            .route("/getPage", post(general_train::telex_page))
+            .route("/detail", post(general_train::telex_detail))
+            .route("/patDetail", post(general_train::telex_members))
+            .route("/getPatValue", post(general_train::telex_members))
+            .route("/uploadResult", post(general_train::telex_upload))
+            .route("/updateTrainStatus", post(general_train::telex_update))
+            .route("/finish", post(general_train::telex_finish))
+            .route("/statistics", post(general_train::telex_statistics))
+            .route("/getOnline", get(general_train::telex_online))
+            .route("/startTrain", get(general_train::telex_start))
+            .route("/delete", get(general_train::telex_delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let ticker_routes = Router::new()
+            .route("/add", post(general_train::ticker_add))
+            .route("/findAll", post(general_train::ticker_list))
+            .route("/findPage", post(general_train::ticker_page))
+            .route("/detail", post(general_train::ticker_detail))
+            .route("/uploadResult", post(general_train::ticker_upload))
+            .route("/finish", post(general_train::ticker_finish))
+            .route("/reset", post(general_train::ticker_reset))
+            .route("/statistics", post(general_train::ticker_statistics))
+            .route("/startTrain", get(general_train::ticker_start))
+            .route("/delete", get(general_train::ticker_delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/generalKeyPat", key_routes)
+            .nest("/api/generalTelexPat", telex_routes)
+            .nest("/api/generalTickerPatTrain", ticker_routes);
     }
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()
