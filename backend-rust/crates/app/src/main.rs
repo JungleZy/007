@@ -446,6 +446,10 @@ fn build_router(state: AppState) -> Router {
     if state.config.radiotelephone_readonly_enabled {
         let radio_routes = Router::new()
             .route("/listPage", post(radiotelephone::list))
+            .route("/begin", post(radiotelephone::begin))
+            .route("/pause", post(radiotelephone::pause))
+            .route("/resume", post(radiotelephone::resume))
+            .route("/finish", post(radiotelephone::finish))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let military_routes = Router::new()
             .route("/findAll", post(military::list))
