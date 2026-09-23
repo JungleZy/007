@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-telegram-readonly/v1",
+  "verified_at_utc":"2026-09-23T06:37:32Z",
+  "source_commit":"d981aac",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEGRAM_ENABLED","default":false,"routes":["POST /api/telegramTrain/getAll","POST /api/telegramTrain/getById"],"production_cutover":false},
+  "contract":{"list":"current-user-owned t_telegram_train rows ordered by create_time descending","detail":"current-user-owned train with selected-floor contents","authentication":"token/deviceId"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","missing_token_smoke":{"code":203,"message":"token不能为空"},"missing_device_smoke":{"code":204,"message":"设备标识不能为空"}},
+  "known_boundary":"Dedicated MySQL fixture is required to exercise train/floor/content projection and cross-user ownership rows before read cutover."
+}
