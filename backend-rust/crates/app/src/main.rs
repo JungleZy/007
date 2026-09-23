@@ -413,8 +413,17 @@ fn build_router(state: AppState) -> Router {
             )
             .route("/getTestContentById", post(theory_test::by_id))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_theory_routes = Router::new()
+            .route("/addClassify", post(theory::save_classify))
+            .route("/removeClassify", post(theory::delete_classify))
+            .route("/deleteThroyKnowledgeById", post(theory::delete_knowledge))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
-            .nest("/api/theoryKnowledge", theory_routes)
+            .nest(
+                "/api/theoryKnowledge",
+                theory_routes.merge(admin_theory_routes),
+            )
             .nest("/api/theoryKnowledgeTest", test_routes);
     }
     if state.config.theory_readonly_enabled {

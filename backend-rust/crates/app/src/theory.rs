@@ -153,3 +153,78 @@ pub(crate) async fn grade_count(
         "",
     )
 }
+
+pub(crate) async fn save_classify(
+    State(state): State<AppState>,
+    Extension(user): Extension<super::AuthUser>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let Some(name) = body
+        .get("name")
+        .and_then(serde_json::Value::as_str)
+        .filter(|v| !v.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(kind) = body.get("type").and_then(serde_json::Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = body
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|v| !v.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    match sqlx::query("INSERT INTO t_theory_knowledge_classify (id,type,name,create_time,create_id) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE type=VALUES(type),name=VALUES(name)").bind(&id).bind(kind).bind(name).bind(crate::now_time_millis().to_string()).bind(&user.id).execute(pool).await { Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind,"name":name})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") }
+}
+pub(crate) async fn delete_classify(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let Some(id) = body.get("id").and_then(serde_json::Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("DELETE FROM t_theory_knowledge_classify WHERE id=?")
+        .bind(id)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
+pub(crate) async fn delete_knowledge(
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let Some(id) = body.get("id").and_then(serde_json::Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = pool.begin().await.unwrap();
+    let _ = sqlx::query("DELETE FROM t_theory_knowledge_swf WHERE knowledge_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await;
+    if sqlx::query("DELETE FROM t_theory_knowledge WHERE id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
