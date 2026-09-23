@@ -41,6 +41,7 @@ mod password;
 mod radiotelephone;
 mod telegram;
 mod telegraph_key;
+mod telex;
 mod test_paper;
 mod theory;
 mod theory_detail;
@@ -58,6 +59,7 @@ const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
 const RADIOTELEPHONE_READONLY_ENV: &str = "RUST_PHASE6_RADIOTELEPHONE_ENABLED";
 const TELEGRAM_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAM_ENABLED";
 const TELEGRAPH_KEY_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAPH_KEY_ENABLED";
+const TELEX_READONLY_ENV: &str = "RUST_PHASE6_TELEX_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
@@ -90,6 +92,7 @@ struct AppConfig {
     radiotelephone_readonly_enabled: bool,
     telegram_readonly_enabled: bool,
     telegraph_key_readonly_enabled: bool,
+    telex_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -256,6 +259,7 @@ impl AppConfig {
         let radiotelephone_readonly_enabled = parse_bool(RADIOTELEPHONE_READONLY_ENV, false)?;
         let telegram_readonly_enabled = parse_bool(TELEGRAM_READONLY_ENV, false)?;
         let telegraph_key_readonly_enabled = parse_bool(TELEGRAPH_KEY_READONLY_ENV, false)?;
+        let telex_readonly_enabled = parse_bool(TELEX_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -274,6 +278,7 @@ impl AppConfig {
             radiotelephone_readonly_enabled,
             telegram_readonly_enabled,
             telegraph_key_readonly_enabled,
+            telex_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -492,6 +497,13 @@ fn build_router(state: AppState) -> Router {
                 theory_routes.merge(admin_theory_routes),
             )
             .nest("/api/theoryKnowledgeTest", test_routes);
+    }
+    if state.config.telex_readonly_enabled {
+        let telex_routes = Router::new()
+            .route("/statisticalPage", post(telex::statistical_page))
+            .route("/lastPatTrain", post(telex::last_train))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/telexPat", telex_routes);
     }
     if state.config.theory_readonly_enabled {
         let question_routes = Router::new()
