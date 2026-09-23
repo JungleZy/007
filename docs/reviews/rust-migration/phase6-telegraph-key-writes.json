@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-telegraph-key-writes/v1",
+  "verified_at_utc":"2026-09-23T07:26:47Z",
+  "source_commit":"af72213",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEGRAPH_KEY_ENABLED","default":false,"routes":["POST /api/telegraphKeyPatTrain/save","POST /api/telegraphKeyPatTrain/clear"],"production_cutover":false},
+  "transaction":{"serialization":"locks authenticated t_user row before user/type lookup","train_and_statistics":"single MySQL transaction","cross_user_update":"code 207 without mutation","duplicate_create":"code 202 without statistics increment"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_key_fixture","assertions":["new type creates owned train and statistics","60000 ms and 120 events produce avg_speed 120","duplicate type returns 202","update increments total_count and recalculates avg_speed","cross-user update returns 207","clear resets train and statistics","clear without an existing train creates a zero-valued row"],"result":"7/7 passed","cleanup":"database dropped"}},
+  "known_boundary":"The feature flag remains disabled; Java and Rust must never write this domain concurrently."
+}
