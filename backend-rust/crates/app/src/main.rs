@@ -399,9 +399,13 @@ fn build_router(state: AppState) -> Router {
         let telex_routes = Router::new()
             .route("/findByUserIdAndType", post(entering::telex_find))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let keypoint_routes = Router::new()
+            .route("/getByType", post(entering::keypoints))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/enteringExercise", entering_routes)
-            .nest("/api/enteringTelexPat", telex_routes);
+            .nest("/api/enteringTelexPat", telex_routes)
+            .nest("/api/enteringKeyPoints", keypoint_routes);
     }
     if state.config.equipment_readonly_enabled {
         let train_routes = Router::new()

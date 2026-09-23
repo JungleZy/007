@@ -101,3 +101,28 @@ pub(crate) async fn statistics(
     };
     match sqlx::query("SELECT id,type,child_type,total_count,total_time,avg_speed,user_id FROM t_entering_statistical WHERE user_id=? ORDER BY type,child_type").bind(&user.id).fetch_all(pool).await {Ok(rows)=>envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(|row|json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("child_type"),"totalCount":row.get::<Option<i32>,_>("total_count"),"totalTime":row.get::<Option<String>,_>("total_time"),"avgSpeed":row.get::<Option<String>,_>("avg_speed"),"userId":row.get::<Option<String>,_>("user_id")})).collect::<Vec<_>>())),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
+pub(crate) async fn keypoints(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,content FROM t_entering_key_points WHERE type=? LIMIT 1")
+        .bind(kind)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(
+                json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"content":row.get::<Option<String>,_>("content")}),
+            ),
+            "ok",
+            "",
+        ),
+        Ok(None) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
