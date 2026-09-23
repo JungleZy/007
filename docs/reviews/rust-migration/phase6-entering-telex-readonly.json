@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-entering-telex-readonly/v1",
+  "verified_at_utc":"2026-09-23T05:50:12Z",
+  "source_commit":"9aa1d91",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"route":"POST /api/enteringTelexPat/findByUserIdAndType","production_cutover":false},
+  "contract":{"identity":"token-derived createUserId","missing_record":"success envelope with zero counters","fields":["id","createUserId","type","totalTime","totalNum","totalError","messageName"]},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"user-scoped query and zero default projection"},
+  "known_boundary":"write/clear/statisticalPage and full five-stroke scoring remain pending."
+}
