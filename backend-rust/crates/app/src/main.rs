@@ -462,6 +462,12 @@ fn build_router(state: AppState) -> Router {
             .route("/findAllTheoryKnowledgeExam", post(exam::list))
             .route("/findTheoryKnowledgeExamById", post(exam::detail))
             .route("/saveTheoryKnowledgeExamSelfTesting", post(exam::self_test))
+            .route(
+                "/teacherStartTheoryKnowledgeExam",
+                post(exam::teacher_start),
+            )
+            .route("/studentChangeExamState", post(exam::student_state))
+            .route("/studentSaveExamRealtimeContont", post(exam::realtime))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/theoryKnowledgeExam", exam_routes);
     }
@@ -1535,6 +1541,9 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeExam/findAllTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam list envelope; token-scoped"}}}},
             "/api/theoryKnowledgeExam/findTheoryKnowledgeExamById": {"post": {"responses": {"200": {"description": "Exam detail envelope; owner/controller-scoped"}}}},
             "/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting": {"post": {"responses": {"200": {"description": "Self-test creation envelope; token-scoped"}}}},
+            "/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam state envelope; admin/controller-scoped"}}}},
+            "/api/theoryKnowledgeExam/studentChangeExamState": {"post": {"responses": {"200": {"description": "Student exam state envelope; owner-scoped"}}}},
+            "/api/theoryKnowledgeExam/studentSaveExamRealtimeContont": {"post": {"responses": {"200": {"description": "Realtime answer envelope; owner-scoped"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},

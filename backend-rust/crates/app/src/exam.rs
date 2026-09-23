@@ -96,3 +96,136 @@ pub(crate) async fn self_test(
     }
     envelope_json(StatusCode::OK, 200, Some(json!({"id":exam_id})), "ok", "")
 }
+
+pub(crate) async fn teacher_start(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(kind) = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+    }) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&user.id).fetch_one(pool).await.unwrap_or(0)>0;
+    if !admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let current = sqlx::query_scalar::<_, Option<i32>>(
+        "SELECT state FROM t_theory_knowledge_exam WHERE id=?",
+    )
+    .bind(exam_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .flatten();
+    let Some(current) = current else {
+        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+    };
+    if (kind == 2 && current != 1) || (kind == 3 && current != 2) || (kind == 4 && current != 3) {
+        return envelope_response(StatusCode::OK, 208, "操作已不可执行", "");
+    }
+    let mut tx = pool.begin().await.unwrap();
+    if sqlx::query("UPDATE t_theory_knowledge_exam SET state=? WHERE id=?")
+        .bind(kind)
+        .bind(exam_id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if kind == 3 {
+        let _ = sqlx::query(
+            "UPDATE t_theory_knowledge_exam_user SET state=3 WHERE exam_id=? AND state IN (1,2)",
+        )
+        .bind(exam_id)
+        .execute(&mut *tx)
+        .await;
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"id":exam_id,"state":kind})),
+        "ok",
+        "",
+    )
+}
+
+pub(crate) async fn student_state(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(kind) = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
+    }) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let row=sqlx::query("SELECT e.state,s.state AS student_state,s.end_time FROM t_theory_knowledge_exam e LEFT JOIN t_theory_knowledge_exam_user s ON s.exam_id=e.id AND s.user_id=? WHERE e.id=?").bind(&user.id).bind(exam_id).fetch_optional(pool).await.ok().flatten();
+    let Some(row) = row else {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    };
+    if row.get::<Option<i32>, _>("student_state").is_none() {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    if row.get::<Option<i32>, _>("state") != Some(2)
+        || row
+            .get::<Option<i32>, _>("student_state")
+            .map(|v| v != 1 && v != 2)
+            .unwrap_or(true)
+        || row.get::<Option<String>, _>("end_time").is_some()
+    {
+        return envelope_response(StatusCode::OK, 208, "操作已不可执行", "");
+    }
+    if sqlx::query(
+        "UPDATE t_theory_knowledge_exam_user SET state=?,content=? WHERE exam_id=? AND user_id=?",
+    )
+    .bind(kind)
+    .bind(body.get("content").and_then(Value::as_str))
+    .bind(exam_id)
+    .bind(&user.id)
+    .execute(pool)
+    .await
+    .is_err()
+    {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"examId":exam_id,"userId":user.id,"state":kind})),
+        "ok",
+        "",
+    )
+}
+
+pub(crate) async fn realtime(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(mut body): Json<Value>,
+) -> Response {
+    body["type"] = json!(2);
+    student_state(State(state), Extension(user), Json(body)).await
+}
