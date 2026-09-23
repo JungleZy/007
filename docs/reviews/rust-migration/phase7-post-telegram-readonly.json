@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase7-post-telegram-readonly/v1",
+  "verified_at_utc":"2026-09-23T08:59:34Z",
+  "source_commit":"84569fa",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE7_POST_TELEGRAM_ENABLED","default":false,"routes":["POST /api/postTelegramTrain/findAll","POST /api/postTelegramTrain/detail"],"production_cutover":false},
+  "contract":{"list":"current-user-owned t_post_telegram_train rows","detail":"owner-checked single train projection","authentication":"token/deviceId"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase7_post_telegram_fixture","assertions":["list excludes another user's train","detail projects attempt/protocolVersion/activeMillis","cross-user detail returns code 207"],"result":"3/3 passed","cleanup":"database dropped"}},
+  "known_boundary":"Save, begin, stop, finish settlement, content values, generated floor/message body, delete, and scoring remain on Java."
+}
