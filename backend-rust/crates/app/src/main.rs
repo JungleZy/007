@@ -545,6 +545,10 @@ fn build_router(state: AppState) -> Router {
             .route("/deleteTexPatByToken", post(telex::delete_base))
             .route("/statisticalPage", post(telex::statistical_page))
             .route("/lastPatTrain", post(telex::last_train))
+            .route("/saveTexPatTrain", post(telex::train_save))
+            .route("/findTexPatTrainByToken", post(telex::train_list))
+            .route("/findTexPatTrainById", post(telex::train_detail))
+            .route("/deleteById/{id}", post(telex::train_delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telexPat", telex_routes);
     }

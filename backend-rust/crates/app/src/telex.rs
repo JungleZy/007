@@ -1,6 +1,6 @@
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 use axum::{
-    extract::{Extension, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -334,5 +334,107 @@ pub(crate) async fn last_train(
         ),
         Ok(None) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
         Err(error) => database_error(error, "find last train"),
+    }
+}
+#[derive(Debug, Deserialize)]
+pub(crate) struct TrainRequest {
+    id: Option<String>,
+    #[serde(rename = "type")]
+    train_type: Option<i32>,
+    status: Option<i32>,
+    numbs: Option<i32>,
+    title: Option<String>,
+    duration: Option<String>,
+    #[serde(rename = "totalNumber")]
+    total_number: Option<i32>,
+    #[serde(rename = "errorNumber")]
+    error_number: Option<i32>,
+    accuracy: Option<i32>,
+    speed: Option<String>,
+    content: Option<String>,
+}
+fn train_error(error: sqlx::Error, operation: &'static str) -> Response {
+    tracing::warn!(error=%error,operation,"telex training write failed");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+}
+fn train_value(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"numbs":row.get::<Option<i32>,_>("numbs"),"title":row.get::<Option<String>,_>("title"),"status":row.get::<Option<i32>,_>("status"),"duration":row.get::<Option<String>,_>("duration"),"totalNumber":row.get::<Option<i32>,_>("total_number"),"errorNumber":row.get::<Option<i32>,_>("error_number"),"accuracy":row.get::<Option<i32>,_>("accuracy"),"speed":row.get::<Option<String>,_>("speed"),"content":row.get::<Option<String>,_>("content"),"protocolVersion":row.get::<Option<i32>,_>("protocol_version"),"activeSince":row.get::<Option<i64>,_>("active_since"),"accumulatedActiveMillis":row.get::<Option<i64>,_>("accumulated_active_millis")})
+}
+pub(crate) async fn train_list(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let sql="SELECT id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,protocol_version,active_since,accumulated_active_millis FROM t_telex_pat_train WHERE create_user_id=? ORDER BY create_time DESC";
+    match sqlx::query(sql).bind(&user.id).fetch_all(pool).await {
+        Ok(rows) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(Value::Array(rows.iter().map(train_value).collect())),
+            "ok",
+            "",
+        ),
+        Err(e) => train_error(e, "list train"),
+    }
+}
+pub(crate) async fn train_detail(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<TrainRequest>,
+) -> Response {
+    let Some(id) = body.id.filter(|v| !v.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis FROM t_telex_pat_train WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await{Ok(Some(row)) if row.get::<Option<String>,_>("create_user_id").as_deref()==Some(user.id.as_str())=>envelope_json(StatusCode::OK,200,Some(train_value(&row)),"ok",""),Ok(Some(_))=>envelope_response(StatusCode::OK,207,"无权限",""),Ok(None)=>envelope_response(StatusCode::OK,202,"未查询到训练",""),Err(e)=>train_error(e,"detail train")}
+}
+pub(crate) async fn train_save(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<TrainRequest>,
+) -> Response {
+    let Some(kind) = body.train_type else {
+        return envelope_response(StatusCode::OK, 202, "训练类型无效", "");
+    };
+    if !(0..=2).contains(&kind) {
+        return envelope_response(StatusCode::OK, 202, "训练类型无效", "");
+    }
+    let requested = body.status.unwrap_or(0);
+    if !(0..=3).contains(&requested) {
+        return envelope_response(StatusCode::OK, 202, "训练状态无效", "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = body
+        .id
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let result=sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,0) ON DUPLICATE KEY UPDATE status=VALUES(status),numbs=VALUES(numbs),title=VALUES(title),duration=VALUES(duration),total_number=VALUES(total_number),error_number=VALUES(error_number),accuracy=VALUES(accuracy),speed=VALUES(speed),content=VALUES(content)").bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind(body.duration).bind(body.total_number).bind(body.error_number).bind(body.accuracy).bind(body.speed).bind(body.content).bind(&user.id).execute(pool).await;
+    match result {
+        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", ""),
+        Err(e) => train_error(e, "save train"),
+    }
+}
+pub(crate) async fn train_delete(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Path(id): Path<String>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("DELETE FROM t_telex_pat_train WHERE id=? AND create_user_id=?")
+        .bind(id)
+        .bind(&user.id)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", ""),
+        Err(e) => train_error(e, "delete train"),
     }
 }
