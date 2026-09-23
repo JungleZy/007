@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-radiotelephone-lifecycle/v1",
+  "verified_at_utc":"2026-09-23T07:56:23Z",
+  "source_commit":"8c88580",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_RADIOTELEPHONE_ENABLED","default":false,"routes":["POST /api/radiotelephone/begin","POST /api/radiotelephone/pause","POST /api/radiotelephone/resume","POST /api/radiotelephone/finish"],"production_cutover":false},
+  "transaction":{"serialization":"locks authenticated t_user row before aggregate lookup/create","identity":"server-issued UUID sessionId","clock":"database NOW(6) plus persisted active_millis","finish":"count/time/finalized marker and active-session cleanup in one transaction"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_radio_fixture","assertions":["first begin creates aggregate and session","duplicate begin preserves session","duplicate pause does not add elapsed time","duplicate resume preserves session_started_at","finish persists elapsed seconds and increments once","duplicate finish is idempotent","delayed finish cannot terminate a newer session","foreign session returns 207","expired session returns 208","malformed historical total returns 208 without changing aggregate"],"result":"10/10 passed","cleanup":"database and temporary response files removed"}},
+  "known_boundary":"The feature flag remains disabled; Java and Rust must never write this domain concurrently."
+}
