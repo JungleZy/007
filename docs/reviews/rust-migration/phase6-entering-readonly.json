@@ -1,0 +1,12 @@
+{
+  "schema":"rust-migration-phase6-entering-readonly/v1",
+  "verified_at_utc":"2026-09-23T05:26:12Z",
+  "source_commit":"c1622bc",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"routes":["POST /api/enteringExercise/listPage","POST /api/enteringExercise/add"],"production_cutover":false},
+  "contract":{"list":"token-scoped createUserId; type <= selected type or type > selected type","add":"token-scoped create with status=0/protocolVersion=1"},
+  "fixture":{"database":"temporary isolated MySQL schema phase6_enter_*","users":"u1/u2 with separate exercise rows","cleanup":"temporary schema dropped after test"},
+  "requests":{"missing_token":{"http_status":200,"code":203},"owner_list":{"http_status":200,"code":200,"count":1,"id":"x1"}},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"after adding production create_time field to fixture, token-scoped list projection observed"},
+  "known_boundary":"begin/pause/goTo/finish/score math and real page smoke remain for later Phase 6 work."
+}
