@@ -1,0 +1,7 @@
+{
+  "schema":"rust-migration-phase8-websocket-protocol/v1",
+  "verified_at_utc":"2026-09-23T10:52:00Z",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "implemented":{"multi_path_routes":"all Phase 0 WS path families are wired to Rust handler","handshake":"query token/deviceId authentication and identity from lookup_user","topics":"general* routes validate JSON topic begin/end/ready/pat/finish and return code -1 for invalid topics","heartbeat":"reserved ping/pong","rooms":"broadcast channels, connection count, empty room cleanup"},
+  "known_boundary":"Role-specific room membership, duplicate-user replacement with generation guard, simulation room authorization, and complete Java message dispatch remain open."
+}

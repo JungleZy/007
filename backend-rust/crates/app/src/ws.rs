@@ -43,10 +43,11 @@ pub(crate) async fn status() -> Response {
 }
 pub(crate) async fn open(
     State(state): State<AppState>,
-    Path(room): Path<String>,
+    Path(path): Path<HashMap<String, String>>,
     Query(auth): Query<WsAuth>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
+    let room = path.values().cloned().collect::<Vec<_>>().join("/");
     let Some(token) = auth.token.as_deref().filter(|v| !v.is_empty()) else {
         return envelope_response(axum::http::StatusCode::OK, 203, "token不能为空", "");
     };
@@ -85,8 +86,15 @@ async fn serve(socket: WebSocket, room: String, user_id: String) {
                     if value == "__nip_heartbeat_ping__" {
                         if socket.send(Message::Text("__nip_heartbeat_pong__".into())).await.is_err() { break; }
                     } else {
-                        let _ = sender.send(value.clone());
-                        if socket.send(Message::Text(value.into())).await.is_err() { break; }
+                        let valid = serde_json::from_str::<serde_json::Value>(&value).ok().and_then(|v| v.get("topic").and_then(|t| t.as_str()).map(|topic| {
+                            !room.starts_with("general") || matches!(topic, "begin"|"end"|"ready"|"pat"|"finish")
+                        })).unwrap_or_else(|| !room.starts_with("general"));
+                        if !valid {
+                            let _ = socket.send(Message::Text(serde_json::json!({"code":-1,"message":"消息格式或主题无效"}).to_string().into())).await;
+                        } else {
+                            let _ = sender.send(value.clone());
+                            if socket.send(Message::Text(value.into())).await.is_err() { break; }
+                        }
                     }
                 }
                 Some(Ok(Message::Ping(data))) => { if socket.send(Message::Pong(data)).await.is_err() { break; } }
