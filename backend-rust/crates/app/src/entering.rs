@@ -92,3 +92,12 @@ pub(crate) async fn telex_find(
     };
     match sqlx::query("SELECT id,create_user_id,type,total_time,total_num,total_error,message_name FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1").bind(&user.id).bind(kind).fetch_optional(pool).await {Ok(Some(row))=>envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"type":row.get::<Option<i32>,_>("type"),"totalTime":row.get::<Option<i32>,_>("total_time"),"totalNum":row.get::<Option<i32>,_>("total_num"),"totalError":row.get::<Option<i32>,_>("total_error"),"messageName":row.get::<Option<String>,_>("message_name")})),"ok","") ,Ok(None)=>envelope_json(StatusCode::OK,200,Some(json!({"type":kind,"totalTime":0,"totalNum":0,"totalError":0})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
+pub(crate) async fn statistics(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,child_type,total_count,total_time,avg_speed,user_id FROM t_entering_statistical WHERE user_id=? ORDER BY type,child_type").bind(&user.id).fetch_all(pool).await {Ok(rows)=>envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(|row|json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("child_type"),"totalCount":row.get::<Option<i32>,_>("total_count"),"totalTime":row.get::<Option<String>,_>("total_time"),"avgSpeed":row.get::<Option<String>,_>("avg_speed"),"userId":row.get::<Option<String>,_>("user_id")})).collect::<Vec<_>>())),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+}

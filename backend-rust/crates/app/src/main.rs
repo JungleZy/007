@@ -394,6 +394,7 @@ fn build_router(state: AppState) -> Router {
             .route("/begin", post(entering::begin))
             .route("/pause", post(entering::pause))
             .route("/finish", post(entering::finish))
+            .route("/statisticalPage", post(entering::statistics))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let telex_routes = Router::new()
             .route("/findByUserIdAndType", post(entering::telex_find))
