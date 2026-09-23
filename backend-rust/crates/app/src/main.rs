@@ -39,6 +39,7 @@ mod general_train;
 mod grading;
 mod group_net;
 mod group_net_write;
+mod keypoints;
 mod military;
 mod password;
 mod post_telegram;
@@ -49,7 +50,6 @@ mod post_telex;
 mod post_telex_write;
 mod post_ticker;
 mod radiotelephone;
-mod receive_keypoints;
 mod scoring;
 mod simulation;
 mod telegram;
@@ -585,9 +585,18 @@ fn build_router(state: AppState) -> Router {
     }
     if state.config.receive_keypoints_readonly_enabled {
         let receive_keypoint_routes = Router::new()
-            .route("/getByType", post(receive_keypoints::get_by_type))
+            .route("/getByType", post(keypoints::receive))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/receiveKeyPoints", receive_keypoint_routes);
+        let entering_keypoint_routes = Router::new()
+            .route("/getByType", post(keypoints::entering))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let keypoint_routes = Router::new()
+            .route("/findKeyPointsByType", post(keypoints::key))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/receiveKeyPoints", receive_keypoint_routes)
+            .nest("/api/enteringKeyPoints", entering_keypoint_routes)
+            .nest("/api/keyPoints", keypoint_routes);
     }
     if state.config.simulation_readonly_enabled {
         let router_routes = Router::new()
