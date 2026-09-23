@@ -1,0 +1,111 @@
+use super::{envelope_json, envelope_response, AppState, AuthUser};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    response::Response,
+    Json,
+};
+use serde_json::json;
+#[derive(serde::Deserialize)]
+pub(crate) struct AddRequest {
+    name: Option<String>,
+    #[serde(rename = "isCable")]
+    is_cable: Option<i32>,
+    #[serde(rename = "type")]
+    train_type: Option<i32>,
+    #[serde(rename = "codeSort")]
+    code_sort: Option<bool>,
+    #[serde(rename = "isRandom")]
+    is_random: Option<bool>,
+    #[serde(rename = "messageNumber")]
+    message_number: Option<i32>,
+}
+#[derive(serde::Deserialize)]
+pub(crate) struct ActionRequest {
+    id: Option<String>,
+    attempt: Option<i32>,
+}
+fn err(e: sqlx::Error, op: &'static str) -> Response {
+    tracing::warn!(error=%e,operation=op,"post telegram write failed");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+}
+pub(crate) async fn add(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<AddRequest>,
+) -> Response {
+    let Some(message_number) = body.message_number.filter(|v| *v > 0) else {
+        return envelope_response(StatusCode::OK, 202, "报文数量不能为空", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = uuid::Uuid::new_v4().to_string();
+    match sqlx::query("INSERT INTO t_post_telegram_train (id,name,is_cable,type,code_sort,is_random,message_number,status,create_user,create_time,error_number,accuracy,protocol_version,attempt,full_score,active_millis) VALUES (?,?,?,?,?,?,?,0,?,NOW(),0,'0.00',1,0,0,0)").bind(&id).bind(body.name).bind(body.is_cable.unwrap_or(0)).bind(body.train_type.unwrap_or(0)).bind(body.code_sort.unwrap_or(false) as i32).bind(body.is_random.unwrap_or(false) as i32).bind(message_number).bind(&user.id).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"status":0,"protocolVersion":1,"attempt":0,"messageNumber":message_number})),"ok",""),Err(e)=>err(e,"add")}
+}
+pub(crate) async fn begin(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ActionRequest>,
+) -> Response {
+    action(state, user, body, 1).await
+}
+pub(crate) async fn finish(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ActionRequest>,
+) -> Response {
+    action(state, user, body, 3).await
+}
+pub(crate) async fn stop(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ActionRequest>,
+) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_post_telegram_train SET status=2,attempt=attempt+1,active_millis=0 WHERE id=? AND create_user=? AND status<>3").bind(id).bind(&user.id).execute(pool).await{Ok(_)=>envelope_response(StatusCode::OK,200,"ok",""),Err(e)=>err(e,"stop")}
+}
+async fn action(state: AppState, user: AuthUser, body: ActionRequest, status: i32) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let sql = if status == 1 {
+        "UPDATE t_post_telegram_train SET status=1,start_time=COALESCE(start_time,NOW(6)) WHERE id=? AND create_user=? AND status IN (0,2)"
+    } else {
+        "UPDATE t_post_telegram_train SET status=3,end_time=NOW(6),active_millis=COALESCE(active_millis,0) WHERE id=? AND create_user=? AND status IN (1,2)"
+    };
+    match sqlx::query(sql).bind(id).bind(&user.id).execute(pool).await {
+        Ok(r) if r.rows_affected() == 1 => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 208, "训练状态不可执行", ""),
+        Err(e) => err(e, "action"),
+    }
+}
+pub(crate) async fn delete(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<ActionRequest>,
+) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("DELETE FROM t_post_telegram_train WHERE id=? AND create_user=?")
+        .bind(id)
+        .bind(&user.id)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", ""),
+        Err(e) => err(e, "delete"),
+    }
+}

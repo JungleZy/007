@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-phase7-domain-status/v1",
+  "verified_at_utc":"2026-09-23T10:38:00Z",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "domains":{"postTelegram":{"read":"Rust findAll/detail; partial save/begin/finish/stop/delete","write":"single-table lifecycle and basic owner guard; generated floor/content scoring incomplete"},"postTelex":{"read":"Rust findAll/detail","write":"basic add/begin/pause/resume/reset/finish/delete; page content and settlement incomplete"},"postTelegraph":{"read":"Rust listPage/details","write":"basic add/begin/finish/reset/delete; page content and scoring incomplete"},"postTicker":{"read":"Rust listPage/getById","write":"not yet complete"},"groupNet":{"read":"Rust listPage/details","write":"not yet complete"}},
+  "state_machine_contract":{"statuses":[0,1,2,3],"single_writer":"feature flags default false; Java remains production writer","owner":"authenticated create_user/user_id predicates"},
+  "verification":{"rust_workspace":"cargo check/test/build run after each route slice","shared_fixture_diff":"runner exists at backend-rust/scripts/phase9-contract-diff.sh","frontend":"39 tests and production build passed; Electron shell backend artifact missing"},
+  "known_boundary":"Phase 7 exit gate is not satisfied: concurrent finish/reset, deterministic generation, page/content tables, scoring settlement, and rollback rehearsal remain open."
+}

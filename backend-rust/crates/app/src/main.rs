@@ -40,8 +40,11 @@ mod group_net;
 mod military;
 mod password;
 mod post_telegram;
+mod post_telegram_write;
 mod post_telegraph;
+mod post_telegraph_write;
 mod post_telex;
+mod post_telex_write;
 mod post_ticker;
 mod radiotelephone;
 mod telegram;
@@ -511,6 +514,11 @@ fn build_router(state: AppState) -> Router {
         let post_telegram_routes = Router::new()
             .route("/findAll", post(post_telegram::list))
             .route("/detail", post(post_telegram::detail))
+            .route("/save", post(post_telegram_write::add))
+            .route("/begin", post(post_telegram_write::begin))
+            .route("/finish", post(post_telegram_write::finish))
+            .route("/stop", post(post_telegram_write::stop))
+            .route("/delete", post(post_telegram_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/postTelegramTrain", post_telegram_routes);
     }
@@ -518,6 +526,13 @@ fn build_router(state: AppState) -> Router {
         let post_telex_routes = Router::new()
             .route("/findAll", post(post_telex::list))
             .route("/detail", post(post_telex::detail))
+            .route("/save", post(post_telex_write::add))
+            .route("/begin", post(post_telex_write::begin))
+            .route("/pause", post(post_telex_write::pause))
+            .route("/resume", post(post_telex_write::resume))
+            .route("/reset", post(post_telex_write::reset))
+            .route("/finish", post(post_telex_write::finish))
+            .route("/delete/{id}", get(post_telex_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/postTelexPatTrain", post_telex_routes);
     }
@@ -525,6 +540,11 @@ fn build_router(state: AppState) -> Router {
         let post_telegraph_routes = Router::new()
             .route("/listPage", post(post_telegraph::list))
             .route("/details", post(post_telegraph::detail))
+            .route("/add", post(post_telegraph_write::add))
+            .route("/begin", post(post_telegraph_write::begin))
+            .route("/finish", post(post_telegraph_write::finish))
+            .route("/reset", post(post_telegraph_write::reset))
+            .route("/delete/{id}", get(post_telegraph_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/PostTelegraphKeyPatTrain", post_telegraph_routes);
     }

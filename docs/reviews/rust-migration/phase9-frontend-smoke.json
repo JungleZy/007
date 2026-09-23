@@ -1,0 +1,7 @@
+{
+  "schema":"rust-migration-phase9-frontend-smoke/v1",
+  "verified_at_utc":"2026-09-23T10:34:00Z",
+  "status":"PARTIAL_NO_CUTOVER",
+  "verification":{"frontend_tests":"39 passed, 0 failed","frontend_production_build":"passed; Vite output and artifact manifest generated","browser_surface":"frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'","electron":"shell launched from out/linux-unpacked and emitted Startup complete on 127.0.0.1:8000; backend child spawn failed because out/linux-unpacked/bin/server/server is absent; serial selection also reported missing KEYSIM-VIRTUAL"},
+  "known_boundary":"No authenticated backend-backed training page flow or successful Electron backend/serial workflow has been completed in this evidence."
+}
