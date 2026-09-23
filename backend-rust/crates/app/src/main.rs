@@ -37,6 +37,7 @@ mod equipment_train;
 mod exam;
 mod grading;
 mod group_net;
+mod group_net_write;
 mod military;
 mod password;
 mod post_telegram;
@@ -559,6 +560,8 @@ fn build_router(state: AppState) -> Router {
         let group_net_routes = Router::new()
             .route("/listPage", post(group_net::list))
             .route("/details", get(group_net::detail))
+            .route("/saveTrain", post(group_net_write::save))
+            .route("/submitAnswer", post(group_net_write::submit))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/groupNetTrain", group_net_routes);
     }

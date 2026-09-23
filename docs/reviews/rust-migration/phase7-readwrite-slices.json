@@ -1,0 +1,8 @@
+{
+  "schema":"rust-migration-phase7-readwrite-slices/v1",
+  "verified_at_utc":"2026-09-23T10:44:00Z",
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "implemented_write_slices":["postTelegramTrain save/begin/finish/stop/delete","postTelexPatTrain save/begin/pause/resume/reset/finish/delete","PostTelegraphKeyPatTrain add/begin/finish/reset/delete","postTickerTapeTrain add/begin/pause/goOn/finish/baseSession/saveBaseTrain/discardBaseSession","groupNetTrain saveTrain/submitAnswer"],
+  "state_contract":{"owner":"authenticated create_user/user_id predicates","business_status":"HTTP200 envelope with business code; terminal transitions reject 208","writer":"all flags default false; Java remains production writer"},
+  "known_boundary":"These slices do not yet implement generated page/content values, authoritative scoring/settlement, concurrency finish/reset guards, room state machines, or production cutover."
+}
