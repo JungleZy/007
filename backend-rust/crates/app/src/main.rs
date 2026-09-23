@@ -31,6 +31,7 @@ use uuid::Uuid;
 mod admin;
 mod cable;
 mod device;
+mod entering;
 mod equipment;
 mod equipment_train;
 mod exam;
@@ -47,6 +48,7 @@ const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
 const DATABASE_URL_ENV: &str = "RUST_BACKEND_DATABASE_URL";
 const CABLE_READONLY_ENV: &str = "RUST_PHASE4_CABLE_ENABLED";
 const GRADING_READONLY_ENV: &str = "RUST_PHASE4_GRADING_ENABLED";
+const ENTERING_READONLY_ENV: &str = "RUST_PHASE6_ENTERING_ENABLED";
 const DEVICE_READONLY_ENV: &str = "RUST_PHASE4_DEVICE_ENABLED";
 const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
@@ -77,6 +79,7 @@ struct AppConfig {
     tools_readonly_enabled: bool,
     device_readonly_enabled: bool,
     equipment_readonly_enabled: bool,
+    entering_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -239,6 +242,7 @@ impl AppConfig {
         let cable_readonly_enabled = parse_bool(CABLE_READONLY_ENV, false)?;
         let device_readonly_enabled = parse_bool(DEVICE_READONLY_ENV, false)?;
         let equipment_readonly_enabled = parse_bool(EQUIPMENT_READONLY_ENV, false)?;
+        let entering_readonly_enabled = parse_bool(ENTERING_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -253,6 +257,7 @@ impl AppConfig {
             tools_readonly_enabled,
             device_readonly_enabled,
             equipment_readonly_enabled,
+            entering_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -381,6 +386,13 @@ fn build_router(state: AppState) -> Router {
             "/api/equipmentDevice",
             equipment_routes.merge(admin_equipment_routes),
         );
+    }
+    if state.config.entering_readonly_enabled {
+        let entering_routes = Router::new()
+            .route("/listPage", post(entering::list))
+            .route("/add", post(entering::add))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/enteringExercise", entering_routes);
     }
     if state.config.equipment_readonly_enabled {
         let train_routes = Router::new()
