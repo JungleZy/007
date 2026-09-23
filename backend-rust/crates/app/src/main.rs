@@ -36,6 +36,7 @@ mod equipment;
 mod equipment_train;
 mod exam;
 mod grading;
+mod group_net;
 mod military;
 mod password;
 mod post_telegram;
@@ -71,6 +72,7 @@ const POST_TELEGRAM_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEGRAM_ENABLED";
 const POST_TELEX_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEX_ENABLED";
 const POST_TELEGRAPH_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEGRAPH_ENABLED";
 const POST_TICKER_READONLY_ENV: &str = "RUST_PHASE7_POST_TICKER_ENABLED";
+const GROUP_NET_READONLY_ENV: &str = "RUST_PHASE7_GROUP_NET_ENABLED";
 const WS_READONLY_ENV: &str = "RUST_PHASE8_WS_ENABLED";
 const TICKER_TAPE_READONLY_ENV: &str = "RUST_PHASE6_TICKER_TAPE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
@@ -111,6 +113,7 @@ struct AppConfig {
     post_telex_readonly_enabled: bool,
     post_telegraph_readonly_enabled: bool,
     post_ticker_readonly_enabled: bool,
+    group_net_readonly_enabled: bool,
     ws_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
@@ -284,6 +287,7 @@ impl AppConfig {
         let post_telex_readonly_enabled = parse_bool(POST_TELEX_READONLY_ENV, false)?;
         let post_telegraph_readonly_enabled = parse_bool(POST_TELEGRAPH_READONLY_ENV, false)?;
         let post_ticker_readonly_enabled = parse_bool(POST_TICKER_READONLY_ENV, false)?;
+        let group_net_readonly_enabled = parse_bool(GROUP_NET_READONLY_ENV, false)?;
         let ws_readonly_enabled = parse_bool(WS_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
@@ -309,6 +313,7 @@ impl AppConfig {
             post_telex_readonly_enabled,
             post_telegraph_readonly_enabled,
             post_ticker_readonly_enabled,
+            group_net_readonly_enabled,
             ws_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
@@ -529,6 +534,13 @@ fn build_router(state: AppState) -> Router {
             .route("/getById", post(post_ticker::detail))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/postTickerTapeTrain", post_ticker_routes);
+    }
+    if state.config.group_net_readonly_enabled {
+        let group_net_routes = Router::new()
+            .route("/listPage", post(group_net::list))
+            .route("/details", get(group_net::detail))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/groupNetTrain", group_net_routes);
     }
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()
