@@ -38,6 +38,7 @@ mod exam;
 mod grading;
 mod military;
 mod password;
+mod post_telegram;
 mod radiotelephone;
 mod telegram;
 mod telegram_write;
@@ -62,6 +63,7 @@ const RADIOTELEPHONE_READONLY_ENV: &str = "RUST_PHASE6_RADIOTELEPHONE_ENABLED";
 const TELEGRAM_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAM_ENABLED";
 const TELEGRAPH_KEY_READONLY_ENV: &str = "RUST_PHASE6_TELEGRAPH_KEY_ENABLED";
 const TELEX_READONLY_ENV: &str = "RUST_PHASE6_TELEX_ENABLED";
+const POST_TELEGRAM_READONLY_ENV: &str = "RUST_PHASE7_POST_TELEGRAM_ENABLED";
 const TICKER_TAPE_READONLY_ENV: &str = "RUST_PHASE6_TICKER_TAPE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
@@ -97,6 +99,7 @@ struct AppConfig {
     telegraph_key_readonly_enabled: bool,
     telex_readonly_enabled: bool,
     ticker_tape_readonly_enabled: bool,
+    post_telegram_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -265,6 +268,7 @@ impl AppConfig {
         let telegraph_key_readonly_enabled = parse_bool(TELEGRAPH_KEY_READONLY_ENV, false)?;
         let telex_readonly_enabled = parse_bool(TELEX_READONLY_ENV, false)?;
         let ticker_tape_readonly_enabled = parse_bool(TICKER_TAPE_READONLY_ENV, false)?;
+        let post_telegram_readonly_enabled = parse_bool(POST_TELEGRAM_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -285,6 +289,7 @@ impl AppConfig {
             telegraph_key_readonly_enabled,
             telex_readonly_enabled,
             ticker_tape_readonly_enabled,
+            post_telegram_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -476,6 +481,13 @@ fn build_router(state: AppState) -> Router {
             .route("/endTelegramTrain", post(telegram_write::end))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telegramTrain", telegram_routes);
+    }
+    if state.config.post_telegram_readonly_enabled {
+        let post_telegram_routes = Router::new()
+            .route("/findAll", post(post_telegram::list))
+            .route("/detail", post(post_telegram::detail))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/postTelegramTrain", post_telegram_routes);
     }
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()
