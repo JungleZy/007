@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-phase5-exam-score-upload/v1",
-  "verified_at_utc": "2026-09-23T02:45:00Z",
+  "verified_at_utc": "2026-09-23T03:06:12Z",
   "source_commit": "e57b316",
   "status": "PASS_NO_PRODUCTION_TRAFFIC",
   "feature_flag": {"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"route":"POST /api/theoryKnowledgeExamUser/teacherUploadScore","authorization":"is_admin=0 only","production_cutover":false},
