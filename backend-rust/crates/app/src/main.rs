@@ -40,6 +40,7 @@ mod military;
 mod password;
 mod radiotelephone;
 mod telegram;
+mod telegram_write;
 mod telegraph_key;
 mod telex;
 mod test_paper;
@@ -465,6 +466,10 @@ fn build_router(state: AppState) -> Router {
         let telegram_routes = Router::new()
             .route("/getAll", post(telegram::list))
             .route("/getById", post(telegram::by_id))
+            .route("/saveTelegramTrain", post(telegram_write::save))
+            .route("/startTelegramTrain", post(telegram_write::start))
+            .route("/pauseTelegramTrain", post(telegram_write::pause))
+            .route("/endTelegramTrain", post(telegram_write::end))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telegramTrain", telegram_routes);
     }
