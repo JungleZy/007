@@ -305,3 +305,60 @@ pub(crate) async fn upload_result(
     };
     match sqlx::query("UPDATE simulation_router_room_user SET content_value=?,user_status=1 WHERE room_id=? AND user_id=?").bind(body.to_string()).bind(room).bind(&user.id).execute(pool).await{Ok(r) if r.rows_affected()==1=>detail_body(State(state),Extension(user),Json(json!({"roomId":room}))).await,Ok(_)=>envelope_response(StatusCode::OK,207,"无权限","") ,Err(e)=>db_error(e,"upload result")}
 }
+#[derive(Debug, Deserialize)]
+pub(crate) struct PageQuery {
+    #[serde(rename = "roomId")]
+    room_id: Option<i32>,
+    #[serde(rename = "pageNumber")]
+    page_number: Option<i32>,
+    #[serde(rename = "userId")]
+    user_id: Option<String>,
+}
+pub(crate) async fn find_page(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Query(query): Query<PageQuery>,
+) -> Response {
+    let (Some(room), Some(page)) = (query.room_id, query.page_number) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let target = query.user_id.unwrap_or_else(|| user.id.clone());
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let allowed=sqlx::query("SELECT id FROM simulation_router_room r WHERE r.id=? AND (r.create_user_Id=? OR EXISTS(SELECT 1 FROM simulation_router_room_user u WHERE u.room_id=r.id AND u.user_id=?))").bind(room).bind(&user.id).bind(&user.id).fetch_optional(pool).await;
+    if !matches!(allowed, Ok(Some(_))) {
+        return envelope_response(StatusCode::OK, 207, "无权限或房间不存在", "");
+    }
+    match sqlx::query("SELECT p.id,p.page_number,p.sort,p.key,v.value,v.user_id FROM simulation_router_room_page p LEFT JOIN simulation_router_room_page_value v ON v.room_id=p.room_id AND v.page_number=p.page_number AND v.user_id=? WHERE p.room_id=? AND p.page_number=? ORDER BY p.sort").bind(&target).bind(room).bind(page).fetch_all(pool).await{Ok(rows)=>envelope_json(StatusCode::OK,200,Some(json!({"roomId":room,"pageNumber":page,"userId":target,"content":rows.iter().map(|r|json!({"id":r.get::<String,_>("id"),"sort":r.get::<Option<i32>,_>("sort"),"key":r.get::<Option<String>,_>("key"),"value":r.get::<Option<String>,_>("value"),"userId":r.get::<Option<String>,_>("user_id")})).collect::<Vec<_>>() })),"ok",""),Err(e)=>db_error(e,"find simulation page")}
+}
+#[derive(Debug, Deserialize)]
+pub(crate) struct PageValue {
+    #[serde(rename = "roomId")]
+    room_id: Option<i32>,
+    #[serde(rename = "pageNumber")]
+    page_number: Option<i32>,
+    value: Option<String>,
+}
+pub(crate) async fn save_page(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<PageValue>,
+) -> Response {
+    let (Some(room), Some(page), Some(value)) = (body.room_id, body.page_number, body.value) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let allowed =
+        sqlx::query("SELECT id FROM simulation_router_room_user WHERE room_id=? AND user_id=?")
+            .bind(room)
+            .bind(&user.id)
+            .fetch_optional(pool)
+            .await;
+    if !matches!(allowed, Ok(Some(_))) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    match sqlx::query("INSERT INTO simulation_router_room_page_value (page_number,room_id,value,user_id) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)").bind(page).bind(room).bind(value).bind(&user.id).execute(pool).await{Ok(_)=>envelope_response(StatusCode::OK,200,"ok",""),Err(e)=>db_error(e,"save simulation page")}
+}

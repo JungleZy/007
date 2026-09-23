@@ -606,6 +606,8 @@ fn build_router(state: AppState) -> Router {
             .route("/changeChannel", post(simulation::change_channel))
             .route("/getRoomDetail", get(simulation::detail))
             .route("/getRoomChannels", get(simulation::channels))
+            .route("/findPage", get(simulation::find_page))
+            .route("/savePage", post(simulation::save_page))
             .route("/sendFinish", post(simulation::finish))
             .route("/delete", get(simulation::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
