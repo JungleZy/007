@@ -1,0 +1,30 @@
+{
+  "schema": "rust-migration-phase5-self-test-scoring/v1",
+  "verified_at_utc": "2026-09-23T02:36:40Z",
+  "source_commit": "7223688",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {"name": "RUST_PHASE5_THEORY_ENABLED", "default": false, "route": "POST /api/theoryKnowledgeExam/finishSelfTesting", "production_cutover": false},
+  "contract": {
+    "identity": "candidate selected by token user id",
+    "snapshot_source": "t_theory_knowledge_exam_test_paper",
+    "sections": ["singleChoice", "multipleChoice", "judge", "completion", "shortAnswer"],
+    "terminal_code": 208,
+    "score_source": "server-side snapshot comparison; client score ignored"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_self_score_*",
+    "question": {"id": "q1", "answer": "A", "score": 10},
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "correct_answer": {"http_status": 200, "code": 200, "score": 10},
+    "repeat_finish": {"http_status": 200, "code": 208}
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "server score and repeat terminal rejection observed"
+  },
+  "known_boundary": "answer normalization is not yet byte-for-byte equivalent for all Java array/scalar edge cases; full characterization remains required before traffic cutover."
+}
