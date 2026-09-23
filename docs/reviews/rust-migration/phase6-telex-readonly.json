@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-telex-readonly/v1",
+  "verified_at_utc":"2026-09-23T06:54:34Z",
+  "source_commit":"a840138",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEX_ENABLED","default":false,"routes":["POST /api/telexPat/statisticalPage","POST /api/telexPat/lastPatTrain"],"production_cutover":false},
+  "contract":{"statistics":"four ordered user-scoped type rows with zero synthesis for missing rows","last_train":"latest user-owned train for requested type","authentication":"token/deviceId"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","missing_token_smoke":{"code":203,"message":"token不能为空"},"invalid_credential_smoke":{"code":206,"message":"账号登录凭证异常"}},
+  "known_boundary":"Dedicated MySQL fixture is required to compare populated statistics and last-train ordering before read cutover."
+}
