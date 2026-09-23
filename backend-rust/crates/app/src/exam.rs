@@ -345,3 +345,77 @@ pub(crate) async fn finish_self_test(
         "",
     )
 }
+
+pub(crate) async fn teacher_upload_score(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(list) = body.get("list").and_then(Value::as_array) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    if list.is_empty() {
+        return envelope_response(StatusCode::OK, 202, "上分列表不能为空", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&user.id).fetch_one(pool).await.unwrap_or(0)>0;
+    if !admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    for item in list {
+        let Some(uid) = item
+            .get("user_id")
+            .and_then(Value::as_str)
+            .filter(|v| !v.is_empty())
+        else {
+            let _ = tx.rollback().await;
+            return envelope_response(
+                StatusCode::OK,
+                202,
+                "上分列表中存在缺少 user_id 的条目，整批已拒绝",
+                "",
+            );
+        };
+        let exists = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND user_id=?",
+        )
+        .bind(exam_id)
+        .bind(uid)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap_or(0);
+        if exists == 0 {
+            let _ = tx.rollback().await;
+            return envelope_response(
+                StatusCode::OK,
+                202,
+                "考生不是本场考试的考生，整批上分已拒绝",
+                "",
+            );
+        }
+    }
+    for item in list {
+        let uid = item.get("user_id").and_then(Value::as_str).unwrap_or("");
+        let score = item.get("score").and_then(Value::as_i64).unwrap_or(0);
+        let content = item
+            .get("content")
+            .map(Value::to_string)
+            .unwrap_or_else(|| "{}".into());
+        if sqlx::query("UPDATE t_theory_knowledge_exam_user SET score=?,state=4,content=? WHERE exam_id=? AND user_id=?").bind(score).bind(content).bind(exam_id).bind(uid).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
+}

@@ -470,7 +470,13 @@ fn build_router(state: AppState) -> Router {
             .route("/studentChangeExamState", post(exam::student_state))
             .route("/studentSaveExamRealtimeContont", post(exam::realtime))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/theoryKnowledgeExam", exam_routes);
+        let exam_user_routes = Router::new()
+            .route("/teacherUploadScore", post(exam::teacher_upload_score))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/theoryKnowledgeExam", exam_routes)
+            .nest("/api/theoryKnowledgeExamUser", exam_user_routes);
     }
     if state.config.auth_readonly_enabled {
         let user_routes = Router::new()
@@ -1545,6 +1551,7 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam state envelope; admin/controller-scoped"}}}},
             "/api/theoryKnowledgeExam/studentChangeExamState": {"post": {"responses": {"200": {"description": "Student exam state envelope; owner-scoped"}}}},
             "/api/theoryKnowledgeExam/studentSaveExamRealtimeContont": {"post": {"responses": {"200": {"description": "Realtime answer envelope; owner-scoped"}}}},
+            "/api/theoryKnowledgeExamUser/teacherUploadScore": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel": {"post": {"responses": {"200": {"description": "Question levels envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId": {"post": {"responses": {"200": {"description": "Question list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledgeQuestion/exportTemplate": {"post": {"responses": {"200": {"description": "Question template columns; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
