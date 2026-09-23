@@ -1,9 +1,9 @@
 {
   "schema":"rust-migration-phase9-shared-contract-fixture/v1",
-  "verified_at_utc":"2026-09-23T13:11:12Z",
-  "status":"PARTIAL_RUST_SELF_DIFF_ONLY",
+  "verified_at_utc":"2026-09-23T13:20:00Z",
+  "status":"PARTIAL_RUST_SELF_DIFF_AND_JAVA_ROUTE_PROBE",
   "fixture":"docs/reviews/rust-migration/phase9-contract-fixture.json",
   "runner":"backend-rust/scripts/phase9-contract-diff.sh",
-  "result":"5/5 cases passed when Java and Rust base URLs both pointed at the isolated Rust service; cases cover health, readiness, missing token, query token rejection and missing device",
-  "known_boundary":"A true Java-versus-Rust business-domain diff requires both services running against equivalent isolated databases; this self-diff does not satisfy final Phase 9 parity."
+  "result":"Rust self-diff 5/5 passed. Java dev service on 18104 and Rust service on 18105 were then probed with the same fixture; Java did not expose the generic /health or /api/phase1/contract/auth paths, so all 5 cases failed exact comparison. This is direct evidence of route-baseline mismatch, not parity.",
+  "known_boundary":"A true Java-versus-Rust business-domain diff requires selecting actual shared Java paths from the Phase0 inventory and equivalent isolated database fixtures; final Phase 9 parity remains incomplete."
 }
