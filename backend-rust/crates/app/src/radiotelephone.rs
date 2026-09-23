@@ -111,31 +111,61 @@ async fn session_error(
 pub(crate) async fn list(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
+    body: Option<Json<LifecycleRequest>>,
 ) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT user_id,type,total_time,total_count,active_session_id FROM t_radiotelephone_train WHERE user_id=? ORDER BY type")
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => return database_error(error, "start list transaction"),
+    };
+    match lock_user(&mut transaction, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 202, "用户不存在", ""),
+        Err(error) => return database_error(error, "lock user for list"),
+    }
+    if let Some(Json(body)) = body {
+        let train_type = match require_type(&body) {
+            Ok(train_type) => train_type,
+            Err(response) => return response,
+        };
+        match load_row(&mut transaction, &user.id, train_type).await {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                if let Err(error) = sqlx::query("INSERT INTO t_radiotelephone_train (id,user_id,type,total_time,total_count) VALUES (?,?,?,'0',0)")
+                    .bind(uuid::Uuid::new_v4().to_string())
+                    .bind(&user.id)
+                    .bind(train_type)
+                    .execute(&mut *transaction)
+                    .await
+                {
+                    return database_error(error, "initialize list aggregate");
+                }
+            }
+            Err(error) => return database_error(error, "load aggregate for list"),
+        }
+    }
+    let rows = match sqlx::query("SELECT user_id,type,total_time,total_count,active_session_id FROM t_radiotelephone_train WHERE user_id=? ORDER BY type FOR UPDATE")
         .bind(&user.id)
-        .fetch_all(pool)
+        .fetch_all(&mut *transaction)
         .await
     {
-        Ok(rows) => envelope_json(
-            StatusCode::OK,
-            200,
-            Some(Value::Array(
-                rows.iter()
-                    .map(|row| {
-                        let session_id = row.get::<Option<String>, _>("active_session_id");
-                        view(row, session_id.as_deref())
-                    })
-                    .collect(),
-            )),
-            "ok",
-            "",
-        ),
-        Err(error) => database_error(error, "list training totals"),
+        Ok(rows) => rows,
+        Err(error) => return database_error(error, "list training totals"),
+    };
+    let data = Value::Array(
+        rows.iter()
+            .map(|row| {
+                let session_id = row.get::<Option<String>, _>("active_session_id");
+                view(row, session_id.as_deref())
+            })
+            .collect(),
+    );
+    if let Err(error) = transaction.commit().await {
+        return database_error(error, "commit list transaction");
     }
+    envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
 }
 
 pub(crate) async fn begin(
