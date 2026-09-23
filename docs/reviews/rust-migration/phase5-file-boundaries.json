@@ -1,0 +1,11 @@
+{
+  "schema":"rust-migration-phase5-file-boundaries/v1",
+  "verified_at_utc":"2026-09-23T04:30:00Z",
+  "source_commit":"568f01b",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"route":"POST /api/theoryKnowledge/uploadFileToNip","production_cutover":false},
+  "contract":{"multipart_field":"file","allowed_suffixes":["txt","md","csv"],"max_file_bytes":10485760,"encoding":"UTF-8","response_fields":["type","wordContent","imgUrls"]},
+  "requests":{"valid_txt":{"http_status":200,"code":200,"wordContent":"hello"},"docx_rejected":{"http_status":200,"code":202},"empty_txt":{"http_status":200,"code":202}},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"multipart UTF-8 text success, Office rejection and empty-file rejection observed"},
+  "known_boundary":"10MiB oversize and malformed UTF-8 fixtures remain; DOCX/XLSX continue to be parsed by the frontend by design."
+}
