@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-telex-base-writes/v1",
+  "verified_at_utc":"2026-09-23T07:38:14Z",
+  "source_commit":"a635f2d",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEX_ENABLED","default":false,"routes":["POST /api/telexPat/saveTelexPat","POST /api/telexPat/findTelexPatById","POST /api/telexPat/deleteTexPatByToken"],"production_cutover":false},
+  "transaction":{"serialization":"locks authenticated t_user row before user/type upsert","save":"base row and type-0 summary in one transaction","delete":"base row deletion and requested-type summary reset in one transaction","failure":"statistics insertion failure rolls back the preceding base-row insert"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_telex_base_fixture","assertions":["numeric-string duration is accepted","same user/type is overwritten rather than duplicated","type-0 totalTime is recalculated from persisted base data","statistics totalCount increments per save","requested type deletion removes only that type","requested type statistics are reset without changing other types","forced statistics constraint failure leaves no base row"],"result":"7/7 passed","cleanup":"database dropped"}},
+  "known_boundary":"The feature flag remains disabled; Java and Rust must never write this domain concurrently."
+}
