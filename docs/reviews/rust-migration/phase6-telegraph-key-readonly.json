@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-telegraph-key-readonly/v1",
+  "verified_at_utc":"2026-09-23T06:44:02Z",
+  "source_commit":"f59f359",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEGRAPH_KEY_ENABLED","default":false,"route":"POST /api/telegraphKeyPatTrain/findByType","production_cutover":false},
+  "contract":{"input":"type","scope":"current-user-owned t_telegraph_key_pat_train row","empty_result":"zero-valued VO matching requested type","authentication":"token/deviceId"},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","missing_token_smoke":{"code":203,"message":"token不能为空"},"invalid_credential_smoke":{"code":206,"message":"账号登录凭证异常"}},
+  "known_boundary":"Dedicated MySQL fixture is required to exercise existing and empty user/type rows before read cutover."
+}
