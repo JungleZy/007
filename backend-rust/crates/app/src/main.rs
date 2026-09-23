@@ -472,6 +472,7 @@ fn build_router(state: AppState) -> Router {
             .route("/studentSaveExamRealtimeContont", post(exam::realtime))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let exam_user_routes = Router::new()
+            .route("/findExamUser", post(exam::find_exam_user))
             .route("/teacherUploadScore", post(exam::teacher_upload_score))
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));

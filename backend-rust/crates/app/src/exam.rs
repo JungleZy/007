@@ -431,3 +431,37 @@ pub(crate) async fn self_list(
         Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")
     }
 }
+
+pub(crate) async fn find_exam_user(
+    State(state): State<AppState>,
+    Extension(actor): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(target) = body.get("userId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let exam = sqlx::query("SELECT create_user_id,teacher FROM t_theory_knowledge_exam WHERE id=?")
+        .bind(exam_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+    let Some(exam) = exam else {
+        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+    };
+    let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&actor.id).fetch_one(pool).await.unwrap_or(0)>0;
+    let allowed = admin
+        || target == actor.id
+        || exam.get::<Option<String>, _>("create_user_id").as_deref() == Some(actor.id.as_str())
+        || exam.get::<Option<String>, _>("teacher").as_deref() == Some(actor.id.as_str());
+    if !allowed {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    match sqlx::query("SELECT id,user_id,content,score,state,end_time FROM t_theory_knowledge_exam_user WHERE exam_id=? AND user_id=? LIMIT 1").bind(exam_id).bind(target).fetch_optional(pool).await { Ok(Some(row))=>envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"userId":row.get::<Option<String>,_>("user_id"),"content":row.get::<Option<String>,_>("content"),"score":row.get::<Option<i32>,_>("score"),"state":row.get::<Option<i32>,_>("state"),"endTime":row.get::<Option<String>,_>("end_time")})),"ok","") , Ok(None)=>envelope_response(StatusCode::OK,500,"未查询到答卷","") , Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") }
+}
