@@ -393,6 +393,8 @@ fn build_router(state: AppState) -> Router {
         let theory_routes = Router::new()
             .route("/listPageClassify", post(theory::list_classify))
             .route("/getBasicTheory", post(theory::list_basic))
+            .route("/recordStatistice", post(theory::record_statistics))
+            .route("/gradeCount", post(theory::grade_count))
             .route("/getById", post(theory_detail::by_id))
             .route("/getByIdAndToken", post(theory_detail::by_id_and_token))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));

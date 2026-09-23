@@ -1,4 +1,9 @@
-use axum::{extract::State, http::StatusCode, response::Response, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    response::Response,
+    Json,
+};
 use serde_json::json;
 use sqlx::Row;
 
@@ -57,4 +62,94 @@ pub(crate) async fn list_basic(
     };
     let data = rows.into_iter().map(|row| json!({"swfs": row.get::<i64,_>("swfs"), "createUserName": null, "specialtyName": row.get::<Option<String>,_>("specialty_name"), "difficultyName": row.get::<Option<String>,_>("difficulty_name"), "title": row.get::<Option<String>,_>("title"), "cover": row.get::<Option<String>,_>("cover"), "createTime": row.get::<Option<String>,_>("create_time"), "createUserId": row.get::<Option<String>,_>("create_user_id"), "id": row.get::<String,_>("id"), "status": row.get::<Option<i32>,_>("status").unwrap_or_default(), "type": row.get::<Option<i32>,_>("type").unwrap_or_default()})).collect::<Vec<_>>();
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
+}
+
+pub(crate) async fn record_statistics(
+    State(state): State<AppState>,
+    Extension(user): Extension<super::AuthUser>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let year = body
+        .get("year")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    let month = body
+        .get("month")
+        .and_then(serde_json::Value::as_str)
+        .filter(|v| !v.is_empty());
+    let kind = body
+        .get("type")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let like = month
+        .map(|m| format!("{year}-{m:0>2}%"))
+        .unwrap_or_else(|| format!("{year}%"));
+    let rows=sqlx::query("SELECT join_time,exit_time FROM t_theory_knowledge_swf_record WHERE user_id=? AND type=? AND join_time LIKE ?").bind(&user.id).bind(kind).bind(&like).fetch_all(pool).await.unwrap_or_default();
+    let mut buckets = std::collections::HashMap::<String, i64>::new();
+    for row in &rows {
+        let join = row
+            .get::<Option<String>, _>("join_time")
+            .unwrap_or_default();
+        let exit = row
+            .get::<Option<String>, _>("exit_time")
+            .unwrap_or_default();
+        let key = if month.is_some() {
+            join.get(8..10)
+                .unwrap_or("0")
+                .trim_start_matches('0')
+                .to_owned()
+        } else {
+            join.get(5..7)
+                .unwrap_or("0")
+                .trim_start_matches('0')
+                .to_owned()
+        };
+        let seconds = sqlx::query_scalar::<_, Option<i64>>("SELECT TIMESTAMPDIFF(SECOND,?,?)")
+            .bind(&join)
+            .bind(&exit)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(Some(0))
+            .unwrap_or(0);
+        *buckets.entry(key).or_default() += seconds;
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"up":buckets,"down":{}})),
+        "ok",
+        "",
+    )
+}
+
+pub(crate) async fn grade_count(
+    State(state): State<AppState>,
+    Extension(user): Extension<super::AuthUser>,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let year = body
+        .get("year")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    let month = body
+        .get("month")
+        .and_then(serde_json::Value::as_str)
+        .filter(|v| !v.is_empty());
+    let like = month
+        .map(|m| format!("{year}-{m:0>2}%"))
+        .unwrap_or_else(|| format!("{year}%"));
+    let count=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE user_id=? AND state=4 AND end_time LIKE ?").bind(&user.id).bind(&like).fetch_one(pool).await.unwrap_or(0);
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"up":{"all":count,"good":count},"down":{}})),
+        "ok",
+        "",
+    )
 }
