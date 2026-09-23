@@ -464,6 +464,8 @@ fn build_router(state: AppState) -> Router {
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()
             .route("/findByType", post(telegraph_key::find_by_type))
+            .route("/save", post(telegraph_key::save))
+            .route("/clear", post(telegraph_key::clear))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telegraphKeyPatTrain", telegraph_key_routes);
     }
