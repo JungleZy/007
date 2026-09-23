@@ -1,0 +1,42 @@
+{
+  "schema": "rust-migration-phase5-exam-lifecycle-writes/v1",
+  "verified_at_utc": "2026-09-23T02:18:10Z",
+  "source_commit": "0db04aa",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {
+    "name": "RUST_PHASE5_THEORY_ENABLED",
+    "default": false,
+    "routes": [
+      "POST /api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam",
+      "POST /api/theoryKnowledgeExam/studentChangeExamState",
+      "POST /api/theoryKnowledgeExam/studentSaveExamRealtimeContont"
+    ],
+    "production_cutover": false
+  },
+  "java_contract": {
+    "teacher_state_range": [2, 3, 4],
+    "student_state_range": [1, 2, 3],
+    "terminal_code": 208,
+    "authorization": "teacher/admin or token-scoped candidate",
+    "identity": "request body userId is ignored; user identity derives from token"
+  },
+  "fixture": {
+    "database": "temporary isolated MySQL schema phase5_exam_life_*",
+    "exam": "state=2",
+    "candidate": "owner state=1",
+    "foreign_user": "not a candidate",
+    "cleanup": "temporary schema dropped after test"
+  },
+  "requests": {
+    "owner_finish": {"http_status": 200, "code": 200},
+    "repeat_finish": {"http_status": 200, "code": 208},
+    "foreign_realtime": {"http_status": 200, "code": 207}
+  },
+  "verification": {
+    "cargo_check_offline": "passed",
+    "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+    "cargo_build_workspace": "passed",
+    "real_http_fixture": "owner finish, repeated terminal action and foreign realtime answer rejection observed"
+  },
+  "known_boundary": "teacher notifications, full paper projection, score calculation, marking and final exam analytics remain incomplete."
+}
