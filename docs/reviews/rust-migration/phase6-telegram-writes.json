@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-phase6-telegram-writes/v1",
+  "verified_at_utc":"2026-09-23T08:34:44Z",
+  "source_commit":"6f652ae",
+  "status":"PARTIAL_PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_TELEGRAM_ENABLED","default":false,"routes":["POST /api/telegramTrain/saveTelegramTrain","POST /api/telegramTrain/startTelegramTrain","POST /api/telegramTrain/pauseTelegramTrain","POST /api/telegramTrain/endTelegramTrain"],"production_cutover":false},
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","isolated_mysql_fixture":{"database":"rust_phase6_telegram_write_fixture","assertions":["nested train save creates an owned row","start/pause/end update lifecycle timestamps and status 3","database row remains owned by authenticated user"],"result":"4/4 passed","cleanup":"database and temporary response file removed"}},
+  "known_boundary":"This is a first write-path slice. Server-authoritative elapsed-time accumulation, floor-content persistence, logs, settings, statistics, duplicate terminal-state guards, and full score settlement remain required before Telegram write cutover."
+}
