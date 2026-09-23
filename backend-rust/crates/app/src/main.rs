@@ -38,6 +38,7 @@ mod exam;
 mod grading;
 mod military;
 mod password;
+mod radiotelephone;
 mod test_paper;
 mod theory;
 mod theory_detail;
@@ -52,6 +53,7 @@ const GRADING_READONLY_ENV: &str = "RUST_PHASE4_GRADING_ENABLED";
 const ENTERING_READONLY_ENV: &str = "RUST_PHASE6_ENTERING_ENABLED";
 const DEVICE_READONLY_ENV: &str = "RUST_PHASE4_DEVICE_ENABLED";
 const EQUIPMENT_READONLY_ENV: &str = "RUST_PHASE4_EQUIPMENT_ENABLED";
+const RADIOTELEPHONE_READONLY_ENV: &str = "RUST_PHASE6_RADIOTELEPHONE_ENABLED";
 const THEORY_READONLY_ENV: &str = "RUST_PHASE5_THEORY_ENABLED";
 const TOOLS_READONLY_ENV: &str = "RUST_PHASE2_TOOLS_ENABLED";
 const AUTH_READONLY_ENV: &str = "RUST_PHASE3_AUTH_ENABLED";
@@ -81,6 +83,7 @@ struct AppConfig {
     device_readonly_enabled: bool,
     equipment_readonly_enabled: bool,
     entering_readonly_enabled: bool,
+    radiotelephone_readonly_enabled: bool,
     theory_readonly_enabled: bool,
     grading_readonly_enabled: bool,
     auth_readonly_enabled: bool,
@@ -244,6 +247,7 @@ impl AppConfig {
         let device_readonly_enabled = parse_bool(DEVICE_READONLY_ENV, false)?;
         let equipment_readonly_enabled = parse_bool(EQUIPMENT_READONLY_ENV, false)?;
         let entering_readonly_enabled = parse_bool(ENTERING_READONLY_ENV, false)?;
+        let radiotelephone_readonly_enabled = parse_bool(RADIOTELEPHONE_READONLY_ENV, false)?;
         let theory_readonly_enabled = parse_bool(THEORY_READONLY_ENV, false)?;
         let grading_readonly_enabled = parse_bool(GRADING_READONLY_ENV, false)?;
         let auth_readonly_enabled = parse_bool(AUTH_READONLY_ENV, false)?;
@@ -259,6 +263,7 @@ impl AppConfig {
             device_readonly_enabled,
             equipment_readonly_enabled,
             entering_readonly_enabled,
+            radiotelephone_readonly_enabled,
             theory_readonly_enabled,
             grading_readonly_enabled,
             auth_readonly_enabled,
@@ -418,11 +423,16 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/equipmentTrain", train_routes);
     }
-    if state.config.entering_readonly_enabled {
+    if state.config.radiotelephone_readonly_enabled {
+        let radio_routes = Router::new()
+            .route("/listPage", post(radiotelephone::list))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let military_routes = Router::new()
             .route("/findAll", post(military::list))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/militaryTermData", military_routes);
+        api = api
+            .nest("/api/radiotelephone", radio_routes)
+            .nest("/api/militaryTermData", military_routes);
     }
     if state.config.theory_readonly_enabled {
         let theory_routes = Router::new()
