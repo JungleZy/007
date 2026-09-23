@@ -747,7 +747,16 @@ fn build_router(state: AppState) -> Router {
     if state.config.ws_readonly_enabled {
         api = api
             .route("/api/ws/status", get(ws::status))
-            .route("/api/websocket/{sid}", get(ws::open));
+            .route("/api/websocket/{sid}", get(ws::open))
+            .route("/api/websocketUnion/{sid}", get(ws::open))
+            .route("/api/startWebsocket/{sid}", get(ws::open))
+            .route("/api/simulation/{id}/{roomId}", get(ws::open))
+            .route("/api/generalKeyPatTrain/{uid}/{trainId}", get(ws::open))
+            .route("/api/generalTelexPatTrain/{uid}/{trainId}", get(ws::open))
+            .route(
+                "/api/generalTickerPat/{uid}/{trainId}/{role}",
+                get(ws::open),
+            );
     }
     let cors = if state.config.cors_origin == "*" {
         CorsLayer::permissive()
