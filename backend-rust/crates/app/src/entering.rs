@@ -37,3 +37,45 @@ pub(crate) async fn add(
     let id = Uuid::new_v4().to_string();
     match sqlx::query("INSERT INTO t_entering_exercise (id,type,create_user_id,status,speed,accuracy,duration,correct_num,error_num,protocol_version,content,source_content) VALUES (?,?,?,0,0,0,0,0,0,1,'[]','[]')").bind(&id).bind(kind).bind(&user.id).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind,"status":0,"speed":0,"accuracy":0,"duration":0,"correctNum":0,"errorNum":0,"protocolVersion":1})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
+
+pub(crate) async fn begin(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(id) = body.get("id").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_entering_exercise SET status=1 WHERE id=? AND create_user_id=? AND status IN (0,3)").bind(id).bind(&user.id).execute(pool).await {Ok(r) if r.rows_affected()==1=>envelope_json(StatusCode::OK,200,None,"ok",""),Ok(_)=>envelope_response(StatusCode::OK,207,"无权限",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+}
+pub(crate) async fn pause(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    transition(State(state), Extension(user), body, 3).await
+}
+pub(crate) async fn finish(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    transition(State(state), Extension(user), body, 2).await
+}
+async fn transition(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    body: Value,
+    status: i32,
+) -> Response {
+    let Some(id) = body.get("id").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("UPDATE t_entering_exercise SET status=?,content=? WHERE id=? AND create_user_id=? AND status IN (1,3)").bind(status).bind(body.get("content").and_then(Value::as_str)).bind(id).bind(&user.id).execute(pool).await {Ok(r) if r.rows_affected()==1=>envelope_json(StatusCode::OK,200,None,"ok",""),Ok(_)=>envelope_response(StatusCode::OK,207,"无权限或训练状态不可变更",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+}

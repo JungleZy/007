@@ -391,6 +391,9 @@ fn build_router(state: AppState) -> Router {
         let entering_routes = Router::new()
             .route("/listPage", post(entering::list))
             .route("/add", post(entering::add))
+            .route("/begin", post(entering::begin))
+            .route("/pause", post(entering::pause))
+            .route("/finish", post(entering::finish))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/enteringExercise", entering_routes);
     }
