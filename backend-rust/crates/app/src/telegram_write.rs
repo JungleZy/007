@@ -94,13 +94,55 @@ pub(crate) async fn save(
     };
     if let Err(e) = result {
         return error(e, "save telegram train");
-    };
+    }
+    if let Some(floors) = body.get("trainFloors").and_then(Value::as_array) {
+        for floor_item in floors {
+            let floor = floor_item.get("floor").unwrap_or(floor_item);
+            let floor_id = floor
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|id| !id.is_empty())
+                .map(str::to_owned)
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+            if let Err(e) = sqlx::query("INSERT INTO t_telegram_train_floor (id,sort,train_id,type,number_type,content_number) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE sort=VALUES(sort),type=VALUES(type),number_type=VALUES(number_type),content_number=VALUES(content_number)")
+                .bind(&floor_id).bind(floor.get("sort").and_then(Value::as_i64).unwrap_or(0)).bind(&id).bind(floor.get("type").and_then(Value::as_i64).unwrap_or(0)).bind(floor.get("numberType").and_then(Value::as_i64).unwrap_or(0)).bind(floor_item.get("floorContents").and_then(Value::as_array).map(|v| v.len() as i64).unwrap_or(0)).execute(&mut *tx).await { return error(e, "save telegram floor"); }
+            if let Some(contents) = floor_item.get("floorContents").and_then(Value::as_array) {
+                for (index, content) in contents.iter().enumerate() {
+                    let content_id = content
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .filter(|id| !id.is_empty())
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                    if let Err(e) = sqlx::query("INSERT INTO t_telegram_train_floor_content (id,floor_id,sort,mores_key,mores_value,mores_time) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE sort=VALUES(sort),mores_key=VALUES(mores_key),mores_value=VALUES(mores_value),mores_time=VALUES(mores_time)").bind(content_id).bind(&floor_id).bind(index as i64).bind(content.get("moresKey").and_then(Value::as_str)).bind(content.get("moresValue").and_then(Value::as_str).unwrap_or("[]")).bind(content.get("moresTime").and_then(Value::as_str).unwrap_or("[]")).execute(&mut *tx).await { return error(e, "save telegram floor content"); }
+                }
+            }
+        }
+    }
     if let Err(e) = tx.commit().await {
         return error(e, "commit telegram save");
     };
     envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", "")
 }
 
+pub(crate) async fn save_floor_content(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(content_id) = body.get("id").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "未查询报文内容", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result=sqlx::query("UPDATE t_telegram_train_floor_content c JOIN t_telegram_train_floor f ON f.id=c.floor_id JOIN t_telegram_train t ON t.id=f.train_id AND t.create_user_id=? SET c.mores_value=?,c.mores_time=? WHERE c.id=?").bind(&user.id).bind(body.get("moresValue").and_then(Value::as_str).unwrap_or("[]")).bind(body.get("moresTime").and_then(Value::as_str).unwrap_or("[]")).bind(content_id).execute(pool).await;
+    match result {
+        Ok(row) if row.rows_affected() == 1 => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 207, "无权限或内容不存在", ""),
+        Err(e) => error(e, "save telegram floor content"),
+    }
+}
 pub(crate) async fn control(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,

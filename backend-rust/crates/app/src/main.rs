@@ -467,6 +467,10 @@ fn build_router(state: AppState) -> Router {
             .route("/getAll", post(telegram::list))
             .route("/getById", post(telegram::by_id))
             .route("/saveTelegramTrain", post(telegram_write::save))
+            .route(
+                "/saveFloorContent",
+                post(telegram_write::save_floor_content),
+            )
             .route("/startTelegramTrain", post(telegram_write::start))
             .route("/pauseTelegramTrain", post(telegram_write::pause))
             .route("/endTelegramTrain", post(telegram_write::end))
