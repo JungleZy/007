@@ -1,10 +1,12 @@
 {
   "schema": "rust-migration-phase5-formal-exam-management/v1",
-  "verified_at_utc": "2026-09-23T04:12:01Z",
+  "verified_at_utc": "2026-09-23T04:35:31Z",
   "source_commit": "63fc156",
-  "status": "IMPLEMENTED_COMPILE_VERIFIED_NO_DEDICATED_FIXTURE",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
   "feature_flag": {"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"admin_routes":["POST /api/theoryKnowledgeExam/savetheoryKnowledgeExam","POST /api/theoryKnowledgeExam/deleteTheoryKnowledgeExam"],"production_cutover":false},
   "contract": {"save":"exam header + paper snapshot + candidate list transaction","rebuild_guard":"existing touched candidate rows reject with 208","delete":"candidate rows + paper snapshot + exam row transaction","authorization":"is_admin=0 only"},
-  "verification": {"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed"},
-  "known_boundary":"Dedicated MySQL failure-injection fixture for snapshot/candidate rollback remains required before this domain passes its behavior gate."
+  "fixture": {"database":"temporary isolated MySQL schema phase5_formal_gate_*","exam_rows":1,"paper_snapshot_rows":1,"candidate_rows":2,"cleanup":"temporary schema dropped after test"},
+  "requests": {"initial_save":{"http_status":200,"code":200,"rows":"1/1/2"},"rebuild_after_answer":{"http_status":200,"code":208,"rows_unchanged":"1/1/2"}},
+  "verification": {"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"atomic exam/snapshot/candidate write and touched-candidate rebuild rejection observed"},
+  "known_boundary":"Explicit SQL failure injection between snapshot and candidate writes remains required for rollback proof."
 }
