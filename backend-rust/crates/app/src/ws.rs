@@ -9,13 +9,17 @@ use axum::{
 use serde::Deserialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, LazyLock},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, LazyLock,
+    },
 };
 use tokio::sync::{broadcast, Mutex};
 use uuid::Uuid;
 
 static ROOMS: LazyLock<Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+static CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 fn rooms() -> Arc<Mutex<HashMap<String, broadcast::Sender<String>>>> {
     ROOMS.clone()
 }
@@ -30,7 +34,9 @@ pub(crate) async fn status() -> Response {
     super::envelope_json(
         axum::http::StatusCode::OK,
         200,
-        Some(serde_json::json!({"connections":0,"rooms":rooms().lock().await.len()})),
+        Some(
+            serde_json::json!({"connections":CONNECTIONS.load(Ordering::Relaxed),"rooms":rooms().lock().await.len()}),
+        ),
         "ok",
         "",
     )
@@ -59,6 +65,7 @@ pub(crate) async fn open(
     }
 }
 async fn serve(socket: WebSocket, room: String, user_id: String) {
+    CONNECTIONS.fetch_add(1, Ordering::Relaxed);
     let room_state = rooms();
     let sender = {
         let mut map = room_state.lock().await;
@@ -68,9 +75,36 @@ async fn serve(socket: WebSocket, room: String, user_id: String) {
     };
     let mut receiver = sender.subscribe();
     let (connection_id, mut socket) = (Uuid::new_v4().to_string(), socket);
-    let hello=serde_json::json!({"topic":"connected","room":room,"userId":user_id,"connectionId":connection_id}).to_string();
+    let hello = serde_json::json!({"topic":"connected","room":room,"userId":user_id,"connectionId":connection_id}).to_string();
     let _ = socket.send(Message::Text(hello.into())).await;
     loop {
-        tokio::select! {incoming=socket.recv()=>match incoming{Some(Ok(Message::Text(text)))=>{let value=text.to_string();let _=sender.send(value.clone());if socket.send(Message::Text(value.into())).await.is_err(){break;}},Some(Ok(Message::Ping(data)))=>{if socket.send(Message::Pong(data)).await.is_err(){break;}},Some(Ok(Message::Close(_)))|None=>break,Some(Ok(_))=>{},Some(Err(_))=>break},outgoing=receiver.recv()=>match outgoing{Ok(text)=>{if socket.send(Message::Text(text.into())).await.is_err(){break;}},Err(broadcast::error::RecvError::Lagged(_))=>{let _=socket.send(Message::Text(serde_json::json!({"code":500,"message":"广播队列溢出"}).to_string().into())).await;},Err(_)=>break}}
+        tokio::select! {
+            incoming = socket.recv() => match incoming {
+                Some(Ok(Message::Text(text))) => {
+                    let value = text.to_string();
+                    if value == "__nip_heartbeat_ping__" {
+                        if socket.send(Message::Text("__nip_heartbeat_pong__".into())).await.is_err() { break; }
+                    } else {
+                        let _ = sender.send(value.clone());
+                        if socket.send(Message::Text(value.into())).await.is_err() { break; }
+                    }
+                }
+                Some(Ok(Message::Ping(data))) => { if socket.send(Message::Pong(data)).await.is_err() { break; } }
+                Some(Ok(Message::Close(_))) | None => break,
+                Some(Ok(_)) => {}
+                Some(Err(_)) => break,
+            },
+            outgoing = receiver.recv() => match outgoing {
+                Ok(text) => { if socket.send(Message::Text(text.into())).await.is_err() { break; } }
+                Err(broadcast::error::RecvError::Lagged(_)) => { let _ = socket.send(Message::Text(serde_json::json!({"code":500,"message":"广播队列溢出"}).to_string().into())).await; }
+                Err(_) => break,
+            }
+        }
+    }
+    drop(receiver);
+    CONNECTIONS.fetch_sub(1, Ordering::Relaxed);
+    let mut map = room_state.lock().await;
+    if sender.receiver_count() == 0 {
+        map.remove(&room);
     }
 }
