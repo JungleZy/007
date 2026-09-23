@@ -556,3 +556,72 @@ pub(crate) async fn delete_exam(
     }
     envelope_json(StatusCode::OK, 200, None, "ok", "")
 }
+
+pub(crate) async fn analyse(
+    State(state): State<AppState>,
+    Extension(actor): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let exam = sqlx::query("SELECT create_user_id,teacher FROM t_theory_knowledge_exam WHERE id=?")
+        .bind(exam_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+    let Some(exam) = exam else {
+        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+    };
+    let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&actor.id).fetch_one(pool).await.unwrap_or(0)>0;
+    if !admin
+        && exam.get::<Option<String>, _>("create_user_id").as_deref() != Some(actor.id.as_str())
+        && exam.get::<Option<String>, _>("teacher").as_deref() != Some(actor.id.as_str())
+    {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let paper = sqlx::query(
+        "SELECT total,pass_mark FROM t_theory_knowledge_exam_test_paper WHERE exam_id=?",
+    )
+    .bind(exam_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+    let pass_mark = paper
+        .as_ref()
+        .and_then(|r| r.get::<Option<i32>, _>("pass_mark"))
+        .unwrap_or(60);
+    let total = paper
+        .as_ref()
+        .and_then(|r| r.get::<Option<i32>, _>("total"))
+        .unwrap_or(100);
+    let rows=sqlx::query("SELECT u.user_account,e.score FROM t_theory_knowledge_exam_user e LEFT JOIN t_user u ON u.id=e.user_id WHERE e.exam_id=?").bind(exam_id).fetch_all(pool).await.unwrap_or_default();
+    let boundary = pass_mark + (total - pass_mark) / 2;
+    let (mut failing, mut ordinary, mut good) = (0, 0, 0);
+    let mut scores = Vec::new();
+    for row in rows {
+        let score = row.get::<Option<i32>, _>("score").unwrap_or(0);
+        if score < pass_mark {
+            failing += 1
+        } else if score < boundary {
+            ordinary += 1
+        } else {
+            good += 1
+        };
+        scores.push(json!({"userName":row.get::<Option<String>,_>("user_account"),"currentScore":score,"previousScore":0}));
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(
+            json!({"scoreList":scores,"errorTop3":[],"failing":failing,"ordinary":ordinary,"good":good}),
+        ),
+        "ok",
+        "",
+    )
+}

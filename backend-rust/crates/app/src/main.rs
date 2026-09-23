@@ -474,6 +474,7 @@ fn build_router(state: AppState) -> Router {
             )
             .route("/studentChangeExamState", post(exam::student_state))
             .route("/studentSaveExamRealtimeContont", post(exam::realtime))
+            .route("/examineAnalyse", post(exam::analyse))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_exam_routes = Router::new()
             .route("/savetheoryKnowledgeExam", post(exam::save_formal))
