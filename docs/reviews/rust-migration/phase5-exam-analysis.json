@@ -1,0 +1,12 @@
+{
+  "schema":"rust-migration-phase5-exam-analysis/v1",
+  "verified_at_utc":"2026-09-23T04:55:00Z",
+  "source_commit":"0aecba6",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"route":"POST /api/theoryKnowledgeExam/examineAnalyse","production_cutover":false},
+  "contract":{"authorization":"admin, creator or teacher","distribution":"passMark and midpoint-to-total boundary","response":["scoreList","errorTop3","failing","ordinary","good"]},
+  "fixture":{"database":"temporary isolated MySQL schema phase5_analysis_*","passMark":60,"total":100,"candidate_score":85,"cleanup":"temporary schema dropped after test"},
+  "requests":{"admin":{"http_status":200,"code":200,"good":1},"unrelated_student":{"http_status":200,"code":207}},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"score distribution and authorization observed"},
+  "known_boundary":"errorTop3 and previous-score history remain empty/default and require full Java parity."
+}
