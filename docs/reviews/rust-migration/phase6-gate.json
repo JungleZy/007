@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-phase6-gate/v1",
+  "verified_at_utc":"2026-09-23T10:46:00Z",
+  "status":"BLOCKED_PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "plan_exit_requirements":{"scoring_equivalence":"not fully proven","state_transition_equivalence":"slice-level evidence exists; full concurrent finish/reset coverage missing","db_frontend_consistency":"fixture and frontend build evidence exists; authenticated training-page flow missing","real_training_smoke":"not complete for every Phase 6 domain"},
+  "current_evidence":{"java_clean_verify":"512 tests, 0 failures/errors/skipped; BUILD SUCCESS","frontend":"39 tests passed; production build passed; browser authorization surface loaded","rust":"cargo check/test/build passed; 9 tests passed, 2 ignored","domain_artifacts":17,"production_traffic":false},
+  "blocking_gaps":["server-authoritative scoring and elapsed-time parity for all personal domains","dedicated fixture for every Phase 6 write/read contract","authenticated browser training smoke against Rust routes","Electron shell must package and start the Rust backend artifact","Java/Rust domain cutover and rollback evidence"],
+  "decision":"Do not mark Phase 6 exit gate complete; keep Java as sole production writer."
+}
