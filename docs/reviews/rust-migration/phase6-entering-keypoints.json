@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-entering-keypoints/v1",
+  "verified_at_utc":"2026-09-23T06:04:52Z",
+  "source_commit":"146fe8f",
+  "status":"IMPLEMENTED_COMPILE_VERIFIED_NO_DEDICATED_KEYPOINT_FIXTURE",
+  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"route":"POST /api/enteringKeyPoints/getByType","production_cutover":false},
+  "contract":{"request":"type integer","response":["id","type","content"],"missing_record":"success envelope with null data"},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed"},
+  "known_boundary":"Dedicated MySQL keypoint fixture and browser training smoke remain required."
+}
