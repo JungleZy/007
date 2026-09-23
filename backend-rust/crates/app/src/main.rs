@@ -11,7 +11,7 @@ use std::{
 };
 
 use axum::{
-    extract::{Extension, Request, State},
+    extract::{DefaultBodyLimit, Extension, Request, State},
     http::{HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -557,6 +557,7 @@ fn build_router(state: AppState) -> Router {
         .route("/live", get(live))
         .route("/ready", get(ready))
         .merge(api)
+        .layer(DefaultBodyLimit::max(state.config.body_limit))
         .layer(RequestBodyLimitLayer::new(state.config.body_limit))
         .layer(cors)
         .layer(middleware::from_fn(request_id))
