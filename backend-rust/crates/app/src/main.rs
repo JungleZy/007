@@ -36,6 +36,7 @@ mod equipment;
 mod equipment_train;
 mod exam;
 mod grading;
+mod military;
 mod password;
 mod test_paper;
 mod theory;
@@ -416,6 +417,12 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(equipment_train::add))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/equipmentTrain", train_routes);
+    }
+    if state.config.entering_readonly_enabled {
+        let military_routes = Router::new()
+            .route("/findAll", post(military::list))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/militaryTermData", military_routes);
     }
     if state.config.theory_readonly_enabled {
         let theory_routes = Router::new()
