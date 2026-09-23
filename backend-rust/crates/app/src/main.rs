@@ -507,6 +507,9 @@ fn build_router(state: AppState) -> Router {
     }
     if state.config.telex_readonly_enabled {
         let telex_routes = Router::new()
+            .route("/saveTelexPat", post(telex::save_base))
+            .route("/findTelexPatById", post(telex::find_base))
+            .route("/deleteTexPatByToken", post(telex::delete_base))
             .route("/statisticalPage", post(telex::statistical_page))
             .route("/lastPatTrain", post(telex::last_train))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
