@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-phase9-shared-contract-fixture/v1",
+  "verified_at_utc":"2026-09-23T13:11:12Z",
+  "status":"PARTIAL_RUST_SELF_DIFF_ONLY",
+  "fixture":"docs/reviews/rust-migration/phase9-contract-fixture.json",
+  "runner":"backend-rust/scripts/phase9-contract-diff.sh",
+  "result":"5/5 cases passed when Java and Rust base URLs both pointed at the isolated Rust service; cases cover health, readiness, missing token, query token rejection and missing device",
+  "known_boundary":"A true Java-versus-Rust business-domain diff requires both services running against equivalent isolated databases; this self-diff does not satisfy final Phase 9 parity."
+}

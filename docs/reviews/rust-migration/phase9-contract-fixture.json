@@ -1,0 +1,7 @@
+[
+  {"method":"GET","path":"/health"},
+  {"method":"GET","path":"/ready"},
+  {"method":"GET","path":"/api/phase1/contract/auth"},
+  {"method":"GET","path":"/api/phase1/contract/auth?token=ignored&deviceId=ignored"},
+  {"method":"GET","path":"/api/phase1/contract/auth","headers":{"token":"ignored"}}
+]
