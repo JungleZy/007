@@ -1,6 +1,6 @@
 {
   "schema":"rust-migration-phase5-theory-content-writes/v1",
-  "verified_at_utc":"2026-09-23T05:10:00Z",
+  "verified_at_utc":"2026-09-23T05:01:37Z",
   "source_commit":"36e7414",
   "status":"PASS_NO_PRODUCTION_TRAFFIC",
   "routes":["POST /api/theoryKnowledge/addClassify","POST /api/theoryKnowledge/removeClassify","POST /api/theoryKnowledge/deleteThroyKnowledgeById"],
