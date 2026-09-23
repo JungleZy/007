@@ -6,7 +6,6 @@ use axum::{
     Json,
 };
 use serde_json::json;
-use sqlx::Row;
 #[derive(serde::Deserialize)]
 pub(crate) struct AddRequest {
     name: Option<String>,
