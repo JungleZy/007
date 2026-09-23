@@ -1,13 +1,13 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-23T10:11:38.240536Z",
+  "generated_at_utc": "2026-09-23T11:51:42.543835Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
   ],
   "java_rest_endpoint_count": 359,
   "java_unique_paths": 359,
-  "rust_route_literal_count": 108,
+  "rust_route_literal_count": 116,
   "feature_flags": [
     "RUST_PHASE2_TOOLS_ENABLED",
     "RUST_PHASE3_AUTH_ENABLED",
@@ -10564,5 +10564,12 @@
       "rust_domain": "java-only"
     }
   ],
-  "inventory_status": "COMPLETE_JAVA_ENDPOINT_ROWS_WITH_EXPLICIT_RUST_STATUS"
+  "inventory_status": "COMPLETE_JAVA_ENDPOINT_ROWS_WITH_EXPLICIT_RUST_STATUS",
+  "source_commits": [
+    "f360a6e",
+    "8745941",
+    "650d3fd",
+    "5682eae",
+    "b2d4a34"
+  ]
 }
