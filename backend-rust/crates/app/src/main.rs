@@ -473,13 +473,21 @@ fn build_router(state: AppState) -> Router {
             .route("/studentChangeExamState", post(exam::student_state))
             .route("/studentSaveExamRealtimeContont", post(exam::realtime))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_exam_routes = Router::new()
+            .route("/savetheoryKnowledgeExam", post(exam::save_formal))
+            .route("/deleteTheoryKnowledgeExam", post(exam::delete_exam))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let exam_user_routes = Router::new()
             .route("/findExamUser", post(exam::find_exam_user))
             .route("/teacherUploadScore", post(exam::teacher_upload_score))
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
-            .nest("/api/theoryKnowledgeExam", exam_routes)
+            .nest(
+                "/api/theoryKnowledgeExam",
+                exam_routes.merge(admin_exam_routes),
+            )
             .nest("/api/theoryKnowledgeExamUser", exam_user_routes);
     }
     if state.config.auth_readonly_enabled {

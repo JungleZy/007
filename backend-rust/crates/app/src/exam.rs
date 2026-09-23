@@ -465,3 +465,94 @@ pub(crate) async fn find_exam_user(
     }
     match sqlx::query("SELECT id,user_id,content,score,state,end_time FROM t_theory_knowledge_exam_user WHERE exam_id=? AND user_id=? LIMIT 1").bind(exam_id).bind(target).fetch_optional(pool).await { Ok(Some(row))=>envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"userId":row.get::<Option<String>,_>("user_id"),"content":row.get::<Option<String>,_>("content"),"score":row.get::<Option<i32>,_>("score"),"state":row.get::<Option<i32>,_>("state"),"endTime":row.get::<Option<String>,_>("end_time")})),"ok","") , Ok(None)=>envelope_response(StatusCode::OK,500,"未查询到答卷","") , Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") }
 }
+
+pub(crate) async fn save_formal(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(students) = body.get("stuId").and_then(Value::as_array) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let exam_id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let paper = body.get("testPaper").cloned().unwrap_or_else(|| json!({}));
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let touched=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND (state<>1 OR score>0 OR content IS NOT NULL)").bind(&exam_id).fetch_one(&mut *tx).await.unwrap_or(0);
+    if touched > 0 {
+        let _ = tx.rollback().await;
+        return envelope_response(
+            StatusCode::OK,
+            208,
+            "考试已有作答记录，禁止编辑重建考生名单",
+            "",
+        );
+    }
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE title=VALUES(title),start_time=VALUES(start_time),duration=VALUES(duration),create_user_id=VALUES(create_user_id),teacher=VALUES(teacher),state=1").bind(&exam_id).bind(body.get("title").and_then(Value::as_str)).bind(body.get("startTime").and_then(Value::as_str)).bind(body.get("duration").and_then(Value::as_str)).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(body.get("teacher").and_then(Value::as_str)).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    let _ = sqlx::query("DELETE FROM t_theory_knowledge_exam_test_paper WHERE exam_id=?")
+        .bind(&exam_id)
+        .execute(&mut *tx)
+        .await;
+    let _ = sqlx::query("DELETE FROM t_theory_knowledge_exam_user WHERE exam_id=?")
+        .bind(&exam_id)
+        .execute(&mut *tx)
+        .await;
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,name,test_paper_id,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(uuid::Uuid::new_v4().to_string()).bind(paper.get("name").and_then(Value::as_str)).bind(paper.get("id").and_then(Value::as_str)).bind(paper.get("total").and_then(Value::as_i64)).bind(paper.get("passTheExamThan").and_then(Value::as_str)).bind(&exam_id).bind(paper.get("passMark").and_then(Value::as_i64)).bind(paper.get("singleChoice").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("multipleChoice").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("judge").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("completion").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("shortAnswer").map(Value::to_string).unwrap_or_else(||"[]".into())).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    for student in students.iter().filter_map(Value::as_str) {
+        if sqlx::query("INSERT INTO t_theory_knowledge_exam_user (id,exam_id,user_id,state,score,is_self_testing) VALUES (?,?,?,1,0,1)").bind(uuid::Uuid::new_v4().to_string()).bind(&exam_id).bind(student).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
+
+pub(crate) async fn delete_exam(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(id) = body
+        .get("examId")
+        .and_then(Value::as_str)
+        .or_else(|| body.get("id").and_then(Value::as_str))
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = pool.begin().await.unwrap();
+    let _ = sqlx::query("DELETE FROM t_theory_knowledge_exam_user WHERE exam_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await;
+    let _ = sqlx::query("DELETE FROM t_theory_knowledge_exam_test_paper WHERE exam_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await;
+    if sqlx::query("DELETE FROM t_theory_knowledge_exam WHERE id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
