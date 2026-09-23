@@ -1,0 +1,12 @@
+{
+  "schema": "rust-migration-phase5-exam-score-upload/v1",
+  "verified_at_utc": "2026-09-23T02:45:00Z",
+  "source_commit": "e57b316",
+  "status": "PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag": {"name":"RUST_PHASE5_THEORY_ENABLED","default":false,"route":"POST /api/theoryKnowledgeExamUser/teacherUploadScore","authorization":"is_admin=0 only","production_cutover":false},
+  "java_contract": {"request":"examId + list[user_id,score,content]","success":{"code":200},"ordinary_user":{"code":207},"missing_candidate":{"code":202},"transaction":"validate every candidate before writing any score"},
+  "fixture": {"database":"temporary isolated MySQL schema phase5_score_upload_*","exam":"e with two candidate rows","users":"admin, candidate s1, candidate s2","cleanup":"temporary schema dropped after test"},
+  "requests": {"ordinary_upload":{"http_status":200,"code":207},"invalid_mixed_batch":{"http_status":200,"code":202},"mixed_batch_before":{"s1":"score=0,state=3","s2":"score=0,state=3"},"valid_batch":{"http_status":200,"code":200},"valid_batch_after":{"s1":"score=80,state=4","s2":"score=90,state=4"}},
+  "verification": {"cargo_check_offline":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"admin authorization, invalid candidate rejection without partial writes, and valid batch scoring observed"},
+  "known_boundary":"teacher paper review UI and full exam analytics remain Java-only."
+}
