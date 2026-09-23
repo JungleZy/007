@@ -37,6 +37,59 @@ pub(crate) async fn add(
     let id = Uuid::new_v4().to_string();
     match sqlx::query("INSERT INTO t_entering_exercise (id,type,create_user_id,status,speed,accuracy,duration,correct_num,error_num,protocol_version,content,source_content) VALUES (?,?,?,0,0,0,0,0,0,1,'[]','[]')").bind(&id).bind(kind).bind(&user.id).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind,"status":0,"speed":0,"accuracy":0,"duration":0,"correctNum":0,"errorNum":0,"protocolVersion":1})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
+pub(crate) async fn by_id(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(id) = body.get("id").and_then(Value::as_str) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,accuracy,speed,content,duration,status,name,correct_num,error_num,protocol_version FROM t_entering_exercise WHERE id=? AND create_user_id=? LIMIT 1")
+        .bind(id)
+        .bind(&user.id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(exercise_json(&row)), "ok", ""),
+        Ok(None) => envelope_response(StatusCode::OK, 207, "无权限", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
+
+pub(crate) async fn go_to(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    begin(State(state), Extension(user), Json(body)).await
+}
+
+pub(crate) async fn last_train(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,accuracy,speed,content,duration,status,name,correct_num,error_num,protocol_version FROM t_entering_exercise WHERE create_user_id=? AND type=? ORDER BY create_time DESC LIMIT 1")
+        .bind(&user.id)
+        .bind(kind)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(exercise_json(&row)), "ok", ""),
+        Ok(None) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
 
 pub(crate) async fn begin(
     State(state): State<AppState>,
