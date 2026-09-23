@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase6-radiotelephone-readonly/v1",
+  "verified_at_utc":"2026-09-23T06:30:57Z",
+  "source_commit":"bbb6bdc",
+  "status":"PASS_NO_PRODUCTION_TRAFFIC",
+  "feature_flag":{"name":"RUST_PHASE6_RADIOTELEPHONE_ENABLED","default":false,"route":"POST /api/radiotelephone/listPage","production_cutover":false},
+  "contract":{"scope":"authenticated current-user statistics","fields":["userId","type","totalTime","totalCount","sessionId"],"authentication":"token/deviceId"},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"user-scoped query prevents cross-user list reads"},
+  "known_boundary":"Dedicated MySQL fixture and begin/pause/resume/finish lifecycle remain required before write cutover."
+}
