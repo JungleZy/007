@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase7-readonly-slices/v1",
+  "verified_at_utc":"2026-09-23T10:10:14Z",
+  "source_commits":["84569fa","44ad641","ffc5911","4e80f41","15477de"],
+  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
+  "feature_flags":{"post_telegram":"RUST_PHASE7_POST_TELEGRAM_ENABLED","post_telex":"RUST_PHASE7_POST_TELEX_ENABLED","post_telegraph":"RUST_PHASE7_POST_TELEGRAPH_ENABLED","post_ticker":"RUST_PHASE7_POST_TICKER_ENABLED","group_net":"RUST_PHASE7_GROUP_NET_ENABLED"},
+  "implemented_read_slices":["postTelegramTrain/findAll,detail","postTelexPatTrain/findAll,detail","PostTelegraphKeyPatTrain/listPage,details","postTickerTapeTrain/listPage,getById","groupNetTrain/listPage,details"],
+  "verification":{"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","authorization":"all handlers use token/deviceId middleware and owner predicates"},
+  "known_boundary":"No Phase 7 write path, deterministic generation fixture, state-machine evidence, concurrent finish/reset test, page content projection, or production traffic cutover is complete."
+}
