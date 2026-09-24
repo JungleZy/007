@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-23T12:50:50.632815Z",
+  "generated_at_utc": "2026-09-24T10:23:39Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
@@ -4470,8 +4470,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getTermDeployListData\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":403}]",
       "source_sha256": "3e95ed08dbbfda9724622db1ca50d56596cbf15d197e5affdafd8f2731f50f08",
-      "rust_coverage_status": "JAVA_ONLY",
-      "rust_domain": "java-only"
+      "rust_coverage_status": "RUST_READONLY_VERIFIED",
+      "rust_domain": "radiotelephone-term-readonly"
     },
     {
       "method": "POST",
@@ -10571,6 +10571,6 @@
     "baa7bac",
     "9ff9a3c"
   ],
-  "java_only_count": 54,
+  "java_only_count": 53,
   "partial_domain_count": 116
 }

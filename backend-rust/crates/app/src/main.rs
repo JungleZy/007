@@ -1,4 +1,4 @@
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 use std::collections::{HashMap, HashSet};
 use std::{
     env,
@@ -49,6 +49,7 @@ mod post_telegraph_write;
 mod post_telex;
 mod post_telex_write;
 mod post_ticker;
+mod radio_term;
 mod radiotelephone;
 mod scoring;
 mod simulation;
@@ -508,9 +509,13 @@ fn build_router(state: AppState) -> Router {
         let military_routes = Router::new()
             .route("/findAll", post(military::list))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let radio_term_routes = Router::new()
+            .route("/findByType", post(radio_term::find_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/radiotelephone", radio_routes)
-            .nest("/api/militaryTermData", military_routes);
+            .nest("/api/militaryTermData", military_routes)
+            .nest("/api/postRadiotelephoneTermData", radio_term_routes);
     }
     if state.config.telegram_readonly_enabled {
         let telegram_routes = Router::new()
@@ -1919,6 +1924,7 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentDevice/add": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/update": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
+            "/api/postRadiotelephoneTermData/findByType": {"post": {"responses": {"200": {"description": "Radiotelephone term data list envelope; enabled only by RUST_PHASE6_RADIOTELEPHONE_ENABLED"}}}},
             "/api/equipmentDevice/addKeyPoints": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentTrain/listPage": {"post": {"responses": {"200": {"description": "Equipment train list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
             "/api/equipmentTrain/detail": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner only"}}}},

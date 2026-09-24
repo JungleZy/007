@@ -1,0 +1,10 @@
+{
+  "schema":"rust-migration-phase7-radiotelephone-term/v1",
+  "verified_at_utc":"2026-09-24T10:23:39Z",
+  "status":"RUST_READONLY_VERIFIED",
+  "endpoint":"POST /api/postRadiotelephoneTermData/findByType",
+  "feature_flag":"RUST_PHASE6_RADIOTELEPHONE_ENABLED",
+  "behavior":{"authentication":"token+deviceId headers; missing token returned HTTP200/code203","success":"HTTP200/code200; type=0 returned 270 rows from t_post_radiotelephone_term_data with id/type/key/value/sort fields","ordering":"sort,id"},
+  "verification_command":"cargo test --locked (11 passed, 2 ignored); isolated port 18101 curl against project006 returned code=200/count=270",
+  "scope_boundary":"save/delete/update remain Java-only and the radiotelephone training lifecycle remains separately gated."
+}
