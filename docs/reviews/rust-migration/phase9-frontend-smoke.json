@@ -1,7 +1,7 @@
 {
   "schema":"rust-migration-phase9-frontend-smoke/v1",
-  "verified_at_utc":"2026-09-23T14:07:02Z",
+  "verified_at_utc":"2026-09-24T10:05:04Z",
   "status":"PARTIAL_NO_CUTOVER",
-  "verification":{"frontend_tests":"39 passed, 0 failed","frontend_production_build":"passed; Vite output and artifact manifest generated","browser_surface":"frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'","electron":"Rust release binary manually loaded into out/linux-unpacked/bin/server/server; Electron shell and Rust child backend started on 18001; root WS HTTP upgrade and receiveKeyPoints route were reachable with flags; isolated Electron automation completed offline license and rendered the login shell, but dynamic authenticated training route did not render from synthetic userRouter and real serial selection still reported missing KEYSIM-VIRTUAL"},
-  "known_boundary":"Authenticated backend-backed training page and real serial-device workflow remain incomplete in Electron."
+  "verification":{"frontend_tests":"39 passed, 0 failed","frontend_production_build":"passed; Vite output and artifact manifest generated","browser_surface":"frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'","electron":"Rust release binary manually loaded into out/linux-unpacked/bin/server/server; Java supplied real dynamic menus and login token; Electron automation loaded offline license, rendered the authenticated Hanzi Pinyin training list with 3 tiles, clicked a tile into practice, and observed HTTP200 enteringExercise statisticalPage/lastTrain/add/getById requests; real serial selection still reported missing KEYSIM-VIRTUAL"},
+  "known_boundary":"Authenticated Electron training UI/API flow is now verified for one Hanzi domain; real serial-device flow, Electron WS/upload/download/exit coverage, and production cutover remain incomplete."
 }
