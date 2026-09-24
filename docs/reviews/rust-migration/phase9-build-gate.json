@@ -1,0 +1,8 @@
+{
+  "schema":"rust-migration-phase9-build-gate/v1",
+  "verified_at_utc":"2026-09-24T10:08:42Z",
+  "status":"BLOCKED_FULL_GATE",
+  "evidence":{"java":"clean verify: 512 tests, 0 failures/errors/skipped","frontend":"npm test: 39 passed; npm run build: passed","rust":"cargo check/test/build --locked: passed; 11 tests, 2 ignored","keysim":"cargo test --locked: 85 passed, 7 suites","electron_manifest":"artifact-manifest.test.mjs: 5 passed","rust_smoke":"health/live/ready/OpenAPI/203/204/206/request-id/SIGTERM passed","backup_restore":"isolated source/restore row count 2/2","cutover_rehearsal":"isolated port 18100 start/readiness/SIGTERM passed"},
+  "blocking_gates":["three-platform native artifact and release CI proof","authenticated Electron full workflow and real serial device","all 359 REST rows Rust-equivalent rather than Java-only/partial","Java/Rust complete business fixture diff","production gateway switch, write freeze, rollback window, monitoring and backup rehearsal"],
+  "decision":"Keep Java production writer and rollback entry; do not claim full plan completion."
+}
