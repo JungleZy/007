@@ -164,10 +164,11 @@ public class PostRadiotelephoneService {
       target.addProperty("trueOrfalse", passed);
     }
     LocalDateTime end = LocalDateTime.now();
-    long seconds = Duration.between(entity.getStartTime(), end).getSeconds();
-    if (seconds < 0 || seconds > Integer.MAX_VALUE) {
+    long millis = Duration.between(entity.getStartTime(), end).toMillis();
+    if (millis < 0 || millis > Integer.MAX_VALUE * 1000L) {
       throw new IllegalArgumentException("训练开始时间无效");
     }
+    long seconds = (millis + 999L) / 1000L;
     entity.setDuration((int) seconds);
     entity.setContent(JSONUtils.toJson(source));
     entity.setPassNumber(correct);

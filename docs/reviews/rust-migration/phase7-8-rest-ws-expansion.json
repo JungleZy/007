@@ -1,0 +1,9 @@
+{
+  "schema":"rust-migration-rest-expansion/v1",
+  "verified_at_utc":"2026-09-27T04:18:09Z",
+  "status":"IMPLEMENTED_NO_PRODUCTION_CUTOVER",
+  "scope":{"java_only_before":53,"java_only_after":0,"remaining_partial_domain_rows":116},
+  "implemented_domains":["comprehensive reports","general group-net rules","key-points management","masthead owner-scoped CRUD","military term tree CRUD/import/move","entering exercise and word-stock multipart preview","military-term training lifecycle","radiotelephone term CRUD and training lifecycle","global training rules","general online REST projections","post-telegram page/report writes","post-telegraph page/lifecycle writes","post-telex page receipt/lifecycle","post-ticker lifecycle/result/settings"],
+  "verification":{"cargo_check":"passed with warnings","cargo_test":"11 passed, 2 ignored","rest_smoke":"Rust service on isolated port 18103: comprehensive code200 object; mtd/findAll code200 array count30; postTickerTapeTrainSetting/findAll POST code200 array count4; openApi/generalTickerPatTrain/findTrainInfo code200 object; missing token returned code203","websocket_smoke":"/status upgrade accepted and __nip_heartbeat_ping__ returned __nip_heartbeat_pong__; invalid authenticated /api/websocket/fake emitted code1 error frame and closed"},
+  "boundary":"New routes remain feature-flagged and Java remains production writer. Full per-domain Java/Rust fixture parity, all remaining partial-domain rows, load/performance and production cutover are not claimed by this evidence."
+}

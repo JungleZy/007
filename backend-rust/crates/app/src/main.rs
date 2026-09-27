@@ -30,18 +30,26 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
 mod cable;
+mod comprehensive;
 mod device;
 mod entering;
 mod equipment;
 mod equipment_train;
 mod exam;
+mod general_aux;
+mod general_group_net_rule;
 mod general_train;
 mod grading;
 mod group_net;
 mod group_net_write;
 mod keypoints;
+mod masthead;
 mod military;
+mod military_term_data;
 mod password;
+mod post_entering;
+mod post_military;
+mod post_radiotelephone;
 mod post_telegram;
 mod post_telegram_write;
 mod post_telegraph;
@@ -64,6 +72,7 @@ mod theory_file;
 mod theory_question;
 mod theory_test;
 mod ticker_tape;
+mod train_rule;
 mod ws;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
@@ -241,6 +250,14 @@ async fn run() -> Result<(), AppError> {
         .await
         .map_err(AppError::Bind)?;
     let app = build_router(state.clone());
+    let recovery_state = state.clone();
+    let recovery_task = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        loop {
+            interval.tick().await;
+            general_train::recover_general_trainings(&recovery_state).await;
+        }
+    });
 
     info!(
         database_configured = config.database_url.is_some(),
@@ -250,10 +267,12 @@ async fn run() -> Result<(), AppError> {
         body_limit = config.body_limit,
         "rust backend listening"
     );
-    axum::serve(listener, app)
+    let result = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .map_err(|error| AppError::Bind(std::io::Error::other(error)))?;
+        .map_err(|error| AppError::Bind(std::io::Error::other(error)));
+    recovery_task.abort();
+    result?;
     info!("rust backend stopped gracefully");
     Ok(())
 }
@@ -377,6 +396,20 @@ fn build_router(state: AppState) -> Router {
             .route("/api/tools/getNowTime", get(tools_get_now_time))
             .route("/api/tools/getTwelvemonth", get(tools_get_twelve_month));
     }
+    if state.config.theory_readonly_enabled {
+        let comprehensive_routes = Router::new()
+            .route(
+                "/getUserOverallInfo",
+                get(comprehensive::get_user_overall_info),
+            )
+            .route("/getTheoryYear", get(comprehensive::get_theory_year))
+            .route(
+                "/getTheoryTestYear",
+                get(comprehensive::get_theory_test_year),
+            )
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/comprehensive", comprehensive_routes);
+    }
     if state.config.cable_readonly_enabled {
         let cable_routes = Router::new()
             .route("/find", post(cable::find))
@@ -485,10 +518,33 @@ fn build_router(state: AppState) -> Router {
         let keypoint_routes = Router::new()
             .route("/getByType", post(entering::keypoints))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let post_entering_routes = Router::new()
+            .route("/add", post(post_entering::add))
+            .route("/listPage", post(post_entering::list_page))
+            .route("/begin", post(post_entering::begin))
+            .route("/finish", post(post_entering::finish))
+            .route("/getWordStock", post(post_entering::get_word_stock))
+            .route("/getById", post(post_entering::get_by_id))
+            .route("/delete", get(post_entering::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let word_stock_read_routes = Router::new()
+            .route("/view", post(post_entering::word_stock_view))
+            .route("/listPage", post(post_entering::word_stock_list_page))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let word_stock_admin_routes = Router::new()
+            .route("/add", post(post_entering::word_stock_add))
+            .route("/delete", post(post_entering::word_stock_delete))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/enteringExercise", entering_routes)
             .nest("/api/enteringTelexPat", telex_routes)
-            .nest("/api/enteringKeyPoints", keypoint_routes);
+            .nest("/api/enteringKeyPoints", keypoint_routes)
+            .nest("/api/postEnteringExercise", post_entering_routes)
+            .nest(
+                "/api/postEnteringExerciseWordStock",
+                word_stock_read_routes.merge(word_stock_admin_routes),
+            );
     }
     if state.config.equipment_readonly_enabled {
         let train_routes = Router::new()
@@ -509,13 +565,61 @@ fn build_router(state: AppState) -> Router {
         let military_routes = Router::new()
             .route("/findAll", post(military::list))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let military_term_read_routes = Router::new()
+            .route("/findAll", post(military_term_data::find_all))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let military_term_admin_routes = Router::new()
+            .route("/saveAll", post(military_term_data::save_all))
+            .route("/save", post(military_term_data::save))
+            .route("/delete", post(military_term_data::delete))
+            .route("/update", post(military_term_data::update))
+            .route("/move", post(military_term_data::move_term))
+            .route("/saveBatch", post(military_term_data::save_batch))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let radio_term_routes = Router::new()
             .route("/findByType", post(radio_term::find_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let radio_term_admin_routes = Router::new()
+            .route("/save", post(train_rule::term_save))
+            .route("/delete", post(train_rule::term_delete))
+            .route("/update", post(train_rule::term_update))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let radio_train_routes = Router::new()
+            .route("/findByType", post(post_radiotelephone::find_by_type))
+            .route(
+                "/findByTypeAndRandom",
+                post(post_radiotelephone::find_by_type_and_random),
+            )
+            .route("/add", post(post_radiotelephone::add))
+            .route("/listPge", post(post_radiotelephone::list_page))
+            .route("/begin", post(post_radiotelephone::begin))
+            .route("/finish", post(post_radiotelephone::finish))
+            .route("/details", post(post_radiotelephone::details))
+            .route("/delete", get(post_radiotelephone::delete))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let military_train_routes = Router::new()
+            .route("/add", post(post_military::add))
+            .route("/listPage", post(post_military::list_page))
+            .route("/details", post(post_military::details))
+            .route("/begin", post(post_military::begin))
+            .route("/finish", post(post_military::finish))
+            .route("/delete", get(post_military::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/radiotelephone", radio_routes)
             .nest("/api/militaryTermData", military_routes)
-            .nest("/api/postRadiotelephoneTermData", radio_term_routes);
+            .nest(
+                "/api/mtd",
+                military_term_read_routes.merge(military_term_admin_routes),
+            )
+            .nest(
+                "/api/postRadiotelephoneTermData",
+                radio_term_routes.merge(radio_term_admin_routes),
+            )
+            .nest("/api/postRadiotelephoneTrain", radio_train_routes)
+            .nest("/api/postMilitaryTermTrain", military_train_routes);
     }
     if state.config.telegram_readonly_enabled {
         let telegram_routes = Router::new()
@@ -537,12 +641,20 @@ fn build_router(state: AppState) -> Router {
             .route("/findAll", post(post_telegram::list))
             .route("/detail", post(post_telegram::detail))
             .route("/findMessageBody", post(post_telegram_write::content))
+            .route(
+                "/printBottomReport",
+                post(post_telegram_write::print_bottom_report),
+            )
             .route("/saveContentValue", post(post_telegram_write::save_content))
+            .route(
+                "/addContentValue",
+                post(post_telegram_write::add_content_value),
+            )
             .route("/save", post(post_telegram_write::add))
             .route("/begin", post(post_telegram_write::begin))
             .route("/finish", post(post_telegram_write::finish))
             .route("/stop", post(post_telegram_write::stop))
-            .route("/delete", post(post_telegram_write::delete))
+            .route("/delete", get(post_telegram_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/postTelegramTrain", post_telegram_routes);
     }
@@ -550,13 +662,15 @@ fn build_router(state: AppState) -> Router {
         let post_telex_routes = Router::new()
             .route("/findAll", post(post_telex::list))
             .route("/detail", post(post_telex::detail))
+            .route("/getPage", get(post_telex::get_page))
+            .route("/finishPage", post(post_telex::finish_page))
             .route("/save", post(post_telex_write::add))
             .route("/begin", post(post_telex_write::begin))
             .route("/pause", post(post_telex_write::pause))
             .route("/resume", post(post_telex_write::resume))
             .route("/reset", post(post_telex_write::reset))
             .route("/finish", post(post_telex_write::finish))
-            .route("/delete/{id}", get(post_telex_write::delete))
+            .route("/delete", get(post_telex_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/postTelexPatTrain", post_telex_routes);
     }
@@ -567,8 +681,10 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(post_telegraph_write::add))
             .route("/begin", post(post_telegraph_write::begin))
             .route("/finish", post(post_telegraph_write::finish))
+            .route("/getPage", get(post_telegraph::get_page))
+            .route("/finishPage", post(post_telegraph_write::finish_page))
             .route("/reset", post(post_telegraph_write::reset))
-            .route("/delete/{id}", get(post_telegraph_write::delete))
+            .route("/delete", get(post_telegraph_write::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/PostTelegraphKeyPatTrain", post_telegraph_routes);
     }
@@ -576,8 +692,32 @@ fn build_router(state: AppState) -> Router {
         let post_ticker_routes = Router::new()
             .route("/listPage", post(post_ticker::list))
             .route("/getById", post(post_ticker::detail))
+            .route("/add", post(post_ticker::add))
+            .route("/begin", post(post_ticker::begin))
+            .route("/finish", post(post_ticker::finish))
+            .route("/reset", post(post_ticker::reset))
+            .route("/upLoadResult", post(post_ticker::upload_result))
+            .route("/findPage", get(post_ticker::find_page))
+            .route("/delete", get(post_ticker::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/postTickerTapeTrain", post_ticker_routes);
+        let ticker_setting_read_routes = Router::new()
+            .route("/findAll", post(post_ticker::setting_list))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let ticker_setting_admin_routes = Router::new()
+            .route("/addOrUpdate", post(post_ticker::setting_add_or_update))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let masthead_routes = Router::new()
+            .route("/findByTrainId", get(masthead::find_by_train_id))
+            .route("/save", post(masthead::save))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api
+            .nest("/api/postTickerTapeTrain", post_ticker_routes)
+            .nest(
+                "/api/postTickerTapeTrainSetting",
+                ticker_setting_read_routes.merge(ticker_setting_admin_routes),
+            )
+            .nest("/api/masthead", masthead_routes);
     }
     if state.config.group_net_readonly_enabled {
         let group_net_routes = Router::new()
@@ -586,22 +726,53 @@ fn build_router(state: AppState) -> Router {
             .route("/saveTrain", post(group_net_write::save))
             .route("/submitAnswer", post(group_net_write::submit))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/groupNetTrain", group_net_routes);
+        let group_rule_read_routes = Router::new()
+            .route("/findAll", post(general_group_net_rule::find_all))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let group_rule_admin_routes = Router::new()
+            .route("/save", post(general_group_net_rule::save))
+            .route("/deleteById", post(general_group_net_rule::delete_by_id))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/groupNetTrain", group_net_routes).nest(
+            "/api/generalGroupNetRule",
+            group_rule_read_routes.merge(group_rule_admin_routes),
+        );
+    }
+    if state.config.general_train_readonly_enabled
+        || state.config.radiotelephone_readonly_enabled
+        || state.config.entering_readonly_enabled
+    {
+        let train_rule_read_routes = Router::new()
+            .route("/findByType", post(train_rule::find_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let train_rule_admin_routes = Router::new()
+            .route("/addRule", post(train_rule::add_rule))
+            .route("/deleteById", post(train_rule::delete_by_id))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest(
+            "/api/postTrainGlobalRule",
+            train_rule_read_routes.merge(train_rule_admin_routes),
+        );
     }
     if state.config.receive_keypoints_readonly_enabled {
         let receive_keypoint_routes = Router::new()
             .route("/getByType", post(keypoints::receive))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        let entering_keypoint_routes = Router::new()
-            .route("/getByType", post(keypoints::entering))
-            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let keypoint_routes = Router::new()
             .route("/findKeyPointsByType", post(keypoints::key))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_keypoint_routes = Router::new()
+            .route("/saveKeyPoints", post(keypoints::save_key_points))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/receiveKeyPoints", receive_keypoint_routes)
-            .nest("/api/enteringKeyPoints", entering_keypoint_routes)
-            .nest("/api/keyPoints", keypoint_routes);
+            .nest(
+                "/api/keyPoints",
+                keypoint_routes.merge(admin_keypoint_routes),
+            );
     }
     if state.config.simulation_readonly_enabled {
         let router_routes = Router::new()
@@ -630,6 +801,7 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let content_routes = Router::new()
             .route("/addRoomAndContent", post(simulation::add_disturb))
+            .route("/addStudent", post(simulation::add_student))
             .route("/findAlls", post(simulation::list_disturb))
             .route("/findById", post(simulation::detail_body))
             .route("/findTrainUser", post(simulation::users_body))
@@ -648,10 +820,17 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(general_train::key_add))
             .route("/findAll", post(general_train::key_list))
             .route("/findPage", post(general_train::key_page))
-            .route("/getPage", post(general_train::key_page))
+            .route("/getPage", post(general_train::key_get_page))
             .route("/detail", post(general_train::key_detail))
             .route("/patDetail", post(general_train::key_members))
-            .route("/getPatValue", post(general_train::key_members))
+            .route("/getPatValue", post(general_train::key_pat_value))
+            .route("/getTrainInfo", get(general_train::key_export))
+            .route("/getTrainInfoBatch", get(general_train::key_export_batch))
+            .route("/importTrainInfo", post(general_train::key_import))
+            .route(
+                "/importTrainInfoBatch",
+                post(general_train::key_import_batch),
+            )
             .route("/uploadResult", post(general_train::key_upload))
             .route("/updateTrainStatus", post(general_train::key_update))
             .route("/finish", post(general_train::key_finish))
@@ -665,10 +844,10 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(general_train::telex_add))
             .route("/findAll", post(general_train::telex_list))
             .route("/findPage", post(general_train::telex_page))
-            .route("/getPage", post(general_train::telex_page))
+            .route("/getPage", post(general_train::telex_get_page))
             .route("/detail", post(general_train::telex_detail))
             .route("/patDetail", post(general_train::telex_members))
-            .route("/getPatValue", post(general_train::telex_members))
+            .route("/getPatValue", post(general_train::telex_pat_value))
             .route("/uploadResult", post(general_train::telex_upload))
             .route("/updateTrainStatus", post(general_train::telex_update))
             .route("/finish", post(general_train::telex_finish))
@@ -681,18 +860,37 @@ fn build_router(state: AppState) -> Router {
             .route("/add", post(general_train::ticker_add))
             .route("/findAll", post(general_train::ticker_list))
             .route("/findPage", post(general_train::ticker_page))
+            .route("/getPage", post(general_train::ticker_page))
             .route("/detail", post(general_train::ticker_detail))
             .route("/uploadResult", post(general_train::ticker_upload))
+            .route("/updateTrainStatus", post(general_train::ticker_update))
             .route("/finish", post(general_train::ticker_finish))
             .route("/reset", post(general_train::ticker_reset))
             .route("/statistics", post(general_train::ticker_statistics))
             .route("/startTrain", get(general_train::ticker_start))
             .route("/delete", get(general_train::ticker_delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let key_online_routes = Router::new()
+            .route("/getOneline/{trainId}", get(general_aux::key_online))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let ticker_open_routes = Router::new()
+            .route("/综合训练-手键拍发Api", get(general_aux::ticker_online))
+            .route("/findTrainInfo", get(general_aux::ticker_train_info))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let ticker_socket_routes = Router::new()
+            .route("/getByTrainIdAndUserId", get(general_aux::ticker_user))
+            .route(
+                "/updateTrainStatus",
+                post(general_aux::ticker_update_status),
+            )
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/generalKeyPat", key_routes)
             .nest("/api/generalTelexPat", telex_routes)
-            .nest("/api/generalTickerPatTrain", ticker_routes);
+            .nest("/api/generalTickerPatTrain", ticker_routes)
+            .nest("/api/GeneralKeyPatTrain", key_online_routes)
+            .nest("/api/openApi/generalTickerPatTrain", ticker_open_routes)
+            .nest("/api/socket/generalTickerPatTrain", ticker_socket_routes);
     }
     if state.config.telegraph_key_readonly_enabled {
         let telegraph_key_routes = Router::new()
@@ -899,6 +1097,7 @@ fn build_router(state: AppState) -> Router {
     if state.config.ws_readonly_enabled {
         api = api
             .route("/api/ws/status", get(ws::status))
+            .route("/api/status", get(ws::status_open))
             .route("/api/websocket/{sid}", get(ws::open))
             .route("/api/websocketUnion/{sid}", get(ws::open))
             .route("/api/startWebsocket/{sid}", get(ws::open))
@@ -911,7 +1110,15 @@ fn build_router(state: AppState) -> Router {
             );
     }
     let ws_root = if state.config.ws_readonly_enabled {
-        Router::new().route("/websocket/{sid}", get(ws::open))
+        Router::new()
+            .route("/status", get(ws::status_open))
+            .route("/websocket/{sid}", get(ws::open))
+            .route("/websocketUnion/{sid}", get(ws::open))
+            .route("/startWebsocket/{sid}", get(ws::open))
+            .route("/simulation/{id}/{roomId}", get(ws::open))
+            .route("/generalKeyPatTrain/{uid}/{trainId}", get(ws::open))
+            .route("/generalTelexPatTrain/{uid}/{trainId}", get(ws::open))
+            .route("/generalTickerPat/{uid}/{trainId}/{role}", get(ws::open))
     } else {
         Router::new()
     };
@@ -1924,11 +2131,65 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentDevice/add": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/update": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentDevice/delete": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
-            "/api/postRadiotelephoneTermData/findByType": {"post": {"responses": {"200": {"description": "Radiotelephone term data list envelope; enabled only by RUST_PHASE6_RADIOTELEPHONE_ENABLED"}}}},
             "/api/equipmentDevice/addKeyPoints": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
             "/api/equipmentTrain/listPage": {"post": {"responses": {"200": {"description": "Equipment train list envelope; enabled only by RUST_PHASE4_EQUIPMENT_ENABLED"}}}},
             "/api/equipmentTrain/detail": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner only"}}}},
             "/api/equipmentTrain/add": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner-scoped write"}}}},
+            "/api/status": {"get": {"responses": {"101": {"description": "Status WebSocket upgrade"}}}},
+            "/status": {"get": {"responses": {"101": {"description": "Status WebSocket upgrade"}}}},
+            "/api/GeneralKeyPatTrain/getOneline/{trainId}": {"get": {"responses": {"200": {"description": "Online key-training roster envelope"}}}},
+            "/api/openApi/generalTickerPatTrain/综合训练-手键拍发Api": {"get": {"responses": {"200": {"description": "Online ticker-training roster envelope"}}}},
+            "/api/openApi/generalTickerPatTrain/findTrainInfo": {"get": {"responses": {"200": {"description": "Readable ticker-room roster map"}}}},
+            "/api/socket/generalTickerPatTrain/getByTrainIdAndUserId": {"get": {"responses": {"200": {"description": "GeneralPatTrainUserDto roster envelope"}}}},
+            "/api/socket/generalTickerPatTrain/updateTrainStatus": {"post": {"responses": {"200": {"description": "Ticker train status envelope"}}}},
+            "/api/comprehensive/getUserOverallInfo": {"get": {"responses": {"200": {"description": "User comprehensive report envelope; enabled with RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/comprehensive/getTheoryYear": {"get": {"responses": {"200": {"description": "Theory yearly report envelope; enabled with RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/comprehensive/getTheoryTestYear": {"get": {"responses": {"200": {"description": "Theory test yearly report envelope; enabled with RUST_PHASE5_THEORY_ENABLED"}}}},
+            "/api/generalGroupNetRule/save": {"post": {"responses": {"200": {"description": "Group-net rule envelope; admin only"}}}},
+            "/api/generalGroupNetRule/findAll": {"post": {"responses": {"200": {"description": "Group-net rule list envelope"}}}},
+            "/api/generalGroupNetRule/deleteById": {"post": {"responses": {"200": {"description": "Group-net rule deletion envelope; admin only"}}}},
+            "/api/keyPoints/saveKeyPoints": {"post": {"responses": {"200": {"description": "Key-points envelope; admin only"}}}},
+            "/api/masthead/save": {"post": {"responses": {"200": {"description": "Masthead envelope; owner/admin policy"}}}},
+            "/api/masthead/findByTrainId": {"get": {"responses": {"200": {"description": "Masthead envelope; owner-scoped"}}}},
+            "/api/mtd/findAll": {"post": {"responses": {"200": {"description": "Military term tree envelope"}}}},
+            "/api/mtd/saveAll": {"post": {"responses": {"200": {"description": "Military term import envelope; admin only"}}}},
+            "/api/mtd/save": {"post": {"responses": {"200": {"description": "Military term envelope; admin only"}}}},
+            "/api/mtd/delete": {"post": {"responses": {"200": {"description": "Military term deletion envelope; admin only"}}}},
+            "/api/mtd/update": {"post": {"responses": {"200": {"description": "Military term envelope; admin only"}}}},
+            "/api/mtd/move": {"post": {"responses": {"200": {"description": "Military term move envelope; admin only"}}}},
+            "/api/mtd/saveBatch": {"post": {"responses": {"200": {"description": "Military term batch envelope; admin only"}}}},
+            "/api/postEnteringExercise/add": {"post": {"responses": {"200": {"description": "Entering exercise envelope"}}}},
+            "/api/postEnteringExercise/listPage": {"post": {"responses": {"200": {"description": "Entering exercise list envelope"}}}},
+            "/api/postEnteringExercise/begin": {"post": {"responses": {"200": {"description": "Entering exercise begin envelope"}}}},
+            "/api/postEnteringExercise/finish": {"post": {"responses": {"200": {"description": "Entering exercise finish envelope"}}}},
+            "/api/postEnteringExercise/getWordStock": {"post": {"responses": {"200": {"description": "Entering word-stock envelope"}}}},
+            "/api/postEnteringExercise/getById": {"post": {"responses": {"200": {"description": "Entering exercise detail envelope"}}}},
+            "/api/postEnteringExercise/delete": {"get": {"responses": {"200": {"description": "Entering exercise deletion envelope"}}}},
+            "/api/postEnteringExerciseWordStock/add": {"post": {"responses": {"200": {"description": "Entering word-stock envelope; admin only"}}}},
+            "/api/postEnteringExerciseWordStock/view": {"post": {"responses": {"200": {"description": "Entering word-stock preview envelope"}}}},
+            "/api/postEnteringExerciseWordStock/listPage": {"post": {"responses": {"200": {"description": "Entering word-stock list envelope"}}}},
+            "/api/postEnteringExerciseWordStock/delete": {"post": {"responses": {"200": {"description": "Entering word-stock deletion envelope; admin only"}}}},
+            "/api/postMilitaryTermTrain/add": {"post": {"responses": {"200": {"description": "Military-term training envelope"}}}},
+            "/api/postMilitaryTermTrain/listPage": {"post": {"responses": {"200": {"description": "Military-term training list envelope"}}}},
+            "/api/postMilitaryTermTrain/details": {"post": {"responses": {"200": {"description": "Military-term training detail envelope"}}}},
+            "/api/postMilitaryTermTrain/begin": {"post": {"responses": {"200": {"description": "Military-term training begin envelope"}}}},
+            "/api/postMilitaryTermTrain/finish": {"post": {"responses": {"200": {"description": "Military-term training finish envelope"}}}},
+            "/api/postMilitaryTermTrain/delete": {"get": {"responses": {"200": {"description": "Military-term training deletion envelope"}}}},
+            "/api/postRadiotelephoneTrain/findByType": {"post": {"responses": {"200": {"description": "Radiotelephone term list envelope"}}}},
+            "/api/postRadiotelephoneTrain/findByTypeAndRandom": {"post": {"responses": {"200": {"description": "Radiotelephone random term envelope"}}}},
+            "/api/postRadiotelephoneTrain/add": {"post": {"responses": {"200": {"description": "Radiotelephone training envelope"}}}},
+            "/api/postRadiotelephoneTrain/listPge": {"post": {"responses": {"200": {"description": "Radiotelephone training list envelope"}}}},
+            "/api/postRadiotelephoneTrain/begin": {"post": {"responses": {"200": {"description": "Radiotelephone training begin envelope"}}}},
+            "/api/postRadiotelephoneTrain/finish": {"post": {"responses": {"200": {"description": "Radiotelephone training finish envelope"}}}},
+            "/api/postRadiotelephoneTrain/details": {"post": {"responses": {"200": {"description": "Radiotelephone training detail envelope"}}}},
+            "/api/postRadiotelephoneTrain/delete": {"get": {"responses": {"200": {"description": "Radiotelephone training deletion envelope"}}}},
+            "/api/postTrainGlobalRule/addRule": {"post": {"responses": {"200": {"description": "Global training rule envelope; admin only"}}}},
+            "/api/postTrainGlobalRule/findByType": {"post": {"responses": {"200": {"description": "Global training rule list envelope"}}}},
+            "/api/postTrainGlobalRule/deleteById": {"post": {"responses": {"200": {"description": "Global training rule deletion envelope; admin only"}}}},
+            "/api/postRadiotelephoneTermData/save": {"post": {"responses": {"200": {"description": "Radiotelephone term envelope; admin only"}}}},
+            "/api/postRadiotelephoneTermData/delete": {"post": {"responses": {"200": {"description": "Radiotelephone term deletion envelope; admin only"}}}},
+            "/api/postRadiotelephoneTermData/update": {"post": {"responses": {"200": {"description": "Radiotelephone term envelope; admin only"}}}},
+            "/api/postRadiotelephoneTermData/findByType": {"post": {"responses": {"200": {"description": "Radiotelephone term data list envelope; enabled only by RUST_PHASE6_RADIOTELEPHONE_ENABLED"}}}},
             "/api/theoryKnowledge/listPageClassify": {"post": {"responses": {"200": {"description": "Theory classification envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledge/getBasicTheory": {"post": {"responses": {"200": {"description": "Theory knowledge list envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},
             "/api/theoryKnowledge/getById": {"post": {"responses": {"200": {"description": "Theory knowledge detail envelope; enabled only by RUST_PHASE5_THEORY_ENABLED"}}}},

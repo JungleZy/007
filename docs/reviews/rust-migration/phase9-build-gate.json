@@ -1,8 +1,8 @@
 {
   "schema":"rust-migration-phase9-build-gate/v1",
-  "verified_at_utc":"2026-09-24T10:08:42Z",
+  "verified_at_utc":"2026-09-27T08:05:00Z",
   "status":"BLOCKED_FULL_GATE",
-  "evidence":{"java":"clean verify: 512 tests, 0 failures/errors/skipped","frontend":"npm test: 39 passed; npm run build: passed","rust":"cargo check/test/build --locked: passed; 11 tests, 2 ignored","keysim":"cargo test --locked: 85 passed, 7 suites","electron_manifest":"artifact-manifest.test.mjs: 5 passed","rust_smoke":"health/live/ready/OpenAPI/203/204/206/request-id/SIGTERM passed","backup_restore":"isolated source/restore row count 2/2","cutover_rehearsal":"isolated port 18100 start/readiness/SIGTERM passed"},
+  "evidence":{"java":"clean verify current run: FAILED 1 test (PersonalTrainingScoringContractTest.radioRejectsForgedScoreAndQuestionReplacementThenScoresListeningAnswers line168; expected duration>=120, observed false); prior 512-test baseline remains historical, not current proof","frontend":"npm test: 39 passed; npm run build: passed","rust":"cargo check --locked: passed with warnings; cargo test --locked: 16 passed, 2 ignored","keysim":"cargo test --locked: 85 passed, 7 suites (prior evidence)","electron_manifest":"artifact-manifest.test.mjs: 5 passed (prior evidence)","rust_smoke":"isolated REST/WS smoke: HTTP200 comprehensive/mtd/term/settings, missing-token 203, status WS heartbeat pong, invalid WS credential error frame; current full service compile passed","backup_restore":"isolated source/restore row count 2/2 (prior evidence)","cutover_rehearsal":"isolated port 18100 start/readiness/SIGTERM (prior evidence)"},
   "blocking_gates":["three-platform native artifact and release CI proof","authenticated Electron full workflow and real serial device","all 359 REST rows Rust-equivalent rather than Java-only/partial","Java/Rust complete business fixture diff","production gateway switch, write freeze, rollback window, monitoring and backup rehearsal"],
   "decision":"Keep Java production writer and rollback entry; do not claim full plan completion."
 }
