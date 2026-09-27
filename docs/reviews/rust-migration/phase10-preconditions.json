@@ -1,7 +1,7 @@
 {
   "schema":"rust-migration-phase10-preconditions/v1",
-  "verified_at_utc":"2026-09-23T11:33:11Z",
+  "verified_at_utc":"2026-09-27T22:38:00Z",
   "status":"BLOCKED",
-  "requirements":{"all_rest_and_ws_rust":"false; current-coverage marks partial/java-only endpoints","frontend_no_java":"false; Electron package still points bin/server/server and Rust artifact is not committed into delivery","db_backup_rehearsal":"not yet executed for final cutover","platform_delivery":"Linux artifact path exists; arm64/Windows/Electron full smoke not complete","java_removal":"forbidden until prior gates pass"},
+  "requirements":{"all_rest_and_ws_rust":"false; current-coverage has 0 Java-only but 114 partial-domain rows, and full Java/Rust fixture/WS lifecycle parity is not proven","frontend_no_java":"false; Electron/package gateway still retains Java rollback/production paths and complete Rust-backed Electron API/WS/upload/download/exit smoke is not complete","db_backup_rehearsal":"isolated current/base migration rehearsal and source/restore row-count rehearsal passed; production backup/switch/rollback window not executed","platform_delivery":"Linux amd64 Rust release build/smoke passed; local Windows GNU build lacks mingw toolchain and arm64 target is unavailable; Electron full smoke incomplete","java_removal":"forbidden until all prior gates, current Java clean verify and production rollback/cutover gates pass"},
   "decision":"Do not remove Java runtime or CI entries. Keep Java as rollback/production writer."
 }
