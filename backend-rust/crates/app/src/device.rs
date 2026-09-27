@@ -1,7 +1,7 @@
 use axum::{
     extract::{Extension, Query, State},
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::Deserialize;
@@ -248,6 +248,43 @@ pub(crate) async fn find_scoring_rule(
         ),
         Err(error) => {
             tracing::warn!(%error, "device scoring rule query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn delete_scoring_rule(
+    State(state): State<AppState>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let Some(raw_id) = query.get("id").filter(|value| !value.is_empty()) else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "id to load is required for loading",
+            "id to load is required for loading",
+        );
+    };
+    let id = match raw_id.parse::<i32>() {
+        Ok(id) => id,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result: Result<(), sqlx::Error> = async {
+        let mut transaction = pool.begin().await?;
+        sqlx::query("DELETE FROM device_scoring_rule WHERE id=?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await?;
+        transaction.commit().await
+    }
+    .await;
+    match result {
+        Ok(()) => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Err(error) => {
+            tracing::error!(%error, "device scoring rule deletion failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     }

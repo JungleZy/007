@@ -488,6 +488,7 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_device_scoring_routes = Router::new()
             .route("/save", post(device::save_scoring_rule))
+            .route("/delete", get(device::delete_scoring_rule))
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest(
@@ -2217,6 +2218,7 @@ async fn openapi() -> Json<Value> {
             "/api/user/getUserTrainDurationStat": {"post": {"responses": {"200": {"description": "Authenticated user's eight duration totals in seconds"}}}},
             "/api/user/getRecentHandKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent hand-key results"}}}},
             "/api/user/getRecentElectronicKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent electronic-key results"}}}},
+            "/api/deviceScoringRule/delete": {"get": {"responses": {"200": {"description": "Delete scoring rule by query id; admin only"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
