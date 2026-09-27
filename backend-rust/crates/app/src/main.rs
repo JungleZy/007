@@ -254,14 +254,18 @@ async fn run() -> Result<(), AppError> {
         .await
         .map_err(AppError::Bind)?;
     let app = build_router(state.clone());
-    let recovery_state = state.clone();
-    let recovery_task = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(5));
-        loop {
-            interval.tick().await;
-            general_train::recover_general_trainings(&recovery_state).await;
-        }
-    });
+    let recovery_task = if config.general_train_readonly_enabled {
+        let recovery_state = state.clone();
+        Some(tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(5));
+            loop {
+                interval.tick().await;
+                general_train::recover_general_trainings(&recovery_state).await;
+            }
+        }))
+    } else {
+        None
+    };
 
     info!(
         database_configured = config.database_url.is_some(),
@@ -275,7 +279,9 @@ async fn run() -> Result<(), AppError> {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(|error| AppError::Bind(std::io::Error::other(error)));
-    recovery_task.abort();
+    if let Some(recovery_task) = recovery_task {
+        recovery_task.abort();
+    }
     result?;
     info!("rust backend stopped gracefully");
     Ok(())
