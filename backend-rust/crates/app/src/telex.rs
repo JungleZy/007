@@ -1,6 +1,6 @@
 use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Extension, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -528,18 +528,50 @@ pub(crate) async fn train_save(
 pub(crate) async fn train_delete(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
-    Path(id): Path<String>,
+    Json(body): Json<TrainRequest>,
 ) -> Response {
+    let Some(id) = body.id else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "id to load is required for loading",
+            "id to load is required for loading",
+        );
+    };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("DELETE FROM t_telex_pat_train WHERE id=? AND create_user_id=?")
-        .bind(id)
-        .bind(&user.id)
-        .execute(pool)
-        .await
-    {
-        Ok(_) => envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", ""),
-        Err(e) => train_error(e, "delete train"),
+    let result: Result<Response, sqlx::Error> = async {
+        let mut transaction = pool.begin().await?;
+        let row = sqlx::query("SELECT create_user_id FROM t_telex_pat_train WHERE id=? FOR UPDATE")
+            .bind(&id)
+            .fetch_optional(&mut *transaction)
+            .await?;
+        let Some(row) = row else {
+            return Ok(envelope_response(
+                StatusCode::OK,
+                202,
+                "未查询到该训练",
+                "未查询到该训练",
+            ));
+        };
+        if row
+            .try_get::<Option<String>, _>("create_user_id")?
+            .as_deref()
+            != Some(user.id.as_str())
+        {
+            return Ok(envelope_response(StatusCode::OK, 207, "无权限", ""));
+        }
+        sqlx::query("DELETE FROM t_telex_pat_train WHERE id=?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(envelope_response(StatusCode::OK, 200, "ok", ""))
+    }
+    .await;
+    match result {
+        Ok(response) => response,
+        Err(error) => train_error(error, "delete train"),
     }
 }

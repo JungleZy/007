@@ -1009,7 +1009,7 @@ fn build_router(state: AppState) -> Router {
             .route("/saveTexPatTrain", post(telex::train_save))
             .route("/findTexPatTrainByToken", post(telex::train_list))
             .route("/findTexPatTrainById", post(telex::train_detail))
-            .route("/deleteById/{id}", post(telex::train_delete))
+            .route("/deleteById", post(telex::train_delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telexPat", telex_routes);
     }
@@ -2219,6 +2219,7 @@ async fn openapi() -> Json<Value> {
             "/api/user/getRecentHandKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent hand-key results"}}}},
             "/api/user/getRecentElectronicKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent electronic-key results"}}}},
             "/api/deviceScoringRule/delete": {"get": {"responses": {"200": {"description": "Delete scoring rule by query id; admin only"}}}},
+            "/api/telexPat/deleteById": {"post": {"responses": {"200": {"description": "Delete personal telex train by JSON id; owner only"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
