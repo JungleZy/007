@@ -518,6 +518,7 @@ fn build_router(state: AppState) -> Router {
             .route("/listPage", post(entering::list))
             .route("/add", post(entering::add))
             .route("/getById", post(entering::by_id))
+            .route("/getWordStock", post(entering::get_word_stock))
             .route("/lastTrain", post(entering::last_train))
             .route("/begin", post(entering::begin))
             .route("/goTo", post(entering::go_to))
@@ -529,9 +530,14 @@ fn build_router(state: AppState) -> Router {
             .route("/findByUserIdAndType", post(entering::telex_find))
             .route("/save", post(entering::telex_save))
             .route("/clear", post(entering::telex_clear))
+            .route("/statisticalPage", post(entering::telex_statistics))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let keypoint_routes = Router::new()
             .route("/getByType", post(entering::keypoints))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_entering_keypoint_routes = Router::new()
+            .route("/save", post(entering::save_key_points))
+            .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let post_entering_routes = Router::new()
             .route("/add", post(post_entering::add))
@@ -554,7 +560,10 @@ fn build_router(state: AppState) -> Router {
         api = api
             .nest("/api/enteringExercise", entering_routes)
             .nest("/api/enteringTelexPat", telex_routes)
-            .nest("/api/enteringKeyPoints", keypoint_routes)
+            .nest(
+                "/api/enteringKeyPoints",
+                keypoint_routes.merge(admin_entering_keypoint_routes),
+            )
             .nest("/api/postEnteringExercise", post_entering_routes)
             .nest(
                 "/api/postEnteringExerciseWordStock",
@@ -2221,6 +2230,9 @@ async fn openapi() -> Json<Value> {
             "/api/user/getRecentHandKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent hand-key results"}}}},
             "/api/user/getRecentElectronicKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent electronic-key results"}}}},
             "/api/deviceScoringRule/delete": {"get": {"responses": {"200": {"description": "Delete scoring rule by query id; admin only"}}}},
+            "/api/enteringExercise/getWordStock": {"post": {"responses": {"200": {"description": "Word stock by type, with type 9 mapped to 2"}}}},
+            "/api/enteringTelexPat/statisticalPage": {"post": {"responses": {"200": {"description": "Authenticated user's four telex statistics categories"}}}},
+            "/api/enteringKeyPoints/save": {"post": {"responses": {"200": {"description": "Create or update entering key points; admin only"}}}},
             "/api/theoryKnowledge/getDutyBusiness": {"post": {"responses": {"200": {"description": "Duty-business theory categories"}}}},
             "/api/theoryKnowledge/getChargeEquipment": {"post": {"responses": {"200": {"description": "Equipment theory categories"}}}},
             "/api/telexPat/deleteById": {"post": {"responses": {"200": {"description": "Delete personal telex train by JSON id; owner only"}}}},
