@@ -843,22 +843,7 @@ pub(crate) async fn general_online_users(kind: &str, train_id: &str) -> Vec<Valu
         kind,
         train_id: train_id.to_owned(),
     };
-    manager
-        .general_rooms
-        .get(&key)
-        .into_iter()
-        .flat_map(|session_ids| session_ids.iter())
-        .filter_map(|session_id| manager.sessions.get(session_id))
-        .map(|connection| {
-            json!({
-                "id": connection.user.id,
-                "userName": connection.user.name,
-                "userImg": connection.user.user_img,
-                "role": connection.role.unwrap_or(0),
-                "status": connection.status
-            })
-        })
-        .collect()
+    general_users_for_key(&manager, &key)
 }
 pub(crate) async fn general_online_rooms(kind: &str) -> HashMap<String, Vec<Value>> {
     let Some(kind) = parse_general_kind(kind) else {
@@ -906,16 +891,19 @@ pub(crate) async fn set_general_user_status(
         kind,
         train_id: train_id.to_owned(),
     };
-    let Some(session_ids) = manager.general_rooms.get(&key).cloned() else {
+    let WsManager {
+        general_rooms,
+        sessions,
+        ..
+    } = &mut *manager;
+    let Some(session_ids) = general_rooms.get(&key) else {
         return;
     };
     for session_id in session_ids {
-        if manager
-            .sessions
-            .get(&session_id)
-            .is_some_and(|connection| connection.user.id == user_id)
-        {
-            manager.set_general_status(&session_id, status);
+        if let Some(connection) = sessions.get_mut(session_id) {
+            if connection.user.id == user_id {
+                connection.status = status;
+            }
         }
     }
 }
@@ -933,20 +921,23 @@ pub(crate) async fn simulation_connection_status(room_id: i32, user_id: &str) ->
 
 pub(crate) async fn set_simulation_channel(room_id: i32, user_id: &str, channel: i32) {
     let mut manager = MANAGER.lock().await;
-    let Some(session_ids) = manager
-        .simulation_rooms
-        .get(&room_id)
-        .map(|room| room.members.clone())
-    else {
+    let WsManager {
+        simulation_rooms,
+        sessions,
+        ..
+    } = &mut *manager;
+    let Some(room) = simulation_rooms.get(&room_id) else {
         return;
     };
-    for session_id in session_ids {
-        if let Some(connection) = manager.sessions.get_mut(&session_id) {
-            if connection.user.id == user_id {
-                if let Some(member) = connection.sim_member.as_mut() {
-                    member.channel = Some(channel);
-                }
-            }
+    for session_id in &room.members {
+        let Some(connection) = sessions.get_mut(session_id) else {
+            continue;
+        };
+        if connection.user.id != user_id {
+            continue;
+        }
+        if let Some(member) = connection.sim_member.as_mut() {
+            member.channel = Some(channel);
         }
     }
 }

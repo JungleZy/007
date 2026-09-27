@@ -30,22 +30,19 @@ impl From<serde_json::Error> for Error {
 }
 fn respond(result: Result<Option<Value>, Error>) -> Response {
     match result {
-        Ok(data) => envelope_json(StatusCode::OK, 200, data, "ok", ""),
-        Err(Error::Business(code, message)) => envelope_response(StatusCode::OK, code, message, ""),
-        Err(error) => {
-            match error {
-                Error::Database(error) => {
-                    tracing::warn!(%error, "simulation database operation failed")
-                }
-                Error::StoredJson(error) => {
-                    tracing::warn!(%error, "simulation stored JSON invalid")
-                }
-                Error::Unavailable => tracing::warn!("simulation database unavailable"),
-                Error::Business(_, _) => unreachable!(),
-            }
-            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        Ok(data) => return envelope_json(StatusCode::OK, 200, data, "ok", ""),
+        Err(Error::Business(code, message)) => {
+            return envelope_response(StatusCode::OK, code, message, "");
         }
+        Err(Error::Database(error)) => {
+            tracing::warn!(%error, "simulation database operation failed");
+        }
+        Err(Error::StoredJson(error)) => {
+            tracing::warn!(%error, "simulation stored JSON invalid");
+        }
+        Err(Error::Unavailable) => tracing::warn!("simulation database unavailable"),
     }
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
 fn pool(state: &AppState) -> Result<&MySqlPool, Error> {
     state.pool.as_ref().ok_or(Error::Unavailable)
@@ -107,8 +104,8 @@ pub(crate) struct PageValue {
 
 // Every child-table mutation locks its parent first, including lazy standard-page creation.
 async fn lock_room(tx: &mut Transaction<'_, MySql>, id: i32) -> Result<MySqlRow, Error> {
-    Ok(sqlx::query("SELECT r.*,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,CASE WHEN stats=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW()) ELSE total_time END elapsed_time FROM simulation_router_room r WHERE id=? FOR UPDATE")
-        .bind(id).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未查询到房间信息"))?)
+    sqlx::query("SELECT r.*,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,CASE WHEN stats=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW()) ELSE total_time END elapsed_time FROM simulation_router_room r WHERE id=? FOR UPDATE")
+        .bind(id).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未查询到房间信息"))
 }
 async fn member(
     tx: &mut Transaction<'_, MySql>,
@@ -159,8 +156,8 @@ fn room_json(row: &MySqlRow) -> Value {
         "startTime":row.get::<Option<String>,_>("start_time_text"),"isStartSign":row.get::<Option<i32>,_>("is_start_sign")})
 }
 async fn content(tx: &mut Transaction<'_, MySql>, room: i32) -> Result<MySqlRow, Error> {
-    Ok(sqlx::query("SELECT * FROM simulation_router_room_content WHERE room_id=? ORDER BY id LIMIT 1 FOR UPDATE")
-        .bind(room).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未找到房间报底"))?)
+    sqlx::query("SELECT * FROM simulation_router_room_content WHERE room_id=? ORDER BY id LIMIT 1 FOR UPDATE")
+        .bind(room).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未找到房间报底"))
 }
 fn content_json(out: &mut Value, row: &MySqlRow) {
     for (key, column) in [

@@ -23,10 +23,6 @@ pub(crate) struct QueryId {
     #[serde(rename = "attempt")]
     attempt: Option<i32>,
 }
-fn db_error(error: sqlx::Error, operation: &'static str) -> Response {
-    tracing::warn!(error=%error,operation,"general training database operation failed");
-    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-}
 fn table(domain: Domain) -> &'static str {
     match domain {
         Domain::Key => "general_key_pat",
@@ -93,7 +89,10 @@ fn response(result: Outcome<Value>) -> Response {
         Err(Failure::Business(code, message)) => {
             envelope_response(StatusCode::OK, code, message, "")
         }
-        Err(Failure::Database(error)) => db_error(error, "general training service"),
+        Err(Failure::Database(error)) => {
+            tracing::warn!(%error, operation = "general training service", "general training database operation failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
     }
 }
 fn text(value: &Value) -> Option<String> {
@@ -504,7 +503,7 @@ async fn set_status(
             sqlx::query(&sql).bind(&id).execute(&mut *transaction).await?;
         } else {
             if train["status"] != 1 { return Err(terminal("训练不在进行中")); }
-            let closing = if matches!(domain, Domain::Telex) { 2 } else { 3 };
+            let closing = closing_status(domain);
             let sql = format!("UPDATE {} SET status=?,end_time=NOW(6),valid_time=GREATEST(0,TIMESTAMPDIFF(SECOND,start_time,NOW(6))) WHERE id=?", table(domain));
             sqlx::query(&sql).bind(closing).bind(&id).execute(&mut *transaction).await?;
             if closing == 3 {
@@ -1588,9 +1587,8 @@ async fn participant_action(
         if member["role"] != 0 { return Err(denied()); }
         if body["attempt"].as_i64().is_none() || body["attempt"] != member["attempt"] { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
-        if !reset && train["status"] != 1 { return Err(terminal("训练不在进行中")); }
+        if train["status"] != 1 { return Err(terminal("训练不在进行中")); }
         if reset {
-            if train["status"] != 1 { return Err(terminal("训练不在进行中")); }
             let next = member["attempt"].as_i64().and_then(|attempt| attempt.checked_add(1)).filter(|attempt| *attempt <= i32::MAX as i64).ok_or_else(|| terminal("训练轮次已用尽"))?;
             let extras = match domain {
                 Domain::Key => ",capture_pages='{}',duration='0',content=NULL",
@@ -1895,17 +1893,15 @@ fn settlement_number(value: &Value) -> Option<f64> {
 
 fn json_array_text(value: &Value, message: &'static str) -> Outcome<Vec<Value>> {
     let text = value.as_str().ok_or_else(|| invalid(message))?;
-    let parsed: Value = serde_json::from_str(text).map_err(|_| invalid(message))?;
-    parsed.as_array().cloned().ok_or_else(|| invalid(message))
+    serde_json::from_str(text).map_err(|_| invalid(message))
 }
 
 fn string_array_text(value: &Value, message: &'static str) -> Outcome<Vec<String>> {
     json_array_text(value, message)?
         .into_iter()
-        .map(|item| {
-            item.as_str()
-                .map(str::to_owned)
-                .ok_or_else(|| invalid(message))
+        .map(|item| match item {
+            Value::String(value) => Ok(value),
+            _ => Err(invalid(message)),
         })
         .collect()
 }
@@ -3027,11 +3023,7 @@ fn validate_capture_timelines(timelines: &[Vec<(i64, i64)>]) -> Outcome<()> {
     }
     Ok(())
 }
-fn member_capture_duration(
-    member: &Value,
-    domain: Domain,
-    value_rows: &[Value],
-) -> Outcome<(i64, Vec<Vec<(i64, i64)>>)> {
+fn member_capture_duration(member: &Value, domain: Domain, value_rows: &[Value]) -> Outcome<i64> {
     if matches!(domain, Domain::Key) {
         let captures = stored_json(
             member["capturePages"]
@@ -3057,7 +3049,7 @@ fn member_capture_duration(
             all.push(intervals);
         }
         validate_capture_timelines(&all)?;
-        return Ok((total, all));
+        return Ok(total);
     }
     let mut total = 0_i64;
     let mut all = Vec::new();
@@ -3082,7 +3074,7 @@ fn member_capture_duration(
         }
     }
     validate_capture_timelines(&all)?;
-    Ok((total, all))
+    Ok(total)
 }
 
 async fn settle_key(
@@ -3101,7 +3093,7 @@ async fn settle_key(
         &[&id, user_id],
     )
     .await?;
-    let (duration, _timelines) = member_capture_duration(member, Domain::Key, &values)?;
+    let duration = member_capture_duration(member, Domain::Key, &values)?;
     let captures = stored_json(
         member["capturePages"]
             .as_str()
@@ -3145,16 +3137,22 @@ async fn settle_key(
     let mut pages = source_by_page.keys().copied().collect::<Vec<_>>();
     pages.sort_unstable();
     for page in pages {
-        let source_rows = source_by_page.get(&page).cloned().unwrap_or_default();
+        let source_rows = source_by_page
+            .get(&page)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         if !captured_pages.contains_key(&page.to_string()) {
             statistics.lack_group += source_rows.len() as i64;
             statistics.lack_line += source_rows.len().div_ceil(10) as i64;
             continue;
         }
-        let page_values = values_by_page.get(&page).cloned().unwrap_or_default();
-        let (captured, page_characters) = key_captured_groups(&page_values, &mut statistics)?;
+        let page_values = values_by_page
+            .get(&page)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let (captured, page_characters) = key_captured_groups(page_values, &mut statistics)?;
         characters += page_characters;
-        align_key_groups(&source_rows, &captured, &mut statistics)?;
+        align_key_groups(source_rows, &captured, &mut statistics)?;
     }
     let speed = if duration > 0 {
         (characters as f64 * 15_000.0 / duration as f64).round()
@@ -3204,7 +3202,7 @@ async fn settle_telex(
         &[&id, user_id],
     )
     .await?;
-    let (duration, _timelines) = member_capture_duration(member, Domain::Telex, &values)?;
+    let duration = member_capture_duration(member, Domain::Telex, &values)?;
     let sources = rows(
         connection,
         page_table(Domain::Telex),
@@ -3290,7 +3288,7 @@ async fn settle_ticker(
         &[&id, user_id],
     )
     .await?;
-    let (duration, _timelines) = member_capture_duration(member, Domain::Ticker, &values)?;
+    let duration = member_capture_duration(member, Domain::Ticker, &values)?;
     let sources = rows(
         connection,
         page_table(Domain::Ticker),
@@ -3319,17 +3317,26 @@ async fn settle_ticker(
             .ok_or_else(|| invalid("拍发楼层缺失"))?;
         let body = json_array_text(&value["messageBody"], "拍发记录必须是JSON数组文本")?;
         let standard = json_array_text(&value["standard"], "校准记录必须是JSON数组文本")?;
-        let fake = json!({"messageBody": body, "standard": standard});
-        let (count, _) = measure_submission(&fake, Domain::Ticker)?;
+        let submission = json!({"messageBody": body, "standard": standard});
+        let (count, _) = measure_submission(&submission, Domain::Ticker)?;
         characters += count as i64;
-        let body_rows = fake["messageBody"].as_array().cloned().unwrap_or_default();
-        let groups = ticker_groups(&body_rows, &mut statistics)?;
-        let source_rows = source_by_page.get(&page).cloned().unwrap_or_default();
+        let body_rows = submission["messageBody"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let groups = ticker_groups(body_rows, &mut statistics)?;
+        let source_rows = source_by_page
+            .get(&page)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         existing_pages.insert(page);
         compare_ticker_page(
-            &source_rows,
+            source_rows,
             &groups,
-            &fake["standard"].as_array().cloned().unwrap_or_default(),
+            submission["standard"]
+                .as_array()
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
             &rule,
             &mut statistics,
         )?;
@@ -3396,7 +3403,7 @@ async fn finish_participant(
         }
         if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
         let status = train["status"].as_i64().unwrap_or(-1);
-        let allowed = match domain { Domain::Telex => status == 1 || status == 2, Domain::Key | Domain::Ticker => status == 1 || status == 3 };
+        let allowed = status == 1 || status == i64::from(closing_status(domain));
         if !allowed { return Err(terminal("训练尚未开始或已经结束")); }
         frozen_rule(&train, domain)?;
         ensure_settlement_pages(&mut transaction, &train, domain).await?;
@@ -3423,7 +3430,7 @@ async fn finish_participant(
     }.await)
 }
 
-fn recovery_status(domain: Domain) -> i32 {
+fn closing_status(domain: Domain) -> i32 {
     match domain {
         Domain::Telex => 2,
         Domain::Key | Domain::Ticker => 3,
@@ -3437,12 +3444,12 @@ async fn recovery_train_ids(pool: &MySqlPool, domain: Domain) -> Result<Vec<Stri
         user_table(domain),
     );
     sqlx::query_scalar(&sql)
-        .bind(recovery_status(domain))
+        .bind(closing_status(domain))
         .fetch_all(pool)
         .await
 }
 
-async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<Vec<String>> {
+async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<()> {
     let mut transaction = pool.begin().await?;
     let train = load_train(&mut transaction, id, domain, true).await?;
     let eligible: i64 = sqlx::query_scalar(&format!(
@@ -3450,12 +3457,12 @@ async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<Vec<
         table(domain),
     ))
     .bind(id)
-    .bind(recovery_status(domain))
+    .bind(closing_status(domain))
     .fetch_one(&mut *transaction)
     .await?;
     if eligible == 0 {
         transaction.commit().await?;
-        return Ok(Vec::new());
+        return Ok(());
     }
     frozen_rule(&train, domain)?;
     ensure_settlement_pages(&mut transaction, &train, domain).await?;
@@ -3500,13 +3507,12 @@ async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<Vec<
     for user_id in &settled {
         super::ws::notify_general_result(ws_kind(domain), id, user_id, &recipients).await;
     }
-    Ok(settled)
+    Ok(())
 }
 
 /// Sweep completed rooms whose 60-second submission grace period has elapsed.
-/// Call this from reviewed startup/scheduler integration; this module deliberately
-/// does not install an autonomous timer. Every candidate is rechecked under a
-/// transaction lock before frozen-rule settlement, and failures remain retryable.
+/// Every candidate is rechecked under a transaction lock before frozen-rule
+/// settlement, and failures remain retryable.
 pub(crate) async fn recover_general_trainings(state: &AppState) {
     let Some(pool) = state.pool.as_ref() else {
         tracing::warn!("general training recovery skipped: database unavailable");

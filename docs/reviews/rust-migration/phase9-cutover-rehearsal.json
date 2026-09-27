@@ -1,8 +1,8 @@
 {
   "schema":"rust-migration-phase9-cutover-rehearsal/v1",
-  "verified_at_utc":"2026-09-23T11:56:21Z",
+  "verified_at_utc":"2026-09-27T19:30:00Z",
   "status":"PASS_ISOLATED_RUST_ONLY",
   "script":"backend-rust/scripts/phase9-cutover-rehearsal.sh",
-  "result":"Rust binary started on isolated 127.0.0.1:18100, readiness returned process-only, SIGTERM exited cleanly",
+  "result":"Rust release binary built with --locked, started on isolated 127.0.0.1:18106, readiness returned process-only, SIGTERM exited cleanly",
   "known_boundary":"Java-to-Rust gateway switch, production port 18001, write freeze, database rollback, and domain traffic drain were not exercised."
 }
