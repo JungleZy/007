@@ -1,9 +1,9 @@
 {
   "schema":"rust-migration-phase9-backup-restore/v1",
-  "verified_at_utc":"2026-09-23T11:44:10Z",
+  "verified_at_utc":"2026-09-27T22:38:00Z",
   "status":"PASS_ISOLATED_REHEARSAL_ONLY",
-  "fixture":{"source":"rust_cutover_backup_source","restore":"rust_cutover_backup_restore","engine":"InnoDB"},
-  "steps":["created source schema and two rows","mysqldump --single-transaction source","restored dump into isolated restore database","compared source and restore row counts","dropped both databases"],
-  "result":{"source_count":2,"restore_count":2,"cleanup":"passed"},
-  "known_boundary":"This is not a production backup, gateway switch, Java write freeze, or Rust rollback window."
+  "fixture":{"source":"rust_cutover_backup_source","restore":"rust_cutover_backup_restore","engine":"InnoDB","migration_rehearsal":"backend/database/rehearsal/2026-09-27-current"},
+  "steps":["created source schema and two rows","mysqldump --single-transaction source","restored dump into isolated restore database","compared source and restore row counts","dropped both databases","loaded current and base snapshots into unique MySQL containers","applied all declared migrations twice where required","compared entity schema and metadata, checked engines/keys/legacy invariants"],
+  "result":{"source_count":2,"restore_count":2,"cleanup":"passed","current_base_rehearsal":"passed; current/base entity schema diff empty, 106 tables, 0 MyISAM, repeat migration assertions green"},
+  "known_boundary":"This is not a production backup, gateway switch, Java write freeze, or Rust rollback window. Evidence files are under backend/database/rehearsal/2026-09-27-current."
 }
