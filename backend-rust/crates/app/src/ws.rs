@@ -886,7 +886,7 @@ fn general_users_for_key(manager: &WsManager, key: &GeneralRoomKey) -> Vec<Value
                 "id": connection.user.id,
                 "userName": connection.user.name,
                 "userImg": connection.user.user_img,
-                "role": connection.role.unwrap_or(0),
+                "role": connection.role,
                 "status": connection.status
             })
         })

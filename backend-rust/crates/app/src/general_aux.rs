@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::Deserialize;
@@ -10,11 +10,6 @@ use sqlx::Row;
 use std::collections::HashSet;
 
 use super::{envelope_json, envelope_response, ws, AppState, AuthUser};
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct TrainPath {
-    train_id: String,
-}
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TrainQuery {
@@ -98,25 +93,23 @@ async fn online_users(
     train_table: &'static str,
     member_table: &'static str,
 ) -> Response {
-    let train_id = train_id.trim().to_owned();
+    let train_id = train_id.trim();
     if train_id.parse::<i32>().is_err() {
         return envelope_response(StatusCode::OK, 202, "训练ID无效", "");
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match train_exists(pool, train_table, &train_id).await {
+    match train_exists(pool, train_table, train_id).await {
         Ok(true) => {}
-        Ok(false) => return envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
+        Ok(false) => return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
         Err(error) => return db_error(error, "find online train"),
     }
-    match can_read(pool, train_table, member_table, &train_id, &user).await {
+    match can_read(pool, train_table, member_table, train_id, &user).await {
         Ok(true) => envelope_json(
             StatusCode::OK,
             200,
-            Some(Value::Array(
-                ws::general_online_users(kind, &train_id).await,
-            )),
+            Some(Value::Array(ws::general_online_users(kind, train_id).await)),
             "ok",
             "",
         ),
@@ -128,12 +121,24 @@ async fn online_users(
 pub(crate) async fn key_online(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
-    Path(path): Path<TrainPath>,
+    Query(query): Query<TrainQuery>,
 ) -> Response {
+    let Some(train_id) = query.train_id.filter(|id| !id.is_empty()) else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "id to load is required for loading",
+            "id to load is required for loading",
+        );
+    };
+    let train_id = match train_id.parse::<i32>() {
+        Ok(id) => id,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
     online_users(
         state,
         user,
-        path.train_id,
+        train_id.to_string(),
         "key",
         "general_key_pat",
         "general_key_pat_user",
