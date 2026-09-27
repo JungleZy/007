@@ -10,6 +10,63 @@ use std::collections::HashSet;
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
+pub(crate) async fn save_question(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let question_id = id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let question_type = body
+        .get("type")
+        .and_then(Value::as_i64)
+        .map(|value| value as i32);
+    let topic = body.get("topic").and_then(Value::as_str);
+    let options = body.get("options").and_then(Value::as_str);
+    let answer = body.get("answer").and_then(Value::as_str);
+    let analysis = body.get("analysis").and_then(Value::as_str);
+    let level_id = body.get("levelId").and_then(Value::as_str);
+    let mut tx = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let result = if id.is_some() {
+        sqlx::query("UPDATE t_theory_question SET topic=?,create_user_id=?,analysis=?,type=?,answer=?,level_id=?,options=? WHERE id=?")
+            .bind(topic).bind(&user.id).bind(analysis).bind(question_type).bind(answer).bind(level_id).bind(options).bind(&question_id)
+            .execute(&mut *tx).await
+    } else {
+        sqlx::query("INSERT INTO t_theory_question (id,type,topic,options,answer,analysis,create_user_id,create_time,level_id) VALUES (?,?,?,?,?,?,?,?,?)")
+            .bind(&question_id).bind(question_type).bind(topic).bind(options).bind(answer).bind(analysis).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(level_id)
+            .execute(&mut *tx).await
+    };
+    if result.is_err() {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let row = match sqlx::query("SELECT id,type,topic,options,answer,analysis,create_user_id,create_time,level_id FROM t_theory_question WHERE id=?")
+        .bind(&question_id).fetch_optional(&mut *tx).await {
+        Ok(Some(row)) => row,
+        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到该试题", ""); }
+        Err(_) => { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
+    };
+    let data = json!({"id": row.get::<String,_>("id"), "type": row.get::<Option<i32>,_>("type"), "topic": row.get::<Option<String>,_>("topic"), "options": row.get::<Option<String>,_>("options"), "answer": row.get::<Option<String>,_>("answer"), "analysis": row.get::<Option<String>,_>("analysis"), "createUserId": row.get::<Option<String>,_>("create_user_id"), "createTime": row.get::<Option<String>,_>("create_time"), "levelId": row.get::<Option<String>,_>("level_id")});
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
+}
+
 pub(crate) async fn list_levels(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

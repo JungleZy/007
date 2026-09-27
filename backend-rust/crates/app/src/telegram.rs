@@ -7,6 +7,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{MySqlPool, Row};
+use std::collections::HashSet;
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
@@ -159,4 +160,72 @@ pub(crate) async fn by_id(
         "ok",
         "",
     )
+}
+pub(crate) async fn floor_content_by_floor_id(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(ids): Json<Vec<String>>,
+) -> Response {
+    if ids.is_empty() || ids.iter().any(|id| id.is_empty()) {
+        return envelope_response(StatusCode::OK, 202, "报底不能为空", "");
+    }
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+
+    // Resolve every requested floor and its train owner before reading content.
+    // This mirrors requireFloorOwner(List): a missing or foreign floor rejects the
+    // whole request rather than returning a partial map.
+    let placeholders = std::iter::repeat("?")
+        .take(ids.len())
+        .collect::<Vec<_>>()
+        .join(",");
+    let floor_sql = format!(
+        "SELECT f.id,t.create_user_id FROM t_telegram_train_floor f LEFT JOIN t_telegram_train t ON t.id=f.train_id WHERE f.id IN ({placeholders})"
+    );
+    let mut floor_query = sqlx::query(&floor_sql);
+    for id in &ids {
+        floor_query = floor_query.bind(id);
+    }
+    let floors = match floor_query.fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let requested_ids: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    if floors.len() != requested_ids.len() {
+        return envelope_response(StatusCode::OK, 202, "未查询报底", "");
+    }
+    if floors.iter().any(|row| {
+        row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str())
+    }) {
+        return envelope_response(StatusCode::OK, 207, "无权访问他人训练", "");
+    }
+
+    let content_sql = format!(
+        "SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id IN ({placeholders}) ORDER BY sort"
+    );
+    let mut content_query = sqlx::query(&content_sql);
+    for id in &ids {
+        content_query = content_query.bind(id);
+    }
+    let rows = match content_query.fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let mut result = serde_json::Map::new();
+    for row in &rows {
+        if let Some(floor_id) = row.get::<Option<String>, _>("floor_id") {
+            result
+                .entry(floor_id)
+                .or_insert_with(|| Value::Array(Vec::new()))
+                .as_array_mut()
+                .expect("map value is an array")
+                .push(content_json(row));
+        }
+    }
+    envelope_json(StatusCode::OK, 200, Some(Value::Object(result)), "ok", "")
 }

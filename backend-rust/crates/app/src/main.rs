@@ -481,6 +481,11 @@ fn build_router(state: AppState) -> Router {
                 "/api/deviceType",
                 device_type_routes.merge(admin_device_type_routes),
             );
+        let admin_device_scoring_routes = Router::new()
+            .route("/save", post(device::save_scoring_rule))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/deviceScoringRule", admin_device_scoring_routes);
     }
     if state.config.equipment_readonly_enabled {
         let equipment_routes = Router::new()
@@ -626,6 +631,10 @@ fn build_router(state: AppState) -> Router {
         let telegram_routes = Router::new()
             .route("/getAll", post(telegram::list))
             .route("/getById", post(telegram::by_id))
+            .route(
+                "/getFloorContentByFloorId",
+                post(telegram::floor_content_by_floor_id),
+            )
             .route("/saveTelegramTrain", post(telegram_write::save))
             .route(
                 "/saveFloorContent",
@@ -993,6 +1002,10 @@ fn build_router(state: AppState) -> Router {
             .route("/exportTemplate", post(theory_question::export_template))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_question_routes = Router::new()
+            .route(
+                "/saveTheoryKnowledgeQuestion",
+                post(theory_question::save_question),
+            )
             .route("/saveBatch", post(theory_question::save_batch))
             .route(
                 "/deleteTheoryKnowledgeQuestion",
@@ -1078,6 +1091,7 @@ fn build_router(state: AppState) -> Router {
             .route("/saveUser", post(admin::save_user))
             .route("/importUser", post(admin::import_user))
             .route("/addUserRole", post(admin::add_user_role))
+            .route("/getAllUser", post(admin::get_all_user))
             .route("/delete", get(admin::delete_user))
             .route("/resetPassword", get(admin::reset_password))
             .route_layer(middleware::from_fn(require_admin))

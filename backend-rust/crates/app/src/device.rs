@@ -80,6 +80,143 @@ pub(crate) async fn list_types(State(state): State<AppState>) -> Response {
     }
 }
 
+fn validate_scoring_rules(content: Option<&str>) -> Result<(), &'static str> {
+    let content = content.ok_or("评分规则参数不能为空")?;
+    let values: Value = serde_json::from_str(content).map_err(|_| "评分规则格式无效")?;
+    let Some(values) = values.as_array() else {
+        return Err("评分规则格式无效");
+    };
+    let mut seen = [false; 3];
+    for value in values {
+        let Some(rule) = value.as_object() else {
+            return Err("评分规则项格式无效");
+        };
+        let Some(name) = rule.get("paramName").and_then(Value::as_str) else {
+            return Err("规则参数名称必须是字符串");
+        };
+        let index = match name {
+            "网路地址" => 0,
+            "单台地址" => 1,
+            "信道" => 2,
+            _ => return Err("评分规则参数重复、未知或权重超出0至100（最多两位小数）"),
+        };
+        let Some(weight) = rule.get("weight").and_then(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .or_else(|| value.as_number().map(ToString::to_string))
+        }) else {
+            return Err("规则权重格式无效");
+        };
+        let Ok(weight) = weight.parse::<rust_decimal::Decimal>() else {
+            return Err("评分规则参数重复、未知或权重超出0至100（最多两位小数）");
+        };
+        if weight < rust_decimal::Decimal::ZERO
+            || weight > rust_decimal::Decimal::from(100)
+            || weight.scale() > 2
+            || seen[index]
+        {
+            return Err("评分规则参数重复、未知或权重超出0至100（最多两位小数）");
+        }
+        seen[index] = true;
+    }
+    if seen.into_iter().all(|value| value) {
+        Ok(())
+    } else {
+        Err("必须完整配置网路地址、单台地址和信道规则")
+    }
+}
+
+pub(crate) async fn save_scoring_rule(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    if !user.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(device_id) = body.get("deviceId").and_then(Value::as_i64) else {
+        return envelope_response(StatusCode::OK, 202, "评分规则必须对应实际设备", "");
+    };
+    if let Err(message) = validate_scoring_rules(body.get("ruleContent").and_then(Value::as_str)) {
+        return envelope_response(StatusCode::OK, 202, message, "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let device_exists = sqlx::query("SELECT id FROM t_device WHERE id=? FOR UPDATE")
+        .bind(device_id)
+        .fetch_optional(&mut *tx)
+        .await;
+    if !matches!(device_exists, Ok(Some(_))) {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::OK, 202, "评分规则必须对应实际设备", "");
+    }
+    let id = body.get("id").and_then(Value::as_i64);
+    let duplicate = match sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM device_scoring_rule WHERE device_id=? AND (? IS NULL OR id<>?)",
+    )
+    .bind(device_id)
+    .bind(id)
+    .bind(id)
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(count) => count,
+        Err(_) => {
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    if duplicate != 0 {
+        let _ = tx.rollback().await;
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "该设备已有评分规则，请编辑原规则或删除重复规则",
+            "",
+        );
+    }
+    let result = if let Some(id) = id {
+        let existing =
+            sqlx::query("SELECT device_id FROM device_scoring_rule WHERE id=? FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await;
+        match existing {
+            Ok(Some(row)) if row.get::<Option<i64>, _>("device_id") == Some(device_id) => {
+                sqlx::query("UPDATE device_scoring_rule SET rule_content=? WHERE id=?")
+                    .bind(body.get("ruleContent").and_then(Value::as_str))
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await
+            }
+            Ok(Some(_)) => {
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::OK, 202, "评分规则与设备不匹配", "");
+            }
+            Ok(None) => {
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::OK, 202, "未查询到评分规则", "");
+            }
+            Err(error) => Err(error),
+        }
+    } else {
+        sqlx::query("INSERT INTO device_scoring_rule (name,device_id,rule_content,create_time) VALUES (?,?,?,NOW(6))")
+            .bind(body.get("name").and_then(Value::as_str)).bind(device_id).bind(body.get("ruleContent").and_then(Value::as_str)).execute(&mut *tx).await
+    };
+    if result.is_err() || tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_response(StatusCode::OK, 200, "ok", "")
+}
+
 pub(crate) async fn save_device(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,

@@ -175,6 +175,35 @@ pub(crate) async fn save_user(State(state): State<AppState>, Json(body): Json<Va
         }
     }
 }
+pub(crate) async fn get_all_user(
+    State(state): State<AppState>,
+    _body: Option<Json<Value>>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    // Keep this projection identical to Java's UserProfile DTO.  In particular,
+    // do not select session credentials or the password, even transiently.
+    let rows = match sqlx::query(
+        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday FROM t_user ORDER BY status DESC",
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(error) => {
+            tracing::warn!(error = %error, "admin user list query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(Value::Array(rows.iter().map(profile).collect())),
+        "ok",
+        "",
+    )
+}
 
 async fn reload_profile(
     pool: &MySqlPool,
