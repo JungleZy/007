@@ -75,6 +75,7 @@ mod theory_question;
 mod theory_test;
 mod ticker_tape;
 mod train_rule;
+mod user_training_stats;
 mod ws;
 
 const LISTEN_ADDR_ENV: &str = "RUST_BACKEND_ADDR";
@@ -1145,6 +1146,18 @@ fn build_router(state: AppState) -> Router {
                 post(admin::get_users_by_user_name_starting_with),
             )
             .route("/getUsersByIds", post(admin::get_users_by_ids))
+            .route(
+                "/getUserTrainDurationStat",
+                post(user_training_stats::get_user_train_duration_stat),
+            )
+            .route(
+                "/getRecentHandKeyTrains",
+                post(user_training_stats::get_recent_hand_key_trains),
+            )
+            .route(
+                "/getRecentElectronicKeyTrains",
+                post(user_training_stats::get_recent_electronic_key_trains),
+            )
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
@@ -2201,6 +2214,9 @@ async fn openapi() -> Json<Value> {
             "/api/user/getUsersByIds": {"post": {"responses": {"200": {"description": "User summaries for requested IDs; authenticated"}}}},
             "/api/user/getUserById": {"post": {"responses": {"200": {"description": "User profile; admin only"}}}},
             "/api/user/getUserInfoAllByStatusDesc": {"post": {"responses": {"200": {"description": "User directory with administrative fields; admin only"}}}},
+            "/api/user/getUserTrainDurationStat": {"post": {"responses": {"200": {"description": "Authenticated user's eight duration totals in seconds"}}}},
+            "/api/user/getRecentHandKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent hand-key results"}}}},
+            "/api/user/getRecentElectronicKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent electronic-key results"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
