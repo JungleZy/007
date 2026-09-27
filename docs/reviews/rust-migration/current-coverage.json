@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-27T23:20:00Z",
+  "generated_at_utc": "2026-09-27T23:30:00Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
@@ -748,7 +748,7 @@
       "static_consumers": "[{\"api_export\":\"deviceScoringRuleFindAllByDeviceId\",\"file\":\"src/common/api/TrainingDetails.js\",\"kind\":\"axios\",\"line\":28}]",
       "source_sha256": "108de650d08324b92f5a71d82b354d394e3f0e4d65e96f76bef9b9ff56b41cb7",
       "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
-      "rust_domain": "rust-phase4-device-scoring"
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -2139,8 +2139,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getMenuById\",\"file\":\"src/common/api/MenusApi.js\",\"kind\":\"axios\",\"line\":10}]",
       "source_sha256": "c62b9d75e59c7963cbabdbabb8660854285a52c6735f74e96dc1bc3ba033f08b",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -4778,8 +4778,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getRoleById\",\"file\":\"src/common/api/RoleApi.js\",\"kind\":\"axios\",\"line\":10}]",
       "source_sha256": "3548aa554c656b21d053b92925c1bf67d8831e09a9597c95d412f208f030e6bb",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "GET",
@@ -4807,8 +4807,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getRoleMenusInfo\",\"file\":\"src/common/api/RoleApi.js\",\"kind\":\"axios\",\"line\":17}]",
       "source_sha256": "3548aa554c656b21d053b92925c1bf67d8831e09a9597c95d412f208f030e6bb",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -4924,7 +4924,7 @@
       "static_consumers": "[{\"api_export\":\"getFloorContentByFloorIdAsync\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":176}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
       "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
-      "rust_domain": "rust-phase5-remaining-active-rest"
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -4952,8 +4952,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getFloorContentByFloor\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":183}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5126,8 +5126,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getTelegramTrainLog\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":199}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5155,8 +5155,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getBasicSetting\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":215}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5184,8 +5184,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveBasicSetting\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":207}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5213,8 +5213,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveHandKeyBasicTrain\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":304}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5242,8 +5242,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"findHandKeyTrainTotal\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":129}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -5271,8 +5271,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"findPrevHandKeyTrainInfo\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":312}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -6083,8 +6083,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getBasicTheoryOpen\",\"file\":\"src/common/api/TheoryKnowledgeApi.js\",\"kind\":\"axios\",\"line\":11}]",
       "source_sha256": "ae8a9a58c24b5f5b3567f28aceaff0bcd90242f1e196216ea6b4c32ad1ac72f1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -6228,8 +6228,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveTheoryKnowledge\",\"file\":\"src/common/api/TheoryKnowledgeApi.js\",\"kind\":\"axios\",\"line\":40}]",
       "source_sha256": "ae8a9a58c24b5f5b3567f28aceaff0bcd90242f1e196216ea6b4c32ad1ac72f1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -6257,8 +6257,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveTheoryKnowledgeRecord\",\"file\":\"src/common/api/TestApi.js\",\"kind\":\"axios\",\"line\":52}]",
       "source_sha256": "ae8a9a58c24b5f5b3567f28aceaff0bcd90242f1e196216ea6b4c32ad1ac72f1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -6808,8 +6808,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"findAllTheoryKnowledgeExamUser\",\"file\":\"src/common/api/TestApi.js\",\"kind\":\"axios\",\"line\":114}]",
       "source_sha256": "af58da76110b73ec03d7f57f8288910e91afc8ae9adb97c6a1481d1176552778",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -6982,8 +6982,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"deleteTheoryKnowledgeQuestionLevelById\",\"file\":\"src/common/api/TheoryQuestionBankApi.js\",\"kind\":\"axios\",\"line\":17}]",
       "source_sha256": "20585824d7a3b88ae2048cb03d63dfd5f3c3afb483117fd8b727e3205e31b254",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -7069,8 +7069,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"exportQuestionBank\",\"file\":\"src/common/api/TheoryQuestionBankApi.js\",\"kind\":\"axios\",\"line\":58}]",
       "source_sha256": "20585824d7a3b88ae2048cb03d63dfd5f3c3afb483117fd8b727e3205e31b254",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -7156,8 +7156,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveTheoryKnowledgeTest\",\"file\":\"src/common/api/TestApi.js\",\"kind\":\"axios\",\"line\":3}]",
       "source_sha256": "b5c6a25137abc98903f45494334d77a3d92bcb3d50440e78839966170925705c",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -7185,8 +7185,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveUserKnowledgeSwfTestContent\",\"file\":\"src/common/api/TestApi.js\",\"kind\":\"axios\",\"line\":31}]",
       "source_sha256": "b5c6a25137abc98903f45494334d77a3d92bcb3d50440e78839966170925705c",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -8026,8 +8026,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getUserAll\",\"file\":\"src/common/api/UserApi.js\",\"kind\":\"axios\",\"line\":46},{\"api_export\":\"getUserDirectory\",\"file\":\"src/common/api/broadcastTeachingApi.js\",\"kind\":\"axios\",\"line\":4}]",
       "source_sha256": "0bee21a15c940f2d6db332160b2b98f78d614a593d754fadb8d6fdfd476202d1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -8113,8 +8113,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getUserAndRoleById\",\"file\":\"src/common/api/StructureApi.js\",\"kind\":\"axios\",\"line\":11}]",
       "source_sha256": "0bee21a15c940f2d6db332160b2b98f78d614a593d754fadb8d6fdfd476202d1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -8229,8 +8229,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getAllTeacher\",\"file\":\"src/common/api/UserApi.js\",\"kind\":\"axios\",\"line\":58}]",
       "source_sha256": "0bee21a15c940f2d6db332160b2b98f78d614a593d754fadb8d6fdfd476202d1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "POST",
@@ -8258,8 +8258,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getAllStudent\",\"file\":\"src/common/api/UserApi.js\",\"kind\":\"axios\",\"line\":52}]",
       "source_sha256": "0bee21a15c940f2d6db332160b2b98f78d614a593d754fadb8d6fdfd476202d1",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase3"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-7-active-rest"
     },
     {
       "method": "GET",
