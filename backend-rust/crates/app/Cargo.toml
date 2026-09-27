@@ -28,6 +28,7 @@ md-5.workspace = true
 pbkdf2.workspace = true
 rand.workspace = true
 rust_decimal.workspace = true
+chrono.workspace = true
 subtle.workspace = true
 
 [dev-dependencies]

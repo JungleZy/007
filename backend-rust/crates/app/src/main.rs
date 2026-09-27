@@ -638,24 +638,43 @@ fn build_router(state: AppState) -> Router {
         let telegram_routes = Router::new()
             .route("/getAll", post(telegram::list))
             .route("/getById", post(telegram::by_id))
-            .route("/saveTelegramTrain", post(telegram_write::save))
             .route(
                 "/getFloorContentByFloorId",
                 post(telegram::floor_content_by_floor_id),
             )
             .route(
                 "/getFloorContentByFloorIdAsync",
-                post(telegram::floor_content_by_floor_id),
+                post(telegram::floor_content_by_floor_id_async),
             )
+            .route(
+                "/getFloorContentByFloor",
+                post(telegram::floor_content_by_floor),
+            )
+            .route(
+                "/getTelegramTrainLog",
+                post(telegram::get_telegram_train_log),
+            )
+            .route("/getSetting", post(telegram::get_setting))
+            .route("/statisticalPage", post(telegram::statistical_page))
+            .route("/lastTrain", post(telegram::last_train))
+            .route("/saveTelegramTrain", post(telegram_write::save))
             .route(
                 "/saveFloorContent",
                 post(telegram_write::save_floor_content),
             )
+            .route("/saveBaseTrain", post(telegram_write::save_base_train))
             .route("/startTelegramTrain", post(telegram_write::start))
             .route("/pauseTelegramTrain", post(telegram_write::pause))
             .route("/endTelegramTrain", post(telegram_write::end))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/telegramTrain", telegram_routes);
+        let telegram_admin_routes = Router::new()
+            .route("/saveSetting", post(telegram_write::save_setting))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest(
+            "/api/telegramTrain",
+            telegram_routes.merge(telegram_admin_routes),
+        );
     }
     if state.config.post_telegram_readonly_enabled {
         let post_telegram_routes = Router::new()
@@ -932,6 +951,8 @@ fn build_router(state: AppState) -> Router {
         let theory_routes = Router::new()
             .route("/listPageClassify", post(theory::list_classify))
             .route("/getBasicTheory", post(theory::list_basic))
+            .route("/getBasicTheoryOpen", post(theory::list_open))
+            .route("/saveTheoryKnowledgeRecord", post(theory::save_record))
             .route("/recordStatistice", post(theory::record_statistics))
             .route("/gradeCount", post(theory::grade_count))
             .route("/getById", post(theory_detail::by_id))
@@ -939,6 +960,10 @@ fn build_router(state: AppState) -> Router {
             .route("/uploadFileToNip", post(theory_file::upload))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let test_routes = Router::new()
+            .route(
+                "/saveUserKnowledgeSwfTestContent",
+                post(theory_test::save_user),
+            )
             .route("/getTestBySwfId", post(theory_test::by_swf))
             .route("/getByKnowledgeSwfIdAndEnable", post(theory_test::enabled))
             .route(
@@ -951,7 +976,12 @@ fn build_router(state: AppState) -> Router {
             )
             .route("/getTestContentById", post(theory_test::by_id))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_test_routes = Router::new()
+            .route("/saveTheoryKnowledgeTest", post(theory_test::save))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_theory_routes = Router::new()
+            .route("/saveTheoryKnowledge", post(theory::save_knowledge))
             .route("/addClassify", post(theory::save_classify))
             .route("/removeClassify", post(theory::delete_classify))
             .route("/deleteThroyKnowledgeById", post(theory::delete_knowledge))
@@ -962,7 +992,10 @@ fn build_router(state: AppState) -> Router {
                 "/api/theoryKnowledge",
                 theory_routes.merge(admin_theory_routes),
             )
-            .nest("/api/theoryKnowledgeTest", test_routes);
+            .nest(
+                "/api/theoryKnowledgeTest",
+                test_routes.merge(admin_test_routes),
+            );
     }
     if state.config.telex_readonly_enabled {
         let telex_routes = Router::new()
@@ -1021,6 +1054,14 @@ fn build_router(state: AppState) -> Router {
                 "/saveTheoryKnowledgeQuestionLevel",
                 post(question_level::save_level),
             )
+            .route(
+                "/exportQuestionByLevelId",
+                post(theory_question::export_questions),
+            )
+            .route(
+                "/deleteTheoryKnowledgeQuestionLevelById",
+                post(theory_question::delete_level),
+            )
             .route("/saveBatch", post(theory_question::save_batch))
             .route(
                 "/deleteTheoryKnowledgeQuestion",
@@ -1073,6 +1114,7 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let exam_user_routes = Router::new()
+            .route("/findAllTheoryKnowledgeExamUser", post(exam::user_list))
             .route("/findExamUser", post(exam::find_exam_user))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_exam_user_routes = Router::new()
@@ -1095,18 +1137,25 @@ fn build_router(state: AppState) -> Router {
             .route("/userOut", post(user_logout))
             .route("/changePassword", post(change_password))
             .route("/verifyPassword", post(verify_password))
+            .route("/getUserDirectory", post(admin::get_user_directory))
+            .route("/findAllTeacher", post(admin::find_all_teacher))
+            .route("/findAllStu", post(admin::find_all_stu))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
+            .route("/getMenuById", get(admin::get_menu_by_id))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let role_routes = Router::new()
             .route("/getRoleAll", post(role_get_all))
+            .route("/getRoleById", get(admin::get_role_by_id))
+            .route("/getRoleMenusInfo", get(admin::get_role_menus_info))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_user_routes = Router::new()
             .route("/saveUser", post(admin::save_user))
             .route("/importUser", post(admin::import_user))
             .route("/addUserRole", post(admin::add_user_role))
             .route("/getAllUser", post(admin::get_all_user))
+            .route("/getUserAndRoleById", post(admin::get_user_and_role_by_id))
             .route("/delete", get(admin::delete_user))
             .route("/resetPassword", get(admin::reset_password))
             .route_layer(middleware::from_fn(require_admin))

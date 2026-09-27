@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use axum::{
-    extract::{Query, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     response::Response,
     Json,
@@ -635,4 +635,427 @@ pub(crate) async fn add_menu(State(state): State<AppState>, Json(body): Json<Val
         "ok",
         "",
     )
+}
+
+fn user_summary(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "userName": row.get::<Option<String>, _>("user_name"),
+        "userAccount": row.get::<Option<String>, _>("user_account"),
+        "userImg": row.get::<Option<String>, _>("user_img")
+    })
+}
+
+fn role_value(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "title": row.get::<Option<String>, _>("title"),
+        "remark": row.get::<Option<String>, _>("remark"),
+        "isAdmin": row.get::<Option<i32>, _>("is_admin"),
+        "isDefault": row.get::<Option<i32>, _>("is_default")
+    })
+}
+
+fn button_value(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "menusId": row.get::<Option<String>, _>("menus_id"),
+        "title": row.get::<Option<String>, _>("title"),
+        "key": row.get::<Option<String>, _>("key")
+    })
+}
+
+fn menu_entity_value(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "parentId": row.get::<Option<String>, _>("parent_id"),
+        "key": row.get::<Option<String>, _>("key"),
+        "path": row.get::<Option<String>, _>("path"),
+        "name": row.get::<Option<String>, _>("name"),
+        "icon": row.get::<Option<String>, _>("icon"),
+        "iconF": row.get::<Option<String>, _>("icon_f"),
+        "height": row.get::<Option<String>, _>("height"),
+        "title": row.get::<Option<String>, _>("title"),
+        "isMenu": row.get::<Option<i32>, _>("is_menu"),
+        "isBread": row.get::<Option<i32>, _>("is_bread"),
+        "component": row.get::<Option<String>, _>("component"),
+        "sort": row.get::<Option<i32>, _>("sort"),
+        "keepAlive": row.get::<Option<i32>, _>("keep_alive")
+    })
+}
+
+fn role_menu_value(row: &sqlx::mysql::MySqlRow, permissions: &[Value]) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "parentId": row.get::<Option<String>, _>("parent_id"),
+        "key": row.get::<Option<String>, _>("key"),
+        "path": row.get::<Option<String>, _>("path"),
+        "name": row.get::<Option<String>, _>("name"),
+        "icon": row.get::<Option<String>, _>("icon"),
+        "iconF": row.get::<Option<String>, _>("icon_f"),
+        "height": row.get::<Option<String>, _>("height"),
+        "title": row.get::<Option<String>, _>("title"),
+        "isMenu": row.get::<Option<i32>, _>("is_menu"),
+        "isBread": row.get::<Option<i32>, _>("is_bread"),
+        "component": row.get::<Option<String>, _>("component"),
+        "sort": row.get::<Option<i32>, _>("sort"),
+        "per": row.get::<Option<String>, _>("per"),
+        "permissions": permissions
+    })
+}
+
+fn group_buttons(rows: Vec<sqlx::mysql::MySqlRow>) -> HashMap<String, Vec<Value>> {
+    let mut grouped = HashMap::new();
+    for row in rows {
+        let menu_id = row.get::<String, _>("menus_id");
+        grouped
+            .entry(menu_id)
+            .or_insert_with(Vec::new)
+            .push(button_value(&row));
+    }
+    grouped
+}
+
+async fn role_menu_values(pool: &MySqlPool, role_id: &str) -> Result<Vec<Value>, sqlx::Error> {
+    let menu_rows = sqlx::query(
+        "SELECT m.id, m.parent_id, m.`key`, m.path, m.name, m.icon, m.icon_f, m.height, m.title, m.is_menu, m.is_bread, m.component, m.sort, rm.per FROM t_menus m JOIN t_role_menus rm ON rm.menu_id = m.id WHERE rm.role_id = ? ORDER BY m.sort",
+    )
+    .bind(role_id)
+    .fetch_all(pool)
+    .await?;
+    let buttons = sqlx::query("SELECT id, menus_id, title, `key` FROM t_menus_button WHERE menus_id IN (SELECT menu_id FROM t_role_menus WHERE role_id = ?) ORDER BY menus_id, id")
+        .bind(role_id)
+        .fetch_all(pool)
+        .await
+        .map(group_buttons)?;
+    Ok(menu_rows
+        .iter()
+        .map(|row| {
+            let id = row.get::<String, _>("id");
+            role_menu_value(row, buttons.get(&id).map(Vec::as_slice).unwrap_or(&[]))
+        })
+        .collect())
+}
+
+fn all_menu_tree_nodes(
+    parent_id: &str,
+    by_parent: &HashMap<String, Vec<super::MenuRow>>,
+    permissions: &HashMap<String, Vec<Value>>,
+) -> Vec<Value> {
+    by_parent
+        .get(parent_id)
+        .map(|rows| {
+            rows.iter()
+                .map(|row| {
+                    let children = all_menu_tree_nodes(&row.id, by_parent, permissions);
+                    json!({
+                        "id": row.id,
+                        "parentId": Value::Null,
+                        "key": row.key,
+                        "path": row.path,
+                        "name": row.name,
+                        "meta": {
+                            "icon": row.icon,
+                            "iconF": row.icon_f,
+                            "height": row.height,
+                            "title": row.title,
+                            "isMenu": row.is_menu == Some(0),
+                            "isBread": row.is_bread == Some(0)
+                        },
+                        "component": row.component,
+                        "sort": row.sort,
+                        "permissions": permissions.get(&row.id).map(Vec::as_slice).unwrap_or(&[]),
+                        "children": children
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+async fn all_menu_tree(pool: &MySqlPool) -> Result<Value, sqlx::Error> {
+    let menu_rows = sqlx::query(
+        "SELECT id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort FROM t_menus ORDER BY sort",
+    )
+    .fetch_all(pool)
+    .await?;
+    let button_rows =
+        sqlx::query("SELECT id, menus_id, title, `key` FROM t_menus_button ORDER BY menus_id, id")
+            .fetch_all(pool)
+            .await?;
+    let mut by_parent: HashMap<String, Vec<super::MenuRow>> = HashMap::new();
+    for row in menu_rows {
+        let menu = super::MenuRow {
+            id: row.get("id"),
+            parent_id: row
+                .get::<Option<String>, _>("parent_id")
+                .unwrap_or_else(|| "-1".into()),
+            key: row.get("key"),
+            path: row.get("path"),
+            name: row.get("name"),
+            icon: row.get("icon"),
+            icon_f: row.get("icon_f"),
+            height: row.get("height"),
+            title: row.get("title"),
+            is_menu: row.get("is_menu"),
+            is_bread: row.get("is_bread"),
+            component: row.get("component"),
+            sort: row.get("sort"),
+        };
+        by_parent
+            .entry(menu.parent_id.clone())
+            .or_default()
+            .push(menu);
+    }
+    let permissions = group_buttons(button_rows);
+    Ok(json!(all_menu_tree_nodes("-1", &by_parent, &permissions)))
+}
+
+pub(crate) async fn get_user_directory(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query(
+        "SELECT id, user_name, user_account, user_img FROM t_user ORDER BY status DESC",
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(Value::Array(rows.iter().map(user_summary).collect())),
+            "ok",
+            "",
+        ),
+        Err(error) => {
+            tracing::warn!(error = %error, "user directory query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn get_user_and_role_by_id(
+    State(state): State<AppState>,
+    user: Extension<super::AuthUser>,
+    body: Option<Json<Value>>,
+) -> Response {
+    if !user.0.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(Json(body)) = body else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(user_id) = body
+        .get("userId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let user_row = match sqlx::query(
+        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday FROM t_user WHERE id = ? LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该用户", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, user_id, "user and role profile query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let role_row = match sqlx::query(
+        "SELECT r.id, r.title, r.remark, r.is_admin, r.is_default FROM t_role r JOIN t_user_role ur ON ur.role_id = r.id WHERE ur.user_id = ? LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 500, "数据异常", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, user_id, "user role query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({
+            "user": profile(&user_row),
+            "role": role_value(&role_row),
+            "menus": Value::Null
+        })),
+        "ok",
+        "",
+    )
+}
+
+async fn find_users_by_role(pool: &MySqlPool, role_id: &str) -> Result<Vec<Value>, sqlx::Error> {
+    let rows = sqlx::query(
+        "SELECT u.id, u.user_name, u.user_account FROM t_user u JOIN t_user_role ur ON ur.user_id = u.id WHERE ur.role_id = ?",
+    )
+    .bind(role_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .iter()
+        .map(|row| {
+            json!({
+                "id": row.get::<String, _>("id"),
+                "userName": row.get::<Option<String>, _>("user_name"),
+                "userAccount": row.get::<Option<String>, _>("user_account")
+            })
+        })
+        .collect())
+}
+
+pub(crate) async fn find_all_teacher(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+) -> Response {
+    find_all_by_role(State(state), "1").await
+}
+
+pub(crate) async fn find_all_stu(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+) -> Response {
+    find_all_by_role(State(state), "2").await
+}
+
+async fn find_all_by_role(State(state): State<AppState>, role_id: &str) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match find_users_by_role(pool, role_id).await {
+        Ok(users) => envelope_json(StatusCode::OK, 200, Some(json!(users)), "ok", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, role_id, "role user list query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn get_menu_by_id(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    let Some(id) = query.get("id").filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let menu_row = match sqlx::query(
+        "SELECT id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort, keep_alive FROM t_menus WHERE id = ? LIMIT 1",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该菜单", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, menu_id = id, "menu query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let permissions = match sqlx::query(
+        "SELECT id, menus_id, title, `key` FROM t_menus_button WHERE menus_id = ? ORDER BY id",
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => rows.iter().map(button_value).collect::<Vec<_>>(),
+        Err(error) => {
+            tracing::warn!(error = %error, menu_id = id, "menu permissions query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"menus": menu_entity_value(&menu_row), "permissions": permissions})),
+        "ok",
+        "",
+    )
+}
+
+pub(crate) async fn get_role_by_id(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    get_role_view(state, query, false).await
+}
+
+pub(crate) async fn get_role_menus_info(
+    State(state): State<AppState>,
+    _user: Extension<super::AuthUser>,
+    Query(query): Query<HashMap<String, String>>,
+) -> Response {
+    get_role_view(state, query, true).await
+}
+
+async fn get_role_view(
+    state: AppState,
+    query: HashMap<String, String>,
+    with_tree: bool,
+) -> Response {
+    let Some(role_id) = query.get("id").filter(|value| !value.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let role_row = match sqlx::query(
+        "SELECT id, title, remark, is_admin, is_default FROM t_role WHERE id = ? LIMIT 1",
+    )
+    .bind(role_id)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该角色", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, role_id, "role query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let menus_checked = match role_menu_values(pool, role_id).await {
+        Ok(menus) => menus,
+        Err(error) => {
+            tracing::warn!(error = %error, role_id, "role menu query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let data = if with_tree {
+        let menus_all = match all_menu_tree(pool).await {
+            Ok(menus) => menus,
+            Err(error) => {
+                tracing::warn!(error = %error, role_id, "all menu tree query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+        json!({
+            "role": role_value(&role_row),
+            "menusAll": menus_all,
+            "menusChecked": menus_checked
+        })
+    } else {
+        json!({"role": role_value(&role_row), "menus": menus_checked})
+    };
+    envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
 }

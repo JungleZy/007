@@ -509,10 +509,110 @@ pub(crate) async fn self_list(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT e.title,e.start_time,u.score,u.content,u.exam_id FROM t_theory_knowledge_exam_user u LEFT JOIN t_theory_knowledge_exam e ON e.id=u.exam_id WHERE u.user_id=? AND u.is_self_testing=0 ORDER BY u.start_time DESC").bind(&user.id).fetch_all(pool).await {
-        Ok(rows)=>envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(|row|json!({"title":row.get::<Option<String>,_>("title"),"start_time":row.get::<Option<String>,_>("start_time"),"score":row.get::<Option<i32>,_>("score"),"content":row.get::<Option<String>,_>("content"),"examId":row.get::<Option<String>,_>("exam_id")})).collect::<Vec<_>>())),"ok",""),
-        Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")
+    match self_list_data(pool, &user.id).await {
+        Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
+}
+
+async fn self_list_data(pool: &sqlx::MySqlPool, user_id: &str) -> Result<Value, sqlx::Error> {
+    let rows = sqlx::query(
+        "SELECT e.title,u.start_time,u.score,u.content,u.exam_id \
+         FROM t_theory_knowledge_exam_user u \
+         LEFT JOIN t_theory_knowledge_exam e ON e.id=u.exam_id \
+         WHERE u.user_id=? AND u.is_self_testing=0 ORDER BY u.start_time DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(Value::Array(
+        rows.iter()
+            .map(|row| {
+                json!({
+                    "title": row.get::<Option<String>, _>("title"),
+                    "start_time": row.get::<Option<String>, _>("start_time"),
+                    "score": row.get::<Option<i32>, _>("score"),
+                    "content": row.get::<Option<String>, _>("content"),
+                    "examId": row.get::<Option<String>, _>("exam_id"),
+                })
+            })
+            .collect(),
+    ))
+}
+
+pub(crate) async fn user_list(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let kind = body.get("type").and_then(Value::as_bool);
+    let exam_state = body.get("state").and_then(Value::as_bool);
+    if kind != Some(true) && exam_state.is_none() {
+        return envelope_response(StatusCode::OK, 202, "state 不能为空", "state 不能为空");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut exam = Value::Null;
+    if kind != Some(true) {
+        // Match Java's named-query precedence: state 1 does not filter self-testing.
+        let rows = sqlx::query(
+            "SELECT e.id,e.title,e.start_time,e.end_time,e.duration,e.create_user_id,\
+             e.create_time,e.teacher,e.state,u.state AS user_state,t.user_name AS teacher_name \
+             FROM t_theory_knowledge_exam_user u \
+             LEFT JOIN t_theory_knowledge_exam e ON e.id=u.exam_id \
+             LEFT JOIN t_user t ON t.id=e.teacher \
+             WHERE u.user_id=? AND ((? AND (e.state=1 OR (e.state=2 AND u.is_self_testing=1))) \
+             OR (NOT ? AND e.state=4 AND u.is_self_testing=1)) ORDER BY e.start_time DESC",
+        )
+        .bind(&user.id)
+        .bind(exam_state == Some(true))
+        .bind(exam_state == Some(true))
+        .fetch_all(pool)
+        .await;
+        let rows = match rows {
+            Ok(rows) => rows,
+            Err(_) => {
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+            }
+        };
+        exam = Value::Array(
+            rows.iter()
+                .map(|row| {
+                    json!({
+                        "userState": row.get::<Option<i32>, _>("user_state"),
+                        "teacherName": row.get::<Option<String>, _>("teacher_name"),
+                        "id": row.get::<String, _>("id"),
+                        "title": row.get::<Option<String>, _>("title"),
+                        "start_time": row.get::<Option<String>, _>("start_time"),
+                        "end_time": row.get::<Option<String>, _>("end_time"),
+                        "duration": row.get::<Option<String>, _>("duration"),
+                        "create_user_id": row.get::<Option<String>, _>("create_user_id"),
+                        "create_time": row.get::<Option<String>, _>("create_time"),
+                        "teacher": row.get::<Option<String>, _>("teacher"),
+                        "state": row.get::<Option<i32>, _>("state"),
+                    })
+                })
+                .collect(),
+        );
+    }
+    let exam_self = if kind != Some(false) {
+        match self_list_data(pool, &user.id).await {
+            Ok(data) => data,
+            Err(_) => {
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+            }
+        }
+    } else {
+        Value::Null
+    };
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({"exam": exam, "examSelf": exam_self})),
+        "ok",
+        "",
+    )
 }
 
 pub(crate) async fn find_exam_user(

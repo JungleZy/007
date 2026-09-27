@@ -17,9 +17,9 @@ pub(crate) struct TrainIdRequest {
     train_id: Option<String>,
 }
 
-const TRAIN_COLUMNS: &str = "id,title,start_time,pause_time,end_time,sustain_time,type,status,total_knock_number,total_number,error_number,accuracy,speed,rate_dot_min_ms,rate_dot_max_ms,rate_line_min_ms,rate_line_max_ms,rate_interval_min_ms,rate_interval_max_ms,big_interval_min_ms,big_interval_max_ms,create_user_id,create_time,now_floor_id,protocol_version,active_since,accumulated_active_millis";
+pub(crate) const TRAIN_COLUMNS: &str = "id,title,start_time,pause_time,end_time,sustain_time,type,status,total_knock_number,total_number,error_number,accuracy,speed,rate_dot_min_ms,rate_dot_max_ms,rate_line_min_ms,rate_line_max_ms,rate_interval_min_ms,rate_interval_max_ms,big_interval_min_ms,big_interval_max_ms,create_user_id,create_time,now_floor_id,protocol_version,active_since,accumulated_active_millis";
 
-fn train_json(row: &sqlx::mysql::MySqlRow) -> Value {
+pub(crate) fn train_json(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({
         "id": row.get::<String, _>("id"),
         "title": row.get::<Option<String>, _>("title"),
@@ -114,22 +114,22 @@ pub(crate) async fn by_id(
     let Ok(pool) = pool_or_error(&state).await else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let sql = format!(
-        "SELECT {TRAIN_COLUMNS} FROM t_telegram_train WHERE id=? AND create_user_id=? LIMIT 1"
-    );
-    let Some(train) = (match sqlx::query(&sql)
-        .bind(&train_id)
-        .bind(&user.id)
-        .fetch_optional(pool)
-        .await
+    let train = match sqlx::query(&format!(
+        "SELECT {TRAIN_COLUMNS} FROM t_telegram_train WHERE id=? LIMIT 1"
+    ))
+    .bind(&train_id)
+    .fetch_optional(pool)
+    .await
     {
-        Ok(row) => row,
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练", ""),
         Err(_) => {
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
-    }) else {
-        return envelope_response(StatusCode::OK, 207, "无权限", "");
     };
+    if train.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
     let train_value = train_json(&train);
     let floors = match sqlx::query("SELECT id,train_id,sort,type,number_type,content_number FROM t_telegram_train_floor WHERE train_id=? ORDER BY sort")
         .bind(&train_id).fetch_all(pool).await {
@@ -228,4 +228,264 @@ pub(crate) async fn floor_content_by_floor_id(
         }
     }
     envelope_json(StatusCode::OK, 200, Some(Value::Object(result)), "ok", "")
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct FloorPageRequest {
+    #[serde(rename = "trainId")]
+    train_id: Option<String>,
+    #[serde(rename = "pageNumber")]
+    page_number: Option<i32>,
+}
+
+fn decimal_value(value: Option<rust_decimal::Decimal>) -> Value {
+    value
+        .and_then(|value| value.to_string().parse::<serde_json::Number>().ok())
+        .map(Value::Number)
+        .unwrap_or(Value::Null)
+}
+
+fn log_json(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "telegramTrainId": row.get::<Option<String>, _>("telegram_train_id"),
+        "type": row.get::<Option<i32>, _>("type"),
+        "value": row.get::<Option<String>, _>("value"),
+        "creatTime": row.get::<Option<String>, _>("creat_time")
+    })
+}
+
+fn setting_json(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "type": row.get::<Option<i32>, _>("type"),
+        "key": row.get::<Option<String>, _>("key"),
+        "value": row.get::<Option<String>, _>("value")
+    })
+}
+
+fn statistical_json(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({
+        "id": row.get::<String, _>("id"),
+        "type": row.get::<Option<i32>, _>("type"),
+        "totalCount": row.get::<Option<i32>, _>("total_count"),
+        "totalTime": row.get::<Option<String>, _>("total_time"),
+        "avgSpeed": decimal_value(row.get::<Option<rust_decimal::Decimal>, _>("avg_speed")),
+        "userId": row.get::<Option<String>, _>("user_id")
+    })
+}
+
+pub(crate) async fn floor_content_by_floor(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<FloorPageRequest>,
+) -> Response {
+    let Some(train_id) = body.train_id.filter(|id| !id.is_empty()) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(page_number) = body.page_number.filter(|page| *page >= 0) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let floor = match sqlx::query("SELECT f.id,t.create_user_id FROM t_telegram_train_floor f JOIN t_telegram_train t ON t.id=f.train_id WHERE f.train_id=? AND f.sort=? LIMIT 1")
+        .bind(&train_id).bind(page_number).fetch_optional(pool).await {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练的报底", ""),
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
+    if floor.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return envelope_response(StatusCode::OK, 207, "无权访问他人训练", "");
+    }
+    let floor_id = floor.get::<String, _>("id");
+    let rows = match sqlx::query("SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id=? ORDER BY sort")
+        .bind(&floor_id).fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
+    // Java sends this page through the user's websocket and returns an empty
+    // success envelope. Returning the same payload also keeps HTTP-only Rust
+    // clients useful; websocket delivery remains the parity boundary.
+    let contents = rows.iter().map(content_json).collect::<Vec<_>>();
+    let mut page = serde_json::Map::new();
+    page.insert(floor_id, Value::Array(contents));
+    envelope_json(StatusCode::OK, 200, Some(Value::Object(page)), "ok", "")
+}
+
+pub(crate) async fn floor_content_by_floor_id_async(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(train_id) = body
+        .get("trainId")
+        .or_else(|| body.get("id"))
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let train = match sqlx::query("SELECT create_user_id FROM t_telegram_train WHERE id=? LIMIT 1")
+        .bind(train_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练", ""),
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if train.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let floors =
+        match sqlx::query("SELECT id FROM t_telegram_train_floor WHERE train_id=? ORDER BY sort")
+            .bind(train_id)
+            .fetch_all(pool)
+            .await
+        {
+            Ok(rows) => rows,
+            Err(_) => {
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+            }
+        };
+    let mut result = serde_json::Map::new();
+    for floor in floors {
+        let floor_id = floor.get::<String, _>("id");
+        let rows = match sqlx::query("SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id=? ORDER BY sort").bind(&floor_id).fetch_all(pool).await {
+            Ok(rows) => rows,
+            Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+        };
+        result.insert(
+            floor_id,
+            Value::Array(rows.iter().map(content_json).collect()),
+        );
+    }
+    envelope_json(StatusCode::OK, 200, Some(Value::Object(result)), "ok", "")
+}
+
+pub(crate) async fn get_telegram_train_log(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(train_id) = body
+        .get("id")
+        .or_else(|| body.get("trainId"))
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let train = match sqlx::query("SELECT create_user_id FROM t_telegram_train WHERE id=? LIMIT 1")
+        .bind(train_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练", ""),
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if train.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    match sqlx::query("SELECT id,telegram_train_id,type,value,creat_time FROM t_telegram_train_log WHERE telegram_train_id=? ORDER BY creat_time ASC")
+        .bind(train_id).fetch_all(pool).await {
+        Ok(rows) => envelope_json(StatusCode::OK, 200, Some(Value::Array(rows.iter().map(log_json).collect())), "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
+
+pub(crate) async fn get_setting(State(state): State<AppState>) -> Response {
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,`key`,value FROM t_telegram_train_setting ORDER BY id")
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(Value::Array(rows.iter().map(setting_json).collect())),
+            "ok",
+            "",
+        ),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
+}
+
+pub(crate) async fn statistical_page(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+) -> Response {
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    let rows = match sqlx::query("SELECT id,type,total_count,total_time,avg_speed,user_id FROM t_telegram_train_statistical WHERE user_id=? ORDER BY type FOR UPDATE")
+        .bind(&user.id).fetch_all(&mut *tx).await {
+        Ok(rows) => rows,
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
+    let mut result = rows.iter().map(statistical_json).collect::<Vec<_>>();
+    for kind in 0..=2 {
+        if result
+            .iter()
+            .any(|row| row.get("type").and_then(Value::as_i64) == Some(kind))
+        {
+            continue;
+        }
+        let id = uuid::Uuid::new_v4().to_string();
+        if sqlx::query("INSERT INTO t_telegram_train_statistical (id,type,total_count,total_time,avg_speed,user_id) VALUES (?,?,0,'0',0,?)")
+            .bind(&id).bind(kind as i32).bind(&user.id).execute(&mut *tx).await.is_err() {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+        result.push(json!({"id":id,"type":kind,"totalCount":0,"totalTime":"0","avgSpeed":0,"userId":user.id.clone()}));
+    }
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    result.sort_by_key(|row| row.get("type").and_then(Value::as_i64).unwrap_or(i64::MAX));
+    envelope_json(StatusCode::OK, 200, Some(Value::Array(result)), "ok", "")
+}
+
+pub(crate) async fn last_train(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
+    let train_type = body
+        .get("type")
+        .and_then(Value::as_i64)
+        .map(|value| value as i32);
+    let Ok(pool) = pool_or_error(&state).await else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let row = match train_type {
+        Some(kind) => sqlx::query(&format!("SELECT {TRAIN_COLUMNS} FROM t_telegram_train WHERE create_user_id=? AND type=? ORDER BY create_time DESC LIMIT 1"))
+            .bind(&user.id).bind(kind).fetch_optional(pool).await,
+        None => sqlx::query(&format!("SELECT {TRAIN_COLUMNS} FROM t_telegram_train WHERE create_user_id=? AND type IS NULL ORDER BY create_time DESC LIMIT 1"))
+            .bind(&user.id).fetch_optional(pool).await,
+    };
+    match row {
+        Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(train_json(&row)), "ok", ""),
+        Ok(None) => envelope_json(StatusCode::OK, 200, Some(Value::Null), "ok", ""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    }
 }

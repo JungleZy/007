@@ -9,6 +9,9 @@ use sqlx::Row;
 use std::collections::HashSet;
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
+fn question_value(row: &sqlx::mysql::MySqlRow) -> Value {
+    json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time"),"levelId":row.get::<Option<String>,_>("level_id")})
+}
 
 pub(crate) async fn save_question(
     State(state): State<AppState>,
@@ -121,6 +124,66 @@ pub(crate) async fn list_questions(
     let data=rows.into_iter().filter(|row| ids.contains(&row.get::<String,_>("level_id")) && kind.is_none_or(|v|row.get::<Option<i32>,_>("type")==Some(v)) && row.get::<Option<String>,_>("topic").is_none_or(|v|v.contains(name))).map(|row|json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time"),"levelId":row.get::<Option<String>,_>("level_id"),"createUserName":Value::Null})).collect::<Vec<_>>();
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
 }
+pub(crate) async fn export_questions(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(level_id) = body
+        .get("levelId")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,type,topic,options,answer,analysis,create_user_id,create_time,level_id FROM t_theory_question WHERE level_id=? ORDER BY create_time DESC").bind(level_id).fetch_all(pool).await {
+        Ok(rows) => envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(question_value).collect::<Vec<_>>())),"ok",""),
+        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")
+    }
+}
+
+pub(crate) async fn delete_level(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Response {
+    let Some(id) = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+    else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("DELETE FROM t_theory_question WHERE level_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .is_err()
+        || sqlx::query("DELETE FROM t_theory_question_level WHERE id=?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .is_err()
+    {
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let rows = match sqlx::query("SELECT id,parent_id,name,create_user_id,create_time FROM t_theory_question_level ORDER BY create_time DESC").fetch_all(&mut *tx).await { Ok(rows) => rows, Err(_) => { let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); } };
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(StatusCode::OK,200,Some(json!(rows.iter().map(|row| json!({"id":row.get::<String,_>("id"),"parentId":row.get::<Option<String>,_>("parent_id"),"name":row.get::<Option<String>,_>("name"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time")})).collect::<Vec<_>>())),"ok","")
+}
 
 pub(crate) async fn export_template() -> Response {
     envelope_json(
@@ -199,12 +262,30 @@ pub(crate) async fn delete_question(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("DELETE FROM t_theory_question WHERE id=?")
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
+    if sqlx::query("DELETE FROM t_theory_question WHERE id=?")
         .bind(id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
+        .is_err()
     {
-        Ok(_) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
-        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
+    let rows = match sqlx::query("SELECT id,type,topic,options,answer,analysis,create_user_id,create_time,level_id FROM t_theory_question ORDER BY create_time DESC").fetch_all(&mut *tx).await { Ok(rows) => rows, Err(_) => { let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); } };
+    if tx.commit().await.is_err() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!(rows.iter().map(question_value).collect::<Vec<_>>())),
+        "ok",
+        "",
+    )
 }
