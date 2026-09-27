@@ -25,6 +25,8 @@ jobs:
 
       - name: Test Rust backend
         run: cargo test --locked
+      - name: Test shared contract comparator
+        run: python3 scripts/test_phase9_contract_diff.py
 
       - name: Build Rust backend (debug)
         run: cargo build --locked
