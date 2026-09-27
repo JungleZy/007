@@ -25,13 +25,13 @@ import java.time.LocalDateTime;
         query = "SELECT u.user_name userName,u.user_img userImg,t.id,t.accuracy,t.deduct_info deductInfo,t.speed,t.error_number errorNumber," +
             "t.statistic_info statisticInfo,t.score,t.is_finish isFinish," +
             "t.create_time createTime,t.finish_time finishTime,t.duration,t.train_id trainId,t.user_id userId,t.role " +
-            "from general_telex_pat_user t LEFT JOIN t_user u on u.id = t.user_id " +
+            "from general_telex_pat_user t LEFT JOIN t_user u on u.id = t.user_id COLLATE utf8mb4_general_ci " +
             "where t.train_id = ?1 AND !ISNULL(u.id)",
         resultSetMapping = "general_telex_pat_user_dto"),
     @NamedNativeQuery(
         name = "find_general_telex_pat_user_simple_dto",
         query = "SELECT u.user_name userName,u.user_img userImg,t.user_id userId,t.role " +
-            "from general_telex_pat_user t LEFT JOIN t_user u on u.id = t.user_id " +
+            "from general_telex_pat_user t LEFT JOIN t_user u on u.id = t.user_id COLLATE utf8mb4_general_ci " +
             "where t.train_id = ?1 AND !ISNULL(u.id)",
         resultSetMapping = "general_telex_pat_user_simple_dto"),
 })

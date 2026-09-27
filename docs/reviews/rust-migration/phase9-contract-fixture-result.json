@@ -4193,5 +4193,19 @@
     "7b62023",
     "6f98e74",
     "868bae5"
-  ]
+  ],
+  "java_baseline_query_fix": {
+    "issue": "Existing project006 and both isolated schemas have t_user.id utf8mb4_general_ci and general_telex_pat_user.user_id utf8mb4_0900_ai_ci; native roster joins raised MySQL1267/HTTP500.",
+    "fix": "Two GeneralTelexPatUserEntity named native queries explicitly compare user_id using utf8mb4_general_ci; no production DDL, entity-field or data changes.",
+    "reference_check": "LSP references unavailable; source search found GeneralTelexPatUserDao full/simple projection callers in GeneralTelexPatService.detail/findAll. Frontend datagramZuXun.js detail/findAll paths unchanged.",
+    "verification": {
+      "targeted": "GeneralTelexCollationTest:1 passed, restores test column collation in finally",
+      "full": "JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify:513 tests,0 failures/errors/skips; artifact://2091",
+      "real_http": "Restarted packaged Java baseline; previously failing general-telex participant/organizer/outsider/admin details all returned200."
+    },
+    "fixture_corrections": [
+      "General telex fixture lacked other.alterError and therefore caused BigDecimal.multiply(null) on finish; corrected to match existing GeneralTelexCaptureContractTest rule fields, no fabricated Rust500.",
+      "Recovery probe had backdated end_time without shifting recorded received_at. Java correctly rejected out-of-window captures. All clock fields are now shifted coherently and an unfinished participant is required, so a pre-finished row cannot masquerade as recovery proof."
+    ]
+  }
 }
