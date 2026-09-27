@@ -2045,7 +2045,7 @@ fn menu_tree(
             let row_permissions = permissions.get(&row.id).cloned().unwrap_or_default();
             json!({
                 "id": row.id,
-                "parentId": row.parent_id,
+                "parentId": Value::Null,
                 "key": row.key,
                 "path": row.path,
                 "name": row.name,
