@@ -59,6 +59,7 @@ mod post_telex_write;
 mod post_ticker;
 mod radio_term;
 mod radiotelephone;
+mod receive_keypoints;
 mod scoring;
 mod simulation;
 mod telegram;
@@ -758,7 +759,11 @@ fn build_router(state: AppState) -> Router {
     }
     if state.config.receive_keypoints_readonly_enabled {
         let receive_keypoint_routes = Router::new()
-            .route("/getByType", post(keypoints::receive))
+            .route("/getByType", post(receive_keypoints::get_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_receive_keypoint_routes = Router::new()
+            .route("/save", post(receive_keypoints::save))
+            .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let keypoint_routes = Router::new()
             .route("/findKeyPointsByType", post(keypoints::key))
@@ -768,7 +773,10 @@ fn build_router(state: AppState) -> Router {
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
-            .nest("/api/receiveKeyPoints", receive_keypoint_routes)
+            .nest(
+                "/api/receiveKeyPoints",
+                receive_keypoint_routes.merge(admin_receive_keypoint_routes),
+            )
             .nest(
                 "/api/keyPoints",
                 keypoint_routes.merge(admin_keypoint_routes),

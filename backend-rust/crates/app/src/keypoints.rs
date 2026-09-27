@@ -75,10 +75,3 @@ pub(crate) async fn save_key_points(
         }
     }
 }
-pub(crate) async fn receive(
-    State(s): State<AppState>,
-    Extension(_u): Extension<AuthUser>,
-    Json(b): Json<serde_json::Value>,
-) -> Response {
-    get(s, b, "t_receive_key_points").await
-}
