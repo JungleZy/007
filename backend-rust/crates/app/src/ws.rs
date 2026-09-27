@@ -750,6 +750,28 @@ impl WsManager {
 static MANAGER: LazyLock<Arc<Mutex<WsManager>>> =
     LazyLock::new(|| Arc::new(Mutex::new(WsManager::default())));
 
+pub(crate) async fn send_classic(user_id: &str, code: i32, data: Option<String>) {
+    // Gson omits the unset ResponseModel fields, including data on completion.
+    let mut message = Map::new();
+    message.insert("code".to_owned(), json!(code));
+    if let Some(data) = data {
+        message.insert("data".to_owned(), Value::String(data));
+    }
+    let message = Value::Object(message).to_string();
+    let key = format!("classic:{user_id}");
+    let manager = MANAGER.lock().await;
+    let Some(connection) = manager
+        .current_by_key
+        .get(&key)
+        .and_then(|session_id| manager.sessions.get(session_id))
+    else {
+        return;
+    };
+    if let Err(error) = connection.tx.send(Outbound::Text(message)) {
+        tracing::warn!(%error, user_id, code, "classic websocket outbound queue is closed");
+    }
+}
+
 pub(crate) async fn status() -> Response {
     let manager = MANAGER.lock().await;
     envelope_json(

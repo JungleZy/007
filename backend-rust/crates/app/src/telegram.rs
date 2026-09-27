@@ -275,28 +275,46 @@ fn statistical_json(row: &sqlx::mysql::MySqlRow) -> Value {
     })
 }
 
+// Classic WebSocket payloads use Gson, which omits null entity fields.
+fn floor_content_ws_json(row: &sqlx::mysql::MySqlRow) -> Value {
+    let mut content = serde_json::Map::new();
+    for (field, column) in [
+        ("id", "id"),
+        ("floorId", "floor_id"),
+        ("moresKey", "mores_key"),
+        ("moresValue", "mores_value"),
+        ("moresTime", "mores_time"),
+    ] {
+        if let Some(value) = row.get::<Option<String>, _>(column) {
+            content.insert(field.to_owned(), Value::String(value));
+        }
+    }
+    if let Some(sort) = row.get::<Option<i32>, _>("sort") {
+        content.insert("sort".to_owned(), json!(sort));
+    }
+    Value::Object(content)
+}
+
 pub(crate) async fn floor_content_by_floor(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<FloorPageRequest>,
 ) -> Response {
-    let Some(train_id) = body.train_id.filter(|id| !id.is_empty()) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
-    };
-    let Some(page_number) = body.page_number.filter(|page| *page >= 0) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
-    };
     let Ok(pool) = pool_or_error(&state).await else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let floor = match sqlx::query("SELECT f.id,t.create_user_id FROM t_telegram_train_floor f JOIN t_telegram_train t ON t.id=f.train_id WHERE f.train_id=? AND f.sort=? LIMIT 1")
-        .bind(&train_id).bind(page_number).fetch_optional(pool).await {
+        .bind(body.train_id.as_deref()).bind(body.page_number).fetch_optional(pool).await {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练的报底", ""),
+        Ok(None) => {
+            let page = body.page_number.map(|page| page.to_string()).unwrap_or_else(|| "null".to_owned());
+            let message = format!("未查询该训练的第 {page} 页报底！");
+            return envelope_response(StatusCode::OK, 202, &message, &message);
+        }
         Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     };
     if floor.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
-        return envelope_response(StatusCode::OK, 207, "无权访问他人训练", "");
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
     let floor_id = floor.get::<String, _>("id");
     let rows = match sqlx::query("SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id=? ORDER BY sort")
@@ -304,13 +322,11 @@ pub(crate) async fn floor_content_by_floor(
         Ok(rows) => rows,
         Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     };
-    // Java sends this page through the user's websocket and returns an empty
-    // success envelope. Returning the same payload also keeps HTTP-only Rust
-    // clients useful; websocket delivery remains the parity boundary.
-    let contents = rows.iter().map(content_json).collect::<Vec<_>>();
+    let contents = rows.iter().map(floor_content_ws_json).collect::<Vec<_>>();
     let mut page = serde_json::Map::new();
     page.insert(floor_id, Value::Array(contents));
-    envelope_json(StatusCode::OK, 200, Some(Value::Object(page)), "ok", "")
+    super::ws::send_classic(&user.id, 1000, Some(Value::Object(page).to_string())).await;
+    envelope_response(StatusCode::OK, 200, "ok", "")
 }
 
 pub(crate) async fn floor_content_by_floor_id_async(
@@ -318,13 +334,13 @@ pub(crate) async fn floor_content_by_floor_id_async(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(train_id) = body
-        .get("trainId")
-        .or_else(|| body.get("id"))
-        .and_then(Value::as_str)
-        .filter(|id| !id.is_empty())
-    else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    let Some(train_id) = body.get("trainId").and_then(Value::as_str) else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "id to load is required for loading",
+            "id to load is required for loading",
+        );
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -335,7 +351,9 @@ pub(crate) async fn floor_content_by_floor_id_async(
         .await
     {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询该训练", ""),
+        Ok(None) => {
+            return envelope_response(StatusCode::OK, 202, "未查询该训练！", "未查询该训练！")
+        }
         Err(_) => {
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
@@ -354,19 +372,36 @@ pub(crate) async fn floor_content_by_floor_id_async(
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
             }
         };
-    let mut result = serde_json::Map::new();
-    for floor in floors {
-        let floor_id = floor.get::<String, _>("id");
-        let rows = match sqlx::query("SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id=? ORDER BY sort").bind(&floor_id).fetch_all(pool).await {
+    for batch in floors.chunks(5) {
+        let mut content_sql = String::from("SELECT id,floor_id,sort,mores_key,mores_value,mores_time FROM t_telegram_train_floor_content WHERE floor_id IN (?");
+        for _ in 1..batch.len() {
+            content_sql.push_str(",?");
+        }
+        content_sql.push(')');
+        let mut query = sqlx::query(&content_sql);
+        for floor in batch {
+            query = query.bind(floor.get::<&str, _>("id"));
+        }
+        let rows = match query.fetch_all(pool).await {
             Ok(rows) => rows,
-            Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+            Err(error) => {
+                tracing::error!(%error, train_id, "classic floor-content batch query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
         };
-        result.insert(
-            floor_id,
-            Value::Array(rows.iter().map(content_json).collect()),
-        );
+        let mut contents = serde_json::Map::new();
+        for row in &rows {
+            contents
+                .entry(row.get::<String, _>("floor_id"))
+                .or_insert_with(|| Value::Array(Vec::new()))
+                .as_array_mut()
+                .expect("floor contents are an array")
+                .push(floor_content_ws_json(row));
+        }
+        super::ws::send_classic(&user.id, 1000, Some(Value::Object(contents).to_string())).await;
     }
-    envelope_json(StatusCode::OK, 200, Some(Value::Object(result)), "ok", "")
+    super::ws::send_classic(&user.id, 1001, None).await;
+    envelope_response(StatusCode::OK, 200, "ok", "")
 }
 
 pub(crate) async fn get_telegram_train_log(
