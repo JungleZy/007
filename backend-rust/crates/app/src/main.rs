@@ -1042,9 +1042,27 @@ fn build_router(state: AppState) -> Router {
         let setting_routes = Router::new()
             .route("/findAll", post(ticker_tape::settings))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_setting_routes = Router::new()
+            .route("/addOrUpdate", post(ticker_tape::setting_add_or_update))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let stage_setting_routes = Router::new()
+            .route("/findAll", post(ticker_tape::stage_settings))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let admin_stage_setting_routes = Router::new()
+            .route("/add", post(ticker_tape::stage_setting_add))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/tickerTapeTrain", train_routes)
-            .nest("/api/tickerTapeTrainSetting", setting_routes);
+            .nest(
+                "/api/tickerTapeTrainSetting",
+                setting_routes.merge(admin_setting_routes),
+            )
+            .nest(
+                "/api/tickerTapeTrainStageSetting",
+                stage_setting_routes.merge(admin_stage_setting_routes),
+            );
     }
     if state.config.theory_readonly_enabled {
         let question_routes = Router::new()
@@ -2236,6 +2254,9 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledge/getDutyBusiness": {"post": {"responses": {"200": {"description": "Duty-business theory categories"}}}},
             "/api/theoryKnowledge/getChargeEquipment": {"post": {"responses": {"200": {"description": "Equipment theory categories"}}}},
             "/api/telexPat/deleteById": {"post": {"responses": {"200": {"description": "Delete personal telex train by JSON id; owner only"}}}},
+            "/api/tickerTapeTrainSetting/addOrUpdate": {"post": {"responses": {"200": {"description": "Atomically replace ticker rate settings; admin only"}}}},
+            "/api/tickerTapeTrainStageSetting/add": {"post": {"responses": {"200": {"description": "Save ticker stage settings; admin only"}}}},
+            "/api/tickerTapeTrainStageSetting/findAll": {"post": {"responses": {"200": {"description": "Read ticker stage settings"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},

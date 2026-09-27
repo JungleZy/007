@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Extension, State},
+    extract::{rejection::JsonRejection, Extension, State},
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use rust_decimal::Decimal;
@@ -251,26 +251,192 @@ pub(crate) async fn settings(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT id,type,rate,text,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') AS create_time_text FROM t_ticker_tape_train_setting")
-        .fetch_all(pool)
-        .await
-    {
-        Ok(rows) => envelope_json(
-            StatusCode::OK,
-            200,
-            Some(json!(rows.iter().map(|row| json!({
-                "id": row.get::<String, _>("id"),
-                "type": row.get::<Option<String>, _>("type"),
-                "rate": row.get::<Option<i32>, _>("rate"),
-                "text": row.get::<Option<String>, _>("text"),
-                "createTime": row.get::<Option<String>, _>("create_time_text")
-            })).collect::<Vec<_>>())),
-            "ok",
-            "",
-        ),
-        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    let result: Result<Vec<Value>, sqlx::Error> = async {
+        sqlx::query("SELECT id,type,rate,text,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') AS create_time_text FROM t_ticker_tape_train_setting")
+            .fetch_all(pool).await?.iter().map(|row| {
+                Ok(json!({
+                    "id": row.try_get::<String, _>("id")?,
+                    "type": row.try_get::<Option<String>, _>("type")?,
+                    "rate": row.try_get::<Option<i32>, _>("rate")?,
+                    "text": row.try_get::<Option<String>, _>("text")?,
+                    "createTime": row.try_get::<Option<String>, _>("create_time_text")?
+                }))
+            }).collect()
+    }.await;
+    match result {
+        Ok(data) => envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", ""),
+        Err(error) => {
+            tracing::warn!(%error, "ticker tape setting query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
     }
 }
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SettingRequest {
+    param_list: Option<Vec<SettingRow>>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SettingRow {
+    id: Option<String>,
+    #[serde(rename = "type")]
+    setting_type: Option<String>,
+    rate: Option<i32>,
+    text: Option<String>,
+    create_time: Option<chrono::NaiveDateTime>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StageSettingRequest {
+    id: Option<i32>,
+    stage_array: Option<String>,
+}
+
+pub(crate) async fn setting_add_or_update(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    body: Result<Json<SettingRequest>, JsonRejection>,
+) -> Response {
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(error) => {
+            return if error.status() == StatusCode::UNSUPPORTED_MEDIA_TYPE {
+                StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response()
+            } else {
+                StatusCode::BAD_REQUEST.into_response()
+            }
+        }
+    };
+    if !user.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    // Java's generated-ID entities cannot be merged after the bulk deletion.
+    // Reject supplied IDs before deleting anything, preserving the same rollback result.
+    if body
+        .param_list
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .any(|row| row.id.is_some())
+    {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    let result: Result<(), sqlx::Error> = async {
+        let mut tx = pool.begin().await?;
+        sqlx::query("DELETE FROM t_ticker_tape_train_setting")
+            .execute(&mut *tx).await?;
+        for row in body.param_list.as_deref().unwrap_or_default() {
+            let id = uuid::Uuid::new_v4().to_string();
+            sqlx::query("INSERT INTO t_ticker_tape_train_setting (id,type,rate,text,create_time,dot) VALUES (?,?,?,?,?,NULL)")
+                .bind(id).bind(&row.setting_type).bind(row.rate).bind(&row.text)
+                .bind(row.create_time).execute(&mut *tx).await?;
+        }
+        tx.commit().await
+    }.await;
+    match result {
+        Ok(()) => envelope_json(StatusCode::OK, 200, Some(json!(body)), "ok", ""),
+        Err(error) => {
+            tracing::warn!(%error, "ticker tape setting replacement failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn stage_settings(State(state): State<AppState>) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result: Result<StageSettingRequest, sqlx::Error> = async {
+        match sqlx::query("SELECT id,stage_array FROM t_ticker_tape_train_stage_setting LIMIT 1")
+            .fetch_optional(pool)
+            .await?
+        {
+            Some(row) => Ok(StageSettingRequest {
+                id: row.try_get("id")?,
+                stage_array: row.try_get("stage_array")?,
+            }),
+            None => Ok(StageSettingRequest {
+                id: None,
+                stage_array: None,
+            }),
+        }
+    }
+    .await;
+    match result {
+        Ok(data) => envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", ""),
+        Err(error) => {
+            tracing::warn!(%error, "ticker tape stage setting query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn stage_setting_add(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(mut body): Json<StageSettingRequest>,
+) -> Response {
+    if !user.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result: Result<bool, sqlx::Error> = async {
+        let mut tx = pool.begin().await?;
+        if let Some(id) = body.id {
+            if sqlx::query("SELECT id FROM t_ticker_tape_train_stage_setting WHERE id=? FOR UPDATE")
+                .bind(id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .is_none()
+            {
+                tx.rollback().await?;
+                return Ok(false);
+            }
+            sqlx::query("UPDATE t_ticker_tape_train_stage_setting SET stage_array=? WHERE id=?")
+                .bind(&body.stage_array)
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
+        } else {
+            let inserted = sqlx::query(
+                "INSERT INTO t_ticker_tape_train_stage_setting (stage_array) VALUES (?)",
+            )
+            .bind(&body.stage_array)
+            .execute(&mut *tx)
+            .await?;
+            body.id = Some(
+                i32::try_from(inserted.last_insert_id())
+                    .map_err(|error| sqlx::Error::Decode(Box::new(error)))?,
+            );
+        }
+        tx.commit().await?;
+        Ok(true)
+    }
+    .await;
+    match result {
+        Ok(true) => envelope_json(StatusCode::OK, 200, Some(json!(body)), "ok", ""),
+        Ok(false) => envelope_response(
+            StatusCode::OK,
+            202,
+            "未查询到该阶段设置",
+            "未查询到该阶段设置",
+        ),
+        Err(error) => {
+            tracing::warn!(%error, "ticker tape stage setting save failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct AddRequest {
     rate: Option<i32>,
