@@ -47,9 +47,6 @@ pub(crate) async fn list_basic(
     State(state): State<AppState>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    let Some(pool) = state.pool.as_ref() else {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    };
     let requested_type = body
         .get("type")
         .and_then(|value| {
@@ -58,6 +55,21 @@ pub(crate) async fn list_basic(
                 .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
         })
         .unwrap_or(0);
+    list_basic_type(state, body, requested_type).await
+}
+
+pub(crate) async fn duty_business(State(state): State<AppState>) -> Response {
+    list_basic_type(state, Value::Null, 1).await
+}
+
+pub(crate) async fn charge_equipment(State(state): State<AppState>) -> Response {
+    list_basic_type(state, Value::Null, 2).await
+}
+
+async fn list_basic_type(state: AppState, body: Value, requested_type: i64) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
     let parse_ids = |value: Option<&Value>| {
         value.and_then(|value| {
             value

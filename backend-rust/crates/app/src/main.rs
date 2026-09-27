@@ -953,6 +953,8 @@ fn build_router(state: AppState) -> Router {
         let theory_routes = Router::new()
             .route("/listPageClassify", post(theory::list_classify))
             .route("/getBasicTheory", post(theory::list_basic))
+            .route("/getDutyBusiness", post(theory::duty_business))
+            .route("/getChargeEquipment", post(theory::charge_equipment))
             .route("/getBasicTheoryOpen", post(theory::list_open))
             .route("/saveTheoryKnowledgeRecord", post(theory::save_record))
             .route("/recordStatistice", post(theory::record_statistics))
@@ -2219,6 +2221,8 @@ async fn openapi() -> Json<Value> {
             "/api/user/getRecentHandKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent hand-key results"}}}},
             "/api/user/getRecentElectronicKeyTrains": {"post": {"responses": {"200": {"description": "Authenticated user's ten most recent electronic-key results"}}}},
             "/api/deviceScoringRule/delete": {"get": {"responses": {"200": {"description": "Delete scoring rule by query id; admin only"}}}},
+            "/api/theoryKnowledge/getDutyBusiness": {"post": {"responses": {"200": {"description": "Duty-business theory categories"}}}},
+            "/api/theoryKnowledge/getChargeEquipment": {"post": {"responses": {"200": {"description": "Equipment theory categories"}}}},
             "/api/telexPat/deleteById": {"post": {"responses": {"200": {"description": "Delete personal telex train by JSON id; owner only"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
