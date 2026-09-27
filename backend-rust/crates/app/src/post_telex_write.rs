@@ -36,7 +36,7 @@ pub(crate) struct ActionRequest {
     id: Option<String>,
     attempt: Option<i32>,
     #[serde(rename = "countdownSeconds")]
-    countdown_seconds: Option<i32>,
+    _countdown_seconds: Option<i32>,
 }
 #[derive(serde::Deserialize)]
 pub(crate) struct DeleteQuery {

@@ -823,12 +823,6 @@ pub(crate) async fn general_connection_status(
         })
 }
 
-pub(crate) async fn general_key_connection_status(train_id: i32, user_id: &str) -> i32 {
-    general_connection_status("key", &train_id.to_string(), user_id)
-        .await
-        .unwrap_or(0)
-}
-
 pub(crate) async fn general_ticker_connection_status(train_id: i32, user_id: &str) -> i32 {
     general_connection_status("ticker", &train_id.to_string(), user_id)
         .await
@@ -877,36 +871,6 @@ fn general_users_for_key(manager: &WsManager, key: &GeneralRoomKey) -> Vec<Value
         .collect()
 }
 
-pub(crate) async fn set_general_user_status(
-    kind: &str,
-    train_id: &str,
-    user_id: &str,
-    status: i32,
-) {
-    let Some(kind) = parse_general_kind(kind) else {
-        return;
-    };
-    let mut manager = MANAGER.lock().await;
-    let key = GeneralRoomKey {
-        kind,
-        train_id: train_id.to_owned(),
-    };
-    let WsManager {
-        general_rooms,
-        sessions,
-        ..
-    } = &mut *manager;
-    let Some(session_ids) = general_rooms.get(&key) else {
-        return;
-    };
-    for session_id in session_ids {
-        if let Some(connection) = sessions.get_mut(session_id) {
-            if connection.user.id == user_id {
-                connection.status = status;
-            }
-        }
-    }
-}
 pub(crate) async fn simulation_connection_status(room_id: i32, user_id: &str) -> Option<i32> {
     let manager = MANAGER.lock().await;
     let room = manager.simulation_rooms.get(&room_id)?;
