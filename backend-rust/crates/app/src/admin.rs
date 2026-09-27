@@ -838,6 +838,151 @@ pub(crate) async fn get_user_directory(
     }
 }
 
+fn checked_user_projection(row: &sqlx::mysql::MySqlRow, full: bool) -> Result<Value, sqlx::Error> {
+    row.try_get::<&str, _>("id")?;
+    for column in ["user_name", "user_account", "user_img"] {
+        row.try_get::<Option<&str>, _>(column)?;
+    }
+    if full {
+        for column in [
+            "wkno",
+            "phone",
+            "email",
+            "id_card",
+            "update_flag",
+            "bday",
+            "eday",
+            "dday",
+        ] {
+            row.try_get::<Option<&str>, _>(column)?;
+        }
+        row.try_get::<Option<i32>, _>("user_sex")?;
+        row.try_get::<Option<i32>, _>("status")?;
+        Ok(profile(row))
+    } else {
+        Ok(user_summary(row))
+    }
+}
+
+fn user_query_response(result: Result<Value, sqlx::Error>) -> Response {
+    match result {
+        Ok(value) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, "user query or projection failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+pub(crate) async fn get_users_by_user_name_starting_with(
+    State(state): State<AppState>,
+    Json(body): Json<HashMap<String, Option<String>>>,
+) -> Response {
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result = async {
+        // Java binds the supplied LIKE pattern verbatim; it does not append '%'.
+        let rows = sqlx::query(
+            "SELECT id, user_name, user_account, user_img FROM t_user WHERE user_name LIKE ?",
+        )
+        .bind(body.get("userName").and_then(|value| value.as_deref()))
+        .fetch_all(pool)
+        .await?;
+        rows.iter()
+            .map(|row| checked_user_projection(row, false))
+            .collect::<Result<Vec<_>, sqlx::Error>>()
+            .map(Value::Array)
+    }
+    .await;
+    user_query_response(result)
+}
+
+pub(crate) async fn get_users_by_ids(
+    State(state): State<AppState>,
+    Json(ids): Json<Option<Vec<Option<String>>>>,
+) -> Response {
+    let Some(ids) = ids.filter(|ids| !ids.is_empty()) else {
+        return user_query_response(Ok(json!([])));
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result = async {
+        let mut query = sqlx::QueryBuilder::<sqlx::MySql>::new(
+            "SELECT id, user_name, user_account, user_img FROM t_user WHERE id IN (",
+        );
+        let mut values = query.separated(", ");
+        for id in &ids {
+            values.push_bind(id.as_deref());
+        }
+        values.push_unseparated(")");
+        let rows = query.build().fetch_all(pool).await?;
+        rows.iter()
+            .map(|row| checked_user_projection(row, false))
+            .collect::<Result<Vec<_>, sqlx::Error>>()
+            .map(Value::Array)
+    }
+    .await;
+    user_query_response(result)
+}
+
+pub(crate) async fn get_user_by_id(
+    State(state): State<AppState>,
+    user: Extension<super::AuthUser>,
+    Json(body): Json<HashMap<String, Option<String>>>,
+) -> Response {
+    if !user.0.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let Some(id) = body.get("userId").and_then(|value| value.as_deref()) else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "id to load is required for loading",
+            "id to load is required for loading",
+        );
+    };
+    match reload_profile(pool, id).await {
+        Ok(Some(row)) => user_query_response(checked_user_projection(&row, true)),
+        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到该用户", "未查询到该用户"),
+        Err(error) => user_query_response(Err(error)),
+    }
+}
+
+pub(crate) async fn get_user_info_all_by_status_desc(
+    State(state): State<AppState>,
+    user: Extension<super::AuthUser>,
+) -> Response {
+    if !user.0.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result = async {
+        let rows = sqlx::query("SELECT u.id, u.id_card, u.phone, u.status, u.user_account, u.user_img, u.user_name, u.user_sex, r.title FROM t_user u LEFT JOIN t_user_role ur ON ur.user_id = u.id LEFT JOIN t_role r ON r.id = ur.role_id ORDER BY u.status DESC")
+            .fetch_all(pool).await?;
+        rows.iter().map(|row| -> Result<Value, sqlx::Error> {
+            Ok(json!({
+                "id": row.try_get::<String, _>("id")?,
+                "idCard": row.try_get::<Option<String>, _>("id_card")?,
+                "phone": row.try_get::<Option<String>, _>("phone")?,
+                "status": row.try_get::<Option<i32>, _>("status")?,
+                "userAccount": row.try_get::<Option<String>, _>("user_account")?,
+                "userImg": row.try_get::<Option<String>, _>("user_img")?,
+                "userName": row.try_get::<Option<String>, _>("user_name")?,
+                "userSex": row.try_get::<Option<i32>, _>("user_sex")?,
+                "title": row.try_get::<Option<String>, _>("title")?
+            }))
+        }).collect::<Result<Vec<_>, _>>().map(Value::Array)
+    }.await;
+    user_query_response(result)
+}
+
 pub(crate) async fn get_user_and_role_by_id(
     State(state): State<AppState>,
     user: Extension<super::AuthUser>,

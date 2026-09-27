@@ -1140,6 +1140,11 @@ fn build_router(state: AppState) -> Router {
             .route("/getUserDirectory", post(admin::get_user_directory))
             .route("/findAllTeacher", post(admin::find_all_teacher))
             .route("/findAllStu", post(admin::find_all_stu))
+            .route(
+                "/getUsersByUserNameStartingWith",
+                post(admin::get_users_by_user_name_starting_with),
+            )
+            .route("/getUsersByIds", post(admin::get_users_by_ids))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let menu_routes = Router::new()
             .route("/getMenusAll", get(menu_get_all))
@@ -1156,6 +1161,11 @@ fn build_router(state: AppState) -> Router {
             .route("/addUserRole", post(admin::add_user_role))
             .route("/getAllUser", post(admin::get_all_user))
             .route("/getUserAndRoleById", post(admin::get_user_and_role_by_id))
+            .route("/getUserById", post(admin::get_user_by_id))
+            .route(
+                "/getUserInfoAllByStatusDesc",
+                post(admin::get_user_info_all_by_status_desc),
+            )
             .route("/delete", get(admin::delete_user))
             .route("/resetPassword", get(admin::reset_password))
             .route_layer(middleware::from_fn(require_admin))
@@ -2187,6 +2197,10 @@ async fn openapi() -> Json<Value> {
         "openapi": "3.1.0",
         "info": {"title": "Rust backend Phase 1/2 infrastructure", "version": "0.1.0"},
         "paths": {
+            "/api/user/getUsersByUserNameStartingWith": {"post": {"responses": {"200": {"description": "User summary prefix search; authenticated"}}}},
+            "/api/user/getUsersByIds": {"post": {"responses": {"200": {"description": "User summaries for requested IDs; authenticated"}}}},
+            "/api/user/getUserById": {"post": {"responses": {"200": {"description": "User profile; admin only"}}}},
+            "/api/user/getUserInfoAllByStatusDesc": {"post": {"responses": {"200": {"description": "User directory with administrative fields; admin only"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
