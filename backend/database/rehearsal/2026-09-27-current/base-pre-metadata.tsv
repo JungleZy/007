@@ -1,0 +1,1060 @@
+state	record_type	table_name	object_name	ordinal_position	column_name	data_type	column_type	is_nullable	column_default	extra	collation_name	engine	index_non_unique	index_type	referenced_table	referenced_column
+pre-base	TABLE	device_scoring_rule										InnoDB				
+pre-base	TABLE	general_key_pat										MyISAM				
+pre-base	TABLE	general_key_pat_page										MyISAM				
+pre-base	TABLE	general_key_pat_train_more										MyISAM				
+pre-base	TABLE	general_key_pat_user										MyISAM				
+pre-base	TABLE	general_key_pat_user_value										MyISAM				
+pre-base	TABLE	general_key_pat_user_value_resolver										MyISAM				
+pre-base	TABLE	general_ticker_pat										MyISAM				
+pre-base	TABLE	general_ticker_pat_train_page										MyISAM				
+pre-base	TABLE	general_ticker_pat_train_user										MyISAM				
+pre-base	TABLE	general_ticker_pat_train_user_value										MyISAM				
+pre-base	TABLE	group_net_train										InnoDB				
+pre-base	TABLE	hand_key_err_log										MyISAM				
+pre-base	TABLE	seq										InnoDB				
+pre-base	TABLE	simulation_router_room										InnoDB				
+pre-base	TABLE	simulation_router_room_content										InnoDB				
+pre-base	TABLE	simulation_router_room_page										MyISAM				
+pre-base	TABLE	simulation_router_room_page_value										MyISAM				
+pre-base	TABLE	simulation_router_room_user										InnoDB				
+pre-base	TABLE	t_cable										InnoDB				
+pre-base	TABLE	t_cable_floor										InnoDB				
+pre-base	TABLE	t_cable_type										InnoDB				
+pre-base	TABLE	t_device										InnoDB				
+pre-base	TABLE	t_device_description										InnoDB				
+pre-base	TABLE	t_device_type										InnoDB				
+pre-base	TABLE	t_entering_exercise										InnoDB				
+pre-base	TABLE	t_entering_exercise_word_stock										InnoDB				
+pre-base	TABLE	t_entering_key_points										InnoDB				
+pre-base	TABLE	t_entering_statistical										InnoDB				
+pre-base	TABLE	t_entering_telex_pat										InnoDB				
+pre-base	TABLE	t_equipment_device										InnoDB				
+pre-base	TABLE	t_equipment_train										InnoDB				
+pre-base	TABLE	t_general_group_net_rule										InnoDB				
+pre-base	TABLE	t_grading_rule										InnoDB				
+pre-base	TABLE	t_key_points										InnoDB				
+pre-base	TABLE	t_menus										InnoDB				
+pre-base	TABLE	t_menus_button										InnoDB				
+pre-base	TABLE	t_military_term_data										InnoDB				
+pre-base	TABLE	t_post_entering_exercise										InnoDB				
+pre-base	TABLE	t_post_entering_exercise_word_stock										InnoDB				
+pre-base	TABLE	t_post_military_term_train										InnoDB				
+pre-base	TABLE	t_post_military_term_train_test_paper										InnoDB				
+pre-base	TABLE	t_post_radiotelephone_term_data										InnoDB				
+pre-base	TABLE	t_post_radiotelephone_train										InnoDB				
+pre-base	TABLE	t_post_telegram_train										InnoDB				
+pre-base	TABLE	t_post_telegram_train_content_value										MyISAM				
+pre-base	TABLE	t_post_telegram_train_floor_content										InnoDB				
+pre-base	TABLE	t_post_telegram_train_floor_content_value										InnoDB				
+pre-base	TABLE	t_post_telegraph_key_pat_train										InnoDB				
+pre-base	TABLE	t_post_telegraph_key_pat_train_more										MyISAM				
+pre-base	TABLE	t_post_telegraph_key_pat_train_page										MyISAM				
+pre-base	TABLE	t_post_telegraph_key_pat_train_page_value										MyISAM				
+pre-base	TABLE	t_post_telex_pat_train										InnoDB				
+pre-base	TABLE	t_post_telex_pat_train_page										MyISAM				
+pre-base	TABLE	t_post_telex_pat_train_page_value										MyISAM				
+pre-base	TABLE	t_post_ticker_tape_train										InnoDB				
+pre-base	TABLE	t_post_ticker_tape_train_page										MyISAM				
+pre-base	TABLE	t_post_ticker_tape_train_page_value										MyISAM				
+pre-base	TABLE	t_post_ticker_tape_train_setting										InnoDB				
+pre-base	TABLE	t_post_train_global_rule										InnoDB				
+pre-base	TABLE	t_radiotelephone_train										InnoDB				
+pre-base	TABLE	t_receive_key_points										InnoDB				
+pre-base	TABLE	t_role										InnoDB				
+pre-base	TABLE	t_role_menus										InnoDB				
+pre-base	TABLE	t_setting										InnoDB				
+pre-base	TABLE	t_telegram_train										InnoDB				
+pre-base	TABLE	t_telegram_train_floor										InnoDB				
+pre-base	TABLE	t_telegram_train_floor_content										InnoDB				
+pre-base	TABLE	t_telegram_train_log										InnoDB				
+pre-base	TABLE	t_telegram_train_setting										InnoDB				
+pre-base	TABLE	t_telegram_train_statistical										InnoDB				
+pre-base	TABLE	t_telegram_train_user										InnoDB				
+pre-base	TABLE	t_telegraph_key_pat_synthetical_train										InnoDB				
+pre-base	TABLE	t_telegraph_key_pat_train										InnoDB				
+pre-base	TABLE	t_telegraph_key_train_statistical										InnoDB				
+pre-base	TABLE	t_telex_pat										InnoDB				
+pre-base	TABLE	t_telex_pat_train										InnoDB				
+pre-base	TABLE	t_telex_pat_train_statistical										InnoDB				
+pre-base	TABLE	t_theory_knowledge										InnoDB				
+pre-base	TABLE	t_theory_knowledge_classify										InnoDB				
+pre-base	TABLE	t_theory_knowledge_exam										InnoDB				
+pre-base	TABLE	t_theory_knowledge_exam_test_paper										InnoDB				
+pre-base	TABLE	t_theory_knowledge_exam_user										InnoDB				
+pre-base	TABLE	t_theory_knowledge_swf										InnoDB				
+pre-base	TABLE	t_theory_knowledge_swf_record										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test_content										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test_fallible										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test_paper										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test_paper_question										InnoDB				
+pre-base	TABLE	t_theory_knowledge_test_user										InnoDB				
+pre-base	TABLE	t_theory_question										InnoDB				
+pre-base	TABLE	t_theory_question_level										InnoDB				
+pre-base	TABLE	t_ticker_tape_train										InnoDB				
+pre-base	TABLE	t_ticker_tape_train_setting										InnoDB				
+pre-base	TABLE	t_ticker_tape_train_stage_setting										MyISAM				
+pre-base	TABLE	t_ticker_tape_train_statistical										InnoDB				
+pre-base	TABLE	t_union_room										InnoDB				
+pre-base	TABLE	t_user										InnoDB				
+pre-base	TABLE	t_user_role										InnoDB				
+pre-base	COLUMN	device_scoring_rule		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	device_scoring_rule		2	device_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	device_scoring_rule		3	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	device_scoring_rule		4	rule_content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	device_scoring_rule		5	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		4	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		5	create_user	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat		6	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		7	is_average	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		8	is_random	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		9	message_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		10	rule_content	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat		11	rule_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat		12	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		13	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		14	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		15	train_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		16	valid_time	bigint	bigint	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat		17	up_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_page		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat_page		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_page		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_page		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_page		6	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_page		7	time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_train_more		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat_train_more		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_train_more		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_train_more		4	more_group	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_train_more		5	more_line	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_train_more		6	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat_user		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		4	is_finish	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		5	accuracy	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		6	content	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		7	deduct_info	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		8	duration	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		9	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		10	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		11	finish_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		12	role	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		13	score	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user		14	speed	varchar	varchar(64)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user		15	statistic_info	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat_user_value		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value		4	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value		5	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value		6	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value		7	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value		8	time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value_resolver		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_key_pat_user_value_resolver		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value_resolver		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value_resolver		4	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value_resolver		5	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_key_pat_user_value_resolver		6	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value_resolver		7	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_key_pat_user_value_resolver		8	time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_ticker_pat		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		4	code_sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		5	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		6	create_user	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat		7	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		8	is_average	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		9	is_random	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		10	message_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		11	rule_content	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat		12	rule_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat		13	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		14	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		15	train_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		16	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		17	valid_time	bigint	bigint	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat		18	up_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_page		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_page		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_page		3	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_page		5	mores_key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_page		6	mores_value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_page		7	pat_keys	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_page		8	mores_time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		4	accuracy	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		5	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		6	deduct_info	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		7	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		8	finish_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		9	is_finish	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		10	lack	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		11	role	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		12	score	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user		13	speed	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		14	speed_log	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user		15	statistic_info	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user_value		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user_value		2	train_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user_value		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user_value		4	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	general_ticker_pat_train_user_value		5	finish_info	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user_value		6	message_body	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user_value		7	resolver	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	general_ticker_pat_train_user_value		8	standard	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	group_net_train		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	group_net_train		2	answer	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	group_net_train		3	content	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	group_net_train		4	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	group_net_train		5	create_user	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	group_net_train		6	device_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	group_net_train		7	device_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	group_net_train		8	score	decimal	decimal(38,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	group_net_train		9	scoring_rule_content	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	group_net_train		10	topic	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	hand_key_err_log		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	hand_key_err_log		2	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	hand_key_err_log		3	exeception_message	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	hand_key_err_log		4	param	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	hand_key_err_log		5	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	hand_key_err_log		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	seq		1	next_val	bigint	bigint	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	simulation_router_room		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		4	create_user_Id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room		5	stats	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		6	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		7	room_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		8	total_time	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		9	play_status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room		10	setting	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room		11	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_content		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	simulation_router_room_content		2	room_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_content		3	content	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_content		4	main_signal	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_content		5	interference_signal	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_content		6	bd_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_content		7	bw_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_content		8	bw_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_content		9	is_random	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_page		2	room_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_page_value		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	simulation_router_room_page_value		2	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page_value		3	room_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_page_value		4	value	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_page_value		5	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_user		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	simulation_router_room_user		2	room_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_user		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_user		4	user_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_user		5	channel	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	simulation_router_room_user		6	content_value	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	simulation_router_room_user		7	user_status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable		3	type_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable		4	type_title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable		5	scope	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		6	floor_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		7	group_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		8	code_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		9	code_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		10	code_sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable		11	remark	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable		12	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable_floor		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable_floor		2	cable_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable_floor		3	type_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable_floor		4	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable_floor		5	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_cable_floor		6	mores_key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable_type		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_cable_type		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_device		2	device_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device		3	device_number	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device		4	device_img	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device		5	device_type_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_device		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device		7	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_device_description		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_device_description		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device_description		3	content	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device_description		4	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device_description		5	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_device_description		6	device_id	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_device_type		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_device_type		2	type_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device_type		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_device_type		4	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_exercise		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_exercise		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		4	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_exercise		5	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		6	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		7	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		8	accuracy	double	double(11,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		9	speed	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		10	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_exercise		11	duration	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		12	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		13	error_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise		14	correct_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise_word_stock		1	id	int	int	NO	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise_word_stock		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_exercise_word_stock		3	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_key_points		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_key_points		2	type	int	int	NO	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_key_points		3	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_statistical		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_statistical		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_statistical		3	child_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_statistical		4	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_statistical		5	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_statistical		6	avg_speed	decimal	decimal(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_statistical		7	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_telex_pat		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_telex_pat		2	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_telex_pat		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_telex_pat		4	total_time	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_telex_pat		5	total_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_telex_pat		6	total_error	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_entering_telex_pat		7	message_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_entering_telex_pat		8	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_equipment_device		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_device		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_device		3	image	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_device		4	option	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_device		5	is_enable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_equipment_device		6	key_points	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_device		7	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_equipment_device		8	device_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		2	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		3	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		4	device_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		5	device_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		6	train_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_equipment_train		7	train_status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_equipment_train		8	train_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_equipment_train		9	train_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_general_group_net_rule		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_general_group_net_rule		2	xy_score	longtext	longtext	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_general_group_net_rule		3	device	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_general_group_net_rule		4	code	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_general_group_net_rule		5	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_grading_rule		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_grading_rule		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_grading_rule		3	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_grading_rule		4	score	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_grading_rule		5	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_grading_rule		6	is_default	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_grading_rule		7	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_key_points		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_key_points		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_key_points		3	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		2	parent_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		3	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		4	path	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		5	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		6	icon	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		7	icon_f	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		8	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		9	is_menu	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_menus		10	is_bread	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_menus		11	component	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		12	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_menus		13	height	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus		14	keep_alive	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_menus		15	iconf	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus_button		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus_button		2	menus_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus_button		3	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_menus_button		4	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_military_term_data		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_military_term_data		2	parent_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_military_term_data		3	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_military_term_data		4	value	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_military_term_data		5	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		4	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise		5	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		6	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		7	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		8	accuracy	double	double(2,0)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		9	speed	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		10	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise		11	duration	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		12	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		13	error_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise		14	correct_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		4	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		5	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		6	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_entering_exercise_word_stock		7	word_size	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train		4	types	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train		5	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		6	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		7	correct_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		8	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		9	accuracy	decimal	decimal(11,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		10	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		11	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		12	duration	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		13	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train		14	score	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_military_term_train_test_paper		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train_test_paper		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train_test_paper		3	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train_test_paper		4	option	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train_test_paper		5	correct_answer	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_military_term_train_test_paper		6	user_answer	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_term_data		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_term_data		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_term_data		3	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_term_data		4	value	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_term_data		5	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_train		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_train		3	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_train		4	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		5	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		6	speed	decimal	decimal(11,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		7	number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		8	disturb	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_train		9	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		10	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		11	duration	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		12	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		13	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_radiotelephone_train		14	accuracy	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		15	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		16	pass_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		17	score	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_radiotelephone_train		18	train_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		4	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		5	code_sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		6	is_random	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		7	message_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		8	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		9	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		10	valid_time	bigint	bigint	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		11	speed	varchar	varchar(11)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		12	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		13	create_user	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		14	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		15	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		16	accuracy	varchar	varchar(10)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		17	floor_now	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		18	speed_log	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		19	statistic_info	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		20	rule_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		21	score	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		22	lack	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		23	rule_content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		24	deduct_info	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train		25	is_average	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train		26	finish_info	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_content_value		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegram_train_content_value		2	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train_content_value		3	message_body	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegram_train_content_value		4	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		3	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train_floor_content		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train_floor_content		5	mores_key	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		6	mores_value	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		7	mores_time	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content		8	pat_keys	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		3	floor_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		4	message_body	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		5	standard	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		6	finish_info	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegram_train_floor_content_value		7	resolver	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		4	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		5	duration	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		6	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		7	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		8	accuracy	double	double(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		9	speed	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		10	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		11	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		12	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		13	begin_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		14	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		15	score	decimal	decimal(19,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		16	rule_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		17	rule_content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		18	deduct_info	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train		19	message_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		2	more_group	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		3	more_line	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		4	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		5	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_more		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		6	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page		7	time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		6	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telegraph_key_pat_train_page_value		7	time	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		4	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		5	create_user	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		6	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		7	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		8	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		9	group_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		10	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		11	accuracy	varchar	varchar(10)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		12	speed	varchar	varchar(11)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		13	valid_time	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		14	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		15	content	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		16	score	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		17	change	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		18	rule_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		19	rule_content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		20	deduct_info	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		21	train_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train		22	speed_log	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		23	valid_time_log	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		24	total_speed	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train		25	pat_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train_page		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train_page		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page		6	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page_value		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page_value		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_telex_pat_train_page_value		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_telex_pat_train_page_value		4	pat_value	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		3	is_cable	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		4	rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		5	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		6	code_message_body	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		7	code_short	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		8	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		9	start_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		10	end_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		11	valid_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		12	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		13	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		14	score	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		15	result	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		16	error_code	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		17	lack_code	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		18	lack_group	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		19	more_code	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		20	more_group	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		21	images	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		22	is_low_rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		23	disturb	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train		24	is_avg	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		25	is_random	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		26	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		27	ratio	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train		28	message_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_page		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page		2	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_page		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_page		5	key	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page		6	value	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page_value		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page_value		2	image	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page_value		3	page_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_page_value		4	train_id	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_page_value		5	value	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		2	type	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		3	rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		4	text	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		5	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		6	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		7	value	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_post_ticker_tape_train_setting		8	dot	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_train_global_rule		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_post_train_global_rule		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_post_train_global_rule		3	level	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_train_global_rule		4	accuracy	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_train_global_rule		5	description	varchar	varchar(255)	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_post_train_global_rule		6	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_radiotelephone_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_radiotelephone_train		2	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_radiotelephone_train		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_radiotelephone_train		4	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_radiotelephone_train		5	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_receive_key_points		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_receive_key_points		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_receive_key_points		3	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role		3	remark	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role		4	is_admin	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_role		5	is_default	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_role_menus		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role_menus		2	role_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role_menus		3	menu_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_role_menus		4	per	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_setting		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_setting		2	code	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_setting		3	content	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		2	title	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		3	start_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		4	pause_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		5	end_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		6	sustain_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		7	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		8	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		9	total_knock_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		10	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		11	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		12	accuracy	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		13	speed	varchar	varchar(11)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		14	rate_dot_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		15	rate_dot_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		16	rate_line_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		17	rate_line_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		18	rate_interval_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		19	rate_interval_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		20	big_interval_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		21	big_interval_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train		22	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		23	create_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train		24	now_floor_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor		2	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_floor		3	train_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor		4	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_floor		5	number_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_floor		6	content_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_floor_content		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor_content		2	floor_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor_content		3	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_floor_content		4	mores_key	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor_content		5	mores_value	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_floor_content		6	mores_time	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_log		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_log		2	telegram_train_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_log		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_log		4	value	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_log		5	creat_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_setting		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_setting		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_setting		3	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_setting		4	value	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_statistical		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_statistical		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_statistical		3	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_statistical		4	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_statistical		5	avg_speed	decimal	decimal(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegram_train_statistical		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_user		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_user		2	train_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegram_train_user		3	user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		3	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		4	duration	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		5	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		6	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		7	accuracy	double	double(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		8	speed	varchar	varchar(11)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		9	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		10	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		11	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_synthetical_train		12	message_type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_train		2	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_pat_train		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_train		4	total_time	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_train		5	total_num	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_train		6	total_error	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_pat_train		7	create_time	datetime	datetime	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_train_statistical		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_train_statistical		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_train_statistical		3	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_train_statistical		4	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telegraph_key_train_statistical		5	avg_speed	decimal	decimal(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telegraph_key_train_statistical		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat		2	count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat		3	mistake	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat		4	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat		5	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat		6	duration	bigint	bigint	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		2	accuracy	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		3	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		4	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		5	duration	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		6	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		7	numbs	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		8	speed	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		9	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		10	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train		11	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		12	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train		13	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train_statistical		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train_statistical		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train_statistical		3	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train_statistical		4	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_telex_pat_train_statistical		5	avg_speed	decimal	decimal(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_telex_pat_train_statistical		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge		3	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge		4	cover	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		5	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		6	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		7	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		8	credit	double	double	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge		9	difficulty_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge		10	specialty_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_classify		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_classify		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_classify		3	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_classify		4	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_classify		5	create_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		3	start_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		4	duration	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		5	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		6	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		7	teacher	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam		8	state	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_exam		9	end_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		3	total	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		4	pass_the_exam_than	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		5	exam_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		6	pass_mark	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		7	single_choice_list	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		8	multiple_choice_list	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		9	judge_list	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		10	completion_list	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		11	test_paper_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_test_paper		12	short_answer	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		2	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		3	score	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_exam_user		4	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		5	end_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		6	exam_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		7	start_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_exam_user		8	state	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_exam_user		9	is_self_testing	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_swf		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		2	knowledge_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		3	cover	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		4	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		5	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		6	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		7	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf		8	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_swf		9	score	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_swf		10	have_test	bit	bit(1)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_swf		11	record	double	double(11,0)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_swf_record		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		2	knowledge_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		3	knowledge_swf_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		4	user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		5	join_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		6	exit_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_swf_record		7	type	int	int	NO	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		2	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		3	knowledge_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		4	knowledge_swf_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		5	create_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		6	create_user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test		7	versions	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_content		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		2	knowledge_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		3	knowledge_swf_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		4	knowledge_test_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		5	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_content		6	topic	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		7	options	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		8	answer	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		9	analysis	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		10	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_content		11	create_user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_content		12	create_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_fallible		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_fallible		2	user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_fallible		3	number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_fallible		4	content	text	text	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		3	total	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_paper		4	create_user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		5	create_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		6	level_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		7	pass_mark	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_paper		8	create_user_name	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper		9	pass_the_exam_than	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		2	test_paper_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		3	score	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		4	sort	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		5	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		6	topic	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		7	options	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		8	answer	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		9	analysis	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_paper_question		10	parent_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		2	user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		3	knowledge_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		4	knowledge_swf_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		5	content	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_knowledge_test_user		6	score	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_knowledge_test_user		7	create_time	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_theory_question		3	topic	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		4	options	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		5	answer	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		6	analysis	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		7	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		8	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question		9	level_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question_level		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question_level		2	name	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question_level		3	create_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question_level		4	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_theory_question_level		5	parent_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		2	rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		4	code_message_body	longtext	longtext	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		5	code_short	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		6	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		7	start_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		8	end_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		9	valid_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		10	status	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		11	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		12	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		13	mark	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		14	accuracy	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		15	big_interval_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		16	big_interval_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		17	create_user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		18	error_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		19	now_floor_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		20	pause_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		21	rate_dot_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		22	rate_dot_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		23	rate_interval_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		24	rate_interval_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		25	rate_line_max_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		26	rate_line_min_ms	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		27	speed	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		28	sustain_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		29	title	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train		30	total_knock_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		31	total_number	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		32	schedule	int	int	YES	0		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train		33	is_low_rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_setting		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_setting		2	type	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_setting		3	rate	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_setting		4	text	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_setting		5	create_time	datetime	datetime(6)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_setting		6	key	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_setting		7	value	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_setting		8	dot	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_stage_setting		1	id	int	int	NO	<NULL>	auto_increment	<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_stage_setting		2	stage_array	longtext	longtext	YES	<NULL>		utf8mb3_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_statistical		1	id	varchar	varchar(255)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_statistical		2	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_statistical		3	total_count	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_statistical		4	total_time	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_ticker_tape_train_statistical		5	avg_speed	decimal	decimal(10,2)	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_ticker_tape_train_statistical		6	user_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_union_room		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_union_room		2	name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_union_room		3	type	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_union_room		4	password	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_union_room		5	nnt	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_user		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		2	id_card	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		3	wkno	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		4	user_account	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		5	phone	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		6	email	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		7	password	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		8	user_name	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		9	user_sex	int	int	YES	<NULL>		<NULL>					
+pre-base	COLUMN	t_user		10	user_img	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		11	bday	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		12	eday	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		13	dday	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		14	status	int	int	YES	1		<NULL>					
+pre-base	COLUMN	t_user		15	update_flag	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		16	device_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		17	token	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user		18	up_id	varchar	varchar(255)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user_role		1	id	varchar	varchar(64)	NO	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user_role		2	user_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	COLUMN	t_user_role		3	role_id	varchar	varchar(64)	YES	<NULL>		utf8mb4_general_ci					
+pre-base	PRIMARY_KEY	device_scoring_rule	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat_train_more	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat_user_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_key_pat_user_value_resolver	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_ticker_pat	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_ticker_pat_train_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_ticker_pat_train_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	general_ticker_pat_train_user_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	group_net_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	hand_key_err_log	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	simulation_router_room	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	simulation_router_room_content	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	simulation_router_room_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	simulation_router_room_page_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	simulation_router_room_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_cable	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_cable_floor	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_cable_type	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_device	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_device_description	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_device_type	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_entering_exercise	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_entering_exercise_word_stock	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_entering_key_points	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_entering_statistical	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_entering_telex_pat	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_equipment_device	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_equipment_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_general_group_net_rule	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_grading_rule	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_key_points	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_menus	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_menus_button	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_military_term_data	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_entering_exercise	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_entering_exercise_word_stock	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_military_term_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_military_term_train_test_paper	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_radiotelephone_term_data	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_radiotelephone_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegram_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegram_train_content_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegram_train_floor_content	PRIMARY	1	id								0	BTREE		
+pre-base	INDEX	t_post_telegram_train_floor_content	train_id	1	train_id								1	BTREE		
+pre-base	INDEX	t_post_telegram_train_floor_content	train_id_2	1	train_id								1	BTREE		
+pre-base	INDEX	t_post_telegram_train_floor_content	train_id_2	2	floor_number								1	BTREE		
+pre-base	INDEX	t_post_telegram_train_floor_content	train_id_2	3	sort								1	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegram_train_floor_content_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegraph_key_pat_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegraph_key_pat_train_more	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegraph_key_pat_train_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telegraph_key_pat_train_page_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telex_pat_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telex_pat_train_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_telex_pat_train_page_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_ticker_tape_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_ticker_tape_train_page	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_ticker_tape_train_page_value	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_post_train_global_rule	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_radiotelephone_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_receive_key_points	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_role	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_role_menus	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_setting	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_floor	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_floor_content	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_log	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_setting	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_statistical	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegram_train_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegraph_key_pat_synthetical_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegraph_key_pat_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telegraph_key_train_statistical	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telex_pat	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telex_pat_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_telex_pat_train_statistical	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_classify	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_exam	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_exam_test_paper	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_exam_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_swf	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_swf_record	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test_content	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test_fallible	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test_paper	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test_paper_question	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_knowledge_test_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_question	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_theory_question_level	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_ticker_tape_train	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_ticker_tape_train_stage_setting	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_ticker_tape_train_statistical	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_union_room	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_user	PRIMARY	1	id								0	BTREE		
+pre-base	PRIMARY_KEY	t_user_role	PRIMARY	1	id								0	BTREE		

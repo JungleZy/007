@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-27T23:00:00Z",
+  "generated_at_utc": "2026-09-27T23:15:00Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
@@ -4923,8 +4923,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"getFloorContentByFloorIdAsync\",\"file\":\"src/common/api/TelegramApi.js\",\"kind\":\"axios\",\"line\":176}]",
       "source_sha256": "7e901026f46691d30d2db0aed34ad995cb104fee62224051a17e1a7ba1a3d7d9",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase6"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-remaining-active-rest"
     },
     {
       "method": "POST",
@@ -6924,8 +6924,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveTheoryKnowledgeQuestionLevel\",\"file\":\"src/common/api/TheoryQuestionBankApi.js\",\"kind\":\"axios\",\"line\":10}]",
       "source_sha256": "20585824d7a3b88ae2048cb03d63dfd5f3c3afb483117fd8b727e3205e31b254",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase5"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase5-remaining-active-rest"
     },
     {
       "method": "POST",

@@ -57,6 +57,7 @@ mod post_telegraph_write;
 mod post_telex;
 mod post_telex_write;
 mod post_ticker;
+mod question_level;
 mod radio_term;
 mod radiotelephone;
 mod receive_keypoints;
@@ -631,11 +632,15 @@ fn build_router(state: AppState) -> Router {
         let telegram_routes = Router::new()
             .route("/getAll", post(telegram::list))
             .route("/getById", post(telegram::by_id))
+            .route("/saveTelegramTrain", post(telegram_write::save))
             .route(
                 "/getFloorContentByFloorId",
                 post(telegram::floor_content_by_floor_id),
             )
-            .route("/saveTelegramTrain", post(telegram_write::save))
+            .route(
+                "/getFloorContentByFloorIdAsync",
+                post(telegram::floor_content_by_floor_id),
+            )
             .route(
                 "/saveFloorContent",
                 post(telegram_write::save_floor_content),
@@ -1005,6 +1010,10 @@ fn build_router(state: AppState) -> Router {
             .route(
                 "/saveTheoryKnowledgeQuestion",
                 post(theory_question::save_question),
+            )
+            .route(
+                "/saveTheoryKnowledgeQuestionLevel",
+                post(question_level::save_level),
             )
             .route("/saveBatch", post(theory_question::save_batch))
             .route(
