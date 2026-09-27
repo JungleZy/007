@@ -904,6 +904,50 @@ pub(crate) async fn simulation_connection_status(room_id: i32, user_id: &str) ->
             .and_then(|connection| connection.sim_member.as_ref().map(|member| member.status))
     })
 }
+pub(crate) async fn simulation_all_room_info() -> Response {
+    let manager = MANAGER.lock().await;
+    let mut router_rooms = Vec::new();
+    let mut disturb_rooms = Vec::new();
+    let mut report_rooms = Vec::new();
+    for (room_id, room) in &manager.simulation_rooms {
+        let users = room
+            .members
+            .iter()
+            .filter_map(|session_id| {
+                manager.sessions.get(session_id).and_then(|connection| {
+                    connection.sim_member.as_ref().map(|member| {
+                        json!({
+                            "id": connection.user.id,
+                            "name": connection.user.name,
+                            "userImg": connection.user.user_img,
+                            "channel": member.channel,
+                            "userType": member.user_type,
+                            "status": member.status
+                        })
+                    })
+                })
+            })
+            .collect::<Vec<_>>();
+        let mut entry = serde_json::Map::new();
+        entry.insert(room_id.to_string(), Value::Array(users));
+        let entry = Value::Object(entry);
+        match room.room_type {
+            0 => router_rooms.push(entry),
+            1 => disturb_rooms.push(entry),
+            2 | 3 => report_rooms.push(entry),
+            _ => {}
+        }
+    }
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(
+            json!({"线路通报":router_rooms,"快速/干扰通报":disturb_rooms,"通报教学":report_rooms}),
+        ),
+        "ok",
+        "",
+    )
+}
 
 pub(crate) async fn set_simulation_channel(room_id: i32, user_id: &str, channel: i32) {
     let mut manager = MANAGER.lock().await;
@@ -1134,9 +1178,11 @@ async fn serve(
     let (tx, mut outgoing) = mpsc::unbounded_channel();
     let prepared = match prepare(&state, route.clone(), &token, &device_id).await {
         Ok(prepared) => prepared,
-        Err(error) => {
+        Err((error, authenticated_id)) => {
             if let Err(send_error) = socket
-                .send(Message::Text(handshake_error(family, &error).into()))
+                .send(Message::Text(
+                    handshake_error(family, &error, authenticated_id.as_deref()).into(),
+                ))
                 .await
             {
                 tracing::warn!(%send_error, ?family, "websocket handshake error delivery failed");
@@ -1241,20 +1287,26 @@ async fn prepare(
     route: RouteSpec,
     token: &str,
     device_id: &str,
-) -> Result<Prepared, String> {
-    if token.is_empty() || device_id.is_empty() {
-        return Err("登录凭据无效，拒绝建立连接".to_owned());
+) -> Result<Prepared, (String, Option<String>)> {
+    let (authenticated, mut user) = async {
+        if token.is_empty() || device_id.is_empty() {
+            return Err("登录凭据无效，拒绝建立连接".to_owned());
+        }
+        let authenticated = lookup_user(state, token, device_id)
+            .await
+            .map_err(|error| {
+                tracing::error!(?error, "websocket authentication lookup failed");
+                "服务器错误".to_owned()
+            })?
+            .ok_or_else(|| "登录凭据无效，拒绝建立连接".to_owned())?;
+        let user = load_ws_user(state, &authenticated.id)
+            .await?
+            .ok_or_else(|| "登录凭据无效，拒绝建立连接".to_owned())?;
+        Ok::<_, String>((authenticated, user))
     }
-    let authenticated = lookup_user(state, token, device_id)
-        .await
-        .map_err(|error| {
-            tracing::error!(?error, "websocket authentication lookup failed");
-            "服务器错误".to_owned()
-        })?
-        .ok_or_else(|| "登录凭据无效，拒绝建立连接".to_owned())?;
-    let user = load_ws_user(state, &authenticated.id)
-        .await?
-        .ok_or_else(|| "登录凭据无效，拒绝建立连接".to_owned())?;
+    .await
+    .map_err(|message| (message, None))?;
+    let result = async {
     match route.clone() {
         RouteSpec::Classic => Ok(Prepared {
             route,
@@ -1357,7 +1409,7 @@ async fn prepare(
                 return Err("服务器错误".to_owned());
             };
             let room = sqlx::query(
-                "SELECT room_type, create_user_id FROM simulation_router_room WHERE id=? LIMIT 1",
+                "SELECT r.room_type, r.create_user_id, u.user_account FROM simulation_router_room r LEFT JOIN t_user u ON u.id=r.create_user_id WHERE r.id=? LIMIT 1",
             )
             .bind(room_id)
             .fetch_optional(pool)
@@ -1377,8 +1429,14 @@ async fn prepare(
                 tracing::error!(%error, room_id, user_id = %authenticated.id, "websocket simulation member lookup failed");
                 "服务器错误".to_owned()
             })?;
-            if member_row.is_none() && creator != authenticated.id {
+            if !(0..=3).contains(&room_type)
+                || (member_row.is_none()
+                    && (creator != authenticated.id || matches!(room_type, 2 | 3)))
+            {
                 return Err("人员或房间信息未找到".to_owned());
+            }
+            if member_row.is_none() {
+                user.name = room.get("user_account");
             }
             let member = if let Some(row) = member_row {
                 SimMember {
@@ -1409,6 +1467,8 @@ async fn prepare(
         }
         RouteSpec::Unknown => Err("连接路径无效".to_owned()),
     }
+    }.await;
+    result.map_err(|message| (message, Some(authenticated.id)))
 }
 
 async fn load_ws_user(state: &AppState, user_id: &str) -> Result<Option<WsUser>, String> {
@@ -2762,6 +2822,9 @@ async fn simulation_close(state: &AppState, close: SimClose) {
             send_to_user(close.room_id, recipient, sim_response(1, &message, "", "")).await;
         }
     } else if close.room_type == 2 || close.room_type == 3 {
+        if !matches!(member.user_type, Some(0 | 1)) {
+            return;
+        }
         if member.channel == Some(1) {
             if let Some(recipient) = close
                 .remaining
@@ -2894,10 +2957,13 @@ fn general_notification_response(code: i32, map: Value) -> String {
 fn sim_response(code: i32, data: &str, send: &str, receive: &str) -> String {
     socket_response(code, data, send, receive)
 }
-fn handshake_error(family: Family, message: &str) -> String {
+fn handshake_error(family: Family, message: &str, authenticated_id: Option<&str>) -> String {
     match family {
         Family::Classic | Family::Union => classic_response(1, message),
-        Family::Simulation => sim_response(-1, message, "", ""),
+        Family::Simulation => {
+            let id = authenticated_id.unwrap_or("");
+            sim_response(-1, message, id, id)
+        }
         Family::GeneralKey | Family::GeneralTelex | Family::GeneralTicker => {
             socket_response(-1, message, "", "")
         }

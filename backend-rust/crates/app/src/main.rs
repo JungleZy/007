@@ -874,11 +874,16 @@ fn build_router(state: AppState) -> Router {
             .route("/saveSetting", post(simulation::save_setting))
             .route("/delete", get(simulation::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        let socket_routes = Router::new()
+            .route("/getAllRoomInfo", get(ws::simulation_all_room_info))
+            .route_layer(middleware::from_fn(require_admin))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api
             .nest("/api/simulation/router", router_routes)
             .nest("/api/simulation/report", report_routes)
             .nest("/api/simulation/recept", recept_routes)
-            .nest("/api/simulation/routerRoomContent", content_routes);
+            .nest("/api/simulation/routerRoomContent", content_routes)
+            .nest("/api/simulation/socket", socket_routes);
     }
     if state.config.general_train_readonly_enabled {
         let key_routes = Router::new()
@@ -2321,6 +2326,7 @@ async fn openapi() -> Json<Value> {
             "/api/equipmentTrain/add": {"post": {"responses": {"200": {"description": "Equipment train envelope; owner-scoped write"}}}},
             "/api/status": {"get": {"responses": {"101": {"description": "Status WebSocket upgrade"}}}},
             "/status": {"get": {"responses": {"101": {"description": "Status WebSocket upgrade"}}}},
+            "/api/simulation/socket/getAllRoomInfo": {"get": {"responses": {"200": {"description": "Live simulation room/member projections; admin only"}}}},
             "/api/GeneralKeyPatTrain/getOneline/{trainId}": {"get": {"responses": {"200": {"description": "Online key-training roster envelope"}}}},
             "/api/openApi/generalTickerPatTrain/综合训练-手键拍发Api": {"get": {"responses": {"200": {"description": "Online ticker-training roster envelope"}}}},
             "/api/openApi/generalTickerPatTrain/findTrainInfo": {"get": {"responses": {"200": {"description": "Readable ticker-room roster map"}}}},
