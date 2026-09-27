@@ -1,7 +1,484 @@
 {
-  "schema":"rust-migration-phase8-websocket-protocol/v1",
-  "verified_at_utc":"2026-09-23T10:52:00Z",
-  "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
-  "implemented":{"multi_path_routes":"all Phase 0 WS path families are wired to Rust handler","handshake":"query token/deviceId authentication and identity from lookup_user","topics":"general* routes validate JSON topic begin/end/ready/pat/finish and return code -1 for invalid topics","heartbeat":"reserved ping/pong","rooms":"broadcast channels, connection count, empty room cleanup"},
-  "known_boundary":"Role-specific room membership, duplicate-user replacement with generation guard, simulation room authorization, and complete Java message dispatch remain open."
+  "schema": "rust-migration-phase8-websocket-protocol/v1",
+  "status": "PARTIAL_REAL_DUAL_STACK_PROTOCOL_AND_LIFECYCLE_PROOF",
+  "implemented": {
+    "multi_path_routes": "all Phase 0 WS path families are wired to Rust handler",
+    "handshake": "query token/deviceId authentication and identity from lookup_user",
+    "topics": "general* routes validate JSON topic begin/end/ready/pat/finish and return code -1 for invalid topics",
+    "heartbeat": "reserved ping/pong",
+    "rooms": "broadcast channels, connection count, empty room cleanup"
+  },
+  "known_boundary": "Core classic page transport/replacement and targeted simulation/general identity, nullable-role and cleanup edges are proven. This is not complete union/general/simulation message dispatch or browser/Electron lifecycle acceptance; other role/frame/state/error routes, stress/reconnect and end-to-end training gates remain open. No production cutover.",
+  "historical_verified_at_utc": "2026-09-23T10:52:00Z",
+  "verified_at_utc": "2026-09-27T18:54:27.719496+00:00",
+  "real_runtime_checks": {
+    "environment": {
+      "java_port": 18121,
+      "rust_port": 18122,
+      "database_policy": "independent synthetic-only schema/data; no production writes",
+      "java_ws_path": "/websocket/{sid}, /simulation/{id}/{roomId}, /generalKeyPatTrain/{uid}/{trainId}"
+    },
+    "classic_six_floor_batches": [
+      {
+        "port": 18121,
+        "http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "frames": [
+          {
+            "code": 1000,
+            "data": "{\"parity-floor-3\":[{\"id\":\"parity-content-3\",\"floorId\":\"parity-floor-3\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}],\"parity-floor-4\":[{\"id\":\"parity-content-4\",\"floorId\":\"parity-floor-4\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}],\"parity-floor-1\":[{\"id\":\"parity-content-1\",\"floorId\":\"parity-floor-1\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}],\"parity-floor-2\":[{\"id\":\"parity-content-2\",\"floorId\":\"parity-floor-2\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}],\"parity-floor-0\":[{\"id\":\"parity-content-0\",\"floorId\":\"parity-floor-0\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}]}"
+          },
+          {
+            "code": 1000,
+            "data": "{\"parity-floor-5\":[{\"id\":\"parity-content-5\",\"floorId\":\"parity-floor-5\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}]}"
+          },
+          {
+            "code": 1001
+          }
+        ]
+      },
+      {
+        "port": 18122,
+        "http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "frames": [
+          {
+            "code": 1000,
+            "data": "{\"parity-floor-0\":[{\"floorId\":\"parity-floor-0\",\"id\":\"parity-content-0\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}],\"parity-floor-1\":[{\"floorId\":\"parity-floor-1\",\"id\":\"parity-content-1\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}],\"parity-floor-2\":[{\"floorId\":\"parity-floor-2\",\"id\":\"parity-content-2\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}],\"parity-floor-3\":[{\"floorId\":\"parity-floor-3\",\"id\":\"parity-content-3\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}],\"parity-floor-4\":[{\"floorId\":\"parity-floor-4\",\"id\":\"parity-content-4\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}]}"
+          },
+          {
+            "code": 1000,
+            "data": "{\"parity-floor-5\":[{\"floorId\":\"parity-floor-5\",\"id\":\"parity-content-5\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}]}"
+          },
+          {
+            "code": 1001
+          }
+        ]
+      }
+    ],
+    "classic_replacement_and_malformed_input": [
+      {
+        "port": 18121,
+        "replacement_survives_old_close": true,
+        "http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "page_frame": {
+          "code": 1000,
+          "data": "{\"parity-floor-3\":[{\"id\":\"parity-content-3\",\"floorId\":\"parity-floor-3\",\"sort\":0,\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresValue\":\"[]\",\"moresTime\":\"[]\"}]}"
+        },
+        "malformed_frame": {
+          "code": 202,
+          "data": "java.io.EOFException: End of input at line 1 column 11 path $."
+        },
+        "heartbeat_after_malformed": true
+      },
+      {
+        "port": 18122,
+        "replacement_survives_old_close": true,
+        "http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "page_frame": {
+          "code": 1000,
+          "data": "{\"parity-floor-3\":[{\"floorId\":\"parity-floor-3\",\"id\":\"parity-content-3\",\"moresKey\":\"[\\\"1\\\",\\\"2\\\",\\\"3\\\",\\\"4\\\"]\",\"moresTime\":\"[]\",\"moresValue\":\"[]\",\"sort\":0}]}"
+        },
+        "malformed_frame": {
+          "code": 202,
+          "data": "消息格式不正确"
+        },
+        "heartbeat_after_malformed": true
+      }
+    ],
+    "classic_empty_sources": [
+      {
+        "port": 18121,
+        "registration_delay_ms": 250,
+        "authenticated_diagnostic_code": 202,
+        "empty_train_http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "empty_train_frame": {
+          "code": 1001
+        },
+        "empty_page_http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "empty_page_frame": {
+          "code": 1000,
+          "data": "{\"parity-empty-page\":[]}"
+        }
+      },
+      {
+        "port": 18122,
+        "registration_delay_ms": 250,
+        "authenticated_diagnostic_code": 202,
+        "empty_train_http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "empty_train_frame": {
+          "code": 1001
+        },
+        "empty_page_http": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": null,
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "empty_page_frame": {
+          "code": 1000,
+          "data": "{\"parity-empty-page\":[]}"
+        }
+      }
+    ],
+    "classic_error_contracts": {
+      "missing_page_or_train_cases": 4,
+      "missing_async_id_unknown_train_and_intruder_cases": 4,
+      "all_compared_after_fix": true
+    },
+    "general_online_query": {
+      "missing_query_202": true,
+      "query_overrides_path_id": true,
+      "malformed_overflow_and_whitespace_404": 4,
+      "leading_zero_and_explicit_plus_ids_match_canonical": true,
+      "nullable_role_preserved": true,
+      "baseline_before_fix": [
+        {
+          "port": 18121,
+          "id_spellings": {
+            "88811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [
+                  {
+                    "id": "parity-student",
+                    "userName": "Parity Student",
+                    "userImg": null,
+                    "role": 0,
+                    "status": 1
+                  },
+                  {
+                    "id": "parity-admin",
+                    "userName": "Parity Admin",
+                    "userImg": null,
+                    "role": 1,
+                    "status": 1
+                  }
+                ],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            },
+            "088811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [
+                  {
+                    "id": "parity-student",
+                    "userName": "Parity Student",
+                    "userImg": null,
+                    "role": 0,
+                    "status": 1
+                  },
+                  {
+                    "id": "parity-admin",
+                    "userName": "Parity Admin",
+                    "userImg": null,
+                    "role": 1,
+                    "status": 1
+                  }
+                ],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            },
+            "%2B88811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [
+                  {
+                    "id": "parity-student",
+                    "userName": "Parity Student",
+                    "userImg": null,
+                    "role": 0,
+                    "status": 1
+                  },
+                  {
+                    "id": "parity-admin",
+                    "userName": "Parity Admin",
+                    "userImg": null,
+                    "role": 1,
+                    "status": 1
+                  }
+                ],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            }
+          }
+        },
+        {
+          "port": 18122,
+          "id_spellings": {
+            "88811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [
+                  {
+                    "id": "parity-admin",
+                    "role": 1,
+                    "status": 1,
+                    "userImg": null,
+                    "userName": "Parity Admin"
+                  },
+                  {
+                    "id": "parity-student",
+                    "role": 0,
+                    "status": 1,
+                    "userImg": null,
+                    "userName": "Parity Student"
+                  }
+                ],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            },
+            "088811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            },
+            "%2B88811": {
+              "http_status": 200,
+              "json": {
+                "code": 200,
+                "data": [],
+                "message": "ok",
+                "description": ""
+              },
+              "raw_if_not_json": null
+            }
+          }
+        }
+      ]
+    },
+    "simulation": {
+      "synthetic_creator_name_uses_account": true,
+      "report_creator_without_member_rejected_and_closed": true,
+      "known_and_anonymous_rejection_frames_match": true,
+      "null_role_disconnect_keeps_play_status": true,
+      "before_null_role_disconnect": [
+        {
+          "port": 18121,
+          "registered": true,
+          "removed": true,
+          "play_status": "1"
+        },
+        {
+          "port": 18122,
+          "registered": true,
+          "removed": true,
+          "play_status": "0"
+        }
+      ],
+      "before_nullable_online_role": [
+        {
+          "port": 18121,
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "id": "parity-student",
+                  "userName": "Parity Student",
+                  "userImg": null,
+                  "role": null,
+                  "status": 1
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "id": "parity-student",
+                  "role": 0,
+                  "status": 1,
+                  "userImg": null,
+                  "userName": "Parity Student"
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        }
+      ],
+      "creator_and_rejection_observations": [
+        {
+          "port": 18121,
+          "synthetic_creator_projection": {
+            "id": "parity-admin",
+            "name": "parity-admin",
+            "userImg": null,
+            "channel": -1,
+            "userType": null,
+            "status": 1
+          },
+          "missing_report_member_error": {
+            "code": -1,
+            "sendName": "parity-admin",
+            "receiveName": "parity-admin",
+            "data": "人员或房间信息未找到"
+          },
+          "missing_report_member_closed": true
+        },
+        {
+          "port": 18122,
+          "synthetic_creator_projection": {
+            "channel": -1,
+            "id": "parity-admin",
+            "name": "parity-admin",
+            "status": 1,
+            "userImg": null,
+            "userType": null
+          },
+          "missing_report_member_error": {
+            "code": -1,
+            "data": "人员或房间信息未找到",
+            "receiveName": "",
+            "sendName": ""
+          },
+          "missing_report_member_closed": true
+        }
+      ],
+      "final_authenticated_rejection": {
+        "code": -1,
+        "data": "人员或房间信息未找到",
+        "receiveName": "parity-admin",
+        "sendName": "parity-admin"
+      },
+      "final_anonymous_rejection": {
+        "code": -1,
+        "data": "登录凭据无效，拒绝建立连接",
+        "receiveName": "",
+        "sendName": ""
+      }
+    },
+    "verification_commands": [
+      {
+        "command": "cargo test --locked",
+        "code": 0,
+        "output": "\nrunning 17 tests\ntest group_net_write::tests::retries_compare_arbitrary_precision_numbers_without_changing_json_types ... ok\ntest password::tests::verifies_java_pbkdf2_vector_and_marks_upgrade ... ok\ntest scoring::tests::rate_matches_java_score_math_boundaries ... ok\ntest password::tests::verifies_legacy_md5_and_marks_upgrade ... ok\ntest scoring::tests::accuracy_matches_java_two_decimal_intermediate_rounding ... ok\ntest synthetical::tests::score_counts_utf16_units_and_handles_zero_elapsed_time ... ok\ntest synthetical::tests::score_excludes_unanswered_rows_and_caps_overlong_input ... ok\ntest tests::admin_middleware_returns_207_for_non_admin_and_200_for_admin ... ok\ntest tests::missing_response_data_serializes_as_json_null ... ok\ntest tests::token_digest_matches_java_sha256_contract ... ok\ntest tests::twelve_month_data_matches_java_descending_year_month_order ... ok\ntest user_training_stats::tests::minute_precision_iso_filter_is_not_silently_dropped ... ok\ntest group_net_write::tests::scores_each_decimal_cell_using_its_serial_and_channel_mapping ... ok\ntest group_net_write::tests::zero_weights_preserve_correctness_without_awarding_unanswered_zero_channels ... ok\ntest group_net_write::tests::invalid_or_incomplete_templates_cannot_freeze_scoring_rules ... ok\ntest group_net_write::tests::rejects_duplicate_channels_and_malformed_decimal_answers ... ok\ntest password::tests::new_hash_and_token_have_java_compatible_shapes ... ok\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.28s\n\n\nrunning 2 tests\ntest pagination::tests::page_size_is_bounded_and_offset_cannot_overflow ... ok\ntest tests::repository_context_type_is_cloneable ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest transaction_rolls_back_without_leaving_fixture_rows ... ignored, requires an isolated Phase 2 MySQL database\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest read_only_fixture_preserves_pagination_null_and_decimal_shapes ... ignored, requires an isolated Phase 2 MySQL database populated from project006.sql\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Compiling rust-backend v0.1.0 (/tmp/rust-parent-ws-8u74v0a9/backend-rust/crates/app)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.54s\n     Running unittests src/main.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/rust_backend-96587f5e27f8d6ba)\n     Running unittests src/lib.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/rust_persistence-fb7c7a5fc9f7d0c9)\n     Running tests/mysql_transaction.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/mysql_transaction-b7f2b7ccf4d32ed6)\n     Running tests/schema_readonly.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/schema_readonly-3695f793722f875a)\n   Doc-tests rust_persistence\n"
+      },
+      {
+        "command": "cargo build --locked",
+        "code": 0,
+        "output": "   Compiling rust-backend v0.1.0 (/tmp/rust-parent-ws-8u74v0a9/backend-rust/crates/app)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.47s\n"
+      }
+    ],
+    "snapshot_note": "To avoid builds or formatter races with active domain edits, parent compiled committed Rust sources overlaid with main.rs/ws.rs/telegram.rs/general_aux.rs plus the existing Java group-net JSON test fixture. Live services were restarted with that binary.",
+    "observed_registration_boundary": "Java HTTP/heartbeat transport readiness can precede authentication registration. An immediate classic business message was rejected with code1/current connection expired. Empty-page cases explicitly waited250ms and verified authenticated202 diagnostic before requesting page delivery. Online roster cases awaited actual member registration/removal, not a fixed heartbeat assumption."
+  },
+  "comparison_rules_and_variances": [
+    {
+      "surface": "classic 1000 data",
+      "rule": "Outer code, data-presence and data-string type are exact; parse the embedded JSON for object equality, preserving array order, values and omitted fields.",
+      "observed_variance": "JSON object member ordering differs between Gson/HashMap and serde_json. Existing frontend parses JSON objects; byte equality is not claimed."
+    },
+    {
+      "surface": "classic malformed JSON diagnostic",
+      "rule": "Code202 and continuing session/heartbeat are proven; both actual diagnostic strings are retained.",
+      "observed_variance": "Java emits Gson parser exception detail; Rust emits 消息格式不正确. This is not an exact textual match and is not silently removed by the shared HTTP runner."
+    },
+    {
+      "surface": "live general rosters",
+      "rule": "Canonical ID spellings must yield identical roster within each runtime. Membership, role including null, status and user fields must match across runtimes.",
+      "observed_variance": "Java live ConcurrentHashMap traversal and Rust connection-list order differ; list order is explicitly not claimed equal in this supplemental probe."
+    }
+  ],
+  "implementation_commits": [
+    "512f843",
+    "6d12a5a",
+    "e853b43"
+  ]
 }

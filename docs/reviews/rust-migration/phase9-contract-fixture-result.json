@@ -1,9 +1,4197 @@
 {
-  "schema":"rust-migration-phase9-shared-contract-fixture/v1",
-  "verified_at_utc":"2026-09-23T14:00:00Z",
-  "status":"PARTIAL_REAL_JAVA_RUST_SEMANTIC_PROBE",
-  "fixture":"docs/reviews/rust-migration/phase9-contract-fixture.json",
-  "runner":"backend-rust/scripts/phase9-contract-diff.sh",
-  "result":"Full cloned Java schema produced Java HTTP200 entering statisticalPage output for rust-diff-user with three zero-valued rows. Rust against a matching lightweight fixture initially exposed avgSpeed as string; Rust was corrected to numeric JSON and a follow-up Rust fixture returned numeric zeros matching Java semantics. The generic fixture still does not constitute complete all-domain parity.",
-  "known_boundary":"Full Java/Rust fixture parity for all active training and complex room domains remains incomplete; IDs and database writes require per-domain deterministic normalization rules."
+  "schema": "rust-migration-phase9-shared-contract-fixture/v2",
+  "status": "SHARED_RUNNABLE_FIXTURE_MATCHED_EXTENDED_DOMAIN_ACCEPTANCE_PENDING",
+  "fixture_revision": "shared-business-rest-v2",
+  "fixture": "docs/reviews/rust-migration/phase9-contract-fixture.json",
+  "manifest": "backend-rust/scripts/phase9-contract-manifest.json",
+  "runner": "backend-rust/scripts/phase9-contract-diff.sh",
+  "current_execution": {
+    "executed_at_utc": "2026-09-27T18:04:29.818161+00:00",
+    "status": "EXECUTED_MATCH",
+    "reason": "Two independent synthetic-only MySQL schemas; real Java fast-jar on 18121 and Rust on 18122. All migration route flags enabled. No production writes.",
+    "executed_cases": [
+      {
+        "case_id": "tools.month-window",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": [
+              {
+                "month": 9,
+                "year": 2026
+              },
+              {
+                "month": 8,
+                "year": 2026
+              },
+              {
+                "month": 7,
+                "year": 2026
+              },
+              {
+                "month": 6,
+                "year": 2026
+              },
+              {
+                "month": 5,
+                "year": 2026
+              },
+              {
+                "month": 4,
+                "year": 2026
+              },
+              {
+                "month": 3,
+                "year": 2026
+              },
+              {
+                "month": 2,
+                "year": 2026
+              },
+              {
+                "month": 1,
+                "year": 2026
+              },
+              {
+                "month": 12,
+                "year": 2025
+              },
+              {
+                "month": 11,
+                "year": 2025
+              },
+              {
+                "month": 10,
+                "year": 2025
+              }
+            ],
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": [
+              {
+                "month": 9,
+                "year": 2026
+              },
+              {
+                "month": 8,
+                "year": 2026
+              },
+              {
+                "month": 7,
+                "year": 2026
+              },
+              {
+                "month": 6,
+                "year": 2026
+              },
+              {
+                "month": 5,
+                "year": 2026
+              },
+              {
+                "month": 4,
+                "year": 2026
+              },
+              {
+                "month": 3,
+                "year": 2026
+              },
+              {
+                "month": 2,
+                "year": 2026
+              },
+              {
+                "month": 1,
+                "year": 2026
+              },
+              {
+                "month": 12,
+                "year": 2025
+              },
+              {
+                "month": 11,
+                "year": 2025
+              },
+              {
+                "month": 10,
+                "year": 2025
+              }
+            ],
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.login-empty-json",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 202,
+            "data": null,
+            "message": "请求参数错误",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 202,
+            "data": null,
+            "message": "请求参数错误",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.query-credentials-ignored",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.missing-device",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 204,
+            "data": null,
+            "message": "设备标识不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 204,
+            "data": null,
+            "message": "设备标识不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.query-device-ignored",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 204,
+            "data": null,
+            "message": "设备标识不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 204,
+            "data": null,
+            "message": "设备标识不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.admin-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.menus-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "auth.roles-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "cable.types-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "grading.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "device.types-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "equipment.devices-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "equipment.trains-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "theory.classify-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "theory.test-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "question.levels-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "paper.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "exam.self-list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "entering.statistics-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "entering.telex-statistics-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-entering.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-entering.word-stock-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "receive-keypoints.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "keypoints.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "radio.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "military.tree-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-radio.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-military.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "telegram.statistics-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "telegraph.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "telex.statistics-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "ticker.statistics-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-telegram.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-telegraph.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-telex.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "post-ticker.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "group-net.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "group-net.rules-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "global-rule.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "general-key.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "general-telex.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "general-ticker.list-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "simulation.router-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "simulation.report-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "simulation.recept-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "simulation.disturb-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "masthead.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      },
+      {
+        "case_id": "comprehensive.read-missing-token",
+        "status": "EXECUTED_MATCH",
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 203,
+            "data": null,
+            "message": "token不能为空",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        }
+      }
+    ],
+    "executed_count": 49,
+    "matched_count": 49,
+    "different_count": 0,
+    "pending_runnable_count": 0,
+    "pending_runnable_case_ids": [],
+    "pending_requirement_count": 66,
+    "pending_requirement_case_ids": [
+      "tools.clock",
+      "auth.authenticated-read",
+      "auth.unknown-session",
+      "auth.admin-denial",
+      "auth.session-lifecycle",
+      "cable.seeded-read",
+      "cable.admin-write",
+      "grading.seeded-read",
+      "grading.default-write",
+      "device-equipment.seeded-read",
+      "device-equipment.owner-admin",
+      "theory.seeded-read",
+      "theory.owner-progress",
+      "theory.file-binding",
+      "question-paper.seeded-read",
+      "question-paper.admin-write",
+      "question-paper.export",
+      "exam.owner-read",
+      "exam.lifecycle-score",
+      "exam.admin-score-upload",
+      "entering.statistics-read",
+      "entering.lifecycle-score",
+      "post-entering.owner-read",
+      "post-entering.lifecycle",
+      "post-entering.multipart-json",
+      "keypoints.seeded-read",
+      "keypoints.admin-write",
+      "military-radio.seeded-read",
+      "military-radio.admin-tree",
+      "military-radio.lifecycle",
+      "telegram.statistics-read",
+      "telegram.lifecycle",
+      "telegraph.owner-read",
+      "telegraph.owner-write",
+      "telex.statistics-read",
+      "telex.owner-write",
+      "ticker.statistics-read",
+      "ticker.lifecycle",
+      "ticker.base-session",
+      "post-telegram.owner-read",
+      "post-telegram.lifecycle-pages",
+      "post-telegraph.owner-read",
+      "post-telegraph.lifecycle-pages",
+      "post-telex.owner-read",
+      "post-telex.lifecycle-pages",
+      "post-ticker.owner-read",
+      "post-ticker.lifecycle-json",
+      "post-ticker.owner-admin-write",
+      "group-net.owner-read",
+      "group-net.score-write",
+      "general.owner-read",
+      "general.role-lifecycle",
+      "general.rest-ws-projection",
+      "simulation.owner-read",
+      "simulation.room-lifecycle",
+      "simulation.admin-online-route",
+      "comprehensive.owner-read",
+      "global-rule.seeded-read",
+      "global-rule.admin-write",
+      "ws.status",
+      "ws.classic-hand",
+      "ws.union",
+      "ws.simulation",
+      "ws.general-key",
+      "ws.general-telex",
+      "ws.general-ticker"
+    ],
+    "observed_artifacts": [],
+    "outcome_policy": "Update an individual case only from retained execution evidence. Runner equality is EXECUTED_MATCH, not full domain acceptance; expected HTTP/business oracles and setup must also be verified. Never mark a blocked, pending or omitted case passed.",
+    "route_reachability": {
+      "protected_inventory_count": 355,
+      "authenticated_middleware_reachable": 354,
+      "results": [
+        {
+          "endpoint_key": "POST /api/cable/find",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/findById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/floor/find",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/type/find",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/type/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/cable/type/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/comprehensive/getUserOverallInfo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/comprehensive/getTheoryYear",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/comprehensive/getTheoryTestYear",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/device/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/device/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/device/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/device/addDeviceDescription",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/deviceScoringRule/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/deviceScoringRule/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/deviceScoringRule/findAllByDeviceId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/deviceType/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/deviceType/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/deviceType/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/pause",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/goTo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/getWordStock",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringExercise/lastTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringKeyPoints/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringKeyPoints/getByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringTelexPat/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringTelexPat/findByUserIdAndType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringTelexPat/clear",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/enteringTelexPat/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/update",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/addKeyPoints",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentDevice/listKeyPoints",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/equipmentTrain/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalGroupNetRule/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalGroupNetRule/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalGroupNetRule/deleteById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/getGradingRuleListByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/getGradingRuleById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/saveGradingRule",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/updateGradingRuleStatus",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/changeGradingRuleIsDefault",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/gradingRule/deleteGradingRule",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/groupNetTrain/saveTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/groupNetTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/groupNetTrain/details",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/groupNetTrain/submitAnswer",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/keyPoints/saveKeyPoints",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/keyPoints/findKeyPointsByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/masthead/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/masthead/findByTrainId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/menus/addMenu",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/menus/getMenusAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/menus/getMenuById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/saveAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/update",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/move",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/mtd/saveBatch",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/getWordStock",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExercise/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postEnteringExercise/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExerciseWordStock/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExerciseWordStock/view",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExerciseWordStock/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postEnteringExerciseWordStock/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postMilitaryTermTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postMilitaryTermTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postMilitaryTermTrain/details",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postMilitaryTermTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postMilitaryTermTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postMilitaryTermTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/findByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/findByTypeAndRandom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/listPge",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTrain/details",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postRadiotelephoneTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/findMessageBody",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/printBottomReport",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/stop",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/saveContentValue",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelegramTrain/addContentValue",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postTelegramTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/details",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/PostTelegraphKeyPatTrain/getPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/finishPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/PostTelegraphKeyPatTrain/reset",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/PostTelegraphKeyPatTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/pause",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/resume",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/reset",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postTelexPatTrain/getPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTelexPatTrain/finishPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postTelexPatTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/reset",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrain/upLoadResult",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postTickerTapeTrain/findPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/postTickerTapeTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrainSetting/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTickerTapeTrainSetting/addOrUpdate",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTrainGlobalRule/addRule",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTrainGlobalRule/findByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postTrainGlobalRule/deleteById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/radiotelephone/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/radiotelephone/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/radiotelephone/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/radiotelephone/pause",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/radiotelephone/resume",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTermData/findByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTermData/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTermData/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/postRadiotelephoneTermData/update",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/receiveKeyPoints/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/receiveKeyPoints/getByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/role/addRole",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/role/getRoleAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/role/getRoleById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/role/getRoleMenusInfo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getFloorContentByFloorId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getFloorContentByFloorIdAsync",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getFloorContentByFloor",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/saveFloorContent",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/startTelegramTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/pauseTelegramTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/endTelegramTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/saveTelegramTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getTelegramTrainLog",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/getSetting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/saveSetting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/saveBaseTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegramTrain/lastTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrain/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrain/findByType",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrain/clear",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/save",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/stop",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/goTo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/findById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/lastTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telegraphKeyPatTrainSynthetical/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/saveTelexPat",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/findTelexPatById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/deleteTexPatByToken",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTestPaper/saveTestPaper",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTestPaper/findAllTestPaper",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTestPaper/findTestPaperById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTestPaper/deleteTestPaper",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/saveTexPatTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/findTexPatTrainByToken",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/findTexPatTrainById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/lastPatTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/telexPat/deleteById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getBasicTheory",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getBasicTheoryOpen",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getDutyBusiness",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getChargeEquipment",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/getByIdAndToken",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/saveTheoryKnowledge",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/saveTheoryKnowledgeRecord",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/deleteThroyKnowledgeById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/recordStatistice",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/gradeCount",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/listPageClassify",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/addClassify",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/removeClassify",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledge/uploadFileToNip",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/savetheoryKnowledgeExam",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/listPageSelfTesting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/finishSelfTesting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/findAllTheoryKnowledgeExam",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/findTheoryKnowledgeExamById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/studentChangeExamState",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/studentSaveExamRealtimeContont",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/examineAnalyse",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExam/deleteTheoryKnowledgeExam",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExamUser/findAllTheoryKnowledgeExamUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExamUser/teacherUploadScore",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeExamUser/findExamUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestionLevelById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/exportQuestionByLevelId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/saveBatch",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeQuestion/exportTemplate",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/saveTheoryKnowledgeTest",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/saveUserKnowledgeSwfTestContent",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/getTestBySwfId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/getTestContentById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/listPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/getById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/begin",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/pause",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/goOn",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/saveBaseTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/baseSession",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/discardBaseSession",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/statisticalPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrain/lastTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrainSetting/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrainSetting/addOrUpdate",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrainStageSetting/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/tickerTapeTrainStageSetting/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/saveUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/userOut",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/changePassword",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/importUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/addUserRole",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getAllUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUsersByUserNameStartingWith",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUserDirectory",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUserInfoAllByStatusDesc",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUserById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUserAndRoleById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUsersByIds",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUsersByToken",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/verifyPassword",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/findAllTeacher",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/findAllStu",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/user/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/user/resetPassword",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getUserTrainDurationStat",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getRecentHandKeyTrains",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/user/getRecentElectronicKeyTrains",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/findPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/patDetail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/uploadResult",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/updateTrainStatus",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/getPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/getPatValue",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/statistics",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalKeyPat/getTrainInfo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/importTrainInfo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalKeyPat/getTrainInfoBatch",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/importTrainInfoBatch",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalKeyPat/startTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalKeyPat/reset",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalKeyPat/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/GeneralKeyPatTrain/getOneline/{}",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/patDetail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/findPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/updateTrainStatus",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/uploadResult",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/getPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/getPatValue",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTelexPat/statistics",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalTelexPat/getOnline",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalTelexPat/startTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalTelexPat/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/add",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/findPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/findAll",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/detail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/finish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/uploadResult",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/reset",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/generalTickerPatTrain/statistics",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalTickerPatTrain/startTrain",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/generalTickerPatTrain/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/openApi/generalTickerPatTrain/综合训练-手键拍发Api",
+          "http_status": 404,
+          "code": null
+        },
+        {
+          "endpoint_key": "GET /api/openApi/generalTickerPatTrain/findTrainInfo",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/socket/generalTickerPatTrain/getByTrainIdAndUserId",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/socket/generalTickerPatTrain/updateTrainStatus",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/addRoomAndContent",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/addStudent",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/findAlls",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/findById",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/findTrainUser",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/uploadResult",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/routerRoomContent/saveSetting",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/routerRoomContent/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/recept/addRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/recept/findRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/recept/getRoomDetail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/recept/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/report/addRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/report/findRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/report/getRoomDetail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/report/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/router/addRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/router/findRoom",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/router/getRoomUserList/{}",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/router/changeChannel",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/router/getRoomDetail",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/router/getRoomChannels",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "POST /api/simulation/router/sendFinish",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/router/findPage",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/router/delete",
+          "http_status": 200,
+          "code": 203
+        },
+        {
+          "endpoint_key": "GET /api/simulation/socket/getAllRoomInfo",
+          "http_status": 200,
+          "code": 203
+        }
+      ],
+      "boundary": "This is unauthenticated reachability, not business acceptance. The percent-encoded Chinese openApi path is HTTP404 in both runtimes; do not claim it as a migrated active business endpoint."
+    },
+    "additional_real_runtime_checks": {
+      "statistics": [
+        {
+          "path": "/api/user/getUserTrainDurationStat",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "handKeyDuration": 61,
+                "electronicKeyDuration": 72,
+                "receiveDuration": 30,
+                "datagramDuration": 29,
+                "telexDuration": 42,
+                "pinyinDuration": 31,
+                "wubiDuration": 78,
+                "englishDuration": 43
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "datagramDuration": 29,
+                "electronicKeyDuration": 72,
+                "englishDuration": 43,
+                "handKeyDuration": 61,
+                "pinyinDuration": 31,
+                "receiveDuration": 30,
+                "telexDuration": 42,
+                "wubiDuration": 78
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "path": "/api/user/getUserTrainDurationStat",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "handKeyDuration": 0,
+                "electronicKeyDuration": 0,
+                "receiveDuration": 30,
+                "datagramDuration": 29,
+                "telexDuration": 42,
+                "pinyinDuration": 0,
+                "wubiDuration": 0,
+                "englishDuration": 0
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "datagramDuration": 29,
+                "electronicKeyDuration": 0,
+                "englishDuration": 0,
+                "handKeyDuration": 0,
+                "pinyinDuration": 0,
+                "receiveDuration": 30,
+                "telexDuration": 42,
+                "wubiDuration": 0
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "path": "/api/user/getRecentHandKeyTrains",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "startTime": "2026-09-01 01:01:01",
+                  "trainTime": 61,
+                  "score": 88.5,
+                  "speed": "12.5"
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "score": 88.5,
+                  "speed": "12.5",
+                  "startTime": "2026-09-01 01:01:01",
+                  "trainTime": 61
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "path": "/api/user/getRecentElectronicKeyTrains",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "startTime": "2026-09-01 02:00:00",
+                  "trainTime": 180,
+                  "score": 91.0,
+                  "speed": "7.5"
+                },
+                {
+                  "startTime": "2026-08-01 02:00:00",
+                  "trainTime": 180,
+                  "score": null,
+                  "speed": null
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": [
+                {
+                  "score": 91.0,
+                  "speed": "7.5",
+                  "startTime": "2026-09-01 02:00:00",
+                  "trainTime": 180
+                },
+                {
+                  "score": null,
+                  "speed": null,
+                  "startTime": "2026-08-01 02:00:00",
+                  "trainTime": 180
+                }
+              ],
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        }
+      ],
+      "fixed_protocol_and_null_boundaries": [
+        {
+          "case": "duration-no-media",
+          "java": {
+            "http_status": 415,
+            "json": null,
+            "raw_if_not_json": ""
+          },
+          "rust": {
+            "http_status": 415,
+            "json": null,
+            "raw_if_not_json": ""
+          },
+          "matched": true
+        },
+        {
+          "case": "duration-empty-json",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "handKeyDuration": 61,
+                "electronicKeyDuration": 72,
+                "receiveDuration": 30,
+                "datagramDuration": 29,
+                "telexDuration": 42,
+                "pinyinDuration": 31,
+                "wubiDuration": 78,
+                "englishDuration": 43
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "datagramDuration": 29,
+                "electronicKeyDuration": 72,
+                "englishDuration": 43,
+                "handKeyDuration": 61,
+                "pinyinDuration": 31,
+                "receiveDuration": 30,
+                "telexDuration": 42,
+                "wubiDuration": 78
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "case": "duration-minute",
+          "java": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "handKeyDuration": 0,
+                "electronicKeyDuration": 0,
+                "receiveDuration": 30,
+                "datagramDuration": 29,
+                "telexDuration": 42,
+                "pinyinDuration": 31,
+                "wubiDuration": 78,
+                "englishDuration": 43
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "datagramDuration": 29,
+                "electronicKeyDuration": 0,
+                "englishDuration": 43,
+                "handKeyDuration": 0,
+                "pinyinDuration": 31,
+                "receiveDuration": 30,
+                "telexDuration": 42,
+                "wubiDuration": 78
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "case": "settings-invalid-time",
+          "java": {
+            "http_status": 400,
+            "json": null,
+            "raw_if_not_json": ""
+          },
+          "rust": {
+            "http_status": 400,
+            "json": null,
+            "raw_if_not_json": ""
+          },
+          "matched": true
+        },
+        {
+          "case": "/api/user/getRecentHandKeyTrains-null-row",
+          "java": {
+            "http_status": 500,
+            "json": {
+              "code": 500,
+              "data": null,
+              "message": "服务器错误",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 500,
+            "json": {
+              "code": 500,
+              "data": null,
+              "message": "服务器错误",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        },
+        {
+          "case": "/api/enteringExercise/statisticalPage-null-row",
+          "java": {
+            "http_status": 500,
+            "json": {
+              "code": 500,
+              "data": null,
+              "message": "服务器错误",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rust": {
+            "http_status": 500,
+            "json": {
+              "code": 500,
+              "data": null,
+              "message": "服务器错误",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "matched": true
+        }
+      ],
+      "synthetical_lifecycle": [
+        {
+          "port": 18121,
+          "create": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "5a2a5b66-2531-4eed-a632-ecc59ff97234",
+                "title": "verified-runtime",
+                "status": 0,
+                "duration": "0",
+                "totalNumber": 2,
+                "messageType": 0,
+                "errorNumber": 0,
+                "accuracy": 0.0,
+                "speed": "0",
+                "content": "[{\"text\":\"1234\",\"value\":\"\",\"type\":true,\"isFocus\":false},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]"
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "future_clock": {
+            "http_status": 200,
+            "json": {
+              "code": 202,
+              "data": null,
+              "message": "训练时间轴异常",
+              "description": "训练时间轴异常"
+            },
+            "raw_if_not_json": null
+          },
+          "denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "pause": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "5a2a5b66-2531-4eed-a632-ecc59ff97234",
+                "title": "verified-runtime",
+                "status": 2,
+                "duration": "60",
+                "totalNumber": 2,
+                "messageType": 0,
+                "errorNumber": 0,
+                "accuracy": 100.0,
+                "speed": "4.00",
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]"
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "resume": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "5a2a5b66-2531-4eed-a632-ecc59ff97234",
+                "title": "verified-runtime",
+                "status": 1,
+                "duration": "60",
+                "totalNumber": 2,
+                "messageType": 0,
+                "errorNumber": 0,
+                "accuracy": 100.0,
+                "speed": "4.00",
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]"
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rollback": {
+            "http_status": 500,
+            "row_unchanged": true
+          },
+          "concurrent_finish_identical": true,
+          "finish": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "5a2a5b66-2531-4eed-a632-ecc59ff97234",
+                "title": "verified-runtime",
+                "status": 3,
+                "duration": "98",
+                "totalNumber": 2,
+                "messageType": 0,
+                "errorNumber": 0,
+                "accuracy": 100.0,
+                "speed": "2.44",
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]"
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "terminal": {
+            "http_status": 200,
+            "json": {
+              "code": 208,
+              "data": null,
+              "message": "当前结果已保存，不能修改",
+              "description": "当前结果已保存，不能修改"
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "create": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "accuracy": 0.0,
+                "content": "[{\"text\":\"1234\",\"value\":\"\",\"type\":true,\"isFocus\":false},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]",
+                "duration": "0",
+                "errorNumber": 0,
+                "id": "6965cbeb-003a-4b5e-895a-64cd1731e547",
+                "messageType": 0,
+                "speed": "0",
+                "status": 0,
+                "title": "verified-runtime",
+                "totalNumber": 2
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "future_clock": {
+            "http_status": 200,
+            "json": {
+              "code": 202,
+              "data": null,
+              "message": "训练时间轴异常",
+              "description": "训练时间轴异常"
+            },
+            "raw_if_not_json": null
+          },
+          "denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "pause": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "accuracy": 100.0,
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]",
+                "duration": "60",
+                "errorNumber": 0,
+                "id": "6965cbeb-003a-4b5e-895a-64cd1731e547",
+                "messageType": 0,
+                "speed": "4.00",
+                "status": 2,
+                "title": "verified-runtime",
+                "totalNumber": 2
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "resume": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "accuracy": 100.0,
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]",
+                "duration": "60",
+                "errorNumber": 0,
+                "id": "6965cbeb-003a-4b5e-895a-64cd1731e547",
+                "messageType": 0,
+                "speed": "4.00",
+                "status": 1,
+                "title": "verified-runtime",
+                "totalNumber": 2
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "rollback": {
+            "http_status": 500,
+            "row_unchanged": true
+          },
+          "concurrent_finish_identical": true,
+          "finish": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "accuracy": 100.0,
+                "content": "[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true},{\"text\":\"5678\",\"value\":\"\",\"type\":true,\"isFocus\":false}]",
+                "duration": "61",
+                "errorNumber": 0,
+                "id": "6965cbeb-003a-4b5e-895a-64cd1731e547",
+                "messageType": 0,
+                "speed": "3.90",
+                "status": 3,
+                "title": "verified-runtime",
+                "totalNumber": 2
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "terminal": {
+            "http_status": 200,
+            "json": {
+              "code": 208,
+              "data": null,
+              "message": "当前结果已保存，不能修改",
+              "description": "当前结果已保存，不能修改"
+            },
+            "raw_if_not_json": null
+          }
+        }
+      ],
+      "ticker_replacement_failure": {
+        "java_http_status": 500,
+        "rust_http_status": 500,
+        "both_preserved_previous_setting": true
+      },
+      "normalization_and_clock_policy": "Exact JSON/status comparison except synthetical generated IDs differ by design; active elapsed times are verified against each database clock rather than compared as equal. Future-clock rejection was tested. A resumed Java clock rejected one immediate finish before trigger execution; the rollback probe then explicitly anchored both database clocks one second in the past. Four concurrent finishes produced identical immutable responses per runtime.",
+      "scope": "These supplemental observations do not close every manifest obligation or replace browser/WS/platform acceptance.",
+      "authorization_before_content": [
+        {
+          "port": 18121,
+          "action": "stop",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18121,
+          "action": "finish",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "action": "stop",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "action": "finish",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        }
+      ],
+      "protected_admin_writes": [
+        {
+          "port": 18121,
+          "keypoint_update": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "316fb4e5-fb8d-4f35-a9ab-ffa7feb18412",
+                "type": 7,
+                "content": null
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "keypoint_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "device_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "device_delete": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": null,
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "telex_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "telex_delete": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": null,
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "keypoint_update": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "content": null,
+                "id": "df4275d0-d7cc-4b8c-9ebf-d780852d49e0",
+                "type": 7
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "keypoint_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "device_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "device_delete": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": null,
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "telex_denial": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          },
+          "telex_delete": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": null,
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        }
+      ],
+      "orphan_owner": [
+        {
+          "port": 18121,
+          "role": "admin",
+          "action": "findById",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "id": "orphan-synthetic-smoke",
+                "title": "orphan",
+                "status": 0,
+                "duration": "0",
+                "totalNumber": null,
+                "messageType": null,
+                "errorNumber": null,
+                "accuracy": null,
+                "speed": null,
+                "content": "[]"
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18121,
+          "role": "admin",
+          "action": "begin",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 202,
+              "data": null,
+              "message": "id to load is required for loading",
+              "description": "id to load is required for loading"
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18121,
+          "role": "student",
+          "action": "findById",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18121,
+          "role": "student",
+          "action": "begin",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "role": "admin",
+          "action": "findById",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 200,
+              "data": {
+                "accuracy": null,
+                "content": "[]",
+                "duration": "0",
+                "errorNumber": null,
+                "id": "orphan-synthetic-smoke",
+                "messageType": null,
+                "speed": null,
+                "status": 0,
+                "title": "orphan",
+                "totalNumber": null
+              },
+              "message": "ok",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "role": "admin",
+          "action": "begin",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 202,
+              "data": null,
+              "message": "id to load is required for loading",
+              "description": "id to load is required for loading"
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "role": "student",
+          "action": "findById",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        },
+        {
+          "port": 18122,
+          "role": "student",
+          "action": "begin",
+          "response": {
+            "http_status": 200,
+            "json": {
+              "code": 207,
+              "data": null,
+              "message": "无权限",
+              "description": ""
+            },
+            "raw_if_not_json": null
+          }
+        }
+      ],
+      "user_prefix_query": {
+        "java": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": [
+              {
+                "id": "parity-admin",
+                "userName": "Parity Admin",
+                "userAccount": "parity-admin",
+                "userImg": null
+              },
+              {
+                "id": "parity-student",
+                "userName": "Parity Student",
+                "userAccount": "parity-student",
+                "userImg": null
+              }
+            ],
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "rust": {
+          "http_status": 200,
+          "json": {
+            "code": 200,
+            "data": [
+              {
+                "id": "parity-admin",
+                "userAccount": "parity-admin",
+                "userImg": null,
+                "userName": "Parity Admin"
+              },
+              {
+                "id": "parity-student",
+                "userAccount": "parity-student",
+                "userImg": null,
+                "userName": "Parity Student"
+              }
+            ],
+            "message": "ok",
+            "description": ""
+          },
+          "raw_if_not_json": null
+        },
+        "matched": true
+      },
+      "recovery_domain_gate": {
+        "enabled": false,
+        "runtime_seconds": 53.6,
+        "database_configured": false,
+        "periodic_recovery_warning_count": 0,
+        "shutdown": "graceful exit 0",
+        "boundary": "This demonstrates the disabled path; enabled settlement recovery still needs its separate lifecycle and DB-state acceptance."
+      }
+    },
+    "verification_commands": [
+      {
+        "command": "cargo fmt --all",
+        "code": 0,
+        "output": ""
+      },
+      {
+        "command": "cargo test --locked",
+        "code": 0,
+        "output": "\nrunning 17 tests\ntest group_net_write::tests::retries_compare_arbitrary_precision_numbers_without_changing_json_types ... ok\ntest scoring::tests::accuracy_matches_java_two_decimal_intermediate_rounding ... ok\ntest password::tests::verifies_legacy_md5_and_marks_upgrade ... ok\ntest scoring::tests::rate_matches_java_score_math_boundaries ... ok\ntest password::tests::verifies_java_pbkdf2_vector_and_marks_upgrade ... ok\ntest synthetical::tests::score_excludes_unanswered_rows_and_caps_overlong_input ... ok\ntest synthetical::tests::score_counts_utf16_units_and_handles_zero_elapsed_time ... ok\ntest tests::missing_response_data_serializes_as_json_null ... ok\ntest tests::token_digest_matches_java_sha256_contract ... ok\ntest tests::admin_middleware_returns_207_for_non_admin_and_200_for_admin ... ok\ntest user_training_stats::tests::minute_precision_iso_filter_is_not_silently_dropped ... ok\ntest tests::twelve_month_data_matches_java_descending_year_month_order ... ok\ntest group_net_write::tests::scores_each_decimal_cell_using_its_serial_and_channel_mapping ... ok\ntest group_net_write::tests::zero_weights_preserve_correctness_without_awarding_unanswered_zero_channels ... ok\ntest group_net_write::tests::invalid_or_incomplete_templates_cannot_freeze_scoring_rules ... ok\ntest group_net_write::tests::rejects_duplicate_channels_and_malformed_decimal_answers ... ok\ntest password::tests::new_hash_and_token_have_java_compatible_shapes ... ok\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.15s\n\n\nrunning 2 tests\ntest pagination::tests::page_size_is_bounded_and_offset_cannot_overflow ... ok\ntest tests::repository_context_type_is_cloneable ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest transaction_rolls_back_without_leaving_fixture_rows ... ignored, requires an isolated Phase 2 MySQL database\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest read_only_fixture_preserves_pagination_null_and_decimal_shapes ... ignored, requires an isolated Phase 2 MySQL database populated from project006.sql\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Compiling rust-backend v0.1.0 (/home/zhang/workspace/007/backend-rust/crates/app)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.20s\n     Running unittests src/main.rs (target/debug/deps/rust_backend-96587f5e27f8d6ba)\n     Running unittests src/lib.rs (target/debug/deps/rust_persistence-fb7c7a5fc9f7d0c9)\n     Running tests/mysql_transaction.rs (target/debug/deps/mysql_transaction-b7f2b7ccf4d32ed6)\n     Running tests/schema_readonly.rs (target/debug/deps/schema_readonly-3695f793722f875a)\n   Doc-tests rust_persistence\n"
+      },
+      {
+        "command": "cargo test --locked -p rust-persistence -- --ignored",
+        "code": 0,
+        "output": "\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest transaction_rolls_back_without_leaving_fixture_rows ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s\n\n\nrunning 1 test\ntest read_only_fixture_preserves_pagination_null_and_decimal_shapes ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Compiling rust-persistence v0.1.0 (/home/zhang/workspace/007/backend-rust/crates/persistence)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.27s\n     Running unittests src/lib.rs (target/debug/deps/rust_persistence-5bac65a5db21d368)\n     Running tests/mysql_transaction.rs (target/debug/deps/mysql_transaction-aa38f33dba8ea7bd)\n     Running tests/schema_readonly.rs (target/debug/deps/schema_readonly-c153ef31b46cef42)\n   Doc-tests rust_persistence\n"
+      },
+      {
+        "command": "cargo build --locked",
+        "code": 0,
+        "output": "   Compiling rust-backend v0.1.0 (/home/zhang/workspace/007/backend-rust/crates/app)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.43s\n"
+      },
+      {
+        "command": "python3 scripts/test_phase9_contract_diff.py",
+        "code": 0,
+        "output": "....\n----------------------------------------------------------------------\nRan 4 tests in 4.313s\n\nOK\n"
+      },
+      {
+        "command": "cargo fmt --all && cargo test --locked && cargo build --locked",
+        "code": 0,
+        "evidence": "artifact://1763; 19 tests passed, 2 database tests ignored here and explicitly passed in prior command above; build succeeded after authorization precedence fix and OpenAPI update."
+      },
+      {
+        "command": "cargo fmt --all && cargo test --locked && cargo build --locked",
+        "code": 0,
+        "evidence": "artifact://1770; final orphan compatibility change: 19 passed, build succeeded."
+      }
+    ]
+  },
+  "historical_executed_evidence": [
+    {
+      "case_id": "historical.entering-statistical-page-zero-average",
+      "recorded_verified_at_utc": "2026-09-23T14:00:00Z",
+      "status": "RECORDED_PARTIAL_REAL_JAVA_RUST_SEMANTIC_PROBE",
+      "request": "POST /api/enteringExercise/statisticalPage",
+      "recorded_result": "Full cloned Java schema produced Java HTTP200 entering statisticalPage output for rust-diff-user with three zero-valued rows. Rust against a matching lightweight fixture initially exposed avgSpeed as string; Rust was corrected to numeric JSON and a follow-up Rust fixture returned numeric zeros matching Java semantics.",
+      "evidence_provenance": "Preserved narrative from the prior version of this result file. That record did not include request/response artifact paths or a per-case differential runner log.",
+      "execution_kind": "Separate Java/Rust semantic observations, not execution of shared-business-rest-v2.",
+      "counts_toward_current_fixture": false,
+      "boundary": "Zero averages do not prove fractional/non-zero averages, all-domain parity, owner/admin behavior, lifecycle, DB writes, multipart or WS behavior."
+    }
+  ],
+  "result": "49/49 shared HTTP cases matched on real services. Supplemental seeded statistics, null/protocol errors, ticker rollback and synthetical authority/lifecycle/concurrent finish/transaction rollback checks executed. Full-domain Phase 9 and Java retirement remain gated.",
+  "known_boundary": "Runner compares HTTP status and complete sorted JSON without ignoring fields; empty, invalid or multiple JSON documents fail. Dynamic credentials/IDs, elapsed clock values, multipart/binary and WS require explicit separate assertions. Per-domain extended requirements remain pending until their complete acceptance is proven.",
+  "implementation_commits": [
+    "125ec31",
+    "f2bffe6",
+    "45b83d5",
+    "464279b",
+    "e4cd01d",
+    "11428b4",
+    "75c1eb4",
+    "7b62023",
+    "6f98e74",
+    "868bae5"
+  ]
 }
