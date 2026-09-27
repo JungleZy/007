@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-
 use axum::{
-    extract::{Extension, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     response::Response,
     Json,
 };
+use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::Row;
+use std::collections::HashMap;
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
@@ -215,6 +215,42 @@ pub(crate) async fn save_scoring_rule(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     envelope_response(StatusCode::OK, 200, "ok", "")
+}
+#[derive(Deserialize)]
+pub(crate) struct ScoringRuleQuery {
+    #[serde(rename = "deviceId")]
+    device_id: Option<i32>,
+}
+
+pub(crate) async fn find_scoring_rule(
+    State(state): State<AppState>,
+    Extension(_user): Extension<AuthUser>,
+    Query(query): Query<ScoringRuleQuery>,
+) -> Response {
+    let Some(device_id) = query.device_id else {
+        return envelope_response(StatusCode::OK, 202, "设备ID不能为空", "");
+    };
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    match sqlx::query("SELECT id,name,device_id,rule_content FROM device_scoring_rule WHERE device_id=? ORDER BY id")
+        .bind(device_id)
+        .fetch_all(pool)
+        .await
+    {
+        Ok(rows) if rows.len() > 1 => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "该设备存在重复评分规则，请先清理", ""),
+        Ok(rows) => envelope_json(
+            StatusCode::OK,
+            200,
+            rows.first().map(|row| json!({"id":row.get::<i32,_>("id"),"name":row.get::<Option<String>,_>("name"),"deviceId":row.get::<Option<i32>,_>("device_id"),"ruleContent":row.get::<Option<String>,_>("rule_content")})),
+            "ok",
+            "",
+        ),
+        Err(error) => {
+            tracing::warn!(%error, "device scoring rule query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
 }
 
 pub(crate) async fn save_device(

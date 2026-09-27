@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-27T23:15:00Z",
+  "generated_at_utc": "2026-09-27T23:20:00Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
@@ -747,8 +747,8 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"deviceScoringRuleFindAllByDeviceId\",\"file\":\"src/common/api/TrainingDetails.js\",\"kind\":\"axios\",\"line\":28}]",
       "source_sha256": "108de650d08324b92f5a71d82b354d394e3f0e4d65e96f76bef9b9ff56b41cb7",
-      "rust_coverage_status": "RUST_FLAGGED",
-      "rust_domain": "rust-phase4"
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
+      "rust_domain": "rust-phase4-device-scoring"
     },
     {
       "method": "POST",

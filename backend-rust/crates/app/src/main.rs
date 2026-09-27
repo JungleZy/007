@@ -482,11 +482,17 @@ fn build_router(state: AppState) -> Router {
                 "/api/deviceType",
                 device_type_routes.merge(admin_device_type_routes),
             );
+        let device_scoring_read_routes = Router::new()
+            .route("/findAllByDeviceId", get(device::find_scoring_rule))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let admin_device_scoring_routes = Router::new()
             .route("/save", post(device::save_scoring_rule))
             .route_layer(middleware::from_fn(require_admin))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
-        api = api.nest("/api/deviceScoringRule", admin_device_scoring_routes);
+        api = api.nest(
+            "/api/deviceScoringRule",
+            device_scoring_read_routes.merge(admin_device_scoring_routes),
+        );
     }
     if state.config.equipment_readonly_enabled {
         let equipment_routes = Router::new()
