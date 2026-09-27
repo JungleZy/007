@@ -26,8 +26,15 @@ jobs:
       - name: Test Rust backend
         run: cargo test --locked
 
-      - name: Build Rust backend
+      - name: Build Rust backend (debug)
         run: cargo build --locked
-
-      - name: Smoke test real Rust backend binary
-        run: ./scripts/smoke.sh target/debug/rust-backend
+      - name: Build Rust backend (release)
+        run: cargo build --locked --release
+      - name: Smoke test release Rust backend binary
+        run: ./scripts/smoke.sh target/release/rust-backend
+      - name: Upload Rust release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backend-linux-amd64
+          path: backend-rust/target/release/rust-backend
+          if-no-files-found: error
