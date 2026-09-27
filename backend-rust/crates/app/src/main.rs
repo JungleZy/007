@@ -63,6 +63,7 @@ mod radiotelephone;
 mod receive_keypoints;
 mod scoring;
 mod simulation;
+mod synthetical;
 mod telegram;
 mod telegram_write;
 mod telegraph_key;
@@ -957,6 +958,18 @@ fn build_router(state: AppState) -> Router {
             .route("/clear", post(telegraph_key::clear))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         api = api.nest("/api/telegraphKeyPatTrain", telegraph_key_routes);
+        let synthetical_routes = Router::new()
+            .route("/findAll", post(synthetical::find_all))
+            .route("/save", post(synthetical::save))
+            .route("/begin", post(synthetical::begin))
+            .route("/stop", post(synthetical::stop))
+            .route("/goTo", post(synthetical::go_to))
+            .route("/finish", post(synthetical::finish))
+            .route("/findById", post(synthetical::find_by_id))
+            .route("/lastTrain", post(synthetical::last_train))
+            .route("/statisticalPage", post(synthetical::statistical_page))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
+        api = api.nest("/api/telegraphKeyPatTrainSynthetical", synthetical_routes);
     }
     if state.config.theory_readonly_enabled {
         let theory_routes = Router::new()
@@ -2257,6 +2270,15 @@ async fn openapi() -> Json<Value> {
             "/api/tickerTapeTrainSetting/addOrUpdate": {"post": {"responses": {"200": {"description": "Atomically replace ticker rate settings; admin only"}}}},
             "/api/tickerTapeTrainStageSetting/add": {"post": {"responses": {"200": {"description": "Save ticker stage settings; admin only"}}}},
             "/api/tickerTapeTrainStageSetting/findAll": {"post": {"responses": {"200": {"description": "Read ticker stage settings"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/findAll": {"post": {"responses": {"200": {"description": "Authenticated user's synthetical electronic-key trains"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/save": {"post": {"responses": {"200": {"description": "Create or configure synthetical electronic-key train"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/begin": {"post": {"responses": {"200": {"description": "Begin server-authoritative capture"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/stop": {"post": {"responses": {"200": {"description": "Pause and settle current capture"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/goTo": {"post": {"responses": {"200": {"description": "Resume paused capture"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/finish": {"post": {"responses": {"200": {"description": "Idempotent authoritative settlement"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/findById": {"post": {"responses": {"200": {"description": "Owner/admin scoped train detail"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/lastTrain": {"post": {"responses": {"200": {"description": "Authenticated user's latest train or null"}}}},
+            "/api/telegraphKeyPatTrainSynthetical/statisticalPage": {"post": {"responses": {"200": {"description": "Authenticated user's three electronic-key statistics categories"}}}},
             "/api/phase1/contract/auth": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/phase1/contract/admin": {"get": {"responses": {"200": {"description": "Response envelope"}}}},
             "/api/tools/getNowTime": {"get": {"responses": {"200": {"description": "Response envelope; enabled only by RUST_PHASE2_TOOLS_ENABLED"}}}},
