@@ -1,12 +1,1245 @@
 {
-  "schema":"rust-migration-phase6-entering-writes/v1",
-  "verified_at_utc":"2026-09-23T05:40:01Z",
-  "source_commit":"d338d9f",
-  "status":"PASS_NO_PRODUCTION_TRAFFIC",
-  "feature_flag":{"name":"RUST_PHASE6_ENTERING_ENABLED","default":false,"routes":["POST /api/enteringExercise/add","POST /api/enteringExercise/begin","POST /api/enteringExercise/pause","POST /api/enteringExercise/finish"],"production_cutover":false},
-  "contract":{"identity":"token-derived createUserId","states":{"not_started":0,"running":1,"finished":2,"paused":3},"terminal":"finished rows cannot be updated"},
-  "fixture":{"database":"temporary isolated MySQL schema phase6_enter_write_*","users":"u1 owner and u2 foreign","cleanup":"temporary schema dropped after test"},
-  "requests":{"owner_add":200,"owner_begin":200,"owner_pause":200,"owner_resume":200,"owner_finish":200,"repeat_finish":207,"foreign_pause":207},
-  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"owner status sequence and foreign/terminal rejection observed"},
-  "known_boundary":"Server-side capture scoring/elapsedMillis parity and real training page smoke remain for subsequent Phase 6 work."
+  "schema": "rust-migration-phase6-entering-writes/v2",
+  "verified_at_utc": "2026-09-27T19:54:07.191795+00:00",
+  "status": "REAL_AUTHORITY_PARITY_AND_BROWSER_PROOF_NO_CUTOVER",
+  "historical_incomplete_probe": {
+    "schema": "rust-migration-phase6-entering-writes/v1",
+    "verified_at_utc": "2026-09-23T05:40:01Z",
+    "source_commit": "d338d9f",
+    "status": "PASS_NO_PRODUCTION_TRAFFIC",
+    "feature_flag": {
+      "name": "RUST_PHASE6_ENTERING_ENABLED",
+      "default": false,
+      "routes": [
+        "POST /api/enteringExercise/add",
+        "POST /api/enteringExercise/begin",
+        "POST /api/enteringExercise/pause",
+        "POST /api/enteringExercise/finish"
+      ],
+      "production_cutover": false
+    },
+    "contract": {
+      "identity": "token-derived createUserId",
+      "states": {
+        "not_started": 0,
+        "running": 1,
+        "finished": 2,
+        "paused": 3
+      },
+      "terminal": "finished rows cannot be updated"
+    },
+    "fixture": {
+      "database": "temporary isolated MySQL schema phase6_enter_write_*",
+      "users": "u1 owner and u2 foreign",
+      "cleanup": "temporary schema dropped after test"
+    },
+    "requests": {
+      "owner_add": 200,
+      "owner_begin": 200,
+      "owner_pause": 200,
+      "owner_resume": 200,
+      "owner_finish": 200,
+      "repeat_finish": 207,
+      "foreign_pause": 207
+    },
+    "verification": {
+      "cargo_test_workspace": "9 passed, 2 opt-in ignored",
+      "cargo_build_workspace": "passed",
+      "real_http_fixture": "owner status sequence and foreign/terminal rejection observed"
+    },
+    "known_boundary": "Server-side capture scoring/elapsedMillis parity and real training page smoke remain for subsequent Phase 6 work."
+  },
+  "correction": "The earlier probe only tested status writes and incorrectly accepted empty source arrays and repeat-finish207. Real browser use exposed the missing question/score/clock contract. That implementation is replaced, not treated as accepted behavior.",
+  "feature_flag": {
+    "name": "RUST_PHASE6_ENTERING_ENABLED",
+    "default": false,
+    "production_cutover": false
+  },
+  "source_asset": {
+    "path": "bw-frontend/frontend/src/common/utils/entering-codebook.json",
+    "sha256": "0149e33cb1ba2df64a8754fb057ebe7231c421431a5787e2ec0e64dd97ca7f99",
+    "policy": "Reuse the exact ordered frontend/Java codebook, not another hand-maintained table."
+  },
+  "create_cases": [
+    {
+      "type": 0,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "a2cb1426-f057-4270-a64e-024306ccec29",
+            "type": 0,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]},{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]},{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    },
+    {
+      "type": 1,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "7d74bb1c-77a9-46cb-be86-994ec1074095",
+            "type": 1,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"u\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null}]},{\"font\":\"\uff0c\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\",\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"u\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null}]},{\"font\":\"\uff0c\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\",\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "8b51da21-80db-4a6e-96bf-c84290b5d3c0",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    },
+    {
+      "type": 2,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "c4d735ae-da4d-430a-a340-f0d98519c83a",
+            "type": 2,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"u\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"u\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "5f49d16d-8664-4c58-bb00-87e89afd6441",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 2
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    },
+    {
+      "type": 3,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "8d6896c3-0a6a-4f6c-a93d-a885468a0b1f",
+            "type": 3,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"A\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"A\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"A\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"A\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "d3320c37-38a8-4c01-9aa7-1c1b07aa933b",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 3
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    },
+    {
+      "type": 4,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "27a31b3e-e2d6-4072-b91a-1e71b51cb6ba",
+            "type": 4,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"A\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"A\",\"trueOrfalse\":null}]},{\"font\":\"\uff0c\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\",\",\"trueOrfalse\":null}]},{\"font\":\"\u00fc\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"v\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"A\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"A\",\"trueOrfalse\":null}]},{\"font\":\"\uff0c\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\",\",\"trueOrfalse\":null}]},{\"font\":\"\u00fc\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"v\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "14c763a1-3ff8-4f4e-94ea-ac25cdd9ea18",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 4
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    },
+    {
+      "type": 9,
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "285a98c5-d91a-4414-9af0-74bf28cc7f15",
+            "type": 9,
+            "startTime": null,
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 0.0,
+            "speed": 0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"k\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"l\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"y\",\"trueOrfalse\":null},{\"py\":\"i\",\"trueOrfalse\":null}]}]",
+            "duration": 0,
+            "status": 0,
+            "name": "codebook-parity",
+            "correctNum": 0,
+            "errorNum": 0,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 0.0,
+            "content": "[{\"font\":\"\u4e2d\u56fd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"k\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"l\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null},{\"py\":\"y\",\"trueOrfalse\":null},{\"py\":\"i\",\"trueOrfalse\":null}]}]",
+            "correctNum": 0,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 0,
+            "endTime": null,
+            "errorNum": 0,
+            "id": "5d997657-d486-407f-8cf4-247341940ae7",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 0,
+            "startTime": null,
+            "status": 0,
+            "type": 9
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "matched_except_generated_id_create_time": true
+    }
+  ],
+  "empty_stock_before": [
+    {
+      "http_status": 200,
+      "json": {
+        "code": 202,
+        "data": null,
+        "message": "\u5f55\u5165\u5185\u5bb9\u5fc5\u987b\u4e3a\u6570\u7ec4",
+        "description": "\u5f55\u5165\u5185\u5bb9\u5fc5\u987b\u4e3a\u6570\u7ec4"
+      },
+      "raw_if_not_json": null
+    },
+    {
+      "http_status": 200,
+      "json": {
+        "code": 200,
+        "data": {
+          "accuracy": 0,
+          "correctNum": 0,
+          "duration": 0,
+          "errorNum": 0,
+          "id": "0585e4b9-b60c-4b96-8010-eb3054273ff1",
+          "protocolVersion": 1,
+          "speed": 0,
+          "status": 0,
+          "type": 0
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "raw_if_not_json": null
+    }
+  ],
+  "empty_stock_after": {
+    "http_status": 200,
+    "json": {
+      "code": 202,
+      "data": null,
+      "message": "\u5f55\u5165\u5185\u5bb9\u5fc5\u987b\u4e3a\u6570\u7ec4",
+      "description": "\u5f55\u5165\u5185\u5bb9\u5fc5\u987b\u4e3a\u6570\u7ec4"
+    },
+    "raw_if_not_json": null
+  },
+  "lifecycle_cases": [
+    {
+      "side": "java",
+      "unauthorized": {
+        "http_status": 200,
+        "json": {
+          "code": 207,
+          "data": null,
+          "message": "\u65e0\u6743\u9650",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "before_begin": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5c1a\u672a\u5f00\u59cb",
+          "description": "\u8bad\u7ec3\u5c1a\u672a\u5f00\u59cb"
+        },
+        "raw_if_not_json": null
+      },
+      "begin_idempotent": true,
+      "pause": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "a2cb1426-f057-4270-a64e-024306ccec29",
+            "type": 0,
+            "startTime": "2026-09-27 19:34:31",
+            "endTime": null,
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 50.0,
+            "speed": 2,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "duration": 55,
+            "status": 3,
+            "name": "codebook-parity",
+            "correctNum": 1,
+            "errorNum": 1,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "paused_change": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3",
+          "description": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "wrong_begin": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u8bf7\u7ee7\u7eed\u5df2\u5f00\u59cb\u7684\u8bad\u7ec3",
+          "description": "\u8bf7\u7ee7\u7eed\u5df2\u5f00\u59cb\u7684\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "resume": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": null,
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rollback_http500_and_unchanged": true,
+      "four_concurrent_finish_identical": true,
+      "finish": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "a2cb1426-f057-4270-a64e-024306ccec29",
+            "type": 0,
+            "startTime": "2026-09-27 19:34:31",
+            "endTime": "2026-09-27 19:34:32",
+            "createTime": "2026-09-27 19:33:15",
+            "accuracy": 50.0,
+            "speed": 2,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "duration": 56,
+            "status": 2,
+            "name": "codebook-parity",
+            "correctNum": 1,
+            "errorNum": 1,
+            "protocolVersion": 1
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "terminal_changed_answer": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c",
+          "description": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c"
+        },
+        "raw_if_not_json": null
+      },
+      "terminal_pause": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c",
+          "description": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c"
+        },
+        "raw_if_not_json": null
+      },
+      "statistics": "1\t56\t2.00"
+    },
+    {
+      "side": "rust",
+      "unauthorized": {
+        "http_status": 200,
+        "json": {
+          "code": 207,
+          "data": null,
+          "message": "\u65e0\u6743\u9650",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "before_begin": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5c1a\u672a\u5f00\u59cb",
+          "description": "\u8bad\u7ec3\u5c1a\u672a\u5f00\u59cb"
+        },
+        "raw_if_not_json": null
+      },
+      "begin_idempotent": true,
+      "pause": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 50.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "correctNum": 1,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 55,
+            "endTime": null,
+            "errorNum": 1,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 2,
+            "startTime": "2026-09-27 19:34:32",
+            "status": 3,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "paused_change": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3",
+          "description": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "wrong_begin": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "\u8bf7\u7ee7\u7eed\u5df2\u5f00\u59cb\u7684\u8bad\u7ec3",
+          "description": "\u8bf7\u7ee7\u7eed\u5df2\u5f00\u59cb\u7684\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "resume": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": null,
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rollback_http500_and_unchanged": true,
+      "four_concurrent_finish_identical": true,
+      "finish": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 50.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "correctNum": 1,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 56,
+            "endTime": "2026-09-27 19:34:33",
+            "errorNum": 1,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 2,
+            "startTime": "2026-09-27 19:34:32",
+            "status": 2,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "terminal_changed_answer": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c",
+          "description": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c"
+        },
+        "raw_if_not_json": null
+      },
+      "terminal_pause": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c",
+          "description": "\u8bad\u7ec3\u5df2\u7ed3\u675f\uff0c\u4e0d\u80fd\u4fee\u6539\u7ed3\u679c"
+        },
+        "raw_if_not_json": null
+      },
+      "statistics": "1\t56\t2.00"
+    }
+  ],
+  "legacy_cases": [
+    {
+      "action": "getById",
+      "id": "entering-legacy-done",
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "id": "entering-legacy-done",
+            "type": 0,
+            "startTime": null,
+            "endTime": null,
+            "createTime": null,
+            "accuracy": 75.0,
+            "speed": 77,
+            "content": "[{\"legacy\":true}]",
+            "duration": 99,
+            "status": 2,
+            "name": null,
+            "correctNum": 3,
+            "errorNum": 1,
+            "protocolVersion": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 75.0,
+            "content": "[{\"legacy\":true}]",
+            "correctNum": 3,
+            "createTime": null,
+            "duration": 99,
+            "endTime": null,
+            "errorNum": 1,
+            "id": "entering-legacy-done",
+            "name": null,
+            "protocolVersion": 0,
+            "speed": 77,
+            "startTime": null,
+            "status": 2,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      }
+    },
+    {
+      "action": "getById",
+      "id": "entering-legacy-open",
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      }
+    },
+    {
+      "action": "finish",
+      "id": "entering-legacy-done",
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      }
+    },
+    {
+      "action": "begin",
+      "id": "entering-legacy-open",
+      "java": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 208,
+          "data": null,
+          "message": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3",
+          "description": "\u65e7\u7248\u7ec3\u4e60\u4ec5\u53ef\u67e5\u770b\u5df2\u5b8c\u6210\u8bb0\u5f55\uff0c\u8bf7\u91cd\u65b0\u521b\u5efa\u8bad\u7ec3"
+        },
+        "raw_if_not_json": null
+      }
+    }
+  ],
+  "preview_binding_before": [
+    {
+      "field": "speed",
+      "java": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 50.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "correctNum": 1,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 56,
+            "endTime": "2026-09-27 19:34:33",
+            "errorNum": 1,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 2,
+            "startTime": "2026-09-27 19:34:32",
+            "status": 2,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      }
+    },
+    {
+      "field": "duration",
+      "java": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 50.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "correctNum": 1,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 56,
+            "endTime": "2026-09-27 19:34:33",
+            "errorNum": 1,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 2,
+            "startTime": "2026-09-27 19:34:32",
+            "status": 2,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      }
+    },
+    {
+      "field": "accuracy",
+      "java": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "rust": {
+        "http_status": 200,
+        "json": {
+          "code": 200,
+          "data": {
+            "accuracy": 50.0,
+            "content": "[{\"font\":\"\u91cd\",\"value\":\"zhong\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true}]},{\"font\":\"\u91cd\",\"value\":\"xxxxx\",\"isFocus\":true,\"trueOrfalse\":false,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":false},{\"py\":\"o\",\"trueOrfalse\":false},{\"py\":\"n\",\"trueOrfalse\":false},{\"py\":\"g\",\"trueOrfalse\":false}]}]",
+            "correctNum": 1,
+            "createTime": "2026-09-27 19:33:15",
+            "duration": 56,
+            "endTime": "2026-09-27 19:34:33",
+            "errorNum": 1,
+            "id": "ffd82381-0dd2-42fd-ae8d-d69e54f5c74d",
+            "name": "codebook-parity",
+            "protocolVersion": 1,
+            "speed": 2,
+            "startTime": "2026-09-27 19:34:32",
+            "status": 2,
+            "type": 0
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "raw_if_not_json": null
+      }
+    }
+  ],
+  "preview_binding_after": [
+    {
+      "field": "speed",
+      "response": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "matches_java": true
+    },
+    {
+      "field": "duration",
+      "response": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "matches_java": true
+    },
+    {
+      "field": "accuracy",
+      "response": {
+        "http_status": 400,
+        "json": null,
+        "raw_if_not_json": ""
+      },
+      "matches_java": true
+    }
+  ],
+  "double_lexical_cases_after": [
+    {
+      "value": "NaN",
+      "java_http": 200,
+      "rust_http": 200,
+      "rust_http_after": 200
+    },
+    {
+      "value": "nan",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    },
+    {
+      "value": "Infinity",
+      "java_http": 200,
+      "rust_http": 200,
+      "rust_http_after": 200
+    },
+    {
+      "value": "infinity",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    },
+    {
+      "value": "inf",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    },
+    {
+      "value": "-Infinity",
+      "java_http": 200,
+      "rust_http": 200,
+      "rust_http_after": 200
+    },
+    {
+      "value": "+Infinity",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    },
+    {
+      "value": "+NaN",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    },
+    {
+      "value": "1f",
+      "java_http": 400,
+      "rust_http": 400,
+      "rust_http_after": 400
+    },
+    {
+      "value": "0x1p1",
+      "java_http": 400,
+      "rust_http": 400,
+      "rust_http_after": 400
+    },
+    {
+      "value": "1e999",
+      "java_http": 200,
+      "rust_http": 200,
+      "rust_http_after": 200
+    },
+    {
+      "value": "\u30001\u3000",
+      "java_http": 400,
+      "rust_http": 200,
+      "rust_http_after": 400
+    }
+  ],
+  "double_additional_java_oracle": [
+    [
+      "INF",
+      200
+    ],
+    [
+      "-INF",
+      200
+    ],
+    [
+      "+INF",
+      400
+    ],
+    [
+      "-NaN",
+      400
+    ],
+    [
+      "+1",
+      200
+    ],
+    [
+      "01",
+      200
+    ],
+    [
+      "1.",
+      200
+    ],
+    [
+      ".1",
+      200
+    ],
+    [
+      "1e+2",
+      200
+    ],
+    [
+      "null",
+      200
+    ],
+    [
+      "NULL",
+      400
+    ]
+  ],
+  "unicode_cutover": {
+    "paused_java_row_rust_before": {
+      "http_status": 200,
+      "json": {
+        "code": 202,
+        "data": null,
+        "message": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3",
+        "description": "\u6682\u505c\u671f\u95f4\u4e0d\u80fd\u4fee\u6539\u5f55\u5165\u5185\u5bb9\uff0c\u8bf7\u5148\u7ee7\u7eed\u8bad\u7ec3"
+      },
+      "raw_if_not_json": null
+    },
+    "paused_java_row_rust_after": {
+      "http_status": 200,
+      "json": {
+        "code": 200,
+        "data": {
+          "accuracy": 0.0,
+          "content": "[{\"font\":\"\u91cd\",\"value\":\"\\u2028\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]},{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]}]",
+          "correctNum": 0,
+          "createTime": "2026-09-27 19:37:59",
+          "duration": 0,
+          "endTime": "2026-09-27 19:42:03",
+          "errorNum": 0,
+          "id": "7de727e0-f231-4c09-b83e-b5b238187ab6",
+          "name": "cross-runtime-replay",
+          "protocolVersion": 1,
+          "speed": 0,
+          "startTime": "2026-09-27 19:37:59",
+          "status": 2,
+          "type": 0
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "raw_if_not_json": null
+    },
+    "finished_java_replay": {
+      "http_status": 200,
+      "json": {
+        "code": 200,
+        "data": {
+          "id": "b5a0d310-0704-4d55-9706-e75c1256b10a",
+          "type": 0,
+          "startTime": "2026-09-27 19:45:57",
+          "endTime": "2026-09-27 19:45:57",
+          "createTime": "2026-09-27 19:45:57",
+          "accuracy": 0.0,
+          "speed": 0,
+          "content": "[{\"font\":\"\u91cd\",\"value\":\"\\u2029\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]},{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]}]",
+          "duration": 0,
+          "status": 2,
+          "name": null,
+          "correctNum": 0,
+          "errorNum": 0,
+          "protocolVersion": 1
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "raw_if_not_json": null
+    },
+    "finished_rust_replay": {
+      "http_status": 200,
+      "json": {
+        "code": 200,
+        "data": {
+          "accuracy": 0.0,
+          "content": "[{\"font\":\"\u91cd\",\"value\":\"\\u2029\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":false},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]},{\"font\":\"\u91cd\",\"value\":\"\",\"isFocus\":false,\"trueOrfalse\":null,\"pys\":[{\"py\":\"c\",\"trueOrfalse\":null},{\"py\":\"h\",\"trueOrfalse\":null},{\"py\":\"o\",\"trueOrfalse\":null},{\"py\":\"n\",\"trueOrfalse\":null},{\"py\":\"g\",\"trueOrfalse\":null}]}]",
+          "correctNum": 0,
+          "createTime": "2026-09-27 19:45:57",
+          "duration": 0,
+          "endTime": "2026-09-27 19:45:57",
+          "errorNum": 0,
+          "id": "b5a0d310-0704-4d55-9706-e75c1256b10a",
+          "name": null,
+          "protocolVersion": 1,
+          "speed": 0,
+          "startTime": "2026-09-27 19:45:57",
+          "status": 2,
+          "type": 0
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "raw_if_not_json": null
+    },
+    "statistics_unchanged_on_terminal_replay": true,
+    "date_boundary": "Initial Java finish endTime differed by one second from its own later replay because DATETIME(0) rounds the committed value. Compare persisted replay to persisted replay; do not claim original transient Java date bytes equal stored dates."
+  },
+  "browser": {
+    "mode": "Real Chromium, Vue dev server18124, Rust HTTP18122; existing development license entry used without changing license or authentication code",
+    "user": "synthetic parity-ui",
+    "flow": [
+      "real login using repository menu configuration",
+      "create type1 words \u4e2d\u56fd and \uff0c",
+      "start through UI",
+      "type zhong through real keyboard",
+      "pause",
+      "resume",
+      "type guo,",
+      "finish through UI"
+    ],
+    "pause": {
+      "status": 3,
+      "value": "zhong",
+      "correctNum": 0,
+      "errorNum": 0,
+      "elapsedMillis": 136
+    },
+    "final_database_record": "2\t2\t0\t100.00\t3\t31\t[{\"font\":\"\u4e2d\u56fd\",\"value\":\"zhongguo\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"u\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true}]},{\"font\":\"\uff0c\",\"value\":\",\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\",\",\"trueOrfalse\":true}]}]",
+    "rendered_result": {
+      "status": "\u7ec3\u4e60\u5df2\u7ed3\u675f",
+      "correctNum": 2,
+      "errorNum": 0,
+      "accuracy": "100%",
+      "speed": "3\u7ec4/\u5206",
+      "duration": "00 : 00 : 31"
+    },
+    "network": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/statisticalPage",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/lastTrain",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/add",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/getById",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/begin",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/pause",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/goTo",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/finish",
+        "status": 200
+      }
+    ],
+    "screenshot": "/tmp/omp-sshots-159066a16d18c934.webp",
+    "boundaries": [
+      "Browser only, not packaged Electron or physical hardware.",
+      "External icon-file service was not running in this lab; its iconfont request failed.",
+      "Old incomplete Rust fixture lacked active_started_at and was correctly rejected; it was not silently repaired or reused as the successful case."
+    ]
+  },
+  "verification_commands": [
+    {
+      "command": "cargo test --locked",
+      "code": 0,
+      "output": "\nrunning 21 tests\ntest entering_codebook::tests::capture_rebuilds_source_and_truth_instead_of_trusting_client_preview ... ok\ntest entering_codebook::tests::same_answers_reconstruct_java_capture_identity_after_cutover ... ok\ntest entering_codebook::tests::invalid_stock_and_answer_lengths_do_not_create_empty_successes ... ok\ntest group_net_write::tests::retries_compare_arbitrary_precision_numbers_without_changing_json_types ... ok\ntest password::tests::verifies_java_pbkdf2_vector_and_marks_upgrade ... ok\ntest password::tests::verifies_legacy_md5_and_marks_upgrade ... ok\ntest scoring::tests::accuracy_matches_java_two_decimal_intermediate_rounding ... ok\ntest scoring::tests::rate_matches_java_score_math_boundaries ... ok\ntest synthetical::tests::score_counts_utf16_units_and_handles_zero_elapsed_time ... ok\ntest tests::admin_middleware_returns_207_for_non_admin_and_200_for_admin ... ok\ntest synthetical::tests::score_excludes_unanswered_rows_and_caps_overlong_input ... ok\ntest tests::missing_response_data_serializes_as_json_null ... ok\ntest tests::twelve_month_data_matches_java_descending_year_month_order ... ok\ntest tests::token_digest_matches_java_sha256_contract ... ok\ntest user_training_stats::tests::minute_precision_iso_filter_is_not_silently_dropped ... ok\ntest group_net_write::tests::scores_each_decimal_cell_using_its_serial_and_channel_mapping ... ok\ntest entering_codebook::tests::article_splits_characters_and_normalizes_keyboard_punctuation ... ok\ntest group_net_write::tests::zero_weights_preserve_correctness_without_awarding_unanswered_zero_channels ... ok\ntest group_net_write::tests::invalid_or_incomplete_templates_cannot_freeze_scoring_rules ... ok\ntest group_net_write::tests::rejects_duplicate_channels_and_malformed_decimal_answers ... ok\ntest password::tests::new_hash_and_token_have_java_compatible_shapes ... ok\n\ntest result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.78s\n\n\nrunning 2 tests\ntest tests::repository_context_type_is_cloneable ... ok\ntest pagination::tests::page_size_is_bounded_and_offset_cannot_overflow ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest transaction_rolls_back_without_leaving_fixture_rows ... ignored, requires an isolated Phase 2 MySQL database\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 1 test\ntest read_only_fixture_preserves_pagination_null_and_decimal_shapes ... ignored, requires an isolated Phase 2 MySQL database populated from project006.sql\n\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n   Compiling rust-backend v0.1.0 (/tmp/rust-parent-ws-8u74v0a9/backend-rust/crates/app)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.11s\n     Running unittests src/main.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/rust_backend-96587f5e27f8d6ba)\n     Running unittests src/lib.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/rust_persistence-fb7c7a5fc9f7d0c9)\n     Running tests/mysql_transaction.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/mysql_transaction-b7f2b7ccf4d32ed6)\n     Running tests/schema_readonly.rs (/home/zhang/workspace/007/backend-rust/target/debug/deps/schema_readonly-3695f793722f875a)\n   Doc-tests rust_persistence\n"
+    },
+    {
+      "command": "cargo build --locked",
+      "code": 0,
+      "output": "   Compiling rust-backend v0.1.0 (/tmp/rust-parent-ws-8u74v0a9/backend-rust/crates/app)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.43s\n"
+    }
+  ],
+  "known_boundary": "No production traffic/cutover. Surrogate hint units preserve decoded UTF16 behavior, not every possible invalid-Unicode byte encoding. Other Phase6 domains and whole-plan acceptance remain separate."
 }

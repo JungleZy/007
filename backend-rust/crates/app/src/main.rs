@@ -33,6 +33,7 @@ mod cable;
 mod comprehensive;
 mod device;
 mod entering;
+mod entering_codebook;
 mod equipment;
 mod equipment_train;
 mod exam;

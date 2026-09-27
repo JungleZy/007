@@ -1,7 +1,153 @@
 {
-  "schema":"rust-migration-phase9-frontend-smoke/v1",
-  "verified_at_utc":"2026-09-24T10:05:04Z",
-  "status":"PARTIAL_NO_CUTOVER",
-  "verification":{"frontend_tests":"39 passed, 0 failed","frontend_production_build":"passed; Vite output and artifact manifest generated","browser_surface":"frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'","electron":"Rust release binary manually loaded into out/linux-unpacked/bin/server/server; Java supplied real dynamic menus and login token; Electron automation loaded offline license, rendered the authenticated Hanzi Pinyin training list with 3 tiles, clicked a tile into practice, and observed HTTP200 enteringExercise statisticalPage/lastTrain/add/getById requests; real serial selection still reported missing KEYSIM-VIRTUAL"},
-  "known_boundary":"Authenticated Electron training UI/API flow is now verified for one Hanzi domain; real serial-device flow, Electron WS/upload/download/exit coverage, and production cutover remain incomplete."
+  "schema": "rust-migration-phase9-frontend-smoke/v1",
+  "status": "PARTIAL_NO_CUTOVER",
+  "known_boundary": "Real browser keyboard entering lifecycle completed with server-derived score; Electron WS/upload/download/exit, real serial/audio perception, release build/platform acceptance and production cutover remain unverified by this browser run. External file-service icon request was unavailable and is recorded rather than hidden.",
+  "historical_verification": {
+    "frontend_tests": "39 passed, 0 failed",
+    "frontend_production_build": "passed; Vite output and artifact manifest generated",
+    "browser_surface": "frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'",
+    "electron": "Rust release binary manually loaded into out/linux-unpacked/bin/server/server; Java supplied real dynamic menus and login token; Electron automation loaded offline license, rendered the authenticated Hanzi Pinyin training list with 3 tiles, clicked a tile into practice, and observed HTTP200 enteringExercise statisticalPage/lastTrain/add/getById requests; real serial selection still reported missing KEYSIM-VIRTUAL"
+  },
+  "historical_verified_at_utc": "2026-09-24T10:05:04Z",
+  "verified_at_utc": "2026-09-27T19:54:07.225751+00:00",
+  "current_browser": {
+    "mode": "Real Chromium, Vue dev server18124, Rust HTTP18122; existing development license entry used without changing license or authentication code",
+    "user": "synthetic parity-ui",
+    "flow": [
+      "real login using repository menu configuration",
+      "create type1 words 中国 and ，",
+      "start through UI",
+      "type zhong through real keyboard",
+      "pause",
+      "resume",
+      "type guo,",
+      "finish through UI"
+    ],
+    "pause": {
+      "status": 3,
+      "value": "zhong",
+      "correctNum": 0,
+      "errorNum": 0,
+      "elapsedMillis": 136
+    },
+    "final_database_record": "2\t2\t0\t100.00\t3\t31\t[{\"font\":\"中国\",\"value\":\"zhongguo\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"u\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true}]},{\"font\":\"，\",\"value\":\",\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\",\",\"trueOrfalse\":true}]}]",
+    "rendered_result": {
+      "status": "练习已结束",
+      "correctNum": 2,
+      "errorNum": 0,
+      "accuracy": "100%",
+      "speed": "3组/分",
+      "duration": "00 : 00 : 31"
+    },
+    "network": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/statisticalPage",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/lastTrain",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/add",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/getById",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/begin",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/pause",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/goTo",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/enteringExercise/finish",
+        "status": 200
+      }
+    ],
+    "screenshot": "/tmp/omp-sshots-159066a16d18c934.webp",
+    "boundaries": [
+      "Browser only, not packaged Electron or physical hardware.",
+      "External icon-file service was not running in this lab; its iconfont request failed.",
+      "Old incomplete Rust fixture lacked active_started_at and was correctly rejected; it was not silently repaired or reused as the successful case."
+    ]
+  },
+  "synthetical_browser": {
+    "route": "/preview/basicSkill/preJob/telegram/patExam",
+    "steps": [
+      "real Rust login",
+      "open comprehensive training configuration",
+      "create100-row training",
+      "navigate to examComplexTrain and fetch owned detail",
+      "enable browser audio context",
+      "exit unstarted exercise"
+    ],
+    "network": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/statisticalPage",
+        "status": 200,
+        "resourceType": "xhr"
+      },
+      {
+        "method": "OPTIONS",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/statisticalPage",
+        "status": 200,
+        "resourceType": "other"
+      },
+      {
+        "method": "OPTIONS",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/lastTrain",
+        "status": 200,
+        "resourceType": "other"
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/lastTrain",
+        "status": 200,
+        "resourceType": "xhr"
+      },
+      {
+        "method": "OPTIONS",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/save",
+        "status": 200,
+        "resourceType": "other"
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/save",
+        "status": 200,
+        "resourceType": "xhr"
+      },
+      {
+        "method": "OPTIONS",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/findById",
+        "status": 200,
+        "resourceType": "other"
+      },
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/findById",
+        "status": 200,
+        "resourceType": "xhr"
+      }
+    ],
+    "boundary": "Starting keyed capture requires a real serial device. No fake device flags or synthetic PubSub input were injected; this is creation/detail/navigation evidence, not a complete device workflow."
+  }
 }
