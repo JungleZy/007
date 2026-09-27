@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-current-coverage/v1",
-  "generated_at_utc": "2026-09-27T19:35:00Z",
+  "generated_at_utc": "2026-09-27T19:40:00Z",
   "source_files": [
     "docs/reviews/rust-migration/rest-endpoints.tsv",
     "backend-rust/crates/app/src/*.rs"
@@ -4586,7 +4586,7 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"saveReceivePoints\",\"file\":\"src/common/api/ExplainApi.js\",\"kind\":\"axios\",\"line\":33}]",
       "source_sha256": "fe36bbceb4755c7bc8122a24d808610b02a2f7e4efd031bf72844ebad848a6ed",
-      "rust_coverage_status": "PARTIAL_DOMAIN",
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
       "rust_domain": "rust-phase6-keypoints"
     },
     {
@@ -4615,7 +4615,7 @@
       "static_consumer_status": "STATIC_CONSUMER",
       "static_consumers": "[{\"api_export\":\"findReceivePointsByType\",\"file\":\"src/common/api/ExplainApi.js\",\"kind\":\"axios\",\"line\":19}]",
       "source_sha256": "fe36bbceb4755c7bc8122a24d808610b02a2f7e4efd031bf72844ebad848a6ed",
-      "rust_coverage_status": "PARTIAL_DOMAIN",
+      "rust_coverage_status": "RUST_IMPLEMENTED_NO_CUTOVER",
       "rust_domain": "rust-phase6-keypoints"
     },
     {
@@ -10572,5 +10572,5 @@
     "9ff9a3c"
   ],
   "java_only_count": 0,
-  "partial_domain_count": 116
+  "partial_domain_count": 114
 }
