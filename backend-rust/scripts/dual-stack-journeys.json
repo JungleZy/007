@@ -272,6 +272,26 @@
         {"name": "room-users-after-changes", "who": "admin", "method": "GET", "path": "/api/simulation/router/getRoomUserList/${roomId}"},
         {"name": "delete-room", "who": "admin", "method": "GET", "path": "/api/simulation/router/delete?roomId=${roomId}"}
       ]
+    },
+    {
+      "name": "grading-rule-save-guard",
+      "steps": [
+        {"name": "create-blank-id", "who": "admin", "method": "POST", "path": "/api/gradingRule/saveGradingRule", "body": {"id": null, "type": 2, "title": "电传评分创建", "score": 100, "status": 0, "isDefault": 1, "content": "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":50,\"r\":0,\"l\":1},\"other\":{\"errorCode\":35,\"muchLessGroups\":10,\"correctMistakes\":2,\"lessPage\":10,\"lessReturnLine\":10,\"muchLessLine\":10,\"muchLessCode\":20,\"errorPage\":10,\"nonStandart\":10}}"}, "capture": {"ruleId": "$.data.id", "ruleContent": "$.data.content"}},
+        {"name": "edit-existing", "who": "admin", "method": "POST", "path": "/api/gradingRule/saveGradingRule", "body": {"id": "${ruleId}", "type": 2, "title": "电传评分编辑", "score": 120, "status": 0, "isDefault": 1, "content": "${ruleContent}"}},
+        {"name": "edit-missing", "who": "admin", "method": "POST", "path": "/api/gradingRule/saveGradingRule", "body": {"id": "deleted-grading-rule", "type": 2, "title": "不应创建", "score": 100, "status": 0, "isDefault": 0, "content": "${ruleContent}"}},
+        {"name": "edit-numeric-missing", "who": "admin", "method": "POST", "path": "/api/gradingRule/saveGradingRule", "body": {"id": 987654321, "type": 2, "title": "数字编号不应创建", "score": 100, "status": 0, "isDefault": 0, "content": "${ruleContent}"}},
+        {"name": "status-existing", "who": "admin", "method": "POST", "path": "/api/gradingRule/updateGradingRuleStatus", "body": {"id": "${ruleId}", "status": 1}},
+        {"name": "status-missing", "who": "admin", "method": "POST", "path": "/api/gradingRule/updateGradingRuleStatus", "body": {"id": "deleted-grading-rule", "status": 1}},
+        {"name": "default-existing", "who": "admin", "method": "POST", "path": "/api/gradingRule/changeGradingRuleIsDefault", "body": {"id": "${ruleId}"}},
+        {"name": "default-missing", "who": "admin", "method": "POST", "path": "/api/gradingRule/changeGradingRuleIsDefault", "body": {"id": "deleted-grading-rule"}},
+        {"name": "find-after-edit", "who": "admin", "method": "POST", "path": "/api/gradingRule/getGradingRuleById", "body": {"id": "${ruleId}"}},
+        {"name": "find-missing-after-refusal", "who": "admin", "method": "POST", "path": "/api/gradingRule/getGradingRuleById", "body": {"id": "deleted-grading-rule"}},
+        {"name": "list-after-refusals", "who": "admin", "method": "POST", "path": "/api/gradingRule/getGradingRuleListByType", "body": {"type": 2}},
+        {"name": "delete", "who": "admin", "method": "POST", "path": "/api/gradingRule/deleteGradingRule", "body": {"id": "${ruleId}"}},
+        {"name": "edit-deleted", "who": "admin", "method": "POST", "path": "/api/gradingRule/saveGradingRule", "body": {"id": "${ruleId}", "type": 2, "title": "删除后不应重建", "score": 100, "status": 0, "isDefault": 0, "content": "${ruleContent}"}},
+        {"name": "find-after-delete", "who": "admin", "method": "POST", "path": "/api/gradingRule/getGradingRuleById", "body": {"id": "${ruleId}"}},
+        {"name": "list-after-delete", "who": "admin", "method": "POST", "path": "/api/gradingRule/getGradingRuleListByType", "body": {"type": 2}}
+      ]
     }
   ]
 }

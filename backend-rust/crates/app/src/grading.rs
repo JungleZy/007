@@ -83,12 +83,17 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let rule_id = body
+    // Jackson binds numeric JSON ids to String before the create/update decision.
+    let supplied_id = body
         .get("id")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        .and_then(|value| match value {
+            Value::String(id) => Some(id.clone()),
+            Value::Number(id) => Some(id.to_string()),
+            _ => None,
+        })
+        .filter(|id| !id.trim().is_empty());
+    let creating = supplied_id.is_none();
+    let rule_id = supplied_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let Some(rule_type) = body.get("type").and_then(Value::as_i64) else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
@@ -106,6 +111,32 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
+    if !creating {
+        // Lock only the supplied primary key. A deleted/stale id must never create a rule.
+        match sqlx::query_scalar::<_, String>(
+            "SELECT id FROM t_grading_rule WHERE id = ? FOR UPDATE",
+        )
+        .bind(&rule_id)
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                let _ = tx.rollback().await;
+                return envelope_response(
+                    StatusCode::OK,
+                    202,
+                    "未查询到评分规则",
+                    "未查询到评分规则",
+                );
+            }
+            Err(error) => {
+                tracing::warn!(%error, "grading rule update lookup failed");
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
+    }
     if requested_default == 0
         && sqlx::query("UPDATE t_grading_rule SET is_default = 1 WHERE type = ?")
             .bind(rule_type)
@@ -121,7 +152,20 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
     } else {
         match sqlx::query("SELECT COUNT(*) AS count FROM t_grading_rule WHERE type = ? AND is_default = 0 AND id <> ?").bind(rule_type).bind(&rule_id).fetch_one(&mut *tx).await { Ok(row) if row.get::<i64, _>("count") == 0 => 0, _ => 1 }
     };
-    if sqlx::query("INSERT INTO t_grading_rule (id,type,title,score,status,is_default,content) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE type=VALUES(type),title=VALUES(title),score=VALUES(score),status=VALUES(status),is_default=VALUES(is_default),content=VALUES(content)").bind(&rule_id).bind(rule_type).bind(title).bind(score).bind(status).bind(is_default).bind(content).execute(&mut *tx).await.is_err() { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
+    let write = if creating {
+        sqlx::query("INSERT INTO t_grading_rule (id,type,title,score,status,is_default,content) VALUES (?,?,?,?,?,?,?)")
+            .bind(&rule_id).bind(rule_type).bind(title).bind(score).bind(status).bind(is_default).bind(content)
+            .execute(&mut *tx).await
+    } else {
+        sqlx::query("UPDATE t_grading_rule SET type=?,title=?,score=?,status=?,is_default=?,content=? WHERE id=?")
+            .bind(rule_type).bind(title).bind(score).bind(status).bind(is_default).bind(content).bind(&rule_id)
+            .execute(&mut *tx).await
+    };
+    if let Err(error) = write {
+        tracing::warn!(%error, "grading rule save failed");
+        let _ = tx.rollback().await;
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
     if tx.commit().await.is_err() {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }

@@ -16,7 +16,7 @@
     "production_cutover": false
   },
   "java_contract": {
-    "save": "upsert rule fields and preserve one default per type",
+    "save": "create for blank id; numeric ids coerce to text; update requires an existing primary-key row or returns HTTP 200/code 202 with message and description 未查询到评分规则; preserve one default per type",
     "status": "update status by id",
     "default": "clear same-type defaults and set selected rule default",
     "delete": "delete rule row in transactional write path",
@@ -42,6 +42,11 @@
     "cargo_test_workspace": "9 passed, 2 opt-in ignored",
     "cargo_build_workspace": "passed",
     "real_http_fixture": "ordinary-user 207 matrix and admin save/status/default/delete success observed"
+  },
+  "save_guard_regression_2026_10_08": {
+    "frontend": "TelexGradeRule.vue clones the selected rule, serializes content, and sends id through GradingRuleApi.saveGradingRule",
+    "journey": "grading-rule-save-guard covers null-id create, existing edit, missing string/numeric ids, existing/missing status and default changes, list/find, delete, and refusal to recreate a deleted id",
+    "verification": "cargo fmt --all -- --check and cargo test --locked passed (36 passed, 6 ignored); /tmp/t2_c.json only-journeys: 207 requests, 194 identical, 13 ACCEPTED, zero FAIL/OPEN; all 15 grading steps identical"
   },
   "next_boundary": "Rust grading writes remain feature-flagged off; device/equipment domains remain Java-only."
 }
