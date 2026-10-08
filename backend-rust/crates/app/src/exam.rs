@@ -1113,11 +1113,19 @@ pub(crate) async fn save_formal(
     let result = async {
         let students = body.get("stuId").and_then(Value::as_array)
             .ok_or(ExamError::Parameter("请求参数错误"))?;
-        let exam_id = request_text(body.get("id"))?.filter(|id| !id.is_empty())
-            .map(Cow::into_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let supplied_id = request_text(body.get("id"))?.filter(|id| !id.is_empty());
+        let rebuilding = supplied_id.is_some();
+        let exam_id = supplied_id.map(Cow::into_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         crate::statistical::lock_user(&mut transaction, &user.id).await?;
-        sqlx::query("SELECT id FROM t_theory_knowledge_exam WHERE id=? FOR UPDATE")
-            .bind(&exam_id).fetch_optional(&mut *transaction).await?;
+        // INSERT owns the new record directly. A supplied id uses a no-op duplicate
+        // update to lock an existing record without a locking miss/gap-lock upgrade.
+        let insert = if rebuilding {
+            "INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE id=id"
+        } else {
+            "INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1)"
+        };
+        sqlx::query(insert)
+            .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
         let touched = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND (state<>1 OR score>0 OR (content IS NOT NULL AND TRIM(content)<>''))")
             .bind(&exam_id).fetch_one(&mut *transaction).await?;
         if touched > 0 {
@@ -1127,9 +1135,11 @@ pub(crate) async fn save_formal(
         let sections = PAPER_SECTIONS.iter().map(|(_, section)| {
             question_list_json(paper.get(*section).and_then(Value::as_array).map(Vec::as_slice).unwrap_or(&[]))
         }).collect::<Result<Vec<_>, _>>()?;
-        sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE title=VALUES(title),start_time=VALUES(start_time),duration=VALUES(duration),create_user_id=VALUES(create_user_id),teacher=VALUES(teacher),state=1")
-            .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
-        delete_exam_children(&mut transaction, &exam_id).await?;
+        if rebuilding {
+            sqlx::query("UPDATE t_theory_knowledge_exam SET title=?,start_time=?,duration=?,create_user_id=?,teacher=?,state=1 WHERE id=?")
+                .bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(request_text(body.get("teacher"))?.as_deref()).bind(&exam_id).execute(&mut *transaction).await?;
+            delete_exam_children(&mut transaction, &exam_id).await?;
+        }
         sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,name,test_paper_id,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
             .bind(uuid::Uuid::new_v4().to_string()).bind(request_text(paper.get("name"))?.as_deref()).bind(request_text(paper.get("testPaperId"))?.as_deref()).bind(request_integer(paper.get("total"))?).bind(request_text(paper.get("passTheExamThan"))?.as_deref()).bind(&exam_id).bind(request_integer(paper.get("passMark"))?)
             .bind(&sections[0]).bind(&sections[1]).bind(&sections[2]).bind(&sections[3]).bind(&sections[4]).execute(&mut *transaction).await?;

@@ -137,6 +137,78 @@ async fn wait_for_gate(pool: &MySqlPool, connection: u64, table: &str, count: i6
 
 #[tokio::test]
 #[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
+async fn two_admins_create_fresh_and_supplied_absent_exams_without_gap_upgrade() {
+    for supplied in [false, true] {
+        let first = Fixture::new("creation-a", 1, 1).await;
+        let second = Fixture::new("creation-b", 1, 1).await;
+        let mut gate = first.pool().begin().await.unwrap();
+        let connection = gate_connection(&mut gate).await;
+        // Cover every insertion gap, including the supremum. Both writers must
+        // reach their parent INSERT before releasing the gate. The old locking
+        // misses own compatible gap locks and deadlock on their INSERT upgrades.
+        sqlx::query("SELECT id FROM t_theory_knowledge_exam WHERE id >= '' FOR UPDATE")
+            .fetch_all(&mut *gate)
+            .await
+            .unwrap();
+        let mut writers = Vec::new();
+        for fixture in [&first, &second] {
+            let state = fixture.state.clone();
+            let admin = fixture.admin.clone();
+            let mut body = fixture.formal_body();
+            if supplied {
+                body["id"] = json!(uuid::Uuid::new_v4().to_string());
+            } else {
+                body.as_object_mut().unwrap().remove("id");
+            }
+            writers.push(tokio::spawn(async move {
+                save_formal(State(state), Extension(admin), Json(body)).await
+            }));
+        }
+        let waiting = wait_for_gate(first.pool(), connection, "t_theory_knowledge_exam", 2).await;
+        gate.commit().await.unwrap();
+        let mut results = Vec::new();
+        for writer in writers {
+            results.push(
+                response_value(
+                    tokio::time::timeout(Duration::from_secs(5), writer)
+                        .await
+                        .expect("creation must not deadlock")
+                        .unwrap(),
+                )
+                .await,
+            );
+        }
+        for fixture in [&first, &second] {
+            let ids = sqlx::query_scalar::<_, String>(
+                "SELECT id FROM t_theory_knowledge_exam WHERE create_user_id=?",
+            )
+            .bind(&fixture.admin.id)
+            .fetch_all(fixture.pool())
+            .await
+            .unwrap();
+            assert_eq!(ids.len(), 1, "each administrator creates exactly one exam");
+            for id in ids {
+                let mut transaction = fixture.pool().begin().await.unwrap();
+                delete_exam_children(&mut transaction, &id).await.unwrap();
+                sqlx::query("DELETE FROM t_theory_knowledge_exam WHERE id=?")
+                    .bind(id)
+                    .execute(&mut *transaction)
+                    .await
+                    .unwrap();
+                transaction.commit().await.unwrap();
+            }
+        }
+        first.cleanup().await;
+        second.cleanup().await;
+        assert!(waiting, "both parent inserts must reach the gap gate");
+        for result in results {
+            assert_eq!(result["code"], 200, "{result}");
+        }
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
 async fn delete_vs_finish_and_edit_wait_on_parent_without_child_locks() {
     for edit in [false, true] {
         let fixture = Fixture::new("race", 2, 0).await;
