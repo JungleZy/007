@@ -441,10 +441,12 @@ pub(crate) async fn reset_password(
         .execute(pool)
         .await
     {
-        Ok(result) if result.rows_affected() == 1 => {
+        // sqlx reports matched rows (FOUND_ROWS), so zero means no such user; Java throws
+        // IllegalArgumentException("未查询到该用户"), which the mapper turns into 202.
+        Ok(result) if result.rows_affected() >= 1 => {
             envelope_json(StatusCode::OK, 200, Some(json!(temporary)), "ok", "")
         }
-        Ok(_) => envelope_response(StatusCode::OK, 500, "数据异常", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 202, "未查询到该用户", "未查询到该用户"),
         Err(error) => {
             tracing::warn!(error = %error, "reset password failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
@@ -1012,7 +1014,7 @@ pub(crate) async fn get_user_and_role_by_id(
     .await
     {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该用户", ""),
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到该用户", "未查询到该用户"),
         Err(error) => {
             tracing::warn!(error = %error, user_id, "user and role profile query failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -1110,7 +1112,7 @@ pub(crate) async fn get_menu_by_id(
     .await
     {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该菜单", ""),
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到该菜单", "未查询到该菜单"),
         Err(error) => {
             tracing::warn!(error = %error, menu_id = id, "menu query failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -1173,7 +1175,9 @@ async fn get_role_view(
     .await
     {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该角色", ""),
+        Ok(None) => {
+            return envelope_response(StatusCode::OK, 202, "未查询到该角色", "未查询到该角色")
+        }
         Err(error) => {
             tracing::warn!(error = %error, role_id, "role query failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
