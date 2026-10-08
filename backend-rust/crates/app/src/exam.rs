@@ -404,9 +404,9 @@ pub(crate) async fn list(
     };
     let state_filter = body.get("state").and_then(Value::as_bool).unwrap_or(true);
     let states = if state_filter { vec![1, 2] } else { vec![3, 4] };
-    let rows=match sqlx::query("SELECT DISTINCT e.id,e.title,e.start_time,e.end_time,e.duration,e.create_user_id,e.create_time,e.teacher,e.state FROM t_theory_knowledge_exam e JOIN t_theory_knowledge_exam_user u ON u.exam_id=e.id WHERE u.is_self_testing=1").fetch_all(pool).await{Ok(r)=>r,Err(_)=>return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")};
+    let rows=match sqlx::query("SELECT DISTINCT e.*,t.user_name AS teacher_name FROM t_theory_knowledge_exam e JOIN t_theory_knowledge_exam_user u ON u.exam_id=e.id LEFT JOIN t_user t ON t.id=e.teacher WHERE u.is_self_testing=1").fetch_all(pool).await{Ok(r)=>r,Err(_)=>return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")};
     let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&user.id).fetch_one(pool).await.unwrap_or(0)>0;
-    let data=rows.into_iter().filter(|row|states.contains(&row.get::<Option<i32>,_>("state").unwrap_or_default())&&(admin||row.get::<Option<String>,_>("create_user_id").as_deref()==Some(user.id.as_str())||row.get::<Option<String>,_>("teacher").as_deref()==Some(user.id.as_str()))).map(|row|json!({"id":row.get::<String,_>("id"),"title":row.get::<Option<String>,_>("title"),"startTime":row.get::<Option<String>,_>("start_time"),"endTime":row.get::<Option<String>,_>("end_time"),"duration":row.get::<Option<String>,_>("duration"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time"),"teacher":row.get::<Option<String>,_>("teacher"),"state":row.get::<Option<i32>,_>("state")})).collect::<Vec<_>>();
+    let data=rows.into_iter().filter(|row|states.contains(&row.get::<Option<i32>,_>("state").unwrap_or_default())&&(admin||row.get::<Option<String>,_>("create_user_id").as_deref()==Some(user.id.as_str())||row.get::<Option<String>,_>("teacher").as_deref()==Some(user.id.as_str()))).map(|row|json!({"dis":row.get::<String,_>("id"),"userName":row.get::<Option<String>,_>("teacher_name"),"id":row.get::<String,_>("id"),"title":row.get::<Option<String>,_>("title"),"start_time":row.get::<Option<String>,_>("start_time"),"end_time":row.get::<Option<String>,_>("end_time"),"duration":row.get::<Option<String>,_>("duration"),"create_user_id":row.get::<Option<String>,_>("create_user_id"),"create_time":row.get::<Option<String>,_>("create_time"),"teacher":row.get::<Option<String>,_>("teacher"),"state":row.get::<Option<i32>,_>("state")})).collect::<Vec<_>>();
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
 }
 
@@ -542,67 +542,90 @@ pub(crate) async fn teacher_start(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(exam_id) = body.get("examId").and_then(Value::as_str) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
-    };
-    let Some(kind) = body.get("type").and_then(|value| {
-        value
-            .as_i64()
-            .or_else(|| value.as_str().and_then(|value| value.parse().ok()))
-    }) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
-    };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&user.id).fetch_one(pool).await.unwrap_or(0)>0;
-    if !admin {
-        return envelope_response(StatusCode::OK, 207, "无权限", "");
-    }
-    let current = sqlx::query_scalar::<_, Option<i32>>(
-        "SELECT state FROM t_theory_knowledge_exam WHERE id=?",
-    )
-    .bind(exam_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-    .flatten();
-    let Some(current) = current else {
-        return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试");
+    let admin = match is_admin(pool, &user.id).await {
+        Ok(admin) => admin,
+        Err(error) => return exam_response(Err(error)),
     };
-    if (kind == 2 && current != 1) || (kind == 3 && current != 2) || (kind == 4 && current != 3) {
-        return envelope_response(StatusCode::OK, 208, "操作已不可执行", "");
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => return exam_response(Err(error.into())),
+    };
+    let mut notification = None;
+    let result = async {
+        let kind = request_text(body.get("type"))?
+            .and_then(|value| value.parse::<i32>().ok())
+            .ok_or(ExamError::Parameter("请求参数错误"))?;
+        let exam_id = request_text(body.get("examId"))?.unwrap_or_default();
+        crate::statistical::lock_user(&mut transaction, &user.id).await?;
+        let exam = locked_exam(&mut transaction, &exam_id).await?;
+        if !admin {
+            if kind != 2 {
+                return Err(ExamError::Forbidden);
+            }
+            locked_candidate(&mut transaction, &exam_id, &user.id).await?;
+        }
+        if !(2..=4).contains(&kind) {
+            return Err(ExamError::Parameter("考试状态必须为2、3或4"));
+        }
+        let current = exam.get::<Option<i32>, _>("state");
+        if current == Some(kind) {
+            return Ok(exam_json(&exam));
+        }
+        let now = exam_time(chrono::Utc::now());
+        match kind {
+            2 => {
+                if current != Some(1) {
+                    return Err(ExamError::Terminal("考试已结束，不能重新开始"));
+                }
+                sqlx::query("UPDATE t_theory_knowledge_exam SET state=2,start_time=? WHERE id=?")
+                    .bind(&now).bind(exam_id.as_ref()).execute(&mut *transaction).await?;
+            }
+            3 => {
+                if current != Some(2) {
+                    return Err(ExamError::Terminal("考试不在进行中，不能结束"));
+                }
+                sqlx::query("UPDATE t_theory_knowledge_exam SET state=3,end_time=? WHERE id=?")
+                    .bind(&now).bind(exam_id.as_ref()).execute(&mut *transaction).await?;
+                let ids = sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_exam_user WHERE exam_id=? ORDER BY id")
+                    .bind(exam_id.as_ref()).fetch_all(&mut *transaction).await?;
+                for id in ids {
+                    sqlx::query("UPDATE t_theory_knowledge_exam_user SET state=3,end_time=? WHERE id=? AND state IN (1,2)")
+                        .bind(&now).bind(id).execute(&mut *transaction).await?;
+                }
+            }
+            4 => {
+                if current != Some(3) {
+                    return Err(ExamError::Terminal("考试尚未结束，不能完成阅卷"));
+                }
+                sqlx::query("UPDATE t_theory_knowledge_exam SET state=4 WHERE id=?")
+                    .bind(exam_id.as_ref()).execute(&mut *transaction).await?;
+            }
+            _ => unreachable!(),
+        }
+        let data = exam_json(&sqlx::query("SELECT * FROM t_theory_knowledge_exam WHERE id=?")
+            .bind(exam_id.as_ref()).fetch_one(&mut *transaction).await?);
+        let recipients = sqlx::query_scalar::<_, Option<String>>("SELECT user_id FROM t_theory_knowledge_exam_user WHERE exam_id=?")
+            .bind(exam_id.as_ref()).fetch_all(&mut *transaction).await?;
+        notification = Some((recipients, json!({"exam": data})));
+        Ok(data)
+    }.await;
+    match result {
+        Ok(data) => match transaction.commit().await {
+            Ok(()) => {
+                if let Some((recipients, map)) = notification {
+                    for recipient in recipients.into_iter().flatten() {
+                        super::ws::send_classic_map(&recipient, 18001, map.clone()).await;
+                    }
+                }
+                exam_response(Ok(data))
+            }
+            Err(error) => exam_response(Err(error.into())),
+        },
+        Err(error) => complete_exam_transaction(transaction, Err(error)).await,
     }
-    let mut tx = pool.begin().await.unwrap();
-    if sqlx::query("UPDATE t_theory_knowledge_exam SET state=? WHERE id=?")
-        .bind(kind)
-        .bind(exam_id)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    if kind == 3 {
-        let _ = sqlx::query(
-            "UPDATE t_theory_knowledge_exam_user SET state=3 WHERE exam_id=? AND state IN (1,2)",
-        )
-        .bind(exam_id)
-        .execute(&mut *tx)
-        .await;
-    }
-    if tx.commit().await.is_err() {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    envelope_json(
-        StatusCode::OK,
-        200,
-        Some(json!({"id":exam_id,"state":kind})),
-        "ok",
-        "",
-    )
 }
 
 pub(crate) async fn student_state(
@@ -1138,7 +1161,23 @@ pub(crate) async fn save_formal(
         .bind(&exam_id)
         .execute(&mut *tx)
         .await;
-    if sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,name,test_paper_id,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(uuid::Uuid::new_v4().to_string()).bind(paper.get("name").and_then(Value::as_str)).bind(paper.get("id").and_then(Value::as_str)).bind(paper.get("total").and_then(Value::as_i64)).bind(paper.get("passTheExamThan").and_then(Value::as_str)).bind(&exam_id).bind(paper.get("passMark").and_then(Value::as_i64)).bind(paper.get("singleChoice").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("multipleChoice").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("judge").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("completion").map(Value::to_string).unwrap_or_else(||"[]".into())).bind(paper.get("shortAnswer").map(Value::to_string).unwrap_or_else(||"[]".into())).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    let sections = match PAPER_SECTIONS
+        .iter()
+        .map(|(_, section)| {
+            question_list_json(
+                paper
+                    .get(*section)
+                    .and_then(Value::as_array)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(sections) => sections,
+        Err(error) => return complete_exam_transaction(tx, Err(error)).await,
+    };
+    if sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,name,test_paper_id,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(uuid::Uuid::new_v4().to_string()).bind(paper.get("name").and_then(Value::as_str)).bind(paper.get("testPaperId").and_then(Value::as_str)).bind(paper.get("total").and_then(Value::as_i64)).bind(paper.get("passTheExamThan").and_then(Value::as_str)).bind(&exam_id).bind(paper.get("passMark").and_then(Value::as_i64)).bind(&sections[0]).bind(&sections[1]).bind(&sections[2]).bind(&sections[3]).bind(&sections[4]).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
     for student in students.iter().filter_map(Value::as_str) {
         if sqlx::query("INSERT INTO t_theory_knowledge_exam_user (id,exam_id,user_id,state,score,is_self_testing) VALUES (?,?,?,1,0,1)").bind(uuid::Uuid::new_v4().to_string()).bind(&exam_id).bind(student).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
     }

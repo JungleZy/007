@@ -2409,7 +2409,7 @@ async fn openapi() -> Json<Value> {
             "/api/theoryKnowledgeExam/findTheoryKnowledgeExamById": {"post": {"responses": {"200": {"description": "Exam detail envelope; owner/controller-scoped"}}}},
             "/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting": {"post": {"responses": {"200": {"description": "Self-test creation envelope; token-scoped"}}}},
             "/api/theoryKnowledgeExam/finishSelfTesting": {"post": {"responses": {"200": {"description": "Self-test scored result envelope; token-scoped"}}}},
-            "/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam state envelope; admin/controller-scoped"}}}},
+            "/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam": {"post": {"responses": {"200": {"description": "Exam state envelope; candidate start, admin end/grade"}}}},
             "/api/theoryKnowledgeExam/studentChangeExamState": {"post": {"responses": {"200": {"description": "Student exam state envelope; owner-scoped"}}}},
             "/api/theoryKnowledgeExam/studentSaveExamRealtimeContont": {"post": {"responses": {"200": {"description": "Realtime answer envelope; owner-scoped"}}}},
             "/api/theoryKnowledgeExamUser/teacherUploadScore": {"post": {"responses": {"200": {"description": "Envelope; admin only"}}}},
