@@ -3769,11 +3769,13 @@ async fn finish_participant(
     };
     response(async {
         let id = train_id(&body)?;
-        let attempt = body["attempt"].as_i64().ok_or_else(|| terminal("训练轮次已变化，请重新读取训练"))?;
+        // Java order: lockedTrain -> student -> requireAttempt, so a missing train is 202 before any 208.
+        let attempt = body["attempt"].as_i64();
         let mut transaction = pool.begin().await?;
         let train = load_train(&mut transaction, &id, domain, true).await?;
         let member = locked_member(&mut transaction, &id, &actor.id, domain).await?;
         if member["role"] != 0 { return Err(denied()); }
+        let attempt = attempt.ok_or_else(|| terminal("训练轮次已变化，请重新读取训练"))?;
         if member["attempt"] != attempt { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         if member["isFinish"] == 1 {
             let result = finish_member(&member, domain);

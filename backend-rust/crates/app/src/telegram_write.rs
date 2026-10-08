@@ -159,7 +159,20 @@ pub(crate) async fn save_floor_content(
             Ok(()) => envelope_response(StatusCode::OK, 200, "ok", ""),
             Err(e) => error(e, "commit telegram floor content save"),
         },
-        Ok(_) => envelope_response(StatusCode::OK, 207, "无权限或内容不存在", ""),
+        Ok(_) => {
+            // Java order: content lookup (IllegalArgumentException -> 202) before the owner check (207).
+            match sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM t_telegram_train_floor_content WHERE id=?",
+            )
+            .bind(content_id)
+            .fetch_one(&mut *tx)
+            .await
+            {
+                Ok(0) => envelope_response(StatusCode::OK, 202, "未查询报文内容", "未查询报文内容"),
+                Ok(_) => envelope_response(StatusCode::OK, 207, "无权限", ""),
+                Err(e) => error(e, "telegram floor content ownership"),
+            }
+        }
         Err(e) => error(e, "save telegram floor content"),
     }
 }

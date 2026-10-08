@@ -523,7 +523,27 @@ async fn update_clock(
         Ok(tx) => tx,
         Err(e) => return ticker_error(e, "start lifecycle"),
     };
-    let row=match sqlx::query("SELECT status,IF(active_since IS NULL,0,1) AS running,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE").bind(&id).bind(&user.id).fetch_optional(&mut *tx).await{Ok(Some(r))=>r,Ok(None)=>return envelope_response(StatusCode::OK,207,"无权限",""),Err(e)=>return ticker_error(e,"load lifecycle")};
+    let row = match sqlx::query("SELECT status,IF(active_since IS NULL,0,1) AS running,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE")
+        .bind(&id)
+        .bind(&user.id)
+        .fetch_optional(&mut *tx)
+        .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            // Java: a missing train is IllegalArgumentException -> 202; an existing foreign train -> 207.
+            return match sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_ticker_tape_train WHERE id=?")
+                .bind(&id)
+                .fetch_one(&mut *tx)
+                .await
+            {
+                Ok(0) => envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
+                Ok(_) => envelope_response(StatusCode::OK, 207, "无权限", ""),
+                Err(e) => ticker_error(e, "lifecycle ownership"),
+            };
+        }
+        Err(e) => return ticker_error(e, "load lifecycle"),
+    };
     let status = row.get::<Option<i32>, _>("status").unwrap_or(0);
     if status == 3 {
         return envelope_response(StatusCode::OK, 208, "训练已结束", "");
