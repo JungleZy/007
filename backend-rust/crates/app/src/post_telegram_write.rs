@@ -5,7 +5,7 @@ use axum::{
     response::Response,
     Json,
 };
-use rand::Rng;
+use rand::{seq::SliceRandom, Rng};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -96,7 +96,7 @@ fn err(e: sqlx::Error, op: &'static str) -> Response {
 }
 
 fn invalid(message: &'static str) -> Response {
-    envelope_response(StatusCode::OK, 202, message, "")
+    envelope_response(StatusCode::OK, 202, message, message)
 }
 
 fn field_string<'a>(
@@ -217,7 +217,7 @@ fn require_no_overlap(pages: &[Vec<CaptureInterval>]) -> Result<(), &'static str
     let mut previous_end = 0_i64;
     for interval in intervals {
         if interval.started_ms < previous_end || interval.ended_ms <= interval.started_ms {
-            return Err("已保存页的采集时间轴重叠或无效");
+            return Err("采集区间必须有序、非负且位于训练有效时间内");
         }
         previous_end = interval.ended_ms;
     }
@@ -887,7 +887,7 @@ fn training_view(row: &sqlx::mysql::MySqlRow) -> Value {
         "activeMillis":row.get::<Option<i64>,_>("active_millis"), "validTime":row.get::<Option<i64>,_>("valid_time"),
         "speed":row.get::<Option<String>,_>("speed"), "accuracy":row.get::<Option<String>,_>("accuracy"),
         "errorNumber":row.get::<Option<i32>,_>("error_number"), "lack":row.get::<Option<i32>,_>("lack"),
-        "score":row.get::<Option<String>,_>("score"), "fullScore":row.get::<Option<i32>,_>("full_score"),
+        "score":row.get::<Option<String>,_>("score"),
         "ruleId":row.get::<Option<String>,_>("rule_id"), "ruleContent":row.get::<Option<String>,_>("rule_content"),
         "statisticInfo":row.get::<Option<String>,_>("statistic_info"), "deductInfo":row.get::<Option<String>,_>("deduct_info"),
         "floorNow":row.get::<Option<i32>,_>("floor_now"), "speedLog":row.get::<Option<String>,_>("speed_log")
@@ -1028,7 +1028,7 @@ async fn settle_train(
             .await
             .map_err(|error| err(error, "finish-save-resolver"))?;
     }
-    sqlx::query("UPDATE t_post_telegram_train SET status=3,end_time=NOW(6),active_millis=?,valid_time=?,speed=?,error_number=?,accuracy=?,score=?,deduct_info=?,statistic_info=?,lack=? WHERE id=?")
+    sqlx::query("UPDATE t_post_telegram_train SET status=2,end_time=NOW(6),active_millis=?,valid_time=?,speed=?,error_number=?,accuracy=?,score=?,deduct_info=?,statistic_info=?,lack=? WHERE id=?")
         .bind(active_millis).bind(active_millis / 1000).bind(speed).bind(errors).bind(accuracy).bind(total.to_string())
         .bind(deductions.to_string()).bind(statistics.to_string()).bind(lack).bind(&id)
         .execute(&mut **tx).await.map_err(|error| err(error, "finish-save-result"))?;
@@ -1043,7 +1043,7 @@ pub(crate) async fn add(
     let Some(is_cable) = body.is_cable else {
         return invalid("是否使用固定报底不能为空");
     };
-    let Some(message_number) = body.message_number.filter(|value| *value > 0) else {
+    let Some(message_number) = body.message_number.filter(|value| *value >= 0) else {
         return invalid("报文数量不能为空");
     };
     if is_cable == 0 && body.train_type.is_none() {
@@ -1085,6 +1085,7 @@ pub(crate) async fn add(
             message_number.min(200) as usize,
             body.train_type.unwrap_or(0),
             body.is_random == Some(true),
+            body.is_average == Some(true),
         )
         .into_iter()
         .enumerate()
@@ -1184,7 +1185,7 @@ pub(crate) async fn finish(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<ActionRequest>,
 ) -> Response {
-    action(state, user, body, 3).await
+    action(state, user, body, 2).await
 }
 
 pub(crate) async fn stop(
@@ -1202,7 +1203,7 @@ pub(crate) async fn stop(
         Ok(tx) => tx,
         Err(error) => return err(error, "stop-begin"),
     };
-    let row = match sqlx::query("SELECT create_user,status,protocol_version,attempt FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let row = match sqlx::query("SELECT name,create_user,status,protocol_version,attempt FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&id)
         .fetch_optional(&mut *tx)
         .await
@@ -1214,13 +1215,21 @@ pub(crate) async fn stop(
     if row.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    if row.get::<Option<i32>, _>("protocol_version") != Some(1)
-        || body.attempt != row.get::<Option<i32>, _>("attempt")
-    {
-        return invalid("训练轮次已变化，请重新加载");
+    if row.get::<Option<i32>, _>("protocol_version") != Some(1) {
+        return invalid("旧训练缺少原始采集协议，请终止旧训练并新建");
+    }
+    if body.attempt != row.get::<Option<i32>, _>("attempt") {
+        return envelope_response(
+            StatusCode::OK,
+            208,
+            "训练轮次已变化，请重新加载训练",
+            "训练轮次已变化，请重新加载训练",
+        );
     }
     if row.get::<Option<i32>, _>("status") != Some(1) {
-        return invalid("训练状态不是进行中");
+        let name = row.get::<Option<String>, _>("name").unwrap_or_default();
+        let message = format!("{name}训练的状态不是进行中");
+        return envelope_response(StatusCode::OK, 202, &message, &message);
     }
     for sql in [
         "DELETE FROM t_post_telegram_train_floor_content_value WHERE train_id=?",
@@ -1267,18 +1276,28 @@ async fn action(state: AppState, user: AuthUser, body: ActionRequest, status: i3
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
     let protocol = train.get::<Option<i32>, _>("protocol_version");
-    let terminal = train.get::<Option<i32>, _>("status") == Some(3);
+    let terminal = train.get::<Option<i32>, _>("status") == Some(2);
     if (status == 1 || !terminal) && protocol != Some(1) {
         return invalid("旧训练缺少原始采集协议，请终止旧训练并新建");
     }
     if protocol == Some(1)
         && (body.attempt.is_none() || body.attempt != train.get::<Option<i32>, _>("attempt"))
     {
-        return envelope_response(StatusCode::OK, 208, "训练轮次已变化，请重新加载训练", "");
+        return envelope_response(
+            StatusCode::OK,
+            208,
+            "训练轮次已变化，请重新加载训练",
+            "训练轮次已变化，请重新加载训练",
+        );
     }
     if terminal {
         if status == 1 {
-            return envelope_response(StatusCode::OK, 208, "已完成训练不可重新开始", "");
+            return envelope_response(
+                StatusCode::OK,
+                208,
+                "已完成训练不可重新开始",
+                "已完成训练不可重新开始",
+            );
         }
         let data = training_view(&train);
         if let Err(error) = tx.commit().await {
@@ -1286,7 +1305,7 @@ async fn action(state: AppState, user: AuthUser, body: ActionRequest, status: i3
         }
         return envelope_json(StatusCode::OK, 200, Some(data), "ok", "");
     }
-    if status == 3
+    if status == 2
         && (train.get::<Option<i32>, _>("status") != Some(1)
             || train.get::<Option<String>, _>("start_text").is_none())
     {
@@ -1401,11 +1420,15 @@ pub(crate) async fn content(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,create_user,TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS elapsed_ms FROM t_post_telegram_train WHERE id=? LIMIT 1")
-        .bind(&train_id).fetch_optional(pool).await {
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(error) => return err(error, "start content transaction"),
+    };
+    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,type,is_random,is_average,create_user,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+        .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
-        Err(error) => return err(error, "content train"),
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
+        Err(error) => return err(error, "lock content train"),
     };
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -1414,21 +1437,68 @@ pub(crate) async fn content(
     if floor_number > (message_number + 99) / 100 {
         return invalid("页码超出训练范围");
     }
-    if train.get::<Option<i32>, _>("status") != Some(3)
-        && train.get::<Option<i32>, _>("protocol_version") != Some(1)
-    {
+    let status = train.get::<Option<i32>, _>("status");
+    if status != Some(2) && train.get::<Option<i32>, _>("protocol_version") != Some(1) {
         return invalid("旧训练缺少原始采集协议，请终止旧训练并新建");
     }
-    let rows = match sqlx::query("SELECT id,mores_key,mores_value,mores_time,pat_keys FROM t_post_telegram_train_floor_content WHERE train_id=? AND floor_number=? ORDER BY sort")
-        .bind(&train_id).bind(floor_number).fetch_all(pool).await {
+    let source_query = "SELECT id,mores_key,mores_value,mores_time,pat_keys FROM t_post_telegram_train_floor_content WHERE train_id=? AND floor_number=? ORDER BY sort";
+    let mut rows = match sqlx::query(source_query)
+        .bind(&train_id)
+        .bind(floor_number)
+        .fetch_all(&mut *tx)
+        .await
+    {
         Ok(rows) => rows,
         Err(error) => return err(error, "content rows"),
     };
+    if rows.is_empty() {
+        if status == Some(2) {
+            return invalid("历史训练缺少该页报底，不再生成新内容");
+        }
+        let Some(train_type) = train.get::<Option<i32>, _>("type") else {
+            return invalid("报文类型缺失，无法生成报底");
+        };
+        let remaining = (message_number - (floor_number - 1) * 100).min(100) as usize;
+        for (sort, group) in generated_groups(
+            remaining,
+            train_type,
+            train.get::<Option<i32>, _>("is_random") == Some(1),
+            train.get::<Option<i32>, _>("is_average") == Some(1),
+        )
+        .into_iter()
+        .enumerate()
+        {
+            let keys: Vec<String> = group
+                .chars()
+                .map(|character| character.to_string())
+                .collect();
+            let key = match serde_json::to_string(&keys) {
+                Ok(key) => key,
+                Err(error) => return corrupt_saved(&error.to_string(), &train_id),
+            };
+            if let Err(error) = sqlx::query("INSERT INTO t_post_telegram_train_floor_content (id,train_id,floor_number,sort,mores_key,mores_value,mores_time,pat_keys) VALUES (?,?,?,?,?,'[]','[]','[]')")
+                .bind(uuid::Uuid::new_v4().to_string()).bind(&train_id).bind(floor_number).bind(sort as i32).bind(key).execute(&mut *tx).await {
+                return err(error, "generate content page");
+            }
+        }
+        rows = match sqlx::query(source_query)
+            .bind(&train_id)
+            .bind(floor_number)
+            .fetch_all(&mut *tx)
+            .await
+        {
+            Ok(rows) => rows,
+            Err(error) => return err(error, "generated content rows"),
+        };
+    }
     let value = match sqlx::query("SELECT message_body,standard,finish_info,resolver,capture_intervals FROM t_post_telegram_train_floor_content_value WHERE train_id=? AND floor_number=? LIMIT 1")
-        .bind(&train_id).bind(floor_number).fetch_optional(pool).await {
+        .bind(&train_id).bind(floor_number).fetch_optional(&mut *tx).await {
         Ok(value) => value,
         Err(error) => return err(error, "content value"),
     };
+    if let Err(error) = tx.commit().await {
+        return err(error, "commit content page");
+    }
     let message_key: Vec<Value> = rows.iter().map(|row| json!({
         "id": row.get::<Option<String>, _>("id"),
         "moresKey": row.get::<Option<String>, _>("mores_key"),
@@ -1446,8 +1516,9 @@ pub(crate) async fn content(
             row.get::<Option<String>, _>("standard")
                 .unwrap_or_else(|| "[]".into()),
             row.get::<Option<String>, _>("finish_info")
-                .unwrap_or_else(|| "[]".into()),
-            row.get::<Option<String>, _>("resolver").unwrap_or_default(),
+                .map_or(Value::Null, Value::String),
+            row.get::<Option<String>, _>("resolver")
+                .map_or(Value::Null, Value::String),
             row.get::<Option<String>, _>("capture_intervals")
                 .unwrap_or_else(|| "[]".into()),
             true,
@@ -1455,8 +1526,8 @@ pub(crate) async fn content(
         None => (
             generated_body,
             "[]".into(),
-            "[]".into(),
-            String::new(),
+            Value::String("[]".into()),
+            Value::String(String::new()),
             "[]".into(),
             false,
         ),
@@ -1538,10 +1609,10 @@ pub(crate) async fn save_content(
         Ok(tx) => tx,
         Err(error) => return err(error, "start save content"),
     };
-    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,start_time,TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS elapsed_ms,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,start_time,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
-        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", ""); }
+        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock save train"); }
     };
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
@@ -1554,7 +1625,12 @@ pub(crate) async fn save_content(
     }
     if train.get::<Option<i32>, _>("attempt") != Some(attempt) {
         let _ = tx.rollback().await;
-        return envelope_response(StatusCode::OK, 208, "训练轮次已变化，请重新加载训练", "");
+        return envelope_response(
+            StatusCode::OK,
+            208,
+            "训练轮次已变化，请重新加载训练",
+            "训练轮次已变化，请重新加载训练",
+        );
     }
     if train.get::<Option<i32>, _>("status") != Some(1)
         || train.get::<Option<i64>, _>("elapsed_ms").is_none()
@@ -1684,31 +1760,111 @@ pub(crate) async fn save_content(
     }
 }
 
-fn generated_groups(count: usize, train_type: i32, random: bool) -> Vec<String> {
-    let alphabet: Vec<char> = match train_type {
-        0 => ('0'..='9').collect(),
-        1 => ('A'..='Z').collect(),
-        _ => ('0'..='9').chain('A'..='Z').collect(),
+fn separate_groups(values: &mut [u8], group_size: usize, rng: &mut impl Rng) {
+    values.shuffle(rng);
+    for start in (0..values.len()).step_by(group_size) {
+        for index in start..start + group_size {
+            let repeated = values[index];
+            if !values[start..index].contains(&repeated) {
+                continue;
+            }
+            if let Some(other) = (start + group_size..values.len())
+                .find(|&other| !values[start..index].contains(&values[other]))
+            {
+                values.swap(index, other);
+            } else if let Some(other) = (0..start).find(|&other| {
+                !values[start..index].contains(&values[other])
+                    && !values[other / group_size * group_size
+                        ..other / group_size * group_size + group_size]
+                        .contains(&repeated)
+            }) {
+                values.swap(index, other);
+            }
+        }
+    }
+}
+
+fn generated_groups(count: usize, train_type: i32, random: bool, average: bool) -> Vec<String> {
+    let alphabet: &[u8] = match train_type {
+        0 => b"0123456789",
+        1 => b"ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        _ => b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     };
     let mut rng = rand::thread_rng();
-    (0..count)
-        .map(|index| {
-            let mut output = String::with_capacity(4);
-            if random {
-                while output.chars().count() < 4 {
-                    let character = alphabet[rng.gen_range(0..alphabet.len())];
-                    if !output.contains(character) {
-                        output.push(character);
+    let mut result = Vec::with_capacity(count);
+    for (page, start) in (0..count).step_by(100).enumerate() {
+        let batch = (count - start).min(100);
+        if random && average && train_type == 0 {
+            for ten in (0..batch).step_by(10) {
+                let groups = (batch - ten).min(10);
+                let mut low = [0_u8; 20];
+                let mut high = [0_u8; 20];
+                for index in 0..groups * 2 {
+                    low[index] = b'1' + (index % 5) as u8;
+                    high[index] = b'6' + (index % 5) as u8;
+                    if high[index] == b':' {
+                        high[index] = b'0';
                     }
                 }
-            } else {
-                for offset in 0..4 {
-                    output.push(alphabet[(index * 4 + offset) % alphabet.len()]);
+                separate_groups(&mut low[..groups * 2], 2, &mut rng);
+                separate_groups(&mut high[..groups * 2], 2, &mut rng);
+                for index in 0..groups {
+                    let [l1, l2] = [low[index * 2], low[index * 2 + 1]];
+                    let [r1, r2] = [high[index * 2], high[index * 2 + 1]];
+                    let codes = if rng.gen_bool(0.5) {
+                        [l1, r1, l2, r2]
+                    } else {
+                        [r1, l1, r2, l2]
+                    };
+                    let mut group = String::with_capacity(4);
+                    for code in codes {
+                        group.push(code as char);
+                    }
+                    result.push(group);
                 }
             }
-            output
-        })
-        .collect()
+        } else if random && average {
+            let mut symbols = [0_u8; 400];
+            let offset = if train_type == 1 { 0 } else { page * 400 };
+            let codes = &mut symbols[..batch * 4];
+            for (index, code) in codes.iter_mut().enumerate() {
+                *code = alphabet[(offset + index) % alphabet.len()];
+            }
+            separate_groups(codes, 4, &mut rng);
+            for codes in codes.chunks_exact(4) {
+                let mut group = String::with_capacity(4);
+                for &code in codes {
+                    group.push(code as char);
+                }
+                result.push(group);
+            }
+        } else {
+            for index in 0..batch {
+                loop {
+                    let mut group = String::with_capacity(4);
+                    if random {
+                        while group.len() < 4 {
+                            let code = alphabet[rng.gen_range(0..alphabet.len())] as char;
+                            if !group.contains(code) {
+                                group.push(code);
+                            }
+                        }
+                    } else {
+                        for slot in 0..4 {
+                            group.push(
+                                alphabet[((start + index) * 4 + slot) % alphabet.len()] as char,
+                            );
+                        }
+                    }
+                    if !random || !result[result.len().saturating_sub(10)..].contains(&group) {
+                        result.push(group);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    result
 }
 
 pub(crate) async fn print_bottom_report(
@@ -1726,17 +1882,17 @@ pub(crate) async fn print_bottom_report(
         Ok(tx) => tx,
         Err(error) => return err(error, "start print report"),
     };
-    let train = match sqlx::query("SELECT message_number,type,is_random,status,protocol_version,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT message_number,type,is_random,is_average,status,protocol_version,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
-        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", ""); }
+        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock print train"); }
     };
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    if train.get::<Option<i32>, _>("status") != Some(3)
+    if train.get::<Option<i32>, _>("status") != Some(2)
         && train.get::<Option<i32>, _>("protocol_version") != Some(1)
     {
         let _ = tx.rollback().await;
@@ -1764,7 +1920,7 @@ pub(crate) async fn print_bottom_report(
         .filter_map(|row| row.get::<Option<i32>, _>("floor_number"))
         .max()
         .unwrap_or(0);
-    if train.get::<Option<i32>, _>("status") == Some(3) || latest_floor >= total_page {
+    if train.get::<Option<i32>, _>("status") == Some(2) || latest_floor >= total_page {
         let result: Vec<String> = rows
             .iter()
             .filter_map(|row| row.get::<Option<String>, _>("mores_key"))
@@ -1780,6 +1936,7 @@ pub(crate) async fn print_bottom_report(
         remaining,
         train_type,
         train.get::<Option<i32>, _>("is_random") == Some(1),
+        train.get::<Option<i32>, _>("is_average") == Some(1),
     );
     for (offset, group) in groups.iter().enumerate() {
         let absolute = existing_groups as usize + offset;
@@ -1834,7 +1991,7 @@ pub(crate) async fn add_content_value(
     let train = match sqlx::query("SELECT protocol_version,status,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
-        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", ""); }
+        Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock add content train"); }
     };
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
@@ -1847,7 +2004,12 @@ pub(crate) async fn add_content_value(
     }
     if train.get::<Option<i32>, _>("status") != Some(0) {
         let _ = tx.rollback().await;
-        return envelope_response(StatusCode::OK, 208, "训练开始后不可追加报底", "");
+        return envelope_response(
+            StatusCode::OK,
+            208,
+            "训练开始后不可追加报底",
+            "训练开始后不可追加报底",
+        );
     }
     let base_floor = match sqlx::query("SELECT floor_number FROM t_post_telegram_train_floor_content WHERE train_id=? ORDER BY floor_number DESC LIMIT 1")
         .bind(&train_id).fetch_optional(&mut *tx).await {
@@ -1889,5 +2051,84 @@ pub(crate) async fn add_content_value(
     match tx.commit().await {
         Ok(()) => envelope_json(StatusCode::OK, 200, Some(json!(floors)), "ok", ""),
         Err(error) => err(error, "commit add content"),
+    }
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::generated_groups;
+
+    #[test]
+    fn unfilled_pages_keep_the_same_source_rules() {
+        assert_eq!(
+            generated_groups(104, 0, false, false)[100..],
+            ["0123", "4567", "8901", "2345"]
+        );
+        assert_eq!(generated_groups(104, 1, false, false)[100], "KLMN");
+        assert_eq!(generated_groups(104, 2, false, false)[100], "4567");
+        for _ in 0..20 {
+            let numbers = generated_groups(14, 0, true, true);
+            let mut counts = [0_usize; 10];
+            for group in numbers.iter().take(10) {
+                let chars: Vec<_> = group.bytes().collect();
+                assert_eq!(chars.len(), 4);
+                assert_eq!(
+                    chars
+                        .iter()
+                        .filter(|&&code| (b'1'..=b'5').contains(&code))
+                        .count(),
+                    2
+                );
+                for &code in &chars {
+                    counts[(code - b'0') as usize] += 1;
+                }
+                assert_eq!(
+                    chars
+                        .iter()
+                        .copied()
+                        .collect::<std::collections::HashSet<_>>()
+                        .len(),
+                    4
+                );
+            }
+            assert!(counts.into_iter().all(|count| count == 4));
+            for (domain, alphabet) in [
+                (1, b"ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_slice()),
+                (2, b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".as_slice()),
+            ] {
+                let groups = generated_groups(104, domain, true, true);
+                assert_eq!(groups.len(), 104);
+                for group in &groups {
+                    assert_eq!(group.len(), 4);
+                    assert_eq!(
+                        group
+                            .bytes()
+                            .collect::<std::collections::HashSet<_>>()
+                            .len(),
+                        4
+                    );
+                }
+                for &code in alphabet {
+                    let expected = (0..104)
+                        .flat_map(|index| {
+                            (0..4).map(move |slot| {
+                                let position = if domain == 1 {
+                                    index % 100 * 4 + slot
+                                } else {
+                                    index * 4 + slot
+                                };
+                                alphabet[position % alphabet.len()]
+                            })
+                        })
+                        .filter(|&value| value == code)
+                        .count();
+                    let actual = groups
+                        .iter()
+                        .map(|group| group.bytes().filter(|&value| value == code).count())
+                        .sum::<usize>();
+                    assert_eq!(actual, expected);
+                }
+            }
+        }
     }
 }
