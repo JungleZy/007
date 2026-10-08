@@ -8,5 +8,13 @@
   "fixture": {"database":"temporary isolated MySQL schema phase5_stats_*","owner_duration_seconds":10,"foreign_duration_seconds":3600,"owner_exam_count":1,"foreign_exam_count":1,"cleanup":"temporary schema dropped after test"},
   "requests": {"recordStatistice":{"http_status":200,"code":200,"day_2_seconds":10},"gradeCount":{"http_status":200,"code":200,"owner_exam_count":1}},
   "verification": {"cargo_check_offline":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"token-scoped duration and exam-count queries observed"},
+  "contract_followup_2026_10_09": {
+    "entry": "Nonpersisted entry echoes id/userId/exitTime and primitive type default 0, setting only joinTime; message and description are empty. Persisted exits still derive userId from authentication and type from the stored knowledge.",
+    "record_statistics": "No matching records returns {}; otherwise up sums whole seconds by unpadded month/day, and down groups knowledge entity display keys to courseware titles and summed seconds. No hours conversion or rounding occurs server-side (Vue divides by 3600 and formats 3 decimals).",
+    "credit": "Compare all courseware count with all authenticated-user answer rows for each represented knowledge (not restricted to the requested period); incomplete display credit becomes 0.0 without modifying stored knowledge credit.",
+    "journey": "theory-study-records covers blank/default/echo entry, deterministic exit durations, repeated same-day/courseware records, year/month/type/owner isolation, empty reads, partial/full completion and unchanged persisted credit.",
+    "comparison": "normalize_keys is explicitly enabled only on $.data.down; generated UUID/clock key fields are normalized without discarding distinct entries or business fields.",
+    "unaffected_reads": "gradeCount queries exam-user records; getBasicTheoryOpen counts test answers/tests, not study records. Neither changes for study-record writes."
+  },
   "known_boundary":"Full Java passMark-based pass/fail and score-distribution parity remains pending."
 }

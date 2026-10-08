@@ -73,6 +73,45 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertFalse(self.equivalent({"data": {"rows": []}}, {"data": {}}, {"unordered": ["$.data.rows"]}))
         self.assertFalse(self.equivalent({"data": {"rows": []}}, {"data": {"rows": "[]"}}, {"unordered": ["$.data.rows"]}))
 
+    def study_key(self, identity, clock, credit="2.5", title="通信基础"):
+        return (f"TheoryKnowledgeEntity(id={identity}, type=0, status=1, cover=study.jpg, title={title}, "
+                f"createUserId=sweep-admin, createTime={clock}, credit={credit}, difficultyId=null, specialtyId=null)")
+
+    def test_entity_key_normalization_is_opt_in_and_path_scoped(self):
+        first = self.study_key("11111111-1111-1111-1111-111111111111", "1790000000000")
+        second = self.study_key("99999999-9999-9999-9999-999999999999", "2026-10-09 12:30:00")
+        left, right = {"data": {"down": {first: {"通信原理": 3601}}}}, {"data": {"down": {second: {"通信原理": 3601}}}}
+        step = {"normalize_keys": ["$.data.down"]}
+        self.assertFalse(self.equivalent(left, right, {}))
+        self.assertTrue(self.equivalent(left, right, step))
+        self.assertFalse(self.equivalent({**left, "literal": first}, {**right, "literal": second}, step))
+        for credit, title in [("0.0", "通信基础"), ("2.5", "其他知识")]:
+            changed = {"data": {"down": {self.study_key("99999999-9999-9999-9999-999999999999", "1790000000000", credit, title): {"通信原理": 3601}}}}
+            self.assertFalse(self.equivalent(left, changed, step))
+        self.assertFalse(self.equivalent(left, {"data": {"down": {second: {"通信原理": 3600}}}}, step))
+
+    def test_entity_key_normalization_never_merges_distinct_keys(self):
+        first = self.study_key("11111111-1111-1111-1111-111111111111", "1790000000000")
+        second = self.study_key("99999999-9999-9999-9999-999999999999", "1790000000100")
+        entries = sweep.normalized_entity_keys({first: {"课件": 1}, second: {"课件": 1}})["<normalized-entity-key-entries>"]
+        self.assertEqual(2, len(entries))
+        self.assertEqual(entries[0], entries[1])
+        step = {"normalize_keys": ["$.data.down"]}
+        self.assertFalse(self.equivalent({"data": {"down": {first: {"课件": 1}, second: {"课件": 1}}}},
+                                         {"data": {"down": {first: {"课件": 1}}}}, step))
+        self.assertFalse(self.equivalent({"data": {"down": {first: {"课件": 1}, second: {"课件": 2}}}},
+                                         {"data": {"down": {first: {"课件": 1}, second: {"课件": 3}}}}, step))
+
+    def test_entity_key_normalization_leaves_nonmatching_keys_untouched(self):
+        nonmatching = {"plain-uuid-11111111-1111-1111-1111-111111111111": 1, "TheoryKnowledgeEntity(id=123)": 2}
+        self.assertEqual(nonmatching, sweep.normalized_entity_keys(nonmatching))
+        first = self.study_key("11111111-1111-1111-1111-111111111111", "1790000000000")
+        entries = sweep.normalized_entity_keys({first: {}, **nonmatching})["<normalized-entity-key-entries>"]
+        for key, item in nonmatching.items():
+            self.assertIn([key, item], entries)
+        plain = self.study_key("fixed-id", "fixed-time")
+        self.assertEqual(plain, sweep.normalized_entity_keys({plain: 1})["<normalized-entity-key-entries>"][0][0])
+
     def test_run_journeys_captures_original_content_before_transforms(self):
         original = '{"value": 1}'
         calls = []

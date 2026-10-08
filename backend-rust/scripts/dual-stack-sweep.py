@@ -339,6 +339,36 @@ def unordered_array(value):
     return sorted(value, key=lambda item: json.dumps(normalize(item), ensure_ascii=False, sort_keys=True))
 
 
+STUDY_ENTITY_KEY = re.compile(
+    r"^TheoryKnowledgeEntity\(id=(.*?), type=(.*?), status=(.*?), cover=(.*?), title=(.*?), "
+    r"createUserId=(.*?), createTime=(.*?), credit=(.*?), difficultyId=(.*?), specialtyId=(.*?)\)$"
+)
+STUDY_ENTITY_FIELDS = ("id", "type", "status", "cover", "title", "createUserId", "createTime", "credit", "difficultyId", "specialtyId")
+
+
+def normalized_entity_keys(value):
+    """Normalize generated identities/clocks in selected Lombok study keys without merging entries."""
+    if not isinstance(value, dict):
+        return value
+    entries, matched = [], False
+    for key, item in value.items():
+        match = STUDY_ENTITY_KEY.fullmatch(key)
+        if match:
+            matched = True
+            fields = dict(zip(STUDY_ENTITY_FIELDS, match.groups()))
+            for name in ("id", "createUserId", "difficultyId", "specialtyId"):
+                if UUID.fullmatch(fields[name]):
+                    fields[name] = "<uuid>"
+            if EPOCH_MS.fullmatch(fields["createTime"]) or DATETIME.fullmatch(fields["createTime"]):
+                fields["createTime"] = "<clock>"
+            key = "TheoryKnowledgeEntity(" + ", ".join(f"{name}={fields[name]}" for name in STUDY_ENTITY_FIELDS) + ")"
+        entries.append([key, item])
+    if not matched:
+        return value
+    # A multiset, not a dict: two generated keys can normalize to the same spelling.
+    return {"<normalized-entity-key-entries>": sorted(entries, key=lambda entry: json.dumps(normalize(entry), ensure_ascii=False, sort_keys=True))}
+
+
 def prepare_journey_response(document, step):
     for expression in step.get("mask", []):
         transform_path(document, expression, lambda _: "<masked>")
@@ -346,6 +376,8 @@ def prepare_journey_response(document, step):
         transform_path(document, expression, parsed_json)
     for expression in step.get("unordered", []):
         transform_path(document, expression, unordered_array)
+    for expression in step.get("normalize_keys", []):
+        transform_path(document, expression, normalized_entity_keys)
 
 
 def run_journeys(spec, args, headers):

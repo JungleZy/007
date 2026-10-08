@@ -450,9 +450,9 @@ pub(crate) async fn save_record(
             StatusCode::OK,
             200,
             Some(
-                json!({"id":Value::Null,"knowledgeId":knowledge_id,"knowledgeSwfId":swf_id,"userId":user.id,"joinTime":now,"exitTime":Value::Null}),
+                json!({"id":body.get("id"),"knowledgeId":knowledge_id,"knowledgeSwfId":swf_id,"userId":body.get("userId"),"joinTime":now,"exitTime":body.get("exitTime"),"type":body.get("type").and_then(|value| value.as_i64().or_else(|| value.as_str().and_then(|text| text.trim().parse().ok()))).unwrap_or(0)}),
             ),
-            "ok",
+            "",
             "",
         );
     }
@@ -520,67 +520,195 @@ pub(crate) async fn save_record(
 
 pub(crate) async fn record_statistics(
     State(state): State<AppState>,
-    Extension(user): Extension<super::AuthUser>,
-    Json(body): Json<serde_json::Value>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
 ) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let year = body
-        .get("year")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
+    let year = body.get("year").and_then(Value::as_str).unwrap_or("");
     let month = body
         .get("month")
-        .and_then(serde_json::Value::as_str)
-        .filter(|v| !v.is_empty());
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty());
     let kind = body
         .get("type")
-        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| {
+            value
+                .as_i64()
+                .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+        })
         .unwrap_or(0);
     let like = month
-        .map(|m| format!("{year}-{m:0>2}%"))
+        .map(|month| format!("{year}-{month:0>2}%"))
         .unwrap_or_else(|| format!("{year}%"));
-    let rows = match sqlx::query("SELECT join_time,exit_time FROM t_theory_knowledge_swf_record WHERE user_id=? AND type=? AND join_time LIKE ?").bind(&user.id).bind(kind).bind(&like).fetch_all(pool).await { Ok(rows) => rows, Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") };
-    let mut buckets = std::collections::HashMap::<String, i64>::new();
-    for row in &rows {
-        let join = row
-            .get::<Option<String>, _>("join_time")
-            .unwrap_or_default();
-        let exit = row
-            .get::<Option<String>, _>("exit_time")
-            .unwrap_or_default();
-        let key = if month.is_some() {
-            join.get(8..10)
-                .unwrap_or("0")
-                .trim_start_matches('0')
-                .to_owned()
-        } else {
-            join.get(5..7)
-                .unwrap_or("0")
-                .trim_start_matches('0')
-                .to_owned()
-        };
-        let seconds = match sqlx::query_scalar::<_, Option<i64>>("SELECT TIMESTAMPDIFF(SECOND,?,?)")
-            .bind(&join)
-            .bind(&exit)
-            .fetch_one(pool)
-            .await
-        {
-            Ok(value) => value.unwrap_or(0),
-            Err(_) => {
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-            }
-        };
-        *buckets.entry(key).or_default() += seconds;
+    match study_statistics(pool, &user.id, kind, &like, month.is_none()).await {
+        Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, "theory study statistics query failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
     }
-    envelope_json(
-        StatusCode::OK,
-        200,
-        Some(json!({"up":buckets,"down":{}})),
-        "ok",
-        "",
-    )
+}
+
+async fn study_statistics(
+    pool: &sqlx::MySqlPool,
+    user_id: &str,
+    kind: i64,
+    like: &str,
+    by_month: bool,
+) -> Result<Value, sqlx::Error> {
+    let records = sqlx::query("SELECT knowledge_id,knowledge_swf_id,join_time,ABS(TIMESTAMPDIFF(SECOND,join_time,exit_time)) AS seconds FROM t_theory_knowledge_swf_record WHERE user_id=? AND type=? AND join_time LIKE ?")
+        .bind(user_id).bind(kind).bind(like).fetch_all(pool).await?;
+    if records.is_empty() {
+        return Ok(json!({}));
+    }
+    let mut up = std::collections::HashMap::<String, i64>::new();
+    let mut durations =
+        std::collections::HashMap::<String, std::collections::HashMap<String, i64>>::new();
+    for record in records {
+        let join: String = record.try_get("join_time")?;
+        let component = if by_month {
+            join.get(5..7)
+        } else {
+            join.get(8..10)
+        };
+        let key = component
+            .and_then(|value| value.parse::<u32>().ok())
+            .ok_or_else(|| sqlx::Error::Protocol("invalid stored study join time".to_owned()))?
+            .to_string();
+        let seconds: i64 = record.try_get("seconds")?;
+        *up.entry(key).or_default() += seconds;
+        *durations
+            .entry(record.try_get("knowledge_id")?)
+            .or_default()
+            .entry(record.try_get("knowledge_swf_id")?)
+            .or_default() += seconds;
+    }
+    let ids = durations.keys().collect::<Vec<_>>();
+    let mut knowledge_query = sqlx::QueryBuilder::<sqlx::MySql>::new("SELECT id,type,status,cover,title,create_user_id,create_time,credit,difficulty_id,specialty_id FROM t_theory_knowledge WHERE id IN (");
+    let mut knowledge_ids = knowledge_query.separated(",");
+    for id in &ids {
+        knowledge_ids.push_bind(id);
+    }
+    knowledge_ids.push_unseparated(")");
+    let knowledges = knowledge_query.build().fetch_all(pool).await?;
+    let mut swf_query = sqlx::QueryBuilder::<sqlx::MySql>::new(
+        "SELECT id,knowledge_id,title FROM t_theory_knowledge_swf WHERE knowledge_id IN (",
+    );
+    let mut swf_ids = swf_query.separated(",");
+    for id in &ids {
+        swf_ids.push_bind(id);
+    }
+    swf_ids.push_unseparated(")");
+    let swfs = swf_query.build().fetch_all(pool).await?;
+    let mut answer_query = sqlx::QueryBuilder::<sqlx::MySql>::new(
+        "SELECT knowledge_id,COUNT(*) AS answers FROM t_theory_knowledge_test_user WHERE user_id=",
+    );
+    answer_query
+        .push_bind(user_id)
+        .push(" AND knowledge_id IN (");
+    let mut answer_ids = answer_query.separated(",");
+    for id in &ids {
+        answer_ids.push_bind(id);
+    }
+    answer_ids.push_unseparated(") GROUP BY knowledge_id");
+    let answers = answer_query.build().fetch_all(pool).await?;
+    let answer_counts = answers
+        .iter()
+        .map(|row| {
+            Ok((
+                row.try_get::<String, _>("knowledge_id")?,
+                row.try_get::<i64, _>("answers")?,
+            ))
+        })
+        .collect::<Result<std::collections::HashMap<_, _>, sqlx::Error>>()?;
+    let mut swf_counts = std::collections::HashMap::<String, i64>::new();
+    let mut swf_titles = std::collections::HashMap::<String, Option<String>>::new();
+    for swf in swfs {
+        *swf_counts.entry(swf.try_get("knowledge_id")?).or_default() += 1;
+        swf_titles.insert(swf.try_get("id")?, swf.try_get("title")?);
+    }
+    let mut down = serde_json::Map::new();
+    for knowledge in knowledges {
+        let id: String = knowledge.try_get("id")?;
+        let completed = swf_counts.get(&id).copied().unwrap_or(0)
+            == answer_counts.get(&id).copied().unwrap_or(0);
+        let key = study_knowledge_key(&knowledge, completed)?;
+        let mut titled = serde_json::Map::new();
+        if let Some(per_swf) = durations.get(&id) {
+            for (swf_id, seconds) in per_swf {
+                if let Some(title) = swf_titles.get(swf_id) {
+                    titled.insert(
+                        title.as_deref().unwrap_or("null").to_owned(),
+                        json!(seconds),
+                    );
+                }
+            }
+        }
+        down.insert(key, Value::Object(titled));
+    }
+    Ok(json!({"up":up,"down":down}))
+}
+
+// Jackson serializes the Java entity map key through Lombok's field-ordered toString.
+fn study_knowledge_key(
+    row: &sqlx::mysql::MySqlRow,
+    completed: bool,
+) -> Result<String, sqlx::Error> {
+    let text = |column| -> Result<&str, sqlx::Error> {
+        Ok(row.try_get::<Option<&str>, _>(column)?.unwrap_or("null"))
+    };
+    let number = |column| -> Result<String, sqlx::Error> {
+        Ok(row
+            .try_get::<Option<i32>, _>(column)?
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "null".to_owned()))
+    };
+    let credit = if !completed {
+        "0.0".to_owned()
+    } else {
+        row.try_get::<Option<f64>, _>("credit")?
+            .map(study_credit_text)
+            .unwrap_or_else(|| "null".to_owned())
+    };
+    Ok(format!("TheoryKnowledgeEntity(id={}, type={}, status={}, cover={}, title={}, createUserId={}, createTime={}, credit={}, difficultyId={}, specialtyId={})", text("id")?, number("type")?, number("status")?, text("cover")?, text("title")?, text("create_user_id")?, text("create_time")?, credit, text("difficulty_id")?, text("specialty_id")?))
+}
+
+fn study_credit_text(value: f64) -> String {
+    let decimal = |text: String| {
+        if text.contains('.') {
+            text
+        } else {
+            format!("{text}.0")
+        }
+    };
+    if value != 0.0 && !(0.001..10_000_000.0).contains(&value.abs()) {
+        let scientific = format!("{value:e}");
+        let (mantissa, exponent) = scientific.split_once('e').expect("float exponent");
+        format!("{}E{exponent}", decimal(mantissa.to_owned()))
+    } else {
+        decimal(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod study_statistics_tests {
+    use super::study_credit_text;
+
+    #[test]
+    fn display_credit_keeps_java_double_spelling() {
+        for (value, expected) in [
+            (0.0, "0.0"),
+            (-0.0, "-0.0"),
+            (2.0, "2.0"),
+            (2.5, "2.5"),
+            (0.0001, "1.0E-4"),
+            (10_000_000.0, "1.0E7"),
+        ] {
+            assert_eq!(study_credit_text(value), expected);
+        }
+    }
 }
 
 pub(crate) async fn grade_count(

@@ -14,7 +14,7 @@
     "response": ["knowledge", "knowledgeSwfs"],
     "knowledge_fields": ["id", "type", "status", "cover", "title", "createUserId", "createTime", "credit", "difficultyId", "specialtyId"],
     "swf_fields": ["id", "knowledgeId", "cover", "title", "content", "createUserId", "createTime", "sort", "score", "haveTest", "record", "test"],
-    "decimal_policy": "credit is serialized as a JSON number (or null), matching Java Double and the existing frontend contract"
+    "decimal_policy": "credit is stored as MySQL DOUBLE and serialized as a JSON number (or null), matching Java Double and the existing frontend contract"
   },
   "fixture": {
     "database": "temporary isolated MySQL schema phase5_theory_detail_*",
@@ -33,7 +33,7 @@
     "database_writes": false
   },
   "contract_followup_2026_10_09": {
-    "change": "Align DECIMAL credit's wire type with Java Double rather than returning a decimal string.",
+    "change": "Decode the stored DOUBLE credit correctly and retain Java Double's JSON numeric wire type instead of a decimal string.",
     "journey": "theory-study-records/knowledge-read-credit: create through saveTheoryKnowledge, then read non-integral credit 2.5 via getById.",
     "clock_policy": "Mask only generated createTime values; compare credit type/value and all other response fields."
   },
