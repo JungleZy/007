@@ -33,7 +33,13 @@ const TRAIN_COLUMNS: &str = "id,name,rate,type,code_message_body,code_short,DATE
 
 fn parse_message_body(raw: Option<String>) -> Result<Value, serde_json::Error> {
     match raw {
-        Some(value) if value.is_empty() => Ok(Value::Null),
+        Some(value)
+            if value
+                .bytes()
+                .all(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n')) =>
+        {
+            Ok(Value::Null)
+        }
         Some(value) => serde_json::from_str(&value),
         None => Ok(Value::Null),
     }
@@ -936,6 +942,14 @@ mod tests {
             parse_message_body(Some(String::new())).unwrap(),
             Value::Null
         );
+        for whitespace in [" ", "\t\r\n", " \t\r\n "] {
+            assert_eq!(
+                parse_message_body(Some(whitespace.into())).unwrap(),
+                Value::Null
+            );
+        }
+        assert!(parse_message_body(Some("\u{a0}".into())).is_err());
+        assert!(parse_message_body(Some(" \tinvalid".into())).is_err());
         assert_eq!(parse_message_body(Some("[]".into())).unwrap(), json!([]));
         assert!(parse_message_body(Some("not json".into())).is_err());
     }
@@ -987,7 +1001,47 @@ mod tests {
             assert_eq!(body["code"], 200, "{stored:?}");
             assert_eq!(body["data"]["codeMessageBody"], expected, "{stored:?}");
         }
-        sqlx::query("UPDATE t_ticker_tape_train SET code_message_body='' WHERE id=?")
+        for stored in ["", "   ", "\t\r\n", " \t\r\n "] {
+            sqlx::query("UPDATE t_ticker_tape_train SET code_message_body=? WHERE id=?")
+                .bind(stored)
+                .bind(&id)
+                .execute(&pool)
+                .await?;
+            let detail = by_id(
+                State(state.clone()),
+                Extension(user.clone()),
+                Json(IdRequest {
+                    id: Some(id.clone()),
+                }),
+            )
+            .await;
+            let history = list(
+                State(state.clone()),
+                Extension(user.clone()),
+                Json(PageRequest {
+                    page: Some(1),
+                    rows: Some(10),
+                }),
+            )
+            .await;
+            for (response, is_page) in [(detail, false), (history, true)] {
+                assert_eq!(response.status(), StatusCode::OK);
+                let bytes = response.into_body().collect().await.unwrap().to_bytes();
+                let body: Value = serde_json::from_slice(&bytes).unwrap();
+                assert_eq!(body["code"], 200);
+                let train = if is_page {
+                    &body["data"]["data"][0]
+                } else {
+                    &body["data"]
+                };
+                assert_eq!(train["id"], id);
+                assert_eq!(train["type"], 1);
+                assert_eq!(train["status"], 0);
+                assert_eq!(train["codeMessageBody"], Value::Null);
+            }
+        }
+        // Invalid non-empty JSON must still fail both JSON-reading callers.
+        sqlx::query("UPDATE t_ticker_tape_train SET code_message_body=' not json ' WHERE id=?")
             .bind(&id)
             .execute(&pool)
             .await?;
@@ -1008,20 +1062,8 @@ mod tests {
             }),
         )
         .await;
-        for (response, is_page) in [(detail, false), (history, true)] {
-            assert_eq!(response.status(), StatusCode::OK);
-            let bytes = response.into_body().collect().await.unwrap().to_bytes();
-            let body: Value = serde_json::from_slice(&bytes).unwrap();
-            assert_eq!(body["code"], 200);
-            let train = if is_page {
-                &body["data"]["data"][0]
-            } else {
-                &body["data"]
-            };
-            assert_eq!(train["id"], id);
-            assert_eq!(train["type"], 1);
-            assert_eq!(train["status"], 0);
-            assert_eq!(train["codeMessageBody"], Value::Null);
+        for response in [detail, history] {
+            assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         }
         sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
             .bind(&id)
