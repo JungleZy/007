@@ -174,6 +174,14 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
         return envelope_response(StatusCode::OK, 500, "评分规则满分必须为非负整数", "");
     }
     let result = async {
+        let rule_id = if creating {
+            rule_id
+        } else {
+            let Some(row) = rule_by_id(pool, &rule_id).await? else {
+                return Ok(None);
+            };
+            row.get::<String, _>("id")
+        };
         let mut connection = type_connection(pool, rule_type).await?;
         let mut tx = connection.begin().await?;
         let rows = lock_rules(&mut tx, rule_type, (!creating).then_some(rule_id.as_str())).await?;
@@ -261,10 +269,14 @@ pub(crate) async fn change_default(
                 return Ok(false);
             };
             let rule_type = i64::from(row.get::<Option<i32>, _>("type").unwrap_or_default());
+            let canonical_id = row.get::<String, _>("id");
             let mut connection = type_connection(pool, rule_type).await?;
             let mut tx = connection.begin().await?;
-            let rows = lock_rules(&mut tx, rule_type, Some(id)).await?;
-            let Some(target) = rows.iter().find(|row| row.get::<String, _>("id") == id) else {
+            let rows = lock_rules(&mut tx, rule_type, Some(&canonical_id)).await?;
+            let Some(target) = rows
+                .iter()
+                .find(|row| row.get::<String, _>("id") == canonical_id)
+            else {
                 tx.rollback().await?;
                 return Ok(false);
             };
@@ -275,7 +287,7 @@ pub(crate) async fn change_default(
             }
             reset_defaults(&mut tx, &rows, rule_type).await?;
             sqlx::query("UPDATE t_grading_rule SET is_default=0 WHERE id=?")
-                .bind(id)
+                .bind(&canonical_id)
                 .execute(&mut *tx)
                 .await?;
             tx.commit().await?;
@@ -589,6 +601,72 @@ mod tests {
         );
         assert_eq!(response_code(response).await, 200);
         assert_eq!(defaults, [1, 0, 0], "only the current target type is reset");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
+    async fn uppercase_alias_saves_lock_canonical_ids_and_change_default() {
+        let (state, pool, ids) = fixture().await;
+        sqlx::query("UPDATE t_grading_rule SET type=12347 WHERE id=?")
+            .bind(&ids[2])
+            .execute(&pool)
+            .await
+            .unwrap();
+        let mut gate = pool.begin().await.unwrap();
+        let connection: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *gate)
+            .await
+            .unwrap();
+        sqlx::query("SELECT id FROM t_grading_rule WHERE id=? FOR UPDATE")
+            .bind(&ids[1])
+            .fetch_one(&mut *gate)
+            .await
+            .unwrap();
+        // Opposite-type writers must wait on the same canonical PK, not own
+        // opposite records because caller aliases sorted before stored ids.
+        let mut writers = Vec::new();
+        for (target, kind) in [(&ids[1], 12347), (&ids[2], 12346)] {
+            let state = state.clone();
+            let target = target.to_uppercase();
+            writers.push(tokio::spawn(async move {
+                save(State(state), Json(json!({"id":target,"type":kind,"score":100,"title":"alias saved","isDefault":0}))).await
+            }));
+        }
+        let waiting = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let count: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT w.REQUESTING_ENGINE_TRANSACTION_ID) FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks b ON b.ENGINE_LOCK_ID=w.BLOCKING_ENGINE_LOCK_ID JOIN performance_schema.threads t ON t.THREAD_ID=b.THREAD_ID WHERE t.PROCESSLIST_ID=? AND b.OBJECT_NAME='t_grading_rule'")
+                    .bind(connection).fetch_one(&pool).await.unwrap();
+                if count == 2 { break; }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.is_ok();
+        gate.commit().await.unwrap();
+        for writer in writers {
+            let response = tokio::time::timeout(Duration::from_secs(5), writer)
+                .await
+                .expect("alias saves must not deadlock")
+                .unwrap();
+            assert_eq!(response_code(response).await, 200);
+        }
+        assert!(waiting);
+        for id in [&ids[1], &ids[2]] {
+            assert_eq!(
+                response_code(
+                    change_default(State(state.clone()), Json(json!({"id":id.to_uppercase()})))
+                        .await
+                )
+                .await,
+                200
+            );
+            let row = rule_by_id(&pool, &id.to_uppercase())
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(row.get::<String, _>("id"), *id);
+            assert_eq!(row.get::<String, _>("title"), "alias saved");
+            assert_eq!(row.get::<i32, _>("is_default"), 0);
+        }
+        cleanup(&pool, &ids).await;
     }
 
     #[tokio::test]
