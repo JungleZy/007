@@ -1784,7 +1784,12 @@ fn separate_groups(values: &mut [u8], group_size: usize, rng: &mut impl Rng) {
     }
 }
 
-fn generated_groups(count: usize, train_type: i32, random: bool, average: bool) -> Vec<String> {
+pub(crate) fn generated_groups(
+    count: usize,
+    train_type: i32,
+    random: bool,
+    average: bool,
+) -> Vec<String> {
     let alphabet: &[u8] = match train_type {
         0 => b"0123456789",
         1 => b"ABCDEFGHIJKLMNOPQRSTUVWXYZ",

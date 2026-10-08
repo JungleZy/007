@@ -5,10 +5,11 @@ use axum::{
     response::Response,
     Json,
 };
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::{Decimal, RoundingStrategy};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{MySql, Row, Transaction};
+use std::str::FromStr;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TypeRequest {
@@ -304,28 +305,136 @@ pub(crate) async fn last_train(
         Err(error) => database_error(error, "find last train"),
     }
 }
+/// A JSON property that keeps "absent" apart from an explicit `null`: Jackson leaves a missing
+/// DTO property at its default (`status = 0`, `totalNumber = 0`, `createTime = now`) but lets an
+/// explicit `null` overwrite it.
+#[derive(Debug, Default)]
+enum Field {
+    #[default]
+    Absent,
+    Null,
+    Value(Value),
+}
+
+impl<'de> Deserialize<'de> for Field {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Value::deserialize(deserializer).map(|value| match value {
+            Value::Null => Field::Null,
+            other => Field::Value(other),
+        })
+    }
+}
+
+impl Field {
+    /// Jackson coerces JSON numbers and numeric strings into `Integer` properties.
+    fn int(&self) -> Option<i64> {
+        match self {
+            Field::Value(Value::Number(number)) => number
+                .as_i64()
+                .or_else(|| number.as_f64().map(|float| float as i64)),
+            Field::Value(Value::String(text)) => {
+                let text = text.trim();
+                text.parse::<i64>()
+                    .ok()
+                    .or_else(|| text.parse::<f64>().ok().map(|float| float as i64))
+            }
+            _ => None,
+        }
+    }
+    /// The DTO default applies to a missing property only.
+    fn int_or(&self, default: i64) -> Option<i64> {
+        if matches!(self, Field::Absent) {
+            Some(default)
+        } else {
+            self.int()
+        }
+    }
+    fn int32(&self) -> Option<i32> {
+        self.int().and_then(|value| i32::try_from(value).ok())
+    }
+    fn int32_or(&self, default: i32) -> Option<i32> {
+        if matches!(self, Field::Absent) {
+            Some(default)
+        } else {
+            self.int32()
+        }
+    }
+    /// Jackson coerces scalars into `String` properties.
+    fn text(&self) -> Option<String> {
+        match self {
+            Field::Value(Value::String(text)) => Some(text.clone()),
+            Field::Value(Value::Number(number)) => Some(number.to_string()),
+            Field::Value(Value::Bool(flag)) => Some(flag.to_string()),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct TrainRequest {
     id: Option<String>,
-    #[serde(rename = "type")]
-    train_type: Option<i32>,
-    status: Option<i32>,
-    numbs: Option<i32>,
+    #[serde(rename = "type", default)]
+    train_type: Field,
+    #[serde(default)]
+    status: Field,
+    #[serde(default)]
+    numbs: Field,
     title: Option<String>,
-    duration: Option<String>,
-    #[serde(rename = "totalNumber")]
-    total_number: Option<i32>,
-    #[serde(rename = "errorNumber")]
-    error_number: Option<i32>,
-    speed: Option<String>,
+    #[serde(default)]
+    duration: Field,
+    #[serde(rename = "totalNumber", default)]
+    total_number: Field,
+    #[serde(rename = "errorNumber", default)]
+    error_number: Field,
+    #[serde(default)]
+    accuracy: Field,
+    #[serde(default)]
+    speed: Field,
+    #[serde(rename = "createTime", default)]
+    create_time: Field,
     content: Option<String>,
+    #[serde(rename = "extendBy", default)]
+    extend_by: Field,
 }
 fn train_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error=%error,operation,"telex training write failed");
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
+/// Java maps IllegalArgumentException and IllegalStateException to 202 with description = message.
+fn invalid(message: &'static str) -> Response {
+    envelope_response(StatusCode::OK, 202, message, message)
+}
+/// Java `String.valueOf(map.get(key))`.
+fn java_text(value: Option<&Value>) -> String {
+    match value {
+        None | Some(Value::Null) => "null".to_owned(),
+        Some(Value::String(text)) => text.clone(),
+        Some(other) => other.to_string(),
+    }
+}
+
+const TRAIN_FIELDS: &str = "id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,create_user_id,create_time,content,protocol_version,active_since,accumulated_active_millis";
+
+/// The whole TelexPatTrainEntity, as Java serializes it.
 fn train_value(row: &sqlx::mysql::MySqlRow) -> Value {
-    json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"numbs":row.get::<Option<i32>,_>("numbs"),"title":row.get::<Option<String>,_>("title"),"status":row.get::<Option<i32>,_>("status"),"duration":row.get::<Option<String>,_>("duration"),"totalNumber":row.get::<Option<i32>,_>("total_number"),"errorNumber":row.get::<Option<i32>,_>("error_number"),"accuracy":row.get::<Option<i32>,_>("accuracy"),"speed":row.get::<Option<String>,_>("speed"),"content":row.get::<Option<String>,_>("content"),"protocolVersion":row.get::<Option<i32>,_>("protocol_version"),"activeSince":row.get::<Option<i64>,_>("active_since"),"accumulatedActiveMillis":row.get::<Option<i64>,_>("accumulated_active_millis")})
+    json!({
+        "id": row.get::<String, _>("id"),
+        "type": row.get::<Option<i32>, _>("type"),
+        "numbs": row.get::<Option<i32>, _>("numbs"),
+        "title": row.get::<Option<String>, _>("title"),
+        "status": row.get::<Option<i32>, _>("status"),
+        "duration": row.get::<Option<String>, _>("duration"),
+        "totalNumber": row.get::<Option<i32>, _>("total_number"),
+        "errorNumber": row.get::<Option<i32>, _>("error_number"),
+        "accuracy": row.get::<Option<i32>, _>("accuracy"),
+        "speed": row.get::<Option<String>, _>("speed"),
+        "createUserId": row.get::<Option<String>, _>("create_user_id"),
+        "createTime": row.get::<Option<String>, _>("create_time"),
+        "content": row.get::<Option<String>, _>("content"),
+        "protocolVersion": row.get::<Option<i32>, _>("protocol_version"),
+        "activeSince": row.get::<Option<i64>, _>("active_since"),
+        "accumulatedActiveMillis": row.get::<Option<i64>, _>("accumulated_active_millis")
+    })
 }
 pub(crate) async fn train_list(
     State(state): State<AppState>,
@@ -334,8 +443,8 @@ pub(crate) async fn train_list(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let sql="SELECT id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,protocol_version,active_since,accumulated_active_millis FROM t_telex_pat_train WHERE create_user_id=? ORDER BY create_time DESC";
-    match sqlx::query(sql).bind(&user.id).fetch_all(pool).await {
+    let sql = format!("SELECT {TRAIN_FIELDS} FROM t_telex_pat_train WHERE create_user_id=? ORDER BY create_time DESC");
+    match sqlx::query(&sql).bind(&user.id).fetch_all(pool).await {
         Ok(rows) => envelope_json(
             StatusCode::OK,
             200,
@@ -357,28 +466,248 @@ pub(crate) async fn train_detail(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis FROM t_telex_pat_train WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await{Ok(Some(row)) if row.get::<Option<String>,_>("create_user_id").as_deref()==Some(user.id.as_str())=>envelope_json(StatusCode::OK,200,Some(train_value(&row)),"ok",""),Ok(Some(_))=>envelope_response(StatusCode::OK,207,"无权限",""),Ok(None)=>envelope_response(StatusCode::OK,202,"未查询到训练",""),Err(e)=>train_error(e,"detail train")}
+    let sql = format!("SELECT {TRAIN_FIELDS} FROM t_telex_pat_train WHERE id=? LIMIT 1");
+    match sqlx::query(&sql).bind(id).fetch_optional(pool).await {
+        Ok(Some(row))
+            if row.get::<Option<String>, _>("create_user_id").as_deref()
+                == Some(user.id.as_str()) =>
+        {
+            envelope_json(StatusCode::OK, 200, Some(train_value(&row)), "ok", "")
+        }
+        Ok(Some(_)) => envelope_response(StatusCode::OK, 207, "无权限", ""),
+        Ok(None) => invalid("未查询到训练"),
+        Err(e) => train_error(e, "detail train"),
+    }
 }
+
+/// Java `TelexPatTrainStatisticalService.statistical`: a finished training of `train_type`
+/// feeds the statistics row of type `train_type + 1`; a missing row is rebuilt from every
+/// finished training of that type.
+async fn record_statistics(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    train_type: i32,
+    duration: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    let stat_type = train_type + 1;
+    let existing = sqlx::query("SELECT id,total_count,total_time FROM t_telex_pat_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
+        .bind(user_id)
+        .bind(stat_type)
+        .fetch_optional(&mut **tx)
+        .await?;
+    let seconds = |text: Option<&str>| {
+        text.and_then(|value| value.trim().parse::<i64>().ok())
+            .unwrap_or(0)
+    };
+    match existing {
+        None => {
+            let finished = sqlx::query("SELECT duration,speed FROM t_telex_pat_train WHERE create_user_id=? AND type=? AND status=3")
+                .bind(user_id)
+                .bind(train_type)
+                .fetch_all(&mut **tx)
+                .await?;
+            let mut total_time = 0_i64;
+            let mut total_speed = Decimal::ZERO;
+            for row in &finished {
+                total_time += seconds(row.get::<Option<String>, _>("duration").as_deref());
+                total_speed += row
+                    .get::<Option<String>, _>("speed")
+                    .and_then(|value| Decimal::from_str(value.trim()).ok())
+                    .unwrap_or(Decimal::ZERO);
+            }
+            let count = finished.len() as i64;
+            let average = if count == 0 {
+                Decimal::ZERO
+            } else {
+                (total_speed / Decimal::from(count))
+                    .round_dp_with_strategy(0, RoundingStrategy::MidpointAwayFromZero)
+            };
+            sqlx::query("INSERT INTO t_telex_pat_train_statistical (id,type,total_count,total_time,avg_speed,user_id) VALUES (?,?,?,?,?,?)")
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(stat_type)
+                .bind(count as i32)
+                .bind(total_time.to_string())
+                .bind(average)
+                .bind(user_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        Some(row) => {
+            let average: Decimal = sqlx::query_scalar("SELECT CAST(IFNULL(AVG(CAST(speed AS DECIMAL(20,6))),0) AS DECIMAL(20,6)) FROM t_telex_pat_train WHERE create_user_id=? AND type=? AND status=3")
+                .bind(user_id)
+                .bind(train_type)
+                .fetch_one(&mut **tx)
+                .await?;
+            let total_time =
+                seconds(row.get::<Option<String>, _>("total_time").as_deref()) + seconds(duration);
+            sqlx::query("UPDATE t_telex_pat_train_statistical SET avg_speed=?,total_time=?,total_count=? WHERE id=?")
+                .bind(average)
+                .bind(total_time.to_string())
+                .bind(row.get::<Option<i32>, _>("total_count").unwrap_or(0) + 1)
+                .bind(row.get::<String, _>("id"))
+                .execute(&mut **tx)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Java `lastTration` cleanup on creating an unstarted training: the user's previous training of
+/// this type is deleted when it never started, and finished (with statistics) when it was paused.
+async fn settle_previous(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    kind: i32,
+) -> Result<(), sqlx::Error> {
+    let previous = sqlx::query("SELECT id,status,type,duration FROM t_telex_pat_train WHERE create_user_id=? AND type=? ORDER BY create_time DESC LIMIT 1 FOR UPDATE")
+        .bind(user_id)
+        .bind(kind)
+        .fetch_optional(&mut **tx)
+        .await?;
+    let Some(previous) = previous else {
+        return Ok(());
+    };
+    let id: String = previous.get("id");
+    match previous.get::<Option<i32>, _>("status") {
+        Some(0) => {
+            sqlx::query("DELETE FROM t_telex_pat_train WHERE id=?")
+                .bind(&id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        Some(2) => {
+            sqlx::query("UPDATE t_telex_pat_train SET status=3 WHERE id=?")
+                .bind(&id)
+                .execute(&mut **tx)
+                .await?;
+            record_statistics(
+                tx,
+                user_id,
+                previous.get::<Option<i32>, _>("type").unwrap_or(kind),
+                previous.get::<Option<String>, _>("duration").as_deref(),
+            )
+            .await?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Java `validateAndStoreContent`: the submitted rows must keep the issued text; `extendBy`
+/// appends freshly generated groups (the Vue page asks for 100 once every group is typed).
+/// Errors are the exact Java `IllegalArgumentException` messages (answered as 202).
+fn checked_content(
+    submitted: &str,
+    stored: Option<&str>,
+    extend_by: Option<i64>,
+    kind: i32,
+) -> Result<String, &'static str> {
+    let expected = match stored {
+        None => Vec::new(),
+        Some(text) => match serde_json::from_str::<Value>(text) {
+            Ok(Value::Array(rows)) => rows,
+            _ => return Err("训练报文内容无效"),
+        },
+    };
+    let actual = match serde_json::from_str::<Value>(submitted) {
+        Ok(Value::Array(rows)) => rows,
+        _ => return Err("训练报文内容无效"),
+    };
+    let extension = extend_by.unwrap_or(0);
+    if !(0..=100).contains(&extension) {
+        return Err("扩展数量无效");
+    }
+    if actual.len() != expected.len() {
+        return Err(if extension == 0 {
+            "训练报文结构不一致"
+        } else {
+            "扩展请求必须基于完整原始报文"
+        });
+    }
+    for (issued, typed) in expected.iter().zip(actual.iter()) {
+        if java_text(issued.get("text")) != java_text(typed.get("text")) {
+            return Err("训练报文源内容不可修改");
+        }
+    }
+    if extension == 0 {
+        return Ok(submitted.to_owned());
+    }
+    // Append to the submitted text so the original rows keep their submitted form.
+    let appended =
+        super::post_telegram_write::generated_groups(extension as usize, kind, true, true)
+            .into_iter()
+            .map(|text| json!({"text": text, "value": ""}).to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+    let body = submitted.trim_end();
+    let body = body.strip_suffix(']').unwrap_or(body);
+    Ok(if actual.is_empty() {
+        format!("[{appended}]")
+    } else {
+        format!("{body},{appended}]")
+    })
+}
+
+/// Java `applyMetrics`: the score is recomputed from the stored rows, never taken from the
+/// client. A row counts once it holds a non-blank typed value and is wrong unless the typed
+/// value equals the issued text. Returns `(total, errors, accuracy)`; accuracy is integer
+/// division, as in Java.
+fn measure(content: Option<&str>) -> Result<(i32, i32, i32), &'static str> {
+    let rows = match content {
+        None => Vec::new(),
+        Some(text) => match serde_json::from_str::<Value>(text) {
+            Ok(Value::Array(rows)) => rows,
+            _ => return Err("训练报文内容无效"),
+        },
+    };
+    let (mut total, mut errors) = (0_i32, 0_i32);
+    for row in &rows {
+        let typed = row.get("value");
+        if matches!(typed, None | Some(Value::Null)) || java_text(typed).trim().is_empty() {
+            continue;
+        }
+        total += 1;
+        if java_text(row.get("text")) != java_text(typed) {
+            errors += 1;
+        }
+    }
+    let accuracy = if total == 0 {
+        0
+    } else {
+        (total - errors) * 100 / total
+    };
+    Ok((total, errors, accuracy))
+}
+
+/// Java `BigDecimal.valueOf(total * 60000).divide(millis, 2, HALF_UP).toPlainString()`; a
+/// training with no active time scores "0".
+fn speed_text(total: i32, active_millis: i64) -> String {
+    if active_millis == 0 {
+        "0".to_owned()
+    } else {
+        format!(
+            "{:.2}",
+            scoring::rate_per_minute_precise(i64::from(total), active_millis)
+        )
+    }
+}
+
 pub(crate) async fn train_save(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<TrainRequest>,
 ) -> Response {
-    let Some(kind) = body.train_type else {
-        return envelope_response(StatusCode::OK, 202, "训练类型无效", "");
+    // The DTO defaults `status` to 0 when the property is missing (the creation form omits it).
+    let (Some(kind), Some(requested)) = (body.train_type.int(), body.status.int_or(0)) else {
+        return invalid("训练状态和类型不能为空");
     };
-    if !(0..=2).contains(&kind) {
-        return envelope_response(StatusCode::OK, 202, "训练类型无效", "");
-    }
-    let requested = body.status.unwrap_or(0);
     if !(0..=3).contains(&requested) {
-        return envelope_response(StatusCode::OK, 202, "训练状态无效", "");
+        return invalid("训练状态无效");
     }
-    let total = body.total_number.unwrap_or(0).max(0);
-    let errors = body.error_number.unwrap_or(0).clamp(0, total);
-    let accuracy = scoring::accuracy_percent(i64::from(total - errors), i64::from(total))
-        .to_i32()
-        .unwrap_or(0);
+    if !(0..=2).contains(&kind) {
+        return invalid("训练类型无效");
+    }
+    let (kind, requested) = (kind as i32, requested as i32);
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
@@ -386,111 +715,161 @@ pub(crate) async fn train_save(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or(0);
-    let mut transaction = match pool.begin().await {
+    let mut tx = match pool.begin().await {
         Ok(transaction) => transaction,
         Err(error) => return train_error(error, "start train save transaction"),
     };
-    let id = if let Some(id) = body.id.filter(|value| !value.is_empty()) {
-        let row = match sqlx::query("SELECT create_user_id,status,protocol_version,active_since,accumulated_active_millis,content FROM t_telex_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
-            .bind(&id)
-            .fetch_optional(&mut *transaction)
-            .await
-        {
-            Ok(Some(row)) => row,
-            Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
-            Err(error) => return train_error(error, "load train for update"),
-        };
-        if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
-            return envelope_response(StatusCode::OK, 207, "无权修改他人电传训练", "");
-        }
-        if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0) < 1 {
-            return envelope_response(StatusCode::OK, 208, "旧版训练记录不可继续提交", "");
-        }
-        let current = row.get::<Option<i32>, _>("status").unwrap_or(0);
-        if current == 3 {
-            return envelope_response(StatusCode::OK, 208, "训练已结束", "");
-        }
-        let allowed = current == requested
-            || matches!(
-                (current, requested),
-                (0, 1) | (1, 2) | (1, 3) | (2, 1) | (2, 3)
-            );
-        if !allowed {
-            return envelope_response(StatusCode::OK, 208, "训练状态流转无效", "");
-        }
-        if let Some(submitted) = body.content.as_deref() {
-            let expected = row
-                .get::<Option<String>, _>("content")
-                .unwrap_or_else(|| "[]".to_owned());
-            let expected = serde_json::from_str::<Vec<Value>>(&expected);
-            let actual = serde_json::from_str::<Vec<Value>>(submitted);
-            let structure_matches = match (expected, actual) {
-                (Ok(expected), Ok(actual)) if expected.len() == actual.len() => expected
-                    .iter()
-                    .zip(actual.iter())
-                    .all(|(left, right)| left.get("text") == right.get("text")),
-                _ => false,
-            };
-            if !structure_matches {
-                return envelope_response(StatusCode::OK, 202, "训练报文结构不一致", "");
-            }
-        }
-        let mut accumulated = row
-            .get::<Option<i64>, _>("accumulated_active_millis")
-            .unwrap_or(0)
-            .max(0);
-        let active_since = row.get::<Option<i64>, _>("active_since");
-        if current == 1 && requested != 1 {
-            accumulated =
-                accumulated.saturating_add(now.saturating_sub(active_since.unwrap_or(now)));
-        }
-        let next_active_since = if current != 1 && requested == 1 {
-            Some(now)
-        } else if requested == 1 {
-            active_since
-        } else {
-            None
-        };
-        let duration = if requested == 3 {
-            (accumulated / 1000).to_string()
-        } else {
-            body.duration.unwrap_or_default()
-        };
-        let speed = if requested == 3 {
-            scoring::rate_per_minute_precise(i64::from(total), accumulated).to_string()
-        } else {
-            body.speed.unwrap_or_else(|| "0".to_owned())
-        };
-        if let Err(error) = sqlx::query("UPDATE t_telex_pat_train SET type=?,numbs=?,title=?,status=?,duration=?,total_number=?,error_number=?,accuracy=?,speed=?,content=COALESCE(?,content),active_since=?,accumulated_active_millis=? WHERE id=?")
-            .bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind(duration).bind(total).bind(errors).bind(accuracy).bind(speed).bind(body.content).bind(next_active_since).bind(accumulated).bind(&id)
-            .execute(&mut *transaction).await
-        {
-            return train_error(error, "update train");
-        }
-        id
-    } else {
-        if requested == 3 {
-            return envelope_response(StatusCode::OK, 208, "训练尚未开始，不能完成", "");
-        }
-        if let Some(content) = body.content.as_deref() {
-            if serde_json::from_str::<Vec<Value>>(content).is_err() {
-                return envelope_response(StatusCode::OK, 202, "训练报文内容无效", "");
-            }
-        }
-        let id = uuid::Uuid::new_v4().to_string();
-        let active_since = (requested == 1).then_some(now);
-        if let Err(error) = sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,0,?)")
-            .bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind("0").bind(total).bind(errors).bind(accuracy).bind("0").bind(body.content.unwrap_or_else(|| "[]".to_owned())).bind(&user.id).bind(active_since).bind(crate::now_time_millis().to_string())
-            .execute(&mut *transaction).await
-        {
-            return train_error(error, "insert train");
-        }
-        id
+    let id = match body.id.as_deref().filter(|id| !id.trim().is_empty()) {
+        Some(id) => match update_train(&mut tx, &user, id, requested, &body, now).await {
+            Ok(()) => id.to_owned(),
+            Err(response) => return response,
+        },
+        None => match create_train(&mut tx, &user, kind, requested, &body, now).await {
+            Ok(id) => id,
+            Err(response) => return response,
+        },
     };
-    if let Err(error) = transaction.commit().await {
+    let sql = format!("SELECT {TRAIN_FIELDS} FROM t_telex_pat_train WHERE id=?");
+    let row = match sqlx::query(&sql).bind(&id).fetch_one(&mut *tx).await {
+        Ok(row) => row,
+        Err(error) => return train_error(error, "reload train"),
+    };
+    if let Err(error) = tx.commit().await {
         return train_error(error, "commit train save");
     }
-    envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", "")
+    // Java answers with the saved entity; the Vue page spreads it into its state.
+    envelope_json(StatusCode::OK, 200, Some(train_value(&row)), "ok", "")
+}
+
+async fn create_train(
+    tx: &mut Transaction<'_, MySql>,
+    user: &AuthUser,
+    kind: i32,
+    requested: i32,
+    body: &TrainRequest,
+    now: i64,
+) -> Result<String, Response> {
+    if requested == 3 {
+        return Err(invalid("训练尚未开始，不能完成"));
+    }
+    if requested == 0 {
+        settle_previous(tx, &user.id, kind)
+            .await
+            .map_err(|error| train_error(error, "settle previous"))?;
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let active_since = (requested == 1).then_some(now);
+    sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,0,?)")
+        .bind(&id)
+        .bind(kind)
+        .bind(body.numbs.int32())
+        .bind(body.title.as_deref())
+        .bind(requested)
+        .bind(body.duration.text())
+        .bind(body.total_number.int32_or(0))
+        .bind(body.error_number.int32_or(0))
+        .bind(body.accuracy.int32_or(0))
+        .bind(body.speed.text())
+        .bind(body.content.as_deref())
+        .bind(&user.id)
+        .bind(active_since)
+        .bind(match &body.create_time {
+            Field::Absent => Some(crate::now_time_millis().to_string()),
+            other => other.text(),
+        })
+        .execute(&mut **tx)
+        .await
+        .map_err(|error| train_error(error, "insert train"))?;
+    Ok(id)
+}
+
+async fn update_train(
+    tx: &mut Transaction<'_, MySql>,
+    user: &AuthUser,
+    id: &str,
+    requested: i32,
+    body: &TrainRequest,
+    now: i64,
+) -> Result<(), Response> {
+    let row = sqlx::query("SELECT create_user_id,type,status,protocol_version,active_since,accumulated_active_millis,content FROM t_telex_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|error| train_error(error, "load train for update"))?;
+    let Some(row) = row else {
+        return Err(invalid("未查询到训练"));
+    };
+    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return Err(envelope_response(StatusCode::OK, 207, "无权限", ""));
+    }
+    let current = row.get::<Option<i32>, _>("status").unwrap_or(0);
+    if current == 3 {
+        return Err(envelope_response(StatusCode::OK, 208, "训练已结束", ""));
+    }
+    if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0) < 1 {
+        return Err(invalid("旧版训练记录不可继续提交"));
+    }
+    let allowed = current == requested
+        || matches!(
+            (current, requested),
+            (0, 1) | (1, 2) | (1, 3) | (2, 1) | (2, 3)
+        );
+    if !allowed {
+        return Err(invalid("训练状态流转无效"));
+    }
+    let kind = row.get::<Option<i32>, _>("type").unwrap_or(0);
+    let stored = row.get::<Option<String>, _>("content");
+    let content = match body.content.as_deref() {
+        Some(submitted) => Some(
+            checked_content(submitted, stored.as_deref(), body.extend_by.int(), kind)
+                .map_err(invalid)?,
+        ),
+        None => stored,
+    };
+    // Java updateActiveClock.
+    let mut accumulated = row
+        .get::<Option<i64>, _>("accumulated_active_millis")
+        .unwrap_or(0);
+    let mut active_since = row.get::<Option<i64>, _>("active_since");
+    if current != 1 && requested == 1 {
+        active_since = Some(now);
+    } else if current == 1 && requested != 1 {
+        accumulated =
+            accumulated.saturating_add(now.saturating_sub(active_since.unwrap_or(now)).max(0));
+        active_since = None;
+    }
+    if requested != 3 {
+        sqlx::query("UPDATE t_telex_pat_train SET status=?,active_since=?,accumulated_active_millis=?,content=? WHERE id=?")
+            .bind(requested)
+            .bind(active_since)
+            .bind(accumulated)
+            .bind(content.as_deref())
+            .bind(id)
+            .execute(&mut **tx)
+            .await
+            .map_err(|error| train_error(error, "update train"))?;
+        return Ok(());
+    }
+    // The server recomputes the score from the stored rows, never from the client.
+    let (total, errors, accuracy) = measure(content.as_deref()).map_err(invalid)?;
+    let duration = (accumulated / 1000).to_string();
+    let speed = speed_text(total, accumulated);
+    sqlx::query("UPDATE t_telex_pat_train SET status=3,active_since=NULL,accumulated_active_millis=?,content=?,duration=?,total_number=?,error_number=?,accuracy=?,speed=? WHERE id=?")
+        .bind(accumulated)
+        .bind(content.as_deref())
+        .bind(&duration)
+        .bind(total)
+        .bind(errors)
+        .bind(accuracy)
+        .bind(&speed)
+        .bind(id)
+        .execute(&mut **tx)
+        .await
+        .map_err(|error| train_error(error, "finish train"))?;
+    record_statistics(tx, &user.id, kind, Some(&duration))
+        .await
+        .map_err(|error| train_error(error, "record statistics"))?;
+    Ok(())
 }
 pub(crate) async fn train_delete(
     State(state): State<AppState>,
@@ -540,5 +919,174 @@ pub(crate) async fn train_delete(
     match result {
         Ok(response) => response,
         Err(error) => train_error(error, "delete train"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rows(items: &[(&str, &str)]) -> String {
+        Value::Array(
+            items
+                .iter()
+                .map(|(text, value)| json!({"value": value, "text": text, "type": true, "isFocus": false}))
+                .collect(),
+        )
+        .to_string()
+    }
+
+    fn request(body: &str) -> TrainRequest {
+        serde_json::from_str(body).expect("request body")
+    }
+
+    #[test]
+    fn missing_status_defaults_to_not_started_but_explicit_null_does_not() {
+        // The creation form omits `status`; Jackson keeps the DTO default of 0.
+        let created = request(r#"{"type":2,"content":"[]"}"#);
+        assert_eq!(created.status.int_or(0), Some(0));
+        assert_eq!(created.total_number.int32_or(0), Some(0));
+        // An explicit null overwrites the default, which Java rejects as a missing status.
+        let nulled = request(r#"{"type":2,"status":null,"totalNumber":null}"#);
+        assert_eq!(nulled.status.int_or(0), None);
+        assert_eq!(nulled.total_number.int32_or(0), None);
+    }
+
+    #[test]
+    fn scalars_are_coerced_like_jackson() {
+        let body = request(
+            r#"{"type":"1","status":" 2 ","numbs":7.9,"duration":30,"speed":12.5,"accuracy":"abc","totalNumber":3000000000}"#,
+        );
+        assert_eq!(body.train_type.int(), Some(1));
+        assert_eq!(body.status.int(), Some(2));
+        assert_eq!(body.numbs.int32(), Some(7));
+        assert_eq!(body.duration.text().as_deref(), Some("30"));
+        assert_eq!(body.speed.text().as_deref(), Some("12.5"));
+        assert_eq!(body.accuracy.int(), None);
+        // Does not fit an Integer column: never wraps into a different number.
+        assert_eq!(body.total_number.int32(), None);
+    }
+
+    #[test]
+    fn content_must_keep_the_issued_text_and_row_count() {
+        let stored = rows(&[("ab12", ""), ("cd34", "")]);
+        let typed = rows(&[("ab12", "ab12"), ("cd34", "cx")]);
+        // Typing into the rows is the whole point and is stored as submitted.
+        assert_eq!(
+            checked_content(&typed, Some(&stored), None, 1),
+            Ok(typed.clone())
+        );
+        assert_eq!(
+            checked_content(&rows(&[("ab13", ""), ("cd34", "")]), Some(&stored), None, 1),
+            Err("训练报文源内容不可修改")
+        );
+        let short = rows(&[("ab12", "")]);
+        assert_eq!(
+            checked_content(&short, Some(&stored), None, 1),
+            Err("训练报文结构不一致")
+        );
+        assert_eq!(
+            checked_content(&short, Some(&stored), Some(2), 1),
+            Err("扩展请求必须基于完整原始报文")
+        );
+        // A training issued without content only accepts an empty list.
+        assert_eq!(checked_content("[]", None, None, 1), Ok("[]".to_owned()));
+        assert_eq!(
+            checked_content(&typed, None, None, 1),
+            Err("训练报文结构不一致")
+        );
+    }
+
+    #[test]
+    fn unreadable_content_and_out_of_range_extension_are_rejected() {
+        let stored = rows(&[("ab12", "")]);
+        for bad in ["", "null", "{}", "[", "not json"] {
+            assert_eq!(
+                checked_content(bad, Some(&stored), None, 1),
+                Err("训练报文内容无效"),
+                "submitted {bad:?}"
+            );
+        }
+        assert_eq!(
+            checked_content(&stored, Some("garbage"), None, 1),
+            Err("训练报文内容无效")
+        );
+        // The range is checked before the structure, so an oversize ask on a short list says so.
+        for extension in [-1, 101] {
+            assert_eq!(
+                checked_content(&stored, Some(&stored), Some(extension), 1),
+                Err("扩展数量无效")
+            );
+        }
+    }
+
+    #[test]
+    fn extension_appends_generated_groups_after_untouched_rows() {
+        let stored = rows(&[("ab12", ""), ("cd34", "")]);
+        let typed = rows(&[("ab12", "ab12"), ("cd34", "")]);
+        for (kind, alphabet) in [
+            (0, "0123456789"),
+            (1, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+            (2, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+        ] {
+            let extended =
+                checked_content(&typed, Some(&stored), Some(100), kind).expect("extended");
+            let parsed: Vec<Value> = serde_json::from_str(&extended).expect("valid json");
+            assert_eq!(parsed.len(), 102);
+            // The rows the user already typed keep exactly the submitted text.
+            assert!(extended.starts_with(typed.trim_end_matches(']')));
+            for row in &parsed[2..] {
+                let keys: Vec<&str> = row
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .map(String::as_str)
+                    .collect();
+                assert_eq!(keys.len(), 2, "kind {kind}: {row}");
+                assert_eq!(row["value"], "");
+                let text = row["text"].as_str().unwrap();
+                assert_eq!(text.chars().count(), 4, "kind {kind}: {row}");
+                assert!(
+                    text.chars().all(|c| alphabet.contains(c)),
+                    "kind {kind}: {row}"
+                );
+            }
+        }
+        // An issued-empty list is extended from nothing.
+        let from_empty = checked_content("[]", None, Some(3), 0).expect("extended");
+        assert_eq!(
+            serde_json::from_str::<Vec<Value>>(&from_empty)
+                .unwrap()
+                .len(),
+            3
+        );
+    }
+
+    #[test]
+    fn scoring_counts_only_typed_rows_with_integer_accuracy() {
+        let content = rows(&[
+            ("ab12", "ab12"),
+            ("cd34", "cx34"),
+            ("ef56", ""),
+            ("gh78", "   "),
+        ]);
+        assert_eq!(measure(Some(&content)), Ok((2, 1, 50)));
+        // Integer division, not rounding: 2 of 3 right is 66, never 67.
+        let content = rows(&[("a", "a"), ("b", "b"), ("c", "x")]);
+        assert_eq!(measure(Some(&content)), Ok((3, 1, 66)));
+        // Nothing typed (or no content at all) scores zero instead of dividing by zero.
+        assert_eq!(measure(Some(&rows(&[("ab12", "")]))), Ok((0, 0, 0)));
+        assert_eq!(measure(None), Ok((0, 0, 0)));
+        assert_eq!(measure(Some("{")), Err("训练报文内容无效"));
+    }
+
+    #[test]
+    fn speed_is_rounded_half_up_to_two_decimals() {
+        assert_eq!(speed_text(2, 250), "480.00");
+        // 60000 / 480000 is exactly 0.125: half-up gives 0.13 where banker's rounding gives 0.12.
+        assert_eq!(speed_text(1, 480_000), "0.13");
+        assert_eq!(speed_text(0, 5_000), "0.00");
+        // No active time at all is the bare "0", not "0.00".
+        assert_eq!(speed_text(3, 0), "0");
     }
 }
