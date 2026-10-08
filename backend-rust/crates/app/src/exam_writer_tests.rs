@@ -153,9 +153,9 @@ async fn two_admins_create_generated_exams_without_gap_upgrade() {
         let second = Fixture::new("creation-b", 1, 1).await;
         let mut gate = first.pool().begin().await.unwrap();
         let connection = gate_connection(&mut gate).await;
-        // Cover every insertion gap, including the supremum. Both writers must
-        // reach their parent INSERT before releasing the gate. The old locking
-        // misses own compatible gap locks and deadlock on their INSERT upgrades.
+        // Cover every insertion gap, including the supremum, to observe both
+        // creators blocked at the gate, then successful final exam inventories.
+        // This gate does not deterministically reject the missing-read gap-lock mutation.
         sqlx::query("SELECT id FROM t_theory_knowledge_exam WHERE id >= '' FOR UPDATE")
             .fetch_all(&mut *gate)
             .await
