@@ -207,6 +207,57 @@
         {"name": "create-next", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-下一个", "totalNumber": 3, "content": "[{\"value\":\"\",\"text\":\"5678\",\"type\":true,\"isFocus\":false}]"}},
         {"name": "predecessor-after", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${pausedId}"}, "mask": ["$.data.accumulatedActiveMillis"]}
       ]
+    },
+    {
+      "name": "personal-entering-telex",
+      "steps": [
+        {"name": "find-none", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "statistics-first", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "create", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": null, "createUserId": null, "type": 1, "totalTime": 12, "totalNum": 30, "totalError": 2, "messageName": null}, "capture": {"recId": "$.data.id"}},
+        {"name": "find-after-create", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "statistics-after-create", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "create-duplicate", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 1, "totalTime": 5, "totalNum": 5, "totalError": 0}},
+        {"name": "find-after-duplicate", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "update", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "createUserId": "sweep-student", "type": 1, "totalTime": 75, "totalNum": 90, "totalError": 5, "messageName": null}},
+        {"name": "update-with-name", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 1, "totalTime": 120, "totalNum": 1, "totalError": 0, "messageName": "口诀练习"}},
+        {"name": "statistics-after-update", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "create-type-zero-time", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 0, "totalTime": 0, "totalNum": 4, "totalError": 4}},
+        {"name": "create-type-two", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 2, "totalTime": 7, "totalNum": 1, "totalError": 0, "messageName": "拆字"}},
+        {"name": "statistics-all-types", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/clear", "body": {"type": "1"}},
+        {"name": "find-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "clear-without-record", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/clear", "body": {"type": 3}},
+        {"name": "save-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 1, "totalTime": 3, "totalNum": 2, "totalError": 1}},
+        {"name": "save-after-clear-null-totals", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 1}},
+        {"name": "statistics-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "other-user-find", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "other-user-create", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 1, "totalTime": 20, "totalNum": 10, "totalError": 1, "messageName": "管理员"}},
+        {"name": "other-user-statistics", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
+        {"name": "first-user-find-again", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
+        {"name": "float-type-find", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 1.9}},
+        {"name": "absent-type-find", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {}},
+        {"name": "absent-type-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/clear", "body": {}},
+        {"name": "malformed-type-find", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "abc"}}
+      ]
+    },
+    {
+      "name": "personal-entering-telex-foreign-record",
+      "steps": [
+        {"name": "owner-create", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 5, "totalTime": 9, "totalNum": 9, "totalError": 1}, "capture": {"ownerRec": "$.data.id"}},
+        {"name": "foreign-save", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${ownerRec}", "type": 5, "totalTime": 7, "totalNum": 7, "totalError": 7}},
+        {"name": "owner-find", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 5}},
+        {"name": "foreign-find", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 5}}
+      ]
+    },
+    {
+      "name": "personal-entering-telex-record-id",
+      "steps": [
+        {"name": "create", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 6, "totalTime": 9, "totalNum": 9, "totalError": 1}, "capture": {"recId": "$.data.id"}},
+        {"name": "unknown-id", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "no-such-record", "type": 6, "totalTime": 1, "totalNum": 1, "totalError": 1}},
+        {"name": "empty-id", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "", "type": 6, "totalTime": 1, "totalNum": 1, "totalError": 1}},
+        {"name": "find-unchanged", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 6}},
+        {"name": "id-of-other-type", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 7, "totalTime": 2, "totalNum": 2, "totalError": 2}}
+      ]
     }
   ]
 }
