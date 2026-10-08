@@ -30,7 +30,6 @@ pub(crate) struct AddRequest {
     message_type: Option<i32>,
     #[serde(rename = "ruleId")]
     rule_id: Option<String>,
-    content: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -91,7 +90,16 @@ fn business(code: i32, message: &'static str) -> Response {
     } else {
         StatusCode::OK
     };
-    envelope_response(status, code, message, "")
+    envelope_response(
+        status,
+        code,
+        message,
+        if matches!(code, 202 | 208) {
+            message
+        } else {
+            ""
+        },
+    )
 }
 fn generated_groups(message_type: i32, count: usize) -> Vec<String> {
     let alphabet: &[u8] = match message_type {
@@ -146,25 +154,6 @@ fn generated_groups(message_type: i32, count: usize) -> Vec<String> {
         groups.push(group);
     }
     groups
-}
-
-async fn train(pool: &sqlx::MySqlPool, id: &str) -> Result<Option<MySqlRow>, sqlx::Error> {
-    sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,begin_time IS NOT NULL AS begun,total_number,is_cable,COALESCE(GREATEST(0,TIMESTAMPDIFF(MICROSECOND,begin_time,NOW(6))/1000),0) AS elapsed_ms FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1")
-        .bind(id).fetch_optional(pool).await
-}
-
-async fn owner_train(
-    pool: &sqlx::MySqlPool,
-    id: &str,
-    user_id: &str,
-) -> Result<Result<MySqlRow, i32>, sqlx::Error> {
-    let Some(row) = train(pool, id).await? else {
-        return Ok(Err(202));
-    };
-    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user_id) {
-        return Ok(Err(207));
-    }
-    Ok(Ok(row))
 }
 
 fn parse_array(value: &str) -> Result<Vec<Value>, ()> {
@@ -236,8 +225,8 @@ fn check_no_overlap(mut pages: Vec<Vec<CaptureInterval>>) -> Result<(), &'static
     all.sort_by_key(|interval| interval.started_ms);
     let mut previous_end = 0;
     for interval in all {
-        if interval.started_ms < previous_end {
-            return Err("采集区间存在重叠");
+        if interval.started_ms < previous_end || interval.ended_ms <= interval.started_ms {
+            return Err("采集区间必须有序、非负且位于训练有效时间内");
         }
         previous_end = interval.ended_ms;
     }
@@ -719,16 +708,15 @@ async fn settle_locked(
         .ok_or("训练评分规则快照缺失")?;
     let rule = electronic_rule(&rule_content)?;
     let full_score = row
-        .try_get::<Option<String>, _>("full_score")?
+        .try_get::<Option<Decimal>, _>("full_score")?
         .ok_or("训练缺少冻结满分")?;
-    let full_score = Decimal::from_str(&full_score).map_err(|_| "训练满分快照无效，请新建训练")?;
     if full_score < Decimal::ZERO {
         return Err("训练满分快照无效，请新建训练".into());
     }
     let attempt = row.try_get::<i32, _>("attempt")?;
     let sources = sqlx::query("SELECT page_number,sort,`key` FROM t_post_telegraph_key_pat_train_page WHERE train_id=? ORDER BY page_number,sort FOR UPDATE")
         .bind(id).fetch_all(&mut *connection).await?;
-    let raw_pages = sqlx::query("SELECT raw.page_number,raw.attempt,raw.value,raw.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,train.begin_time,raw.received_at) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train_raw_page raw JOIN t_post_telegraph_key_pat_train train ON train.id=raw.train_id WHERE raw.train_id=? ORDER BY raw.page_number FOR UPDATE")
+    let raw_pages = sqlx::query("SELECT raw.page_number,raw.attempt,raw.value,raw.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,train.begin_time,raw.received_at) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train_raw_page raw JOIN t_post_telegraph_key_pat_train train ON train.id=raw.train_id COLLATE utf8mb4_general_ci WHERE raw.train_id=? ORDER BY raw.page_number FOR UPDATE")
         .bind(id).fetch_all(&mut *connection).await?;
     sqlx::query("SELECT id FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=? ORDER BY page_number,sort FOR UPDATE")
         .bind(id).fetch_all(&mut *connection).await?;
@@ -875,7 +863,7 @@ async fn action_locked(
     attempt: Option<i32>,
     finish: bool,
 ) -> Result<(), SettlementError> {
-    let row = sqlx::query("SELECT create_user_id,status,protocol_version,attempt,begin_time IS NOT NULL AS begun,total_number,is_cable,rule_content,CAST(full_score AS CHAR) AS full_score FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let row = sqlx::query("SELECT create_user_id,status,protocol_version,attempt,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,total_number,is_cable,rule_content,full_score FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(id).fetch_optional(&mut *connection).await?.ok_or("未查询到训练")?;
     if row
         .try_get::<Option<String>, _>("create_user_id")?
@@ -915,10 +903,8 @@ async fn action_locked(
             .ok_or("训练评分规则快照缺失")?;
         electronic_rule(&content)?;
         let full_score = row
-            .try_get::<Option<String>, _>("full_score")?
+            .try_get::<Option<Decimal>, _>("full_score")?
             .ok_or("训练满分快照无效，请新建训练")?;
-        let full_score =
-            Decimal::from_str(&full_score).map_err(|_| "训练满分快照无效，请新建训练")?;
         if full_score < Decimal::ZERO {
             return Err("训练满分快照无效，请新建训练".into());
         }
@@ -999,7 +985,7 @@ pub(crate) async fn add(
     if !(0..=1).contains(&is_cable) {
         return business(202, "是否使用固定报底参数无效");
     }
-    let Some(total_number) = body.total_number.filter(|value| *value > 0) else {
+    let Some(total_number) = body.total_number.filter(|value| *value >= 0) else {
         return business(202, "训练总组数不能为空");
     };
     if body
@@ -1069,18 +1055,17 @@ pub(crate) async fn add(
     };
     let full_score = Decimal::from(score);
     let id = uuid::Uuid::new_v4().to_string();
-    if let Err(error) = sqlx::query("INSERT INTO t_post_telegraph_key_pat_train (id,title,is_cable,status,duration,total_number,error_number,accuracy,speed,create_user_id,attempt,protocol_version,content,message_type,rule_id,rule_content,full_score,score) VALUES (?,?,?,0,'0',?,0,0,'0',?,0,1,?,?,?,?,?,?,?)")
+    if let Err(error) = sqlx::query("INSERT INTO t_post_telegraph_key_pat_train (id,title,is_cable,status,duration,total_number,error_number,accuracy,speed,create_user_id,attempt,protocol_version,content,message_type,rule_id,rule_content,full_score,score) VALUES (?,?,?,0,'0',?,0,0,NULL,?,0,1,NULL,?,?,?,?,?)")
         .bind(&id)
         .bind(body.title.as_deref())
         .bind(is_cable)
         .bind(total_number)
         .bind(&user.id)
-        .bind(body.content.unwrap_or_else(|| "[]".to_owned()))
         .bind(message_type)
         .bind(&rule_id)
         .bind(&rule_content)
-        .bind(full_score.to_string())
-        .bind(full_score.to_string())
+        .bind(full_score)
+        .bind(full_score)
         .execute(&mut *tx)
         .await
     {
@@ -1224,30 +1209,28 @@ pub(crate) async fn reset(
     let Some(pool) = state.pool.as_ref() else {
         return business(500, "服务器错误");
     };
-    let row = match owner_train(pool, &id, &user.id).await {
-        Ok(Ok(row)) => row,
-        Ok(Err(code)) => {
-            return business(
-                code,
-                if code == 207 {
-                    "无权限"
-                } else {
-                    "未查询到训练"
-                },
-            )
-        }
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return err(e, "reset-begin"),
+    };
+    let row = match sqlx::query("SELECT create_user_id,protocol_version,attempt FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+        .bind(&id).fetch_optional(&mut *tx).await {
+        Ok(Some(row)) => row,
+        Ok(None) => return business(202, "未查询到训练"),
         Err(e) => return err(e, "reset-select"),
     };
+    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return business(207, "无权限");
+    }
+    if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0) != 1 {
+        return business(202, "旧训练缺少采集时间轴，请终止旧训练并新建训练");
+    }
     if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0)
         != body.protocol_version.unwrap_or(-1)
         || row.get::<Option<i32>, _>("attempt").unwrap_or(-1) != body.attempt.unwrap_or(-1)
     {
         return business(208, "训练协议或轮次已失效，请重新读取训练");
     }
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(e) => return err(e, "reset-begin"),
-    };
     for sql in [
         "DELETE FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=?",
         "DELETE FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=?",
@@ -1257,7 +1240,7 @@ pub(crate) async fn reset(
             return err(e, "reset-delete");
         }
     }
-    let result = sqlx::query("UPDATE t_post_telegraph_key_pat_train SET status=0,attempt=attempt+1,begin_time=NULL,end_time=NULL,duration='0',speed='0',accuracy=0,error_number=0,score=full_score,deduct_info=NULL WHERE id=? AND create_user_id=?")
+    let result = sqlx::query("UPDATE t_post_telegraph_key_pat_train SET status=0,attempt=attempt+1,begin_time=NULL,end_time=NULL,duration='0',speed='0',accuracy=0,error_number=0,score=full_score,deduct_info=NULL,content=NULL WHERE id=? AND create_user_id=?")
         .bind(&id).bind(&user.id).execute(&mut *tx).await;
     match result {
         Ok(result) if result.rows_affected() == 1 => {}
@@ -1295,7 +1278,7 @@ pub(crate) async fn finish_page(
         Ok(tx) => tx,
         Err(e) => return err(e, "finish-page-begin"),
     };
-    let row = match sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,total_number,begin_time IS NOT NULL AS begun,CAST(COALESCE(GREATEST(0,TIMESTAMPDIFF(MICROSECOND,begin_time,NOW(6)) DIV 1000),0) AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await {
+    let row = match sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,total_number,is_cable,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,CAST(COALESCE(GREATEST(0,TIMESTAMPDIFF(MICROSECOND,begin_time,NOW(6)) DIV 1000),0) AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => return business(202, "未查询到训练"),
         Err(e) => return err(e, "finish-page-select"),
@@ -1303,12 +1286,26 @@ pub(crate) async fn finish_page(
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return business(207, "无权限");
     }
-    if dto.protocol_version != row.get::<Option<i32>, _>("protocol_version")
-        || dto.attempt != row.get::<Option<i32>, _>("attempt")
-    {
+    if row.get::<Option<i32>, _>("protocol_version").unwrap_or(0) != 1 {
+        return business(202, "旧训练缺少采集时间轴，请终止旧训练并新建训练");
+    }
+    if dto.protocol_version != Some(1) || dto.attempt != row.get::<Option<i32>, _>("attempt") {
         return business(208, "训练协议或轮次已失效，请重新读取训练");
     }
-    let groups = row.get::<Option<i32>, _>("total_number").unwrap_or(0);
+    let groups = if row.get::<Option<i32>, _>("is_cable").unwrap_or(0) == 1 {
+        match sqlx::query(
+            "SELECT COUNT(*) AS total FROM t_post_telegraph_key_pat_train_page WHERE train_id=?",
+        )
+        .bind(&id)
+        .fetch_one(&mut *tx)
+        .await
+        {
+            Ok(value) => value.get::<i64, _>("total") as i32,
+            Err(e) => return err(e, "finish-page-source-count"),
+        }
+    } else {
+        row.get::<Option<i32>, _>("total_number").unwrap_or(0)
+    };
     let maximum_page = groups / 100 + i32::from(groups % 100 > 0);
     if page_number < 1 || maximum_page < 1 || page_number > maximum_page {
         return business(202, "页码不正确");
@@ -1429,24 +1426,24 @@ pub(crate) async fn delete(
     let Some(pool) = state.pool.as_ref() else {
         return business(500, "服务器错误");
     };
-    match owner_train(pool, &id, &user.id).await {
-        Ok(Ok(_)) => {}
-        Ok(Err(code)) => {
-            return business(
-                code,
-                if code == 207 {
-                    "无权限"
-                } else {
-                    "未查询到训练"
-                },
-            )
-        }
-        Err(e) => return err(e, "delete-select"),
-    };
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
         Err(e) => return err(e, "delete-begin"),
     };
+    let row = match sqlx::query(
+        "SELECT create_user_id FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE",
+    )
+    .bind(&id)
+    .fetch_optional(&mut *tx)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return business(202, "未查询到训练"),
+        Err(e) => return err(e, "delete-select"),
+    };
+    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
+        return business(207, "无权限");
+    }
     for sql in [
         "DELETE FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=?",
         "DELETE FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=?",
