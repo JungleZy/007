@@ -1,0 +1,230 @@
+{
+  "schema": "rust-migration-phase9-dual-stack-sweep/v1",
+  "generated_at_utc": "2026-10-08T19:59:42Z",
+  "git_commit": "335792c",
+  "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
+  "commands": {
+    "rust": {
+      "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
+      "exit_code": 0,
+      "passed": 53,
+      "ignored": 24,
+      "artifact": "artifact://898"
+    },
+    "python": {
+      "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
+      "exit_code": 0,
+      "tests": 21,
+      "output": "Ran 21 tests in 4.298s; OK",
+      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+    },
+    "python_sweep_only": {
+      "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_dual_stack_sweep.py'",
+      "exit_code": 0,
+      "tests": 17,
+      "output": "Ran 17 tests in 0.007s; OK",
+      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+    },
+    "code_identity": {
+      "command": "git diff 335792c HEAD -- backend-rust",
+      "exit_code": 0,
+      "output": "",
+      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+    },
+    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/x7_final_journeys_after335792c.json",
+    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/x7_final_full_after335792c.json"
+  },
+  "sweep_rerun_this_checkpoint": false,
+  "journeys": {
+    "artifact": "/tmp/x7_final_journeys_after335792c.json",
+    "generated_at_utc": "2026-10-08T19:49:31Z",
+    "summary": {
+      "requests": 419,
+      "identical": 400,
+      "different": 19,
+      "by_disposition": {
+        "ACCEPTED": 19,
+        "FAIL": 0,
+        "OPEN": 0
+      },
+      "by_category": {
+        "JAVA_UNHANDLED_500": 3,
+        "RUST_STRICTER": 1,
+        "DATA": 6,
+        "TEXT_ONLY": 6,
+        "RUST_PERMISSIVE": 1,
+        "RUST_OTHER_CODE": 1,
+        "RUST_FAILS_WHERE_JAVA_OK": 1
+      }
+    }
+  },
+  "full_sweep": {
+    "artifact": "/tmp/x7_final_full_after335792c.json",
+    "generated_at_utc": "2026-10-08T19:55:53Z",
+    "summary": {
+      "requests": 1868,
+      "identical": 1318,
+      "different": 550,
+      "by_disposition": {
+        "ACCEPTED": 550,
+        "FAIL": 0,
+        "OPEN": 0
+      },
+      "by_category": {
+        "JAVA_UNHANDLED_500": 52,
+        "RUST_STRICTER": 60,
+        "DATA": 28,
+        "TEXT_ONLY": 287,
+        "RUST_PERMISSIVE": 9,
+        "RUST_OTHER_CODE": 1,
+        "RUST_FAILS_WHERE_JAVA_OK": 2,
+        "JAVA_RAW_HTTP_4XX": 60,
+        "RUST_RAW_HTTP_4XX": 51
+      }
+    }
+  },
+  "coverage": {
+    "inventory": "docs/reviews/rust-migration/current-coverage.json",
+    "identities": [
+      "anon",
+      "admin",
+      "student"
+    ],
+    "variants": [
+      "empty",
+      "filled",
+      "probe-str",
+      "probe-num"
+    ],
+    "journey_payloads": "Real frontend payloads in scripted HTTP flows, not browser/Electron execution",
+    "journey_source": "backend-rust/scripts/dual-stack-journeys.json",
+    "journey_names": [
+      "theory-study-records",
+      "theory-study-duplicate-titles",
+      "theory-answer-trim",
+      "theory-scheduled-exam",
+      "theory-self-test",
+      "personal-telegram",
+      "classification-create-update",
+      "device-catalogue",
+      "equipment-devices",
+      "cable-fixed-message",
+      "personal-ticker-tape",
+      "personal-ticker-base-session",
+      "personal-telex",
+      "personal-telex-lifecycle",
+      "personal-telex-cleanup",
+      "personal-telex-fields",
+      "personal-telex-cleanup-first-row",
+      "personal-telex-null-duration",
+      "personal-entering-telex",
+      "personal-entering-telex-foreign-record",
+      "personal-entering-telex-record-id",
+      "simulation-channel-room-id",
+      "grading-rule-save-guard",
+      "post-ticker-list-message-body",
+      "training-list-pagination"
+    ]
+  },
+  "comparison": {
+    "opt_in_options": [
+      "mask",
+      "unordered",
+      "parse_json",
+      "normalize_keys"
+    ],
+    "allowed_paths": "Enforced over the complete data_diffs list, never just first_data_diffs preview",
+    "accepted_does_not_mean_identical": true
+  },
+  "registry": {
+    "source": "backend-rust/scripts/dual-stack-sweep-registry.json",
+    "explicit_rules": 161,
+    "by_category": {
+      "JAVA_UNHANDLED_500": 4,
+      "RUST_STRICTER": 60,
+      "DATA": 28,
+      "TEXT_ONLY": 6,
+      "RUST_FAILS_WHERE_JAVA_OK": 2,
+      "RUST_PERMISSIVE": 9,
+      "RUST_OTHER_CODE": 1,
+      "RUST_RAW_HTTP_4XX": 51
+    },
+    "by_class": {
+      "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 23,
+      "JAVA_DEFECT_ACCEPT": 14,
+      "MALFORMED_INPUT_ONLY": 108,
+      "STATE_ARTEFACT": 16
+    },
+    "class_semantics": "First 23 existing rules have no formal class label; EXPLICIT_BEHAVIORAL_ACCEPTANCE is this evidence label, not a registry field. Last 138 are classified by the following artifact.",
+    "classification_artifact": "/tmp/t6_registration_classification.json",
+    "classified_subset": {
+      "registered_count": 138,
+      "by_class": {
+        "JAVA_DEFECT_ACCEPT": 14,
+        "MALFORMED_INPUT_ONLY": 108,
+        "STATE_ARTEFACT": 16
+      },
+      "by_category": {
+        "RUST_STRICTER": 58,
+        "RUST_PERMISSIVE": 8,
+        "DATA": 21,
+        "RUST_RAW_HTTP_4XX": 51
+      }
+    }
+  },
+  "aligned_domains": [
+    "personal telex",
+    "ticker including lastTrain/list/detail conversions",
+    "entering-telex",
+    "telegram/handkey including WS 3001/2001 transactional guards",
+    "theory classification/study statistics/credit",
+    "self-test and scheduled exams including 18001-18003 notifications",
+    "simulation channel",
+    "grading rules",
+    "equipment",
+    "post-ticker list",
+    "paging"
+  ],
+  "locking": {
+    "order": "user row -> parent PK -> child PKs",
+    "scope": "No non-PK locking reads/writes in touched domains",
+    "regressions": "Ignored isolated-DB regressions include mutation checks; not executed by this docs-only checkpoint",
+    "prior_execution_record": "Shared context: executor of 335792c reported exam writer 5/5 and grading 5/5; no durable artifact supplied here, not newly verified"
+  },
+  "java_defects_not_replicated": [
+    "telex NULL-duration rollover",
+    "entering record takeover/retyping/NULL type",
+    "empty-paper self-test",
+    "destructive empty settings list",
+    "junk rows from empty bodies"
+  ],
+  "deliberate_relaxations": [
+    "Self-test identical-answer retry ignores JSON property order",
+    "Absent theory type defaults to 0"
+  ],
+  "limitations": [
+    {
+      "risk": "UUID shape masking does not check Java<->Rust identity correspondence; a wrong-but-UUID-shaped reference can compare equal",
+      "proposal": "Per-journey bijective id mapping"
+    },
+    {
+      "risk": "WS connection loop awaits DB locks inline; innodb_lock_wait_timeout 50 s is below frontend 90 s heartbeat staleness but blocks the connection",
+      "proposal": "Per-connection ordered worker queue"
+    },
+    {
+      "risk": "About 90 non-PK FOR UPDATE/multi-row locking statements remain in untouched domains; review estimate, not sweep metric",
+      "proposal": "Choose index migration or parent/user-row locking"
+    },
+    "TEXT_ONLY description differences remain",
+    "Equipment UI deviceId is ignored by both stacks",
+    "No durable in-process WS frame test infrastructure; 18001-18003 verified by throwaway probes only",
+    "Temporary /tmp sweep artifacts are source execution records, not committed raw response archives"
+  ],
+  "not_proven": [
+    "Browser/Electron smoke of these flows",
+    "Production cutover",
+    "Multi-platform builds",
+    "Customer-site acceptance"
+  ],
+  "phase10": "BLOCKED"
+}
