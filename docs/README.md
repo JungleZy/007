@@ -3,6 +3,7 @@
 全仓文字文档统一存放在 `docs/`。评审资料采用“当前入口 + 历史归档”结构：
 
 - `docs/reviews/2026-09-15-full-project-review.md`：**最新全项目与核心训练复核入口**。19项整改、独立文档审阅、实际运行及最终交付证据集中于此；配套spec/plan同日同名。
+- `docs/reviews/2026-09-19-multi-model-debate-cross-stack-review.md`：**前后端一致性专项复核**（多模型对抗辩论 + 独立裁判 + 盲区全量闭合，基线 HEAD `bb67ce0`）。辩论裁决 7.9/10；四个盲区闭合后修正为 **7.4/10，P0=0、P1=1、P2=7**（P3 另新增 4 项）。P1 = 联合演练「结束训练」恒失败（`sendFinish` 前端发 body、后端读 `@RestQuery`）。含 36 条孤儿端点清单、POST 请求体全量对账（310 端点 × 425 调用点）、7 个 WS 端点字段级 schema、Electron 8000 文件服务契约、WS 并发判定；并修正 AGENTS.md 的 `@RequireAdmin`（70/29）、`firstResult()`（65/46）计数与「28 模块即完整契约清单」表述。纯静态取证，未跑服务与全量测试。
 - `docs/reviews/2026-09-12-current-state-review.md`与`2026-09-14-core-training-review.md`：历史复核批次，保留当时的修复、计数和验收边界，不代表当前开放项。
 - `docs/reviews/2026-09-10-customer-issue-analysis.md`：客户报障 12 条的根因分析与取证，是本轮整改的事实基础。
 - `docs/reviews/2026-09-08-full-project-review.md`：上一轮全项目评审，**降为历史证据**（其 216 测试基线等数字已过期，勿作为当前状态依据）。
@@ -19,6 +20,7 @@
 | 目的 | 入口 |
 |---|---|
 | 了解当前全项目与核心功能状态 | [`reviews/2026-09-15-full-project-review.md`](reviews/2026-09-15-full-project-review.md) |
+| 前后端一致性专项与孤儿端点清单 | [`reviews/2026-09-19-multi-model-debate-cross-stack-review.md`](reviews/2026-09-19-multi-model-debate-cross-stack-review.md) |
 | 当前整改规格 / 计划 | [`specs/2026-09-15-full-project-fix-spec.md`](specs/2026-09-15-full-project-fix-spec.md) + [`plans/2026-09-15-full-project-fix-plan.md`](plans/2026-09-15-full-project-fix-plan.md) |
 | 历史核心训练专项复核 | [`reviews/2026-09-14-core-training-review.md`](reviews/2026-09-14-core-training-review.md) |
 | **发布与迁移执行** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md)（持续更新至本轮） |
