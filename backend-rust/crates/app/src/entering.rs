@@ -585,7 +585,7 @@ pub(crate) async fn telex_save(
     .flatten()
     .map(|r| r.get::<String, _>("id"))
     .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    match sqlx::query("INSERT INTO t_entering_telex_pat (id,create_user_id,type,total_time,total_num,total_error,message_name) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE total_time=VALUES(total_time),total_num=VALUES(total_num),total_error=VALUES(total_error),message_name=VALUES(message_name)").bind(&id).bind(&user.id).bind(kind).bind(body.get("totalTime").and_then(Value::as_i64)).bind(body.get("totalNum").and_then(Value::as_i64)).bind(body.get("totalError").and_then(Value::as_i64)).bind(body.get("messageName").and_then(Value::as_str)).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+    match sqlx::query("INSERT INTO t_entering_telex_pat (id,create_user_id,type,total_time,total_num,total_error,message_name,create_time) VALUES (?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE total_time=VALUES(total_time),total_num=VALUES(total_num),total_error=VALUES(total_error),message_name=VALUES(message_name)").bind(&id).bind(&user.id).bind(kind).bind(body.get("totalTime").and_then(Value::as_i64)).bind(body.get("totalNum").and_then(Value::as_i64)).bind(body.get("totalError").and_then(Value::as_i64)).bind(body.get("messageName").and_then(Value::as_str)).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
 pub(crate) async fn telex_clear(
     State(state): State<AppState>,

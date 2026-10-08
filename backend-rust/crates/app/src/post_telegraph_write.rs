@@ -1055,7 +1055,7 @@ pub(crate) async fn add(
     };
     let full_score = Decimal::from(score);
     let id = uuid::Uuid::new_v4().to_string();
-    if let Err(error) = sqlx::query("INSERT INTO t_post_telegraph_key_pat_train (id,title,is_cable,status,duration,total_number,error_number,accuracy,speed,create_user_id,attempt,protocol_version,content,message_type,rule_id,rule_content,full_score,score) VALUES (?,?,?,0,'0',?,0,0,NULL,?,0,1,NULL,?,?,?,?,?)")
+    if let Err(error) = sqlx::query("INSERT INTO t_post_telegraph_key_pat_train (id,title,is_cable,status,duration,total_number,error_number,accuracy,speed,create_user_id,attempt,protocol_version,content,message_type,rule_id,rule_content,full_score,score,create_time) VALUES (?,?,?,0,'0',?,0,0,NULL,?,0,1,NULL,?,?,?,?,?,NOW())")
         .bind(&id)
         .bind(body.title.as_deref())
         .bind(is_cable)

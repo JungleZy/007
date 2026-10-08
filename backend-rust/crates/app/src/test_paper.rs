@@ -33,7 +33,7 @@ async fn paper(pool: &sqlx::MySqlPool, row: &sqlx::mysql::MySqlRow) -> Result<Va
             .push(question_json(&q));
     }
     Ok(
-        json!({"id":id,"name":row.get::<Option<String>,_>("name"),"levelId":row.get::<Option<String>,_>("level_id"),"total":row.get::<Option<i32>,_>("total"),"passTheExamThan":row.get::<Option<String>,_>("pass_the_exam_than"),"passMark":row.get::<Option<i32>,_>("pass_mark"),"createTime":row.get::<Option<String>,_>("create_time"),"singleChoice":grouped.remove(&1).unwrap_or_default(),"multipleChoice":grouped.remove(&2).unwrap_or_default(),"judge":grouped.remove(&3).unwrap_or_default(),"completion":grouped.remove(&4).unwrap_or_default(),"shortAnswer":grouped.remove(&5).unwrap_or_default()}),
+        json!({"id":id,"testPaperId":Value::Null,"name":row.get::<Option<String>,_>("name"),"levelId":row.get::<Option<String>,_>("level_id"),"total":row.get::<Option<i32>,_>("total"),"passTheExamThan":row.get::<Option<String>,_>("pass_the_exam_than"),"passMark":row.get::<Option<i32>,_>("pass_mark"),"createTime":row.get::<Option<String>,_>("create_time"),"singleChoice":grouped.remove(&1).unwrap_or_default(),"multipleChoice":grouped.remove(&2).unwrap_or_default(),"judge":grouped.remove(&3).unwrap_or_default(),"completion":grouped.remove(&4).unwrap_or_default(),"shortAnswer":grouped.remove(&5).unwrap_or_default()}),
     )
 }
 pub(crate) async fn list(State(state): State<AppState>) -> Response {
@@ -176,7 +176,7 @@ pub(crate) async fn save(
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
     }
-    if sqlx::query("INSERT INTO t_theory_knowledge_test_paper (id,name,level_id,total,pass_the_exam_than,pass_mark,create_user_id) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),level_id=VALUES(level_id),total=VALUES(total),pass_the_exam_than=VALUES(pass_the_exam_than),pass_mark=VALUES(pass_mark),create_user_id=VALUES(create_user_id)").bind(&id).bind(body.get("name").and_then(Value::as_str)).bind(body.get("levelId").and_then(Value::as_str)).bind(body.get("total").and_then(Value::as_i64)).bind(body.get("passTheExamThan").and_then(Value::as_str)).bind(body.get("passMark").and_then(Value::as_i64)).bind(&user.id).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
+    if sqlx::query("INSERT INTO t_theory_knowledge_test_paper (id,name,level_id,total,pass_the_exam_than,pass_mark,create_user_id,create_time) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),level_id=VALUES(level_id),total=VALUES(total),pass_the_exam_than=VALUES(pass_the_exam_than),pass_mark=VALUES(pass_mark),create_user_id=VALUES(create_user_id)").bind(&id).bind(body.get("name").and_then(Value::as_str)).bind(body.get("levelId").and_then(Value::as_str)).bind(body.get("total").and_then(Value::as_i64)).bind(body.get("passTheExamThan").and_then(Value::as_str)).bind(body.get("passMark").and_then(Value::as_i64)).bind(&user.id).bind(crate::now_time_millis().to_string()).execute(&mut *tx).await.is_err(){let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");}
     for (kind, key) in [
         (1, "singleChoice"),
         (2, "multipleChoice"),
