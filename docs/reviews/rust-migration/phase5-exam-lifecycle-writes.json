@@ -45,6 +45,11 @@
     "candidate_updates": "discover child ids plainly and update each primary key, propagating failures",
     "notifications": "18001 classic map.exam to candidates only, after commit; retries and rejections emit none",
     "frontend_readback": "formal paper snapshots preserve testPaperId and Gson question fields; admin list keeps FindAllExamDto snake_case fields, dis and userName",
+    "durable_ws_regression_review": {
+      "status": "SKIPPED_NO_EXISTING_AUTHENTICATED_IN_PROCESS_WS_TEST_INFRASTRUCTURE",
+      "evidence": "crates/app/Cargo.toml dev-dependencies are http-body-util and tower only; Rust crate tests contain no WebSocketStream/connect_async/client_async/TcpStream client or in-process axum::serve server. The only axum::serve/TcpListener use is production main.rs startup; ws.rs has no test module.",
+      "decision": "Per X6's explicit condition, do not introduce a new framework. No durable WS regression is claimed. Historical external probes remain historical evidence, not a new test run; full payload/null omission, failed-commit suppression and recipient coverage still lack an in-process authenticated WS regression."
+    },
     "websocket_probe": "/tmp/t5b_exam_ws_probe_results.json: six Java/Rust frames compared for states 2/3/4 across member-started and admin-started exams; candidate-only recipients, no retry/rejection frame and offline REST success observed"
   },
   "known_boundary": "Historical verification above predates the scheduled revision. Adjacent grading/rebuild/delete writers now share actor-user -> parent-PK -> child-PK order, with scratch-DB regressions in exam_writer_tests.rs; no production traffic cutover."
