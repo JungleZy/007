@@ -31,8 +31,11 @@ impl From<serde_json::Error> for Error {
 fn respond(result: Result<Option<Value>, Error>) -> Response {
     match result {
         Ok(data) => return envelope_json(StatusCode::OK, 200, data, "ok", ""),
+        Err(Error::Business(207, _)) => {
+            return envelope_response(StatusCode::OK, 207, "无权限", "");
+        }
         Err(Error::Business(code, message)) => {
-            return envelope_response(StatusCode::OK, code, message, "");
+            return envelope_response(StatusCode::OK, code, message, message);
         }
         Err(Error::Database(error)) => {
             tracing::warn!(%error, "simulation database operation failed");
@@ -151,7 +154,7 @@ fn room_json(row: &MySqlRow) -> Value {
     json!({"id":row.get::<i32,_>("id"),"name":row.get::<Option<String>,_>("name"),
         "isCable":row.get::<Option<i32>,_>("is_cable"),"createUserId":row.get::<Option<String>,_>("create_user_Id"),
         "stats":row.get::<Option<i32>,_>("stats"),"roomType":row.get::<Option<i32>,_>("room_type"),
-        "createTime":row.get::<Option<String>,_>("create_time_text"),"totalTime":row.get::<Option<i32>,_>("total_time"),
+        "createTime":row.get::<Option<String>,_>("create_time_text").map(|value| value.replace(' ', "T")),"totalTime":row.get::<Option<i32>,_>("total_time"),
         "playStatus":row.get::<Option<i32>,_>("play_status"),"setting":row.get::<Option<String>,_>("setting"),
         "startTime":row.get::<Option<String>,_>("start_time_text"),"isStartSign":row.get::<Option<i32>,_>("is_start_sign")})
 }
@@ -277,7 +280,7 @@ async fn answer_count(
     .await?)
 }
 async fn member_rows(tx: &mut Transaction<'_, MySql>, room: i32) -> Result<Vec<MySqlRow>, Error> {
-    Ok(sqlx::query("SELECT m.*,u.user_name,u.user_img,(SELECT COUNT(*) FROM simulation_router_room_page_value v WHERE v.room_id=m.room_id AND v.user_id=m.user_id) answer_count FROM simulation_router_room_user m JOIN t_user u ON u.id=m.user_id WHERE m.room_id=? ORDER BY m.id")
+    Ok(sqlx::query("SELECT m.*,u.user_name,u.user_img,u.status AS account_status,(SELECT COUNT(*) FROM simulation_router_room_page_value v WHERE v.room_id=m.room_id AND v.user_id=m.user_id) answer_count FROM simulation_router_room_user m JOIN t_user u ON u.id=m.user_id WHERE m.room_id=? ORDER BY m.id")
         .bind(room).fetch_all(&mut **tx).await?)
 }
 fn user_json(row: &MySqlRow) -> Value {
@@ -322,8 +325,13 @@ async fn detail_json(
     };
     let mut out = room_json(room);
     content_json(&mut out, &body);
+    if kind != 1 {
+        // Java details project the content DTO, which has no room creation timestamp.
+        out["createTime"] = Value::Null;
+    }
     out["existPageNumber"] = json!(answer_count(tx, id, &user.id).await?);
     if kind == 0 {
+        out["name"] = Value::Null;
         out["id"] = json!(body.get::<i32, _>("id"));
         out["currentUserId"] = json!(user.id);
         let owner =
@@ -353,12 +361,17 @@ async fn detail_json(
             .bind(&creator)
             .fetch_optional(&mut **tx)
             .await?;
-        out["userName"] = json!(creator_row
-            .as_ref()
-            .and_then(|r| r.get::<Option<String>, _>("user_name")));
-        out["userImg"] = json!(creator_row
-            .as_ref()
-            .and_then(|r| r.get::<Option<String>, _>("user_img")));
+        if kind == 1 {
+            out["userName"] = json!(creator_row
+                .as_ref()
+                .and_then(|r| r.get::<Option<String>, _>("user_name")));
+            out["userImg"] = json!(creator_row
+                .as_ref()
+                .and_then(|r| r.get::<Option<String>, _>("user_img")));
+        } else {
+            out["userName"] = Value::Null;
+            out["userImg"] = Value::Null;
+        }
         if kind == 1 {
             out["id"] = json!(creator_row.as_ref().map(|r| r.get::<String, _>("id")));
             out["contentValue"] = json!(actor
@@ -376,7 +389,7 @@ async fn detail_json(
                 let mut item = user_json(&row);
                 item["status"] = json!(super::ws::simulation_connection_status(id, &uid)
                     .await
-                    .unwrap_or(0));
+                    .or_else(|| row.get::<Option<i32>, _>("account_status")));
                 item["userStatus"] = json!(row.get::<Option<i32>, _>("user_status"));
                 item["contentValue"] = json!(if teacher || uid == user.id {
                     row.get::<Option<String>, _>("content_value")
@@ -490,12 +503,11 @@ async fn add_room(
         .filter(|v| !v.is_empty())
         .ok_or(Error::Business(202, "房间名称不能为空"))?;
     let cable = match body.get("isCable") {
+        None if kind == 1 => return Err(Error::Business(202, "是否使用电缆报底不能为空")),
         None => 0,
         Some(_) => int(&body, "isCable").ok_or(Error::Business(202, "是否使用电缆报底不能为空"))?,
     };
-    let count = int(&body, "bwCount")
-        .filter(|v| *v > 0)
-        .ok_or(Error::Business(202, "报文组数不能为空"))?;
+    let count = int(&body, "bwCount").ok_or(Error::Business(202, "报文组数不能为空"))?;
     let kind_code = int(&body, "bwType");
     if cable == 0 && kind_code.is_none() {
         return Err(Error::Business(202, "报文类型不能为空"));
@@ -512,7 +524,7 @@ async fn add_room(
         if cable == 0 {
             let average = int(&body,"bdType").ok_or(Error::Business(202,"报底类型不能为空"))? == 1;
             let random = int(&body,"isRandom").ok_or(Error::Business(202,"随机配置不能为空"))? == 1;
-            let groups = generated_groups(count.min(200) as usize, 1, kind_code.expect("validated generated type"), average, random);
+            let groups = generated_groups(count.max(0).min(200) as usize, 1, kind_code.expect("validated generated type"), average, random);
             insert_groups(&mut tx, room, 1, &groups).await?;
         } else {
             let cable_id = body.get("cableId").and_then(Value::as_str).ok_or(Error::Business(202,"固定报编号不能为空"))?;
@@ -525,10 +537,11 @@ async fn add_room(
                 let codes: Vec<String> = serde_json::from_str(&encoded)?;
                 floors.entry(number).or_default().push(codes.concat());
             }
-            let start = int(&body,"startPage").unwrap_or(1).max(1) as usize - 1;
+            let mut start = int(&body,"startPage").unwrap_or(1).max(1) as usize - 1;
             let total = (count / 100) as usize;
             if total == 0 { return Err(Error::Business(202,"报文组数不足一页，无法建立房间")); }
-            if start >= floors.len() || total > floors.len() - start { return Err(Error::Business(202,"所选电缆可用楼层不足")); }
+            if start >= floors.len() { start = 0; }
+            if total > floors.len() - start { return Err(Error::Business(202,"所选电缆可用楼层不足")); }
             for (page, groups) in floors.values().skip(start).take(total).enumerate() {
                 // Cable floors retain their original group count and never spill into another floor.
                 for (sort, key) in groups.iter().enumerate() {
@@ -538,17 +551,17 @@ async fn add_room(
             }
         }
         if kind == 1 {
-            sqlx::query("INSERT INTO simulation_router_room_user (room_id,user_id,user_type,channel,user_status) VALUES (?,?,0,-1,0)")
+            sqlx::query("INSERT INTO simulation_router_room_user (room_id,user_id,user_type,channel,user_status) VALUES (?,?,0,-1,NULL)")
                 .bind(room).bind(&user.id).execute(&mut *tx).await?;
         } else {
             for (key, user_type) in [("sendUserList",0),("receiveUserList",1)] {
                 let users = body.get(key).and_then(Value::as_array).ok_or(Error::Business(202,"参训人员不能为空"))?;
                 for (index, uid) in users.iter().enumerate() {
                     let uid = uid.as_str().filter(|id| !id.is_empty()).ok_or(Error::Business(202,"参训人员不正确"))?;
-                    sqlx::query("INSERT INTO simulation_router_room_user (room_id,user_id,user_type,channel,user_status) VALUES (?,?,?,?,0)")
-                        .bind(room).bind(uid).bind(user_type).bind(if kind == 0 { index as i32 } else { user_type }).execute(&mut *tx).await?;
-                }
+                    sqlx::query("INSERT INTO simulation_router_room_user (room_id,user_id,user_type,channel,user_status) VALUES (?,?,?,?,?)")
+                        .bind(room).bind(uid).bind(user_type).bind(if kind == 0 { index as i32 } else { user_type }).bind(if kind == 0 { Some(0) } else { None }).execute(&mut *tx).await?;
             }
+        }
         }
         Ok(match kind {
             0 => None,
@@ -588,13 +601,29 @@ pub(crate) async fn add_recept(
 }
 
 async fn list_type(state: &AppState, user: &AuthUser, kind: i32) -> Result<Option<Value>, Error> {
-    let rows = sqlx::query("SELECT r.*,DATE_FORMAT(r.create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(r.start_time,'%Y-%m-%d %H:%i:%s') start_time_text,c.bd_type,c.bw_type,c.bw_count,c.content,c.main_signal,c.interference_signal,u.user_name,u.user_img FROM simulation_router_room r LEFT JOIN simulation_router_room_content c ON c.room_id=r.id LEFT JOIN t_user u ON u.id=r.create_user_Id WHERE r.room_type=? AND (?=1 OR EXISTS(SELECT 1 FROM simulation_router_room_user m WHERE m.room_id=r.id AND m.user_id=?) OR (?=0 AND r.create_user_Id=?)) ORDER BY r.create_time DESC,r.stats")
-        .bind(kind).bind(kind).bind(&user.id).bind(kind).bind(&user.id).fetch_all(pool(state)?).await?;
+    let order = if kind == 1 {
+        " ORDER BY r.create_time DESC,r.stats"
+    } else {
+        " ORDER BY r.create_time DESC"
+    };
+    let query = format!("SELECT r.*,DATE_FORMAT(r.create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(r.start_time,'%Y-%m-%d %H:%i:%s') start_time_text,c.bd_type,c.bw_type,c.bw_count,c.content,c.main_signal,c.interference_signal,u.user_name,u.user_img FROM simulation_router_room r LEFT JOIN simulation_router_room_content c ON c.room_id=r.id LEFT JOIN t_user u ON u.id=r.create_user_Id WHERE r.room_type=? AND (?=1 OR EXISTS(SELECT 1 FROM simulation_router_room_user m WHERE m.room_id=r.id AND m.user_id=?) OR (?=0 AND r.create_user_Id=?) ){}", order);
+    let rows = sqlx::query(&query)
+        .bind(kind)
+        .bind(kind)
+        .bind(&user.id)
+        .bind(kind)
+        .bind(&user.id)
+        .fetch_all(pool(state)?)
+        .await?;
     let items: Vec<Value> = rows
         .iter()
         .map(|r| {
             let mut item = room_json(r);
             content_json(&mut item, r);
+            // Java list DTOs expose configuration counters but leave source payloads unset.
+            item["content"] = Value::Null;
+            item["mainSignal"] = Value::Null;
+            item["interferenceSignal"] = Value::Null;
             item["userName"] = json!(r.get::<Option<String>, _>("user_name"));
             item["userImg"] = json!(r.get::<Option<String>, _>("user_img"));
             item["existPageNumber"] = json!(0);
@@ -727,7 +756,6 @@ pub(crate) async fn add_student(
         let result = async {
             let room = lock_room(&mut tx,id).await?;
             if member(&mut tx,id,&user.id).await?.is_some() { return Ok(None); }
-            mutable(&room)?;
             let row = sqlx::query("INSERT INTO simulation_router_room_user (room_id,user_id,user_type,channel,user_status) VALUES (?,?,1,?,0)")
                 .bind(id).bind(&user.id).bind(if room.get::<Option<i32>,_>("room_type") == Some(1) { Some(-1) } else { None }).execute(&mut *tx).await?;
             Ok(Some(json!(row.last_insert_id())))
@@ -778,7 +806,6 @@ pub(crate) async fn change_channel(
                     && uid == user.id
                     && target.get::<Option<i32>, _>("user_type") == Some(1);
                 control(teacher || own_receiver)?;
-                mutable(&room)?;
                 sqlx::query("UPDATE simulation_router_room_user SET channel=? WHERE id=?")
                     .bind(channel)
                     .bind(target.get::<i32, _>("id"))
@@ -804,9 +831,8 @@ pub(crate) async fn finish(
         let mut tx = pool(&state)?.begin().await?;
         let result = async {
             let room = lock_room(&mut tx,id).await?;
-            let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(207,"该用户不是发报人员"))?;
-            if actor.get::<Option<i32>,_>("user_type") != Some(0) { return Err(Error::Business(207,"该用户不是发报人员")); }
-            mutable(&room)?;
+            let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(202,"未找到用户信息"))?;
+            if actor.get::<Option<i32>,_>("user_type") != Some(0) { return Err(Error::Business(202,"该用户不是发报人员")); }
             sqlx::query("UPDATE simulation_router_room_user SET user_status=1 WHERE room_id=? AND (id=? OR (user_type=1 AND channel <=> ?))")
                 .bind(id).bind(actor.get::<i32,_>("id")).bind(actor.get::<Option<i32>,_>("channel")).execute(&mut *tx).await?;
             Ok(Some(detail_json(&mut tx,&room,&user,false).await?))
@@ -825,8 +851,8 @@ pub(crate) async fn delete(
             let mut tx = pool(&state)?.begin().await?;
             let result = async {
                 let room = lock_room(&mut tx, id).await?;
-                let (teacher, _) = access(&mut tx, &room, &user).await?;
-                control(teacher)?;
+                let actor = member(&mut tx, id, &user.id).await?;
+                control(manages(&room, &user, actor.as_ref()))?;
                 for sql in [
                     "DELETE FROM simulation_router_room_page_value WHERE room_id=?",
                     "DELETE FROM simulation_router_room_page WHERE room_id=?",
@@ -862,9 +888,8 @@ pub(crate) async fn save_setting(
             let mut tx = pool(&state)?.begin().await?;
             let result = async {
                 let room = lock_room(&mut tx, id).await?;
-                let (teacher, _) = access(&mut tx, &room, &user).await?;
-                control(teacher)?;
-                mutable(&room)?;
+                let actor = member(&mut tx, id, &user.id).await?;
+                control(manages(&room, &user, actor.as_ref()))?;
                 sqlx::query("UPDATE simulation_router_room SET setting=? WHERE id=?")
                     .bind(setting)
                     .bind(id)
@@ -892,7 +917,12 @@ pub(crate) async fn upload_result(
         let id = body_room(&body)?;
         let pages = body.get("contentValue").and_then(Value::as_array).ok_or(Error::Business(202,"请提交完整答案数组"))?;
         for page in pages {
-            validate_answer(page.as_str().ok_or(Error::Business(202,"答案页必须是字符串数组"))?)?;
+            let value = match page {
+                Value::Null => return Err(Error::Business(202, "答案页不能为空，请用空数组表示空页")),
+                Value::String(value) => value.as_str(),
+                _ => return Err(Error::Business(202, "答案页必须是字符串数组")),
+            };
+            validate_answer(value)?;
         }
         let mut tx = pool(&state)?.begin().await?;
         let mut recipients = Vec::new();
@@ -962,7 +992,7 @@ pub(crate) async fn find_page(
                 .bind(id).bind(page).bind(target).fetch_optional(&mut *tx).await?;
             let values = match saved.flatten() { Some(value) => serde_json::from_str::<Vec<String>>(&value)?, None => Vec::new() };
             let pages: Vec<Value> = rows.iter().map(|r| json!({"id":r.get::<String,_>("id"),"roomId":r.get::<i32,_>("room_id"),"pageNumber":r.get::<i32,_>("page_number"),"sort":r.get::<i32,_>("sort"),"key":r.get::<Option<String>,_>("key")})).collect();
-            Ok(Some(json!({"pageVos":pages,"value":values})))
+            Ok(Some(json!({"pageVos":pages,"value":values,"pageCode":[]})))
         }.await;
         complete(tx,result).await
     }.await)
