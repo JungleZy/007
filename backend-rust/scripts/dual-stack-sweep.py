@@ -302,14 +302,8 @@ def extract(document, expression):
     return current
 
 
-def mask_path(document, expression):
-    """Replace what a JSONPath-lite expression selects with "<masked>" (supports $.a.b, [0], [*]).
-
-    For values that follow elapsed wall-clock time (durations, speeds, accumulated active
-    milliseconds): both stacks produce the same shape but never the same number. Only the named
-    paths are masked, so any other difference in the response still fails the step, and a path
-    that does not resolve leaves the document untouched (a missing field stays a difference).
-    """
+def transform_path(document, expression, transform):
+    """Transform selected JSONPath-lite values ($.a.b, [0], [*]); missing paths stay missing."""
     parts = re.findall(r"\[\*\]|\[\d+\]|[^.\[\]$]+", expression)
 
     def walk(node, rest):
@@ -325,10 +319,33 @@ def mask_path(document, expression):
             if tail:
                 walk(node[key], tail)
             else:
-                node[key] = "<masked>"
+                node[key] = transform(node[key])
 
     if parts:
         walk(document, parts)
+
+
+def parsed_json(value):
+    """Parse only opted-in string values; keep the wire string type distinguishable."""
+    if not isinstance(value, str):
+        return value
+    return {"<parsed-json-string>": normalize(json.loads(value))}
+
+
+def unordered_array(value):
+    """Canonical multiset ordering retains duplicates and every row's fields."""
+    if not isinstance(value, list):
+        return value
+    return sorted(value, key=lambda item: json.dumps(normalize(item), ensure_ascii=False, sort_keys=True))
+
+
+def prepare_journey_response(document, step):
+    for expression in step.get("mask", []):
+        transform_path(document, expression, lambda _: "<masked>")
+    for expression in step.get("parse_json", []):
+        transform_path(document, expression, parsed_json)
+    for expression in step.get("unordered", []):
+        transform_path(document, expression, unordered_array)
 
 
 def run_journeys(spec, args, headers):
@@ -353,8 +370,7 @@ def run_journeys(spec, args, headers):
                         variables[side][name] = extract(outcome[side]["json"], expression)
                     except (KeyError, IndexError, TypeError):
                         variables[side][name] = None
-                for expression in step.get("mask", []):
-                    mask_path(outcome[side].get("json"), expression)
+                prepare_journey_response(outcome[side].get("json"), step)
             job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
                    "path": step["path"], "method": step["method"]}
             results.append((job, outcome["java"], outcome["rust"]))
