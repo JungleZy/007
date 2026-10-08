@@ -431,8 +431,16 @@ async fn update_exercise_statistics(
         .map_err(|_| ExerciseError::Internal("statistics count overflow"))?;
     let avg_speed = aggregate.try_get::<Decimal, _>("avg_speed")?;
     let (group, child) = if kind == 9 { (1, 3) } else { (0, kind) };
-    let existing = sqlx::query_scalar::<_, String>("SELECT id FROM t_entering_statistical WHERE user_id=? AND type=? AND child_type=? LIMIT 1 FOR UPDATE")
-        .bind(user_id).bind(group).bind(child).fetch_optional(&mut **tx).await?;
+    // The caller holds the user row lock; a plain read is enough and a non-PK `FOR UPDATE` would
+    // lock every scanned row of the table (no index on user_id).
+    let existing = sqlx::query_scalar::<_, String>(
+        "SELECT id FROM t_entering_statistical WHERE user_id=? AND type=? AND child_type=? LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(group)
+    .bind(child)
+    .fetch_optional(&mut **tx)
+    .await?;
     if let Some(id) = existing {
         sqlx::query(
             "UPDATE t_entering_statistical SET total_count=?,total_time=?,avg_speed=? WHERE id=?",
@@ -450,18 +458,87 @@ async fn update_exercise_statistics(
     }
     Ok(())
 }
+/// The `{type}` property of EnteringTelexPatQueryParam / EnteringTelexPatSaveParam: Jackson
+/// coerces numeric strings and floats, an absent or null type stays null, anything else is a 400.
+fn telex_type(body: &Value) -> Result<Option<i32>, Response> {
+    if !body.is_object() {
+        return Err(StatusCode::BAD_REQUEST.into_response());
+    }
+    request_integer(body.get("type"))
+}
+
+fn telex_database_error(error: sqlx::Error) -> Response {
+    tracing::error!(%error, "personal entering telex failed");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+}
+
+/// Java answers ResponseResult.error(message), i.e. HTTP 200 with code 500 (SYSTEM_ERROR).
+fn telex_rejected(message: &str) -> Response {
+    envelope_response(StatusCode::OK, 500, message, "")
+}
+
+/// EnteringTelexPatVO of a stored record.
+fn telex_row_value(row: &sqlx::mysql::MySqlRow) -> Result<Value, sqlx::Error> {
+    Ok(json!({
+        "id": row.try_get::<String, _>("id")?,
+        "createUserId": row.try_get::<Option<String>, _>("create_user_id")?,
+        "type": row.try_get::<Option<i32>, _>("type")?,
+        "totalTime": row.try_get::<Option<i32>, _>("total_time")?,
+        "totalNum": row.try_get::<Option<i32>, _>("total_num")?,
+        "totalError": row.try_get::<Option<i32>, _>("total_error")?,
+        "messageName": row.try_get::<Option<String>, _>("message_name")?,
+    }))
+}
+
+/// What Java returns for a user without a record of this type: zero totals, no id.
+fn telex_empty_value(kind: Option<i32>) -> Value {
+    json!({
+        "id": null,
+        "createUserId": null,
+        "type": kind,
+        "totalTime": 0,
+        "totalNum": 0,
+        "totalError": 0,
+        "messageName": null,
+    })
+}
+
+const TELEX_COLUMNS: &str =
+    "SELECT id,create_user_id,type,total_time,total_num,total_error,message_name FROM t_entering_telex_pat";
+
 pub(crate) async fn telex_find(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    let kind = match telex_type(&body) {
+        Ok(kind) => kind,
+        Err(response) => return response,
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT id,create_user_id,type,total_time,total_num,total_error,message_name FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1").bind(&user.id).bind(kind).fetch_optional(pool).await {Ok(Some(row))=>envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"type":row.get::<Option<i32>,_>("type"),"totalTime":row.get::<Option<i32>,_>("total_time"),"totalNum":row.get::<Option<i32>,_>("total_num"),"totalError":row.get::<Option<i32>,_>("total_error"),"messageName":row.get::<Option<String>,_>("message_name")})),"ok","") ,Ok(None)=>envelope_json(StatusCode::OK,200,Some(json!({"type":kind,"totalTime":0,"totalNum":0,"totalError":0})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+    let value = async {
+        // `type = NULL` matches nothing in Java either.
+        let Some(kind) = kind else {
+            return Ok(telex_empty_value(None));
+        };
+        let sql = format!("{TELEX_COLUMNS} WHERE create_user_id=? AND type=? LIMIT 1");
+        match sqlx::query(&sql)
+            .bind(&user.id)
+            .bind(kind)
+            .fetch_optional(pool)
+            .await?
+        {
+            Some(row) => telex_row_value(&row),
+            None => Ok(telex_empty_value(Some(kind))),
+        }
+    }
+    .await;
+    match value {
+        Ok(value) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
+        Err(error) => telex_database_error(error),
+    }
 }
 pub(crate) async fn statistics(
     State(state): State<AppState>,
@@ -483,12 +560,13 @@ async fn statistics_for(state: &AppState, user: &AuthUser, kind: i32) -> Respons
     };
     let result: Result<Value, sqlx::Error> = async {
         let mut transaction = pool.begin().await?;
-        // Lock the user even when no statistics exist yet, serializing lazy creation.
-        sqlx::query("SELECT id FROM t_user WHERE id=? FOR UPDATE")
-            .bind(&user.id)
-            .fetch_one(&mut *transaction)
-            .await?;
-        let existing = sqlx::query("SELECT child_type FROM t_entering_statistical WHERE user_id=? AND type=? FOR UPDATE")
+        // Lock the user even when no statistics exist yet, serializing lazy creation. The user
+        // row lock is the only lock needed: every statistics writer takes it first, and a
+        // non-PK `FOR UPDATE` on this index-less table would lock every scanned row.
+        if !crate::statistical::lock_user(&mut transaction, &user.id).await? {
+            return Err(sqlx::Error::RowNotFound);
+        }
+        let existing = sqlx::query("SELECT child_type FROM t_entering_statistical WHERE user_id=? AND type=?")
             .bind(&user.id)
             .bind(kind)
             .fetch_all(&mut *transaction)
@@ -507,7 +585,7 @@ async fn statistics_for(state: &AppState, user: &AuthUser, kind: i32) -> Respons
                     .await?;
             }
         }
-        let rows = sqlx::query("SELECT id,child_type,total_count,total_time,avg_speed,user_id FROM t_entering_statistical WHERE user_id=? AND type=? ORDER BY child_type FOR UPDATE")
+        let rows = sqlx::query("SELECT id,child_type,total_count,total_time,avg_speed,user_id FROM t_entering_statistical WHERE user_id=? AND type=? ORDER BY child_type")
             .bind(&user.id)
             .bind(kind)
             .fetch_all(&mut *transaction)
@@ -563,42 +641,257 @@ pub(crate) async fn keypoints(State(state): State<AppState>, Json(body): Json<Va
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
 }
+/// Statistics figures a telex save records: total time as text and the rate per minute.
+/// Totals are nullable Integers in Java and count as 0 here (ScoreMath.rate, HALF_UP, scale 0).
+fn telex_statistics_figures(total_time: Option<i32>, total_num: Option<i32>) -> (String, Decimal) {
+    let seconds = i64::from(total_time.unwrap_or(0));
+    let count = i64::from(total_num.unwrap_or(0));
+    let millis = seconds * 1000;
+    let rate = if count <= 0 || millis <= 0 {
+        0
+    } else {
+        (count * 60_000 * 2 + millis) / (millis * 2)
+    };
+    (seconds.to_string(), Decimal::from(rate))
+}
+
+struct TelexSave<'a> {
+    id: Option<std::borrow::Cow<'a, str>>,
+    kind: i32,
+    total_time: Option<i32>,
+    total_num: Option<i32>,
+    total_error: Option<i32>,
+    message_name: Option<std::borrow::Cow<'a, str>>,
+}
+
+async fn record_telex_statistics(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    user_id: &str,
+    save: &TelexSave<'_>,
+) -> Result<(), sqlx::Error> {
+    let existing = sqlx::query("SELECT id,total_count FROM t_entering_statistical WHERE user_id=? AND type=1 AND child_type=? LIMIT 1")
+        .bind(user_id)
+        .bind(save.kind)
+        .fetch_optional(&mut **tx)
+        .await?;
+    let (total_time, avg_speed) = telex_statistics_figures(save.total_time, save.total_num);
+    match existing {
+        Some(row) => {
+            let count = row.try_get::<Option<i32>, _>("total_count")?.unwrap_or(0);
+            sqlx::query("UPDATE t_entering_statistical SET total_count=?,total_time=?,avg_speed=? WHERE id=?")
+                .bind(count.saturating_add(1))
+                .bind(total_time)
+                .bind(avg_speed)
+                .bind(row.try_get::<String, _>("id")?)
+                .execute(&mut **tx)
+                .await?;
+        }
+        None => {
+            sqlx::query("INSERT INTO t_entering_statistical (id,type,child_type,total_count,total_time,avg_speed,user_id) VALUES (?,1,?,1,?,?,?)")
+                .bind(Uuid::new_v4().to_string())
+                .bind(save.kind)
+                .bind(total_time)
+                .bind(avg_speed)
+                .bind(user_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn save_telex(
+    pool: &sqlx::MySqlPool,
+    user: &AuthUser,
+    save: &TelexSave<'_>,
+) -> Result<Value, Response> {
+    let mut tx = pool.begin().await.map_err(telex_database_error)?;
+    // User row first, then only rows read by primary key: the table has no secondary index, so a
+    // `FOR UPDATE` on user_id/type would lock every row of every user.
+    if !crate::statistical::lock_user(&mut tx, &user.id)
+        .await
+        .map_err(telex_database_error)?
+    {
+        return Err(envelope_response(
+            StatusCode::OK,
+            206,
+            "账号登录凭证异常",
+            "",
+        ));
+    }
+    let id = match save.id.as_deref() {
+        Some(id) => {
+            let row = sqlx::query(
+                "SELECT create_user_id,type FROM t_entering_telex_pat WHERE id=? FOR UPDATE",
+            )
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(telex_database_error)?;
+            let Some(row) = row else {
+                return Err(telex_rejected("训练记录不存在或类型不符"));
+            };
+            // Java hands the record over to the caller; here a foreign record stays untouched.
+            let owner = row
+                .try_get::<Option<String>, _>("create_user_id")
+                .map_err(telex_database_error)?;
+            if owner.as_deref() != Some(user.id.as_str()) {
+                return Err(envelope_response(StatusCode::OK, 207, "无权限", ""));
+            }
+            if row
+                .try_get::<Option<i32>, _>("type")
+                .map_err(telex_database_error)?
+                != Some(save.kind)
+            {
+                return Err(telex_rejected("训练记录不存在或类型不符"));
+            }
+            sqlx::query("UPDATE t_entering_telex_pat SET total_time=?,total_num=?,total_error=?,message_name=? WHERE id=?")
+                .bind(save.total_time)
+                .bind(save.total_num)
+                .bind(save.total_error)
+                .bind(save.message_name.as_deref())
+                .bind(id)
+                .execute(&mut *tx)
+                .await
+                .map_err(telex_database_error)?;
+            id.to_owned()
+        }
+        None => {
+            let duplicate = sqlx::query(
+                "SELECT id FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1",
+            )
+            .bind(&user.id)
+            .bind(save.kind)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(telex_database_error)?;
+            if duplicate.is_some() {
+                return Err(telex_rejected(
+                    "您已存在相同类型的训练，不能再添加同类的训练！",
+                ));
+            }
+            let id = Uuid::new_v4().to_string();
+            sqlx::query("INSERT INTO t_entering_telex_pat (id,create_user_id,type,total_time,total_num,total_error,message_name,create_time) VALUES (?,?,?,?,?,?,?,NOW())")
+                .bind(&id)
+                .bind(&user.id)
+                .bind(save.kind)
+                .bind(save.total_time)
+                .bind(save.total_num)
+                .bind(save.total_error)
+                .bind(save.message_name.as_deref())
+                .execute(&mut *tx)
+                .await
+                .map_err(telex_database_error)?;
+            id
+        }
+    };
+    record_telex_statistics(&mut tx, &user.id, save)
+        .await
+        .map_err(telex_database_error)?;
+    tx.commit().await.map_err(telex_database_error)?;
+    Ok(json!({
+        "id": id,
+        "createUserId": user.id,
+        "type": save.kind,
+        "totalTime": save.total_time,
+        "totalNum": save.total_num,
+        "totalError": save.total_error,
+        "messageName": save.message_name,
+    }))
+}
+
+/// Java answers with the whole saved record; the Vue page keeps it as its running state.
 pub(crate) async fn telex_save(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
+    let kind = match telex_type(&body) {
+        Ok(kind) => kind,
+        Err(response) => return response,
+    };
+    let parsed = (|| {
+        Ok::<_, Response>((
+            request_string(body.get("id"))?,
+            request_integer(body.get("totalTime"))?,
+            request_integer(body.get("totalNum"))?,
+            request_integer(body.get("totalError"))?,
+            request_string(body.get("messageName"))?,
+        ))
+    })();
+    let (id, total_time, total_num, total_error, message_name) = match parsed {
+        Ok(parsed) => parsed,
+        Err(response) => return response,
+    };
+    // Java persists an orphan record with type NULL (and a statistics row that later breaks the
+    // statistics page); a record without a type is refused instead.
+    let Some(kind) = kind else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let id = sqlx::query(
-        "SELECT id FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1",
-    )
-    .bind(&user.id)
-    .bind(kind)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-    .map(|r| r.get::<String, _>("id"))
-    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    match sqlx::query("INSERT INTO t_entering_telex_pat (id,create_user_id,type,total_time,total_num,total_error,message_name,create_time) VALUES (?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE total_time=VALUES(total_time),total_num=VALUES(total_num),total_error=VALUES(total_error),message_name=VALUES(message_name)").bind(&id).bind(&user.id).bind(kind).bind(body.get("totalTime").and_then(Value::as_i64)).bind(body.get("totalNum").and_then(Value::as_i64)).bind(body.get("totalError").and_then(Value::as_i64)).bind(body.get("messageName").and_then(Value::as_str)).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id,"type":kind})),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+    let save = TelexSave {
+        id,
+        kind,
+        total_time,
+        total_num,
+        total_error,
+        message_name,
+    };
+    match save_telex(pool, &user, &save).await {
+        Ok(value) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
+        Err(response) => response,
+    }
 }
+
 pub(crate) async fn telex_clear(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    let kind = match telex_type(&body) {
+        Ok(kind) => kind,
+        Err(response) => return response,
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("UPDATE t_entering_telex_pat SET total_time=0,total_num=0,total_error=0 WHERE create_user_id=? AND type=?").bind(&user.id).bind(kind).execute(pool).await{Ok(_)=>telex_find(State(state),Extension(user),Json(json!({"type":kind}))).await,Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+    let Some(kind) = kind else {
+        return envelope_json(StatusCode::OK, 200, Some(telex_empty_value(None)), "ok", "");
+    };
+    let result = async {
+        let mut tx = pool.begin().await?;
+        if !crate::statistical::lock_user(&mut tx, &user.id).await? {
+            return Ok(None);
+        }
+        let existing = sqlx::query("SELECT id FROM t_entering_telex_pat WHERE create_user_id=? AND type=? LIMIT 1")
+            .bind(&user.id)
+            .bind(kind)
+            .fetch_optional(&mut *tx)
+            .await?;
+        let value = match existing {
+            Some(row) => {
+                let id = row.try_get::<String, _>("id")?;
+                sqlx::query("UPDATE t_entering_telex_pat SET total_time=0,total_num=0,total_error=0 WHERE id=?")
+                    .bind(&id)
+                    .execute(&mut *tx)
+                    .await?;
+                let sql = format!("{TELEX_COLUMNS} WHERE id=?");
+                let row = sqlx::query(&sql).bind(&id).fetch_one(&mut *tx).await?;
+                telex_row_value(&row)?
+            }
+            None => telex_empty_value(Some(kind)),
+        };
+        tx.commit().await?;
+        Ok::<_, sqlx::Error>(Some(value))
+    }
+    .await;
+    match result {
+        Ok(Some(value)) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
+        Ok(None) => envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(error) => telex_database_error(error),
+    }
 }
 
 fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
@@ -759,6 +1052,65 @@ pub(crate) async fn save_key_points(
         Err(error) => {
             tracing::error!(%error, "entering key points save failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn statistics_rate_rounds_half_up_and_guards_empty_totals() {
+        // 1 entry in 120 s is exactly 0.5 per minute; ScoreMath.rate rounds HALF_UP to 1.
+        assert_eq!(
+            telex_statistics_figures(Some(120), Some(1)),
+            ("120".to_owned(), Decimal::from(1))
+        );
+        assert_eq!(
+            telex_statistics_figures(Some(7), Some(1)).1,
+            Decimal::from(9)
+        );
+        // Nullable Integers count as 0 instead of failing; no time or no count means rate 0.
+        assert_eq!(
+            telex_statistics_figures(None, None),
+            ("0".to_owned(), Decimal::from(0))
+        );
+        assert_eq!(
+            telex_statistics_figures(Some(0), Some(5)).1,
+            Decimal::from(0)
+        );
+        assert_eq!(
+            telex_statistics_figures(Some(60), Some(-3)).1,
+            Decimal::from(0)
+        );
+        assert_eq!(
+            telex_statistics_figures(Some(-5), Some(3)),
+            ("-5".to_owned(), Decimal::from(0))
+        );
+        // The largest Integer pair must not overflow the intermediate product.
+        assert_eq!(
+            telex_statistics_figures(Some(1), Some(i32::MAX)).1,
+            Decimal::from(128_849_018_820_i64)
+        );
+    }
+
+    #[test]
+    fn type_is_coerced_like_jackson_and_malformed_values_are_a_400() {
+        assert_eq!(telex_type(&json!({"type": "2"})).unwrap(), Some(2));
+        assert_eq!(telex_type(&json!({"type": 1.9})).unwrap(), Some(1));
+        assert_eq!(telex_type(&json!({"type": null})).unwrap(), None);
+        assert_eq!(telex_type(&json!({})).unwrap(), None);
+        for body in [
+            json!({"type": "abc"}),
+            json!({"type": [1]}),
+            json!([1]),
+            Value::Null,
+        ] {
+            assert_eq!(
+                telex_type(&body).unwrap_err().status(),
+                StatusCode::BAD_REQUEST
+            );
         }
     }
 }
