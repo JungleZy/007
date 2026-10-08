@@ -177,6 +177,104 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertEqual(original, results[1][1]["json"]["data"]["content"])
 
 
+class FloorContentComparisonTest(unittest.TestCase):
+    java_id = "11111111-1111-1111-1111-111111111111"
+    rust_id = "99999999-9999-9999-9999-999999999999"
+
+    def document(self, floor_id):
+        return {"code": 200, "data": {floor_id: [
+            {"id": self.java_id, "floorId": floor_id, "sort": 0, "moresKey": "E", "moresValue": "[]", "moresTime": "[]"},
+            {"id": self.rust_id, "floorId": floor_id, "sort": 1, "moresKey": "T", "moresValue": "[1]", "moresTime": "[160]"},
+        ]}}
+
+    def compare(self, java, rust, java_id=None, rust_id=None):
+        responses = []
+        for document, floor_id in [(java, java_id or self.java_id), (rust, rust_id or self.rust_id)]:
+            response = {"status": 200, "json": copy.deepcopy(document)}
+            errors = sweep.prepare_journey_response(response["json"], {"floor_content": "${floor}"}, {"floor": floor_id})
+            if errors:
+                response["comparison_errors"] = errors
+            responses.append(response)
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        job = {"endpoint": "journey:personal-telegram/floor-content", "variant": "journey", "who": "admin", "path": "/floor"}
+        return sweep.comparison_entry(job, *responses, registry)
+
+    def test_captured_floor_keys_and_unspecified_row_order_compare_precisely(self):
+        java, rust = self.document(self.java_id), self.document(self.rust_id)
+        java["data"][self.java_id].reverse()
+        self.assertIsNone(self.compare(java, rust))
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        self.assertFalse(any(rule["endpoint"] == "journey:personal-telegram/floor-content" for rule in registry["overrides"]))
+        self.assertTrue(all("allowed_paths" in rule for rule in registry["overrides"] if rule["category"] == "DATA"))
+        self.assertFalse(sweep.allowed_data_paths({"category": "DATA", "data_diffs": []}, {}))
+
+    def test_all_fields_morse_content_and_duplicate_inventory_remain_significant(self):
+        java, rust = self.document(self.java_id), self.document(self.rust_id)
+        for field, value in [("moresKey", "A"), ("moresValue", "[0]"), ("moresTime", "[40]"), ("sort", 9), ("sort", False)]:
+            with self.subTest(field=field, value=value):
+                changed = copy.deepcopy(rust)
+                changed["data"][self.rust_id][0][field] = value
+                entry = self.compare(java, changed)
+                self.assertEqual("DATA", entry["category"])
+                self.assertEqual("FAIL", entry["disposition"])
+        for mutation in ["missing", "extra", "duplicate", "missing-field", "extra-field"]:
+            changed = copy.deepcopy(rust)
+            rows = changed["data"][self.rust_id]
+            if mutation == "missing":
+                rows.pop()
+            elif mutation == "extra":
+                rows.append({**rows[0], "moresKey": "A"})
+            elif mutation == "duplicate":
+                rows.append(copy.deepcopy(rows[0]))
+            elif mutation == "missing-field":
+                del rows[0]["moresTime"]
+            else:
+                rows[0]["unexpected"] = 1
+            self.assertEqual("FAIL", self.compare(java, changed)["disposition"], mutation)
+
+    def test_bad_keys_and_references_fail_even_if_both_wire_responses_match(self):
+        original = self.document(self.java_id)
+        for mutation in ["wrong-key", "extra-key", "wrong-reference", "missing-reference", "non-array", "non-object"]:
+            changed = copy.deepcopy(original)
+            data = changed["data"]
+            if mutation == "wrong-key":
+                data[self.rust_id] = data.pop(self.java_id)
+            elif mutation == "extra-key":
+                data[self.rust_id] = []
+            elif mutation == "wrong-reference":
+                data[self.java_id][0]["floorId"] = self.rust_id
+            elif mutation == "missing-reference":
+                del data[self.java_id][0]["floorId"]
+            elif mutation == "non-array":
+                data[self.java_id] = {}
+            else:
+                data[self.java_id][0] = None
+            entry = self.compare(changed, changed, self.java_id, self.java_id)
+            self.assertEqual("FAIL", entry["disposition"], mutation)
+            self.assertTrue(entry["comparison_errors"], mutation)
+        self.assertTrue(sweep.prepare_journey_response(original, {"floor_content": "${missing}"}, {}))
+
+    def test_journey_binds_floor_mapping_to_each_stack_capture(self):
+        spec = {"journeys": [{"name": "personal-telegram", "steps": [
+            {"name": "capture", "method": "POST", "path": "/capture", "capture": {"floor": "$.data.id"}},
+            {"name": "floor-content", "method": "POST", "path": "/floor", "body": ["${floor}"], "floor_content": "${floor}"},
+        ]}]}
+        calls = []
+
+        def http_case(base, method, path, body, headers, timeout):
+            floor_id = self.java_id if base == "java" else self.rust_id
+            if path == "/capture":
+                return {"status": 200, "json": {"code": 200, "data": {"id": floor_id}}}
+            calls.append(body)
+            return {"status": 200, "json": self.document(floor_id)}
+
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", side_effect=http_case):
+            results = sweep.run_journeys(spec, args, {"admin": {}}, None)
+        self.assertEqual([[self.java_id], [self.rust_id]], calls)
+        self.assertIsNone(sweep.comparison_entry(*results[-1], {}))
+
+
 class ClassificationTest(unittest.TestCase):
     def compare(self, java, rust, registry=None):
         job = {"endpoint": "journey:typed/read", "variant": "journey", "who": "admin", "path": "/read"}

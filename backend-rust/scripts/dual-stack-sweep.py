@@ -372,7 +372,23 @@ def normalized_entity_keys(value):
     return {"<normalized-entity-key-entries>": sorted(entries, key=lambda entry: json.dumps(normalize(entry), ensure_ascii=False, sort_keys=True))}
 
 
-def prepare_journey_response(document, step):
+def captured_floor_content(document, floor_id):
+    """Bind the sole floor key and every row reference before multiset comparison."""
+    if not isinstance(floor_id, str) or not floor_id:
+        return ["floor-content capture is missing"]
+    data = document.get("data") if isinstance(document, dict) else None
+    if not isinstance(data, dict) or set(data) != {floor_id}:
+        return ["floor-content keys do not equal the captured requested floor"]
+    rows = data[floor_id]
+    if not isinstance(rows, list) or any(not isinstance(row, dict) or row.get("floorId") != floor_id for row in rows):
+        return ["floor-content rows do not reference the captured requested floor"]
+    document["data"] = {"<requested-floor>": unordered_array([
+        {**row, "floorId": "<requested-floor>"} for row in rows
+    ])}
+    return []
+
+
+def prepare_journey_response(document, step, variables=None):
     for expression in step.get("mask", []):
         transform_path(document, expression, lambda _: "<masked>")
     for expression in step.get("parse_json", []):
@@ -381,6 +397,9 @@ def prepare_journey_response(document, step):
         transform_path(document, expression, unordered_array)
     for expression in step.get("normalize_keys", []):
         transform_path(document, expression, normalized_entity_keys)
+    if "floor_content" in step:
+        return captured_floor_content(document, substitute(step["floor_content"], variables or {}))
+    return []
 
 
 def run_journeys(spec, args, headers, db):
@@ -410,7 +429,9 @@ def run_journeys(spec, args, headers, db):
                         variables[side][name] = extract(outcome[side]["json"], expression)
                     except (KeyError, IndexError, TypeError):
                         variables[side][name] = None
-                prepare_journey_response(outcome[side].get("json"), step)
+                errors = prepare_journey_response(outcome[side].get("json"), step, variables[side])
+                if errors:
+                    outcome[side]["comparison_errors"] = errors
             job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
                    "path": step["path"], "method": step["method"]}
             results.append((job, outcome["java"], outcome["rust"]))
@@ -473,7 +494,7 @@ def allowed_data_paths(entry, rule):
     A [len] predicate also declares every extra row, never just its location.
     """
     if "allowed_paths" not in rule:
-        return True
+        return entry.get("category") != "DATA"
     differences = entry.get("data_diffs")
     if differences is None:
         return False
@@ -491,6 +512,8 @@ def allowed_data_paths(entry, rule):
 
 
 def disposition(entry, registry):
+    if entry.get("comparison_errors"):
+        return "FAIL", "Captured floor identity validation failed"
     if entry["category"] == "TEXT_ONLY" and entry.get("data_diffs") != []:
         return "FAIL", "TEXT_ONLY requires complete evidence of zero data differences"
     for rule in registry.get("overrides", []):
@@ -506,10 +529,14 @@ def disposition(entry, registry):
 
 def comparison_entry(job, java, rust, registry):
     """One production classification/disposition path, also exercised by regressions."""
-    if comparable(java) == comparable(rust):
+    errors = {side: response["comparison_errors"] for side, response in (("java", java), ("rust", rust))
+              if response.get("comparison_errors")}
+    if not errors and comparable(java) == comparable(rust):
         return None
     entry = {"endpoint": job["endpoint"], "variant": job["variant"], "who": job["who"], "path": job["path"],
-             "category": category(java, rust), "java": brief(java), "rust": brief(rust)}
+             "category": "DATA" if errors else category(java, rust), "java": brief(java), "rust": brief(rust)}
+    if errors:
+        entry["comparison_errors"] = errors
     if isinstance(java.get("json"), dict) and isinstance(rust.get("json"), dict):
         entry["data_diffs"] = envelope_data_diffs(java["json"], rust["json"])
         entry["first_data_diffs"] = entry["data_diffs"][:4]
