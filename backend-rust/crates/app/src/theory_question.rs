@@ -216,12 +216,12 @@ pub(crate) async fn export_template() -> Response {
         StatusCode::OK,
         200,
         Some(json!([
-            {"field":"type","title":"测验类型","required":true,"example":"1","remark":"1单选、2多选、3判断、4填空、5简答"},
-            {"field":"topic","title":"题目","required":true,"example":"题干","remark":"题目正文"},
-            {"field":"options","title":"选项","required":false,"example":"[\"A.选项一\"]","remark":"选择题填写"},
-            {"field":"answer","title":"答案","required":false,"example":"A","remark":"多选题答案连写"},
-            {"field":"analysis","title":"解析","required":false,"example":"解析","remark":"可留空"},
-            {"field":"levelId","title":"所属题库 ID","required":true,"example":"level-id","remark":"必须是存在的题库节点"}
+            {"field":"type","title":"测验类型","required":true,"example":"1","remark":"1 单选题、2 多选题、3 判断题、4 填空题、5 简答题"},
+            {"field":"topic","title":"题目","required":true,"example":"下列关于短波通信的说法正确的是","remark":"题干正文"},
+            {"field":"options","title":"选项","required":false,"example":"[\"A.选项一\",\"B.选项二\"]","remark":"选择题必填；判断题、填空题、简答题留空"},
+            {"field":"answer","title":"答案","required":false,"example":"A","remark":"多选题多个答案连写，如 AC"},
+            {"field":"analysis","title":"解析","required":false,"example":"见教材第三章","remark":"可留空"},
+            {"field":"levelId","title":"所属题库 ID","required":true,"example":"取自 findAllTheoryKnowledgeQuestionLevel 的 id","remark":"必须是已存在的题库节点 ID"}
         ])),
         "ok",
         "",
