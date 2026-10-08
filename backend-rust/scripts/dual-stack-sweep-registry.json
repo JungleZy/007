@@ -25,34 +25,32 @@
       "note": "Java answers 208 with description equal to the message; Rust leaves the description empty. The frontend never reads the response-level description."
     },
     {
-      "endpoint": "journey:personal-telex/train-create",
-      "disposition": "OPEN",
-      "note": "Personal telex saveTexPatTrain is only partly ported: it answers {id} while Java returns the whole TelexPatTrainEntity (the Vue page spreads res.data and parses res.data.content); a new unstarted training does not delete/finish the previous one (Java lastTration cleanup + statistics); extendBy (append generated groups) is ignored; total/error/accuracy/speed come from the client instead of the stored content; finishing writes no statistics."
+      "endpoint": "journey:personal-telex-lifecycle/finish-again",
+      "variant": "journey",
+      "category": "TEXT_ONLY",
+      "disposition": "ACCEPTED",
+      "note": "Java answers 208 through ResponseResult.error(208, message), which leaves description null; Rust sends an empty string. The telex page reads only code and message of a 208."
     },
     {
-      "endpoint": "journey:personal-telex/train-create-second",
-      "disposition": "OPEN",
-      "note": "Same personal telex gap as train-create."
+      "endpoint": "journey:personal-telex-lifecycle/reopen-finished",
+      "variant": "journey",
+      "category": "TEXT_ONLY",
+      "disposition": "ACCEPTED",
+      "note": "Same as finish-again: Java's description is null, Rust's is empty."
     },
     {
-      "endpoint": "journey:personal-telex/train-list",
-      "disposition": "OPEN",
-      "note": "Rust lists two trainings (no cleanup of the unstarted previous one) and omits createTime/createUserId."
+      "endpoint": "journey:personal-telex-null-duration/create-next",
+      "variant": "journey",
+      "category": "RUST_PERMISSIVE",
+      "disposition": "ACCEPTED",
+      "note": "Java defect deliberately not reproduced. The Vue page creates a training without a duration, and the update path never sets one, so a paused training has duration NULL. Creating the next training of that type makes Java finish the paused one and call Integer.valueOf(duration) in TelexPatTrainStatisticalService.statistical, which throws NumberFormatException: Java answers 202 'Cannot parse null string', rolls the whole save back and leaves the user unable to start a new training until the paused one is finished. Rust counts a missing duration as 0 seconds and succeeds."
     },
     {
-      "endpoint": "journey:personal-telex/train-detail",
-      "disposition": "OPEN",
-      "note": "Rust omits createTime and createUserId from the training entity."
-    },
-    {
-      "endpoint": "journey:personal-telex/train-delete",
-      "disposition": "OPEN",
-      "note": "Java already removed the unstarted first training when the second was created, so it answers 202; Rust still has it."
-    },
-    {
-      "endpoint": "journey:personal-telex/train-list-after",
-      "disposition": "OPEN",
-      "note": "Follows from the missing cleanup and the missing createTime/createUserId."
+      "endpoint": "journey:personal-telex-null-duration/predecessor-after",
+      "variant": "journey",
+      "category": "DATA",
+      "disposition": "ACCEPTED",
+      "note": "Follows from create-next: Java rolled back, so the paused predecessor stays status 2; Rust finished it (status 3)."
     }
   ]
 }

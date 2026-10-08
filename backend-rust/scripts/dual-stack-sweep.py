@@ -302,6 +302,35 @@ def extract(document, expression):
     return current
 
 
+def mask_path(document, expression):
+    """Replace what a JSONPath-lite expression selects with "<masked>" (supports $.a.b, [0], [*]).
+
+    For values that follow elapsed wall-clock time (durations, speeds, accumulated active
+    milliseconds): both stacks produce the same shape but never the same number. Only the named
+    paths are masked, so any other difference in the response still fails the step, and a path
+    that does not resolve leaves the document untouched (a missing field stays a difference).
+    """
+    parts = re.findall(r"\[\*\]|\[\d+\]|[^.\[\]$]+", expression)
+
+    def walk(node, rest):
+        part, tail = rest[0], rest[1:]
+        if part == "[*]":
+            keys = range(len(node)) if isinstance(node, list) else []
+        elif part.startswith("["):
+            index = int(part[1:-1])
+            keys = [index] if isinstance(node, list) and index < len(node) else []
+        else:
+            keys = [part] if isinstance(node, dict) and part in node else []
+        for key in keys:
+            if tail:
+                walk(node[key], tail)
+            else:
+                node[key] = "<masked>"
+
+    if parts:
+        walk(document, parts)
+
+
 def run_journeys(spec, args, headers):
     """Run scripted write-then-read flows on both stacks.
 
@@ -324,6 +353,8 @@ def run_journeys(spec, args, headers):
                         variables[side][name] = extract(outcome[side]["json"], expression)
                     except (KeyError, IndexError, TypeError):
                         variables[side][name] = None
+                for expression in step.get("mask", []):
+                    mask_path(outcome[side].get("json"), expression)
             job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
                    "path": step["path"], "method": step["method"]}
             results.append((job, outcome["java"], outcome["rust"]))

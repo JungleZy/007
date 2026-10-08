@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-journeys/v1",
-  "note": "Scripted write-then-read flows run by dual-stack-sweep.py on both stacks with realistic frontend payloads. ${name} is replaced by a value captured from an earlier step of the same stack ('capture' uses a tiny JSONPath). Every behavioural difference in a journey is a FAIL unless the registry accepts it.",
+  "note": "Scripted write-then-read flows run by dual-stack-sweep.py on both stacks with realistic frontend payloads. ${name} is replaced by a value captured from an earlier step of the same stack ('capture' uses a tiny JSONPath). 'mask' lists JSONPath-lite paths ($.a.b, [0], [*]) whose values are replaced by <masked> in both responses before comparing: use it only for values that follow elapsed wall-clock time (durations, speeds), never to hide a difference. Every behavioural difference in a journey is a FAIL unless the registry accepts it.",
   "journeys": [
     {
       "name": "device-catalogue",
@@ -105,6 +105,107 @@
         {"name": "train-delete", "method": "POST", "path": "/api/telexPat/deleteById", "body": {"id": "${trainId}"}},
         {"name": "train-list-after", "method": "POST", "path": "/api/telexPat/findTexPatTrainByToken", "body": {}},
         {"name": "statistics-after", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}}
+      ]
+    },
+    {
+      "name": "personal-telex-lifecycle",
+      "steps": [
+        {"name": "stats-rows", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}},
+        {"name": "create", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "title": "组合连贯-生命周期", "totalNumber": 3, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "capture": {"trainId": "$.data.id"}},
+        {"name": "create-status-null", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "status": null, "content": "[]"}},
+        {"name": "create-type-missing", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"status": 0, "content": "[]"}},
+        {"name": "create-status-range", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "status": 4, "content": "[]"}},
+        {"name": "create-status-negative", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "status": -1, "content": "[]"}},
+        {"name": "create-type-range", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 3, "status": 0, "content": "[]"}},
+        {"name": "create-finish", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "status": 3, "content": "[]"}},
+        {"name": "update-missing", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "no-such-train", "type": 2, "status": 1, "content": "[]"}},
+        {"name": "update-foreign", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[]"}},
+        {"name": "start", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "source-changed", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[{\"value\":\"\",\"text\":\"ab13\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "structure-changed", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "extend-negative", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "extendBy": -1, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "extend-over", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "extendBy": 101, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "extend-partial", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "extendBy": 2, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "content-empty", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": ""}},
+        {"name": "content-null-literal", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "null"}},
+        {"name": "transition-back", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 0, "content": "[]"}},
+        {"name": "pause", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 2, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause-again", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 2, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "resume", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"cd34\",\"type\":true,\"isFocus\":false},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "finish", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 3, "content": "[{\"value\":\"ab12\",\"text\":\"ab12\",\"type\":true,\"isFocus\":true},{\"value\":\"cx34\",\"text\":\"cd34\",\"type\":true,\"isFocus\":true},{\"value\":\"\",\"text\":\"ef56\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis", "$.data.speed"]},
+        {"name": "finish-again", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 3, "content": "[]"}},
+        {"name": "reopen-finished", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${trainId}", "type": 2, "status": 1, "content": "[]"}},
+        {"name": "detail-finished", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${trainId}"}, "mask": ["$.data.accumulatedActiveMillis", "$.data.speed"]},
+        {"name": "detail-foreign", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${trainId}"}},
+        {"name": "delete-foreign", "who": "student", "method": "POST", "path": "/api/telexPat/deleteById", "body": {"id": "${trainId}"}},
+        {"name": "last-train", "method": "POST", "path": "/api/telexPat/lastPatTrain", "body": {"type": 2}, "mask": ["$.data.speed"]},
+        {"name": "stats-after", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[*].avgSpeed"]},
+        {"name": "delete", "method": "POST", "path": "/api/telexPat/deleteById", "body": {"id": "${trainId}"}}
+      ]
+    },
+    {
+      "name": "personal-telex-cleanup",
+      "note": "A paused previous training is finished (not deleted) when the next one is created, and feeds the statistics row with its stored duration/speed; duration and speed are sent explicitly so the figures are deterministic. admin already has statistics rows, so this exercises the increment branch. admin's type-3 row (index 3) holds the timing-derived speed that personal-telex-lifecycle left behind, so only that row's avgSpeed is masked.",
+      "steps": [
+        {"name": "stats-rows", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[3].avgSpeed"]},
+        {"name": "create-paused", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-一", "totalNumber": 3, "duration": "20", "speed": "10.50", "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "capture": {"pausedId": "$.data.id"}},
+        {"name": "start", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 0, "status": 1, "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 0, "status": 2, "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-next", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-二", "totalNumber": 3, "duration": "40", "speed": "20.25", "content": "[{\"value\":\"\",\"text\":\"5678\",\"type\":true,\"isFocus\":false}]"}, "capture": {"nextId": "$.data.id"}},
+        {"name": "previous-finished", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${pausedId}"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "stats-first", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[3].avgSpeed"]},
+        {"name": "start-next", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nextId}", "type": 0, "status": 1, "content": "[{\"value\":\"\",\"text\":\"5678\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause-next", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nextId}", "type": 0, "status": 2, "content": "[{\"value\":\"\",\"text\":\"5678\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-third", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-三", "totalNumber": 3, "duration": "60", "speed": "30", "content": "[{\"value\":\"\",\"text\":\"9012\",\"type\":true,\"isFocus\":false}]"}, "capture": {"thirdId": "$.data.id"}},
+        {"name": "stats-second", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[3].avgSpeed"]},
+        {"name": "start-third", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${thirdId}", "type": 0, "status": 1, "content": "[{\"value\":\"\",\"text\":\"9012\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-fourth", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-四", "totalNumber": 3, "content": "[{\"value\":\"\",\"text\":\"3456\",\"type\":true,\"isFocus\":false}]"}, "capture": {"fourthId": "$.data.id"}},
+        {"name": "underway-untouched", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${thirdId}"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "stats-unchanged", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[3].avgSpeed"]},
+        {"name": "last-train", "method": "POST", "path": "/api/telexPat/lastPatTrain", "body": {"type": 0}}
+      ]
+    },
+    {
+      "name": "personal-telex-fields",
+      "note": "student: a missing DTO property keeps Jackson's default, an explicit null overwrites it, scalars are coerced into the String/Integer columns, a blank id means create, and a NOT_STARTED predecessor is deleted by the next creation. The student has no statistics rows yet, so the final finish exercises the full-recount branch.",
+      "steps": [
+        {"name": "create-defaults", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "title": "默认值", "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false}]"}, "capture": {"defaultsId": "$.data.id"}},
+        {"name": "create-explicit", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "title": "显式值", "numbs": 5, "duration": 30, "totalNumber": 7, "errorNumber": 1, "accuracy": 80, "speed": 12.5, "createTime": "custom-time-label", "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false}]"}, "capture": {"explicitId": "$.data.id"}},
+        {"name": "detail-explicit", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${explicitId}"}},
+        {"name": "detail-defaults-gone", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${defaultsId}"}},
+        {"name": "create-blank-id", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": " ", "type": 2, "title": "空白id", "content": "[{\"value\":\"\",\"text\":\"ab12\",\"type\":true,\"isFocus\":false}]"}, "capture": {"blankId": "$.data.id"}},
+        {"name": "detail-blank", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${blankId}"}},
+        {"name": "create-nulls", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 2, "title": "空值", "numbs": null, "duration": null, "totalNumber": null, "errorNumber": null, "accuracy": null, "speed": null, "createTime": null, "content": null}, "capture": {"nullsId": "$.data.id"}},
+        {"name": "detail-nulls", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${nullsId}"}},
+        {"name": "start-nulls", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nullsId}", "type": 2, "status": 1}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "finish-nulls", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nullsId}", "type": 2, "status": 3}, "mask": ["$.data.accumulatedActiveMillis", "$.data.speed"]},
+        {"name": "stats-after", "who": "student", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}, "mask": ["$.data[*].avgSpeed"]}
+      ]
+    },
+    {
+      "name": "personal-telex-cleanup-first-row",
+      "note": "student has no type-2 statistics row, so the first paused-then-replaced training makes Java recount every finished training of the type (average rounded to a whole number); the second one increments the existing row.",
+      "steps": [
+        {"name": "create-paused", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 1, "title": "字母连贯-一", "totalNumber": 3, "duration": "20", "speed": "10.50", "content": "[{\"value\":\"\",\"text\":\"abcd\",\"type\":true,\"isFocus\":false}]"}, "capture": {"pausedId": "$.data.id"}},
+        {"name": "start", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 1, "status": 1, "content": "[{\"value\":\"\",\"text\":\"abcd\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 1, "status": 2, "content": "[{\"value\":\"\",\"text\":\"abcd\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-next", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 1, "title": "字母连贯-二", "totalNumber": 3, "duration": "40", "speed": "20.25", "content": "[{\"value\":\"\",\"text\":\"efgh\",\"type\":true,\"isFocus\":false}]"}, "capture": {"nextId": "$.data.id"}},
+        {"name": "stats-recount", "who": "student", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}},
+        {"name": "start-next", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nextId}", "type": 1, "status": 1, "content": "[{\"value\":\"\",\"text\":\"efgh\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause-next", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${nextId}", "type": 1, "status": 2, "content": "[{\"value\":\"\",\"text\":\"efgh\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-third", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 1, "title": "字母连贯-三", "totalNumber": 3, "duration": "60", "speed": "30", "content": "[{\"value\":\"\",\"text\":\"ijkl\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "stats-increment", "who": "student", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}}
+      ]
+    },
+    {
+      "name": "personal-telex-null-duration",
+      "note": "student: the Vue page creates a training without a duration, so a paused one has duration NULL. Java then fails the next creation (NumberFormatException -> 202, rolled back); Rust finishes the paused training. Both differences are registered as ACCEPTED.",
+      "steps": [
+        {"name": "create-paused", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-无时长", "totalNumber": 3, "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "capture": {"pausedId": "$.data.id"}},
+        {"name": "start", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 0, "status": 1, "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "pause", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"id": "${pausedId}", "type": 0, "status": 2, "content": "[{\"value\":\"\",\"text\":\"1234\",\"type\":true,\"isFocus\":false}]"}, "mask": ["$.data.accumulatedActiveMillis"]},
+        {"name": "create-next", "who": "student", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 0, "title": "数字连贯-下一个", "totalNumber": 3, "content": "[{\"value\":\"\",\"text\":\"5678\",\"type\":true,\"isFocus\":false}]"}},
+        {"name": "predecessor-after", "who": "student", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${pausedId}"}, "mask": ["$.data.accumulatedActiveMillis"]}
       ]
     }
   ]
