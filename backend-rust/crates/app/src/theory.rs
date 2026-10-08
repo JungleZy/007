@@ -630,12 +630,16 @@ pub(crate) async fn save_classify(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let id = body
+    let supplied_id = body
         .get("id")
-        .and_then(Value::as_str)
-        .filter(|v| !v.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        .and_then(|value| match value {
+            Value::String(id) => Some(id.clone()),
+            Value::Number(id) => Some(id.to_string()),
+            _ => None,
+        })
+        .filter(|id| !id.is_empty());
+    let creating = supplied_id.is_none();
+    let id = supplied_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let now = (Utc::now() + Duration::hours(8))
         .format("%Y-%m-%d %H:%M:%S")
         .to_string();
@@ -645,7 +649,35 @@ pub(crate) async fn save_classify(
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    let result = sqlx::query("INSERT INTO t_theory_knowledge_classify (id,type,name,create_time,create_id) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE type=VALUES(type),name=VALUES(name)").bind(&id).bind(kind).bind(name).bind(&now).bind(&user.id).execute(&mut *tx).await;
+    if !creating {
+        match sqlx::query_scalar::<_, String>(
+            "SELECT id FROM t_theory_knowledge_classify WHERE id=? FOR UPDATE",
+        )
+        .bind(&id)
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return envelope_response(StatusCode::OK, 202, "未查询到该分类", "未查询到该分类");
+            }
+            Err(error) => {
+                tracing::warn!(%error, "classification update lookup failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
+    }
+    let result = if creating {
+        sqlx::query("INSERT INTO t_theory_knowledge_classify (id,type,name,create_time,create_id) VALUES (?,?,?,?,?)")
+            .bind(&id).bind(kind).bind(name).bind(&now).bind(&user.id).execute(&mut *tx).await
+    } else {
+        sqlx::query("UPDATE t_theory_knowledge_classify SET type=?,name=? WHERE id=?")
+            .bind(kind)
+            .bind(name)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+    };
     if result.is_err() {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
