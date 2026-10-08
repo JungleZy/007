@@ -1,0 +1,21 @@
+{
+  "schema": "rust-migration-sweep-registry/v1",
+  "note": "Resolves differences found by dual-stack-sweep.py. category_defaults override the script's built-in defaults (TEXT_ONLY/JAVA_UNHANDLED_500/JAVA_RAW_HTTP_4XX accepted; RUST_FAILS_WHERE_JAVA_OK/RUST_OTHER_CODE fail the run; the rest are OPEN backlog). An override must name the endpoint, may narrow by variant/category, and must say why the difference is acceptable.",
+  "category_defaults": {},
+  "overrides": [
+    {
+      "endpoint": "POST /api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+      "variant": "probe-str",
+      "category": "RUST_FAILS_WHERE_JAVA_OK",
+      "disposition": "ACCEPTED",
+      "note": "State artefact, not a Rust defect: TheoryKnowledgeTestService.getByKnowledgeSwfIdAndEnable returns ResponseResult.error(\"数据异常\") when no test exists, exactly like Rust. The probe's Java 200 comes from a test row that Java's own earlier probe write created for swf id 999999 (Rust rejects that write with 202, see RUST_STRICTER)."
+    },
+    {
+      "endpoint": "GET /api/comprehensive/getUserOverallInfo",
+      "variant": "empty",
+      "category": "DATA",
+      "disposition": "ACCEPTED",
+      "note": "Rust hardening required by the migration plan (section 4.3): the user entity carries no deviceId, password or token. Java returns deviceId and the SHA-256 token digest in userEntity."
+    }
+  ]
+}
