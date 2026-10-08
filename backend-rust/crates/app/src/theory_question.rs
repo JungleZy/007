@@ -121,7 +121,33 @@ pub(crate) async fn list_questions(
         .and_then(Value::as_str)
         .and_then(|v| v.parse::<i32>().ok());
     let name = body.get("name").and_then(Value::as_str).unwrap_or("");
-    let data=rows.into_iter().filter(|row| ids.contains(&row.get::<String,_>("level_id")) && kind.is_none_or(|v|row.get::<Option<i32>,_>("type")==Some(v)) && row.get::<Option<String>,_>("topic").is_none_or(|v|v.contains(name))).map(|row|json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time"),"levelId":row.get::<Option<String>,_>("level_id"),"createUserName":Value::Null})).collect::<Vec<_>>();
+    let data = rows
+        .into_iter()
+        .filter(|row| {
+            // level_id is nullable in t_theory_question; a NULL row belongs to no level
+            // and must be skipped rather than panic the handler.
+            row.get::<Option<String>, _>("level_id")
+                .is_some_and(|level| ids.contains(&level))
+                && kind.is_none_or(|v| row.get::<Option<i32>, _>("type") == Some(v))
+                && row
+                    .get::<Option<String>, _>("topic")
+                    .is_none_or(|v| v.contains(name))
+        })
+        .map(|row| {
+            json!({
+                "id": row.get::<String, _>("id"),
+                "type": row.get::<Option<i32>, _>("type"),
+                "topic": row.get::<Option<String>, _>("topic"),
+                "options": row.get::<Option<String>, _>("options"),
+                "answer": row.get::<Option<String>, _>("answer"),
+                "analysis": row.get::<Option<String>, _>("analysis"),
+                "createUserId": row.get::<Option<String>, _>("create_user_id"),
+                "createTime": row.get::<Option<String>, _>("create_time"),
+                "levelId": row.get::<Option<String>, _>("level_id"),
+                "createUserName": Value::Null
+            })
+        })
+        .collect::<Vec<_>>();
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
 }
 pub(crate) async fn export_questions(
