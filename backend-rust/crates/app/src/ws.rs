@@ -105,6 +105,30 @@ struct WsUser {
     user_img: Option<String>,
 }
 
+#[derive(Clone, Debug, serde::Serialize)]
+struct UnionMember {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(rename = "userImg", skip_serializing_if = "Option::is_none")]
+    user_img: Option<String>,
+    #[serde(rename = "type")]
+    user_type: i32,
+    status: i32,
+}
+
+impl From<WsUser> for UnionMember {
+    fn from(user: WsUser) -> Self {
+        Self {
+            id: user.id,
+            name: user.name,
+            user_img: user.user_img,
+            user_type: 0,
+            status: 0,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct SimMember {
     user: WsUser,
@@ -210,7 +234,7 @@ struct UnionRoom {
     password: Option<String>,
     nnt: i32,
     admin: String,
-    users: Vec<WsUser>,
+    users: Vec<UnionMember>,
 }
 
 impl UnionRoom {
@@ -472,7 +496,10 @@ impl WsManager {
                     2,
                     None,
                     None,
-                    Some(&serde_json::to_string(&prepared.user).unwrap_or_default()),
+                    Some(
+                        &serde_json::to_string(&UnionMember::from(prepared.user.clone()))
+                            .unwrap_or_default(),
+                    ),
                 );
                 notifications.extend(
                     self.sessions
@@ -648,28 +675,23 @@ impl WsManager {
                         continue;
                     }
                     room.users.retain(|user| user.id != conn.user.id);
-                    let recipients = room
-                        .users
-                        .iter()
-                        .map(|user| user.id.clone())
-                        .collect::<Vec<_>>();
-                    room_events.push((room.json().to_string(), recipients));
+                    room_events.push(room.json().to_string());
                 }
-                for (room_json, recipients) in room_events {
+                self.union_rooms.retain(|_, room| !room.users.is_empty());
+                for room_json in room_events {
                     let snapshot = union_response(121, None, None, Some(&room_json));
-                    for target in recipients {
-                        if let Some(other) = self.sessions.values().find(|candidate| {
-                            candidate.family == Family::Union && candidate.user.id == target
-                        }) {
-                            notifications.push((other.tx.clone(), snapshot.clone()));
-                        }
+                    for recipient in self.union_recipients() {
+                        notifications.push((recipient, snapshot.clone()));
                     }
                 }
                 let exit = union_response(
                     3,
                     None,
                     None,
-                    Some(&serde_json::to_string(&conn.user).unwrap_or_default()),
+                    Some(
+                        &serde_json::to_string(&UnionMember::from(conn.user.clone()))
+                            .unwrap_or_default(),
+                    ),
                 );
                 notifications.extend(
                     self.sessions
@@ -683,11 +705,11 @@ impl WsManager {
         Some(Disconnect { notifications, sim })
     }
 
-    fn union_users(&self) -> Vec<WsUser> {
+    fn union_users(&self) -> Vec<UnionMember> {
         self.sessions
             .values()
             .filter(|conn| conn.family == Family::Union)
-            .map(|conn| conn.user.clone())
+            .map(|conn| conn.user.clone().into())
             .collect()
     }
 
@@ -1752,10 +1774,7 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
         send_union_error(session_id, "消息格式不正确").await;
         return;
     };
-    let Some(send_user) = scalar(object.get("sendUser")) else {
-        send_union_error(session_id, "消息格式不正确").await;
-        return;
-    };
+    let send_user = scalar(object.get("sendUser")).unwrap_or_default();
     let receive_user = scalar(object.get("receiveUser")).unwrap_or_default();
     let data = scalar_or_json(object.get("data")).unwrap_or_default();
     if !matches!(
@@ -1801,24 +1820,20 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
             };
             room.id = Uuid::new_v4().to_string();
             room.admin = prepared.user.id.clone();
-            room.users = vec![prepared.user.clone()];
+            room.users = vec![prepared.user.clone().into()];
             let room_json = room.json().to_string();
             let mut manager = MANAGER.lock().await;
             manager.union_rooms.insert(room.id.clone(), room);
-            for recipient in manager.union_recipients() {
-                let _ = recipient.send(Outbound::Text(union_response(
-                    120,
-                    None,
-                    None,
-                    Some(&room_json),
-                )));
-            }
             let _ = tx.send(Outbound::Text(union_response(
                 120,
                 None,
                 None,
                 Some(&room_json),
             )));
+            let update = union_response(121, None, None, Some(&room_json));
+            for recipient in manager.union_recipients() {
+                let _ = recipient.send(Outbound::Text(update.clone()));
+            }
         }
         16 => {
             let Some(update) = parse_union_room(&data) else {
@@ -1857,12 +1872,12 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
         }
         17 => {
             let room_id = send_user.clone();
-            let Some(_room_type) = data.parse::<i32>().ok() else {
+            let Some(user_type) = data.parse::<i32>().ok() else {
                 let _ = tx.send(Outbound::Text(union_response(
                     -1,
                     None,
                     None,
-                    Some("处理失败"),
+                    Some("更新房间用户信息处理失败"),
                 )));
                 return;
             };
@@ -1871,9 +1886,7 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
                 let Some(room) = manager.union_rooms.get_mut(&room_id) else {
                     return;
                 };
-                if room.admin != prepared.user.id
-                    && !room.users.iter().any(|user| user.id == prepared.user.id)
-                {
+                if room.admin != prepared.user.id && receive_user != prepared.user.id {
                     let _ = tx.send(Outbound::Text(union_response(
                         -1,
                         None,
@@ -1882,6 +1895,17 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
                     )));
                     return;
                 }
+                let Some(member) = room.users.iter_mut().find(|user| user.id == receive_user)
+                else {
+                    let _ = tx.send(Outbound::Text(union_response(
+                        -1,
+                        None,
+                        None,
+                        Some("房间成员不存在"),
+                    )));
+                    return;
+                };
+                member.user_type = user_type;
                 (
                     room.json().to_string(),
                     room.users
@@ -1904,10 +1928,10 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
         13 => union_join(&tx, prepared, &data).await,
         14 => union_exit(prepared, &data).await,
         15 => union_remove(&tx, prepared, &data).await,
-        20 => union_room_message(prepared, &send_user, &receive_user, &data).await,
-        18 => union_seat_inspect(prepared, &send_user, &data).await,
-        182 => union_seat_reply(prepared, &receive_user, &send_user, &data).await,
-        112 => union_status_change(prepared, &receive_user, &data).await,
+        20 => union_room_message(&tx, prepared, &send_user, &receive_user, &data).await,
+        18 => union_seat_inspect(&tx, prepared, &send_user, &data).await,
+        182 => union_seat_reply(&tx, prepared, &receive_user, &send_user, &data).await,
+        112 => union_status_change(&tx, prepared, &receive_user, &data).await,
         _ => {}
     }
 }
@@ -1955,7 +1979,7 @@ fn parse_union_room(data: &str) -> Option<UnionRoom> {
 
 async fn union_join(tx: &mpsc::UnboundedSender<Outbound>, prepared: &Prepared, room_id: &str) {
     let mut manager = MANAGER.lock().await;
-    let (room_json, recipients) = {
+    let (room_json, recipients, event) = {
         let Some(room) = manager.union_rooms.get_mut(room_id) else {
             let _ = tx.send(Outbound::Text(union_response(
                 131,
@@ -1965,9 +1989,12 @@ async fn union_join(tx: &mpsc::UnboundedSender<Outbound>, prepared: &Prepared, r
             )));
             return;
         };
-        if !room.users.iter().any(|user| user.id == prepared.user.id) {
-            room.users.push(prepared.user.clone());
+        if room.users.iter().any(|user| user.id == prepared.user.id) {
+            return;
         }
+        let member = UnionMember::from(prepared.user.clone());
+        let event = json!({"type":"join","user":&member}).to_string();
+        room.users.push(member);
         (
             room.json().to_string(),
             room.users
@@ -1975,9 +2002,9 @@ async fn union_join(tx: &mpsc::UnboundedSender<Outbound>, prepared: &Prepared, r
                 .filter(|user| user.id.as_str() != prepared.user.id.as_str())
                 .map(|user| user.id.clone())
                 .collect::<Vec<_>>(),
+            event,
         )
     };
-    let event = json!({"type":"join","user":prepared.user}).to_string();
     let _ = tx.send(Outbound::Text(union_response(
         130,
         None,
@@ -2111,15 +2138,39 @@ async fn union_remove(tx: &mpsc::UnboundedSender<Outbound>, prepared: &Prepared,
     }
 }
 
-async fn union_room_message(prepared: &Prepared, sender: &str, room_id: &str, data: &str) {
+async fn union_room_message(
+    tx: &mpsc::UnboundedSender<Outbound>,
+    prepared: &Prepared,
+    sender: &str,
+    room_id: &str,
+    data: &str,
+) {
     if sender != prepared.user.id.as_str() {
-        send_union_error_for_user(prepared, "无权限").await;
+        let _ = tx.send(Outbound::Text(union_response(
+            -1,
+            None,
+            None,
+            Some("无权限"),
+        )));
         return;
     }
     let manager = MANAGER.lock().await;
     let Some(room) = manager.union_rooms.get(room_id) else {
         return;
     };
+    if !room
+        .users
+        .iter()
+        .any(|member| member.id == prepared.user.id)
+    {
+        let _ = tx.send(Outbound::Text(union_response(
+            -1,
+            None,
+            None,
+            Some("无权限"),
+        )));
+        return;
+    }
     let payload =
         json!({"data":data,"userName":prepared.user.name,"userImg":prepared.user.user_img})
             .to_string();
@@ -2141,32 +2192,39 @@ async fn union_room_message(prepared: &Prepared, sender: &str, room_id: &str, da
     }
 }
 
-async fn send_union_error_for_user(prepared: &Prepared, message: &str) {
-    let manager = MANAGER.lock().await;
-    if let Some(conn) = manager
-        .sessions
-        .values()
-        .find(|conn| conn.family == Family::Union && conn.user.id == prepared.user.id)
-    {
-        let _ = conn.tx.send(Outbound::Text(union_response(
-            -1,
-            None,
-            None,
-            Some(message),
-        )));
-    }
-}
-
-async fn union_seat_inspect(prepared: &Prepared, room_id: &str, data: &str) {
+async fn union_seat_inspect(
+    tx: &mpsc::UnboundedSender<Outbound>,
+    prepared: &Prepared,
+    room_id: &str,
+    data: &str,
+) {
     let mut manager = MANAGER.lock().await;
     let (room_json, recipients) = {
         let Some(room) = manager.union_rooms.get_mut(room_id) else {
             return;
         };
         if room.admin != prepared.user.id {
+            let _ = tx.send(Outbound::Text(union_response(
+                -1,
+                None,
+                None,
+                Some("无权限"),
+            )));
             return;
         }
-        room.status = data.parse().unwrap_or(room.status);
+        let Ok(status) = data.parse::<i32>() else {
+            let _ = tx.send(Outbound::Text(union_response(
+                -1,
+                None,
+                None,
+                Some("发起席位状态检测处理失败"),
+            )));
+            return;
+        };
+        room.status = status;
+        for member in &mut room.users {
+            member.status = 0;
+        }
         (
             room.json().to_string(),
             room.users
@@ -2194,14 +2252,49 @@ async fn union_seat_inspect(prepared: &Prepared, room_id: &str, data: &str) {
     }
 }
 
-async fn union_seat_reply(prepared: &Prepared, room_id: &str, sender: &str, data: &str) {
-    let manager = MANAGER.lock().await;
-    let Some(room) = manager.union_rooms.get(room_id) else {
-        return;
-    };
-    if !room.users.iter().any(|user| user.id == prepared.user.id) {
+async fn union_seat_reply(
+    tx: &mpsc::UnboundedSender<Outbound>,
+    prepared: &Prepared,
+    room_id: &str,
+    sender: &str,
+    data: &str,
+) {
+    if sender != prepared.user.id.as_str() {
+        let _ = tx.send(Outbound::Text(union_response(
+            -1,
+            None,
+            None,
+            Some("无权限"),
+        )));
         return;
     }
+    let Ok(status) = data.parse::<i32>() else {
+        let _ = tx.send(Outbound::Text(union_response(
+            -1,
+            None,
+            None,
+            Some("席位状态回执处理失败"),
+        )));
+        return;
+    };
+    let mut manager = MANAGER.lock().await;
+    let Some(room) = manager.union_rooms.get_mut(room_id) else {
+        return;
+    };
+    let Some(member) = room
+        .users
+        .iter_mut()
+        .find(|member| member.id == prepared.user.id)
+    else {
+        let _ = tx.send(Outbound::Text(union_response(
+            -1,
+            None,
+            None,
+            Some("无权限"),
+        )));
+        return;
+    };
+    member.status = status;
     let event = json!({"userId":sender,"status":data}).to_string();
     let recipients = room
         .users
@@ -2224,16 +2317,36 @@ async fn union_seat_reply(prepared: &Prepared, room_id: &str, sender: &str, data
     }
 }
 
-async fn union_status_change(prepared: &Prepared, room_id: &str, data: &str) {
+async fn union_status_change(
+    tx: &mpsc::UnboundedSender<Outbound>,
+    prepared: &Prepared,
+    room_id: &str,
+    data: &str,
+) {
     let mut manager = MANAGER.lock().await;
     let room_json = {
         let Some(room) = manager.union_rooms.get_mut(room_id) else {
             return;
         };
         if room.admin != prepared.user.id {
+            let _ = tx.send(Outbound::Text(union_response(
+                -1,
+                None,
+                None,
+                Some("无权限"),
+            )));
             return;
         }
-        room.status = data.parse().unwrap_or(room.status);
+        let Ok(status) = data.parse::<i32>() else {
+            let _ = tx.send(Outbound::Text(union_response(
+                -1,
+                None,
+                None,
+                Some("改变房间状态处理失败"),
+            )));
+            return;
+        };
+        room.status = status;
         room.json().to_string()
     };
     for conn in manager.union_recipients() {
