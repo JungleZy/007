@@ -207,6 +207,17 @@ class RegistryPredicateTest(unittest.TestCase):
         self.assertEqual(["$.data[len]", "$.data[0].score"], [item[0] for item in differences])
         self.assertFalse(sweep.allowed_data_paths({"data_diffs": differences}, {"allowed_paths": ["$.data[len]"]}))
 
+    def test_empty_word_stock_accepts_all_five_dto_fields_but_not_another_supported_field(self):
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        differences = sweep.data_diffs(dict.fromkeys(["id", "name", "type", "content", "wordSize"]), {}, "$.data")
+        self.assertEqual(5, len(differences))
+        for variant in ["probe-str", "probe-num"]:
+            entry = {"endpoint": "POST /api/postEnteringExercise/getWordStock", "variant": variant,
+                     "category": "DATA", "data_diffs": differences, "first_data_diffs": differences[:4]}
+            self.assertEqual("ACCEPTED", sweep.disposition(entry, registry)[0])
+            entry["data_diffs"] = differences + [["$.data.supportedScore", 100, 99]]
+            self.assertEqual("OPEN", sweep.disposition(entry, registry)[0])
+
     def test_all_state_artefacts_have_bounded_paths_and_supported_field_mutation_is_open(self):
         registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
         artefacts = [rule for rule in registry["overrides"] if rule.get("note", "").startswith("STATE_ARTEFACT:")]
