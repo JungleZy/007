@@ -40,14 +40,20 @@ pub(crate) async fn save(
     {
         return envelope_response(StatusCode::OK, 202, "训练楼层不能为空", "");
     }
-    for (name, min_name, max_name) in [
-        ("点", "rateDotMinMs", "rateDotMaxMs"),
-        ("划", "rateLineMinMs", "rateLineMaxMs"),
-        ("字间隔", "rateIntervalMinMs", "rateIntervalMaxMs"),
-        ("组间隔", "bigIntervalMinMs", "bigIntervalMaxMs"),
+    for (name, min_name, min_default, max_name, max_default) in [
+        ("点", "rateDotMinMs", 1, "rateDotMaxMs", 80),
+        ("划", "rateLineMinMs", 81, "rateLineMaxMs", 240),
+        ("字间隔", "rateIntervalMinMs", 81, "rateIntervalMaxMs", 240),
+        ("组间隔", "bigIntervalMinMs", 241, "bigIntervalMaxMs", 400),
     ] {
-        let min = train.get(min_name).and_then(Value::as_i64);
-        let max = train.get(max_name).and_then(Value::as_i64);
+        let min = train
+            .get(min_name)
+            .map(Value::as_i64)
+            .unwrap_or(Some(min_default));
+        let max = train
+            .get(max_name)
+            .map(Value::as_i64)
+            .unwrap_or(Some(max_default));
         if !matches!((min, max), (Some(min), Some(max)) if min >= 0 && max > min) {
             return envelope_response(
                 StatusCode::OK,

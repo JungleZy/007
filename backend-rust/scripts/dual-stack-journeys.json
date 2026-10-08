@@ -40,7 +40,10 @@
         {"name": "group-start", "method": "POST", "path": "/api/telegramTrain/startTelegramTrain", "body":{"train":{"id":"${telegramGroupId}"}}},
         {"name": "group-finish", "method": "POST", "path": "/api/telegramTrain/endTelegramTrain", "body":{"train":{"id":"${telegramGroupId}"},"trainFloors":[{"floorContents":[{"id":"${telegramGroupContent}","moresValue":"[[0],[0,0],[0,0,0],[0,0,0,0]]","moresTime":"[[40],[40,40],[40,40,40],[40,40,40,40]]"}]}]}, "mask":["$.data.sustainTime","$.data.accumulatedActiveMillis","$.data.speed"]},
         {"name": "group-detail-finished", "method": "POST", "path": "/api/telegramTrain/getById", "body":{"trainId":"${telegramGroupId}"}, "mask":["$.data.train.sustainTime","$.data.train.accumulatedActiveMillis","$.data.train.speed"]},
-        {"name": "group-statistics", "method": "POST", "path": "/api/telegramTrain/statisticalPage", "mask":["$.data[0].totalTime","$.data[0].avgSpeed","$.data[1].totalTime","$.data[1].avgSpeed"]}
+        {"name": "group-statistics", "method": "POST", "path": "/api/telegramTrain/statisticalPage", "mask":["$.data[0].totalTime","$.data[0].avgSpeed","$.data[1].totalTime","$.data[1].avgSpeed"]},
+        {"name":"create-default-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"title":"手键拍发训练-默认时序","type":1,"totalNumber":1},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]},"capture":{"defaultTelegramId":"$.data.id"}},
+        {"name":"detail-default-timing","method":"POST","path":"/api/telegramTrain/getById","body":{"trainId":"${defaultTelegramId}"}},
+        {"name":"reject-explicit-null-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"type":1,"rateDotMinMs":null},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]}}
       ]
     },
     {
