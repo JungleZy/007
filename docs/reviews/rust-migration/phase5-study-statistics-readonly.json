@@ -14,6 +14,8 @@
     "credit": "Compare all courseware count with all authenticated-user answer rows for each represented knowledge (not restricted to the requested period); incomplete display credit becomes 0.0 without modifying stored knowledge credit.",
     "journey": "theory-study-records covers blank/default/echo entry, deterministic exit durations, repeated same-day/courseware records, year/month/type/owner isolation, empty reads, partial/full completion and unchanged persisted credit.",
     "comparison": "normalize_keys is explicitly enabled only on $.data.down; generated UUID/clock key fields are normalized without discarding distinct entries or business fields.",
+    "java_hash_order": "Per-courseware durations are inserted by Java HashMap.merge: UTF-16 String.hashCode, spread h^(h>>>16), default 16 buckets, 0.75 threshold checked before merge, bucket-index iteration and newest-first linked bucket insertion; resizes preserve split chains. Rust deterministically emulates linked bins. Java tree-bin root reordering (at least 8 colliding keys at capacity >=64) is outside this linked-bin iteration-parity scope.",
+    "month_parsing": "Parse month as an i32 before two-digit formatting: 001 selects January. theory-study-duplicate-titles uses fixed ids, unequal 60/180-second durations and repeated reads to assert the Java title-overwrite survivor independently of generated UUID hashes.",
     "unaffected_reads": "gradeCount queries exam-user records; getBasicTheoryOpen counts test answers/tests, not study records. Neither changes for study-record writes."
   },
   "known_boundary":"Full Java passMark-based pass/fail and score-distribution parity remains pending."

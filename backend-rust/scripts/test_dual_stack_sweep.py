@@ -134,6 +134,14 @@ class JourneyComparisonTest(unittest.TestCase):
         plain = self.study_key("fixed-id", "fixed-time")
         self.assertEqual(plain, sweep.normalized_entity_keys({plain: 1})["<normalized-entity-key-entries>"][0][0])
 
+    def test_fixed_journey_seed_runs_only_on_both_isolated_databases(self):
+        seeded = []
+        db = SimpleNamespace(dbs=("rust_parity_java_test", "rust_parity_rust_test"),
+                             run=lambda database, sql: seeded.append((database, sql)))
+        spec = {"journeys": [{"name": "fixed-ids", "seed_sql": "INSERT fixture", "steps": []}]}
+        self.assertEqual([], sweep.run_journeys(spec, None, {}, db))
+        self.assertEqual([(name, "INSERT fixture") for name in db.dbs], seeded)
+
     def test_run_journeys_captures_original_content_before_transforms(self):
         original = '{"value": 1}'
         calls = []
@@ -149,7 +157,7 @@ class JourneyComparisonTest(unittest.TestCase):
         ]}]}
         args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
         with patch.object(sweep, "http_case", side_effect=http_case):
-            results = sweep.run_journeys(journey, args, {"admin": {}})
+            results = sweep.run_journeys(journey, args, {"admin": {}}, None)
         self.assertEqual([{"content": original}, {"content": original}], calls[2:])
         self.assertEqual({"<parsed-json-string>": {"value": 1}}, results[0][1]["json"]["data"]["content"])
         self.assertEqual(original, results[1][1]["json"]["data"]["content"])

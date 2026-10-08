@@ -380,15 +380,20 @@ def prepare_journey_response(document, step):
         transform_path(document, expression, normalized_entity_keys)
 
 
-def run_journeys(spec, args, headers):
+def run_journeys(spec, args, headers, db):
     """Run scripted write-then-read flows on both stacks.
 
     Generated ids differ per stack, so each stack keeps its own captured variables;
     every step is then compared like a sweep request. These flows use realistic
     payloads (the ones the frontend sends), which empty/probe bodies cannot reach.
+    Optional seed_sql fixtures execute through Mysql's isolated-schema guard on
+    both databases before that journey (needed for identical fixed hash keys).
     """
     results = []
     for journey in spec.get("journeys", []):
+        if "seed_sql" in journey:
+            for database in db.dbs:
+                db.run(database, journey["seed_sql"])
         variables = {"java": {}, "rust": {}}
         for step in journey["steps"]:
             who = step.get("who", "admin")
@@ -457,7 +462,7 @@ def main():
     journeys_path = pathlib.Path(args.journeys)
     if not args.no_journeys and journeys_path.exists():
         db.reset(tokens)
-        results += run_journeys(json.loads(journeys_path.read_text()), args, headers)
+        results += run_journeys(json.loads(journeys_path.read_text()), args, headers, db)
     if not args.only_journeys:
         db.reset(tokens)
         results += [pair(job) for job in main_jobs]

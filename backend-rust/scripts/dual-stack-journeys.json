@@ -38,6 +38,17 @@
       ]
     },
     {
+      "name": "theory-study-duplicate-titles",
+      "seed_sql": "INSERT INTO t_theory_knowledge(id,type,status,title,create_user_id,create_time,credit) VALUES ('study-fixed-knowledge',2,1,'同名课件统计','sweep-admin','0',1); INSERT INTO t_theory_knowledge_swf(id,knowledge_id,title,sort,record) VALUES ('study-fixed-a','study-fixed-knowledge','同名课件',0,0),('study-fixed-b','study-fixed-knowledge','同名课件',1,0);" ,
+      "steps": [
+        {"name":"first-courseware-60-seconds","method":"POST","path":"/api/theoryKnowledge/saveTheoryKnowledgeRecord","who":"student","body":{"knowledgeId":"study-fixed-knowledge","knowledgeSwfId":"study-fixed-a","joinTime":"2026-01-02 10:00:00","exitTime":"2026-01-02 10:01:00"}},
+        {"name":"second-courseware-180-seconds","method":"POST","path":"/api/theoryKnowledge/saveTheoryKnowledgeRecord","who":"student","body":{"knowledgeId":"study-fixed-knowledge","knowledgeSwfId":"study-fixed-b","joinTime":"2026-01-03 10:00:00","exitTime":"2026-01-03 10:03:00"}},
+        {"name":"duplicate-title-java-survivor","method":"POST","path":"/api/theoryKnowledge/recordStatistice","who":"student","body":{"year":"2026","month":"1","type":"2"},"normalize_keys":["$.data.down"]},
+        {"name":"duplicate-title-stable-repeat","method":"POST","path":"/api/theoryKnowledge/recordStatistice","who":"student","body":{"year":"2026","month":"1","type":"2"},"normalize_keys":["$.data.down"]},
+        {"name":"integer-month-leading-zeroes","method":"POST","path":"/api/theoryKnowledge/recordStatistice","who":"student","body":{"year":"2026","month":"001","type":"2"},"normalize_keys":["$.data.down"]}
+      ]
+    },
+    {
       "name": "theory-answer-trim",
       "steps": [
         {"name":"create","method":"POST","path":"/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting","who":"student","body":{"title":"Java空白边界评分","duration":"30","testPaper":{"name":"空白边界卷","total":60,"passMark":36,"singleChoice":[],"multipleChoice":[],"judge":[],"completion":[{"id":"trim-ca","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":0,"type":4},{"id":"trim-cf","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":1,"type":4},{"id":"trim-cn","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":2,"type":4}],"shortAnswer":[{"id":"trim-sa","topic":"步骤","answer":"标准步骤","score":10,"sort":0,"type":5},{"id":"trim-sf","topic":"步骤","answer":"标准步骤","score":10,"sort":1,"type":5},{"id":"trim-sn","topic":"步骤","answer":"标准步骤","score":10,"sort":2,"type":5}]}},"capture":{"examId":"$.data.id"}},

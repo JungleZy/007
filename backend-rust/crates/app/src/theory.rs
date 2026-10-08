@@ -539,15 +539,82 @@ pub(crate) async fn record_statistics(
                 .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
         })
         .unwrap_or(0);
-    let like = month
-        .map(|month| format!("{year}-{month:0>2}%"))
-        .unwrap_or_else(|| format!("{year}%"));
+    let like = match month {
+        Some(month) => match month.parse::<i32>() {
+            Ok(month) => format!("{year}-{month:02}%"),
+            Err(_) => return envelope_response(StatusCode::OK, 202, "请求参数错误", ""),
+        },
+        None => format!("{year}%"),
+    };
     match study_statistics(pool, &user.id, kind, &like, month.is_none()).await {
         Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
         Err(error) => {
             tracing::warn!(error = %error, "theory study statistics query failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
+    }
+}
+
+// TheoryKnowledgeService.count builds perSwf via HashMap.merge (not put): new
+// keys prepend to a linked bucket. Resizes preserve each split chain's order.
+// Java tree bins (>=8 colliding entries once capacity reaches 64) can move the
+// root to the front; this linked-bin emulator does not model that pathological
+// collision order. Ordinary UUID/String courseware ids retain exact parity.
+#[derive(Default)]
+struct JavaStudyDurations {
+    values: std::collections::HashMap<String, (i64, usize, u32)>,
+    capacity: usize,
+}
+
+fn java_string_hash(key: &str) -> u32 {
+    let hash = key.encode_utf16().fold(0u32, |hash, unit| {
+        hash.wrapping_mul(31).wrapping_add(u32::from(unit))
+    });
+    hash ^ (hash >> 16)
+}
+
+impl JavaStudyDurations {
+    fn merge(&mut self, key: String, seconds: i64) {
+        // HashMap.merge checks the threshold before lookup, even for an update.
+        if self.capacity == 0 {
+            self.capacity = 16;
+        } else if self.values.len() > self.capacity * 3 / 4 {
+            self.capacity *= 2;
+        }
+        let size = self.values.len();
+        let hash = java_string_hash(&key);
+        if let Some(value) = self.values.get_mut(&key) {
+            value.0 += seconds;
+            return;
+        }
+        let colliders = if size >= 7 && self.capacity < 64 {
+            self.values
+                .values()
+                .filter(|value| {
+                    (value.2 as usize & (self.capacity - 1))
+                        == (hash as usize & (self.capacity - 1))
+                })
+                .count()
+        } else {
+            0
+        };
+        self.values.insert(key, (seconds, size, hash));
+        if colliders >= 7 {
+            self.capacity *= 2;
+        }
+    }
+
+    fn ordered(&self) -> impl Iterator<Item = (&String, i64)> {
+        let mut entries = self.values.iter().collect::<Vec<_>>();
+        entries.sort_unstable_by_key(|(_, (_, insertion, hash))| {
+            (
+                *hash as usize & (self.capacity - 1),
+                std::cmp::Reverse(*insertion),
+            )
+        });
+        entries
+            .into_iter()
+            .map(|(key, (seconds, _, _))| (key, *seconds))
     }
 }
 
@@ -564,8 +631,7 @@ async fn study_statistics(
         return Ok(json!({}));
     }
     let mut up = std::collections::HashMap::<String, i64>::new();
-    let mut durations =
-        std::collections::HashMap::<String, std::collections::HashMap<String, i64>>::new();
+    let mut durations = std::collections::HashMap::<String, JavaStudyDurations>::new();
     for record in records {
         let join: String = record.try_get("join_time")?;
         let component = if by_month {
@@ -579,11 +645,10 @@ async fn study_statistics(
             .to_string();
         let seconds: i64 = record.try_get("seconds")?;
         *up.entry(key).or_default() += seconds;
-        *durations
+        durations
             .entry(record.try_get("knowledge_id")?)
             .or_default()
-            .entry(record.try_get("knowledge_swf_id")?)
-            .or_default() += seconds;
+            .merge(record.try_get("knowledge_swf_id")?, seconds);
     }
     let ids = durations.keys().collect::<Vec<_>>();
     let mut knowledge_query = sqlx::QueryBuilder::<sqlx::MySql>::new("SELECT id,type,status,cover,title,create_user_id,create_time,credit,difficulty_id,specialty_id FROM t_theory_knowledge WHERE id IN (");
@@ -637,7 +702,7 @@ async fn study_statistics(
         let key = study_knowledge_key(&knowledge, completed)?;
         let mut titled = serde_json::Map::new();
         if let Some(per_swf) = durations.get(&id) {
-            for (swf_id, seconds) in per_swf {
+            for (swf_id, seconds) in per_swf.ordered() {
                 if let Some(title) = swf_titles.get(swf_id) {
                     titled.insert(
                         title.as_deref().unwrap_or("null").to_owned(),
@@ -913,4 +978,47 @@ pub(crate) async fn delete_knowledge(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
+
+#[cfg(test)]
+mod study_map_tests {
+    use super::*;
+
+    #[test]
+    fn java_merge_bucket_order_and_utf16_hash_match_jdk21() {
+        let mut durations = JavaStudyDurations::default();
+        for key in ["AaAa", "AaBB", "BBAa", "BBBB"] {
+            durations.merge(key.to_owned(), 1);
+        }
+        durations.merge("AaAa".to_owned(), 5);
+        assert_eq!(
+            durations
+                .ordered()
+                .map(|(key, seconds)| (key.as_str(), seconds))
+                .collect::<Vec<_>>(),
+            [("BBBB", 1), ("BBAa", 1), ("AaBB", 1), ("AaAa", 6)]
+        );
+        assert_eq!(java_string_hash("学习😀"), 718097488);
+    }
+
+    #[test]
+    fn java_merge_resize_preserves_split_chains_and_pre_call_threshold() {
+        let mut durations = JavaStudyDurations::default();
+        for index in 0..13 {
+            durations.merge(format!("k{index}"), 1);
+        }
+        assert_eq!(durations.capacity, 16);
+        durations.merge("k13".to_owned(), 1);
+        assert_eq!(durations.capacity, 32);
+        assert_eq!(
+            durations
+                .ordered()
+                .map(|(key, _)| key.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "k0", "k1", "k2", "k3", "k4", "k11", "k5", "k10", "k6", "k13", "k7", "k12", "k8",
+                "k9"
+            ]
+        );
+    }
 }
