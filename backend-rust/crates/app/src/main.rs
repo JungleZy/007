@@ -25,7 +25,7 @@ use sqlx::{mysql::MySqlPoolOptions, MySqlConnection, MySqlPool, Row};
 use thiserror::Error;
 use time::OffsetDateTime;
 use tokio::{net::TcpListener, signal, time::timeout};
-use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
+use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
@@ -1307,10 +1307,19 @@ fn build_router(state: AppState) -> Router {
         .route("/ready", get(ready))
         .merge(ws_root)
         .merge(api)
+        .layer(CatchPanicLayer::custom(panic_response))
         .layer(RequestBodyLimitLayer::new(state.config.body_limit))
         .layer(cors)
         .layer(middleware::from_fn(request_id))
         .with_state(state)
+}
+
+/// A handler panic must not drop the connection: answer with the standard
+/// system-failure envelope (HTTP 500 / code 500). The panic payload itself is
+/// already reported by the panic hook; only the fact is logged here.
+fn panic_response(_panic: Box<dyn std::any::Any + Send + 'static>) -> Response {
+    error!("request handler panicked");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
 
 async fn request_id(request: Request, next: Next) -> Response {
@@ -2585,6 +2594,36 @@ mod tests {
             .to_bytes();
         let admin_json: Value = serde_json::from_slice(&admin_body).expect("admin envelope JSON");
         assert_eq!(admin_json["code"], 200);
+    }
+
+    #[tokio::test]
+    async fn handler_panic_becomes_system_failure_envelope() {
+        async fn nullable_column_decode_panics() -> &'static str {
+            panic!("simulated non-Option read of a NULL column");
+        }
+        let app = Router::new()
+            .route("/", get(nullable_column_decode_panics))
+            .layer(CatchPanicLayer::custom(panic_response));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("a handler panic must still produce a response");
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("panic response body")
+            .to_bytes();
+        let envelope: Value = serde_json::from_slice(&body).expect("panic envelope JSON");
+        assert_eq!(envelope["code"], 500);
+        assert_eq!(envelope["message"], "服务器错误");
     }
 
     #[test]
