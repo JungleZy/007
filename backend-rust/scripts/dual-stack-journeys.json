@@ -44,6 +44,20 @@
       ]
     },
     {
+      "name": "classification-create-update",
+      "steps": [
+        {"name":"list-empty","method":"POST","path":"/api/theoryKnowledge/listPageClassify"},
+        {"name":"add-blank-id","method":"POST","path":"/api/theoryKnowledge/addClassify","body":{"type":0,"name":"通信专业","id":""},"capture":{"classifyId":"$.data.id"}},
+        {"name":"list-created","method":"POST","path":"/api/theoryKnowledge/listPageClassify"},
+        {"name":"find-page","method":"POST","path":"/api/theoryKnowledge/getBasicTheory","body":{"type":"0","specialty":"[\"${classifyId}\"]"}},
+        {"name":"edit-existing","method":"POST","path":"/api/theoryKnowledge/addClassify","body":{"type":1,"name":"基础难度","id":"${classifyId}"}},
+        {"name":"list-edited","method":"POST","path":"/api/theoryKnowledge/listPageClassify"},
+        {"name":"find-edited-page","method":"POST","path":"/api/theoryKnowledge/getBasicTheory","body":{"type":"0","difficulty":"[\"${classifyId}\"]"}},
+        {"name":"remove","method":"POST","path":"/api/theoryKnowledge/removeClassify","body":{"type":1,"name":"基础难度","id":"${classifyId}"}},
+        {"name":"list-final","method":"POST","path":"/api/theoryKnowledge/listPageClassify"}
+      ]
+    },
+    {
       "name": "device-catalogue",
       "steps": [
         {"name": "type-create", "method": "POST", "path": "/api/deviceType/save", "body": {"id": "", "typeName": "短波电台"}, "capture": {"typeId": "$.data.id"}},

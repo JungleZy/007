@@ -5,6 +5,7 @@
   "status":"PASS_NO_PRODUCTION_TRAFFIC",
   "routes":["POST /api/theoryKnowledge/addClassify","POST /api/theoryKnowledge/removeClassify","POST /api/theoryKnowledge/deleteThroyKnowledgeById"],
   "authorization":"admin only",
-  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"classification upsert/delete and knowledge+SWF delete transaction implemented"},
+  "verification":{"cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","implementation":"classification create/update/delete and knowledge+SWF delete transaction implemented"},
+  "classification_response_contract":"Classification add/list return exactly the TheoryKnowledgeClassifyVO fields id,type,name,createTime. create_id is still written to the database but is not an exposed VO field. classification-create-update covers the frontend blank-id create/edit/list/filter/remove flow.",
   "known_boundary":"Full knowledge save/SWF/test nested snapshot parity and dedicated MySQL behavioral fixture remain required."
 }

@@ -15,7 +15,7 @@ pub(crate) async fn list_classify(State(state): State<AppState>) -> Response {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     match sqlx::query(
-        "SELECT id, type, name, create_id, create_time FROM t_theory_knowledge_classify ORDER BY create_time DESC",
+        "SELECT id, type, name, create_time FROM t_theory_knowledge_classify ORDER BY create_time DESC",
     )
     .fetch_all(pool)
     .await
@@ -25,7 +25,7 @@ pub(crate) async fn list_classify(State(state): State<AppState>) -> Response {
             let mut specialty = Vec::new();
             for row in rows {
                 let create_time = row.get::<Option<chrono::NaiveDateTime>,_>("create_time").map(|value| value.format("%Y-%m-%d %H:%M:%S").to_string());
-                let value = json!({"id": row.get::<String,_>("id"), "type": row.get::<Option<i32>,_>("type"), "name": row.get::<Option<String>,_>("name"), "createId": row.get::<Option<String>,_>("create_id"), "createTime": create_time});
+                let value = json!({"id": row.get::<String,_>("id"), "type": row.get::<Option<i32>,_>("type"), "name": row.get::<Option<String>,_>("name"), "createTime": create_time});
                 if row.get::<Option<i32>, _>("type") == Some(1) { difficulty.push(value); } else { specialty.push(value); }
             }
             envelope_json(
@@ -656,7 +656,7 @@ pub(crate) async fn save_classify(
     envelope_json(
         StatusCode::OK,
         200,
-        Some(json!({"id":id,"type":kind,"name":name,"createId":user.id,"createTime":now})),
+        Some(json!({"id":id,"type":kind,"name":name,"createTime":now})),
         "ok",
         "",
     )
