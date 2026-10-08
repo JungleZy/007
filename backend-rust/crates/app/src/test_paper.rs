@@ -97,7 +97,11 @@ pub(crate) async fn by_level_name(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let name = body.get("name").and_then(Value::as_str).unwrap_or("");
-    let level_ids = match body.get("levelId").and_then(Value::as_str) {
+    let level_ids = match body
+        .get("levelId")
+        .and_then(Value::as_str)
+        .filter(|level| !level.is_empty())
+    {
         Some(level) => match level_ids(pool, level).await {
             Ok(ids) => Some(ids),
             Err(_) => {
