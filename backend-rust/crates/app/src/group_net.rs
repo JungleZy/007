@@ -174,7 +174,7 @@ pub(crate) async fn list(
             }))
         }).collect::<Result<Vec<_>, _>>()?;
         Ok::<_, Error>(json!({
-            "totalPage": (total + rows - 1) / rows,
+            "totalPage": ((total + rows - 1) / rows).max(1),
             "totalNumber": total,
             "currentPage": page - 1,
             "pageSize": rows,

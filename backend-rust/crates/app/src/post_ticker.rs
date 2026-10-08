@@ -136,7 +136,7 @@ pub(crate) async fn list(
         let records = sqlx::query(&format!("SELECT code_message_body,{COLS} FROM t_post_ticker_tape_train WHERE user_id=? ORDER BY create_time DESC LIMIT ? OFFSET ?"))
             .bind(&user.id).bind(size).bind((no - 1) * size).fetch_all(pool).await?;
         let data = records.iter().map(|row| item(row, false)).collect::<Result<Vec<_>, _>>()?;
-        Ok(Some(json!({"totalPage":(total+size-1)/size,"totalNumber":total,"currentPage":no-1,"pageSize":size,"data":data})))
+        Ok(Some(json!({"totalPage":((total+size-1)/size).max(1),"totalNumber":total,"currentPage":no-1,"pageSize":size,"data":data})))
     }.await)
 }
 

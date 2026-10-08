@@ -11,5 +11,13 @@
     "scope": "List projection follows Hutool conversion; add stores absent/explicit-null message bodies as empty text via Java JSONUtils.toJson(null) semantics, and detail returns null for SQL NULL/empty text via JSONUtils.fromJson. Invalid nonempty detail JSON continues to fail; other stored bodies stay unchanged.",
     "journey": "post-ticker-list-message-body creates empty-array, populated-array, explicit-null and absent bodies through add and reads list/detail. Rust unit coverage and live synthetic SQL fixtures on both stacks matched all 14 historical empty/invalid text branches; fixtures were removed."
   },
+  "pagination_followup_2026_10_09": {
+    "routes": ["POST /api/groupNetTrain/listPage", "POST /api/postTickerTapeTrain/listPage"],
+    "rule": "Panache pageCount is max(1, ceil(totalNumber/pageSize)); request pages are 1-based and currentPage remains 0-based. An out-of-range empty page does not alter totalPage.",
+    "java_live_probe": "Both routes with rows=2, pages=1/2: totalNumber 0 -> totalPage 1, returned 0/0; totalNumber 2 -> totalPage 1, returned 2/0; totalNumber 3 -> totalPage 2, returned 2/1. Synthetic rows were removed after probing.",
+    "java_source": "GroupNetTrainService.listPage and PojoUtils.convertPage both return PanacheQuery.pageCount directly.",
+    "rust_scope": "Both serializers compute page count inline; there is no shared listPage page-count helper to migrate. Other independently implemented pagination domains are unchanged.",
+    "journey": "training-list-pagination: empty, exact page, partial page and beyond-last-page reads for both domains."
+  },
   "known_boundary":"These slices do not yet implement generated page/content values, authoritative scoring/settlement, concurrency finish/reset guards, room state machines, or production cutover."
 }
