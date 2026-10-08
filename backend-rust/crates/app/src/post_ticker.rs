@@ -66,10 +66,11 @@ async fn owned(
 fn item(row: &MySqlRow, detail: bool) -> Result<Value, Error> {
     let content = if detail {
         row.get::<Option<String>, _>("code_message_body")
+            .filter(|value| !value.is_empty())
             .map(|value| serde_json::from_str::<Value>(&value))
             .transpose()?
     } else {
-        None
+        list_message_body(row.get::<Option<&str>, _>("code_message_body"))
     };
     Ok(json!({
         "id":row.get::<String,_>("id"),"name":row.get::<Option<String>,_>("name"),
@@ -88,6 +89,20 @@ fn item(row: &MySqlRow, detail: bool) -> Result<Value, Error> {
         "startTime":row.get::<Option<String>,_>("start_time_text"),
         "endTime":row.get::<Option<String>,_>("end_time_text")
     }))
+}
+
+// PojoUtils copies String -> List<Map> through Hutool unWrap/splitTrim, not JSON.
+// Any nonempty token fails Map conversion and the ignoreError copy leaves null.
+fn list_message_body(stored: Option<&str>) -> Option<Value> {
+    let stored = stored?;
+    let unwrapped = stored
+        .strip_prefix('[')
+        .and_then(|text| text.strip_suffix(']'))
+        .unwrap_or(stored);
+    unwrapped
+        .split(',')
+        .all(|token| token.trim().is_empty())
+        .then(|| json!([]))
 }
 
 #[derive(Deserialize)]
@@ -118,7 +133,7 @@ pub(crate) async fn list(
         let no = page.page.unwrap_or(1).max(1);
         let size = page.rows.unwrap_or(20).clamp(1, 200);
         let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM t_post_ticker_tape_train WHERE user_id=?").bind(&user.id).fetch_one(pool).await?;
-        let records = sqlx::query(&format!("SELECT {COLS} FROM t_post_ticker_tape_train WHERE user_id=? ORDER BY create_time DESC LIMIT ? OFFSET ?"))
+        let records = sqlx::query(&format!("SELECT code_message_body,{COLS} FROM t_post_ticker_tape_train WHERE user_id=? ORDER BY create_time DESC LIMIT ? OFFSET ?"))
             .bind(&user.id).bind(size).bind((no - 1) * size).fetch_all(pool).await?;
         let data = records.iter().map(|row| item(row, false)).collect::<Result<Vec<_>, _>>()?;
         Ok(Some(json!({"totalPage":(total+size-1)/size,"totalNumber":total,"currentPage":no-1,"pageSize":size,"data":data})))
@@ -267,7 +282,7 @@ pub(crate) async fn add(
         let kind = body.get("type").and_then(Value::as_i64).and_then(|v| i32::try_from(v).ok());
         if cable == 0 && kind.is_none() { return Err(Error::Business(202, "报文类型不能为空")); }
         if total < 0 { return Err(Error::Business(202, "报文组数无效")); }
-        let content = body.get("codeMessageBody").unwrap_or(&Value::Null).to_string();
+        let content = body.get("codeMessageBody").filter(|value| !value.is_null()).map(Value::to_string).unwrap_or_default();
         let id = uuid::Uuid::new_v4().to_string();
         let mut tx = pool.begin().await?;
         sqlx::query("INSERT INTO t_post_ticker_tape_train (id,name,is_cable,rate,type,code_message_body,code_short,valid_time,status,user_id,more_code,lack_code,error_code,more_group,lack_group,total_number,disturb,is_avg,is_random,ratio,is_start_sign,create_time) VALUES (?,?,?,?,?,?,?,'0',0,?,0,0,0,0,0,?,?,?,?,?,?,NOW(6))")
@@ -523,4 +538,34 @@ pub(crate) async fn setting_add_or_update(
         tx.commit().await?;
         Ok(Some(body))
     }.await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::list_message_body;
+    use serde_json::json;
+
+    #[test]
+    fn list_body_keeps_hutool_empty_and_failed_map_conversion_shapes() {
+        for stored in ["", "   ", "[]", "[ ]", ",", "[,]"] {
+            assert_eq!(
+                list_message_body(Some(stored)),
+                Some(json!([])),
+                "{stored:?}"
+            );
+        }
+        for stored in [
+            "null",
+            "not json",
+            " [ ] ",
+            "[null]",
+            "[{}]",
+            "[\"a\"]",
+            "[{\"codeMessage\":\"1234\",\"sort\":1}]",
+            "{}",
+        ] {
+            assert_eq!(list_message_body(Some(stored)), None, "{stored:?}");
+        }
+        assert_eq!(list_message_body(None), None);
+    }
 }

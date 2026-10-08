@@ -4,5 +4,12 @@
   "status":"PARTIAL_NO_PRODUCTION_TRAFFIC",
   "implemented_write_slices":["postTelegramTrain save/begin/finish/stop/delete","postTelexPatTrain save/begin/pause/resume/reset/finish/delete","PostTelegraphKeyPatTrain add/begin/finish/reset/delete","postTickerTapeTrain add/begin/pause/goOn/finish/baseSession/saveBaseTrain/discardBaseSession","groupNetTrain saveTrain/submitAnswer"],
   "state_contract":{"owner":"authenticated create_user/user_id predicates","business_status":"HTTP200 envelope with business code; terminal transitions reject 208","writer":"all flags default false; Java remains production writer"},
+  "post_ticker_list_followup_2026_10_09": {
+    "route": "POST /api/postTickerTapeTrain/listPage",
+    "java_conversion": "PostTickerTapeTrainVo.codeMessageBody is List<Map>, copied from a String through PojoUtils BeanUtil ignoreError. Hutool CollUtil.addAll unwraps exact outer [] and splits/trims commas, not JSON parsing. No tokens gives []; a nonempty token fails Map conversion and the copied field stays null.",
+    "live_branches": "SQL NULL, JSON null, invalid text, nonempty JSON arrays and objects return null. Empty text/whitespace/exact []/comma-only text return []; padded outer brackets stay null. Synthetic fixture rows were removed.",
+    "scope": "List projection follows Hutool conversion; add stores absent/explicit-null message bodies as empty text via Java JSONUtils.toJson(null) semantics, and detail returns null for SQL NULL/empty text via JSONUtils.fromJson. Invalid nonempty detail JSON continues to fail; other stored bodies stay unchanged.",
+    "journey": "post-ticker-list-message-body creates empty-array, populated-array, explicit-null and absent bodies through add and reads list/detail. Rust unit coverage and live synthetic SQL fixtures on both stacks matched all 14 historical empty/invalid text branches; fixtures were removed."
+  },
   "known_boundary":"These slices do not yet implement generated page/content values, authoritative scoring/settlement, concurrency finish/reset guards, room state machines, or production cutover."
 }
