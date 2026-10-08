@@ -33,6 +33,7 @@ const TRAIN_COLUMNS: &str = "id,name,rate,type,code_message_body,code_short,DATE
 
 fn parse_message_body(raw: Option<String>) -> Result<Value, serde_json::Error> {
     match raw {
+        Some(value) if value.is_empty() => Ok(Value::Null),
         Some(value) => serde_json::from_str(&value),
         None => Ok(Value::Null),
     }
@@ -928,6 +929,17 @@ pub(crate) async fn discard_base(
 mod tests {
     use super::*;
 
+    #[test]
+    fn json_body_reader_keeps_java_empty_text_guard() {
+        assert_eq!(parse_message_body(None).unwrap(), Value::Null);
+        assert_eq!(
+            parse_message_body(Some(String::new())).unwrap(),
+            Value::Null
+        );
+        assert_eq!(parse_message_body(Some("[]".into())).unwrap(), json!([]));
+        assert!(parse_message_body(Some("not json".into())).is_err());
+    }
+
     #[tokio::test]
     #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
     async fn last_train_applies_bean_conversion_without_json_parsing() -> Result<(), sqlx::Error> {
@@ -974,6 +986,42 @@ mod tests {
             let body: Value = serde_json::from_slice(&bytes).unwrap();
             assert_eq!(body["code"], 200, "{stored:?}");
             assert_eq!(body["data"]["codeMessageBody"], expected, "{stored:?}");
+        }
+        sqlx::query("UPDATE t_ticker_tape_train SET code_message_body='' WHERE id=?")
+            .bind(&id)
+            .execute(&pool)
+            .await?;
+        let detail = by_id(
+            State(state.clone()),
+            Extension(user.clone()),
+            Json(IdRequest {
+                id: Some(id.clone()),
+            }),
+        )
+        .await;
+        let history = list(
+            State(state),
+            Extension(user),
+            Json(PageRequest {
+                page: Some(1),
+                rows: Some(10),
+            }),
+        )
+        .await;
+        for (response, is_page) in [(detail, false), (history, true)] {
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(body["code"], 200);
+            let train = if is_page {
+                &body["data"]["data"][0]
+            } else {
+                &body["data"]
+            };
+            assert_eq!(train["id"], id);
+            assert_eq!(train["type"], 1);
+            assert_eq!(train["status"], 0);
+            assert_eq!(train["codeMessageBody"], Value::Null);
         }
         sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
             .bind(&id)
