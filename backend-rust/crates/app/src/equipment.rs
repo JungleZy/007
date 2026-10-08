@@ -9,7 +9,7 @@ pub(crate) async fn list_devices(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT id, device_id, name, image, `option`, is_enable, create_time FROM t_equipment_device ORDER BY create_time")
+    match sqlx::query("SELECT id, device_id, name, image, `option`, is_enable, DATE_FORMAT(create_time,'%Y-%m-%dT%H:%i:%s') AS create_time_text FROM t_equipment_device ORDER BY create_time")
         .fetch_all(pool).await {
         Ok(rows) => envelope_json(StatusCode::OK, 200, Some(json!(rows.iter().map(|row| json!({
             "id": row.get::<String, _>("id"),
@@ -18,7 +18,7 @@ pub(crate) async fn list_devices(State(state): State<AppState>) -> Response {
             "image": row.get::<Option<String>, _>("image"),
             "option": row.get::<Option<String>, _>("option"),
             "isEnable": row.get::<Option<i32>, _>("is_enable"),
-            "createTime": null
+            "createTime": row.get::<Option<String>, _>("create_time_text")
         })).collect::<Vec<_>>())), "ok", ""),
         Err(error) => { tracing::warn!(error = %error, "equipment device list query failed"); envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "") }
     }
@@ -39,8 +39,18 @@ pub(crate) async fn add(State(state): State<AppState>, Json(body): Json<Value>) 
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let id = Uuid::new_v4().to_string();
-    match sqlx::query("INSERT INTO t_equipment_device (id,device_id,name,image,`option`,is_enable,key_points) VALUES (?,?,?,?,?,?,?)")
-        .bind(&id).bind(body.get("deviceId").and_then(Value::as_str)).bind(body.get("name").and_then(Value::as_str)).bind(body.get("image").and_then(Value::as_str)).bind(body.get("option").and_then(Value::as_str)).bind(body.get("isEnable").and_then(Value::as_i64)).bind(body.get("keyPoints").and_then(Value::as_str)).execute(pool).await {
+    match sqlx::query("INSERT INTO t_equipment_device (id,device_id,name,image,`option`,is_enable,key_points,create_time) VALUES (?,?,?,?,?,?,?,NOW())")
+        .bind(&id)
+        .bind(body.get("deviceId").and_then(Value::as_str))
+        .bind(body.get("name").and_then(Value::as_str))
+        .bind(body.get("image").and_then(Value::as_str))
+        .bind(body.get("option").and_then(Value::as_str))
+        // The Java entity defaults isEnable to 0.
+        .bind(body.get("isEnable").and_then(Value::as_i64).unwrap_or(0))
+        .bind(body.get("keyPoints").and_then(Value::as_str))
+        .execute(pool)
+        .await
+    {
         Ok(_) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
         Err(error) => { tracing::warn!(error = %error, "equipment device insert failed"); envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "") }
     }
