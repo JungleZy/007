@@ -71,7 +71,7 @@ pub(crate) async fn by_id(State(state): State<AppState>, Json(body): Json<Value>
     };
     match rule_by_id(pool, id).await {
         Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(rule_json(&row)), "ok", ""),
-        Ok(None) => envelope_response(StatusCode::OK, 500, "未查询到评分规则", ""),
+        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到评分规则", "未查询到评分规则"),
         Err(error) => {
             tracing::warn!(error = %error, "grading rule detail query failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
@@ -158,7 +158,7 @@ pub(crate) async fn update_status(
             Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(rule_json(&row)), "ok", ""),
             _ => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
         },
-        Ok(_) => envelope_response(StatusCode::OK, 500, "未查询到评分规则", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 202, "未查询到评分规则", "未查询到评分规则"),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
 }
@@ -178,7 +178,7 @@ pub(crate) async fn change_default(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let Some(row) = rule_by_id(pool, id).await.ok().flatten() else {
-        return envelope_response(StatusCode::OK, 500, "未查询到评分规则", "");
+        return envelope_response(StatusCode::OK, 202, "未查询到评分规则", "未查询到评分规则");
     };
     let rule_type: i32 = row.get::<Option<i32>, _>("type").unwrap_or_default();
     let mut tx = match pool.begin().await {

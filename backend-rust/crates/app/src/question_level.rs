@@ -53,7 +53,23 @@ pub(crate) async fn save_level(
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
-    let row = match sqlx::query("SELECT id,parent_id,name,create_user_id,create_time FROM t_theory_question_level WHERE id=?").bind(&id).fetch_one(&mut *tx).await { Ok(row)=>row, Err(error)=>{tracing::warn!(%error,"reload question level failed");let _=tx.rollback().await;return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")} };
+    let row = match sqlx::query("SELECT id,parent_id,name,create_user_id,create_time FROM t_theory_question_level WHERE id=?")
+        .bind(&id)
+        .fetch_optional(&mut *tx)
+        .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            // Updating an id that does not exist: Java throws IllegalArgumentException -> 202.
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::OK, 202, "未查询到该题目分类", "未查询到该题目分类");
+        }
+        Err(error) => {
+            tracing::warn!(%error, "reload question level failed");
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
     if let Err(error) = tx.commit().await {
         tracing::warn!(%error,"commit question level failed");
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

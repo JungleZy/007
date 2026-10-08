@@ -45,7 +45,7 @@ pub(crate) async fn detail(
     match sqlx::query("SELECT id,user_id,content,device_id,train_name,train_status,train_type,device_name FROM t_equipment_train WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await {
         Ok(Some(row)) if row.get::<Option<String>,_>("user_id").as_deref() == Some(user.id.as_str()) => envelope_json(StatusCode::OK, 200, Some(train_json(&row)), "ok", ""),
         Ok(Some(_)) => envelope_response(StatusCode::OK, 207, "无权限", ""),
-        Ok(None) => envelope_response(StatusCode::OK, 500, "未查询到训练计划", ""),
+        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到训练计划", "未查询到训练计划"),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
     }
 }
@@ -72,7 +72,14 @@ pub(crate) async fn add(
         match owner {
             Ok(Some(owner)) if owner.as_deref() == Some(user.id.as_str()) => {}
             Ok(Some(_)) => return envelope_response(StatusCode::OK, 207, "无权限", ""),
-            Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到训练计划", ""),
+            Ok(None) => {
+                return envelope_response(
+                    StatusCode::OK,
+                    202,
+                    "未查询到训练计划",
+                    "未查询到训练计划",
+                )
+            }
             Err(_) => {
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
             }

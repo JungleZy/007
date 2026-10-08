@@ -71,7 +71,7 @@ pub(crate) async fn update(State(state): State<AppState>, Json(body): Json<Value
         Ok(result) if result.rows_affected() == 1 => {
             envelope_json(StatusCode::OK, 200, None, "ok", "")
         }
-        Ok(_) => envelope_response(StatusCode::OK, 500, "未查询到该设备", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 202, "未查询到该设备", "未查询到该设备"),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
 }
@@ -123,7 +123,7 @@ pub(crate) async fn add_key_points(
         Ok(result) if result.rows_affected() == 1 => {
             envelope_json(StatusCode::OK, 200, None, "ok", "")
         }
-        Ok(_) => envelope_response(StatusCode::OK, 500, "未查询到该设备", ""),
+        Ok(_) => envelope_response(StatusCode::OK, 202, "未查询到该设备", "未查询到该设备"),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
 }

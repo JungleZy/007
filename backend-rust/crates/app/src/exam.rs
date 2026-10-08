@@ -39,7 +39,15 @@ pub(crate) async fn detail(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let exam=match sqlx::query("SELECT id,title,start_time,end_time,duration,create_user_id,create_time,teacher,state FROM t_theory_knowledge_exam WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await{Ok(Some(r))=>r,Ok(None)=>return envelope_response(StatusCode::OK,500,"未查询到考试",""),Err(_)=>return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")};
+    let exam = match sqlx::query("SELECT id,title,start_time,end_time,duration,create_user_id,create_time,teacher,state FROM t_theory_knowledge_exam WHERE id=? LIMIT 1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试"),
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
     let candidate=sqlx::query("SELECT id,user_id,state,score,content,is_self_testing FROM t_theory_knowledge_exam_user WHERE exam_id=? AND user_id=? LIMIT 1").bind(id).bind(&user.id).fetch_optional(pool).await.ok().flatten();
     let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&user.id).fetch_one(pool).await.unwrap_or(0)>0;
     let controller = admin
@@ -129,7 +137,7 @@ pub(crate) async fn teacher_start(
     .flatten()
     .flatten();
     let Some(current) = current else {
-        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+        return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试");
     };
     if (kind == 2 && current != 1) || (kind == 3 && current != 2) || (kind == 4 && current != 3) {
         return envelope_response(StatusCode::OK, 208, "操作已不可执行", "");
@@ -183,9 +191,22 @@ pub(crate) async fn student_state(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let row=sqlx::query("SELECT e.state,s.state AS student_state,s.end_time FROM t_theory_knowledge_exam e LEFT JOIN t_theory_knowledge_exam_user s ON s.exam_id=e.id AND s.user_id=? WHERE e.id=?").bind(&user.id).bind(exam_id).fetch_optional(pool).await.ok().flatten();
+    let row = match sqlx::query("SELECT e.state,s.state AS student_state,s.end_time FROM t_theory_knowledge_exam e LEFT JOIN t_theory_knowledge_exam_user s ON s.exam_id=e.id AND s.user_id=? WHERE e.id=?")
+        .bind(&user.id)
+        .bind(exam_id)
+        .fetch_optional(pool)
+        .await
+    {
+        Ok(row) => row,
+        Err(error) => {
+            tracing::warn!(error = %error, "student exam state query failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    // The LEFT JOIN yields a row for every existing exam, so None means the exam is missing
+    // (Java: IllegalArgumentException -> 202); non-candidates are rejected below with 207.
     let Some(row) = row else {
-        return envelope_response(StatusCode::OK, 207, "无权限", "");
+        return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试");
     };
     if row.get::<Option<i32>, _>("student_state").is_none() {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -636,7 +657,7 @@ pub(crate) async fn find_exam_user(
         .ok()
         .flatten();
     let Some(exam) = exam else {
-        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+        return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试");
     };
     let admin=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&actor.id).fetch_one(pool).await.unwrap_or(0)>0;
     let allowed = admin
@@ -764,7 +785,7 @@ pub(crate) async fn analyse(
             }
         };
     let Some(exam) = exam else {
-        return envelope_response(StatusCode::OK, 500, "未查询到考试", "");
+        return envelope_response(StatusCode::OK, 202, "未查询到考试", "未查询到考试");
     };
     let admin = match sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_user_role ur JOIN t_role r ON r.id=ur.role_id WHERE ur.user_id=? AND r.is_admin=0").bind(&actor.id).fetch_one(pool).await {
         Ok(value) => value > 0, Err(error) => { tracing::warn!(error=%error, "exam analysis authorization query failed"); return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }

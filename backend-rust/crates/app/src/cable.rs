@@ -99,7 +99,7 @@ pub(crate) async fn find_by_id(State(state): State<AppState>, Json(body): Json<V
         .await
     {
         Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(cable_json(&row)), "ok", ""),
-        Ok(None) => envelope_response(StatusCode::OK, 500, "服务器错误", ""),
+        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到该电缆", "未查询到该电缆"),
         Err(error) => {
             tracing::warn!(error = %error, "cable detail query failed");
             envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
@@ -202,7 +202,14 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
         .await
     {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 500, "未查询到该电缆类型", ""),
+        Ok(None) => {
+            return envelope_response(
+                StatusCode::OK,
+                202,
+                "未查询到该电缆类型",
+                "未查询到该电缆类型",
+            )
+        }
         Err(error) => {
             tracing::warn!(error = %error, "cable type lookup failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

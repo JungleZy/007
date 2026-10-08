@@ -249,7 +249,8 @@ pub(crate) async fn by_id(
     match sqlx::query("SELECT id,knowledge_id,knowledge_swf_id,user_id,content,score,create_time FROM t_theory_knowledge_test_user WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await {
         Ok(Some(row)) if user.is_admin || row.get::<Option<String>,_>("user_id").as_deref()==Some(user.id.as_str()) => envelope_json(StatusCode::OK,200,Some(json!({"id":row.get::<String,_>("id"),"knowledgeId":row.get::<Option<String>,_>("knowledge_id"),"knowledgeSwfId":row.get::<Option<String>,_>("knowledge_swf_id"),"userId":row.get::<Option<String>,_>("user_id"),"content":row.get::<Option<String>,_>("content"),"score":row.get::<Option<i32>,_>("score"),"createTime":row.get::<Option<String>,_>("create_time")})),"ok",""),
         Ok(Some(_)) => envelope_response(StatusCode::OK,207,"无权限",""),
-        Ok(None) => envelope_response(StatusCode::OK,500,"未查询到测验结果",""),
+        // Java returns ResponseResult.success(testUserDao.findById(id)): a missing row is a 200 with null data.
+        Ok(None) => envelope_json(StatusCode::OK, 200, None, "ok", ""),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")
     }
 }
