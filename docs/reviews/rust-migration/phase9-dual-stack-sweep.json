@@ -1,22 +1,22 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-08T20:36:02Z",
-  "git_commit": "02155549",
+  "generated_at_utc": "2026-10-08T21:15:31Z",
+  "git_commit": "d120e188",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
       "exit_code": 0,
       "passed": 53,
-      "ignored": 27,
-      "artifact": "artifact://950"
+      "ignored": 28,
+      "artifact": "artifact://993"
     },
     "python": {
       "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
       "exit_code": 0,
-      "tests": 24,
-      "output": "Ran 24 tests in 4.276s; OK",
-      "source": "T9LastReviewFixes final execution after 02155549"
+      "tests": 31,
+      "output": "Ran 31 tests in 4.295s; OK",
+      "source": "T10FinalFixes final execution after d120e188"
     },
     "isolated_database": {
       "database": "rust_scratch_lockdemo",
@@ -27,37 +27,37 @@
         "cargo test --locked -p rust-backend last_train_applies_bean_conversion_without_json_parsing -- --ignored --test-threads=1"
       ],
       "exit_code": 0,
-      "exam_writer_passed": 6,
+      "exam_writer_passed": 7,
       "grading_passed": 7,
       "ticker_callers_passed": 1,
-      "artifact": "artifact://950"
+      "artifact": "artifact://993"
     },
     "debug_build": {
       "command": "cd backend-rust && cargo build --locked -p rust-backend",
       "exit_code": 0,
-      "artifact": "artifact://950"
+      "artifact": "artifact://993"
     },
-    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/y7_final_journeys_after02155549.json",
-    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/y7_final_full_after02155549.json"
+    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/z_final_journeys_afterd120e188.json",
+    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/z_final_full_afterd120e188.json"
   },
   "sweep_rerun_this_checkpoint": true,
   "journeys": {
-    "artifact": "/tmp/y7_final_journeys_after02155549.json",
-    "generated_at_utc": "2026-10-08T20:29:36Z",
+    "artifact": "/tmp/z_final_journeys_afterd120e188.json",
+    "generated_at_utc": "2026-10-08T21:09:03Z",
     "exit_code": 0,
     "summary": {
       "requests": 421,
-      "identical": 401,
-      "different": 20,
+      "identical": 402,
+      "different": 19,
       "by_disposition": {
-        "ACCEPTED": 20,
+        "ACCEPTED": 19,
         "FAIL": 0,
         "OPEN": 0
       },
       "by_category": {
         "JAVA_UNHANDLED_500": 4,
         "RUST_STRICTER": 1,
-        "DATA": 6,
+        "DATA": 5,
         "TEXT_ONLY": 6,
         "RUST_PERMISSIVE": 1,
         "RUST_OTHER_CODE": 1,
@@ -66,22 +66,22 @@
     }
   },
   "full_sweep": {
-    "artifact": "/tmp/y7_final_full_after02155549.json",
-    "generated_at_utc": "2026-10-08T20:36:02Z",
+    "artifact": "/tmp/z_final_full_afterd120e188.json",
+    "generated_at_utc": "2026-10-08T21:15:31Z",
     "exit_code": 0,
     "summary": {
       "requests": 1870,
-      "identical": 1319,
-      "different": 551,
+      "identical": 1320,
+      "different": 550,
       "by_disposition": {
-        "ACCEPTED": 551,
+        "ACCEPTED": 550,
         "FAIL": 0,
         "OPEN": 0
       },
       "by_category": {
         "JAVA_UNHANDLED_500": 53,
         "RUST_STRICTER": 60,
-        "DATA": 28,
+        "DATA": 27,
         "TEXT_ONLY": 287,
         "RUST_PERMISSIVE": 9,
         "RUST_OTHER_CODE": 1,
@@ -139,18 +139,21 @@
       "mask",
       "unordered",
       "parse_json",
-      "normalize_keys"
+      "normalize_keys",
+      "floor_content"
     ],
-    "allowed_paths": "Exact leaf paths by default; explicit subtree_paths opt into descendants. All 28 constrained rules have typed value/presence predicates. Complete data_diffs includes presence direction and every unmatched array row, not just first_data_diffs preview or length",
+    "allowed_paths": "Exact leaf paths by default; explicit subtree_paths opt into descendants. All 28 constrained rules (27 DATA plus one other category) have typed value/presence predicates. Complete data_diffs includes presence direction and every unmatched array row, not just first_data_diffs preview or length. No DATA override without allowed_paths matches",
+    "data_classification": "Type-aware envelope_data_diffs decides DATA; envelope-level absent data and explicit null retain separate presence evidence. TEXT_ONLY requires complete evidence of zero data differences, including before overrides",
+    "floor_content": "Opt-in only at personal-telegram/floor-content: sole object key and every row floorId must match that stack's captured requested floor. Substitute shared floor identity and compare every field/value/Morse content as a duplicate-preserving multiset; wrong keys/references fail even if both wire responses match. Java DAO has no ORDER BY and HashMap values are append-only ArrayLists. Live fixed-PK probe Java T(sort=1), E(sort=0) vs Rust E(sort=0), T(sort=1): order is unspecified, not identical ordered E/T. Source /tmp/z3_floor_order_probe.json",
     "accepted_does_not_mean_identical": true
   },
   "registry": {
     "source": "backend-rust/scripts/dual-stack-sweep-registry.json",
-    "explicit_rules": 162,
+    "explicit_rules": 161,
     "by_category": {
       "JAVA_UNHANDLED_500": 5,
       "RUST_STRICTER": 60,
-      "DATA": 28,
+      "DATA": 27,
       "TEXT_ONLY": 6,
       "RUST_FAILS_WHERE_JAVA_OK": 2,
       "RUST_PERMISSIVE": 9,
@@ -158,12 +161,12 @@
       "RUST_RAW_HTTP_4XX": 51
     },
     "by_class": {
-      "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 24,
+      "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 23,
       "JAVA_DEFECT_ACCEPT": 14,
       "MALFORMED_INPUT_ONLY": 108,
       "STATE_ARTEFACT": 16
     },
-    "class_semantics": "24 named behavioral acceptances include the new stale-editor Java 500 rule. The unchanged historical 138-rule classified subset is preserved below; classes are evidence labels, not schema fields.",
+    "class_semantics": "23 named behavioral acceptances include the stale-editor Java 500 rule. The floor UUID-key blanket acceptance was removed: captured identity validation plus full multiset comparison now covers that step. The unchanged historical 138-rule classified subset is preserved below; classes are evidence labels, not schema fields.",
     "classification_artifact": "/tmp/t6_registration_classification.json",
     "classified_subset": {
       "registered_count": 138,
@@ -195,9 +198,9 @@
   ],
   "locking": {
     "order": "user row -> parent PK -> child PKs",
-    "scope": "No non-PK locking reads/writes in touched domains",
-    "regressions": "Final isolated-DB execution after 02155549: exam writer 6/6, grading 7/7, ticker historical callers 1/1; artifact://950. Changed/new DB regressions have the mutation records below. This is not a full load/stress proof",
-    "prior_execution_record": "335792c historical exam 5/5 and grading 5/5 superseded by this checkpoint execution",
+    "scope": "Audited exam transactions and helpers use only their held connection after BEGIN; supplied formal-exam canonical IDs are resolved on the pool before BEGIN, then actor -> parent PK locks precede the existing current-answer recheck. This is a touched-path audit, not a blanket claim about untouched domains or all deletion races",
+    "regressions": "Final isolated-DB execution after d120e188: exam writer 7/7, grading 7/7, ticker historical callers 1/1; artifact://993. Changed/new DB regressions have the mutation records below. This is not a full load/stress proof",
+    "prior_execution_record": "335792c historical exam 5/5 and grading 5/5 superseded by this checkpoint execution"
   },
   "java_defects_not_replicated": [
     "telex NULL-duration rollover",
@@ -215,7 +218,7 @@
       "finding": "Y1",
       "commit": "aefde87",
       "status": "CLOSED",
-      "result": "Supplied missing exam id returns 202 未查询到考试 with no recreation; generated ids use direct INSERT. Populated stale-editor journey observes Java HTTP500/code500, accepted only as JAVA_UNHANDLED_500."
+      "result": "Supplied missing exam id returns 202 未查询到考试 with no recreation; generated ids use direct INSERT. Populated stale-editor journey observes Java HTTP500/code500, accepted only as JAVA_UNHANDLED_500. Z1 additionally closes the size-one pool regression; this historical commit alone did not prove that configuration."
     },
     {
       "finding": "Y2",
@@ -227,7 +230,7 @@
       "finding": "Y3",
       "commit": "68c5154",
       "status": "CLOSED",
-      "result": "Exact leaf rules with explicit subtree opt-in, typed expected values/presence relations, and declared complete unmatched row inventories; all bounded rules constrained. In-region value/type/presence/extra-row mutations rejected."
+      "result": "Exact leaf rules with explicit subtree opt-in, typed expected values/presence relations, and declared complete unmatched row inventories. In-region mutations rejected. Z2 additionally closes the production classification bypass; Z3 removes the historical unconstrained floor DATA acceptance."
     },
     {
       "finding": "Y4",
@@ -248,7 +251,45 @@
       "result": "Answered formal rebuild returns 202 after parent lock, preserving title and candidate answer. Populated answered-rebuild journey added."
     }
   ],
+  "closure_scope": "The named Y/Z findings below are closed within their stated regressions and final sweep evidence only. ACCEPTED is not identical, UUID mapping is not generally bijective, and phase10 remains blocked; all documented limitations remain in force.",
+  "closed_review_followups": [
+    {
+      "finding": "Z1",
+      "commit": "e428c22d",
+      "status": "CLOSED",
+      "result": "Formal save validates students and resolves supplied canonical id using a plain pool read before BEGIN. Actor -> parent PK lock and latest-answer recheck remain inside the transaction. Full exam/helper pool-use audit found no other held-transaction pool reacquisition. Size-one existing upper-case alias rebuild returns 200 with one paper/candidate; stale supplied id returns 202 and no parent/children; mutation moving BEGIN ahead of the pool read is rejected."
+    },
+    {
+      "finding": "Z2",
+      "commit": "dec6549b",
+      "status": "CLOSED",
+      "result": "Production comparable -> category -> disposition regressions reject nested 1/true and 0/false plus both envelope absent/null directions. TEXT_ONLY needs zero typed data differences. Initial full recheck /tmp/z2_typeaware_full.json: 1870 requests, 1319 identical, 551 ACCEPTED, 0 FAIL/0 OPEN; 28 DATA and 287 TEXT_ONLY unchanged, no newly exposed DATA."
+    },
+    {
+      "finding": "Z3",
+      "commit": "75c744ee",
+      "status": "CLOSED",
+      "result": "Java unordered query plus HashMap/ArrayList source and live fixed-PK probe establish unspecified row order. Removed blanket floor DATA rule; captured key/row-floorId validation and complete duplicate-preserving multiset comparison replace it. Changed Morse fields, sort value/type, missing/extra/duplicate rows, missing/extra fields and mismatched floor references fail. Generic UUID row identities remain shape-masked."
+    },
+    {
+      "finding": "Z4",
+      "commit": "d120e188",
+      "status": "CLOSED",
+      "result": "Concurrency gate comment now describes blocked creators and successful final inventories and explicitly disclaims deterministic rejection of the missing-read gap-lock mutation. Test logic is unchanged."
+    }
+  ],
   "mutation_checks": [
+    {
+      "test": "supplied_exam_saves_use_one_pool_connection",
+      "mutation": "Move pool.begin() before supplied-id plain pool read",
+      "result": "REJECTED: existing and stale cases both return 500 instead of 200/202; unchanged existing title/inventory and zero stale inventory are observed. Restored source passes the size-one regression and final exam writer 7/7",
+      "artifact": "artifact://975"
+    },
+    {
+      "test": "ClassificationTest end-to-end nested types and envelope presence",
+      "mutation": "Restore Python == and .get(data) based category classification",
+      "result": "REJECTED: four subcases classify as TEXT_ONLY instead of DATA (1/true, 0/false and both absent/null directions); restored final Python harness 31/31"
+    },
     {
       "test": "supplied_absent_exam_is_not_resurrected",
       "mutation": "Bypass existing-parent branch and insert stale supplied id",
@@ -291,7 +332,7 @@
   ],
   "limitations": [
     {
-      "risk": "UUID shape masking does not check Java<->Rust identity correspondence; a wrong-but-UUID-shaped reference can compare equal",
+      "risk": "UUID shape masking does not generally check Java<->Rust identity correspondence; a wrong-but-UUID-shaped reference can compare equal outside the captured floor key/floorId validation",
       "proposal": "Per-journey bijective id mapping"
     },
     {
@@ -309,7 +350,10 @@
     "TEXT_ONLY description differences remain",
     "Equipment UI deviceId is ignored by both stacks",
     "No durable in-process WS frame test infrastructure; 18001-18003 verified by throwaway probes only",
-    "Temporary /tmp sweep artifacts are source execution records, not committed raw response archives"
+    "Temporary /tmp sweep artifacts are source execution records, not committed raw response archives",
+    "Supplied-existing parent deletion between canonical preflight and locking recheck can still produce a locking miss under RR; this is not the generated-ID missing-read -> INSERT-upgrade path",
+    "GET_LOCK close_on_drop disposal is asynchronous, not instantaneous server-side lock-release proof; supported immutable grading PK ordering does not prove every external-PK/deletion race",
+    "Historical ticker empty-document parity covers only SPACE/TAB/CR/LF, not all Gson lenient grammar or initial-BOM behavior"
   ],
   "not_proven": [
     "Browser/Electron smoke of these flows",
