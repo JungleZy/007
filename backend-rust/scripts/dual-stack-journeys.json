@@ -66,8 +66,9 @@
         {"name":"capture-created-main","method":"POST","path":"/api/theoryKnowledgeExam/findAllTheoryKnowledgeExam","who":"admin","body":{"state":true},"capture":{"examId":"$.data[0].id"}},
         {"name":"foreign-exam-create","method":"POST","path":"/api/theoryKnowledgeExam/savetheoryKnowledgeExam","who":"admin","body":{"title":"非考生监考权限","startTime":"2026-10-09 09:00:00","duration":"30","teacher":"sweep-student","stuId":["sweep-admin"],"testPaper":{"testPaperId":"${paperId}","name":"计划考试-双栈试卷","total":10,"passMark":6,"singleChoice":"${singleChoice}","multipleChoice":[],"judge":[],"completion":[],"shortAnswer":[]}}},
         {"name":"capture-created-foreign","method":"POST","path":"/api/theoryKnowledgeExamUser/findAllTheoryKnowledgeExamUser","who":"admin","body":{"state":true},"capture":{"foreignExamId":"$.data.exam[0].id"}},
+        {"name":"later-candidate-exam-create","method":"POST","path":"/api/theoryKnowledgeExam/savetheoryKnowledgeExam","who":"admin","body":{"title":"较晚计划考试-双栈","startTime":"2026-10-10 09:00:00","duration":"30","teacher":"sweep-admin","stuId":["sweep-student"],"testPaper":{"testPaperId":"${paperId}","name":"计划考试-双栈试卷","total":10,"passMark":6,"singleChoice":"${singleChoice}","multipleChoice":[],"judge":[],"completion":[],"shortAnswer":[]}}},
         {"name":"list-scheduled-admin","method":"POST","path":"/api/theoryKnowledgeExam/findAllTheoryKnowledgeExam","who":"admin","body":{"state":true},"unordered":["$.data"]},
-        {"name":"list-scheduled-candidate","method":"POST","path":"/api/theoryKnowledgeExamUser/findAllTheoryKnowledgeExamUser","who":"student","body":{"state":true},"unordered":["$.data.exam"]},
+        {"name":"list-scheduled-candidate","method":"POST","path":"/api/theoryKnowledgeExamUser/findAllTheoryKnowledgeExamUser","who":"student","body":{"state":true},"capture":{"laterExamId":"$.data.exam[0].id"}},
         {"name":"candidate-opens-state-one","method":"POST","path":"/api/theoryKnowledgeExam/findTheoryKnowledgeExamById","who":"student","body":{"id":"${examId}"},"parse_json":["$.data.paper.singleChoiceList","$.data.paper.multipleChoiceList","$.data.paper.judgeList","$.data.paper.completionList","$.data.paper.shortAnswer","$.data.user[*].content"]},
         {"name":"missing-before-authorization","method":"POST","path":"/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam","who":"student","body":{"examId":"missing-scheduled","type":"3"}},
         {"name":"foreign-noncandidate-forbidden","method":"POST","path":"/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam","who":"student","body":{"examId":"${foreignExamId}","type":"2"}},
@@ -95,6 +96,7 @@
         {"name":"cannot-restart-finished","method":"POST","path":"/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam","who":"admin","body":{"examId":"${examId}","type":"2"}},
         {"name":"delete-main","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${examId}"}},
         {"name":"delete-foreign","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${foreignExamId}"}},
+        {"name":"delete-later-candidate-exam","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${laterExamId}"}},
         {"name":"paper-delete","method":"POST","path":"/api/theoryKnowledgeTestPaper/deleteTestPaper","who":"admin","body":{"id":"${paperId}"}}
       ]
     },

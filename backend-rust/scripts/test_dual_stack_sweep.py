@@ -134,6 +134,20 @@ class JourneyComparisonTest(unittest.TestCase):
         plain = self.study_key("fixed-id", "fixed-time")
         self.assertEqual(plain, sweep.normalized_entity_keys({plain: 1})["<normalized-entity-key-entries>"][0][0])
 
+    def test_scheduled_candidate_journey_preserves_named_query_order(self):
+        spec = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
+        steps = next(journey["steps"] for journey in spec["journeys"] if journey["name"] == "theory-scheduled-exam")
+        listing = next(step for step in steps if step["name"] == "list-scheduled-candidate")
+        self.assertNotIn("$.data.exam", listing.get("unordered", []))
+        starts = {step["body"]["startTime"] for step in steps
+                  if step["path"].endswith("/savetheoryKnowledgeExam") and "sweep-student" in step["body"]["stuId"]}
+        self.assertGreaterEqual(len(starts), 2)
+        response = {"data": {"exam": [{"startTime": start, "title": f"distinct-exam-{index}"}
+                                      for index, start in enumerate(sorted(starts, reverse=True))]}}
+        reversed_response = copy.deepcopy(response)
+        reversed_response["data"]["exam"].reverse()
+        self.assertFalse(self.equivalent(response, reversed_response, listing))
+
     def test_fixed_journey_seed_runs_only_on_both_isolated_databases(self):
         seeded = []
         db = SimpleNamespace(dbs=("rust_parity_java_test", "rust_parity_rust_test"),
