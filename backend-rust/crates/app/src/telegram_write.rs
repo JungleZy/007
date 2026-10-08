@@ -27,6 +27,48 @@ fn error(error: sqlx::Error, op: &'static str) -> Response {
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
 
+// Jackson Integer binding: absent properties retain entity defaults, explicit null does not.
+fn timing_rates(train: &Value) -> Result<[i32; 8], &'static str> {
+    let mut rates = [0; 8];
+    for (index, (name, default, label)) in [
+        ("rateDotMinMs", 1, "点"),
+        ("rateDotMaxMs", 80, "点"),
+        ("rateLineMinMs", 81, "划"),
+        ("rateLineMaxMs", 240, "划"),
+        ("rateIntervalMinMs", 81, "字间隔"),
+        ("rateIntervalMaxMs", 240, "字间隔"),
+        ("bigIntervalMinMs", 241, "组间隔"),
+        ("bigIntervalMaxMs", 400, "组间隔"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let value = match train.get(name) {
+            None => Some(default),
+            Some(Value::String(value)) => value.trim().parse::<i32>().ok(),
+            Some(Value::Number(value)) => {
+                if let Some(value) = value.as_i64() {
+                    i32::try_from(value).ok()
+                } else {
+                    value
+                        .as_f64()
+                        .filter(|value| {
+                            *value >= f64::from(i32::MIN) && *value <= f64::from(i32::MAX)
+                        })
+                        .map(|value| value as i32)
+                }
+            }
+            _ => None,
+        }
+        .ok_or(label)?;
+        rates[index] = value;
+        if index % 2 == 1 && (rates[index - 1] < 0 || value <= rates[index - 1]) {
+            return Err(label);
+        }
+    }
+    Ok(rates)
+}
+
 pub(crate) async fn save(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -40,21 +82,9 @@ pub(crate) async fn save(
     {
         return envelope_response(StatusCode::OK, 202, "训练楼层不能为空", "");
     }
-    for (name, min_name, min_default, max_name, max_default) in [
-        ("点", "rateDotMinMs", 1, "rateDotMaxMs", 80),
-        ("划", "rateLineMinMs", 81, "rateLineMaxMs", 240),
-        ("字间隔", "rateIntervalMinMs", 81, "rateIntervalMaxMs", 240),
-        ("组间隔", "bigIntervalMinMs", 241, "bigIntervalMaxMs", 400),
-    ] {
-        let min = train
-            .get(min_name)
-            .map(Value::as_i64)
-            .unwrap_or(Some(min_default));
-        let max = train
-            .get(max_name)
-            .map(Value::as_i64)
-            .unwrap_or(Some(max_default));
-        if !matches!((min, max), (Some(min), Some(max)) if min >= 0 && max > min) {
+    let rates = match timing_rates(train) {
+        Ok(rates) => rates,
+        Err(name) => {
             return envelope_response(
                 StatusCode::OK,
                 202,
@@ -62,7 +92,7 @@ pub(crate) async fn save(
                 name,
             );
         }
-    }
+    };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
@@ -114,14 +144,8 @@ pub(crate) async fn save(
         return error(e, "save telegram train");
     }
     if let Err(e) = sqlx::query("UPDATE t_telegram_train SET rate_dot_min_ms=?,rate_dot_max_ms=?,rate_line_min_ms=?,rate_line_max_ms=?,rate_interval_min_ms=?,rate_interval_max_ms=?,big_interval_min_ms=?,big_interval_max_ms=? WHERE id=?")
-        .bind(train.get("rateDotMinMs").and_then(Value::as_i64).unwrap_or(1))
-        .bind(train.get("rateDotMaxMs").and_then(Value::as_i64).unwrap_or(80))
-        .bind(train.get("rateLineMinMs").and_then(Value::as_i64).unwrap_or(81))
-        .bind(train.get("rateLineMaxMs").and_then(Value::as_i64).unwrap_or(240))
-        .bind(train.get("rateIntervalMinMs").and_then(Value::as_i64).unwrap_or(81))
-        .bind(train.get("rateIntervalMaxMs").and_then(Value::as_i64).unwrap_or(240))
-        .bind(train.get("bigIntervalMinMs").and_then(Value::as_i64).unwrap_or(241))
-        .bind(train.get("bigIntervalMaxMs").and_then(Value::as_i64).unwrap_or(400))
+        .bind(rates[0]).bind(rates[1]).bind(rates[2]).bind(rates[3])
+        .bind(rates[4]).bind(rates[5]).bind(rates[6]).bind(rates[7])
         .bind(&id).execute(&mut *tx).await { return error(e, "save telegram timing settings"); }
     if let Some(floors) = body.get("trainFloors").and_then(Value::as_array) {
         for (floor_index, floor_item) in floors.iter().enumerate() {
@@ -457,7 +481,67 @@ fn aggregate_time_text(value: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::aggregate_time_text;
+    use super::{aggregate_time_text, timing_rates};
+    use serde_json::json;
+
+    #[test]
+    fn timing_properties_follow_jackson_integer_binding() {
+        assert_eq!(
+            timing_rates(&json!({})),
+            Ok([1, 80, 81, 240, 81, 240, 241, 400])
+        );
+        assert_eq!(
+            timing_rates(&json!({
+                "rateDotMinMs":" 40 ", "rateDotMaxMs":80.9,
+                "rateLineMinMs":81.9, "rateLineMaxMs":"240",
+                "rateIntervalMinMs":" 81", "rateIntervalMaxMs":240.1,
+                "bigIntervalMinMs":241, "bigIntervalMaxMs":"400 "
+            })),
+            Ok([40, 80, 81, 240, 81, 240, 241, 400])
+        );
+        assert_eq!(timing_rates(&json!({"rateDotMinMs":-0.9})).unwrap()[0], 0);
+        for field in [
+            "rateDotMinMs",
+            "rateDotMaxMs",
+            "rateLineMinMs",
+            "rateLineMaxMs",
+            "rateIntervalMinMs",
+            "rateIntervalMaxMs",
+            "bigIntervalMinMs",
+            "bigIntervalMaxMs",
+        ] {
+            for invalid in [
+                json!(null),
+                json!(true),
+                json!([]),
+                json!({}),
+                json!(""),
+                json!("40.5"),
+                json!("2147483648"),
+                json!(2147483648_i64),
+                json!(-2147483649_i64),
+                json!(2147483647.9),
+            ] {
+                assert!(timing_rates(&json!({field:invalid})).is_err(), "{field}");
+            }
+        }
+        assert_eq!(
+            timing_rates(&json!({"bigIntervalMaxMs":i32::MAX})).unwrap()[7],
+            i32::MAX
+        );
+        assert_eq!(
+            timing_rates(&json!({"bigIntervalMaxMs":"2147483647"})).unwrap()[7],
+            i32::MAX
+        );
+        for body in [
+            json!({"rateDotMinMs":-1}),
+            json!({"rateDotMaxMs":1}),
+            json!({"rateDotMinMs":80.9}),
+            json!({"bigIntervalMaxMs":240.9}),
+        ] {
+            assert!(timing_rates(&body).is_err());
+        }
+    }
 
     #[test]
     fn aggregate_strings_preserve_java_double_notation() {

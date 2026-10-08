@@ -88,7 +88,11 @@
         {"name": "group-statistics", "method": "POST", "path": "/api/telegramTrain/statisticalPage", "mask":["$.data[0].totalTime","$.data[0].avgSpeed","$.data[1].totalTime","$.data[1].avgSpeed"]},
         {"name":"create-default-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"title":"手键拍发训练-默认时序","type":1,"totalNumber":1},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]},"capture":{"defaultTelegramId":"$.data.id"}},
         {"name":"detail-default-timing","method":"POST","path":"/api/telegramTrain/getById","body":{"trainId":"${defaultTelegramId}"}},
-        {"name":"reject-explicit-null-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"type":1,"rateDotMinMs":null},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]}}
+        {"name":"reject-explicit-null-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"type":1,"rateDotMinMs":null},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]}},
+        {"name":"create-coerced-timing","method":"POST","path":"/api/telegramTrain/saveTelegramTrain","body":{"train":{"title":"手键拍发训练-兼容整数绑定","type":1,"totalNumber":1,"rateDotMinMs":" 40 ","rateDotMaxMs":80.9,"rateLineMinMs":81.9,"rateLineMaxMs":"240","rateIntervalMinMs":" 81","rateIntervalMaxMs":240.1,"bigIntervalMinMs":241,"bigIntervalMaxMs":"400 "},"trainFloors":[{"floor":{"type":1,"numberType":0},"floorContents":[{"moresKey":"E","moresValue":"[]"}]}]},"capture":{"coercedTelegramId":"$.data.id"}},
+        {"name":"detail-coerced-timing","method":"POST","path":"/api/telegramTrain/getById","body":{"trainId":"${coercedTelegramId}"}},
+        {"name":"control-coerced-timing","method":"POST","path":"/api/telegramTrain/startTelegramTrain","body":{"train":{"id":"${coercedTelegramId}","rateDotMinMs":30.9,"rateDotMaxMs":" 70 ","rateLineMinMs":"71","rateLineMaxMs":220.9,"rateIntervalMinMs":71.8,"rateIntervalMaxMs":"220","bigIntervalMinMs":"221","bigIntervalMaxMs":380.9}}},
+        {"name":"detail-controlled-timing","method":"POST","path":"/api/telegramTrain/getById","body":{"trainId":"${coercedTelegramId}"}}
       ]
     },
     {

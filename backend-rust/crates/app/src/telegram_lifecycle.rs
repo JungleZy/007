@@ -407,38 +407,10 @@ pub(crate) async fn control(
         Ok(row) => row,
         Err(error) => return capture_response(error),
     };
-    let mut rates = [0_i32; 8];
-    for (index, (name, default)) in [
-        ("rateDotMinMs", 1),
-        ("rateDotMaxMs", 80),
-        ("rateLineMinMs", 81),
-        ("rateLineMaxMs", 240),
-        ("rateIntervalMinMs", 81),
-        ("rateIntervalMaxMs", 240),
-        ("bigIntervalMinMs", 241),
-        ("bigIntervalMaxMs", 400),
-    ]
-    .iter()
-    .enumerate()
-    {
-        let value = match requested.get(*name) {
-            None => Some(*default),
-            Some(value) => value
-                .as_i64()
-                .and_then(|v| i32::try_from(v).ok())
-                .or_else(|| value.as_str().and_then(|v| v.parse().ok())),
-        };
-        let Some(value) = value else {
-            return invalid("训练配置须为非负毫秒值，且上界大于下界");
-        };
-        rates[index] = value;
-    }
-    if rates
-        .chunks_exact(2)
-        .any(|pair| pair[0] < 0 || pair[1] <= pair[0])
-    {
-        return invalid("训练配置须为非负毫秒值，且上界大于下界");
-    }
+    let rates = match super::timing_rates(requested) {
+        Ok(rates) => rates,
+        Err(_) => return invalid("训练配置须为非负毫秒值，且上界大于下界"),
+    };
     if let Err(e) = sqlx::query("UPDATE t_telegram_train SET rate_dot_min_ms=?,rate_dot_max_ms=?,rate_line_min_ms=?,rate_line_max_ms=?,rate_interval_min_ms=?,rate_interval_max_ms=?,big_interval_min_ms=?,big_interval_max_ms=? WHERE id=?")
         .bind(rates[0]).bind(rates[1]).bind(rates[2]).bind(rates[3]).bind(rates[4]).bind(rates[5]).bind(rates[6]).bind(rates[7]).bind(id).execute(&mut *tx).await { return error(e, "save telegram rates"); }
     let current = row.get::<Option<i32>, _>("status").unwrap_or(0);
