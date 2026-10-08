@@ -531,7 +531,7 @@ pub(crate) async fn save_base_train(
         .get("sustainTime")
         .and_then(Value::as_str)
         .unwrap_or("0");
-    if let Err(e) = sqlx::query("INSERT INTO t_telegram_train (id,type,status,total_knock_number,total_number,error_number,accuracy,speed,sustain_time,create_user_id,create_time,protocol_version,accumulated_active_millis) VALUES (?,21,3,?,0,0,'0','0',?,?,?,0,0)")
+    if let Err(e) = sqlx::query("INSERT INTO t_telegram_train (id,type,status,total_knock_number,total_number,error_number,accuracy,speed,sustain_time,create_user_id,create_time,protocol_version,accumulated_active_millis,rate_dot_min_ms,rate_dot_max_ms,rate_line_min_ms,rate_line_max_ms,rate_interval_min_ms,rate_interval_max_ms,big_interval_min_ms,big_interval_max_ms) VALUES (?,21,3,?,0,0,'0','0',?,?,?,0,0,1,80,81,240,81,240,241,400)")
         .bind(&id).bind(total_knock).bind(sustain).bind(&user.id).bind(&created).execute(&mut *tx).await { return error(e, "save telegram base train"); }
     let aggregate = match sqlx::query("SELECT COALESCE(SUM(CAST(sustain_time AS DECIMAL(30,6))),0) AS total_time,COUNT(*) AS total_count,COALESCE(AVG(CAST(speed AS DECIMAL(30,6))),0) AS avg_speed FROM t_telegram_train WHERE create_user_id=? AND type=21 AND status=3")
         .bind(&user.id).fetch_one(&mut *tx).await { Ok(row) => row, Err(e) => return error(e, "aggregate telegram base train") };
