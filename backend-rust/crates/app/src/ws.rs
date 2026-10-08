@@ -1595,70 +1595,22 @@ async fn classic_message(state: &AppState, prepared: &Prepared, session_id: &str
         return;
     };
     match code {
-        2001 => {
-            let Some(data) = object.get("data").and_then(Value::as_object) else {
+        2001 | 3001 => {
+            let Some(data) = object.get("data").filter(|data| data.is_object()) else {
                 let _ = tx.send(Outbound::Text(classic_response(202, "消息格式不正确")));
                 return;
             };
-            let Some(train_id) = data
-                .get("telegramTrainId")
-                .and_then(Value::as_str)
-                .filter(|id| !id.is_empty())
-            else {
-                let _ = tx.send(Outbound::Text(classic_response(202, "训练编号不能为空")));
-                return;
-            };
-            if let Err(error) = classic_train_status(state, train_id, &prepared.user.id).await {
-                let _ = tx.send(Outbound::Text(classic_response(error.0, &error.1)));
-                return;
-            }
-            let (typ, value) = (
-                data.get("type").and_then(Value::as_i64),
-                data.get("value").and_then(Value::as_str),
-            );
             let Some(pool) = &state.pool else {
                 let _ = tx.send(Outbound::Text(classic_response(500, "服务器错误")));
                 return;
             };
-            if let Err(error) = sqlx::query("INSERT INTO t_telegram_train_log (id, telegram_train_id, type, value, creat_time) VALUES (?,?,?,?,?)").bind(Uuid::new_v4().to_string()).bind(train_id).bind(typ).bind(value).bind(chrono_millis()).execute(pool).await {
-                tracing::error!(%error, train_id, user_id = %prepared.user.id, "classic websocket train log insert failed");
-                let _ = tx.send(Outbound::Text(classic_response(500, "服务器错误")));
-            }
-        }
-        3001 => {
-            let Some(data) = object.get("data").and_then(Value::as_object) else {
-                let _ = tx.send(Outbound::Text(classic_response(202, "消息格式不正确")));
-                return;
+            let result = if code == 2001 {
+                crate::telegram_write::save_captured_log(pool, &prepared.user.id, data).await
+            } else {
+                crate::telegram_write::save_captured_content(pool, &prepared.user.id, data).await
             };
-            let Some(content_id) = data
-                .get("id")
-                .and_then(Value::as_str)
-                .filter(|id| !id.is_empty())
-            else {
-                let _ = tx.send(Outbound::Text(classic_response(202, "未查询报文内容")));
-                return;
-            };
-            let check = classic_floor_status(state, content_id, &prepared.user.id).await;
-            if let Err(error) = check {
-                let _ = tx.send(Outbound::Text(classic_response(error.0, &error.1)));
-                return;
-            }
-            let Some(pool) = &state.pool else {
-                let _ = tx.send(Outbound::Text(classic_response(500, "服务器错误")));
-                return;
-            };
-            let updated = sqlx::query("UPDATE t_telegram_train_floor_content c JOIN t_telegram_train_floor f ON f.id=c.floor_id JOIN t_telegram_train t ON t.id=f.train_id AND t.create_user_id=? SET c.mores_value=?, c.mores_time=? WHERE c.id=?")
-                .bind(&prepared.user.id).bind(data.get("moresValue").and_then(Value::as_str)).bind(data.get("moresTime").and_then(Value::as_str).unwrap_or("[]")).bind(content_id).execute(pool).await;
-            match updated {
-                Ok(result) if result.rows_affected() == 1 => {}
-                Ok(result) => {
-                    tracing::warn!(content_id, user_id = %prepared.user.id, rows_affected = result.rows_affected(), "classic websocket content update did not match one row");
-                    let _ = tx.send(Outbound::Text(classic_response(500, "服务器错误")));
-                }
-                Err(error) => {
-                    tracing::error!(%error, content_id, user_id = %prepared.user.id, "classic websocket content update failed");
-                    let _ = tx.send(Outbound::Text(classic_response(500, "服务器错误")));
-                }
+            if let Err((code, message)) = result {
+                let _ = tx.send(Outbound::Text(classic_response(code, message)));
             }
         }
         _ => {}
@@ -1683,79 +1635,6 @@ fn json_int(value: Option<&Value>) -> Option<i64> {
             .as_i64()
             .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
     })
-}
-
-fn chrono_millis() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis().to_string())
-        .unwrap_or_else(|_| "0".to_owned())
-}
-
-async fn classic_train_status(
-    state: &AppState,
-    train_id: &str,
-    actor: &str,
-) -> Result<(), (i32, String)> {
-    let Some(pool) = &state.pool else {
-        return Err((500, "服务器错误".to_owned()));
-    };
-    let row = sqlx::query(
-        "SELECT create_user_id, protocol_version, status FROM t_telegram_train WHERE id=? LIMIT 1",
-    )
-    .bind(train_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| {
-        tracing::error!(%error, train_id, actor, "classic websocket train lookup failed");
-        (500, "服务器错误".to_owned())
-    })?;
-    let Some(row) = row else {
-        return Err((202, "未查询该训练！".to_owned()));
-    };
-    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(actor) {
-        return Err((207, "无权访问他人训练".to_owned()));
-    }
-    let protocol: Option<i32> = row.get("protocol_version");
-    let status: Option<i32> = row.get("status");
-    if protocol != Some(1) {
-        return Err((208, "历史训练缺少权威时间轴，请新建训练".to_owned()));
-    }
-    if status.is_some_and(|value| !(0..=2).contains(&value)) {
-        return Err((208, "训练已结束".to_owned()));
-    }
-    Ok(())
-}
-
-async fn classic_floor_status(
-    state: &AppState,
-    content_id: &str,
-    actor: &str,
-) -> Result<(), (i32, String)> {
-    let Some(pool) = &state.pool else {
-        return Err((500, "服务器错误".to_owned()));
-    };
-    let row = sqlx::query("SELECT t.create_user_id, t.protocol_version, t.status FROM t_telegram_train_floor_content c JOIN t_telegram_train_floor f ON f.id=c.floor_id JOIN t_telegram_train t ON t.id=f.train_id WHERE c.id=? LIMIT 1").bind(content_id).fetch_optional(pool).await.map_err(|error| {
-        tracing::error!(%error, content_id, actor, "classic websocket content lookup failed");
-        (500, "服务器错误".to_owned())
-    })?;
-    let Some(row) = row else {
-        return Err((202, "未查询报文内容".to_owned()));
-    };
-    if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(actor) {
-        return Err((207, "无权访问他人训练".to_owned()));
-    }
-    if row.get::<Option<i32>, _>("protocol_version") != Some(1) {
-        return Err((208, "历史训练缺少权威时间轴，请新建训练".to_owned()));
-    }
-    if row
-        .get::<Option<i32>, _>("status")
-        .is_some_and(|value| !(0..=2).contains(&value))
-    {
-        return Err((208, "训练已结束".to_owned()));
-    }
-    Ok(())
 }
 
 async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str, text: &str) {

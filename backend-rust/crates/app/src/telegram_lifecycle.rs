@@ -7,39 +7,48 @@ use axum::{
     Json,
 };
 use serde_json::Value;
-use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
+use sqlx::{mysql::MySqlRow, MySql, MySqlPool, Row, Transaction};
 
 fn invalid(message: &str) -> Response {
     envelope_response(StatusCode::OK, 202, message, message)
+}
+
+fn capture_db_error(error: sqlx::Error, operation: &'static str) -> (i32, &'static str) {
+    tracing::warn!(%error, operation, "telegram capture database operation failed");
+    (500, "服务器错误")
+}
+
+fn capture_response((code, message): (i32, &'static str)) -> Response {
+    let status = if code == 500 {
+        StatusCode::INTERNAL_SERVER_ERROR
+    } else {
+        StatusCode::OK
+    };
+    envelope_response(
+        status,
+        code,
+        if code == 207 { "无权限" } else { message },
+        if code == 202 { message } else { "" },
+    )
 }
 
 async fn writable_train(
     tx: &mut Transaction<'_, MySql>,
     id: &str,
     user_id: &str,
-) -> Result<MySqlRow, Response> {
-    let row = sqlx::query(&format!(
-        "SELECT {} FROM t_telegram_train WHERE id=? FOR UPDATE",
-        crate::telegram::TRAIN_COLUMNS
-    ))
-    .bind(id)
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(|e| error(e, "lock telegram train"))?
-    .ok_or_else(|| invalid("未查询该训练！"))?;
+) -> Result<MySqlRow, (i32, &'static str)> {
+    let row = sqlx::query("SELECT create_user_id,protocol_version,status,active_since,accumulated_active_millis,type FROM t_telegram_train WHERE id=? FOR UPDATE")
+        .bind(id).fetch_optional(&mut **tx).await
+        .map_err(|e| capture_db_error(e, "lock telegram train"))?
+        .ok_or((202, "未查询该训练！"))?;
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user_id) {
-        return Err(envelope_response(StatusCode::OK, 207, "无权限", ""));
+        return Err((207, "无权访问他人训练"));
     }
     if row.get::<Option<i32>, _>("protocol_version") != Some(1) {
-        return Err(envelope_response(
-            StatusCode::OK,
-            208,
-            "历史训练缺少权威时间轴，请新建训练",
-            "",
-        ));
+        return Err((208, "历史训练缺少权威时间轴，请新建训练"));
     }
     if !(0..=2).contains(&row.get::<Option<i32>, _>("status").unwrap_or(0)) {
-        return Err(envelope_response(StatusCode::OK, 208, "训练已结束", ""));
+        return Err((208, "训练已结束"));
     }
     Ok(row)
 }
@@ -47,14 +56,18 @@ async fn writable_train(
 async fn content_owner(
     tx: &mut Transaction<'_, MySql>,
     content_id: &str,
-) -> Result<(String, String), Response> {
+) -> Result<(String, String), (i32, &'static str)> {
     let row = sqlx::query("SELECT f.id AS floor_id,f.train_id FROM t_telegram_train_floor_content c JOIN t_telegram_train_floor f ON f.id=c.floor_id WHERE c.id=?")
-        .bind(content_id).fetch_optional(&mut **tx).await.map_err(|e| error(e, "load telegram content owner"))?
-        .ok_or_else(|| invalid("未查询报文内容"))?;
+        .bind(content_id).fetch_optional(&mut **tx).await
+        .map_err(|e| capture_db_error(e, "load telegram content owner"))?
+        .ok_or((202, "未查询报文内容"))?;
     Ok((row.get("floor_id"), row.get("train_id")))
 }
 
-async fn update_content(tx: &mut Transaction<'_, MySql>, content: &Value) -> Result<(), Response> {
+async fn update_content(
+    tx: &mut Transaction<'_, MySql>,
+    content: &Value,
+) -> Result<(), (i32, &'static str)> {
     sqlx::query("UPDATE t_telegram_train_floor_content SET mores_value=?,mores_time=? WHERE id=?")
         .bind(content.get("moresValue").and_then(Value::as_str))
         .bind(
@@ -67,7 +80,72 @@ async fn update_content(tx: &mut Transaction<'_, MySql>, content: &Value) -> Res
         .bind(content.get("id").and_then(Value::as_str))
         .execute(&mut **tx)
         .await
-        .map_err(|e| error(e, "save telegram raw content"))?;
+        .map_err(|e| capture_db_error(e, "save telegram raw content"))?;
+    Ok(())
+}
+
+pub(crate) async fn save_captured_content(
+    pool: &MySqlPool,
+    actor: &str,
+    content: &Value,
+) -> Result<(), (i32, &'static str)> {
+    let id = content
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|v| !v.trim().is_empty())
+        .ok_or((202, "未查询报文内容"))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| capture_db_error(e, "start telegram capture"))?;
+    if !crate::statistical::lock_user(&mut tx, actor)
+        .await
+        .map_err(|e| capture_db_error(e, "lock telegram capture user"))?
+    {
+        return Err((207, "未认证的采集会话"));
+    }
+    let (_, train_id) = content_owner(&mut tx, id).await?;
+    writable_train(&mut tx, &train_id, actor).await?;
+    update_content(&mut tx, content).await?;
+    tx.commit()
+        .await
+        .map_err(|e| capture_db_error(e, "commit telegram capture"))?;
+    Ok(())
+}
+
+pub(crate) async fn save_captured_log(
+    pool: &MySqlPool,
+    actor: &str,
+    data: &Value,
+) -> Result<(), (i32, &'static str)> {
+    let id = data
+        .get("telegramTrainId")
+        .and_then(Value::as_str)
+        .filter(|v| !v.trim().is_empty())
+        .ok_or((202, "训练编号不能为空"))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| capture_db_error(e, "start telegram captured log"))?;
+    if !crate::statistical::lock_user(&mut tx, actor)
+        .await
+        .map_err(|e| capture_db_error(e, "lock telegram log user"))?
+    {
+        return Err((207, "未认证的采集会话"));
+    }
+    writable_train(&mut tx, id, actor).await?;
+    let value = data.get("value").and_then(|value| match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    });
+    sqlx::query("INSERT INTO t_telegram_train_log (id,telegram_train_id,type,value,creat_time) VALUES (?,?,?,?,?)")
+        .bind(uuid::Uuid::new_v4().to_string()).bind(id).bind(data.get("type").and_then(Value::as_i64))
+        .bind(value).bind(chrono::Utc::now().timestamp_millis().to_string())
+        .execute(&mut *tx).await.map_err(|e| capture_db_error(e, "save telegram captured log"))?;
+    tx.commit()
+        .await
+        .map_err(|e| capture_db_error(e, "commit telegram captured log"))?;
     Ok(())
 }
 
@@ -76,39 +154,13 @@ pub(crate) async fn save_floor_content(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = body
-        .get("id")
-        .and_then(Value::as_str)
-        .filter(|v| !v.trim().is_empty())
-    else {
-        return invalid("未查询报文内容");
-    };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(e) => return error(e, "start telegram content save"),
-    };
-    match lock_user(&mut tx, &user.id).await {
-        Ok(true) => {}
-        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
-        Err(e) => return error(e, "lock telegram content user"),
+    match save_captured_content(pool, &user.id, &body).await {
+        Ok(()) => envelope_response(StatusCode::OK, 200, "ok", ""),
+        Err(error) => capture_response(error),
     }
-    let (_, train_id) = match content_owner(&mut tx, id).await {
-        Ok(owner) => owner,
-        Err(response) => return response,
-    };
-    if let Err(response) = writable_train(&mut tx, &train_id, &user.id).await {
-        return response;
-    }
-    if let Err(response) = update_content(&mut tx, &body).await {
-        return response;
-    }
-    if let Err(e) = tx.commit().await {
-        return error(e, "commit telegram content save");
-    }
-    envelope_response(StatusCode::OK, 200, "ok", "")
 }
 
 async fn submitted_content(
@@ -134,7 +186,7 @@ async fn submitted_content(
                 .get("id")
                 .and_then(Value::as_str)
                 .ok_or_else(|| invalid("未查询报文内容"))?;
-            let (floor_id, owner_train) = content_owner(tx, id).await?;
+            let (floor_id, owner_train) = content_owner(tx, id).await.map_err(capture_response)?;
             if declared.is_some_and(|declared| declared != floor_id) || owner_train != train_id {
                 return Err(envelope_response(StatusCode::OK, 207, "无权限", ""));
             }
@@ -145,7 +197,9 @@ async fn submitted_content(
             .as_array()
             .expect("validated contents")
         {
-            update_content(tx, content).await?;
+            update_content(tx, content)
+                .await
+                .map_err(capture_response)?;
         }
     }
     Ok(())
@@ -351,7 +405,7 @@ pub(crate) async fn control(
     }
     let row = match writable_train(&mut tx, id, &user.id).await {
         Ok(row) => row,
-        Err(response) => return response,
+        Err(error) => return capture_response(error),
     };
     let mut rates = [0_i32; 8];
     for (index, (name, default)) in [
@@ -524,5 +578,119 @@ mod tests {
             raw_result("E", Some("[0.0]"), false, false),
             Ok((false, true))
         );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires RUST_PHASE2_DATABASE_URL pointing to isolated scratch tables"]
+    async fn queued_capture_and_log_cannot_write_after_settlement() {
+        use super::{save_captured_content, save_captured_log};
+        use serde_json::json;
+        use sqlx::{mysql::MySqlPoolOptions, Row};
+        use std::time::Duration;
+
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("isolated scratch database URL");
+        assert!(
+            url.ends_with("/rust_scratch_lockdemo"),
+            "only the isolated scratch database is allowed"
+        );
+        let pool = MySqlPoolOptions::new()
+            .max_connections(5)
+            .connect(&url)
+            .await
+            .unwrap();
+        let actor = uuid::Uuid::new_v4().to_string();
+        let train_id = uuid::Uuid::new_v4().to_string();
+        let floor_id = uuid::Uuid::new_v4().to_string();
+        let content_id = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO t_user (id,user_account,user_name,status) VALUES (?,?,?,0)")
+            .bind(&actor)
+            .bind(&actor)
+            .bind("capture regression")
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO t_telegram_train (id,type,status,protocol_version,create_user_id,accumulated_active_millis) VALUES (?,1,1,1,?,0)").bind(&train_id).bind(&actor).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO t_telegram_train_floor (id,train_id,sort,type,number_type,content_number) VALUES (?,?,0,1,0,1)").bind(&floor_id).bind(&train_id).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO t_telegram_train_floor_content (id,floor_id,sort,mores_key,mores_value,mores_time) VALUES (?,?,0,'E','[]','[]')").bind(&content_id).bind(&floor_id).execute(&pool).await.unwrap();
+
+        let mut settlement = pool.begin().await.unwrap();
+        assert!(crate::statistical::lock_user(&mut settlement, &actor)
+            .await
+            .unwrap());
+        sqlx::query("SELECT id FROM t_telegram_train WHERE id=? FOR UPDATE")
+            .bind(&train_id)
+            .fetch_one(&mut *settlement)
+            .await
+            .unwrap();
+        sqlx::query("UPDATE t_telegram_train SET status=3,accuracy='100.00',total_knock_number=1 WHERE id=?").bind(&train_id).execute(&mut *settlement).await.unwrap();
+        sqlx::query("UPDATE t_telegram_train_floor_content SET mores_value='[0]',mores_time='[40]' WHERE id=?").bind(&content_id).execute(&mut *settlement).await.unwrap();
+
+        let capture = json!({"id":content_id,"moresValue":"[1]","moresTime":"[160]"});
+        let log = json!({"telegramTrainId":train_id,"type":1,"value":"160"});
+        let (capture_pool, capture_actor, capture_data) =
+            (pool.clone(), actor.clone(), capture.clone());
+        let mut capture_job = tokio::spawn(async move {
+            save_captured_content(&capture_pool, &capture_actor, &capture_data).await
+        });
+        let (log_pool, log_actor, log_data) = (pool.clone(), actor.clone(), log.clone());
+        let mut log_job =
+            tokio::spawn(async move { save_captured_log(&log_pool, &log_actor, &log_data).await });
+        let capture_wait = tokio::time::timeout(Duration::from_millis(200), &mut capture_job).await;
+        let log_wait = tokio::time::timeout(Duration::from_millis(200), &mut log_job).await;
+        let capture_blocked = capture_wait.is_err();
+        let log_blocked = log_wait.is_err();
+        settlement.commit().await.unwrap();
+        let captured = match capture_wait {
+            Ok(result) => result.unwrap(),
+            Err(_) => capture_job.await.unwrap(),
+        };
+        let logged = match log_wait {
+            Ok(result) => result.unwrap(),
+            Err(_) => log_job.await.unwrap(),
+        };
+        let late_capture = save_captured_content(&pool, &actor, &capture).await;
+        let late_log = save_captured_log(&pool, &actor, &log).await;
+        let stored = sqlx::query(
+            "SELECT mores_value,mores_time FROM t_telegram_train_floor_content WHERE id=?",
+        )
+        .bind(&content_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let log_count = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM t_telegram_train_log WHERE telegram_train_id=?",
+        )
+        .bind(&train_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query("DELETE FROM t_telegram_train_log WHERE telegram_train_id=?")
+            .bind(&train_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        for (table, id) in [
+            ("t_telegram_train_floor_content", &content_id),
+            ("t_telegram_train_floor", &floor_id),
+            ("t_telegram_train", &train_id),
+            ("t_user", &actor),
+        ] {
+            sqlx::query(&format!("DELETE FROM {table} WHERE id=?"))
+                .bind(id)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        assert!(
+            capture_blocked && log_blocked,
+            "queued capture/log must wait for the settlement user lock"
+        );
+        assert_eq!(captured, Err((208, "训练已结束")));
+        assert_eq!(logged, Err((208, "训练已结束")));
+        assert_eq!(late_capture, Err((208, "训练已结束")));
+        assert_eq!(late_log, Err((208, "训练已结束")));
+        assert_eq!(stored.get::<String, _>("mores_value"), "[0]");
+        assert_eq!(stored.get::<String, _>("mores_time"), "[40]");
+        assert_eq!(log_count, 0);
     }
 }

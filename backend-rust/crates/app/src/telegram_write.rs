@@ -10,7 +10,7 @@ use sqlx::{MySql, Row, Transaction};
 
 #[path = "telegram_lifecycle.rs"]
 mod lifecycle;
-pub(crate) use lifecycle::{control, save_floor_content};
+pub(crate) use lifecycle::{control, save_captured_content, save_captured_log, save_floor_content};
 
 async fn lock_user(tx: &mut Transaction<'_, MySql>, user_id: &str) -> Result<bool, sqlx::Error> {
     sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
