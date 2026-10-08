@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::Response, Json};
 use serde_json::{json, Value};
-use sqlx::{Connection, MySql, MySqlConnection, Row, Transaction};
+use sqlx::{pool::PoolConnection, Connection, MySql, Row, Transaction};
 
 use super::{envelope_json, envelope_response, AppState};
 
@@ -79,19 +79,19 @@ pub(crate) async fn by_id(State(state): State<AppState>, Json(body): Json<Value>
     }
 }
 
-// Named locks cover same-type INSERTs as well as existing rows. The detached
-// session is never returned to the pool: dropping it releases the lock on every
-// return/error/cancellation path, including failed commits and GET_LOCK errors.
+// Named-lock sessions keep their pool permit and are closed on every exit,
+// including cancellation while GET_LOCK is waiting. Never reuse these sessions.
 async fn type_connection(
     pool: &sqlx::MySqlPool,
     rule_type: i64,
-) -> Result<MySqlConnection, sqlx::Error> {
-    let mut connection = pool.acquire().await?.detach();
+) -> Result<PoolConnection<MySql>, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    connection.close_on_drop();
     let acquired: Option<i64> = sqlx::query_scalar(
         "SELECT GET_LOCK(CONCAT('grading:', LEFT(SHA2(CONCAT(DATABASE(), ':', ?), 256), 56)), 10)",
     )
     .bind(rule_type)
-    .fetch_one(&mut connection)
+    .fetch_one(&mut *connection)
     .await?;
     if acquired != Some(1) {
         return Err(sqlx::Error::Protocol(
@@ -205,6 +205,7 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
                 .execute(&mut *tx).await?;
         }
         tx.commit().await?;
+        drop(connection);
         rule_by_id(pool, &rule_id).await
     }.await;
     match result {
@@ -601,6 +602,80 @@ mod tests {
         );
         assert_eq!(response_code(response).await, 200);
         assert_eq!(defaults, [1, 0, 0], "only the current target type is reset");
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
+    async fn named_lock_waiters_keep_pool_bound_and_close_on_cancellation() {
+        let (mut state, observer, ids) = fixture().await;
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").unwrap();
+        let bounded = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(1)
+            .acquire_timeout(Duration::from_millis(200))
+            .connect(&url)
+            .await
+            .unwrap();
+        let mut probe = bounded.acquire().await.unwrap();
+        let initial: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *probe)
+            .await
+            .unwrap();
+        drop(probe);
+        let gate = type_connection(&observer, 12349).await.unwrap();
+        let waiter_pool = bounded.clone();
+        let waiter = tokio::spawn(async move { type_connection(&waiter_pool, 12349).await });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let pending: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM performance_schema.metadata_locks m JOIN performance_schema.threads t ON t.THREAD_ID=m.OWNER_THREAD_ID WHERE m.OBJECT_TYPE='USER LEVEL LOCK' AND m.LOCK_STATUS='PENDING' AND t.PROCESSLIST_ID=?")
+                    .bind(initial).fetch_one(&observer).await.unwrap();
+                if pending == 1 { break; }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }).await.expect("waiter must reach GET_LOCK");
+        let another = bounded.acquire().await;
+        let bounded_wait = matches!(another, Err(sqlx::Error::PoolTimedOut));
+        drop(another);
+        waiter.abort();
+        assert!(waiter.await.unwrap_err().is_cancelled());
+        drop(gate);
+        let mut next = tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                match type_connection(&bounded, 12349).await {
+                    Ok(connection) => break connection,
+                    Err(sqlx::Error::PoolTimedOut) => continue,
+                    Err(error) => panic!("{error}"),
+                }
+            }
+        })
+        .await
+        .expect("cancelled waiter must release pool permit and named lock");
+        let replacement: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *next)
+            .await
+            .unwrap();
+        assert_ne!(
+            initial, replacement,
+            "a cancelled lock session must never be reused"
+        );
+        assert!(
+            bounded_wait,
+            "a waiting named lock must keep the only pool permit"
+        );
+        assert_eq!(bounded.size(), 1);
+        drop(next);
+        state.pool = Some(bounded.clone());
+        let response = tokio::time::timeout(
+            Duration::from_secs(8),
+            save(
+                State(state),
+                Json(json!({"id":ids[2],"type":12346,"score":100,"isDefault":0})),
+            ),
+        )
+        .await
+        .expect("post-commit read must work with a pool of one");
+        assert_eq!(response_code(response).await, 200);
+        cleanup(&observer, &ids).await;
+        bounded.close().await;
     }
 
     #[tokio::test]
