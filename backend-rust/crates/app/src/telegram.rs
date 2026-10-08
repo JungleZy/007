@@ -156,7 +156,7 @@ pub(crate) async fn by_id(
     envelope_json(
         StatusCode::OK,
         200,
-        Some(json!({"train": train_value, "trainFloors": floor_values})),
+        Some(json!({"train": train_value, "trainFloors": floor_values, "trainUser": null})),
         "ok",
         "",
     )

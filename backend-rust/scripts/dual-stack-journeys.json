@@ -12,7 +12,11 @@
         {"name": "statistics-integral", "method": "POST", "path": "/api/telegramTrain/statisticalPage"},
         {"name": "base-last", "method": "POST", "path": "/api/telegramTrain/lastTrain", "body": {"type": 21}},
         {"name": "base-fraction", "method": "POST", "path": "/api/telegramTrain/saveBaseTrain", "body": {"totalKnockNumber": 1, "sustainTime": "0.5"}},
-        {"name": "statistics-fraction", "method": "POST", "path": "/api/telegramTrain/statisticalPage"}
+        {"name": "statistics-fraction", "method": "POST", "path": "/api/telegramTrain/statisticalPage"},
+        {"name": "create", "method": "POST", "path": "/api/telegramTrain/saveTelegramTrain", "body": {"train": {"title": "手键拍发训练-双栈", "type": 1, "totalNumber": 2, "rateDotMinMs": 40, "rateDotMaxMs": 80, "rateLineMinMs": 81, "rateLineMaxMs": 240, "rateIntervalMinMs": 80, "rateIntervalMaxMs": 240, "bigIntervalMinMs": 240, "bigIntervalMaxMs": 400}, "trainFloors": [{"floor": {"type": 1, "numberType": 0}, "floorContents": [{"moresKey": "E", "moresValue": "[]"}, {"moresKey": "T", "moresValue": "[]"}]}]}, "capture": {"telegramId": "$.data.id"}},
+        {"name": "detail-created", "method": "POST", "path": "/api/telegramTrain/getById", "body": {"trainId": "${telegramId}"}, "capture": {"telegramFloorId": "$.data.trainFloors[0].floor.id", "telegramContentE": "$.data.trainFloors[0].floorContents[0].id", "telegramContentT": "$.data.trainFloors[0].floorContents[1].id"}},
+        {"name": "last-created", "method": "POST", "path": "/api/telegramTrain/lastTrain", "body": {"type": 1}},
+        {"name": "list-created", "method": "POST", "path": "/api/telegramTrain/getAll"}
       ]
     },
     {

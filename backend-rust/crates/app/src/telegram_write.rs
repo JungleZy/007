@@ -66,13 +66,20 @@ pub(crate) async fn save(
         Err(e) => return error(e, "lock telegram user"),
     };
     let id = uuid::Uuid::new_v4().to_string();
+    let created = chrono_like_now();
     let values = [
         train.get("title").and_then(Value::as_str),
         train.get("startTime").and_then(Value::as_str),
         train.get("pauseTime").and_then(Value::as_str),
         train.get("endTime").and_then(Value::as_str),
-        train.get("sustainTime").and_then(Value::as_str),
-        train.get("createTime").and_then(Value::as_str),
+        train
+            .get("sustainTime")
+            .map(Value::as_str)
+            .unwrap_or(Some("0")),
+        train
+            .get("createTime")
+            .map(Value::as_str)
+            .unwrap_or(Some(&created)),
         train.get("nowFloorId").and_then(Value::as_str),
     ];
     let nums = [
@@ -91,8 +98,8 @@ pub(crate) async fn save(
             .and_then(Value::as_i64)
             .unwrap_or(0) as i32,
     ];
-    let result = sqlx::query("INSERT INTO t_telegram_train (id,title,sustain_time,type,status,total_knock_number,total_number,error_number,create_user_id,create_time,now_floor_id,protocol_version,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
-        .bind(&id).bind(values[0]).bind(values[4]).bind(nums[0]).bind(nums[1]).bind(nums[2]).bind(nums[3]).bind(nums[4]).bind(&user.id).bind(values[5]).bind(values[6]).bind(1_i32).bind(0_i64).execute(&mut *tx).await;
+    let result = sqlx::query("INSERT INTO t_telegram_train (id,title,start_time,pause_time,end_time,sustain_time,type,status,total_knock_number,total_number,error_number,accuracy,speed,create_user_id,create_time,now_floor_id,protocol_version,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind(&id).bind(values[0]).bind(values[1]).bind(values[2]).bind(values[3]).bind(values[4]).bind(nums[0]).bind(nums[1]).bind(nums[2]).bind(nums[3]).bind(nums[4]).bind(train.get("accuracy").map(Value::as_str).unwrap_or(Some("0"))).bind(train.get("speed").map(Value::as_str).unwrap_or(Some("0"))).bind(&user.id).bind(values[5]).bind(values[6]).bind(1_i32).bind(0_i64).execute(&mut *tx).await;
     if let Err(e) = result {
         return error(e, "save telegram train");
     }
@@ -121,10 +128,21 @@ pub(crate) async fn save(
             }
         }
     }
+    let saved = match sqlx::query(&format!(
+        "SELECT {} FROM t_telegram_train WHERE id=?",
+        super::telegram::TRAIN_COLUMNS
+    ))
+    .bind(&id)
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(row) => super::telegram::train_json(&row),
+        Err(e) => return error(e, "load saved telegram train"),
+    };
     if let Err(e) = tx.commit().await {
         return error(e, "commit telegram save");
-    };
-    envelope_json(StatusCode::OK, 200, Some(json!({"id":id})), "ok", "")
+    }
+    envelope_json(StatusCode::OK, 200, Some(saved), "ok", "")
 }
 
 pub(crate) async fn save_floor_content(
