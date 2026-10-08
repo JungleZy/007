@@ -1130,7 +1130,7 @@ pub(crate) async fn save_formal(
         let touched = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND (state<>1 OR score>0 OR (content IS NOT NULL AND TRIM(content)<>''))")
             .bind(&exam_id).fetch_one(&mut *transaction).await?;
         if touched > 0 {
-            return Err(ExamError::Terminal("考试已有作答记录，禁止编辑重建考生名单"));
+            return Err(ExamError::Parameter("考试已有作答记录，禁止编辑重建考生名单"));
         }
         let paper = body.get("testPaper").unwrap_or(&Value::Null);
         let sections = PAPER_SECTIONS.iter().map(|(_, section)| {

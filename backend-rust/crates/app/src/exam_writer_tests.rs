@@ -454,7 +454,7 @@ async fn formal_rebuild_checks_latest_answers_after_parent_lock() {
             .flatten();
     fixture.cleanup().await;
     assert!(waiting, "rebuild must first wait on the parent PK");
-    assert_eq!(response["code"], 208, "{response}");
+    assert_eq!(response["code"], 202, "{response}");
     assert_eq!(title, "writer regression");
     assert_eq!(content.as_deref(), Some("{}"));
 }
