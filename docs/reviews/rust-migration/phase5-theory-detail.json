@@ -14,7 +14,7 @@
     "response": ["knowledge", "knowledgeSwfs"],
     "knowledge_fields": ["id", "type", "status", "cover", "title", "createUserId", "createTime", "credit", "difficultyId", "specialtyId"],
     "swf_fields": ["id", "knowledgeId", "cover", "title", "content", "createUserId", "createTime", "sort", "score", "haveTest", "record", "test"],
-    "decimal_policy": "credit read as MySQL DECIMAL and serialized as string to avoid floating conversion"
+    "decimal_policy": "credit is serialized as a JSON number (or null), matching Java Double and the existing frontend contract"
   },
   "fixture": {
     "database": "temporary isolated MySQL schema phase5_theory_detail_*",
@@ -31,6 +31,11 @@
     "cargo_build_workspace": "passed",
     "real_http_fixture": "authentication, knowledge projection, chapter tree and DECIMAL credit projection observed",
     "database_writes": false
+  },
+  "contract_followup_2026_10_09": {
+    "change": "Align DECIMAL credit's wire type with Java Double rather than returning a decimal string.",
+    "journey": "theory-study-records/knowledge-read-credit: create through saveTheoryKnowledge, then read non-integral credit 2.5 via getById.",
+    "clock_policy": "Mask only generated createTime values; compare credit type/value and all other response fields."
   },
   "known_boundary": "test/content progress aggregation is currently empty/default until the theory test and study-record tables are migrated."
 }

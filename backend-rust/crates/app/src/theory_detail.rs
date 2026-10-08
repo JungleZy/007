@@ -4,7 +4,6 @@ use axum::{
     response::Response,
     Json,
 };
-use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use sqlx::Row;
 
@@ -14,7 +13,7 @@ async fn detail_impl(state: AppState, id: &str, user_id: Option<&str>) -> Respon
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let knowledge = match sqlx::query("SELECT id,type,status,cover,title,create_user_id,create_time,credit,difficulty_id,specialty_id FROM t_theory_knowledge WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await {
+    let knowledge = match sqlx::query("SELECT id,type,status,cover,title,create_user_id,create_time,CAST(credit AS DOUBLE) AS credit,difficulty_id,specialty_id FROM t_theory_knowledge WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await {
         Ok(Some(row)) => row,
         Ok(None) => return envelope_response(StatusCode::OK, 500, "数据异常", ""),
         Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
@@ -47,7 +46,7 @@ async fn detail_impl(state: AppState, id: &str, user_id: Option<&str>) -> Respon
         StatusCode::OK,
         200,
         Some(json!({"knowledge": {
-        "id": knowledge.get::<String,_>("id"), "type": knowledge.get::<Option<i32>,_>("type"), "status": knowledge.get::<Option<i32>,_>("status"), "cover": knowledge.get::<Option<String>,_>("cover"), "title": knowledge.get::<Option<String>,_>("title"), "createUserId": knowledge.get::<Option<String>,_>("create_user_id"), "createTime": knowledge.get::<Option<String>,_>("create_time"), "credit": knowledge.get::<Option<Decimal>,_>("credit").map(|value| value.to_string()), "difficultyId": knowledge.get::<Option<String>,_>("difficulty_id"), "specialtyId": knowledge.get::<Option<String>,_>("specialty_id")
+        "id": knowledge.get::<String,_>("id"), "type": knowledge.get::<Option<i32>,_>("type"), "status": knowledge.get::<Option<i32>,_>("status"), "cover": knowledge.get::<Option<String>,_>("cover"), "title": knowledge.get::<Option<String>,_>("title"), "createUserId": knowledge.get::<Option<String>,_>("create_user_id"), "createTime": knowledge.get::<Option<String>,_>("create_time"), "credit": knowledge.get::<Option<f64>,_>("credit"), "difficultyId": knowledge.get::<Option<String>,_>("difficulty_id"), "specialtyId": knowledge.get::<Option<String>,_>("specialty_id")
     }, "knowledgeSwfs": swf_data})),
         "ok",
         "",

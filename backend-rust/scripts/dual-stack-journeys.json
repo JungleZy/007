@@ -3,6 +3,13 @@
   "note": "Scripted write-then-read flows run by dual-stack-sweep.py on both stacks with realistic frontend payloads. ${name} is replaced by a value captured from an earlier step of the same stack ('capture' uses a tiny JSONPath). Three comparison options are opt-in per step and use JSONPath-lite ($.a.b, [0], [*]): 'mask' replaces only elapsed-clock-derived values (durations, speeds) with <masked>; 'parse_json' parses selected string values as JSON then recursively normalizes generated UUID/clock shapes while preserving all other content and wire string type (invalid JSON fails the harness); 'unordered' compares selected arrays as multisets via canonical normalized JSON sorting, preserving duplicates and row fields. Other arrays remain ordered and other strings remain literal. Captures always use original responses before these transforms. Every behavioural difference in a journey is a FAIL unless the registry accepts it.",
   "journeys": [
     {
+      "name": "theory-study-records",
+      "steps": [
+        {"name":"knowledge-create","method":"POST","path":"/api/theoryKnowledge/saveTheoryKnowledge","who":"admin","body":{"knowledge":{"type":0,"status":1,"cover":"study.jpg","title":"通信基础学习统计","createUserId":"sweep-admin","credit":2.5},"knowledgeSwfs":[{"title":"通信原理","cover":"chapter.jpg","content":"<p>通信原理</p>","sort":0},{"title":"设备操作","cover":"chapter.jpg","content":"<p>设备操作</p>","sort":1}]},"capture":{"knowledgeId":"$.data.id"},"mask":["$.data.createTime"]},
+        {"name":"knowledge-read-credit","method":"POST","path":"/api/theoryKnowledge/getById","who":"student","body":{"id":"${knowledgeId}"},"capture":{"swfOne":"$.data.knowledgeSwfs[0].id","swfTwo":"$.data.knowledgeSwfs[1].id"},"mask":["$.data.knowledge.createTime","$.data.knowledgeSwfs[*].createTime"]}
+      ]
+    },
+    {
       "name": "theory-self-test",
       "steps": [
         {"name":"paper-create","method":"POST","path":"/api/theoryKnowledgeTestPaper/saveTestPaper","who":"admin","body":{"name":"自主测试-双栈试卷","total":50,"passTheExamThan":"60","passMark":30,"singleChoice":[{"score":10,"sort":0,"type":1,"topic":"正确的通信代号","options":"[\"A\",\"B\"]","answer":"\"A\"","analysis":"单选解析"}],"multipleChoice":[{"score":10,"sort":0,"type":2,"topic":"选择通信方式","options":"[\"A\",\"B\",\"C\"]","answer":"[\"A\",\"B\"]","analysis":"多选解析"}],"judge":[{"score":10,"sort":0,"type":3,"topic":"判断信号有效","options":"[\"正确\",\"错误\"]","answer":"\"正确\"","analysis":"判断解析"}],"completion":[{"score":10,"sort":0,"type":4,"topic":"________与(___)及$_$","options":"[]","answer":"[\"甲\",\"乙\",\"丙\"]","analysis":"填空解析"}],"shortAnswer":[{"score":10,"sort":0,"type":5,"topic":"说明操作步骤","answer":"标准步骤","analysis":"简答解析"}]}},
