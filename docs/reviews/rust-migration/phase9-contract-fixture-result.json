@@ -4207,5 +4207,15 @@
       "General telex fixture lacked other.alterError and therefore caused BigDecimal.multiply(null) on finish; corrected to match existing GeneralTelexCaptureContractTest rule fields, no fabricated Rust500.",
       "Recovery probe had backdated end_time without shifting recorded received_at. Java correctly rejected out-of-window captures. All clock fields are now shifted coherently and an unfinished participant is required, so a pre-finished row cannot masquerade as recovery proof."
     ]
-  }
+  },
+  "reexecutions": [
+    {
+      "executed_at_utc": "2026-10-08T09:05:49Z",
+      "fixture_revision": "shared-business-rest-v2",
+      "runner": "backend-rust/scripts/phase9-contract-diff.sh",
+      "outcome": "49/49 PASS",
+      "environment": "Two isolated synthetic-only MySQL schemas (schema from project006 via mysqldump --no-data, 2 seeded users/roles); real Java fast-jar (JVM -Duser.timezone=UTC; jar built 2026-09-27T21:00:09Z) on 18121 and Rust debug binary built from the backend-rust tree identical to the commit that records this entry, all migration route flags enabled. No production writes.",
+      "scope_note": "Anonymous/missing-credential and month-window cases only; does not exercise authenticated business flows."
+    }
+  ]
 }

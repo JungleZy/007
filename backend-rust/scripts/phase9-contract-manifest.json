@@ -1,0 +1,2010 @@
+{
+  "schema": "rust-migration-phase9-contract-manifest/v2",
+  "status": "EXECUTED_MATCH_EXTENDED_DOMAIN_ACCEPTANCE_PENDING",
+  "fixture_revision": "shared-business-rest-v2",
+  "fixture": "docs/reviews/rust-migration/phase9-contract-fixture.json",
+  "result": "docs/reviews/rust-migration/phase9-contract-fixture-result.json",
+  "runner": "backend-rust/scripts/phase9-contract-diff.sh",
+  "scope": "Representative shared REST HTTP/JSON comparisons plus explicitly pending domain/DB/WebSocket obligations; not exhaustive coverage of all 359 Java inventory rows.",
+  "sources": [
+    "docs/reviews/rust-migration/rest-endpoints.tsv",
+    "docs/reviews/rust-migration/current-coverage.json",
+    "docs/reviews/rust-migration/ws-contracts.tsv",
+    "docs/reviews/rust-migration/ws-protocol-samples.ndjson",
+    "backend-rust/crates/app/src/main.rs",
+    "backend-rust/scripts/phase9-contract-diff.sh",
+    "backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java",
+    "backend/src/main/java/com/nip/common/constants/ResponseCode.java"
+  ],
+  "inventory_policy": "Java inventory rows are source anchors, not proof of Rust implementation or parity. Executable cases use methods/paths registered in current Rust build_router and Java controllers. Rust feature flags default off. Pending endpoints are obligations, not claims of route/behavior equivalence.",
+  "execution": {
+    "command": "bash backend-rust/scripts/phase9-contract-diff.sh \"$JAVA_BASE_URL\" \"$RUST_BASE_URL\" docs/reviews/rust-migration/phase9-contract-fixture.json",
+    "base_urls": "Separate origin URLs without a trailing /api; fixture paths already include /api. Use isolated Java and Rust processes, never production.",
+    "prerequisites": [
+      "bash, curl, jq and diff available; both services already started and reachable.",
+      "Enable every required_rust_flags value listed in domains; record effective flags and backend source revisions in execution evidence.",
+      "Java requires its complete isolated schema for startup. The committed anonymous requests do not query DB after missing-token/device rejection and do not mutate business data.",
+      "Use UTC for the Java JVM and keep the month-window case inside one UTC calendar month. If this precondition cannot hold, record it blocked rather than ignore differences.",
+      "Literal phase9-not-a-credential/device strings are invalid sentinels, not credentials. No real token/device/password may be committed in this fixture, manifest or result."
+    ],
+    "request_schema": "Top-level array. Runner consumes only method/path/headers/body; case_id and domain are metadata. method/path are literal, headers are literal, body is JSON serialized by jq.",
+    "supported": [
+      "Sequential same-method/path/headers/body requests to Java then Rust",
+      "HTTP status equality",
+      "JSON comparison after jq -S object-key ordering; array ordering and number/string/null/absent distinctions remain visible"
+    ],
+    "unsupported": [
+      "Expected status or business-code assertions (oracles below are documentation, not executable runner fields)",
+      "Per-backend requests/credentials, environment interpolation, login response capture or dynamic ID substitution",
+      "Multipart, raw non-JSON body, binary downloads, response-header assertions",
+      "Database seeding/reset/snapshot/assertions, clock injection, random-source control",
+      "WebSocket upgrades/messages/recipient sets, asynchronous barriers, lifecycle orchestration",
+      "Field masking, timestamp tolerances, semantic numeric coercion, array sorting",
+      "Structured result writing; this result JSON is not updated by the runner"
+    ],
+    "acceptance_caveat": "Exit 0 only reports equality, not correctness: equal 404/500/business errors are not successful domain reads. Runner process-substitution jq failures may leave two empty diff streams; valid JSON and expected HTTP/business oracles must be checked by the evidence collector before claiming acceptance. No acceptance is claimed here.",
+    "evidence_required": [
+      "Record fixture revision, case_id/index, both backend source revisions, effective flags, isolated schema seed/reset identity and clock/timezone configuration.",
+      "Capture both HTTP statuses and redacted JSON responses, start/end timestamps, exit code and comparison result for every executed case. Credentials must never appear in saved requests, command logs, URLs or response artifacts.",
+      "Record outcomes individually as EXECUTED_MATCH, EXECUTED_DIFFERENCE, EXECUTION_ERROR or BLOCKED_PRECONDITION. A pending/not-run case is never PASS.",
+      "Archive observed artifacts before updating result metadata; one earlier semantic probe must not be relabeled as execution of this fixture."
+    ]
+  },
+  "determinism": {
+    "current_normalization": "Only jq -S object-key ordering, exactly as the existing runner. No fields are dropped, arrays reordered or scalar types coerced.",
+    "credentials": "For future authenticated cases generate one-use synthetic credentials in memory, store only matching token digests/device bindings in the two isolated schemas, and materialize runtime headers via a non-persistent input. Runner requires a file path and has no header injection. An external collector must redact error output because login/profile bodies may contain secrets.",
+    "databases": "Never point both writers at the same schema. Start each scenario from independently cloned identical schema/data, disable unrelated background work or drive it at a named barrier, and restore both before the next scenario. Fixed primary keys/FKs and explicit timestamps are preferred.",
+    "identifiers": "If a write generates UUID/autoincrement/session IDs, use a separate harness to correlate IDs by synthetic business key and rewrite dependent requests per backend. Do not delete all id fields to make a diff pass; preserve references and prove relationships.",
+    "clock": "Prefer fixed input timestamps and controlled clock. If either backend cannot accept the same clock, timing-sensitive responses are not eligible for exact fixture comparison; the separate harness must specify intervals/tolerances and verify durations, ordering and state transitions, never mask scoring/time fields wholesale.",
+    "ordering": "One-row seeds avoid unspecified SQL ordering for basic reads. Multi-row ordering and pagination require unique sort keys and exact expected arrays; never globally sort response arrays to hide ordering defects.",
+    "randomness": "Use an explicit stored question/cable/term selection or a one-candidate pool; do not compare independently randomized samples as exact JSON.",
+    "db_assertions": "Separate harness snapshots named target and non-target rows from the entity tables in schema-inventory.tsv before/after each step. Compare inserted/deleted key sets, owner/FK relationships, numeric score/time/state/attempt values and atomic rollback; rejected owner/admin/terminal operations must leave both target and unrelated rows unchanged. HTTP equality alone proves none of these.",
+    "websocket": "Compare ordered frames per connection, recipients, opcode, payload JSON types and close behavior using stable session/room/user aliases. Correlate only generated identifiers; do not reorder messages or ignore extra broadcasts. Query credentials are runtime-only and must be scrubbed from traces."
+  },
+  "excluded_from_shared_rest_fixture": [
+    {
+      "requests": [
+        "GET /health",
+        "GET /live",
+        "GET /ready"
+      ],
+      "reason": "Rust infrastructure health shapes do not have matching Java controller contracts in the active REST inventory; use backend-specific liveness/readiness smoke, not exact shared JSON equality."
+    },
+    {
+      "requests": [
+        "GET /api/phase1/contract/auth",
+        "GET /api/phase1/contract/admin"
+      ],
+      "reason": "Rust-only diagnostic routes, not active Java business routes. Header-source cases now target shared POST /api/user/getUsersByToken."
+    },
+    {
+      "requests": [
+        "GET /api"
+      ],
+      "reason": "No shared JSON controller contract; frontend/static fallback or routing error is not business parity."
+    },
+    {
+      "requests": [
+        "GET /q/openapi"
+      ],
+      "reason": "Backend-specific OpenAPI documents differ in metadata and surface, and Java can negotiate YAML. A separate semantic API inventory check is required, not whole-document equality."
+    },
+    {
+      "requests": [
+        "GET /api/status",
+        "GET /status"
+      ],
+      "reason": "WebSocket handshake/frame protocol, not ordinary HTTP JSON; use ws.status case."
+    },
+    {
+      "requests": [
+        "GET /api/tools/getNowTime"
+      ],
+      "reason": "Two sequential real clock reads cannot be deterministic exact equality; use tools.clock separate harness."
+    }
+  ],
+  "runnable_cases": [
+    {
+      "case_id": "tools.month-window",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "business_code": 200,
+        "payload": "12 {year,month} objects, descending inclusive from current UTC month; key order irrelevant, array order significant."
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/free/ToolsController.java",
+      "java_method": "getTwelvemonth"
+    },
+    {
+      "case_id": "auth.login-empty-json",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 202,
+          "data": null,
+          "message": "请求参数错误",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/free/UserController.java",
+      "java_method": "login"
+    },
+    {
+      "case_id": "auth.missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/UserController.java",
+      "java_method": "getUsersByToken"
+    },
+    {
+      "case_id": "auth.query-credentials-ignored",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/UserController.java",
+      "java_method": "getUsersByToken"
+    },
+    {
+      "case_id": "auth.missing-device",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 204,
+          "data": null,
+          "message": "设备标识不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/UserController.java",
+      "java_method": "getUsersByToken"
+    },
+    {
+      "case_id": "auth.query-device-ignored",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 204,
+          "data": null,
+          "message": "设备标识不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/UserController.java",
+      "java_method": "getUsersByToken"
+    },
+    {
+      "case_id": "auth.admin-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/UserController.java",
+      "java_method": "getAllUser"
+    },
+    {
+      "case_id": "auth.menus-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/MenusController.java",
+      "java_method": "getMenusAll"
+    },
+    {
+      "case_id": "auth.roles-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/RoleController.java",
+      "java_method": "getRoleAll"
+    },
+    {
+      "case_id": "cable.types-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/CableTypeController.java",
+      "java_method": "typeFind"
+    },
+    {
+      "case_id": "grading.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/GradingRuleController.java",
+      "java_method": "getGradingRuleListByType"
+    },
+    {
+      "case_id": "device.types-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/DeviceTypeController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "equipment.devices-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/EquipmentDeviceController.java",
+      "java_method": "listResponse"
+    },
+    {
+      "case_id": "equipment.trains-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/EquipmentTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "theory.classify-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TheoryKnowledgeController.java",
+      "java_method": "listPageClassify"
+    },
+    {
+      "case_id": "theory.test-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TheoryKnowledgeTestController.java",
+      "java_method": "getTestBySwfId"
+    },
+    {
+      "case_id": "question.levels-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TheoryKnowledgeQuestionController.java",
+      "java_method": "findAllTheoryKnowledgeQuestionLevel"
+    },
+    {
+      "case_id": "paper.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TestPaperController.java",
+      "java_method": "findAllTestPaper"
+    },
+    {
+      "case_id": "exam.self-list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TheoryKnowledgeExamController.java",
+      "java_method": "listPageSelfTesting"
+    },
+    {
+      "case_id": "entering.statistics-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/EnteringExerciseController.java",
+      "java_method": "statisticalPage"
+    },
+    {
+      "case_id": "entering.telex-statistics-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/EnteringTelexPatController.java",
+      "java_method": "statisticalPage"
+    },
+    {
+      "case_id": "post-entering.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostEnteringExerciseController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "post-entering.word-stock-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostEnteringExerciseWordStockController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "receive-keypoints.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/ReceiveKeyPointsController.java",
+      "java_method": "getByType"
+    },
+    {
+      "case_id": "keypoints.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/KeyPointsController.java",
+      "java_method": "findKeyPointsByType"
+    },
+    {
+      "case_id": "radio.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/RadiotelephoneController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "military.tree-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/MilitaryTermDataController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "post-radio.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostRadiotelephoneTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "post-military.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostMilitaryTermTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "telegram.statistics-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TelegramTrainController.java",
+      "java_method": "statisticalPage"
+    },
+    {
+      "case_id": "telegraph.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TelegraphKeyPatTrainController.java",
+      "java_method": "findByType"
+    },
+    {
+      "case_id": "telex.statistics-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TexPatTrainController.java",
+      "java_method": "statisticalPage"
+    },
+    {
+      "case_id": "ticker.statistics-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/TickerTapeTrainController.java",
+      "java_method": "statisticalPage"
+    },
+    {
+      "case_id": "post-telegram.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostTelegramTrainController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "post-telegraph.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostTelegraphKeyPatTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "post-telex.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostTelexPatTrainController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "post-ticker.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostTickerTapeTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "group-net.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/GroupNetTrainController.java",
+      "java_method": "listPage"
+    },
+    {
+      "case_id": "group-net.rules-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/GeneralGroupNetRuleController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "global-rule.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/PostTrainGlobalRuleController.java",
+      "java_method": "findByType"
+    },
+    {
+      "case_id": "general-key.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/general/GeneralKeyPatController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "general-telex.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/general/GeneralTelexPatController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "general-ticker.list-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/general/GeneralTickerPatController.java",
+      "java_method": "findAll"
+    },
+    {
+      "case_id": "simulation.router-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/simulation/SimulationRouterRoomController.java",
+      "java_method": "findRoom"
+    },
+    {
+      "case_id": "simulation.report-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/simulation/SimulationReportRoomController.java",
+      "java_method": "findRoom"
+    },
+    {
+      "case_id": "simulation.recept-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/simulation/SimulationReceptRoomController.java",
+      "java_method": "findRoom"
+    },
+    {
+      "case_id": "simulation.disturb-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/simulation/SimulationDisturdController.java",
+      "java_method": "findAlls"
+    },
+    {
+      "case_id": "masthead.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/MastheadController.java",
+      "java_method": "findByTrainId"
+    },
+    {
+      "case_id": "comprehensive.read-missing-token",
+      "status": "EXECUTED_MATCH",
+      "oracle_not_enforced_by_runner": {
+        "http_status": 200,
+        "json": {
+          "code": 203,
+          "data": null,
+          "message": "token不能为空",
+          "description": ""
+        }
+      },
+      "java_source": "backend/src/main/java/com/nip/controller/ComprehensiveController.java",
+      "java_method": "getUserInfo"
+    }
+  ],
+  "domains": [
+    {
+      "domain": "tools",
+      "required_rust_flags": [
+        "RUST_PHASE2_TOOLS_ENABLED"
+      ],
+      "setup": "No rows needed. Java JVM timezone UTC; Rust uses UTC. Both requests must remain in the same UTC calendar month.",
+      "runnable_case_ids": [
+        "tools.month-window"
+      ],
+      "pending_case_ids": [
+        "tools.clock"
+      ]
+    },
+    {
+      "domain": "auth",
+      "required_rust_flags": [
+        "RUST_PHASE3_AUTH_ENABLED"
+      ],
+      "setup": "Clone synthetic users A (owner), B (other user), C (administrator with is_admin=0), D (ordinary role is_admin=1), E (no user-role row). Seed the same generated token digest/device pair in each isolated database; keep raw credentials in memory only.",
+      "runnable_case_ids": [
+        "auth.login-empty-json",
+        "auth.missing-token",
+        "auth.query-credentials-ignored",
+        "auth.missing-device",
+        "auth.query-device-ignored",
+        "auth.admin-missing-token",
+        "auth.menus-missing-token",
+        "auth.roles-missing-token"
+      ],
+      "pending_case_ids": [
+        "auth.authenticated-read",
+        "auth.unknown-session",
+        "auth.admin-denial",
+        "auth.session-lifecycle"
+      ]
+    },
+    {
+      "domain": "cable",
+      "required_rust_flags": [
+        "RUST_PHASE4_CABLE_ENABLED"
+      ],
+      "setup": "Seed one cable type and one cable with two ordered floor rows; distinct fixed IDs and floor numbers.",
+      "runnable_case_ids": [
+        "cable.types-missing-token"
+      ],
+      "pending_case_ids": [
+        "cable.seeded-read",
+        "cable.admin-write"
+      ]
+    },
+    {
+      "domain": "grading",
+      "required_rust_flags": [
+        "RUST_PHASE4_GRADING_ENABLED"
+      ],
+      "setup": "Seed two rule types, exactly one default per type, explicit decimal thresholds and stable IDs.",
+      "runnable_case_ids": [
+        "grading.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "grading.seeded-read",
+        "grading.default-write"
+      ]
+    },
+    {
+      "domain": "device-equipment",
+      "required_rust_flags": [
+        "RUST_PHASE4_DEVICE_ENABLED",
+        "RUST_PHASE4_EQUIPMENT_ENABLED"
+      ],
+      "setup": "Seed one device type/device/rule, one equipment device/keypoint and one equipment training each for A and B with fixed timestamps.",
+      "runnable_case_ids": [
+        "device.types-missing-token",
+        "equipment.devices-missing-token",
+        "equipment.trains-missing-token"
+      ],
+      "pending_case_ids": [
+        "device-equipment.seeded-read",
+        "device-equipment.owner-admin"
+      ]
+    },
+    {
+      "domain": "theory",
+      "required_rust_flags": [
+        "RUST_PHASE5_THEORY_ENABLED"
+      ],
+      "setup": "Seed one classify/knowledge/SWF/test graph, one single-choice and one multiple-choice question, progress for A and B, and fixed file bytes.",
+      "runnable_case_ids": [
+        "theory.classify-missing-token",
+        "theory.test-missing-token"
+      ],
+      "pending_case_ids": [
+        "theory.seeded-read",
+        "theory.owner-progress",
+        "theory.file-binding"
+      ]
+    },
+    {
+      "domain": "question-paper",
+      "required_rust_flags": [
+        "RUST_PHASE5_THEORY_ENABLED"
+      ],
+      "setup": "Seed one question level, deterministic questions with fixed IDs/answers and one paper with explicit question order/points; no random selection.",
+      "runnable_case_ids": [
+        "question.levels-missing-token",
+        "paper.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "question-paper.seeded-read",
+        "question-paper.admin-write",
+        "question-paper.export"
+      ]
+    },
+    {
+      "domain": "exam",
+      "required_rust_flags": [
+        "RUST_PHASE5_THEORY_ENABLED"
+      ],
+      "setup": "Seed paper/answers and two participants with fixed exam IDs. Separate ready/running/submitted records, stable deadlines and an explicitly controlled clock.",
+      "runnable_case_ids": [
+        "exam.self-list-missing-token"
+      ],
+      "pending_case_ids": [
+        "exam.owner-read",
+        "exam.lifecycle-score",
+        "exam.admin-score-upload"
+      ]
+    },
+    {
+      "domain": "entering",
+      "required_rust_flags": [
+        "RUST_PHASE6_ENTERING_ENABLED"
+      ],
+      "setup": "Seed fixed owner/other-user IDs and distinct completed, running and empty-category rows; include a non-zero duration/count producing fractional average speed.",
+      "runnable_case_ids": [
+        "entering.statistics-missing-token",
+        "entering.telex-statistics-missing-token"
+      ],
+      "pending_case_ids": [
+        "entering.statistics-read",
+        "entering.lifecycle-score"
+      ]
+    },
+    {
+      "domain": "post-entering",
+      "required_rust_flags": [
+        "RUST_PHASE6_ENTERING_ENABLED"
+      ],
+      "setup": "Seed owner word-stock and training with a fixed character sequence, one other-user training and a stable clock.",
+      "runnable_case_ids": [
+        "post-entering.list-missing-token",
+        "post-entering.word-stock-missing-token"
+      ],
+      "pending_case_ids": [
+        "post-entering.owner-read",
+        "post-entering.lifecycle",
+        "post-entering.multipart-json"
+      ]
+    },
+    {
+      "domain": "keypoints",
+      "required_rust_flags": [
+        "RUST_PHASE6_RECEIVE_KEYPOINTS_ENABLED"
+      ],
+      "setup": "Seed one receive-keypoint and one keypoint for type=1 with stable content, plus another type to detect overbroad updates.",
+      "runnable_case_ids": [
+        "receive-keypoints.read-missing-token",
+        "keypoints.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "keypoints.seeded-read",
+        "keypoints.admin-write"
+      ]
+    },
+    {
+      "domain": "military-radio",
+      "required_rust_flags": [
+        "RUST_PHASE6_RADIOTELEPHONE_ENABLED"
+      ],
+      "setup": "Seed a fixed military term tree and radiotelephone term set; one candidate per random selection query; stable owner/training IDs, owner and other-user records, controlled clock.",
+      "runnable_case_ids": [
+        "radio.list-missing-token",
+        "military.tree-missing-token",
+        "post-radio.list-missing-token",
+        "post-military.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "military-radio.seeded-read",
+        "military-radio.admin-tree",
+        "military-radio.lifecycle"
+      ]
+    },
+    {
+      "domain": "telegram",
+      "required_rust_flags": [
+        "RUST_PHASE6_TELEGRAM_ENABLED"
+      ],
+      "setup": "Seed fixed telegram/report/log/rule rows with known message groups, A and B ownership and controlled time.",
+      "runnable_case_ids": [
+        "telegram.statistics-missing-token"
+      ],
+      "pending_case_ids": [
+        "telegram.statistics-read",
+        "telegram.lifecycle"
+      ]
+    },
+    {
+      "domain": "telegraph",
+      "required_rust_flags": [
+        "RUST_PHASE6_TELEGRAPH_KEY_ENABLED"
+      ],
+      "setup": "Seed owner and other-user type=1 base rows with fixed timing/value arrays and known grading rule.",
+      "runnable_case_ids": [
+        "telegraph.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "telegraph.owner-read",
+        "telegraph.owner-write"
+      ]
+    },
+    {
+      "domain": "telex",
+      "required_rust_flags": [
+        "RUST_PHASE6_TELEX_ENABLED"
+      ],
+      "setup": "Seed base/whole-train records and known text/answer arrays for A and B with stable elapsed-time inputs.",
+      "runnable_case_ids": [
+        "telex.statistics-missing-token"
+      ],
+      "pending_case_ids": [
+        "telex.statistics-read",
+        "telex.owner-write"
+      ]
+    },
+    {
+      "domain": "ticker",
+      "required_rust_flags": [
+        "RUST_PHASE6_TICKER_TAPE_ENABLED"
+      ],
+      "setup": "Seed same cable, stage/settings, capture key/time/value arrays and owner training states; use explicit controlled millisecond durations.",
+      "runnable_case_ids": [
+        "ticker.statistics-missing-token"
+      ],
+      "pending_case_ids": [
+        "ticker.statistics-read",
+        "ticker.lifecycle",
+        "ticker.base-session"
+      ]
+    },
+    {
+      "domain": "post-telegram",
+      "required_rust_flags": [
+        "RUST_PHASE7_POST_TELEGRAM_ENABLED"
+      ],
+      "setup": "Seed ordered message floors and reports, one current and one terminal owner training, one B training, and controlled clock.",
+      "runnable_case_ids": [
+        "post-telegram.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "post-telegram.owner-read",
+        "post-telegram.lifecycle-pages"
+      ]
+    },
+    {
+      "domain": "post-telegraph",
+      "required_rust_flags": [
+        "RUST_PHASE7_POST_TELEGRAPH_ENABLED"
+      ],
+      "setup": "Seed same page content and rule, fixed owner/non-owner IDs and attempt/state, ready/running/finished records; preserve capitalized route prefix.",
+      "runnable_case_ids": [
+        "post-telegraph.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "post-telegraph.owner-read",
+        "post-telegraph.lifecycle-pages"
+      ]
+    },
+    {
+      "domain": "post-telex",
+      "required_rust_flags": [
+        "RUST_PHASE7_POST_TELEX_ENABLED"
+      ],
+      "setup": "Seed fixed trainType and page IDs, explicit pageSize/pageNumber fields from the Java Page DTO, one final partial page and known receipt text; controlled clock.",
+      "runnable_case_ids": [
+        "post-telex.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "post-telex.owner-read",
+        "post-telex.lifecycle-pages"
+      ]
+    },
+    {
+      "domain": "post-ticker",
+      "required_rust_flags": [
+        "RUST_PHASE7_POST_TICKER_ENABLED"
+      ],
+      "setup": "Seed settings, masthead and train/page content with explicit IDs, owner A/other B, known capture arrays and controlled time.",
+      "runnable_case_ids": [
+        "post-ticker.list-missing-token",
+        "masthead.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "post-ticker.owner-read",
+        "post-ticker.lifecycle-json",
+        "post-ticker.owner-admin-write"
+      ]
+    },
+    {
+      "domain": "group-net",
+      "required_rust_flags": [
+        "RUST_PHASE7_GROUP_NET_ENABLED"
+      ],
+      "setup": "Seed known group-net rules/questions/answers and owner/other-user training, fixed IDs and point weights.",
+      "runnable_case_ids": [
+        "group-net.list-missing-token",
+        "group-net.rules-missing-token"
+      ],
+      "pending_case_ids": [
+        "group-net.owner-read",
+        "group-net.score-write"
+      ]
+    },
+    {
+      "domain": "general",
+      "required_rust_flags": [
+        "RUST_PHASE7_GENERAL_ENABLED",
+        "RUST_PHASE8_WS_ENABLED"
+      ],
+      "setup": "Separate fixed key/telex/ticker training graphs, controller role=1 and participant role=0, two participants and one outsider. Explicit attempt, page numbers, known partial last page and controlled clock. Disable spontaneous recovery or drive it at an agreed instant.",
+      "runnable_case_ids": [
+        "general-key.list-missing-token",
+        "general-telex.list-missing-token",
+        "general-ticker.list-missing-token"
+      ],
+      "pending_case_ids": [
+        "general.owner-read",
+        "general.role-lifecycle",
+        "general.rest-ws-projection"
+      ]
+    },
+    {
+      "domain": "simulation",
+      "required_rust_flags": [
+        "RUST_PHASE7_SIMULATION_ENABLED",
+        "RUST_PHASE8_WS_ENABLED"
+      ],
+      "setup": "Separate router/report/recept/disturb rooms with fixed room/page/channel IDs, creator, member and outsider. Seed identical memberships and no live sockets; then drive both stacks through the same WS barriers.",
+      "runnable_case_ids": [
+        "simulation.router-missing-token",
+        "simulation.report-missing-token",
+        "simulation.recept-missing-token",
+        "simulation.disturb-missing-token"
+      ],
+      "pending_case_ids": [
+        "simulation.owner-read",
+        "simulation.room-lifecycle",
+        "simulation.admin-online-route"
+      ]
+    },
+    {
+      "domain": "comprehensive",
+      "required_rust_flags": [
+        "RUST_PHASE5_THEORY_ENABLED"
+      ],
+      "setup": "Seed fixed per-user theory/exam/training records in an explicit year, including zero and non-zero categories; stable time window and user/role IDs.",
+      "runnable_case_ids": [
+        "comprehensive.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "comprehensive.owner-read"
+      ]
+    },
+    {
+      "domain": "global-rule",
+      "required_rust_flags": [
+        "RUST_PHASE7_GENERAL_ENABLED"
+      ],
+      "setup": "Seed one global rule per selected type with explicit numeric penalty/threshold values and a separate untouched type.",
+      "runnable_case_ids": [
+        "global-rule.read-missing-token"
+      ],
+      "pending_case_ids": [
+        "global-rule.seeded-read",
+        "global-rule.admin-write"
+      ]
+    }
+  ],
+  "pending_cases": [
+    {
+      "case_id": "tools.clock",
+      "domain": "tools",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "GET /api/tools/getNowTime"
+      ],
+      "assertions_required": "Record request send/receive time on one synchronized clock; response is numeric epoch milliseconds inside the request interval. Exact sequential equality is not a valid assertion.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "auth.authenticated-read",
+      "domain": "auth",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/user/getUsersByToken"
+      ],
+      "assertions_required": "Same fixed user/profile/role projections for A; no credential or password fields leak.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "auth.unknown-session",
+      "domain": "auth",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/user/getUsersByToken"
+      ],
+      "assertions_required": "Generated unregistered token/device pair returns HTTP200/code206 on both, not a dependency error.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "auth.admin-denial",
+      "domain": "auth",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/user/getAllUser"
+      ],
+      "assertions_required": "D and E each return HTTP200/code207; C returns only the seeded directory. Authorization is not covered by anonymous code203 cases.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "auth.session-lifecycle",
+      "domain": "auth",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/user/login -> POST /api/user/userOut -> POST /api/user/getUsersByToken"
+      ],
+      "assertions_required": "Fresh login uses generated credentials; capture separate response tokens without persisting them. Compare profile projection, token digest changes, logout NULL token/device fields and subsequent code206. Login tokens cannot be byte-compared.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "cable.seeded-read",
+      "domain": "cable",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/cable/type/find",
+        "POST /api/cable/find",
+        "POST /api/cable/floor/find"
+      ],
+      "assertions_required": "Compare seeded type, nested cable/floor values, nullability and order using the same ID/body on both.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "cable.admin-write",
+      "domain": "cable",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/cable/save",
+        "POST /api/cable/delete"
+      ],
+      "assertions_required": "Ordinary user denied; administrator update changes only the target cable/floors; unrelated cable unchanged and delete removes the intended child rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "grading.seeded-read",
+      "domain": "grading",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/gradingRule/getGradingRuleListByType"
+      ],
+      "assertions_required": "Compare numeric JSON thresholds, active/default flags and stable ordering for requested type.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "grading.default-write",
+      "domain": "grading",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/gradingRule/changeGradingRuleIsDefault",
+        "POST /api/gradingRule/updateGradingRuleStatus"
+      ],
+      "assertions_required": "Admin changes one type only; ordinary/no-role denied with no changed rows; default transition must not leave two defaults.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "device-equipment.seeded-read",
+      "domain": "device-equipment",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/deviceType/findAll",
+        "POST /api/equipmentDevice/listPage",
+        "POST /api/equipmentTrain/listPage"
+      ],
+      "assertions_required": "Compare joined fields, JSON numeric/string/null types and token-scoped training lists.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "device-equipment.owner-admin",
+      "domain": "device-equipment",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/equipmentTrain/detail",
+        "POST /api/equipmentTrain/add",
+        "POST /api/device/save"
+      ],
+      "assertions_required": "A cannot read B training; forged user identity cannot create B training; device administrator write succeeds and D/E are denied. Compare target and non-target DB rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "theory.seeded-read",
+      "domain": "theory",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledge/listPageClassify",
+        "POST /api/theoryKnowledgeTest/getTestBySwfId"
+      ],
+      "assertions_required": "Compare the one seeded graph and question types; use body.id for SWF ID, not swfId.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "theory.owner-progress",
+      "domain": "theory",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledge/saveTheoryKnowledgeRecord",
+        "POST /api/theoryKnowledgeTest/saveUserKnowledgeSwfTestContent"
+      ],
+      "assertions_required": "Submit A progress with a forged B identity; only A progress/score rows change, score comes from stored answers.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "theory.file-binding",
+      "domain": "theory",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledge/uploadFileToNip"
+      ],
+      "assertions_required": "Separate multipart harness: text, binary and over-limit files; compare business envelope and stored bytes/path relationship, not generated filenames.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "question-paper.seeded-read",
+      "domain": "question-paper",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel",
+        "POST /api/theoryKnowledgeTestPaper/findAllTestPaper"
+      ],
+      "assertions_required": "Compare non-empty level/paper graph and question order; not just empty lists.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "question-paper.admin-write",
+      "domain": "question-paper",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeQuestion/saveBatch",
+        "POST /api/theoryKnowledgeTestPaper/saveTestPaper"
+      ],
+      "assertions_required": "D/E denied, C writes exact question membership and weights; unchanged unrelated paper. Generated IDs require correlation before comparing dependent requests.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "question-paper.export",
+      "domain": "question-paper",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeQuestion/exportTemplate",
+        "POST /api/theoryKnowledgeQuestion/exportQuestionByLevelId"
+      ],
+      "assertions_required": "Separate binary harness validates content type/disposition, workbook cells and row order; do not feed binary output to jq.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "exam.owner-read",
+      "domain": "exam",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeExam/listPageSelfTesting",
+        "POST /api/theoryKnowledgeExam/findTheoryKnowledgeExamById"
+      ],
+      "assertions_required": "Compare A own self-test and exam; B cannot read A private result.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "exam.lifecycle-score",
+      "domain": "exam",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam",
+        "POST /api/theoryKnowledgeExam/studentChangeExamState",
+        "POST /api/theoryKnowledgeExam/finishSelfTesting"
+      ],
+      "assertions_required": "Match ready/running/submitted transitions, server-authoritative score and repeated terminal rejection; compare exam, participant and answer rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "exam.admin-score-upload",
+      "domain": "exam",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/theoryKnowledgeExamUser/teacherUploadScore"
+      ],
+      "assertions_required": "JSON object/array shapes remain JSON; ordinary/no-role denied; administrator changes only selected scores, no cross-exam update.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "entering.statistics-read",
+      "domain": "entering",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/enteringExercise/statisticalPage",
+        "POST /api/enteringTelexPat/statisticalPage"
+      ],
+      "assertions_required": "Compare all categories, numeric avgSpeed including fractional/non-zero values and no cross-user contribution. The archived zero-only probe is insufficient.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "entering.lifecycle-score",
+      "domain": "entering",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/enteringExercise/add",
+        "POST /api/enteringExercise/begin",
+        "POST /api/enteringExercise/pause",
+        "POST /api/enteringExercise/goTo",
+        "POST /api/enteringExercise/finish"
+      ],
+      "assertions_required": "Use known character sequence and controlled elapsed intervals; compare transitions, calculated speed/accuracy and terminal replay effects; B forbidden and target/other DB rows compared.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-entering.owner-read",
+      "domain": "post-entering",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postEnteringExercise/listPage",
+        "POST /api/postEnteringExercise/getById"
+      ],
+      "assertions_required": "Explicit page DTO values and training ID; exact owner-scoped projections, B denied.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "post-entering.lifecycle",
+      "domain": "post-entering",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postEnteringExercise/add",
+        "POST /api/postEnteringExercise/begin",
+        "POST /api/postEnteringExercise/finish"
+      ],
+      "assertions_required": "Compare status, character scoring, time accumulation and duplicate-finish behavior with DB snapshots.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-entering.multipart-json",
+      "domain": "post-entering",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postEnteringExerciseWordStock/view",
+        "POST /api/postEnteringExerciseWordStock/add"
+      ],
+      "assertions_required": "Separate harness sends identical UTF-8 file bytes under multipart field file, preserves preview array values, then sends the JSON add DTO. Compare preview semantics and saved rows; ordinary user cannot perform admin add.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "keypoints.seeded-read",
+      "domain": "keypoints",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/receiveKeyPoints/getByType",
+        "POST /api/keyPoints/findKeyPointsByType"
+      ],
+      "assertions_required": "Compare content, IDs and null result for missing type.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "keypoints.admin-write",
+      "domain": "keypoints",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/receiveKeyPoints/save",
+        "POST /api/keyPoints/saveKeyPoints"
+      ],
+      "assertions_required": "C updates seeded type; D/E denied; requested type changes only. Do not infer owner policy from anonymous rejection.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "military-radio.seeded-read",
+      "domain": "military-radio",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/mtd/findAll",
+        "POST /api/radiotelephone/listPage",
+        "POST /api/postRadiotelephoneTrain/listPge",
+        "POST /api/postMilitaryTermTrain/listPage"
+      ],
+      "assertions_required": "Compare tree shape, page arrays, legacy listPge spelling and ownership filtering.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "military-radio.admin-tree",
+      "domain": "military-radio",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/mtd/save",
+        "POST /api/mtd/move",
+        "POST /api/mtd/saveBatch"
+      ],
+      "assertions_required": "C may move/insert within seeded tree, D/E denied; compare parent relationships, order and unrelated branches in DB.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "military-radio.lifecycle",
+      "domain": "military-radio",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postRadiotelephoneTrain/begin",
+        "POST /api/postRadiotelephoneTrain/finish",
+        "POST /api/postMilitaryTermTrain/begin",
+        "POST /api/postMilitaryTermTrain/finish"
+      ],
+      "assertions_required": "A transitions only own ready/running fixtures; compare time/score/count values and terminal replay, B denial and unchanged foreign records.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "telegram.statistics-read",
+      "domain": "telegram",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telegramTrain/statisticalPage",
+        "POST /api/telegramTrain/getById"
+      ],
+      "assertions_required": "Compare non-zero aggregates, report fields, numeric score and owner-only detail.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "telegram.lifecycle",
+      "domain": "telegram",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telegramTrain/startTelegramTrain",
+        "POST /api/telegramTrain/pauseTelegramTrain",
+        "POST /api/telegramTrain/endTelegramTrain"
+      ],
+      "assertions_required": "Compare elapsed intervals, report logs and final scoring; repeated finish and foreign train request cannot alter settled rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "telegraph.owner-read",
+      "domain": "telegraph",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telegraphKeyPatTrain/findByType"
+      ],
+      "assertions_required": "Same type results are scoped to authenticated owner; JSON arrays/types preserved.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "telegraph.owner-write",
+      "domain": "telegraph",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telegraphKeyPatTrain/save",
+        "POST /api/telegraphKeyPatTrain/clear"
+      ],
+      "assertions_required": "A writes/clears only A rows even with forged user field; compare calculation, deleted keys and B unchanged rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "telex.statistics-read",
+      "domain": "telex",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telexPat/statisticalPage",
+        "POST /api/telexPat/findTexPatTrainByToken"
+      ],
+      "assertions_required": "Compare non-zero totals, numeric scores and exact owner list.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "telex.owner-write",
+      "domain": "telex",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/telexPat/saveTelexPat",
+        "POST /api/telexPat/saveTexPatTrain",
+        "POST /api/telexPat/deleteById"
+      ],
+      "assertions_required": "Compare persisted text/value arrays, server scores and own deletion; B cannot read/delete A record and B rows remain unchanged.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ticker.statistics-read",
+      "domain": "ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/tickerTapeTrain/statisticalPage",
+        "POST /api/tickerTapeTrain/getById"
+      ],
+      "assertions_required": "Non-zero score/speed/accuracy and owner-only detail match exactly.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "ticker.lifecycle",
+      "domain": "ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/tickerTapeTrain/begin",
+        "POST /api/tickerTapeTrain/pause",
+        "POST /api/tickerTapeTrain/goOn",
+        "POST /api/tickerTapeTrain/finish"
+      ],
+      "assertions_required": "Compare pause-excluded timing and server scoring; reject foreign/terminal submissions and verify no second settlement.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ticker.base-session",
+      "domain": "ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/tickerTapeTrain/baseSession",
+        "POST /api/tickerTapeTrain/saveBaseTrain",
+        "POST /api/tickerTapeTrain/discardBaseSession"
+      ],
+      "assertions_required": "Capture per-backend session ID, submit once and compare session consumption, saved train and replay rejection; cannot compare generated IDs without mapping.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-telegram.owner-read",
+      "domain": "post-telegram",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTelegramTrain/findAll",
+        "POST /api/postTelegramTrain/detail",
+        "POST /api/postTelegramTrain/findMessageBody"
+      ],
+      "assertions_required": "Compare owner list, detail and ordered floor text, not just response envelope.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "post-telegram.lifecycle-pages",
+      "domain": "post-telegram",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTelegramTrain/begin",
+        "POST /api/postTelegramTrain/saveContentValue",
+        "POST /api/postTelegramTrain/addContentValue",
+        "POST /api/postTelegramTrain/stop",
+        "POST /api/postTelegramTrain/finish"
+      ],
+      "assertions_required": "Compare ordered page/log writes, pause/finish timing, score and terminal replay; verify floor and train rows and unchanged foreign training.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-telegraph.owner-read",
+      "domain": "post-telegraph",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/PostTelegraphKeyPatTrain/listPage",
+        "GET /api/PostTelegraphKeyPatTrain/getPage"
+      ],
+      "assertions_required": "Compare seeded pageNumber bounds, owner filtering and null/error on absent page.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "post-telegraph.lifecycle-pages",
+      "domain": "post-telegraph",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/PostTelegraphKeyPatTrain/begin",
+        "POST /api/PostTelegraphKeyPatTrain/finishPage",
+        "POST /api/PostTelegraphKeyPatTrain/finish",
+        "POST /api/PostTelegraphKeyPatTrain/reset"
+      ],
+      "assertions_required": "Match per-page score/time arrays, final state, reset attempt and stale/replayed page rejection with page/train DB snapshots.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-telex.owner-read",
+      "domain": "post-telex",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTelexPatTrain/findAll",
+        "GET /api/postTelexPatTrain/getPage"
+      ],
+      "assertions_required": "Compare trainType query plus JSON paging, page boundaries and owner restriction.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "post-telex.lifecycle-pages",
+      "domain": "post-telex",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTelexPatTrain/begin",
+        "POST /api/postTelexPatTrain/finishPage",
+        "POST /api/postTelexPatTrain/pause",
+        "POST /api/postTelexPatTrain/resume",
+        "POST /api/postTelexPatTrain/finish",
+        "POST /api/postTelexPatTrain/reset"
+      ],
+      "assertions_required": "Compare partial-page settlement and receipt arrays, paused time exclusion, attempt transitions and duplicate/stale rejection; DB writes checked independently.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-ticker.owner-read",
+      "domain": "post-ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTickerTapeTrain/listPage",
+        "GET /api/postTickerTapeTrain/findPage",
+        "GET /api/masthead/findByTrainId"
+      ],
+      "assertions_required": "Compare page/setting/masthead shapes and denied foreign ownership.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "post-ticker.lifecycle-json",
+      "domain": "post-ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTickerTapeTrain/begin",
+        "POST /api/postTickerTapeTrain/upLoadResult",
+        "POST /api/postTickerTapeTrain/finish",
+        "POST /api/postTickerTapeTrain/reset"
+      ],
+      "assertions_required": "Preserve upload JSON arrays instead of string coercion; compare score/time/state/attempt and terminal replay effects.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "post-ticker.owner-admin-write",
+      "domain": "post-ticker",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/masthead/save",
+        "POST /api/postTickerTapeTrainSetting/addOrUpdate"
+      ],
+      "assertions_required": "Masthead owner scope and setting admin scope are separate cases; compare target and unrelated DB rows.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "group-net.owner-read",
+      "domain": "group-net",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/groupNetTrain/listPage",
+        "GET /api/groupNetTrain/details",
+        "POST /api/generalGroupNetRule/findAll"
+      ],
+      "assertions_required": "Compare rule projections, own details and forbidden foreign details.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "group-net.score-write",
+      "domain": "group-net",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/groupNetTrain/saveTrain",
+        "POST /api/groupNetTrain/submitAnswer",
+        "POST /api/generalGroupNetRule/save"
+      ],
+      "assertions_required": "Verify server answer scoring and submission replay; only C may change rules. Compare rule/train/answer snapshots and generated-ID correlation.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "general.owner-read",
+      "domain": "general",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/generalKeyPat/findAll",
+        "POST /api/generalTelexPat/findAll",
+        "POST /api/generalTickerPatTrain/findAll"
+      ],
+      "assertions_required": "Each family must compare non-empty list/detail/page/value/statistics for participant and controller; outsider denied.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "general.role-lifecycle",
+      "domain": "general",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "GET /api/generalKeyPat/startTrain",
+        "GET /api/generalTelexPat/startTrain",
+        "GET /api/generalTickerPatTrain/startTrain"
+      ],
+      "assertions_required": "Run each family: controller starts, participant submits ordered JSON arrays, final partial page settles, duplicate/stale attempt rejected, reset/recovery cannot double-settle. Compare train/user/page/result rows after each barrier.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "general.rest-ws-projection",
+      "domain": "general",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "GET /api/GeneralKeyPatTrain/getOneline/{trainId}",
+        "GET /api/generalTelexPat/getOnline",
+        "GET /api/socket/generalTickerPatTrain/getByTrainIdAndUserId"
+      ],
+      "assertions_required": "Separate stateful WS harness: connect two users, compare online REST projections, replace one session, stale old close must retain the new session; disconnect is local until settlement rules apply.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "simulation.owner-read",
+      "domain": "simulation",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/simulation/router/findRoom",
+        "POST /api/simulation/report/findRoom",
+        "POST /api/simulation/recept/findRoom",
+        "POST /api/simulation/routerRoomContent/findAlls"
+      ],
+      "assertions_required": "Compare all four room types, member visibility and creator/outsider permissions; fixed room content and channel order.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "simulation.room-lifecycle",
+      "domain": "simulation",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/simulation/router/changeChannel",
+        "POST /api/simulation/router/sendFinish",
+        "POST /api/simulation/routerRoomContent/uploadResult"
+      ],
+      "assertions_required": "Compare channel/finish/upload JSON transitions, roomId query binding for sendFinish and member authorization; DB records plus broadcast recipients/order must agree.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "simulation.admin-online-route",
+      "domain": "simulation",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "GET /api/simulation/socket/getAllRoomInfo"
+      ],
+      "assertions_required": "Java inventory declares admin route, but current Rust main.rs has no matching registered route. Requires application route coverage before any shared fixture can be marked runnable; admin versus ordinary/no-role behavior remains pending.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "comprehensive.owner-read",
+      "domain": "comprehensive",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "GET /api/comprehensive/getUserOverallInfo",
+        "GET /api/comprehensive/getTheoryYear",
+        "GET /api/comprehensive/getTheoryTestYear"
+      ],
+      "assertions_required": "Compare A aggregates, explicit year query, no B leakage and array ordering. Database/clock setup required; anonymous code203 does not prove report parity.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "global-rule.seeded-read",
+      "domain": "global-rule",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTrainGlobalRule/findByType"
+      ],
+      "assertions_required": "Exact returned fields/types and matching selected rule; no string-to-number coercion.",
+      "runner_eligibility": "HTTP_JSON_COMPARABLE_AFTER_SETUP_AND_REQUEST_MATERIALIZATION"
+    },
+    {
+      "case_id": "global-rule.admin-write",
+      "domain": "global-rule",
+      "status": "PENDING_NOT_EXECUTED",
+      "endpoints": [
+        "POST /api/postTrainGlobalRule/addRule",
+        "POST /api/postTrainGlobalRule/deleteById"
+      ],
+      "assertions_required": "JSON add is an array of rule DTOs, not a multipart request or object wrapper. C succeeds, D/E denied; compare requested type rows and unrelated type unchanged.",
+      "runner_eligibility": "SEPARATE_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.status",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/status",
+      "setup": [],
+      "assertions_required": [
+        "Upgrade both endpoints; exchange __nip_heartbeat_ping__ and require __nip_heartbeat_pong__; send arbitrary text and require pong. Record opcode, payload, close status and ordering."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.classic-hand",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/websocket/{sid}",
+      "setup": [
+        "A/B authenticated query-only credentials; path sid deliberately differs from authenticated identity.",
+        "Seed fixed owner training/capture graph."
+      ],
+      "assertions_required": [
+        "Missing/invalid query credentials produce error frame and close; header credentials cannot replace query authentication.",
+        "Drive one valid and one malformed capture; compare response model, owner restriction and DB effect.",
+        "Connect replacement A session, then close old A; only the newest session can mutate A state."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.union",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/websocketUnion/{sid}",
+      "setup": [
+        "Two members/controller/outsider and fixed room state; path sid is route-only."
+      ],
+      "assertions_required": [
+        "Compare RequestModel dispatch, unknown/malformed code=-1 frames, recipient sets and room transitions.",
+        "Duplicate A session closes/notifies old generation; delayed old close must not evict new generation."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.simulation",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/simulation/{id}/{roomId}",
+      "setup": [
+        "Fixed creator/member/outsider, room type, channel and room ID; mismatched path user ID cannot change identity."
+      ],
+      "assertions_required": [
+        "Compare handshake membership, heartbeat, valid channel/topic broadcasts and malformed/unauthorized errors.",
+        "Correlate REST projection and DB transition; replacement session/stale close preserves new membership."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.general-key",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/generalKeyPatTrain/{uid}/{trainId}",
+      "setup": [
+        "Controller role=1, participant role=0, outsider; fixed numeric train ID, attempts and pages."
+      ],
+      "assertions_required": [
+        "Compare ready/begin/pat/finish/end dispatch, wrong-role and malformed frames, ordered broadcasts and REST/DB settlement.",
+        "Identity comes from query token, not uid; stale old close cannot remove replacement."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.general-telex",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/generalTelexPatTrain/{uid}/{trainId}",
+      "setup": [
+        "Same role matrix with an opaque string train ID, exact message/body arrays and fixed time."
+      ],
+      "assertions_required": [
+        "Compare ready/begin/pat/finish/end, malformed and wrong-role errors and capture-array typing.",
+        "Compare final partial-page settlement and replacement/stale-close behavior across REST/WS/DB."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    },
+    {
+      "case_id": "ws.general-ticker",
+      "domain": "websocket",
+      "status": "PENDING_NOT_EXECUTED",
+      "path": "/generalTickerPat/{uid}/{trainId}/{role}",
+      "setup": [
+        "Controller/participant/outsider with numeric train ID and role path that must match server membership."
+      ],
+      "assertions_required": [
+        "Compare role mismatch handshake, ready/begin/pat/finish/end, malformed frames and final-page scoring.",
+        "Replace same user/role session; delayed old close and failed-recipient cleanup must not remove new session."
+      ],
+      "runner_eligibility": "SEPARATE_WEBSOCKET_HARNESS_REQUIRED"
+    }
+  ],
+  "counts": {
+    "runnable_not_executed": 0,
+    "separate_requirements_not_executed": 66,
+    "executed_current_revision": 49
+  },
+  "scope_boundary": "No runtime checks, backend requests or commits were performed for this revision. Domain lifecycle, owner/admin, DB writes, multipart and WS assertions are specified requirements only. Readiness to execute a case is not evidence it passed."
+}
