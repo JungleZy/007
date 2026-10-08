@@ -258,7 +258,7 @@ async fn theory_test_year(
     let theory_year_info = year_info(pool, user_id, year).await?;
     let year_pattern = java_year_pattern(year);
     let rows = sqlx::query(
-        "SELECT DATE_FORMAT(end_time, '%c') AS month, ROUND(AVG(score), 2) AS avg_score FROM t_theory_knowledge_exam_user WHERE user_id = ? AND state = ? AND start_time IS NOT NULL AND end_time IS NOT NULL AND end_time LIKE ? GROUP BY DATE_FORMAT(end_time, '%c') ORDER BY CAST(DATE_FORMAT(end_time, '%c') AS UNSIGNED)",
+        "SELECT t.month, ROUND(AVG(t.score), 2) AS avg_score FROM (SELECT score, DATE_FORMAT(end_time, '%c') AS month FROM t_theory_knowledge_exam_user WHERE user_id = ? AND state = ? AND start_time IS NOT NULL AND end_time IS NOT NULL AND end_time LIKE ?) t GROUP BY t.month ORDER BY CAST(t.month AS UNSIGNED)",
     )
     .bind(user_id)
     .bind(4_i32)
