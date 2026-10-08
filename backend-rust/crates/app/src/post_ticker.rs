@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
 
-const COLS: &str = "id,name,is_cable,rate,type,code_message_body,message_number,code_short,valid_time,score,status,user_id,result,more_code,lack_code,error_code,more_group,lack_group,total_number,disturb,ratio,is_start_sign,is_low_rate,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text";
+const COLS: &str = "id,name,is_cable,rate,type,message_number,code_short,valid_time,score,status,user_id,result,more_code,lack_code,error_code,more_group,lack_group,total_number,disturb,ratio,is_start_sign,is_low_rate,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text";
 
 #[derive(Debug)]
 enum Error {
@@ -31,7 +31,10 @@ impl From<serde_json::Error> for Error {
 fn respond(result: Result<Option<Value>, Error>) -> Response {
     match result {
         Ok(value) => envelope_json(StatusCode::OK, 200, value, "ok", ""),
-        Err(Error::Business(code, message)) => envelope_response(StatusCode::OK, code, message, ""),
+        Err(Error::Business(code, message)) => {
+            let description = if code == 207 { "" } else { message };
+            envelope_response(StatusCode::OK, code, message, description)
+        }
         Err(error) => {
             match error {
                 Error::Database(error) => {
@@ -60,11 +63,14 @@ async fn owned(
     }
     Ok(row)
 }
-fn item(row: &MySqlRow) -> Result<Value, Error> {
-    let content = row
-        .get::<Option<String>, _>("code_message_body")
-        .map(|v| serde_json::from_str::<Value>(&v))
-        .transpose()?;
+fn item(row: &MySqlRow, detail: bool) -> Result<Value, Error> {
+    let content = if detail {
+        row.get::<Option<String>, _>("code_message_body")
+            .map(|value| serde_json::from_str::<Value>(&value))
+            .transpose()?
+    } else {
+        None
+    };
     Ok(json!({
         "id":row.get::<String,_>("id"),"name":row.get::<Option<String>,_>("name"),
         "isCable":row.get::<Option<i32>,_>("is_cable"),"trainId":null,
@@ -114,8 +120,8 @@ pub(crate) async fn list(
         let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM t_post_ticker_tape_train WHERE user_id=?").bind(&user.id).fetch_one(pool).await?;
         let records = sqlx::query(&format!("SELECT {COLS} FROM t_post_ticker_tape_train WHERE user_id=? ORDER BY create_time DESC LIMIT ? OFFSET ?"))
             .bind(&user.id).bind(size).bind((no - 1) * size).fetch_all(pool).await?;
-        let data = records.iter().map(item).collect::<Result<Vec<_>, _>>()?;
-        Ok(Some(json!({"totalPage":(total+size-1)/size,"totalNumber":total,"currentPage":no,"pageSize":size,"data":data})))
+        let data = records.iter().map(|row| item(row, false)).collect::<Result<Vec<_>, _>>()?;
+        Ok(Some(json!({"totalPage":(total+size-1)/size,"totalNumber":total,"currentPage":no-1,"pageSize":size,"data":data})))
     }.await)
 }
 
@@ -131,8 +137,8 @@ pub(crate) async fn detail(
         let id = required_id(body.id.as_deref())?;
         let mut tx = pool.begin().await?;
         owned(&mut tx, id, &user).await?;
-        let row = sqlx::query(&format!("SELECT {COLS} FROM t_post_ticker_tape_train WHERE id=?")).bind(id).fetch_one(&mut *tx).await?;
-        let mut data = item(&row)?;
+        let row = sqlx::query(&format!("SELECT code_message_body,{COLS} FROM t_post_ticker_tape_train WHERE id=?")).bind(id).fetch_one(&mut *tx).await?;
+        let mut data = item(&row, true)?;
         let images: Vec<Option<String>> = sqlx::query_scalar("SELECT image FROM t_post_ticker_tape_train_page_value WHERE train_id=? ORDER BY page_number").bind(id).fetch_all(&mut *tx).await?;
         data["images"] = json!(images);
         data["isStartSign"] = json!(row.get::<Option<i32>,_>("is_start_sign").unwrap_or(0));
@@ -253,7 +259,10 @@ pub(crate) async fn add(
     };
     respond(async {
         if !body.is_object() { return Err(Error::Business(202, "请求参数错误")); }
-        let cable = body.get("isCable").and_then(Value::as_i64).ok_or(Error::Business(202, "是否使用固定报底不能为空"))?;
+        let cable = match body.get("isCable") {
+            Some(value) => value.as_i64().ok_or(Error::Business(202, "是否使用固定报底不能为空"))?,
+            None => 0,
+        };
         let total = body.get("totalNumber").and_then(Value::as_i64).and_then(|v| i32::try_from(v).ok()).ok_or(Error::Business(202, "报文组数不能为空"))?;
         let kind = body.get("type").and_then(Value::as_i64).and_then(|v| i32::try_from(v).ok());
         if cable == 0 && kind.is_none() { return Err(Error::Business(202, "报文类型不能为空")); }
@@ -265,7 +274,7 @@ pub(crate) async fn add(
             .bind(&id).bind(body.get("name").and_then(Value::as_str)).bind(cable).bind(body.get("rate").and_then(Value::as_i64)).bind(kind).bind(content)
             .bind(body.get("codeShort").and_then(Value::as_i64)).bind(&user.id).bind(total).bind(body.get("disturb").and_then(Value::as_str))
             .bind(body.get("isAvg").and_then(Value::as_i64)).bind(body.get("isRandom").and_then(Value::as_i64)).bind(body.get("ratio").and_then(Value::as_i64))
-            .bind(body.get("isStartSign").and_then(Value::as_i64)).execute(&mut *tx).await?;
+            .bind(body.get("isStartSign").and_then(Value::as_i64).unwrap_or(1)).execute(&mut *tx).await?;
         if cable == 0 {
             let groups = generate_groups(kind.ok_or(Error::Business(202, "报文类型不能为空"))?, total.min(200) as usize, 1, body.get("isAvg").and_then(Value::as_i64) == Some(1), body.get("isRandom").and_then(Value::as_i64) == Some(1))?;
             save_groups(&mut tx, &id, groups).await?;
@@ -283,15 +292,21 @@ pub(crate) async fn add(
             let mut skip = body.get("startPage").and_then(Value::as_i64).unwrap_or(1).saturating_sub(1).max(0) as usize;
             if skip >= floor_groups.len() { skip = 0; }
             let pages = (total / 100) as usize;
-            if pages == 0 || floor_groups.len().saturating_sub(skip) < pages { return Err(Error::Business(202, "所选电缆可用楼层不足")); }
+            if pages == 0 { return Err(Error::Business(202, "报文组数不足一页，无法建立训练")); }
+            if floor_groups.len().saturating_sub(skip) < pages { return Err(Error::Business(202, "所选电缆可用楼层不足")); }
             for (index, (_, floor)) in floor_groups.into_iter().skip(skip).take(pages).enumerate() {
                 let groups = floor.into_iter().enumerate().map(|(sort, key)| ((index + 1) as i32, sort as i32, key)).collect();
                 save_groups(&mut tx, &id, groups).await?;
             }
         }
         tx.commit().await?;
-        body["id"] = json!(id);
-        Ok(Some(body))
+        let mut response = serde_json::Map::new();
+        for field in ["name", "cableId", "startPage", "rate", "type", "codeShort", "codeMessageBody", "isLowRate", "disturb", "isAvg", "isRandom", "totalNumber", "ratio", "isStartSign"] {
+            response.insert(field.to_owned(), body.as_object_mut().expect("validated object").remove(field).unwrap_or(Value::Null));
+        }
+        response.insert("isCable".into(), json!(cable));
+        response.insert("id".into(), json!(id));
+        Ok(Some(Value::Object(response)))
     }.await)
 }
 
@@ -311,9 +326,13 @@ async fn lifecycle(state: AppState, user: AuthUser, id: Option<String>, action: 
                 sqlx::query("DELETE FROM t_post_ticker_tape_train_page_value WHERE train_id=?").bind(id).execute(&mut *tx).await?;
                 sqlx::query("UPDATE t_post_ticker_tape_train SET status=0,start_time=NULL WHERE id=?").bind(id).execute(&mut *tx).await?;
             }
-            1 => { sqlx::query("UPDATE t_post_ticker_tape_train SET status=1,start_time=NOW(6) WHERE id=?").bind(id).execute(&mut *tx).await?; }
+            1 => {
+                sqlx::query("UPDATE t_post_ticker_tape_train SET status=1,start_time=NOW(6) WHERE id=?").bind(id).execute(&mut *tx).await?;
+            }
             _ => {
-                if status == 0 || row.get::<Option<String>,_>("start_time_text").is_none() { return Err(Error::Business(202, "训练还未开始，无法结算")); }
+                if status == 0 || row.get::<Option<String>, _>("start_time_text").is_none() {
+                    return Err(Error::Business(202, "训练还未开始，无法结算"));
+                }
                 sqlx::query("UPDATE t_post_ticker_tape_train SET status=2,end_time=NOW(6),valid_time=TIMESTAMPDIFF(SECOND,start_time,NOW(6)) WHERE id=?").bind(id).execute(&mut *tx).await?;
             }
         }
@@ -359,12 +378,12 @@ pub(crate) async fn upload_result(
     };
     respond(async {
         let id = required_id(body.id.as_deref())?;
-        let result = body.result.as_ref().filter(|v| !v.is_empty()).ok_or(Error::Business(202, "填报结果不能为空"))?;
-        let images = body.images.as_ref().filter(|v| v.len() == result.len()).ok_or(Error::Business(202, "截图数量与填报页数不一致"))?;
         let mut tx = pool.begin().await?;
         let train = owned(&mut tx, id, &user).await?;
         let existing: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM t_post_ticker_tape_train_page_value WHERE train_id=?").bind(id).fetch_one(&mut *tx).await?;
         if train.get::<Option<i32>,_>("status") == Some(3) || existing > 0 { return Err(Error::Business(208, "训练已结束")); }
+        let result = body.result.as_ref().filter(|v| !v.is_empty()).ok_or(Error::Business(202, "填报结果不能为空"))?;
+        let images = body.images.as_ref().filter(|v| v.len() == result.len()).ok_or(Error::Business(202, "截图数量与填报页数不一致"))?;
         let mut more_group = 0i64; let mut lack_group = 0i64; let mut more_code = 0i64; let mut lack_code = 0i64; let mut error_code = 0i64; let mut total_groups = 0i64;
         for (page_index, groups) in result.iter().enumerate() {
             let pages = sqlx::query("SELECT id,`key` FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort").bind(id).bind((page_index + 1) as i32).fetch_all(&mut *tx).await?;
@@ -387,15 +406,20 @@ pub(crate) async fn upload_result(
         let score = (100 - more_group - lack_group - more_code - lack_code - error_code).to_string();
         sqlx::query("UPDATE t_post_ticker_tape_train SET score=?,error_code=?,more_code=?,lack_code=?,more_group=?,lack_group=?,status=3,result=? WHERE id=?")
             .bind(score).bind(error_code).bind(more_code).bind(lack_code).bind(more_group).bind(lack_group).bind(serde_json::to_string(result)?).bind(id).execute(&mut *tx).await?;
-        let row = sqlx::query(&format!("SELECT {COLS} FROM t_post_ticker_tape_train WHERE id=?")).bind(id).fetch_one(&mut *tx).await?;
-        let mut data = item(&row)?; data["images"] = json!(images);
+        let row = sqlx::query(&format!("SELECT code_message_body,{COLS} FROM t_post_ticker_tape_train WHERE id=?")).bind(id).fetch_one(&mut *tx).await?;
+        let mut data = item(&row, true)?;
+        // Unlike getById, Java's uploadResult copies the entity into a VO without parsing a nonempty JSON body.
+        if data["codeMessageBody"].as_array().is_some_and(|body| !body.is_empty()) {
+            data["codeMessageBody"] = Value::Null;
+        }
+        data["images"] = json!(images);
         tx.commit().await?;
         Ok(Some(data))
     }.await)
 }
 
 fn page_json(row: &MySqlRow) -> Value {
-    json!({"id":row.get::<String,_>("id"),"trainId":row.get::<Option<String>,_>("train_id"),"pageNumber":row.get::<Option<i32>,_>("page_number"),"key":row.get::<Option<String>,_>("key"),"value":row.get::<Option<String>,_>("value"),"sort":row.get::<Option<i32>,_>("sort")})
+    json!({"id":null,"trainId":row.get::<Option<String>,_>("train_id"),"pageNumber":row.get::<Option<i32>,_>("page_number"),"key":row.get::<Option<String>,_>("key"),"value":row.get::<Option<String>,_>("value"),"sort":row.get::<Option<i32>,_>("sort")})
 }
 pub(crate) async fn find_page(
     State(state): State<AppState>,
@@ -407,24 +431,23 @@ pub(crate) async fn find_page(
     };
     respond(async {
         let id = required_id(query.train_id.as_deref())?;
-        let number = query.page_number.filter(|v| *v > 0).ok_or(Error::Business(202, "页码不正确"))?;
         let mut tx = pool.begin().await?;
         let train = owned(&mut tx, id, &user).await?;
+        let number = query.page_number.filter(|v| *v > 0).ok_or(Error::Business(202, "页码不正确"))?;
         let total = train.get::<Option<i32>,_>("total_number").ok_or(Error::Business(202, "训练总组数缺失，无法取页"))?;
         let maximum = (i64::from(total) + 99) / 100;
-        let sql = "SELECT id,train_id,page_number,`key`,value,sort FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort";
+        let sql = "SELECT train_id,page_number,`key`,value,sort FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort";
         let rows = sqlx::query(sql).bind(id).bind(number).fetch_all(&mut *tx).await?;
         let mut pages = rows.iter().map(page_json).collect::<Vec<_>>();
         if pages.is_empty() && i64::from(number) <= maximum {
             let count = if i64::from(number) == maximum { total - (number - 1) * 100 } else { 100 };
             let kind = train.get::<Option<i32>,_>("type").ok_or(Error::Business(202, "报文类型缺失，无法生成报底"))?;
             let groups = generate_groups(kind, count.max(0) as usize, number, train.get::<Option<i32>,_>("is_avg") == Some(1), train.get::<Option<i32>,_>("is_random") == Some(1))?;
-            // Java returns every row generated by this call, including average-mode page rollover.
             for (page, sort, key) in groups {
                 let page_id = uuid::Uuid::new_v4().to_string();
                 sqlx::query("INSERT INTO t_post_ticker_tape_train_page (id,train_id,page_number,sort,`key`) VALUES (?,?,?,?,?)")
                     .bind(&page_id).bind(id).bind(page).bind(sort).bind(&key).execute(&mut *tx).await?;
-                pages.push(json!({"id":page_id,"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":null}));
+                pages.push(json!({"id":null,"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":null}));
             }
             pages.sort_by_key(|row| row["sort"].as_i64());
         }
