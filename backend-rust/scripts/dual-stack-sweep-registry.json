@@ -3,6 +3,9 @@
   "note": "Resolves differences found by dual-stack-sweep.py. category_defaults override the script's built-in defaults (TEXT_ONLY/JAVA_UNHANDLED_500/JAVA_RAW_HTTP_4XX accepted; RUST_FAILS_WHERE_JAVA_OK/RUST_OTHER_CODE fail the run; the rest are OPEN backlog; any non-TEXT_ONLY difference inside a scripted journey fails unless an override says otherwise). An override must name the endpoint, may narrow by variant/category, and must say why the difference is acceptable or still open.",
   "category_defaults": {},
   "overrides": [
+    {"endpoint":"journey:personal-telegram/floor-content","variant":"journey","category":"DATA","disposition":"ACCEPTED","note":"Generated-identity comparison limitation, not behavioural divergence: both responses map the requested floor UUID to the same ordered E/T content (moresKey, moresValue, moresTime and sort match). The two seeded stacks create different floor UUIDs; sweep normalizes UUID values but not object keys. No data path is masked; personal-telegram detail-created/paused/finished also compares the same content as arrays."},
+    {"endpoint":"journey:personal-telegram/finish-again","variant":"journey","category":"TEXT_ONLY","disposition":"ACCEPTED","note":"Both reject repeated settlement with HTTP200/code208/message 训练已结束. Java TerminalStateException mapper repeats the message in description; Rust retains the shared empty-description envelope. No training or statistics are written."},
+    {"endpoint":"journey:personal-telegram/save-content-finished","variant":"journey","category":"TEXT_ONLY","disposition":"ACCEPTED","note":"Both reject raw-content writes after settlement with HTTP200/code208/message 训练已结束. Only description differs (Java repeats the message, Rust empty); content remains unchanged."},
     {
       "endpoint": "POST /api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
       "variant": "probe-str",
