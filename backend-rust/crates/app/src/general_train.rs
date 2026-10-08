@@ -87,7 +87,12 @@ fn response(result: Outcome<Value>) -> Response {
     match result {
         Ok(value) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
         Err(Failure::Business(code, message)) => {
-            envelope_response(StatusCode::OK, code, message, "")
+            let description = if matches!(code, 202 | 208) {
+                message
+            } else {
+                ""
+            };
+            envelope_response(StatusCode::OK, code, message, description)
         }
         Err(Failure::Database(error)) => {
             tracing::warn!(%error, operation = "general training service", "general training database operation failed");
@@ -95,6 +100,122 @@ fn response(result: Outcome<Value>) -> Response {
         }
     }
 }
+
+fn train_response(mut train: Value, domain: Domain) -> Value {
+    train["contentValue"] = Value::Null;
+    if train.get("pageCount").is_none() {
+        train["pageCount"] = Value::Null;
+    }
+    train["userInfoList"] = Value::Null;
+    train.as_object_mut().map(|object| {
+        for field in ["createTime", "startTime", "endTime"] {
+            if let Some(Value::String(value)) = object.get(field).cloned() {
+                let normalized = value
+                    .split_once('T')
+                    .map(|(date, time)| {
+                        format!("{date} {}", time.split('.').next().unwrap_or(time))
+                    })
+                    .unwrap_or(value);
+                object.insert(field.to_owned(), Value::String(normalized));
+            }
+        }
+        object.remove("upId");
+        if matches!(domain, Domain::Telex | Domain::Ticker) {
+            object.remove("ruleScore");
+        }
+        if matches!(domain, Domain::Telex) {
+            object.remove("protocolVersion");
+        }
+        if matches!(domain, Domain::Ticker) {
+            if let Some(value) = object.get("codeSort").and_then(Value::as_i64) {
+                object.insert("codeSort".into(), json!(value != 0));
+            }
+            if let Some(value) = object.get("isRandom").and_then(Value::as_i64) {
+                object.insert("isRandom".into(), json!(value != 0));
+            }
+        }
+    });
+    train
+}
+
+fn detail_member(member: &Value, domain: Domain) -> Value {
+    let common = |field: &str| member.get(field).cloned().unwrap_or(Value::Null);
+    let scalar_text = |field: &str| {
+        text(&member[field])
+            .map(Value::String)
+            .unwrap_or(Value::Null)
+    };
+    match domain {
+        Domain::Key => {
+            let duration = if member["isFinish"] == 1 {
+                member["duration"]
+                    .as_str()
+                    .and_then(|value| value.parse::<i64>().ok())
+                    .map_or(Value::Null, |value| json!(value))
+            } else {
+                Value::Null
+            };
+            json!({
+                "protocolVersion": Value::Null, "isCable": Value::Null,
+                "userId": common("userId"), "userName": common("userName"),
+                "userImg": common("userImg"), "userStatus": common("userStatus"),
+                "role": common("role"), "score": common("score"),
+                "deductInfo": common("deductInfo"), "errorNumber": common("errorNumber"),
+                "accuracy": common("accuracy"), "speed": common("speed"),
+                "existPageNumber": common("existPageNumber"), "existNumber": common("existNumber"),
+                "isFinish": common("isFinish"), "duration": duration,
+                "activeMillis": common("activeMillis"), "totalNumber": Value::Null,
+                "pageCount": common("pageCount"), "ruleContent": Value::Null,
+                "finishTime": common("finishTime"), "patValue": Value::Null,
+                "pageAnalyzeVOS": json!([]), "existPage": Value::Null,
+                "content": Value::Null
+            })
+        }
+        Domain::Ticker => json!({
+            "accuracy": common("accuracy"), "activeMillis": common("activeMillis"),
+            "deductInfo": common("deductInfo"), "errorNumber": common("errorNumber"),
+            "existNumber": common("existNumber"), "existPageNumber": common("existPageNumber"),
+            "finishTime": common("finishTime"), "isFinish": common("isFinish"),
+            "lack": common("lack"), "patValue": Value::Null, "role": common("role"),
+            "score": common("score"), "speed": common("speed"), "speedLog": common("speedLog"),
+            "statisticInfo": common("statisticInfo"), "userId": common("userId"),
+            "userImg": common("userImg"), "userName": common("userName"),
+            "userStatus": common("userStatus"), "validTime": common("validTime")
+        }),
+        Domain::Telex => json!({
+            "isCable": Value::Null, "userId": common("userId"),
+            "userName": common("userName"), "userImg": common("userImg"),
+            "userStatus": common("userStatus"), "role": common("role"),
+            "score": common("score"), "deductInfo": common("deductInfo"),
+            "errorNumber": common("errorNumber"), "accuracy": scalar_text("accuracy"),
+            "speed": scalar_text("speed"), "speedLog": common("speedLog"),
+            "existPageNumber": common("existPageNumber"), "existNumber": common("existNumber"),
+            "isFinish": common("isFinish"), "duration": common("validTime"),
+            "validTime": common("validTime"), "totalNumber": Value::Null,
+            "pageCount": Value::Null, "ruleContent": Value::Null,
+            "finishTime": common("finishTime"), "patValue": Value::Null,
+            "pageAnalyzeVOS": json!([]), "existPage": Value::Null,
+            "content": Value::Null
+        }),
+    }
+}
+
+fn finish_member(member: &Value, domain: Domain) -> Value {
+    let mut result = detail_member(member, domain);
+    result["pageAnalyzeVOS"] = Value::Null;
+    if matches!(domain, Domain::Key) {
+        result["existPageNumber"] = Value::Null;
+        result["existNumber"] = Value::Null;
+        result["duration"] = member["duration"]
+            .as_str()
+            .and_then(|value| value.parse::<i64>().ok())
+            .map_or(Value::Null, |value| json!(value));
+    } else if matches!(domain, Domain::Telex) {
+        result["duration"] = Value::Null;
+    }
+    result
+}
+
 fn text(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
@@ -143,7 +264,7 @@ fn projection(fields: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(",");
-    format!("JSON_OBJECT({pairs})")
+    format!("CAST(JSON_OBJECT({pairs}) AS CHAR)")
 }
 const KEY_SYNC: &str = "id protocolVersion title totalNumber ruleId ruleContent createUser createTime startTime endTime status validTime messageType isAverage isRandom";
 const KEY_USER: &str = "id attempt captureStartedAt activeMillis capturePages accuracy deductInfo speed errorNumber statisticInfo score isFinish createTime finishTime duration trainId userId role content";
@@ -352,7 +473,9 @@ async fn add(state: AppState, actor: AuthUser, mut body: Value, domain: Domain) 
         let generated = insert_fields(&mut transaction,table(domain),&fields,&body).await?;
         if id_is_int(domain) { body["id"] = json!(generated); }
         for (target,role) in participants.iter().map(|id| (id,0)).chain(std::iter::once((&actor.id,1))) {
-            let mut member = json!({"trainId":body["id"],"userId":target,"role":role,"isFinish":0,"score":0,"accuracy":"0.00","errorNumber":0,"attempt":0,"createTime":now});
+            let creator = role == 1 && target == &actor.id;
+            let null_finish = matches!(domain, Domain::Ticker) || (creator && !matches!(domain, Domain::Telex));
+            let mut member = json!({"trainId":body["id"],"userId":target,"role":role,"isFinish":if null_finish { Value::Null } else { json!(0) },"score":if creator { Value::Null } else { json!(0) },"accuracy":if creator { Value::Null } else { json!("0.00") },"errorNumber":if creator { Value::Null } else { json!(0) },"attempt":0,"createTime":now});
             let fields = if matches!(domain,Domain::Telex) { member["id"] = json!(uuid::Uuid::new_v4().to_string()); "id trainId userId role isFinish score accuracy errorNumber attempt createTime" } else { "trainId userId role isFinish score accuracy errorNumber attempt createTime" };
             insert_fields(&mut transaction,user_table(domain),fields,&member).await?;
         }
@@ -395,7 +518,7 @@ async fn add(state: AppState, actor: AuthUser, mut body: Value, domain: Domain) 
         let result = load_train(&mut transaction, &id, domain, false).await?;
         transaction.commit().await?;
         super::ws::notify_general_new_train(ws_kind(domain), &id, &title, &participants).await;
-        Ok(result)
+        Ok(train_response(result, domain))
     }.await)
 }
 async fn list(state: AppState, user: AuthUser, body: Value, domain: Domain) -> Response {
@@ -423,7 +546,43 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
             let id = train_id(&body)?;
             let mut connection = pool.acquire().await?;
             let mut train = load_train(&mut connection, &id, domain, false).await?;
+            if train["isCable"] == 1 {
+                let page_column = if matches!(domain, Domain::Ticker) {
+                    "floor_number"
+                } else {
+                    "page_number"
+                };
+                let total_field = if matches!(domain, Domain::Ticker) {
+                    "messageNumber"
+                } else {
+                    "totalNumber"
+                };
+                let count: i64 = sqlx::query_scalar(&format!(
+                    "SELECT COUNT(*) FROM {} WHERE train_id=?",
+                    page_table(domain)
+                ))
+                .bind(&id)
+                .fetch_one(&mut *connection)
+                .await?;
+                let max_page: Option<i64> = sqlx::query_scalar(&format!(
+                    "SELECT MAX({page_column}) FROM {} WHERE train_id=?",
+                    page_table(domain)
+                ))
+                .bind(&id)
+                .fetch_one(&mut *connection)
+                .await?;
+                train[total_field] = json!(count);
+                train["pageCount"] = max_page.map_or(Value::Null, |value| json!(value));
+            }
             require_member(&mut connection, &train, &user, domain).await?;
+            if matches!(domain, Domain::Ticker)
+                && user.is_admin
+                && load_member(&mut connection, &id, &user.id, domain)
+                    .await?
+                    .is_none()
+            {
+                return Err(invalid("未查询到参训记录"));
+            }
             let mut members = rows(
                 &mut connection,
                 user_table(domain),
@@ -437,7 +596,7 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
                 "t_user",
                 "id userName userImg",
                 &format!(
-                    "WHERE id IN (SELECT user_id FROM {} WHERE train_id=?)",
+                    "WHERE id IN (SELECT CONVERT(user_id USING utf8mb4) COLLATE utf8mb4_general_ci FROM {} WHERE train_id=?)",
                     user_table(domain)
                 ),
                 &[&id],
@@ -466,11 +625,36 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
                     member["userName"] = profile["userName"].clone();
                     member["userImg"] = profile["userImg"].clone();
                 }
+                if matches!(domain, Domain::Key) && train["protocolVersion"] == 1 {
+                    let captures = stored_json(
+                        member["capturePages"]
+                            .as_str()
+                            .ok_or_else(|| invalid("缺少原始采集页索引"))?,
+                    )?;
+                    let object = captures
+                        .as_object()
+                        .ok_or_else(|| invalid("缺少原始采集页索引"))?;
+                    let mut pages = object
+                        .keys()
+                        .map(|page| page.parse::<i64>().map_err(|_| invalid("采集页索引无效")))
+                        .collect::<Outcome<Vec<_>>>()?;
+                    pages.sort_unstable();
+                    member["existPageNumber"] = json!(pages.len());
+                    member["existNumber"] = json!(pages);
+                }
+                if matches!(domain, Domain::Ticker) && train["protocolVersion"] == 1 {
+                    member["validTime"] = json!(member["activeMillis"].as_i64().unwrap_or(0) / 1000);
+                }
                 member["userStatus"] =
                     json!(super::ws::general_connection_status(kind, &id, &target)
                         .await
                         .unwrap_or(0));
             }
+            let members = members
+                .iter()
+                .map(|member| detail_member(member, domain))
+                .collect::<Vec<_>>();
+            train = train_response(train, domain);
             train["userInfoList"] = json!(members);
             Ok(train)
         }
@@ -898,16 +1082,22 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
                     Domain::Telex => saved.first().is_some_and(|row| row["value"] == body["patValue"]),
                     Domain::Ticker => if let Some(row) = saved.first() { stored_json(row["messageBody"].as_str().ok_or_else(|| invalid("已保存页缺少拍发内容"))?)? == body["messageBody"] && stored_json(row["standard"].as_str().ok_or_else(|| invalid("已保存页缺少校准记录"))?)? == body["standard"] && row["finishInfo"] == body["finishInfo"] } else { false },
                 };
-                if !same { return Err(invalid("该页采集区间已确认，但拍发内容不一致")); }
+                if !same {
+                    return Err(invalid(if matches!(domain, Domain::Telex) {
+                        "该页采集区间已确认，但正文不一致"
+                    } else {
+                        "该页采集区间已确认，但拍发内容不一致"
+                    }));
+                }
                 transaction.commit().await?;
-                return Ok(Value::Null);
+                return Ok(if matches!(domain, Domain::Key) { json!("") } else { Value::Null });
             }
             if intervals.len() <= old.len() || !intervals.starts_with(&old) { return Err(invalid("不能覆盖已确认的原始采集区间")); }
         }
         if member["isFinish"] == 1 { return Err(terminal("已结算的训练不能上传")); }
         let bound = capture_bound(&mut transaction,&id,&actor.id,domain).await?;
         let duration = interval_duration(&intervals,bound)?;
-        let (characters,raw_millis) = measure_submission(&body,domain)?;
+        let (characters,raw_millis) = measure_submission(&body,domain,train["trainType"].as_i64())?;
         if (characters > 0 && duration == 0) || raw_millis > duration as f64 + intervals.len() as f64 { return Err(invalid("原始拍发时长与采集区间不一致")); }
         let mut all = intervals.clone();
         if matches!(domain,Domain::Key) {
@@ -922,7 +1112,7 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
             }
         }
         all.sort_unstable();
-        let total_duration = interval_duration(&all,i64::MAX)?;
+        interval_duration(&all,i64::MAX)?;
         let delete = format!("DELETE FROM {} WHERE train_id=? AND user_id=? AND {page_column}=?{raw_filter}",value_table(domain));
         sqlx::query(&delete).bind(&id).bind(&actor.id).bind(page).execute(&mut *transaction).await?;
         match domain {
@@ -939,7 +1129,7 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
             Domain::Telex => {
                 sqlx::query("INSERT INTO general_telex_pat_user_value (id,train_id,user_id,page_number,sort,value,attempt,capture_intervals,received_at) VALUES (?,?,?,?,-1,?,?,?,NOW(6))")
                     .bind(uuid::Uuid::new_v4().to_string()).bind(&id).bind(&actor.id).bind(page).bind(body["patValue"].as_str()).bind(member["attempt"].as_i64()).bind(body["captureIntervals"].to_string()).execute(&mut *transaction).await?;
-                sqlx::query("UPDATE general_telex_pat_user SET active_millis=? WHERE train_id=? AND user_id=?").bind(total_duration).bind(&id).bind(&actor.id).execute(&mut *transaction).await?;
+                derive_telex_capture(&mut transaction,&id,&actor.id,train["trainType"].as_i64()).await?;
             }
             Domain::Ticker => {
                 sqlx::query("INSERT INTO general_ticker_pat_train_user_value (train_id,user_id,floor_number,message_body,standard,finish_info,attempt,capture_intervals,received_at) VALUES (?,?,?,?,?,?,?,?,NOW(6))")
@@ -947,7 +1137,7 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
             }
         }
         transaction.commit().await?;
-        Ok(Value::Null)
+        Ok(if matches!(domain, Domain::Key) { json!("") } else { Value::Null })
     }.await)
 }
 
@@ -1303,6 +1493,32 @@ async fn elapsed(
         .await?
         .unwrap_or(0))
 }
+fn page_dto(row: &Value, domain: Domain, source: bool) -> Value {
+    match domain {
+        Domain::Key => {
+            let mut output = row.clone();
+            for field in ["id", "trainId"] {
+                if let Some(value) = output.get(field).and_then(text) {
+                    output[field] = json!(value);
+                }
+            }
+            output.as_object_mut().map(|object| {
+                object.remove("userId");
+            });
+            output
+        }
+        Domain::Telex => json!({
+            "id": row["id"], "key": row["key"], "pageNumber": row["pageNumber"],
+            "sort": row["sort"], "trainId": row["trainId"],
+            "value": if source { Value::Null } else { row["value"].clone() }
+        }),
+        Domain::Ticker => json!({
+            "id": row["id"], "moresKey": row["moresKey"], "moresTime": row["moresTime"],
+            "moresValue": row["moresValue"], "patKeys": row["patKeys"], "patLogs": "[]"
+        }),
+    }
+}
+
 async fn page_response(
     state: AppState,
     actor: AuthUser,
@@ -1345,12 +1561,13 @@ async fn page_response(
         let mut result = json!({"protocolVersion":train["protocolVersion"],"attempt":member["attempt"],"serverElapsedMs":elapsed(&mut transaction,&id,&target,domain).await?,"savedCaptureIntervals":[],"submitted":false});
         match domain {
             Domain::Key => {
+                result["resolverMessage"] = Value::Null;
                 let captures = stored_json(member["capturePages"].as_str().unwrap_or("{}"))?;
                 let captured = captures.get(&number_text);
                 let submitted = captured.is_some() || (train["protocolVersion"] != 1 && !values.is_empty());
                 result["submitted"] = json!(submitted);
                 result["savedCaptureIntervals"] = captured.map(|page| page["intervals"].clone()).unwrap_or(json!([]));
-                result["messageVO"] = json!(if submitted { &values } else { &messages });
+                result["messageVO"] = json!(if submitted { values.iter().map(|row| page_dto(row, domain, false)).collect::<Vec<_>>() } else { messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>() });
                 let more = rows(&mut transaction,"general_key_pat_train_more",KEY_MORE,"WHERE train_id=? AND user_id=? AND page_number=?",&[&id,&target,&number_text]).await?;
                 for key in ["moreGroup", "moreLine"] { result[key] = match more.first().and_then(|row| row[key].as_str()) { Some(text) => stored_json(text)?, None => json!([]) }; }
             }
@@ -1358,13 +1575,14 @@ async fn page_response(
                 let raw = values.iter().find(|row| row["sort"] == -1);
                 result["submitted"] = json!(raw.is_some());
                 if let Some(intervals) = raw.and_then(|row| row["captureIntervals"].as_str()) { result["savedCaptureIntervals"] = stored_json(intervals)?; }
-                result["messageVO"] = json!(if values.is_empty() { &messages } else { &values });
+                result["messageVO"] = json!(if values.is_empty() { messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>() } else { values.iter().map(|row| page_dto(row, domain, false)).collect::<Vec<_>>() });
             }
             Domain::Ticker => {
                 let saved = values.first();
                 result["submitted"] = json!(saved.is_some());
-                result["messageBody"] = saved.map(|row| row["messageBody"].clone()).unwrap_or_else(|| json!(json!(messages).to_string()));
-                result["messageKey"] = json!(messages);
+                let display_messages = messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>();
+                result["messageBody"] = saved.map(|row| row["messageBody"].clone()).unwrap_or_else(|| json!(serde_json::to_string(&display_messages).unwrap_or_default()));
+                result["messageKey"] = json!(messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>());
                 for key in ["finishInfo", "standard", "resolver"] { result[key] = saved.map(|row| row[key].clone()).unwrap_or(json!("[]")); }
                 if train["protocolVersion"] == 1 {
                     if let Some(intervals) = saved.and_then(|row| row["captureIntervals"].as_str()) { result["savedCaptureIntervals"] = stored_json(intervals)?; }
@@ -1583,19 +1801,20 @@ async fn participant_action(
         let id = train_id(&body)?;
         let mut transaction = pool.begin().await?;
         let train = load_train(&mut transaction, &id, domain, true).await?;
-        let member = locked_member(&mut transaction, &id, &actor.id, domain).await.map_err(|error| match error { Failure::Business(202, _) => denied(), other => other })?;
-        if member["role"] != 0 { return Err(denied()); }
+        let member = locked_member(&mut transaction, &id, &actor.id, domain).await?;
+        if member["role"] != 0 { return Err(if matches!(domain, Domain::Telex) { denied() } else { invalid("未查询到该用户的学员参训记录") }); }
         if body["attempt"].as_i64().is_none() || body["attempt"] != member["attempt"] { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
-        if train["status"] != 1 { return Err(terminal("训练不在进行中")); }
+        if reset && train["status"] != 1 { return Err(terminal("训练不在进行中")); }
         if reset {
             let next = member["attempt"].as_i64().and_then(|attempt| attempt.checked_add(1)).filter(|attempt| *attempt <= i32::MAX as i64).ok_or_else(|| terminal("训练轮次已用尽"))?;
+            let score = if matches!(domain, Domain::Ticker) { "NULL" } else { "0" };
             let extras = match domain {
                 Domain::Key => ",capture_pages='{}',duration='0',content=NULL",
                 Domain::Telex => ",speed_log=NULL,valid_time_log=NULL",
                 Domain::Ticker => ",lack=0,speed_log=NULL",
             };
-            let sql = format!("UPDATE {} SET attempt=?,capture_started_at=NOW(6),active_millis=NULL,is_finish=0,accuracy='0.00',speed='0',error_number=0,score=0,finish_time=NULL,deduct_info=NULL,statistic_info=NULL{extras} WHERE train_id=? AND user_id=?", user_table(domain));
+            let sql = format!("UPDATE {} SET attempt=?,capture_started_at=NOW(6),active_millis=NULL,is_finish=0,accuracy='0.00',speed='0',error_number=0,score={score},finish_time=NULL,deduct_info=NULL,statistic_info=NULL{extras} WHERE train_id=? AND user_id=?", user_table(domain));
             sqlx::query(&sql).bind(next).bind(&id).bind(&actor.id).execute(&mut *transaction).await?;
             sqlx::query(&format!("DELETE FROM {} WHERE train_id=? AND user_id=?", value_table(domain))).bind(&id).bind(&actor.id).execute(&mut *transaction).await?;
             if matches!(domain, Domain::Key) {
@@ -1604,12 +1823,15 @@ async fn participant_action(
                 }
             }
         } else {
-            if member["isFinish"] == 1 { return Err(terminal("已结算的训练需要先重置")); }
-            capture_bound(&mut transaction, &id, &actor.id, domain).await?;
+            if member["isFinish"] == 1 { return Err(terminal(if matches!(domain, Domain::Telex) { "已结算的训练不能重新开始" } else { "已结算的训练需要先重置" })); }
+            // Telex startTrain marks readiness; its capture window is enforced on upload.
+            if !matches!(domain, Domain::Telex) {
+                capture_bound(&mut transaction, &id, &actor.id, domain).await?;
+            }
             sqlx::query(&format!("UPDATE {} SET is_finish=2 WHERE train_id=? AND user_id=?",user_table(domain))).bind(&id).bind(&actor.id).execute(&mut *transaction).await?;
         }
         transaction.commit().await?;
-        Ok(Value::Null)
+        Ok(if reset && matches!(domain, Domain::Ticker) { json!("ok") } else { Value::Null })
     }.await)
 }
 async fn capture_bound(
@@ -1623,14 +1845,17 @@ async fn capture_bound(
     } else {
         3
     };
-    let sql = format!("SELECT CAST(TIMESTAMPDIFF(MICROSECOND,u.capture_started_at,NOW(6)) DIV 1000 AS SIGNED) elapsed FROM {} t JOIN {} u ON u.train_id=t.id WHERE t.id=? AND u.user_id=? AND u.capture_started_at IS NOT NULL AND (t.status=1 OR (t.status={closing} AND NOW(6)<DATE_ADD(t.end_time,INTERVAL 60 SECOND)))",table(domain),user_table(domain));
-    sqlx::query_scalar::<_, i64>(&sql)
+    let sql = format!("SELECT CAST(TIMESTAMPDIFF(MICROSECOND,u.capture_started_at,NOW(6)) DIV 1000 AS SIGNED) elapsed FROM {} t JOIN {} u ON u.train_id=t.id WHERE t.id=? AND u.user_id=? AND (u.capture_started_at IS NULL OR t.status=1 OR (t.status={closing} AND NOW(6)<DATE_ADD(t.end_time,INTERVAL 60 SECOND)))",table(domain),user_table(domain));
+    match sqlx::query_scalar::<_, Option<i64>>(&sql)
         .bind(id)
         .bind(target)
         .fetch_optional(connection)
         .await?
-        .filter(|elapsed| *elapsed >= 0)
-        .ok_or_else(|| terminal("训练已停止接收拍发记录"))
+    {
+        Some(Some(elapsed)) => Ok(elapsed.max(0)),
+        Some(None) => Err(invalid("采集尚未开始")),
+        None => Err(terminal("训练已停止接收拍发记录")),
+    }
 }
 
 async fn online(state: AppState, actor: AuthUser, id: String, domain: Domain) -> Response {
@@ -1689,12 +1914,17 @@ fn submitted_array(value: &Value) -> Outcome<Vec<Value>> {
         .ok_or_else(|| invalid("原始拍发字段必须是JSON数组文本"))?;
     serde_json::from_str(text).map_err(|_| invalid("原始拍发字段必须是JSON数组文本"))
 }
-fn measure_submission(body: &Value, domain: Domain) -> Outcome<(usize, f64)> {
+
+fn measure_submission(
+    body: &Value,
+    domain: Domain,
+    train_type: Option<i64>,
+) -> Outcome<(usize, f64)> {
     if matches!(domain, Domain::Telex) {
         let text = body["patValue"]
             .as_str()
             .ok_or_else(|| invalid("页面内容不能为空"))?;
-        return Ok((text.chars().filter(|ch| !ch.is_whitespace()).count(), 0.0));
+        return Ok((super::telex_capture::character_count(text, train_type), 0.0));
     }
     let groups = body[if matches!(domain, Domain::Key) {
         "pageValue"
@@ -1763,7 +1993,10 @@ fn measure_submission(body: &Value, domain: Domain) -> Outcome<(usize, f64)> {
                     .as_array()
                     .ok_or_else(|| invalid("原始时长必须是数组"))?;
                 if signal.len() != time.len()
-                    || signal.iter().any(|value| value != "0" && value != "1")
+                    || signal.iter().any(|value| {
+                        !matches!(value.as_str(), Some("0") | Some("1"))
+                            && !matches!(value.as_i64(), Some(0) | Some(1))
+                    })
                 {
                     return Err(invalid("原始点划与时长数量不一致"));
                 }
@@ -1808,6 +2041,76 @@ async fn save_generated_group(
         json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":"[]","time":"[]"})
     };
     insert_fields(connection, page_table(domain), page_fields(domain), &row).await?;
+    Ok(())
+}
+async fn derive_telex_capture(
+    connection: &mut MySqlConnection,
+    train_id: &str,
+    user_id: &str,
+    train_type: Option<i64>,
+) -> Outcome<()> {
+    let rows = rows(
+        connection,
+        value_table(Domain::Telex),
+        value_fields(Domain::Telex),
+        "WHERE train_id=? AND user_id=? AND sort=-1 ORDER BY page_number",
+        &[train_id, user_id],
+    )
+    .await?;
+    let mut total_duration = 0_i64;
+    let mut total_characters = 0_usize;
+    let mut page_rates = Vec::new();
+    let mut page_times = Vec::new();
+    for row in rows {
+        let page = row["pageNumber"]
+            .as_i64()
+            .ok_or_else(|| invalid("拍发页码缺失"))?;
+        let intervals = stored_json(
+            row["captureIntervals"]
+                .as_str()
+                .ok_or_else(|| invalid("已保存页缺少原始采集时间轴"))?,
+        )?;
+        let duration = interval_duration(&capture_intervals(&intervals)?, i64::MAX)?;
+        let characters = super::telex_capture::character_count(
+            row["value"]
+                .as_str()
+                .ok_or_else(|| invalid("页面内容不能为空"))?,
+            train_type,
+        );
+        total_duration = total_duration
+            .checked_add(duration)
+            .ok_or_else(|| invalid("采集时长溢出"))?;
+        total_characters = total_characters
+            .checked_add(characters)
+            .ok_or_else(|| invalid("拍发字符数量超出范围"))?;
+        while page_rates.len() < page as usize {
+            page_rates.push(Value::Null);
+            page_times.push(Value::Null);
+        }
+        page_rates[page as usize - 1] = json!(if duration > 0 {
+            ((characters as f64 * 60_000.0 / duration as f64).round() as i64).to_string()
+        } else {
+            "0".to_owned()
+        });
+        page_times[page as usize - 1] = json!(duration / 1000);
+    }
+    let speed = if total_duration > 0 {
+        (total_characters as f64 * 60_000.0 / total_duration as f64).round() as i64
+    } else {
+        0
+    };
+    sqlx::query(
+        "UPDATE general_telex_pat_user SET active_millis=?,valid_time=?,speed=?,speed_log=?,valid_time_log=? WHERE train_id=? AND user_id=?",
+    )
+    .bind(total_duration)
+    .bind(i32::try_from(total_duration / 1000).map_err(|_| invalid("采集时长超出范围"))?)
+    .bind(speed.to_string())
+    .bind(Value::Array(page_rates).to_string())
+    .bind(Value::Array(page_times).to_string())
+    .bind(train_id)
+    .bind(user_id)
+    .execute(connection)
+    .await?;
     Ok(())
 }
 
@@ -2058,18 +2361,22 @@ fn align_key_groups(
                         continue;
                     }
                     let gap = next_source - source_index;
-                    let bunch = gap == 10
-                        && (1..5).any(|ahead| {
-                            captured
-                                .get(capture_index + ahead)
-                                .zip(sources.get(source_index + ahead))
-                                .and_then(|(value, source)| {
-                                    source_group_text(source, Domain::Key)
-                                        .ok()
-                                        .map(|text| corrected_key_group(&value.value) == text)
-                                })
-                                .unwrap_or(false)
-                        });
+                    let mut bunch = false;
+                    if gap == 10 {
+                        for ahead in 1..5 {
+                            if let (Some(value), Some(source)) = (
+                                captured.get(capture_index + ahead),
+                                sources.get(source_index + ahead),
+                            ) {
+                                if corrected_key_group(&value.value)
+                                    == source_group_text(source, Domain::Key)?
+                                {
+                                    bunch = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     if bunch {
                         statistics.bunch_group += 1;
                     } else {
@@ -2129,8 +2436,40 @@ fn score_text(value: f64) -> String {
     }
 }
 
-fn deduction_text(value: f64) -> String {
-    format!("-{value:.2}")
+fn decimal_scale(value: &Value) -> usize {
+    text(value)
+        .and_then(|value| value.split_once('.').map(|(_, fraction)| fraction.len()))
+        .unwrap_or(0)
+}
+
+fn speed_score_text(rule: &Value, speed: f64, score: f64) -> String {
+    if score == 0.0 {
+        return "0".to_owned();
+    }
+    let field = if speed > settlement_number(&rule["wpm"]["base"]).unwrap_or(0.0) {
+        "r"
+    } else {
+        "l"
+    };
+    let value = format!("{:.*}", decimal_scale(&rule["wpm"][field]), score);
+    if score > 0.0 {
+        format!("+{value}")
+    } else {
+        value
+    }
+}
+
+fn deduction_text(value: f64, scale: usize) -> String {
+    format!("-{:.*}", scale, if value == 0.0 { 0.0 } else { value })
+}
+
+fn other_rate_scale(rule: &Value, field: &str) -> usize {
+    let value = &rule["other"][field];
+    if value.is_object() {
+        decimal_scale(&value["l"])
+    } else {
+        decimal_scale(value)
+    }
 }
 
 #[derive(Default)]
@@ -2488,18 +2827,17 @@ fn score_key_categories(
         let deduction = other_rate(rule, field) * count as f64;
         score -= deduction;
         deduct.insert(format!("{name}Number"), json!(count));
-        deduct.insert(format!("{name}Score"), json!(deduction_text(deduction)));
+        deduct.insert(
+            format!("{name}Score"),
+            json!(deduction_text(deduction, other_rate_scale(rule, field))),
+        );
     }
     let speed_score = speed_adjustment(rule, speed);
     score += speed_score;
     deduct.insert("speedNumber".into(), json!(score_text(speed)));
     deduct.insert(
         "speedScore".into(),
-        json!(if speed_score > 0.0 {
-            format!("+{}", score_text(speed_score))
-        } else {
-            score_text(speed_score)
-        }),
+        json!(speed_score_text(rule, speed, speed_score)),
     );
     Ok((score, Value::Object(deduct)))
 }
@@ -2526,18 +2864,18 @@ fn score_telex_categories(
         let deduction = other_rate(rule, field) * count as f64;
         score -= deduction;
         deduct.insert(format!("{name}Number"), json!(count));
-        deduct.insert(format!("{name}Score"), json!(deduction_text(deduction)));
+        deduct.insert(
+            format!("{name}Score"),
+            json!(deduction_text(deduction, other_rate_scale(rule, field))),
+        );
     }
     let speed_score = speed_adjustment(rule, speed);
     score += speed_score;
-    deduct.insert("speedNumber".into(), json!(score_text(speed)));
-    if speed_score > 0.0 {
+    if speed_score != 0.0 {
         deduct.insert(
             "speedScore".into(),
-            json!(format!("+{}", score_text(speed_score))),
+            json!(speed_score_text(rule, speed, speed_score)),
         );
-    } else if speed_score < 0.0 {
-        deduct.insert("speedScore".into(), json!(score_text(speed_score)));
     }
     Ok((score, Value::Object(deduct)))
 }
@@ -2835,16 +3173,13 @@ fn compare_ticker_page(
     let mut source_index = 0_usize;
     let mut actual_index = 0_usize;
     while actual_index < groups.len() {
-        let expected = sources
-            .get(source_index)
-            .map(|source| source_group_text(source, Domain::Ticker))
-            .transpose()?
-            .or_else(|| {
-                sources
-                    .last()
-                    .and_then(|source| source_group_text(source, Domain::Ticker).ok())
-            })
-            .unwrap_or_default();
+        let expected = if let Some(source) = sources.get(source_index) {
+            source_group_text(source, Domain::Ticker)?
+        } else if let Some(source) = sources.last() {
+            source_group_text(source, Domain::Ticker)?
+        } else {
+            String::new()
+        };
         let actual = &groups[actual_index];
         if actual.key == expected {
             stats.correct += 1;
@@ -2858,15 +3193,12 @@ fn compare_ticker_page(
         let mut handled = false;
         if source_index < sources.len() {
             for ahead in 1..=4 {
-                let matches = groups
-                    .get(actual_index + ahead)
-                    .zip(sources.get(source_index))
-                    .and_then(|(group, source)| {
-                        source_group_text(source, Domain::Ticker)
-                            .ok()
-                            .map(|key| group.key == key)
-                    })
-                    .unwrap_or(false);
+                let matches = match (groups.get(actual_index + ahead), sources.get(source_index)) {
+                    (Some(group), Some(source)) => {
+                        group.key == source_group_text(source, Domain::Ticker)?
+                    }
+                    _ => false,
+                };
                 if matches {
                     stats.more_groups += ahead as i64;
                     for offset in 1..=ahead {
@@ -2887,10 +3219,11 @@ fn compare_ticker_page(
             }
             if !handled {
                 for ahead in 1..=4 {
-                    let matches = sources
-                        .get(source_index + ahead)
-                        .and_then(|source| source_group_text(source, Domain::Ticker).ok())
-                        .is_some_and(|key| key == actual.key);
+                    let matches = if let Some(source) = sources.get(source_index + ahead) {
+                        source_group_text(source, Domain::Ticker)? == actual.key
+                    } else {
+                        false
+                    };
                     if matches {
                         stats.lack_groups += ahead as i64;
                         source_index += ahead + 1;
@@ -2904,14 +3237,19 @@ fn compare_ticker_page(
         if handled {
             continue;
         }
-        let previous_line = source_index >= 10
-            && sources
+        let previous_line = if source_index >= 10 {
+            sources
                 .get(source_index - 10)
-                .and_then(|source| source_group_text(source, Domain::Ticker).ok())
-                .is_some_and(|key| key == actual.key);
+                .map(|source| source_group_text(source, Domain::Ticker))
+                .transpose()?
+                .is_some_and(|key| key == actual.key)
+        } else {
+            false
+        };
         let next_line = sources
             .get(source_index + 10)
-            .and_then(|source| source_group_text(source, Domain::Ticker).ok())
+            .map(|source| source_group_text(source, Domain::Ticker))
+            .transpose()?
             .is_some_and(|key| key == actual.key);
         if previous_line || next_line {
             stats.bunches += 1;
@@ -3142,8 +3480,6 @@ async fn settle_key(
             .map(Vec::as_slice)
             .unwrap_or_default();
         if !captured_pages.contains_key(&page.to_string()) {
-            statistics.lack_group += source_rows.len() as i64;
-            statistics.lack_line += source_rows.len().div_ceil(10) as i64;
             continue;
         }
         let page_values = values_by_page
@@ -3153,6 +3489,30 @@ async fn settle_key(
         let (captured, page_characters) = key_captured_groups(page_values, &mut statistics)?;
         characters += page_characters;
         align_key_groups(source_rows, &captured, &mut statistics)?;
+    }
+    let total_groups = if train["isCable"] == 1 {
+        source_by_page.values().map(|rows| rows.len() as i64).sum()
+    } else {
+        train["totalNumber"]
+            .as_i64()
+            .ok_or_else(|| invalid("训练总组数缺失，无法结算"))?
+    };
+    let total_pages = (total_groups + 99) / 100;
+    let remaining = total_groups % 100;
+    let captured_count = captured_pages.len() as i64;
+    if captured_count < total_pages {
+        if remaining == 0 {
+            statistics.lack_line += (total_pages - captured_count) * 10;
+            statistics.lack_group += (total_pages - captured_count) * 100;
+            statistics.lack_line -= statistics.pat_group / 10 + 1;
+        } else {
+            statistics.lack_line += (total_pages - captured_count - 1) * 10 + remaining / 10;
+            if remaining % 10 > 0 {
+                statistics.more_group += remaining % 10;
+            }
+            statistics.lack_group += (total_pages - captured_count - 1) * 100 + remaining;
+            statistics.lack_line -= statistics.pat_group / 10 + 1;
+        }
     }
     let speed = if duration > 0 {
         (characters as f64 * 15_000.0 / duration as f64).round()
@@ -3170,12 +3530,17 @@ async fn settle_key(
     } else {
         accuracy_numerator.max(0) as f64 * 100.0 / statistics.pat_group as f64
     };
+    let accuracy_text = if statistics.pat_group <= 0 {
+        "0".to_owned()
+    } else {
+        format!("{accuracy:.2}")
+    };
     let sql = "UPDATE general_key_pat_user SET active_millis=?,duration=?,speed=?,accuracy=?,error_number=?,score=?,deduct_info=?,is_finish=1,finish_time=NOW(6) WHERE train_id=? AND user_id=?";
     sqlx::query(sql)
         .bind(duration)
         .bind((duration / 1000).to_string())
         .bind(score_text(speed))
-        .bind(format!("{accuracy:.2}"))
+        .bind(accuracy_text)
         .bind(i32::try_from(statistics.error).map_err(|_| invalid("错误数量超出范围"))?)
         .bind(format!("{:.2}", score.0))
         .bind(score.1.to_string())
@@ -3194,6 +3559,7 @@ async fn settle_telex(
 ) -> Outcome<()> {
     let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
     let rule = frozen_rule(train, Domain::Telex)?;
+    derive_telex_capture(connection, &id, user_id, train["trainType"].as_i64()).await?;
     let values = rows(
         connection,
         value_table(Domain::Telex),
@@ -3231,7 +3597,8 @@ async fn settle_telex(
         let text = value["value"]
             .as_str()
             .ok_or_else(|| invalid("页面内容不能为空"))?;
-        characters += text_characters(text);
+        characters +=
+            super::telex_capture::character_count(text, train["trainType"].as_i64()) as i64;
         submitted_by_page.insert(page, text.to_owned());
     }
     let mut statistics = TelexSettlementStatistics::default();
@@ -3255,11 +3622,9 @@ async fn settle_telex(
             / statistics.pat_group as f64
             * 100.0
     };
-    let sql = "UPDATE general_telex_pat_user SET active_millis=?,valid_time=?,duration=?,speed=?,accuracy=?,error_number=?,score=?,deduct_info=?,is_finish=1,finish_time=NOW(6) WHERE train_id=? AND user_id=?";
+    let sql = "UPDATE general_telex_pat_user SET valid_time=?,speed=?,accuracy=?,error_number=?,score=?,deduct_info=?,is_finish=1,finish_time=NOW(6) WHERE train_id=? AND user_id=?";
     sqlx::query(sql)
-        .bind(duration)
         .bind(i32::try_from(duration / 1000).map_err(|_| invalid("采集时长超出范围"))?)
-        .bind((duration / 1000).to_string())
         .bind(score_text(speed))
         .bind(format!("{accuracy:.2}"))
         .bind(i32::try_from(statistics.error_code).map_err(|_| invalid("错误数量超出范围"))?)
@@ -3311,6 +3676,7 @@ async fn settle_ticker(
     let mut statistics = TickerSettlementStatistics::default();
     let mut characters = 0_i64;
     let mut existing_pages = std::collections::HashSet::new();
+    let mut page_rates = Vec::with_capacity(values.len());
     for value in &values {
         let page = value["floorNumber"]
             .as_i64()
@@ -3318,7 +3684,20 @@ async fn settle_ticker(
         let body = json_array_text(&value["messageBody"], "拍发记录必须是JSON数组文本")?;
         let standard = json_array_text(&value["standard"], "校准记录必须是JSON数组文本")?;
         let submission = json!({"messageBody": body, "standard": standard});
-        let (count, _) = measure_submission(&submission, Domain::Ticker)?;
+        let (count, _) = measure_submission(&submission, Domain::Ticker, None)?;
+        let page_duration = interval_duration(
+            &capture_intervals(&stored_json(
+                value["captureIntervals"]
+                    .as_str()
+                    .ok_or_else(|| invalid("已保存页缺少原始采集时间轴"))?,
+            )?)?,
+            i64::MAX,
+        )?;
+        page_rates.push(json!(if page_duration > 0 {
+            score_text(count as f64 * 60_000.0 / page_duration as f64)
+        } else {
+            "0".to_owned()
+        }));
         characters += count as i64;
         let body_rows = submission["messageBody"]
             .as_array()
@@ -3359,14 +3738,13 @@ async fn settle_ticker(
     } else {
         statistics.correct as f64 * 100.0 / statistics.total as f64
     };
-    let mut statistic = ticker_statistics_json(&statistics);
-    statistic["errorNumber"] = json!(statistics.errors);
-    statistic["correctNumber"] = json!(statistics.correct);
-    statistic["patTotalNum"] = json!(statistics.total);
-    let sql = "UPDATE general_ticker_pat_train_user SET active_millis=?,speed=?,accuracy=?,error_number=?,lack=?,score=?,deduct_info=?,statistic_info=?,is_finish=1,finish_time=NOW(6) WHERE train_id=? AND user_id=?";
+    let statistic = ticker_statistics_json(&statistics);
+    let speed_log = Value::Array(page_rates).to_string();
+    let sql = "UPDATE general_ticker_pat_train_user SET active_millis=?,speed=?,speed_log=?,accuracy=?,error_number=?,lack=?,score=?,deduct_info=?,statistic_info=?,is_finish=1,finish_time=NOW(6) WHERE train_id=? AND user_id=?";
     sqlx::query(sql)
         .bind(duration)
         .bind(score_text(speed))
+        .bind(speed_log)
         .bind(format!("{accuracy:.2}"))
         .bind(i32::try_from(statistics.errors).map_err(|_| invalid("错误数量超出范围"))?)
         .bind(i32::try_from(missing).map_err(|_| invalid("缺报数量超出范围"))?)
@@ -3398,19 +3776,61 @@ async fn finish_participant(
         if member["role"] != 0 { return Err(denied()); }
         if member["attempt"] != attempt { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         if member["isFinish"] == 1 {
+            let result = finish_member(&member, domain);
             transaction.commit().await?;
-            return Ok(if matches!(domain, Domain::Ticker) { train } else { json!([member]) });
+            return Ok(if matches!(domain, Domain::Ticker) { train_response(train, domain) } else { json!([result]) });
         }
         if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
         let status = train["status"].as_i64().unwrap_or(-1);
-        let allowed = status == 1 || status == i64::from(closing_status(domain));
-        if !allowed { return Err(terminal("训练尚未开始或已经结束")); }
         frozen_rule(&train, domain)?;
         ensure_settlement_pages(&mut transaction, &train, domain).await?;
-        match domain {
-            Domain::Key => settle_key(&mut transaction, &train, &member, &actor.id).await?,
-            Domain::Telex => settle_telex(&mut transaction, &train, &member, &actor.id).await?,
-            Domain::Ticker => settle_ticker(&mut transaction, &train, &member, &actor.id).await?,
+        let mut settled_all = false;
+        let mut settled_users = vec![actor.id.clone()];
+        if !matches!(domain, Domain::Telex) {
+            if status == i64::from(closing_status(domain)) {
+                // Java accepts an in-flight finish during the 60-second grace
+                // window; after it expires it settles every remaining student.
+                match capture_bound(&mut transaction, &id, &actor.id, domain).await {
+                    Ok(_) => {}
+                    Err(Failure::Business(208, _)) => {
+                        settled_all = true;
+                        settled_users.clear();
+                        let students: Vec<String> = sqlx::query_scalar(&format!(
+                            "SELECT user_id FROM {} WHERE train_id=? AND role=0",
+                            user_table(domain)
+                        ))
+                        .bind(&id)
+                        .fetch_all(&mut *transaction)
+                        .await?;
+                        for user_id in students {
+                            let candidate = locked_member(&mut transaction, &id, &user_id, domain).await?;
+                            if candidate["isFinish"] == 1 { continue; }
+                            match domain {
+                                Domain::Key => settle_key(&mut transaction, &train, &candidate, &user_id).await?,
+                                Domain::Ticker => settle_ticker(&mut transaction, &train, &candidate, &user_id).await?,
+                                Domain::Telex => unreachable!(),
+                            }
+                            settled_users.push(user_id);
+                        }
+                        sqlx::query(&format!("UPDATE {} SET status=2 WHERE id=?", table(domain)))
+                            .bind(&id)
+                            .execute(&mut *transaction)
+                            .await?;
+                    }
+                    Err(error) => return Err(error),
+                }
+            } else if status != 1 {
+                return Err(terminal("训练尚未开始或已经结束"));
+            }
+        }
+        // An expired closing room was fully settled above.  Otherwise settle
+        // only the caller, matching Java's idempotent participant finish.
+        if !settled_all {
+            match domain {
+                Domain::Key => settle_key(&mut transaction, &train, &member, &actor.id).await?,
+                Domain::Telex => settle_telex(&mut transaction, &train, &member, &actor.id).await?,
+                Domain::Ticker => settle_ticker(&mut transaction, &train, &member, &actor.id).await?,
+            }
         }
         let recipients: Vec<String> = sqlx::query_scalar(&format!(
             "SELECT user_id FROM {} WHERE train_id=? AND role=1",
@@ -3423,9 +3843,18 @@ async fn finish_participant(
             let unfinished: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {} WHERE train_id=? AND role=0 AND COALESCE(is_finish,0)<>1", user_table(domain))).bind(&id).fetch_one(&mut *transaction).await?;
             if unfinished == 0 { sqlx::query(&format!("UPDATE {} SET status=2 WHERE id=?", table(domain))).bind(&id).execute(&mut *transaction).await?; }
         }
-        let result = if matches!(domain, Domain::Ticker) { load_train(&mut transaction, &id, domain, false).await? } else { json!([load_member(&mut transaction, &id, &actor.id, domain).await?.ok_or_else(|| invalid("未查询到参训记录"))?]) };
+        let result = if matches!(domain, Domain::Ticker) {
+            train_response(load_train(&mut transaction, &id, domain, false).await?, domain)
+        } else {
+            let member = load_member(&mut transaction, &id, &actor.id, domain)
+                .await?
+                .ok_or_else(|| invalid("未查询到参训记录"))?;
+            json!([finish_member(&member, domain)])
+        };
         transaction.commit().await?;
-        super::ws::notify_general_result(ws_kind(domain), &id, &actor.id, &recipients).await;
+        for user_id in settled_users {
+            super::ws::notify_general_result(ws_kind(domain), &id, &user_id, &recipients).await;
+        }
         Ok(result)
     }.await)
 }
