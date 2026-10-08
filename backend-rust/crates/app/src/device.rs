@@ -21,7 +21,7 @@ pub(crate) async fn list_devices(
     let Some(type_id) = body.get("id").and_then(Value::as_i64) else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
-    let devices = match sqlx::query("SELECT id, device_name, device_number, device_img, device_type_id FROM t_device WHERE device_type_id = ? ORDER BY create_time")
+    let devices = match sqlx::query("SELECT id, device_name, device_number, device_img, device_type_id, DATE_FORMAT(create_time,'%Y-%m-%dT%H:%i:%s') AS create_time_text FROM t_device WHERE device_type_id = ? ORDER BY create_time")
         .bind(type_id).fetch_all(pool).await {
         Ok(rows) => rows,
         Err(error) => { tracing::warn!(error = %error, "device list query failed"); return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
@@ -57,7 +57,7 @@ pub(crate) async fn list_devices(
                 "deviceNumber": row.get::<Option<String>, _>("device_number"),
                 "deviceImg": row.get::<Option<String>, _>("device_img"),
                 "deviceTypeId": row.get::<Option<i32>, _>("device_type_id"),
-                "createTime": null,
+                "createTime": row.get::<Option<String>, _>("create_time_text"),
                 "descriptions": by_device.remove(&id).unwrap_or_default()
             })
         })
@@ -309,10 +309,28 @@ pub(crate) async fn save_device(
         }
     };
     let device_id = if let Some(id) = body.get("id").and_then(Value::as_i64) {
-        if sqlx::query("UPDATE t_device SET device_name=?, device_number=?, device_img=?, device_type_id=? WHERE id=?").bind(name).bind(number).bind(image).bind(type_id).bind(id).execute(&mut *tx).await.is_err() { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
-        id
+        match sqlx::query("UPDATE t_device SET device_name=?, device_number=?, device_img=?, device_type_id=? WHERE id=?")
+            .bind(name)
+            .bind(number)
+            .bind(image)
+            .bind(type_id)
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+        {
+            // sqlx reports matched rows (FOUND_ROWS): zero means the device does not exist.
+            Ok(done) if done.rows_affected() == 0 => {
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::OK, 202, "设备不存在", "设备不存在");
+            }
+            Ok(_) => id,
+            Err(_) => {
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
     } else {
-        match sqlx::query("INSERT INTO t_device (device_name,device_number,device_img,device_type_id,user_id) VALUES (?,?,?,?,?)").bind(name).bind(number).bind(image).bind(type_id).bind(&user.id).execute(&mut *tx).await { Ok(result) => result.last_insert_id() as i64, Err(_) => { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); } }
+        match sqlx::query("INSERT INTO t_device (device_name,device_number,device_img,device_type_id,user_id,create_time) VALUES (?,?,?,?,?,NOW())").bind(name).bind(number).bind(image).bind(type_id).bind(&user.id).execute(&mut *tx).await { Ok(result) => result.last_insert_id() as i64, Err(_) => { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); } }
     };
     if sqlx::query("DELETE FROM t_device_description WHERE device_id=?")
         .bind(device_id)
@@ -323,20 +341,57 @@ pub(crate) async fn save_device(
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
+    // The Vue page puts this response straight into its device list, so it must carry the
+    // saved descriptions (with their generated ids) and createTime like Java's DeviceVO.
+    let mut saved_descriptions = Vec::new();
     if let Some(descriptions) = body.get("descriptions").and_then(Value::as_array) {
         for description in descriptions {
-            if sqlx::query("INSERT INTO t_device_description (title,content,user_id,device_id) VALUES (?,?,?,?)").bind(description.get("title").and_then(Value::as_str)).bind(description.get("content").and_then(Value::as_str)).bind(&user.id).bind(device_id).execute(&mut *tx).await.is_err() { let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""); }
+            let title = description.get("title").and_then(Value::as_str);
+            let content = description.get("content").and_then(Value::as_str);
+            match sqlx::query("INSERT INTO t_device_description (title,content,user_id,device_id,create_time) VALUES (?,?,?,?,NOW())")
+                .bind(title)
+                .bind(content)
+                .bind(&user.id)
+                .bind(device_id)
+                .execute(&mut *tx)
+                .await
+            {
+                Ok(done) => saved_descriptions.push(json!({"id": done.last_insert_id() as i64, "title": title, "content": content})),
+                Err(_) => {
+                    let _ = tx.rollback().await;
+                    return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+                }
+            }
         }
     }
+    let create_time = match sqlx::query_scalar::<_, Option<String>>(
+        "SELECT DATE_FORMAT(create_time,'%Y-%m-%dT%H:%i:%s') FROM t_device WHERE id=?",
+    )
+    .bind(device_id)
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(value) => value,
+        Err(_) => {
+            let _ = tx.rollback().await;
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
     if tx.commit().await.is_err() {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     envelope_json(
         StatusCode::OK,
         200,
-        Some(
-            json!({"id": device_id, "deviceName": name, "deviceNumber": number, "deviceImg": image, "deviceTypeId": type_id}),
-        ),
+        Some(json!({
+            "id": device_id,
+            "deviceName": name,
+            "deviceNumber": number,
+            "deviceImg": image,
+            "deviceTypeId": type_id,
+            "createTime": create_time,
+            "descriptions": saved_descriptions
+        })),
         "ok",
         "",
     )
@@ -378,7 +433,11 @@ pub(crate) async fn delete_device(
     envelope_json(StatusCode::OK, 200, None, "ok", "")
 }
 
-pub(crate) async fn save_type(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+pub(crate) async fn save_type(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
+) -> Response {
     let Some(name) = body
         .get("typeName")
         .and_then(Value::as_str)
@@ -389,21 +448,47 @@ pub(crate) async fn save_type(State(state): State<AppState>, Json(body): Json<Va
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let result = if let Some(id) = body.get("id").and_then(Value::as_i64) {
-        sqlx::query("UPDATE t_device_type SET type_name=? WHERE id=?")
+    // Java returns the saved DeviceTypeVO (existDevice stays null); the Vue page pushes that
+    // object straight into its type list, so answering with the whole list would corrupt it.
+    let saved = if let Some(id) = body.get("id").and_then(Value::as_i64) {
+        match sqlx::query("UPDATE t_device_type SET type_name=? WHERE id=?")
             .bind(name)
             .bind(id)
             .execute(pool)
             .await
+        {
+            // sqlx reports matched rows (FOUND_ROWS): zero means the type does not exist.
+            Ok(done) if done.rows_affected() == 0 => {
+                return envelope_response(
+                    StatusCode::OK,
+                    202,
+                    "未查询到该设备类型",
+                    "未查询到该设备类型",
+                )
+            }
+            Ok(_) => Ok(id),
+            Err(error) => Err(error),
+        }
     } else {
-        sqlx::query("INSERT INTO t_device_type (type_name) VALUES (?)")
+        sqlx::query("INSERT INTO t_device_type (type_name,user_id,create_time) VALUES (?,?,NOW())")
             .bind(name)
+            .bind(&user.id)
             .execute(pool)
             .await
+            .map(|done| done.last_insert_id() as i64)
     };
-    match result {
-        Ok(_) => list_types(State(state)).await,
-        Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    match saved {
+        Ok(id) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(json!({"id": id, "typeName": name, "existDevice": null})),
+            "ok",
+            "",
+        ),
+        Err(error) => {
+            tracing::warn!(error = %error, "device type save failed");
+            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
     }
 }
 
@@ -442,7 +527,7 @@ pub(crate) async fn add_description(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     match sqlx::query(
-        "INSERT INTO t_device_description (title,content,user_id,device_id) VALUES (?,?,?,?)",
+        "INSERT INTO t_device_description (title,content,user_id,device_id,create_time) VALUES (?,?,?,?,NOW())",
     )
     .bind(body.get("title").and_then(Value::as_str))
     .bind(body.get("content").and_then(Value::as_str))
