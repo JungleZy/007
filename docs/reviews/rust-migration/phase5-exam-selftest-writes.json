@@ -37,5 +37,11 @@
     "cargo_build_workspace": "passed",
     "real_http_fixture": "self-test exam, paper snapshot and candidate rows committed together"
   },
-  "known_boundary": "full exam lifecycle, submission, state transitions, scoring and realtime notifications remain incomplete."
+  "journey_revision": {
+    "date": "2026-10-09",
+    "detail_answer_comparison": "theory-self-test detail-active and the new detail-active-after-answer step parse $.data.user[*].content; the latter immediately follows realtime save",
+    "entry_answer_comparison": "enter/reenter keep $.data.student.content because their response map differs from detail",
+    "regression": "Python harness test reads the actual journey selectors, verifies the after-save read and detects changed answers/awards while ignoring generated identity and object-property order"
+  },
+  "known_boundary": "Historical verification above predates the journey revision; no production traffic cutover."
 }

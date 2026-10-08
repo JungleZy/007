@@ -57,6 +57,28 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertFalse(self.equivalent({**left, "literal": json.dumps(left_content)},
                                          {**right, "literal": json.dumps(right_content)}, step))
 
+    def test_active_exam_detail_compares_saved_candidate_answers(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
+        steps = next(journey["steps"] for journey in journeys["journeys"] if journey["name"] == "theory-self-test")
+        by_name = {step["name"]: step for step in steps}
+        saved_index = next(index for index, step in enumerate(steps) if step["name"] == "answer-realtime")
+        after_save = steps[saved_index + 1]
+        self.assertEqual(after_save["name"], "detail-active-after-answer")
+        for step in [by_name["detail-active"], after_save]:
+            self.assertIn("$.data.user[*].content", step["parse_json"])
+            self.assertNotIn("$.data.student.content", step["parse_json"])
+            left = {"data": {"user": [{"content": '{"singleChoice":[{"id":"11111111-1111-1111-1111-111111111111","answer":"A","teacherScore":10}]}'}]}}
+            right = {"data": {"user": [{"content": '{"singleChoice":[{"teacherScore":10,"answer":"A","id":"99999999-9999-9999-9999-999999999999"}]}'}]}}
+            self.assertTrue(self.equivalent(left, right, step))
+            for field, value in [("answer", "B"), ("teacherScore", 0)]:
+                changed = copy.deepcopy(right)
+                content = json.loads(changed["data"]["user"][0]["content"])
+                content["singleChoice"][0][field] = value
+                changed["data"]["user"][0]["content"] = json.dumps(content)
+                self.assertFalse(self.equivalent(left, changed, step))
+        for name in ["enter", "reenter-preserves-answers"]:
+            self.assertIn("$.data.student.content", by_name[name]["parse_json"])
+
     def test_parse_json_retains_array_order_and_rejects_invalid_json(self):
         step = {"parse_json": ["$.data.content"]}
         self.assertFalse(self.equivalent({"data": {"content": "[1,2]"}}, {"data": {"content": "[2,1]"}}, step))
