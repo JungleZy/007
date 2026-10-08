@@ -39,7 +39,12 @@ fn parse_message_body(raw: Option<String>) -> Result<Value, serde_json::Error> {
 }
 
 fn train_json(row: &MySqlRow) -> Result<Value, serde_json::Error> {
-    Ok(json!({
+    let body = parse_message_body(row.get::<Option<String>, _>("code_message_body"))?;
+    Ok(train_json_with_body(row, body))
+}
+
+fn train_json_with_body(row: &MySqlRow, body: Value) -> Value {
+    json!({
         "id": row.get::<String, _>("id"),
         "name": row.get::<Option<String>, _>("name"),
         "trainId": null,
@@ -51,11 +56,11 @@ fn train_json(row: &MySqlRow) -> Result<Value, serde_json::Error> {
         "validTime": row.get::<Option<String>, _>("valid_time"),
         "status": row.get::<Option<i32>, _>("status"),
         "rate": row.get::<Option<i32>, _>("rate"),
-        "codeMessageBody": parse_message_body(row.get::<Option<String>, _>("code_message_body"))?,
+        "codeMessageBody": body,
         "mark": row.get::<Option<String>, _>("mark"),
         "schedule": row.get::<Option<i32>, _>("schedule"),
         "isLowRate": row.get::<Option<i32>, _>("is_low_rate")
-    }))
+    })
 }
 
 fn empty_train() -> Value {
@@ -192,16 +197,19 @@ pub(crate) async fn last_train(
         .fetch_optional(pool)
         .await
     {
-        Ok(Some(row)) => match train_json(&row) {
-            Ok(mut data) => {
-                data["codeMessageBody"] = super::bean_conversion::string_to_map_list(
-                    row.get::<Option<&str>, _>("code_message_body"),
-                )
-                .unwrap_or(Value::Null);
-                envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
-            }
-            Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
-        },
+        Ok(Some(row)) => {
+            let body = super::bean_conversion::string_to_map_list(
+                row.get::<Option<&str>, _>("code_message_body"),
+            )
+            .unwrap_or(Value::Null);
+            envelope_json(
+                StatusCode::OK,
+                200,
+                Some(train_json_with_body(&row, body)),
+                "ok",
+                "",
+            )
+        }
         Ok(None) => envelope_json(StatusCode::OK, 200, Some(empty_train()), "ok", ""),
         Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
     }
@@ -919,6 +927,60 @@ pub(crate) async fn discard_base(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
+    async fn last_train_applies_bean_conversion_without_json_parsing() -> Result<(), sqlx::Error> {
+        use http_body_util::BodyExt;
+        use std::sync::{atomic::AtomicBool, Arc};
+
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("isolated database URL");
+        let pool = sqlx::mysql::MySqlPoolOptions::new().connect(&url).await?;
+        let user = AuthUser {
+            id: uuid::Uuid::new_v4().to_string(),
+            is_admin: false,
+        };
+        let id = uuid::Uuid::new_v4().to_string();
+        sqlx::query("INSERT INTO t_ticker_tape_train (id,type,status,user_id,code_message_body,create_time) VALUES (?,1,0,?,'[]',NOW(6))")
+            .bind(&id).bind(&user.id).execute(&pool).await?;
+        let state = AppState {
+            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            pool: Some(pool.clone()),
+            database_ready: Arc::new(AtomicBool::new(true)),
+        };
+        for (stored, expected) in [
+            ("", json!([])),
+            ("   ", json!([])),
+            (",", json!([])),
+            ("not json", Value::Null),
+            ("[]", json!([])),
+            ("[{\"codeMessage\":\"1234\",\"sort\":1}]", Value::Null),
+        ] {
+            sqlx::query("UPDATE t_ticker_tape_train SET code_message_body=? WHERE id=?")
+                .bind(stored)
+                .bind(&id)
+                .execute(&pool)
+                .await?;
+            let response = last_train(
+                State(state.clone()),
+                Extension(user.clone()),
+                Json(TypeRequest {
+                    train_type: Some(1),
+                }),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::OK, "{stored:?}");
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(body["code"], 200, "{stored:?}");
+            assert_eq!(body["data"]["codeMessageBody"], expected, "{stored:?}");
+        }
+        sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
+            .bind(&id)
+            .execute(&pool)
+            .await?;
+        Ok(())
+    }
 
     /// Settling one user's paused predecessor (which also refreshes that user's statistics row)
     /// must leave every other user's training and statistics rows writable. Both tables are
