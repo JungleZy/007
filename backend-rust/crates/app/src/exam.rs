@@ -633,6 +633,7 @@ async fn save_candidate(state: AppState, user: AuthUser, body: Value, realtime: 
         Ok(transaction) => transaction,
         Err(error) => return exam_response(Err(error.into())),
     };
+    let mut teacher_notification = None;
     let result = async {
         let kind = if realtime {
             0
@@ -691,17 +692,40 @@ async fn save_candidate(state: AppState, user: AuthUser, body: Value, realtime: 
                 .fetch_one(&mut *transaction)
                 .await?,
         );
+        let teacher = exam
+            .get::<Option<String>, _>("teacher")
+            .filter(|teacher| !teacher.trim().is_empty());
         if realtime {
+            if let Some(teacher) = teacher {
+                teacher_notification = Some((teacher, 18003, json!({"student": candidate})));
+            }
             return Ok(candidate);
         }
-        let mut data = json!({"exam": exam_json(&exam), "student": candidate});
+        let mut data = serde_json::Map::new();
+        data.insert("exam".to_owned(), exam_json(&exam));
+        data.insert("student".to_owned(), candidate);
         if let Some(paper) = paper {
-            data["paper"] = paper;
+            data.insert("paper".to_owned(), paper);
+        }
+        let data = Value::Object(data);
+        if let Some(teacher) = teacher {
+            teacher_notification = Some((teacher, 18002, data.clone()));
         }
         Ok(data)
     }
     .await;
-    complete_exam_transaction(transaction, result).await
+    match result {
+        Ok(data) => match transaction.commit().await {
+            Ok(()) => {
+                if let Some((teacher, code, map)) = teacher_notification {
+                    super::ws::send_classic_map(&teacher, code, map).await;
+                }
+                exam_response(Ok(data))
+            }
+            Err(error) => exam_response(Err(error.into())),
+        },
+        Err(error) => complete_exam_transaction(transaction, Err(error)).await,
+    }
 }
 fn normalize_answer(value: &Value) -> Result<String, ()> {
     let text = match value {

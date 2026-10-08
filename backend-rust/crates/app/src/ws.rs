@@ -794,6 +794,41 @@ pub(crate) async fn send_classic(user_id: &str, code: i32, data: Option<String>)
     }
 }
 
+pub(crate) async fn send_classic_map(user_id: &str, code: i32, mut map: Value) {
+    // Gson omits null object fields, including entity fields inside ResponseModel.map.
+    fn omit_null_fields(value: &mut Value) {
+        match value {
+            Value::Object(object) => object.retain(|_, value| {
+                if value.is_null() {
+                    return false;
+                }
+                omit_null_fields(value);
+                true
+            }),
+            Value::Array(items) => items.iter_mut().for_each(omit_null_fields),
+            _ => {}
+        }
+    }
+    omit_null_fields(&mut map);
+    let mut message = Map::new();
+    message.insert("code".to_owned(), json!(code));
+    message.insert("map".to_owned(), map);
+    let message = Value::Object(message).to_string();
+    let key = format!("classic:{user_id}");
+    let manager = MANAGER.lock().await;
+    let Some(connection) = manager
+        .current_by_key
+        .get(&key)
+        .and_then(|session_id| manager.sessions.get(session_id))
+    else {
+        tracing::debug!(user_id, code, "classic websocket recipient is offline");
+        return;
+    };
+    if let Err(error) = connection.tx.send(Outbound::Text(message)) {
+        tracing::warn!(%error, user_id, code, "classic websocket map outbound queue is closed");
+    }
+}
+
 pub(crate) async fn status() -> Response {
     let manager = MANAGER.lock().await;
     envelope_json(
