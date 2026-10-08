@@ -12,7 +12,8 @@ use uuid::Uuid;
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
 fn question_json(row: &sqlx::mysql::MySqlRow) -> Value {
-    json!({"id":row.get::<String,_>("id"),"testpaperId":row.get::<Option<String>,_>("test_paper_id"),"parentId":row.get::<Option<String>,_>("parent_id"),"score":row.get::<Option<i32>,_>("score"),"sort":row.get::<Option<i32>,_>("sort"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis")})
+    // Java's entity testPaperId does not populate DTO testpaperId (lowercase p).
+    json!({"id":row.get::<String,_>("id"),"testpaperId":Value::Null,"parentId":row.get::<Option<String>,_>("parent_id"),"score":row.get::<Option<i32>,_>("score"),"sort":row.get::<Option<i32>,_>("sort"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis")})
 }
 fn value_text(value: Option<&Value>) -> Option<String> {
     value.map(|value| {
@@ -24,7 +25,7 @@ fn value_text(value: Option<&Value>) -> Option<String> {
 }
 async fn paper(pool: &sqlx::MySqlPool, row: &sqlx::mysql::MySqlRow) -> Result<Value, sqlx::Error> {
     let id: String = row.get("id");
-    let qs=sqlx::query("SELECT id,test_paper_id,parent_id,score,sort,type,topic,options,answer,analysis FROM t_theory_knowledge_test_paper_question WHERE test_paper_id=? ORDER BY sort").bind(&id).fetch_all(pool).await?;
+    let qs=sqlx::query("SELECT id,parent_id,score,sort,type,topic,options,answer,analysis FROM t_theory_knowledge_test_paper_question WHERE test_paper_id=? ORDER BY sort").bind(&id).fetch_all(pool).await?;
     let mut grouped: HashMap<i32, Vec<Value>> = HashMap::new();
     for q in qs {
         grouped
