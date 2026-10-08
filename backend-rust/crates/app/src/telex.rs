@@ -6,7 +6,6 @@ use axum::{
     Json,
 };
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{MySql, Row, Transaction};
@@ -257,44 +256,12 @@ pub(crate) async fn statistical_page(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let rows = match sqlx::query("SELECT id,type,total_count,total_time,avg_speed,user_id FROM t_telex_pat_train_statistical WHERE user_id=? ORDER BY type")
-        .bind(&user.id)
-        .fetch_all(pool)
+    match crate::statistical::load_or_create(pool, "t_telex_pat_train_statistical", &user.id, 4)
         .await
     {
-        Ok(rows) => rows,
-        Err(error) => return database_error(error, "list statistics"),
-    };
-    let mut by_type = std::collections::HashMap::new();
-    for row in rows {
-        let kind = row.get::<Option<i32>, _>("type").unwrap_or(0);
-        by_type.insert(
-            kind,
-            json!({
-                "id": row.get::<String, _>("id"),
-                "type": kind,
-                "totalCount": row.get::<Option<i32>, _>("total_count").unwrap_or(0),
-                "totalTime": row.get::<Option<String>, _>("total_time").unwrap_or_else(|| "0".to_owned()),
-                "avgSpeed": row.get::<Option<Decimal>, _>("avg_speed").map(|value| value.to_string()).unwrap_or_else(|| "0".to_owned()),
-                "userId": row.get::<Option<String>, _>("user_id")
-            }),
-        );
+        Ok(rows) => envelope_json(StatusCode::OK, 200, Some(Value::Array(rows)), "ok", ""),
+        Err(error) => database_error(error, "list statistics"),
     }
-    let result = (0..4)
-        .map(|kind| {
-            by_type.remove(&kind).unwrap_or_else(|| {
-                json!({
-                    "id": null,
-                    "type": kind,
-                    "totalCount": 0,
-                    "totalTime": "0",
-                    "avgSpeed": "0",
-                    "userId": user.id
-                })
-            })
-        })
-        .collect::<Vec<_>>();
-    envelope_json(StatusCode::OK, 200, Some(Value::Array(result)), "ok", "")
 }
 
 pub(crate) async fn last_train(
@@ -512,8 +479,8 @@ pub(crate) async fn train_save(
         }
         let id = uuid::Uuid::new_v4().to_string();
         let active_since = (requested == 1).then_some(now);
-        if let Err(error) = sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,0)")
-            .bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind("0").bind(total).bind(errors).bind(accuracy).bind("0").bind(body.content.unwrap_or_else(|| "[]".to_owned())).bind(&user.id).bind(active_since)
+        if let Err(error) = sqlx::query("INSERT INTO t_telex_pat_train (id,type,numbs,title,status,duration,total_number,error_number,accuracy,speed,content,create_user_id,protocol_version,active_since,accumulated_active_millis,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,0,?)")
+            .bind(&id).bind(kind).bind(body.numbs).bind(body.title).bind(requested).bind("0").bind(total).bind(errors).bind(accuracy).bind("0").bind(body.content.unwrap_or_else(|| "[]".to_owned())).bind(&user.id).bind(active_since).bind(crate::now_time_millis().to_string())
             .execute(&mut *transaction).await
         {
             return train_error(error, "insert train");

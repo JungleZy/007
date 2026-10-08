@@ -64,6 +64,7 @@ mod radiotelephone;
 mod receive_keypoints;
 mod scoring;
 mod simulation;
+mod statistical;
 mod synthetical;
 mod telegram;
 mod telegram_write;
