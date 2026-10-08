@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::statistical::lock_user;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct PageRequest {
@@ -495,11 +496,13 @@ async fn upsert_statistics(
     let total_time = aggregate.get::<i64, _>("total_time").to_string();
     let total_count = aggregate.get::<i64, _>("total_count") as i32;
     let avg_speed = aggregate.get::<Decimal, _>("avg_speed");
-    let existing: Option<String> = sqlx::query_scalar("SELECT id FROM t_ticker_tape_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
-        .bind(user_id)
-        .bind(stat_type)
-        .fetch_optional(&mut **tx)
-        .await?;
+    let existing: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM t_ticker_tape_train_statistical WHERE user_id=? AND type=? LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(stat_type)
+    .fetch_optional(&mut **tx)
+    .await?;
     match existing {
         Some(id) => {
             sqlx::query("UPDATE t_ticker_tape_train_statistical SET total_count=?,total_time=?,avg_speed=? WHERE id=?")
@@ -553,6 +556,52 @@ async fn save_statistical(
     upsert_statistics(tx, user_id, stat_type, &aggregate).await
 }
 
+/// Java: the user's previous training of this type is dropped when it never started, and
+/// finished (with statistics) when it was paused.
+///
+/// The caller holds the user row lock (`statistical::lock_user`). The previous training is found
+/// with a plain read and then locked by primary key, so only that row is held: the table is
+/// indexed by primary key only, and a locking read on `user_id` would lock every row it scans.
+async fn settle_previous(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    kind: i32,
+) -> Result<(), sqlx::Error> {
+    let latest: Option<String> = sqlx::query_scalar("SELECT id FROM t_ticker_tape_train WHERE user_id=? AND type=? ORDER BY create_time DESC LIMIT 1")
+        .bind(user_id)
+        .bind(kind)
+        .fetch_optional(&mut **tx)
+        .await?;
+    let Some(previous) = latest else {
+        return Ok(());
+    };
+    let Some(last) = sqlx::query("SELECT status FROM t_ticker_tape_train WHERE id=? FOR UPDATE")
+        .bind(&previous)
+        .fetch_optional(&mut **tx)
+        .await?
+    else {
+        // Deleted by another request between the read and the lock.
+        return Ok(());
+    };
+    match last.get::<Option<i32>, _>("status") {
+        Some(0) => {
+            sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
+                .bind(&previous)
+                .execute(&mut **tx)
+                .await?;
+        }
+        Some(2) => {
+            sqlx::query("UPDATE t_ticker_tape_train SET status=3 WHERE id=?")
+                .bind(&previous)
+                .execute(&mut **tx)
+                .await?;
+            finish_statistical(tx, user_id).await?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 pub(crate) async fn add(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -568,38 +617,15 @@ pub(crate) async fn add(
         Ok(tx) => tx,
         Err(e) => return ticker_error(e, "start add"),
     };
-    // Java: the user's previous training of this type is dropped when it never started, and
-    // finished (with statistics) when it was paused.
-    let last = match sqlx::query("SELECT id,status FROM t_ticker_tape_train WHERE user_id=? AND type=? ORDER BY create_time DESC LIMIT 1 FOR UPDATE")
-        .bind(&user.id)
-        .bind(kind)
-        .fetch_optional(&mut *tx)
-        .await
-    {
-        Ok(row) => row,
-        Err(e) => return ticker_error(e, "load previous"),
-    };
-    if let Some(last) = last {
-        let previous: String = last.get("id");
-        let cleanup = match last.get::<Option<i32>, _>("status") {
-            Some(0) => sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
-                .bind(&previous)
-                .execute(&mut *tx)
-                .await
-                .map(|_| ()),
-            Some(2) => match sqlx::query("UPDATE t_ticker_tape_train SET status=3 WHERE id=?")
-                .bind(&previous)
-                .execute(&mut *tx)
-                .await
-            {
-                Ok(_) => finish_statistical(&mut tx, &user.id).await,
-                Err(e) => Err(e),
-            },
-            _ => Ok(()),
-        };
-        if let Err(e) = cleanup {
-            return ticker_error(e, "settle previous");
-        }
+    // User row first (see statistical::lock_user): cleanup and the lazily built statistics rows
+    // of one user cannot race, and no locking read has to scan the unindexed tables.
+    match lock_user(&mut tx, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(e) => return ticker_error(e, "lock user for add"),
+    }
+    if let Err(e) = settle_previous(&mut tx, &user.id, kind).await {
+        return ticker_error(e, "settle previous");
     }
     let id = uuid::Uuid::new_v4().to_string();
     let content = body
@@ -698,6 +724,14 @@ async fn update_clock(
         Ok(tx) => tx,
         Err(e) => return ticker_error(e, "start lifecycle"),
     };
+    // Finishing feeds the statistics rows, so it takes the user row first like `add`.
+    if terminal {
+        match lock_user(&mut tx, &user.id).await {
+            Ok(true) => {}
+            Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+            Err(e) => return ticker_error(e, "lock user for finish"),
+        }
+    }
     let locked = match lock_owned(&mut tx, &id, &user.id).await {
         Ok(locked) => locked,
         Err(response) => return response,
@@ -814,6 +848,11 @@ pub(crate) async fn save_base(
         Ok(tx) => tx,
         Err(e) => return ticker_error(e, "start save base"),
     };
+    match lock_user(&mut tx, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(e) => return ticker_error(e, "lock user for save base"),
+    }
     let locked = match lock_owned(&mut tx, &id, &user.id).await {
         Ok(locked) => locked,
         Err(response) => return response,
@@ -873,4 +912,97 @@ pub(crate) async fn discard_base(
         return ticker_error(e, "commit discard base");
     }
     envelope_response(StatusCode::OK, 200, "ok", "")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Settling one user's paused predecessor (which also refreshes that user's statistics row)
+    /// must leave every other user's training and statistics rows writable. Both tables are
+    /// indexed by primary key only, so a locking read on `user_id` would lock every row it scans
+    /// and stall unrelated users' saves until commit.
+    ///
+    /// Needs an isolated MySQL database with the project schema:
+    /// `RUST_PHASE2_DATABASE_URL=mysql://… cargo test -p rust-backend -- --ignored`.
+    #[tokio::test]
+    #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
+    async fn settling_one_users_predecessor_does_not_lock_other_users_rows(
+    ) -> Result<(), sqlx::Error> {
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL")
+            .expect("RUST_PHASE2_DATABASE_URL must target an isolated rehearsal database");
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(3)
+            .connect(&url)
+            .await?;
+        let tag = uuid::Uuid::new_v4().simple().to_string();
+        let owner = format!("lock-owner-{tag}");
+        let other = format!("lock-other-{tag}");
+        for user in [&owner, &other] {
+            // A paused training of type 1 (statistics type 2) with a statistics row each.
+            sqlx::query("INSERT INTO t_ticker_tape_train (id,type,status,user_id,rate,valid_time,create_time) VALUES (?,1,2,?,10,'20',NOW(6))")
+                .bind(format!("train-{user}"))
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("INSERT INTO t_ticker_tape_train_statistical (id,type,total_count,total_time,avg_speed,user_id) VALUES (?,2,0,'0',0,?)")
+                .bind(format!("stat-{user}"))
+                .bind(user)
+                .execute(&pool)
+                .await?;
+        }
+
+        // Act: settle the owner's predecessor and keep the transaction open.
+        let mut tx = pool.begin().await?;
+        settle_previous(&mut tx, &owner, 1).await?;
+        let mut bystander = pool.acquire().await?;
+        sqlx::query("SET SESSION innodb_lock_wait_timeout=2")
+            .execute(&mut *bystander)
+            .await?;
+        let training = sqlx::query("UPDATE t_ticker_tape_train SET name='x' WHERE id=?")
+            .bind(format!("train-{other}"))
+            .execute(&mut *bystander)
+            .await;
+        let statistics =
+            sqlx::query("UPDATE t_ticker_tape_train_statistical SET total_count=7 WHERE id=?")
+                .bind(format!("stat-{other}"))
+                .execute(&mut *bystander)
+                .await;
+        // The owner's own rows were really settled (finished + counted) inside the transaction.
+        let settled: (Option<i32>, Option<i32>) = (
+            sqlx::query_scalar("SELECT status FROM t_ticker_tape_train WHERE id=?")
+                .bind(format!("train-{owner}"))
+                .fetch_one(&mut *tx)
+                .await?,
+            sqlx::query_scalar(
+                "SELECT total_count FROM t_ticker_tape_train_statistical WHERE id=?",
+            )
+            .bind(format!("stat-{owner}"))
+            .fetch_one(&mut *tx)
+            .await?,
+        );
+        tx.rollback().await?;
+        drop(bystander);
+        for user in [&owner, &other] {
+            sqlx::query("DELETE FROM t_ticker_tape_train WHERE user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("DELETE FROM t_ticker_tape_train_statistical WHERE user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+        }
+
+        assert_eq!(settled, (Some(3), Some(1)));
+        assert!(
+            training.is_ok(),
+            "another user's training row is locked: {training:?}"
+        );
+        assert!(
+            statistics.is_ok(),
+            "another user's statistics row is locked: {statistics:?}"
+        );
+        Ok(())
+    }
 }

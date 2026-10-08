@@ -1,4 +1,5 @@
 use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
+use crate::statistical::lock_user;
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -48,17 +49,6 @@ fn base_json(row: &sqlx::mysql::MySqlRow) -> Value {
         "duration": row.get::<Option<i64>, _>("duration"),
         "type": row.get::<Option<i32>, _>("type")
     })
-}
-
-async fn lock_user(
-    transaction: &mut Transaction<'_, MySql>,
-    user_id: &str,
-) -> Result<bool, sqlx::Error> {
-    sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut **transaction)
-        .await
-        .map(|row| row.is_some())
 }
 
 pub(crate) async fn find_base(

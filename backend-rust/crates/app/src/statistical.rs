@@ -7,7 +7,7 @@
 
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use sqlx::{MySqlPool, Row};
+use sqlx::{MySql, MySqlPool, Row, Transaction};
 use uuid::Uuid;
 
 fn decimal_number(value: Option<Decimal>) -> Value {
@@ -15,6 +15,23 @@ fn decimal_number(value: Option<Decimal>) -> Value {
         .and_then(|value| value.to_string().parse::<serde_json::Number>().ok())
         .map(Value::Number)
         .unwrap_or(Value::Null)
+}
+
+/// Locks the user row to serialize one user's writes that lazily create or recount statistics
+/// rows. The training and statistics tables are indexed by primary key only, so a locking read
+/// filtered by `user_id` would lock every row it scans and stall other users until commit: take
+/// this lock first, read the rest plainly, and lock only the rows acted on by primary key.
+/// Always take it before any training row lock so the order is the same everywhere. `false`
+/// means the user row does not exist.
+pub(crate) async fn lock_user(
+    transaction: &mut Transaction<'_, MySql>,
+    user_id: &str,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
+        .bind(user_id)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map(|row| row.is_some())
 }
 
 /// Loads the user's rows from `table`, creating any missing type in `0..types`.
