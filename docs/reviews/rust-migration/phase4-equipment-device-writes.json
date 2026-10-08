@@ -18,6 +18,7 @@
   "frontend_contract": {
     "source": "bw-frontend/frontend/src/common/api/equipment.js",
     "add": ["deviceId", "name", "image", "option", "isEnable", "keyPoints"],
+    "ignored_add_update_field": "The Vue equipment ID input is sent in add/update payloads but Java never assigns deviceId there; Rust follows that contract. The list response retains deviceId and updates leave historical stored values untouched. Supporting this UI field is a separate product fix.",
     "update": ["id", "name", "image", "option", "isEnable"],
     "delete": ["id"],
     "key_points": ["deviceId", "content"]
@@ -41,6 +42,10 @@
     "key_points_updated": true,
     "deleted_device_rows": 0,
     "ordinary_write_side_effect": false
+  },
+  "contract_followup_2026_10_09": {
+    "journey": "equipment-devices creates with the UI deviceId field, lists, updates with a different deviceId and lists again; both stacks ignore that field while the response still includes deviceId.",
+    "historical_storage": "Create no longer binds device_id; update still never assigns device_id. Existing historical values are not erased or migrated. Live Java/Rust probe updated a synthetic historical row with a different request deviceId: both returned code 200 and retained historical-device-id; the fixture was removed."
   },
   "verification": {
     "cargo_test_workspace": "9 passed, 2 opt-in ignored",

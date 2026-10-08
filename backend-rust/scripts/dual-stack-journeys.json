@@ -169,9 +169,10 @@
     {
       "name": "equipment-devices",
       "steps": [
-        {"name": "add", "method": "POST", "path": "/api/equipmentDevice/add", "body": {"name": "示波器", "image": "scope.png", "isEnable": 1, "option": "{}"}},
+        {"name": "add", "method": "POST", "path": "/api/equipmentDevice/add", "body": {"deviceId": "ui-device-id-ignored", "name": "示波器", "image": "scope.png", "isEnable": 1, "option": "{}"}},
         {"name": "list", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}, "capture": {"equipId": "$.data[0].id"}},
-        {"name": "update", "method": "POST", "path": "/api/equipmentDevice/update", "body": {"id": "${equipId}", "name": "示波器2", "image": "scope2.png", "isEnable": 0, "option": "{\"a\":1}"}},
+        {"name": "update", "method": "POST", "path": "/api/equipmentDevice/update", "body": {"id": "${equipId}", "deviceId": "ui-device-id-update-ignored", "name": "示波器2", "image": "scope2.png", "isEnable": 0, "option": "{\"a\":1}"}},
+        {"name": "list-after-ignored-device-id-update", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}},
         {"name": "key-points", "method": "POST", "path": "/api/equipmentDevice/addKeyPoints", "body": {"deviceId": "${equipId}", "content": "要点一\n要点二"}},
         {"name": "key-points-list", "method": "POST", "path": "/api/equipmentDevice/listKeyPoints", "body": {}},
         {"name": "list-after", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}},

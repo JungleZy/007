@@ -39,9 +39,8 @@ pub(crate) async fn add(State(state): State<AppState>, Json(body): Json<Value>) 
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let id = Uuid::new_v4().to_string();
-    match sqlx::query("INSERT INTO t_equipment_device (id,device_id,name,image,`option`,is_enable,key_points,create_time) VALUES (?,?,?,?,?,?,?,NOW())")
+    match sqlx::query("INSERT INTO t_equipment_device (id,name,image,`option`,is_enable,key_points,create_time) VALUES (?,?,?,?,?,?,NOW())")
         .bind(&id)
-        .bind(body.get("deviceId").and_then(Value::as_str))
         .bind(body.get("name").and_then(Value::as_str))
         .bind(body.get("image").and_then(Value::as_str))
         .bind(body.get("option").and_then(Value::as_str))
