@@ -473,7 +473,14 @@ pub(crate) async fn statistical_page(
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    let rows = match sqlx::query("SELECT id,type,total_count,total_time,avg_speed,user_id FROM t_telegram_train_statistical WHERE user_id=? ORDER BY type FOR UPDATE")
+    match crate::statistical::lock_user(&mut tx, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    }
+    let rows = match sqlx::query("SELECT id,type,total_count,total_time,avg_speed,user_id FROM t_telegram_train_statistical WHERE user_id=? ORDER BY type")
         .bind(&user.id).fetch_all(&mut *tx).await {
         Ok(rows) => rows,
         Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),

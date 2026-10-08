@@ -533,10 +533,10 @@ pub(crate) async fn save_base_train(
         .unwrap_or("0");
     if let Err(e) = sqlx::query("INSERT INTO t_telegram_train (id,type,status,total_knock_number,total_number,error_number,accuracy,speed,sustain_time,create_user_id,create_time,protocol_version,accumulated_active_millis,rate_dot_min_ms,rate_dot_max_ms,rate_line_min_ms,rate_line_max_ms,rate_interval_min_ms,rate_interval_max_ms,big_interval_min_ms,big_interval_max_ms) VALUES (?,21,3,?,0,0,'0','0',?,?,?,0,0,1,80,81,240,81,240,241,400)")
         .bind(&id).bind(total_knock).bind(sustain).bind(&user.id).bind(&created).execute(&mut *tx).await { return error(e, "save telegram base train"); }
-    let aggregate = match sqlx::query("SELECT COALESCE(SUM(CAST(sustain_time AS DECIMAL(30,6))),0) AS total_time,COUNT(*) AS total_count,COALESCE(AVG(CAST(speed AS DECIMAL(30,6))),0) AS avg_speed FROM t_telegram_train WHERE create_user_id=? AND type=21 AND status=3")
+    let aggregate = match sqlx::query("SELECT COALESCE(SUM(sustain_time),0) AS total_time,COUNT(*) AS total_count,COALESCE(AVG(CAST(speed AS DECIMAL(30,6))),0) AS avg_speed FROM t_telegram_train WHERE create_user_id=? AND type=21 AND status=3")
         .bind(&user.id).fetch_one(&mut *tx).await { Ok(row) => row, Err(e) => return error(e, "aggregate telegram base train") };
     let existing = match sqlx::query(
-        "SELECT id FROM t_telegram_train_statistical WHERE user_id=? AND type=2 LIMIT 1 FOR UPDATE",
+        "SELECT id FROM t_telegram_train_statistical WHERE user_id=? AND type=2 LIMIT 1",
     )
     .bind(&user.id)
     .fetch_optional(&mut *tx)
@@ -545,9 +545,7 @@ pub(crate) async fn save_base_train(
         Ok(row) => row,
         Err(e) => return error(e, "load telegram base statistics"),
     };
-    let total_time = aggregate
-        .get::<rust_decimal::Decimal, _>("total_time")
-        .to_string();
+    let total_time = aggregate_time_text(aggregate.get::<f64, _>("total_time"));
     let total_count = aggregate.get::<i64, _>("total_count") as i32;
     let avg_speed = aggregate.get::<rust_decimal::Decimal, _>("avg_speed");
     let result = if let Some(row) = existing {
@@ -581,6 +579,42 @@ pub(crate) async fn save_base_train(
     }
 }
 
+// MySQL SUM over Java's string duration column returns a Double. Gson keeps
+// its fractional .0 and uses Java's scientific-notation thresholds.
+fn aggregate_time_text(value: f64) -> String {
+    let decimal = |text: String| {
+        if text.contains('.') {
+            text
+        } else {
+            format!("{text}.0")
+        }
+    };
+    if value != 0.0 && !(0.001..10_000_000.0).contains(&value.abs()) {
+        let scientific = format!("{value:e}");
+        let (mantissa, exponent) = scientific.split_once('e').expect("float exponent");
+        format!("{}E{exponent}", decimal(mantissa.to_owned()))
+    } else {
+        decimal(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::aggregate_time_text;
+
+    #[test]
+    fn aggregate_strings_preserve_java_double_notation() {
+        for (value, expected) in [
+            (0.0, "0.0"),
+            (12.0, "12.0"),
+            (12.5, "12.5"),
+            (0.000001, "1.0E-6"),
+            (10_000_000.0, "1.0E7"),
+        ] {
+            assert_eq!(aggregate_time_text(value), expected);
+        }
+    }
+}
 fn chrono_like_now() -> String {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

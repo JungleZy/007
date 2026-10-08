@@ -5,8 +5,14 @@
     {
       "name": "personal-telegram",
       "steps": [
+        {"name": "statistics-empty", "method": "POST", "path": "/api/telegramTrain/statisticalPage"},
+        {"name": "base-zero", "method": "POST", "path": "/api/telegramTrain/saveBaseTrain", "body": {"totalKnockNumber": 0, "sustainTime": "0"}},
+        {"name": "statistics-zero", "method": "POST", "path": "/api/telegramTrain/statisticalPage"},
         {"name": "base-save", "method": "POST", "path": "/api/telegramTrain/saveBaseTrain", "body": {"totalKnockNumber": 24, "sustainTime": "12"}},
-        {"name": "base-last", "method": "POST", "path": "/api/telegramTrain/lastTrain", "body": {"type": 21}}
+        {"name": "statistics-integral", "method": "POST", "path": "/api/telegramTrain/statisticalPage"},
+        {"name": "base-last", "method": "POST", "path": "/api/telegramTrain/lastTrain", "body": {"type": 21}},
+        {"name": "base-fraction", "method": "POST", "path": "/api/telegramTrain/saveBaseTrain", "body": {"totalKnockNumber": 1, "sustainTime": "0.5"}},
+        {"name": "statistics-fraction", "method": "POST", "path": "/api/telegramTrain/statisticalPage"}
       ]
     },
     {
