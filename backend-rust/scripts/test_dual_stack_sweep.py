@@ -140,7 +140,7 @@ class JourneyComparisonTest(unittest.TestCase):
         listing = next(step for step in steps if step["name"] == "list-scheduled-candidate")
         self.assertNotIn("$.data.exam", listing.get("unordered", []))
         starts = {step["body"]["startTime"] for step in steps
-                  if step["path"].endswith("/savetheoryKnowledgeExam") and "sweep-student" in step["body"]["stuId"]}
+                  if step["path"].endswith("/savetheoryKnowledgeExam") and "id" not in step["body"] and "sweep-student" in step["body"]["stuId"]}
         self.assertGreaterEqual(len(starts), 2)
         response = {"data": {"exam": [{"startTime": start, "title": f"distinct-exam-{index}"}
                                       for index, start in enumerate(sorted(starts, reverse=True))]}}
@@ -186,18 +186,20 @@ class RegistryPredicateTest(unittest.TestCase):
         entry = {"endpoint": "read", "variant": "journey", "category": "DATA",
                  "data_diffs": differences, "first_data_diffs": differences[:4]}
         rule = {"endpoint": "read", "category": "DATA", "disposition": "ACCEPTED",
-                "allowed_paths": [f"$.data.artefact{index}" for index in range(4)]}
+                "allowed_paths": [f"$.data.artefact{index}" for index in range(4)],
+                "path_predicates": {f"$.data.artefact{index}": {"java": {"value": 0}, "rust": {"value": 1}} for index in range(4)}}
         self.assertEqual("FAIL", sweep.disposition(entry, {"overrides": [rule]})[0])
         entry["data_diffs"] = differences[:4]
         self.assertEqual("ACCEPTED", sweep.disposition(entry, {"overrides": [rule]})[0])
 
-    def test_prefix_boundaries_array_wildcards_and_cardinality(self):
-        rule = {"allowed_paths": ["$.data.rows[*].score", "$.data.rows[len]", "$.data.user"]}
-        for path in ["$.data.rows[12].score", "$.data.rows[12].score.value", "$.data.rows[len]", "$.data.user.name"]:
-            self.assertTrue(sweep.allowed_data_paths({"data_diffs": [[path, 0, 1]]}, rule), path)
-        for path in ["$.data.rows[12].scores", "$.data.rows[12].title", "$.data.users.name", "$.data.rows[len].score"]:
-            self.assertFalse(sweep.allowed_data_paths({"data_diffs": [[path, 0, 1]]},
-                {"allowed_paths": ["$.data.rows[*].score", "$.data.user"]}), path)
+    def test_exact_paths_and_explicit_subtrees(self):
+        paths = ["$.data.rows[*].score", "$.data.user"]
+        rule = {"allowed_paths": paths, "path_predicates": {path: {"java": {"value": 0}, "rust": {"value": 1}} for path in paths}}
+        self.assertTrue(sweep.allowed_data_paths({"data_diffs": [["$.data.rows[12].score", 0, 1]]}, rule))
+        for path in ["$.data.rows[12].score.value", "$.data.user.name", "$.data.rows[12].scores", "$.data.users.name", "$.data.rows[len]"]:
+            self.assertFalse(sweep.allowed_data_paths({"data_diffs": [[path, 0, 1]]}, rule), path)
+        rule["subtree_paths"] = ["$.data.user"]
+        self.assertTrue(sweep.allowed_data_paths({"data_diffs": [["$.data.user.name", 0, 1]]}, rule))
         self.assertFalse(sweep.allowed_data_paths({"first_data_diffs": []}, rule))
         self.assertFalse(sweep.allowed_data_paths({"data_diffs": [["$.data.score", 0, 1]]}, {"allowed_paths": []}))
 
@@ -229,6 +231,44 @@ class RegistryPredicateTest(unittest.TestCase):
         self.assertEqual("ACCEPTED", sweep.disposition(entry, registry)[0])
         entry["data_diffs"] = expected + [["$.data[2].avgSpeed", 50, 0]]
         self.assertEqual("OPEN", sweep.disposition(entry, registry)[0])
+
+    def test_in_region_value_type_and_presence_mutations_are_rejected(self):
+        rule = {"allowed_paths": ["$.data.score"], "path_predicates": {"$.data.score": {"java": {"value": 0}, "rust": {"value": 2}}}}
+        for value in [999, "2", True, {"nested": 2}]:
+            self.assertFalse(sweep.allowed_data_paths({"data_diffs": sweep.data_diffs({"score": 0}, {"score": value}, "$.data")}, rule))
+        rule = {"allowed_paths": ["$.data.content"], "path_predicates": {"$.data.content": {"java": {"value": None}, "rust": {"present": False}}}}
+        self.assertTrue(sweep.allowed_data_paths({"data_diffs": sweep.data_diffs({"content": None}, {}, "$.data")}, rule))
+        for java, rust in [({}, {"content": None}), ({"content": None}, {"content": "<absent>"}), ({"content": "changed"}, {})]:
+            self.assertFalse(sweep.allowed_data_paths({"data_diffs": sweep.data_diffs(java, rust, "$.data")}, rule))
+
+    def test_array_extra_rows_are_exhaustively_constrained(self):
+        rule = {"allowed_paths": ["$.data[len]"], "path_predicates": {"$.data[len]": {
+            "java": {"value": 0}, "rust": {"value": 1}, "java_extra": [],
+            "rust_extra": [{"type": "object", "fields": {"id": {"value": "<uuid>"}, "name": {"value": None}}}]}}}
+        self.assertTrue(sweep.allowed_data_paths({"data_diffs": sweep.data_diffs([], [{"id": "<uuid>", "name": None}], "$.data")}, rule))
+        for row in [{"id": "<uuid>", "name": "exposed"}, {"id": "<uuid>", "name": None, "secret": 42}, "wrong type"]:
+            self.assertFalse(sweep.allowed_data_paths({"data_diffs": sweep.data_diffs([], [row], "$.data")}, rule))
+        self.assertFalse(sweep.allowed_data_paths({"data_diffs": [["$.data[len]", 0, 1]]}, rule))
+
+    def test_every_constrained_rule_has_predicates_and_rejects_in_region_mutations(self):
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        for rule in registry["overrides"]:
+            if "allowed_paths" not in rule:
+                continue
+            self.assertEqual(set(rule["allowed_paths"]), set(rule["path_predicates"]))
+            for path, predicate in rule["path_predicates"].items():
+                actual_path = path.replace("[*]", "[0]")
+                for java, rust in [("arbitrary", "contents"), (None, {"unexpected": "object"})]:
+                    self.assertFalse(sweep.allowed_data_paths({"data_diffs": [[actual_path, java, rust]]}, rule), (rule["endpoint"], path))
+                if path.endswith("[len]"):
+                    evidence = {f"{side}_extra": [spec.get("value") for spec in predicate[f"{side}_extra"]] for side in ("java", "rust")}
+                    good = [actual_path, predicate["java"]["value"], predicate["rust"]["value"], evidence]
+                    self.assertTrue(sweep.allowed_data_paths({"data_diffs": [good]}, rule))
+                    for side in ("java", "rust"):
+                        if evidence[f"{side}_extra"]:
+                            bad = copy.deepcopy(good)
+                            bad[3][f"{side}_extra"][0] = {"arbitrary": "unmatched row"}
+                            self.assertFalse(sweep.allowed_data_paths({"data_diffs": [bad]}, rule))
 
 
 if __name__ == "__main__":

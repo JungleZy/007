@@ -243,19 +243,22 @@ def category(java, rust):
 
 
 def data_diffs(a, b, path="$", out=None):
-    """All differing data paths; array cardinality is represented by [len]."""
+    """All differing paths, including presence and unmatched array contents."""
     out = [] if out is None else out
     if type(a) != type(b):
         out.append([path, a, b])
     elif isinstance(a, dict):
         for key in sorted(set(a) | set(b)):
             if key not in a or key not in b:
-                out.append([f"{path}.{key}", a.get(key, "<absent>"), b.get(key, "<absent>")])
+                out.append([f"{path}.{key}", a.get(key), b.get(key),
+                            {"java_present": key in a, "rust_present": key in b}])
             else:
                 data_diffs(a[key], b[key], f"{path}.{key}", out)
     elif isinstance(a, list):
         if len(a) != len(b):
-            out.append([f"{path}[len]", len(a), len(b)])
+            paired = min(len(a), len(b))
+            out.append([f"{path}[len]", len(a), len(b),
+                        {"java_extra": a[paired:], "rust_extra": b[paired:]}])
         for index, (x, y) in enumerate(zip(a, b)):
             data_diffs(x, y, f"{path}[{index}]", out)
     elif a != b:
@@ -411,20 +414,75 @@ def run_journeys(spec, args, headers, db):
     return results
 
 
-def allowed_data_paths(entry, rule):
-    """Match JSONPath-lite prefixes with token boundaries and optional [*].
+def expected_value(value, predicate):
+    """Typed exact values or explicit JSON types; object fields are exhaustive."""
+    if "value" in predicate:
+        return json.dumps(value, sort_keys=True) == json.dumps(predicate["value"], sort_keys=True)
+    types = {"null": type(None), "string": str, "integer": int, "number": (int, float),
+             "boolean": bool, "array": list, "object": dict}
+    if "type" not in predicate or type(value) not in (types[predicate["type"]] if isinstance(types[predicate["type"]], tuple) else (types[predicate["type"]],)):
+        return False
+    if "pattern" in predicate and re.fullmatch(predicate["pattern"], value) is None:
+        return False
+    if isinstance(value, dict) and "fields" in predicate:
+        fields = predicate["fields"]
+        return set(value) == set(fields) and all(expected_value(value[key], spec) for key, spec in fields.items())
+    if isinstance(value, list) and "items" in predicate:
+        return all(expected_value(item, predicate["items"]) for item in value)
+    return True
 
-    A constrained rule requires the complete data_diffs, never the four-item
-    display preview. Missing evidence does not grant an acceptance.
+
+def difference_matches(difference, predicate):
+    evidence = difference[3] if len(difference) > 3 else {}
+    for side, value in zip(("java", "rust"), difference[1:3]):
+        spec = predicate.get(side)
+        if spec is None:
+            return False
+        present = evidence.get(f"{side}_present", True)
+        if present != spec.get("present", True):
+            return False
+        if present and not expected_value(value, spec):
+            return False
+    if difference[0].endswith("[len]"):
+        for side in ("java", "rust"):
+            extra = evidence.get(f"{side}_extra")
+            specs = predicate.get(f"{side}_extra")
+            if extra is None or specs is None or len(extra) != len(specs):
+                return False
+            if predicate.get("extra_order") == "unordered":
+                remaining = list(specs)
+                for row in extra:
+                    match = next((index for index, spec in enumerate(remaining) if expected_value(row, spec)), None)
+                    if match is None:
+                        return False
+                    remaining.pop(match)
+            elif not all(expected_value(row, spec) for row, spec in zip(extra, specs)):
+                return False
+    return True
+
+
+def allowed_data_paths(entry, rule):
+    """Require complete evidence and a value/presence predicate for every path.
+
+    Paths are exact by default. Only explicit subtree_paths authorize descendants.
+    A [len] predicate also declares every extra row, never just its location.
     """
     if "allowed_paths" not in rule:
         return True
     differences = entry.get("data_diffs")
     if differences is None:
         return False
-    patterns = [re.escape(prefix).replace(r"\[\*\]", r"\[\d+\]") + r"(?:$|[.\[])"
-                for prefix in rule["allowed_paths"]]
-    return all(any(re.match(pattern, difference[0]) for pattern in patterns) for difference in differences)
+    for difference in differences:
+        matched = False
+        for path in rule["allowed_paths"]:
+            suffix = r"(?:$|[.\[])" if path in rule.get("subtree_paths", []) else "$"
+            pattern = re.escape(path).replace(r"\[\*\]", r"\[\d+\]") + suffix
+            if re.match(pattern, difference[0]) and difference_matches(difference, rule.get("path_predicates", {}).get(path, {})):
+                matched = True
+                break
+        if not matched:
+            return False
+    return True
 
 
 def disposition(entry, registry):
