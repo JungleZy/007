@@ -325,14 +325,16 @@ pub(crate) async fn save_setting(
     {
         return error(e, "delete telegram settings");
     }
+    let mut saved = Vec::with_capacity(values.len());
     for value in values {
         let Some(item) = value.as_object() else {
             return envelope_response(StatusCode::OK, 202, "基础练习配置类型无效", "");
         };
+        let id = uuid::Uuid::new_v4().to_string();
         let result = sqlx::query(
             "INSERT INTO t_telegram_train_setting (id,type,`key`,value) VALUES (?,?,?,?)",
         )
-        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&id)
         .bind(item.get("type").and_then(Value::as_i64).unwrap_or(0) as i32)
         .bind(item.get("key").and_then(Value::as_str).unwrap_or_default())
         .bind(
@@ -345,19 +347,12 @@ pub(crate) async fn save_setting(
         if let Err(e) = result {
             return error(e, "insert telegram setting");
         }
+        saved.push(json!({"id":id,"type":item.get("type"),"key":item.get("key"),"value":item.get("value")}));
     }
-    let rows =
-        match sqlx::query("SELECT id,type,`key`,value FROM t_telegram_train_setting ORDER BY id")
-            .fetch_all(&mut *tx)
-            .await
-        {
-            Ok(rows) => rows,
-            Err(e) => return error(e, "load telegram settings"),
-        };
     if let Err(e) = tx.commit().await {
         return error(e, "commit telegram settings");
     }
-    envelope_json(StatusCode::OK, 200, Some(Value::Array(rows.iter().map(|row| json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"key":row.get::<Option<String>,_>("key"),"value":row.get::<Option<String>,_>("value")})).collect())), "ok", "")
+    envelope_json(StatusCode::OK, 200, Some(Value::Array(saved)), "ok", "")
 }
 
 pub(crate) async fn save_base_train(
