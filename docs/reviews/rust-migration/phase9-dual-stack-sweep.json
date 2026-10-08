@@ -1,54 +1,61 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-08T19:59:42Z",
-  "git_commit": "335792c",
+  "generated_at_utc": "2026-10-08T20:36:02Z",
+  "git_commit": "02155549",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
       "exit_code": 0,
       "passed": 53,
-      "ignored": 24,
-      "artifact": "artifact://898"
+      "ignored": 27,
+      "artifact": "artifact://950"
     },
     "python": {
       "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
       "exit_code": 0,
-      "tests": 21,
-      "output": "Ran 21 tests in 4.298s; OK",
-      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+      "tests": 24,
+      "output": "Ran 24 tests in 4.276s; OK",
+      "source": "T9LastReviewFixes final execution after 02155549"
     },
-    "python_sweep_only": {
-      "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_dual_stack_sweep.py'",
+    "isolated_database": {
+      "database": "rust_scratch_lockdemo",
+      "env": "RUST_PHASE2_DATABASE_URL=mysql://root:root@127.0.0.1:3306/rust_scratch_lockdemo",
+      "commands": [
+        "cargo test --locked -p rust-backend exam::writer_tests -- --ignored --test-threads=1",
+        "cargo test --locked -p rust-backend grading::tests -- --ignored --test-threads=1",
+        "cargo test --locked -p rust-backend last_train_applies_bean_conversion_without_json_parsing -- --ignored --test-threads=1"
+      ],
       "exit_code": 0,
-      "tests": 17,
-      "output": "Ran 17 tests in 0.007s; OK",
-      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+      "exam_writer_passed": 6,
+      "grading_passed": 7,
+      "ticker_callers_passed": 1,
+      "artifact": "artifact://950"
     },
-    "code_identity": {
-      "command": "git diff 335792c HEAD -- backend-rust",
+    "debug_build": {
+      "command": "cd backend-rust && cargo build --locked -p rust-backend",
       "exit_code": 0,
-      "output": "",
-      "source": "T8DocsEvidence read-only re-verification execution transcript, 2026-10-09"
+      "artifact": "artifact://950"
     },
-    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/x7_final_journeys_after335792c.json",
-    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/x7_final_full_after335792c.json"
+    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/y7_final_journeys_after02155549.json",
+    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/y7_final_full_after02155549.json"
   },
-  "sweep_rerun_this_checkpoint": false,
+  "sweep_rerun_this_checkpoint": true,
   "journeys": {
-    "artifact": "/tmp/x7_final_journeys_after335792c.json",
-    "generated_at_utc": "2026-10-08T19:49:31Z",
+    "artifact": "/tmp/y7_final_journeys_after02155549.json",
+    "generated_at_utc": "2026-10-08T20:29:36Z",
+    "exit_code": 0,
     "summary": {
-      "requests": 419,
-      "identical": 400,
-      "different": 19,
+      "requests": 421,
+      "identical": 401,
+      "different": 20,
       "by_disposition": {
-        "ACCEPTED": 19,
+        "ACCEPTED": 20,
         "FAIL": 0,
         "OPEN": 0
       },
       "by_category": {
-        "JAVA_UNHANDLED_500": 3,
+        "JAVA_UNHANDLED_500": 4,
         "RUST_STRICTER": 1,
         "DATA": 6,
         "TEXT_ONLY": 6,
@@ -59,19 +66,20 @@
     }
   },
   "full_sweep": {
-    "artifact": "/tmp/x7_final_full_after335792c.json",
-    "generated_at_utc": "2026-10-08T19:55:53Z",
+    "artifact": "/tmp/y7_final_full_after02155549.json",
+    "generated_at_utc": "2026-10-08T20:36:02Z",
+    "exit_code": 0,
     "summary": {
-      "requests": 1868,
-      "identical": 1318,
-      "different": 550,
+      "requests": 1870,
+      "identical": 1319,
+      "different": 551,
       "by_disposition": {
-        "ACCEPTED": 550,
+        "ACCEPTED": 551,
         "FAIL": 0,
         "OPEN": 0
       },
       "by_category": {
-        "JAVA_UNHANDLED_500": 52,
+        "JAVA_UNHANDLED_500": 53,
         "RUST_STRICTER": 60,
         "DATA": 28,
         "TEXT_ONLY": 287,
@@ -133,14 +141,14 @@
       "parse_json",
       "normalize_keys"
     ],
-    "allowed_paths": "Enforced over the complete data_diffs list, never just first_data_diffs preview",
+    "allowed_paths": "Exact leaf paths by default; explicit subtree_paths opt into descendants. All 28 constrained rules have typed value/presence predicates. Complete data_diffs includes presence direction and every unmatched array row, not just first_data_diffs preview or length",
     "accepted_does_not_mean_identical": true
   },
   "registry": {
     "source": "backend-rust/scripts/dual-stack-sweep-registry.json",
-    "explicit_rules": 161,
+    "explicit_rules": 162,
     "by_category": {
-      "JAVA_UNHANDLED_500": 4,
+      "JAVA_UNHANDLED_500": 5,
       "RUST_STRICTER": 60,
       "DATA": 28,
       "TEXT_ONLY": 6,
@@ -150,12 +158,12 @@
       "RUST_RAW_HTTP_4XX": 51
     },
     "by_class": {
-      "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 23,
+      "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 24,
       "JAVA_DEFECT_ACCEPT": 14,
       "MALFORMED_INPUT_ONLY": 108,
       "STATE_ARTEFACT": 16
     },
-    "class_semantics": "First 23 existing rules have no formal class label; EXPLICIT_BEHAVIORAL_ACCEPTANCE is this evidence label, not a registry field. Last 138 are classified by the following artifact.",
+    "class_semantics": "24 named behavioral acceptances include the new stale-editor Java 500 rule. The unchanged historical 138-rule classified subset is preserved below; classes are evidence labels, not schema fields.",
     "classification_artifact": "/tmp/t6_registration_classification.json",
     "classified_subset": {
       "registered_count": 138,
@@ -188,8 +196,8 @@
   "locking": {
     "order": "user row -> parent PK -> child PKs",
     "scope": "No non-PK locking reads/writes in touched domains",
-    "regressions": "Ignored isolated-DB regressions include mutation checks; not executed by this docs-only checkpoint",
-    "prior_execution_record": "Shared context: executor of 335792c reported exam writer 5/5 and grading 5/5; no durable artifact supplied here, not newly verified"
+    "regressions": "Final isolated-DB execution after 02155549: exam writer 6/6, grading 7/7, ticker historical callers 1/1; artifact://950. Changed/new DB regressions have the mutation records below. This is not a full load/stress proof",
+    "prior_execution_record": "335792c historical exam 5/5 and grading 5/5 superseded by this checkpoint execution",
   },
   "java_defects_not_replicated": [
     "telex NULL-duration rollover",
@@ -202,10 +210,93 @@
     "Self-test identical-answer retry ignores JSON property order",
     "Absent theory type defaults to 0"
   ],
+  "closed_review_findings": [
+    {
+      "finding": "Y1",
+      "commit": "aefde87",
+      "status": "CLOSED",
+      "result": "Supplied missing exam id returns 202 未查询到考试 with no recreation; generated ids use direct INSERT. Populated stale-editor journey observes Java HTTP500/code500, accepted only as JAVA_UNHANDLED_500."
+    },
+    {
+      "finding": "Y2",
+      "commit": "dbdf43c",
+      "status": "CLOSED",
+      "result": "Stored canonical grading ids resolved before sorting/deduplicating PK locks and used in guards/updates. Opposite-type uppercase aliases, alias save/default, and locked-row rechecks pass."
+    },
+    {
+      "finding": "Y3",
+      "commit": "68c5154",
+      "status": "CLOSED",
+      "result": "Exact leaf rules with explicit subtree opt-in, typed expected values/presence relations, and declared complete unmatched row inventories; all bounded rules constrained. In-region value/type/presence/extra-row mutations rejected."
+    },
+    {
+      "finding": "Y4",
+      "commit": "176b55d",
+      "status": "CLOSED",
+      "result": "PoolConnection close_on_drop before GET_LOCK retains permit; drop before pooled post-commit read. Pool-size-one bound and cancellation while waiting verified."
+    },
+    {
+      "finding": "Y5",
+      "commit": "c64408f8",
+      "status": "CLOSED",
+      "result": "Only JSON whitespace (space/tab/CR/LF) is an empty document; list/detail return null. Invalid non-empty JSON still fails."
+    },
+    {
+      "finding": "Y6",
+      "commit": "02155549",
+      "status": "CLOSED",
+      "result": "Answered formal rebuild returns 202 after parent lock, preserving title and candidate answer. Populated answered-rebuild journey added."
+    }
+  ],
+  "mutation_checks": [
+    {
+      "test": "supplied_absent_exam_is_not_resurrected",
+      "mutation": "Bypass existing-parent branch and insert stale supplied id",
+      "result": "REJECTED: 200 != 202",
+      "artifact": "artifact://915"
+    },
+    {
+      "test": "uppercase_alias_saves_lock_canonical_ids_and_change_default",
+      "mutation": "Use upper-case target instead of stored canonical id",
+      "result": "REJECTED: 202 != 200",
+      "artifact": "artifact://919"
+    },
+    {
+      "test": "named_lock_waiters_keep_pool_bound_and_close_on_cancellation",
+      "mutation": "Remove close_on_drop",
+      "result": "REJECTED: cancelled waiter could not release pool permit/named lock within 8 seconds",
+      "artifact": "artifact://936"
+    },
+    {
+      "test": "last_train_applies_bean_conversion_without_json_parsing",
+      "mutation": "Restore empty-string-only JSON guard",
+      "result": "REJECTED: HTTP500 != HTTP200 for whitespace list/detail",
+      "artifact": "artifact://940"
+    },
+    {
+      "test": "formal_rebuild_checks_latest_answers_after_parent_lock",
+      "mutation": "Restore Terminal/code208",
+      "result": "REJECTED: 208 != 202",
+      "artifact": "artifact://944"
+    },
+    {
+      "test": "two_admins_create_generated_exams_without_gap_upgrade",
+      "mutation": "Disable generated parent INSERT with SELECT ... WHERE FALSE",
+      "result": "REJECTED: generated exam inventory 0 != 1",
+      "artifact": "artifact://948"
+    }
+  ],
+  "mutation_probe_limitations": [
+    "A separate probe adding a missing-PK FOR UPDATE before generated INSERT survived the existing concurrency gate. The gate verifies concurrent successful creation and the disabled-INSERT mutation, but is not deterministic proof that a missing-read gap-lock upgrade deadlocks; final production source contains no such generated-id locking read."
+  ],
   "limitations": [
     {
       "risk": "UUID shape masking does not check Java<->Rust identity correspondence; a wrong-but-UUID-shaped reference can compare equal",
       "proposal": "Per-journey bijective id mapping"
+    },
+    {
+      "risk": "HashMap tree-bin traversal order is not emulated; linked-bin parity does not prove Java ordering for >=8 colliding ids in one bucket at capacity >=64",
+      "proposal": "Implement JDK treeification/root moves/tree insertion and resize splitting, then add a fixed colliding-id regression"
     },
     {
       "risk": "WS connection loop awaits DB locks inline; innodb_lock_wait_timeout 50 s is below frontend 90 s heartbeat staleness but blocks the connection",
