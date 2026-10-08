@@ -38,6 +38,15 @@
       ]
     },
     {
+      "name": "theory-answer-trim",
+      "steps": [
+        {"name":"create","method":"POST","path":"/api/theoryKnowledgeExam/saveTheoryKnowledgeExamSelfTesting","who":"student","body":{"title":"Java空白边界评分","duration":"30","testPaper":{"name":"空白边界卷","total":60,"passMark":36,"singleChoice":[],"multipleChoice":[],"judge":[],"completion":[{"id":"trim-ca","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":0,"type":4},{"id":"trim-cf","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":1,"type":4},{"id":"trim-cn","topic":"________","answer":"[\"标准步骤\"]","score":10,"sort":2,"type":4}],"shortAnswer":[{"id":"trim-sa","topic":"步骤","answer":"标准步骤","score":10,"sort":0,"type":5},{"id":"trim-sf","topic":"步骤","answer":"标准步骤","score":10,"sort":1,"type":5},{"id":"trim-sn","topic":"步骤","answer":"标准步骤","score":10,"sort":2,"type":5}]}},"capture":{"examId":"$.data.id"}},
+        {"name":"finish-ascii-fullwidth-nbsp","method":"POST","path":"/api/theoryKnowledgeExam/finishSelfTesting","who":"student","body":{"examId":"${examId}","content":"{\"completion\":[{\"id\":\"trim-ca\",\"answer\":[\" 标准步骤 \"],\"teacherScore\":999},{\"id\":\"trim-cf\",\"answer\":[\"　标准步骤　\"],\"teacherScore\":999},{\"id\":\"trim-cn\",\"answer\":[\"\u00a0标准步骤\u00a0\"],\"teacherScore\":999}],\"shortAnswer\":[{\"id\":\"trim-sa\",\"answer\":\" 标准步骤 \",\"teacherScore\":999},{\"id\":\"trim-sf\",\"answer\":\"　标准步骤　\",\"teacherScore\":999},{\"id\":\"trim-sn\",\"answer\":\"\u00a0标准步骤\u00a0\",\"teacherScore\":999}]}"}},
+        {"name":"read-awards","method":"POST","path":"/api/theoryKnowledgeExamUser/findExamUser","who":"student","body":{"examId":"${examId}","userId":"sweep-student"},"parse_json":["$.data.content"]},
+        {"name":"delete","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${examId}"}}
+      ]
+    },
+    {
       "name": "theory-scheduled-exam",
       "steps": [
         {"name":"paper-create","method":"POST","path":"/api/theoryKnowledgeTestPaper/saveTestPaper","who":"admin","body":{"name":"计划考试-双栈试卷","total":10,"passTheExamThan":"60","passMark":6,"singleChoice":[{"score":10,"sort":0,"type":1,"topic":"正确的通信代号","options":"[\"A\",\"B\"]","answer":"\"A\"","analysis":"单选解析"}],"multipleChoice":[],"judge":[],"completion":[],"shortAnswer":[]}},

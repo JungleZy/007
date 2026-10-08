@@ -9,7 +9,8 @@
     "snapshot_source": "t_theory_knowledge_exam_test_paper",
     "sections": ["singleChoice", "multipleChoice", "judge", "completion", "shortAnswer"],
     "terminal_code": 208,
-    "score_source": "server-side snapshot comparison; client score ignored"
+    "score_source": "server-side snapshot comparison; client score ignored",
+    "boundary_trim": "Java String.trim(): strip only characters <= U+0020 from the joined submitted/stored answer; preserve U+3000 and NBSP and CSV comparison order"
   },
   "fixture": {
     "database": "temporary isolated MySQL schema phase5_self_score_*",
@@ -26,5 +27,9 @@
     "cargo_build_workspace": "passed",
     "real_http_fixture": "server score and repeat terminal rejection observed"
   },
-  "known_boundary": "answer normalization is not yet byte-for-byte equivalent for all Java array/scalar edge cases; full characterization remains required before traffic cutover."
+  "normalization_revision": {
+    "date": "2026-10-09",
+    "unit_tests": "short answer and completion cover ordinary ASCII whitespace/control characters, U+3000 and NBSP for submitted answers plus stored JSON and raw fallback paths; completion still joins CSV without trimming each blank"
+  },
+  "known_boundary": "Historical verification above predates the normalization revision; full characterization remains required before production traffic cutover."
 }

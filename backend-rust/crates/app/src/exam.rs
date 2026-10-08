@@ -769,14 +769,14 @@ fn normalize_answer(value: &Value) -> Result<String, ()> {
         Value::Number(value) => value.to_string(),
         other => other.to_string(),
     };
-    Ok(text.trim().to_string())
+    Ok(text.trim_matches(|c| c <= '\u{0020}').to_string())
 }
 
 fn normalize_stored_answer(value: &str) -> String {
     serde_json::from_str::<Value>(value)
         .ok()
         .and_then(|parsed| normalize_answer(&parsed).ok())
-        .unwrap_or_else(|| value.trim().to_string())
+        .unwrap_or_else(|| value.trim_matches(|c| c <= '\u{0020}').to_string())
 }
 
 fn score_section(snapshot: &str, answers: &mut Value, key: &str) -> Result<i32, ExamError> {
@@ -1452,6 +1452,51 @@ mod self_test_tests {
             "singleChoice"
         )
         .is_err());
+    }
+
+    #[test]
+    fn short_answer_scoring_keeps_java_unicode_boundary_whitespace() {
+        for (boundary, expected) in [(" \t\r\n\u{001f}", 10), ("\u{3000}", 0), ("\u{00a0}", 0)] {
+            let padded = format!("{boundary}标准步骤{boundary}");
+            let snapshot = json!([{"id":"q","answer":"标准步骤","score":10}]).to_string();
+            let mut answers = json!({"shortAnswer":[{"id":"q","answer":padded}]});
+            assert_eq!(
+                score_section(&snapshot, &mut answers, "shortAnswer").unwrap(),
+                expected
+            );
+            assert_eq!(answers["shortAnswer"][0]["teacherScore"], expected);
+            for stored in [padded.clone(), json!(padded).to_string()] {
+                let snapshot = json!([{"id":"q","answer":stored,"score":10}]).to_string();
+                let mut answers = json!({"shortAnswer":[{"id":"q","answer":"标准步骤"}]});
+                assert_eq!(
+                    score_section(&snapshot, &mut answers, "shortAnswer").unwrap(),
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn completion_scoring_trims_csv_boundaries_not_unicode_or_each_blank() {
+        for (boundary, expected) in [(" \t\r\n\u{001f}", 10), ("\u{3000}", 0), ("\u{00a0}", 0)] {
+            let padded = json!([format!("{boundary}甲"), format!("乙{boundary}")]);
+            let snapshot = json!([{"id":"q","answer":"[\"甲\",\"乙\"]","score":10}]).to_string();
+            let mut answers = json!({"completion":[{"id":"q","answer":padded}]});
+            assert_eq!(
+                score_section(&snapshot, &mut answers, "completion").unwrap(),
+                expected
+            );
+            assert_eq!(answers["completion"][0]["teacherScore"], expected);
+            for stored in [format!("{boundary}甲,乙{boundary}"), padded.to_string()] {
+                let snapshot = json!([{"id":"q","answer":stored,"score":10}]).to_string();
+                let mut answers = json!({"completion":[{"id":"q","answer":["甲","乙"]}]});
+                assert_eq!(
+                    score_section(&snapshot, &mut answers, "completion").unwrap(),
+                    expected
+                );
+            }
+        }
+        assert_eq!(normalize_answer(&json!(["甲 ", " 乙"])).unwrap(), "甲 , 乙");
     }
 
     #[test]
