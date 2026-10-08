@@ -242,10 +242,9 @@ def category(java, rust):
     return "RUST_OTHER_CODE"
 
 
-def first_diffs(a, b, path="$", out=None, limit=4):
+def data_diffs(a, b, path="$", out=None):
+    """All differing data paths; array cardinality is represented by [len]."""
     out = [] if out is None else out
-    if len(out) >= limit:
-        return out
     if type(a) != type(b):
         out.append([path, a, b])
     elif isinstance(a, dict):
@@ -253,16 +252,12 @@ def first_diffs(a, b, path="$", out=None, limit=4):
             if key not in a or key not in b:
                 out.append([f"{path}.{key}", a.get(key, "<absent>"), b.get(key, "<absent>")])
             else:
-                first_diffs(a[key], b[key], f"{path}.{key}", out, limit)
-            if len(out) >= limit:
-                break
+                data_diffs(a[key], b[key], f"{path}.{key}", out)
     elif isinstance(a, list):
         if len(a) != len(b):
             out.append([f"{path}[len]", len(a), len(b)])
         for index, (x, y) in enumerate(zip(a, b)):
-            first_diffs(x, y, f"{path}[{index}]", out, limit)
-            if len(out) >= limit:
-                break
+            data_diffs(x, y, f"{path}[{index}]", out)
     elif a != b:
         out.append([path, a, b])
     return out
@@ -416,10 +411,27 @@ def run_journeys(spec, args, headers, db):
     return results
 
 
+def allowed_data_paths(entry, rule):
+    """Match JSONPath-lite prefixes with token boundaries and optional [*].
+
+    A constrained rule requires the complete data_diffs, never the four-item
+    display preview. Missing evidence does not grant an acceptance.
+    """
+    if "allowed_paths" not in rule:
+        return True
+    differences = entry.get("data_diffs")
+    if differences is None:
+        return False
+    patterns = [re.escape(prefix).replace(r"\[\*\]", r"\[\d+\]") + r"(?:$|[.\[])"
+                for prefix in rule["allowed_paths"]]
+    return all(any(re.match(pattern, difference[0]) for pattern in patterns) for difference in differences)
+
+
 def disposition(entry, registry):
     for rule in registry.get("overrides", []):
         if rule["endpoint"] == entry["endpoint"] and rule.get("variant", entry["variant"]) == entry["variant"] \
-                and rule.get("category", entry["category"]) == entry["category"]:
+                and rule.get("category", entry["category"]) == entry["category"] \
+                and allowed_data_paths(entry, rule):
             return rule["disposition"], rule.get("note", "")
     default = registry.get("category_defaults", {}).get(entry["category"], CATEGORIES[entry["category"]])
     if entry["variant"] == "journey" and entry["category"] != "TEXT_ONLY":
@@ -482,7 +494,8 @@ def main():
         entry = {"endpoint": job["endpoint"], "variant": job["variant"], "who": job["who"], "path": job["path"],
                  "category": category(java, rust), "java": brief(java), "rust": brief(rust)}
         if isinstance(java.get("json"), dict) and isinstance(rust.get("json"), dict):
-            entry["first_data_diffs"] = first_diffs(normalize(java["json"].get("data")), normalize(rust["json"].get("data")), "$.data")
+            entry["data_diffs"] = data_diffs(normalize(java["json"].get("data")), normalize(rust["json"].get("data")), "$.data")
+            entry["first_data_diffs"] = entry["data_diffs"][:4]
         entry["disposition"], entry["note"] = disposition(entry, registry)
         differences.append(entry)
         counts[f"{entry['disposition']}:{entry['category']}"] += 1

@@ -177,5 +177,48 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertEqual(original, results[1][1]["json"]["data"]["content"])
 
 
+class RegistryPredicateTest(unittest.TestCase):
+    def test_full_differences_not_four_item_preview_control_acceptance(self):
+        java = {f"artefact{index}": 0 for index in range(4)} | {"supportedScore": 100}
+        rust = {f"artefact{index}": 1 for index in range(4)} | {"supportedScore": 99}
+        differences = sweep.data_diffs(java, rust, "$.data")
+        self.assertEqual(5, len(differences))
+        entry = {"endpoint": "read", "variant": "journey", "category": "DATA",
+                 "data_diffs": differences, "first_data_diffs": differences[:4]}
+        rule = {"endpoint": "read", "category": "DATA", "disposition": "ACCEPTED",
+                "allowed_paths": [f"$.data.artefact{index}" for index in range(4)]}
+        self.assertEqual("FAIL", sweep.disposition(entry, {"overrides": [rule]})[0])
+        entry["data_diffs"] = differences[:4]
+        self.assertEqual("ACCEPTED", sweep.disposition(entry, {"overrides": [rule]})[0])
+
+    def test_prefix_boundaries_array_wildcards_and_cardinality(self):
+        rule = {"allowed_paths": ["$.data.rows[*].score", "$.data.rows[len]", "$.data.user"]}
+        for path in ["$.data.rows[12].score", "$.data.rows[12].score.value", "$.data.rows[len]", "$.data.user.name"]:
+            self.assertTrue(sweep.allowed_data_paths({"data_diffs": [[path, 0, 1]]}, rule), path)
+        for path in ["$.data.rows[12].scores", "$.data.rows[12].title", "$.data.users.name", "$.data.rows[len].score"]:
+            self.assertFalse(sweep.allowed_data_paths({"data_diffs": [[path, 0, 1]]},
+                {"allowed_paths": ["$.data.rows[*].score", "$.data.user"]}), path)
+        self.assertFalse(sweep.allowed_data_paths({"first_data_diffs": []}, rule))
+        self.assertFalse(sweep.allowed_data_paths({"data_diffs": [["$.data.score", 0, 1]]}, {"allowed_paths": []}))
+
+    def test_array_length_does_not_hide_changes_in_existing_rows(self):
+        differences = sweep.data_diffs([{"title": "supported", "score": 100}],
+                                       [{"title": "supported", "score": 99}, {"title": None}], "$.data")
+        self.assertEqual(["$.data[len]", "$.data[0].score"], [item[0] for item in differences])
+        self.assertFalse(sweep.allowed_data_paths({"data_diffs": differences}, {"allowed_paths": ["$.data[len]"]}))
+
+    def test_all_state_artefacts_have_bounded_paths_and_supported_field_mutation_is_open(self):
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        artefacts = [rule for rule in registry["overrides"] if rule.get("note", "").startswith("STATE_ARTEFACT:")]
+        self.assertEqual(16, len(artefacts))
+        self.assertTrue(all(rule.get("allowed_paths") for rule in artefacts))
+        rule = next(rule for rule in artefacts if rule["endpoint"] == "POST /api/telegramTrain/statisticalPage")
+        expected = [["$.data[2].totalCount", 0, 2], ["$.data[2].totalTime", "0", "0.0"]]
+        entry = {"endpoint": rule["endpoint"], "variant": rule["variant"], "category": "DATA", "data_diffs": expected}
+        self.assertEqual("ACCEPTED", sweep.disposition(entry, registry)[0])
+        entry["data_diffs"] = expected + [["$.data[2].avgSpeed", 50, 0]]
+        self.assertEqual("OPEN", sweep.disposition(entry, registry)[0])
+
+
 if __name__ == "__main__":
     unittest.main()
