@@ -13,10 +13,20 @@ struct Fixture {
 
 impl Fixture {
     async fn new(prefix: &str, exam_state: i32, self_testing: i32) -> Self {
+        Self::with_connections(prefix, exam_state, self_testing, 8).await
+    }
+
+    async fn with_connections(
+        prefix: &str,
+        exam_state: i32,
+        self_testing: i32,
+        connections: u32,
+    ) -> Self {
         let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("isolated scratch database URL");
         assert!(url.ends_with("/rust_scratch_lockdemo"));
         let pool = sqlx::mysql::MySqlPoolOptions::new()
-            .max_connections(8)
+            .max_connections(connections)
+            .acquire_timeout(Duration::from_secs(1))
             .connect(&url)
             .await
             .unwrap();
@@ -248,6 +258,74 @@ async fn supplied_absent_exam_is_not_resurrected() {
         assert_eq!(count, 0, "stale save must not recreate {table}");
     }
     fixture.cleanup().await;
+}
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo"]
+async fn supplied_exam_saves_use_one_pool_connection() {
+    let mut results = Vec::new();
+    for stale in [false, true] {
+        let fixture = Fixture::with_connections("single-connection", 1, 1, 1).await;
+        let mut body = fixture.formal_body();
+        let id = if stale {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            // The canonical PK, rather than a case-insensitive caller alias, is saved.
+            body["id"] = json!(fixture.exam_id.to_uppercase());
+            fixture.exam_id.clone()
+        };
+        if stale {
+            body["id"] = json!(id);
+        }
+        let response = tokio::time::timeout(
+            Duration::from_secs(3),
+            save_formal(
+                State(fixture.state.clone()),
+                Extension(fixture.admin.clone()),
+                Json(body),
+            ),
+        )
+        .await
+        .expect("supplied-ID save must complete without a second pool acquisition");
+        let result = response_value(response).await;
+        let title: Option<String> =
+            sqlx::query_scalar("SELECT title FROM t_theory_knowledge_exam WHERE id=?")
+                .bind(&id)
+                .fetch_optional(fixture.pool())
+                .await
+                .unwrap()
+                .flatten();
+        let mut inventory = Vec::new();
+        for table in [
+            "t_theory_knowledge_exam_user",
+            "t_theory_knowledge_exam_test_paper",
+        ] {
+            let count: i64 =
+                sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE exam_id=?",))
+                    .bind(&id)
+                    .fetch_one(fixture.pool())
+                    .await
+                    .unwrap();
+            inventory.push(count);
+        }
+        fixture.cleanup().await;
+        results.push((stale, result, title, inventory));
+    }
+    for (stale, result, title, inventory) in &results {
+        assert_eq!(
+            result["code"],
+            if *stale { 202 } else { 200 },
+            "{results:?}"
+        );
+        if *stale {
+            assert_eq!(result["message"], "未查询到考试");
+            assert_eq!(title, &None);
+            assert_eq!(inventory, &[0, 0]);
+        } else {
+            assert_eq!(title.as_deref(), Some("rebuilt"));
+            assert_eq!(inventory, &[1, 1]);
+        }
+    }
 }
 
 #[tokio::test]

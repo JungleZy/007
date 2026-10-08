@@ -1106,23 +1106,40 @@ pub(crate) async fn save_formal(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    // Resolve supplied IDs before BEGIN: a pool read while holding the transaction
+    // self-deadlocks at size one; an RR read before the parent lock pins stale answers.
+    let preflight: Result<_, ExamError> = async {
+        let students = body
+            .get("stuId")
+            .and_then(Value::as_array)
+            .ok_or(ExamError::Parameter("请求参数错误"))?;
+        let supplied_id = request_text(body.get("id"))?.filter(|id| !id.is_empty());
+        let rebuilding = supplied_id.is_some();
+        let exam_id = if let Some(id) = supplied_id {
+            sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_exam WHERE id=?")
+                .bind(id.as_ref())
+                .fetch_optional(pool)
+                .await?
+                .ok_or(ExamError::Parameter("未查询到考试"))?
+        } else {
+            uuid::Uuid::new_v4().to_string()
+        };
+        Ok((students, rebuilding, exam_id))
+    }
+    .await;
+    let (students, rebuilding, exam_id) = match preflight {
+        Ok(preflight) => preflight,
+        Err(error) => return exam_response(Err(error)),
+    };
     let mut transaction = match pool.begin().await {
         Ok(transaction) => transaction,
         Err(error) => return exam_response(Err(error.into())),
     };
     let result = async {
-        let students = body.get("stuId").and_then(Value::as_array)
-            .ok_or(ExamError::Parameter("请求参数错误"))?;
-        let supplied_id = request_text(body.get("id"))?.filter(|id| !id.is_empty());
-        let rebuilding = supplied_id.is_some();
-        let exam_id = supplied_id.map(Cow::into_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        // All reads after BEGIN use this transaction, with actor -> parent PK locks.
         crate::statistical::lock_user(&mut transaction, &user.id).await?;
         if rebuilding {
-            // Reject a stale editor before any parent INSERT or locking miss.
-            let existing = sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_exam WHERE id=?")
-                .bind(&exam_id).fetch_optional(pool).await?
-                .ok_or(ExamError::Parameter("未查询到考试"))?;
-            locked_exam(&mut transaction, &existing).await?;
+            locked_exam(&mut transaction, &exam_id).await?;
         } else {
             sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1)")
                 .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
