@@ -193,9 +193,11 @@ pub(crate) async fn last_train(
         .await
     {
         Ok(Some(row)) => match train_json(&row) {
-            // Java converts lastTrain without parsing the stored body, so it comes back null.
             Ok(mut data) => {
-                data["codeMessageBody"] = Value::Null;
+                data["codeMessageBody"] = super::bean_conversion::string_to_map_list(
+                    row.get::<Option<&str>, _>("code_message_body"),
+                )
+                .unwrap_or(Value::Null);
                 envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
             }
             Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),

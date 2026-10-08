@@ -29,6 +29,7 @@ use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, limit::RequestBo
 use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
+mod bean_conversion;
 mod cable;
 mod comprehensive;
 mod device;

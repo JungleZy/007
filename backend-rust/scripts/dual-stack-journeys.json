@@ -254,6 +254,7 @@
         {"name": "statistics-first", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}},
         {"name": "last-empty", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
         {"name": "add-first", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-1", "rate": 60, "type": 1, "codeShort": 1, "isLowRate": 0, "codeMessageBody": [{"codeMessage": "1234", "sort": 1}]}, "capture": {"firstId": "$.data.id"}, "sleep": 1.1},
+        {"name": "last-populated-body", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
         {"name": "add-second-replaces-unstarted", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-2", "rate": 40, "type": 1, "codeShort": 1, "isLowRate": 1, "codeMessageBody": [{"codeMessage": "5678", "sort": 1}]}, "capture": {"secondId": "$.data.id"}},
         {"name": "list", "method": "POST", "path": "/api/tickerTapeTrain/listPage", "body": {"page": 1, "rows": 10}},
         {"name": "last-train", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
@@ -268,6 +269,7 @@
         {"name": "get-by-id-after", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${secondId}"}},
         {"name": "statistics-after", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}},
         {"name": "add-third-after-finish", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-3", "rate": 50, "type": 1, "codeShort": 0, "isLowRate": 0, "codeMessageBody": []}, "capture": {"thirdId": "$.data.id"}},
+        {"name": "last-explicit-empty-body", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
         {"name": "list-after-third", "method": "POST", "path": "/api/tickerTapeTrain/listPage", "body": {"page": 1, "rows": 10}},
         {"name": "other-user-forbidden", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${thirdId}"}, "who": "student"}
       ]
