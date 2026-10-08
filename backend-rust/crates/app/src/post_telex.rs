@@ -10,10 +10,26 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
 
-fn row_json(row: &sqlx::mysql::MySqlRow) -> Value {
-    json!({"id":row.get::<String,_>("id"),"name":row.get::<Option<String>,_>("name"),"isCable":row.get::<Option<i32>,_>("is_cable"),"type":row.get::<Option<i32>,_>("type"),"trainType":row.get::<Option<i32>,_>("train_type"),"status":row.get::<Option<i32>,_>("status"),"groupNumber":row.get::<Option<i32>,_>("group_number"),"errorNumber":row.get::<Option<i32>,_>("error_number"),"accuracy":row.get::<Option<String>,_>("accuracy"),"speed":row.get::<Option<String>,_>("speed"),"validTime":row.get::<Option<i32>,_>("valid_time"),"score":row.get::<Option<String>,_>("score"),"totalSpeed":row.get::<Option<String>,_>("total_speed"),"attempt":row.get::<Option<i32>,_>("attempt"),"protocolVersion":row.get::<Option<i32>,_>("protocol_version")})
+fn row_json(row: &MySqlRow) -> Value {
+    json!({
+        "id":row.get::<String,_>("id"),"name":row.get::<Option<String>,_>("name"),
+        "isCable":row.get::<Option<i32>,_>("is_cable"),"type":row.get::<Option<i32>,_>("type"),
+        "createUser":row.get::<Option<String>,_>("create_user"),"status":row.get::<Option<i32>,_>("status"),
+        "startTime":row.get::<Option<String>,_>("start_time_text"),"endTime":row.get::<Option<String>,_>("end_time_text"),
+        "protocolVersion":row.get::<i32,_>("protocol_version"),"attempt":row.get::<i32,_>("attempt"),
+        "serverElapsedMs":0,"countdownSeconds":row.get::<Option<i32>,_>("countdown_seconds"),"remainingMs":null,
+        "deadline":row.get::<Option<String>,_>("deadline_text"),"pausedAt":row.get::<Option<String>,_>("paused_at_text"),
+        "groupNumber":row.get::<Option<i32>,_>("group_number"),"pageNumber":null,
+        "errorNumber":row.get::<Option<i32>,_>("error_number"),"accuracy":row.get::<Option<String>,_>("accuracy"),
+        "speed":row.get::<Option<String>,_>("speed"),"speedLog":row.get::<Option<String>,_>("speed_log"),
+        "validTime":row.get::<Option<i32>,_>("valid_time"),"validTimeLog":row.get::<Option<String>,_>("valid_time_log"),
+        "createTime":row.get::<Option<String>,_>("create_time_text"),"content":row.get::<Option<String>,_>("content"),
+        "score":row.get::<Option<String>,_>("score"),"change":row.get::<Option<i32>,_>("change"),
+        "deductInfo":row.get::<Option<String>,_>("deduct_info"),"existPage":null,"codeAll":null,
+        "totalSpeed":row.get::<Option<String>,_>("total_speed")
+    })
 }
-const COLUMNS:&str="id,name,is_cable,type,train_type,status,group_number,error_number,accuracy,speed,valid_time,score,total_speed,attempt,protocol_version";
+const COLUMNS:&str="id,name,is_cable,type,create_user,status,group_number,error_number,accuracy,speed,valid_time,score,total_speed,attempt,protocol_version,content,`change`,deduct_info,speed_log,valid_time_log,countdown_seconds,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,LEFT(DATE_FORMAT(deadline,'%Y-%m-%d %H:%i:%s.%f'),23) deadline_text,LEFT(DATE_FORMAT(paused_at,'%Y-%m-%d %H:%i:%s.%f'),23) paused_at_text";
 
 #[derive(serde::Deserialize)]
 pub(crate) struct PageQuery {
@@ -78,8 +94,6 @@ pub(crate) async fn list(
 }
 #[derive(serde::Deserialize)]
 pub(crate) struct TrainQuery {
-    #[serde(rename = "trainId")]
-    train_id: Option<String>,
     #[serde(rename = "trainType")]
     train_type: Option<i32>,
 }
@@ -88,36 +102,97 @@ pub(crate) struct PageBody {
     page: Option<i64>,
     rows: Option<i64>,
 }
+pub(crate) async fn train_view(
+    tx: &mut Transaction<'_, MySql>,
+    id: &str,
+    with_pages: bool,
+) -> Result<Option<Value>, sqlx::Error> {
+    let sql = format!("SELECT {COLUMNS},CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(3)) DIV 1000 AS SIGNED) elapsed_ms,CAST(TIMESTAMPDIFF(MICROSECOND,IFNULL(paused_at,NOW(3)),deadline) DIV 1000 AS SIGNED) remaining_ms FROM t_post_telex_pat_train WHERE id=? LIMIT 1");
+    let Some(row) = sqlx::query(&sql).bind(id).fetch_optional(&mut **tx).await? else {
+        return Ok(None);
+    };
+    let mut view = row_json(&row);
+    view["serverElapsedMs"] = json!(row.get::<Option<i64>, _>("elapsed_ms").unwrap_or(0).max(0));
+    view["remainingMs"] = if row.get::<Option<i32>, _>("status") == Some(3)
+        && row.get::<Option<i32>, _>("countdown_seconds").is_some()
+    {
+        json!(0)
+    } else {
+        json!(row.get::<Option<i64>, _>("remaining_ms").map(|v| v.max(0)))
+    };
+    if with_pages {
+        let pages = sqlx::query("SELECT id,train_id,`key`,value,page_number,sort FROM t_post_telex_pat_train_page WHERE train_id=? AND page_number<3 ORDER BY page_number,sort").bind(id).fetch_all(&mut **tx).await?;
+        let values = sqlx::query("SELECT train_id,page_number,pat_value,attempt,capture_intervals FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number IN (1,2) ORDER BY page_number").bind(id).fetch_all(&mut **tx).await?;
+        view["existPage"] = json!(pages.iter().map(telex_page_row).collect::<Vec<_>>());
+        view["codeAll"] = json!(values.iter().map(|v| -> Result<Value,sqlx::Error> {
+            let intervals = v.get::<Option<String>,_>("capture_intervals")
+                .map(|raw| serde_json::from_str::<Value>(&raw).map_err(|e| sqlx::Error::Decode(Box::new(e))))
+                .transpose()?;
+            Ok(json!({"trainId":v.get::<Option<String>,_>("train_id"),"pageNumber":v.get::<Option<i32>,_>("page_number"),"patValue":v.get::<Option<String>,_>("pat_value"),"attempt":v.get::<Option<i32>,_>("attempt"),"captureIntervals":intervals}))
+        }).collect::<Result<Vec<_>,_>>()?);
+        view["pageNumber"] = json!(
+            sqlx::query_scalar::<_, Option<i32>>(
+                "SELECT MAX(page_number) FROM t_post_telex_pat_train_page WHERE train_id=?"
+            )
+            .bind(id)
+            .fetch_one(&mut **tx)
+            .await?
+        );
+    }
+    Ok(Some(view))
+}
+
 pub(crate) async fn detail(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
-    Json(body): Json<TrainQuery>,
+    Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = body.train_id.filter(|v| !v.is_empty()) else {
+    let Some(id) = body
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+    else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let sql =
-        format!("SELECT {COLUMNS},create_user FROM t_post_telex_pat_train WHERE id=? LIMIT 1");
-    match sqlx::query(&sql).bind(id).fetch_optional(pool).await {
-        Ok(Some(row))
-            if row.get::<Option<String>, _>("create_user").as_deref() == Some(user.id.as_str()) =>
-        {
-            envelope_json(StatusCode::OK, 200, Some(row_json(&row)), "ok", "")
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return page_response(Err(e.into())),
+    };
+    let owner: Result<Option<Option<String>>, sqlx::Error> =
+        sqlx::query_scalar("SELECT create_user FROM t_post_telex_pat_train WHERE id=? FOR UPDATE")
+            .bind(id)
+            .fetch_optional(&mut *tx)
+            .await;
+    match owner {
+        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到训练信息", ""),
+        Ok(Some(owner)) if owner.as_deref() != Some(user.id.as_str()) => {
+            envelope_response(StatusCode::OK, 207, "无权限", "")
         }
-        Ok(Some(_)) => envelope_response(StatusCode::OK, 207, "无权限", ""),
-        Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
-        Err(error) => {
-            tracing::warn!(%error, "post telex detail query failed");
-            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-        }
+        Ok(Some(_)) => match train_view(&mut tx, id, true).await {
+            Ok(Some(data)) if data["protocolVersion"] == 1 || data["status"] == 3 => {
+                match tx.commit().await {
+                    Ok(()) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+                    Err(e) => page_response(Err(e.into())),
+                }
+            }
+            Ok(Some(_)) => envelope_response(
+                StatusCode::OK,
+                202,
+                "旧训练缺少原始采集时序，请终止旧训练并重新创建训练",
+                "",
+            ),
+            Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到训练信息", ""),
+            Err(e) => page_response(Err(e.into())),
+        },
+        Err(e) => page_response(Err(e.into())),
     }
 }
 
 #[derive(Debug)]
-enum PageError {
+pub(crate) enum PageError {
     Business(i32, &'static str),
     Database(sqlx::Error),
     Json(serde_json::Error),
@@ -136,7 +211,8 @@ fn page_response(result: Result<Value, PageError>) -> Response {
     match result {
         Ok(value) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
         Err(PageError::Business(code, message)) => {
-            envelope_response(StatusCode::OK, code, message, "")
+            let description = if code == 207 { "" } else { message };
+            envelope_response(StatusCode::OK, code, message, description)
         }
         Err(error) => {
             match error {
@@ -203,111 +279,6 @@ fn rate(characters: i64, millis: i64) -> String {
         return "0".to_owned();
     }
     ((i128::from(characters) * 60_000 + i128::from(millis) / 2) / i128::from(millis)).to_string()
-}
-
-// Count transmitted text, retaining mistaken characters but excluding recognized command operands.
-fn capture_characters(text: &str, train_type: Option<i32>) -> i64 {
-    fn number(token: &str, max: u32) -> bool {
-        token.parse::<u32>().is_ok_and(|v| v > 0 && v <= max)
-    }
-    fn selector(token: &str) -> bool {
-        !token.starts_with('0') && token.len() <= 3 && token.bytes().all(|c| c.is_ascii_digit())
-    }
-    fn addressed(token: &str) -> usize {
-        if number(token, 100) {
-            return 1;
-        }
-        if let Some((start, end)) = token.split_once("---") {
-            if selector(start) && selector(end) {
-                if let (Ok(start), Ok(end)) = (start.parse::<usize>(), end.parse::<usize>()) {
-                    if end >= start {
-                        return end - start + 1;
-                    }
-                }
-            }
-        }
-        0
-    }
-    fn body(token: &str, slash: bool) -> i64 {
-        let value = token
-            .rsplit_once('-')
-            .filter(|(_, suffix)| {
-                suffix
-                    .split('/')
-                    .all(|part| selector(part) && number(part, 999))
-            })
-            .map_or(token, |(prefix, _)| prefix);
-        value.chars().filter(|c| !slash || *c != '/').count() as i64
-    }
-    let telex = train_type != Some(4);
-    let mut count = 0;
-    for line in text.split(['\r', '\n']) {
-        let groups: Vec<&str> = line
-            .split(|c: char| c.is_whitespace() || c.is_control())
-            .filter(|s| !s.is_empty())
-            .collect();
-        if telex && groups.len() == 2 && number(groups[0], 100) {
-            count += body(groups[1], false);
-            continue;
-        }
-        let mut i = 0;
-        while i < groups.len() {
-            let group = groups[i];
-            let remaining = groups.len() - i - 1;
-            if telex {
-                if matches!(group, "QTA" | "ADD") && remaining > 0 {
-                    let addressed = addressed(groups[i + 1]);
-                    if addressed > 0 && (group == "QTA" || remaining > addressed) {
-                        i += 2;
-                        if group == "ADD" {
-                            for token in &groups[i..i + addressed] {
-                                count += body(token, false);
-                            }
-                            i += addressed;
-                        }
-                        continue;
-                    }
-                }
-                if remaining >= 2
-                    && group
-                        .strip_suffix(['P', 'p'])
-                        .is_some_and(|v| selector(v) && number(v, 999))
-                    && number(groups[i + 1], 100)
-                {
-                    count += body(groups[i + 2], false);
-                    i += 3;
-                    continue;
-                }
-                if remaining > 0 && !group.starts_with('0') && number(group, 10) {
-                    count += body(groups[i + 1], false);
-                    i += 2;
-                    continue;
-                }
-                let only_slashes = group.chars().all(|c| c == '/');
-                let ending_slash =
-                    group.ends_with('/') && group.chars().next().is_some_and(char::is_alphanumeric);
-                if remaining > 0 && ((i > 0 && only_slashes) || ending_slash) {
-                    count += body(group, true) + body(groups[i + 1], false);
-                    i += 2;
-                    continue;
-                }
-            }
-            let middle_slash = group
-                .as_bytes()
-                .windows(3)
-                .any(|v| v[0] != b'/' && v[1] == b'/' && v[2] != b'/');
-            let leading_slash = i > 0
-                && group.starts_with('/')
-                && group
-                    .trim_start_matches('/')
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
-            count += body(group, telex && (middle_slash || leading_slash));
-            i += 1;
-        }
-    }
-    count
 }
 
 async fn owned_page_train(
@@ -394,7 +365,7 @@ async fn receipt(
             .fetch_all(&mut **tx)
             .await?;
     }
-    let submitted = sqlx::query("SELECT pat_value,capture_intervals,DATE_FORMAT(received_at,'%Y-%m-%dT%H:%i:%s.%f') received_at_text FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number=? LIMIT 1").bind(&id).bind(number).fetch_optional(&mut **tx).await?;
+    let submitted = sqlx::query("SELECT pat_value,capture_intervals,LEFT(DATE_FORMAT(received_at,'%Y-%m-%d %H:%i:%s.%f'),23) received_at_text FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number=? LIMIT 1").bind(&id).bind(number).fetch_optional(&mut **tx).await?;
     let protocol = train.get::<Option<i32>, _>("protocol_version").unwrap_or(0);
     let capture = if protocol == 0 {
         Value::Null
@@ -463,8 +434,8 @@ pub(crate) async fn finish_page(
         let id = body.get("trainId").and_then(Value::as_str).filter(|v| !v.is_empty()).ok_or(PageError::Business(202, "请求参数错误"))?;
         let number = body.get("pageNumber").and_then(Value::as_i64).and_then(|v| i32::try_from(v).ok()).ok_or(PageError::Business(202, "页码不正确"))?;
         let attempt = body.get("attempt").and_then(Value::as_i64).and_then(|v| i32::try_from(v).ok());
-        let text = body.get("patValue").and_then(Value::as_str).ok_or(PageError::Business(202, "页面内容不能为空"))?;
-        let capture: Vec<Interval> = serde_json::from_value(body.get("captureIntervals").cloned().unwrap_or(Value::Null)).map_err(|_| PageError::Business(202, "采集时序格式错误"))?;
+        let text = body.get("patValue").and_then(Value::as_str);
+        let capture_raw = body.get("captureIntervals").cloned().unwrap_or(Value::Null);
         let mut tx = pool.begin().await?;
         let clock = sqlx::query("SELECT CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',NOW(3)) DIV 1000 AS SIGNED) millis,DATE_FORMAT(NOW(3),'%Y-%m-%d %H:%i:%s.%f') received_text").fetch_one(&mut *tx).await?;
         let received = clock.get::<i64,_>("millis");
@@ -474,14 +445,19 @@ pub(crate) async fn finish_page(
         if train.get::<Option<i32>,_>("protocol_version") != Some(1) { return Err(PageError::Business(202, "历史训练不支持逐页采集写入")); }
         let maximum = maximum_page(&mut tx, &train).await?;
         require_page(number, maximum)?;
+        let capture: Option<Vec<Interval>> = text
+            .map(|_| serde_json::from_value(capture_raw.clone()).ok())
+            .flatten();
         let saved = sqlx::query("SELECT id,pat_value,capture_intervals,attempt FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number=? LIMIT 1").bind(id).bind(number).fetch_optional(&mut *tx).await?;
         let previous = if let Some(row) = saved.as_ref() {
             if row.get::<Option<i32>,_>("attempt") != attempt { return Err(PageError::Business(208, "训练轮次已改变")); }
             let previous = intervals(row.get("capture_intervals"))?;
-            if row.get::<Option<String>,_>("pat_value").as_deref() == Some(text) && previous == capture {
-                let data = receipt(&mut tx, &train, number, false).await?;
-                tx.commit().await?;
-                return Ok(data);
+            if let (Some(text), Some(capture)) = (text, capture.as_ref()) {
+                if row.get::<Option<String>,_>("pat_value").as_deref() == Some(text) && previous == *capture {
+                    let data = receipt(&mut tx, &train, number, false).await?;
+                    tx.commit().await?;
+                    return Ok(data);
+                }
             }
             Some(previous)
         } else { None };
@@ -491,8 +467,10 @@ pub(crate) async fn finish_page(
         if let Some(deadline) = train.get::<Option<i64>,_>("deadline_ms") {
             if train.get::<Option<i64>,_>("paused_ms").is_none() && received >= deadline + 60_000 { return Err(PageError::Business(208, "补交窗口已结束，不能修改页面")); }
         }
+        let text = text.ok_or(PageError::Business(202, "页面内容不能为空"))?;
+        let capture = capture.ok_or(PageError::Business(202, "采集时序格式错误"))?;
         let millis = duration(&capture, capture_bound(&train, received)?)?;
-        if capture_characters(text, train.get("train_type")) > 0 && millis == 0 { return Err(PageError::Business(202, "非空正文必须有有效采集时长")); }
+        if super::telex_capture::character_count(text, train.get::<Option<i32>, _>("train_type").map(i64::from)) as i64 > 0 && millis == 0 { return Err(PageError::Business(202, "非空正文必须有有效采集时长")); }
         if let Some(previous) = previous {
             if capture.len() <= previous.len() || !capture.starts_with(&previous) { return Err(PageError::Business(202, "不能覆盖已确认的原始采集区间")); }
         }
@@ -544,7 +522,10 @@ async fn derive_capture(
         let text = page
             .get::<Option<String>, _>("pat_value")
             .ok_or(PageError::Business(202, "已保存正文缺失"))?;
-        let count = capture_characters(&text, train.get("train_type"));
+        let count = super::telex_capture::character_count(
+            &text,
+            train.get::<Option<i32>, _>("train_type").map(i64::from),
+        ) as i64;
         if count > 0 && millis == 0 {
             return Err(PageError::Business(202, "非空正文必须有有效采集时长"));
         }
@@ -572,7 +553,11 @@ async fn derive_capture(
     Ok(())
 }
 
-fn telex_groups(kind: i32, pat_type: Option<i32>, count: usize) -> Result<Vec<String>, PageError> {
+pub(crate) fn telex_groups(
+    kind: i32,
+    pat_type: Option<i32>,
+    count: usize,
+) -> Result<Vec<String>, PageError> {
     let alphabet: &[u8] = match kind {
         0 => b"0123456789",
         1 => b"ABCDEFGHIJKLMNOPQRSTUVWXYZ",
