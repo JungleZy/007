@@ -27,13 +27,14 @@ pub(crate) async fn load_or_create(
     types: i32,
 ) -> Result<Vec<Value>, sqlx::Error> {
     let mut transaction = pool.begin().await?;
-    // The rows may not exist yet, so lock the user to serialize lazy creation.
+    // The rows may not exist yet, so lock the user to serialize lazy creation. The rows are then
+    // read plainly: a locking read on the unindexed `user_id` filter would lock every row scanned.
     sqlx::query("SELECT id FROM t_user WHERE id=? FOR UPDATE")
         .bind(user_id)
         .fetch_one(&mut *transaction)
         .await?;
     let rows = sqlx::query(&format!(
-        "SELECT id,type,total_count,total_time,avg_speed,user_id FROM {table} WHERE user_id=? ORDER BY type FOR UPDATE"
+        "SELECT id,type,total_count,total_time,avg_speed,user_id FROM {table} WHERE user_id=? ORDER BY type"
     ))
     .bind(user_id)
     .fetch_all(&mut *transaction)

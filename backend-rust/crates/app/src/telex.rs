@@ -482,7 +482,8 @@ pub(crate) async fn train_detail(
 
 /// Java `TelexPatTrainStatisticalService.statistical`: a finished training of `train_type`
 /// feeds the statistics row of type `train_type + 1`; a missing row is rebuilt from every
-/// finished training of that type.
+/// finished training of that type. The caller holds the user row lock, so these reads are plain:
+/// a locking read on the unindexed `user_id`/`type` filter would lock every row it scans.
 async fn record_statistics(
     tx: &mut Transaction<'_, MySql>,
     user_id: &str,
@@ -490,7 +491,7 @@ async fn record_statistics(
     duration: Option<&str>,
 ) -> Result<(), sqlx::Error> {
     let stat_type = train_type + 1;
-    let existing = sqlx::query("SELECT id,total_count,total_time FROM t_telex_pat_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
+    let existing = sqlx::query("SELECT id,total_count,total_time FROM t_telex_pat_train_statistical WHERE user_id=? AND type=? LIMIT 1")
         .bind(user_id)
         .bind(stat_type)
         .fetch_optional(&mut **tx)
@@ -554,20 +555,33 @@ async fn record_statistics(
 
 /// Java `lastTration` cleanup on creating an unstarted training: the user's previous training of
 /// this type is deleted when it never started, and finished (with statistics) when it was paused.
+///
+/// The caller holds the user row lock, so no other save of this user interleaves. The previous
+/// training is found with a plain read because the filter has no index: a locking read there
+/// would lock every row scanned and stall other users' saves until commit. Only the row that is
+/// acted on is locked, by primary key.
 async fn settle_previous(
     tx: &mut Transaction<'_, MySql>,
     user_id: &str,
     kind: i32,
 ) -> Result<(), sqlx::Error> {
-    let previous = sqlx::query("SELECT id,status,type,duration FROM t_telex_pat_train WHERE create_user_id=? AND type=? ORDER BY create_time DESC LIMIT 1 FOR UPDATE")
+    let latest: Option<String> = sqlx::query_scalar("SELECT id FROM t_telex_pat_train WHERE create_user_id=? AND type=? ORDER BY create_time DESC LIMIT 1")
         .bind(user_id)
         .bind(kind)
         .fetch_optional(&mut **tx)
         .await?;
-    let Some(previous) = previous else {
+    let Some(id) = latest else {
         return Ok(());
     };
-    let id: String = previous.get("id");
+    let previous =
+        sqlx::query("SELECT status,type,duration FROM t_telex_pat_train WHERE id=? FOR UPDATE")
+            .bind(&id)
+            .fetch_optional(&mut **tx)
+            .await?;
+    let Some(previous) = previous else {
+        // Deleted by another request between the read and the lock.
+        return Ok(());
+    };
     match previous.get::<Option<i32>, _>("status") {
         Some(0) => {
             sqlx::query("DELETE FROM t_telex_pat_train WHERE id=?")
@@ -719,6 +733,13 @@ pub(crate) async fn train_save(
         Ok(transaction) => transaction,
         Err(error) => return train_error(error, "start train save transaction"),
     };
+    // Saves of one user serialize on the user row (the same point the statistics page and the
+    // base training use), so the cleanup and the lazily built statistics rows cannot race.
+    match lock_user(&mut tx, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(error) => return train_error(error, "lock user for train save"),
+    }
     let id = match body.id.as_deref().filter(|id| !id.trim().is_empty()) {
         Some(id) => match update_train(&mut tx, &user, id, requested, &body, now).await {
             Ok(()) => id.to_owned(),
@@ -1088,5 +1109,91 @@ mod tests {
         assert_eq!(speed_text(0, 5_000), "0.00");
         // No active time at all is the bare "0", not "0.00".
         assert_eq!(speed_text(3, 0), "0");
+    }
+
+    /// Settling one user's paused predecessor (which also updates that user's statistics row)
+    /// must leave every other user's training and statistics rows writable. Both tables are
+    /// indexed by primary key only, so a locking read on `create_user_id` / `user_id` would lock
+    /// every row it scans and stall unrelated users' saves until commit.
+    ///
+    /// Needs an isolated MySQL database with the project schema:
+    /// `RUST_PHASE2_DATABASE_URL=mysql://… cargo test -p rust-backend -- --ignored`.
+    #[tokio::test]
+    #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
+    async fn settling_one_users_predecessor_does_not_lock_other_users_rows(
+    ) -> Result<(), sqlx::Error> {
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL")
+            .expect("RUST_PHASE2_DATABASE_URL must target an isolated rehearsal database");
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(3)
+            .connect(&url)
+            .await?;
+        let tag = uuid::Uuid::new_v4().simple().to_string();
+        let owner = format!("lock-owner-{tag}");
+        let other = format!("lock-other-{tag}");
+        for user in [&owner, &other] {
+            // A paused training of type 1 (statistics type 2) with a statistics row each.
+            sqlx::query("INSERT INTO t_telex_pat_train (id,type,status,duration,speed,create_user_id,create_time) VALUES (?,1,2,'20','10.50',?,'1')")
+                .bind(format!("train-{user}"))
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("INSERT INTO t_telex_pat_train_statistical (id,type,total_count,total_time,avg_speed,user_id) VALUES (?,2,0,'0',0,?)")
+                .bind(format!("stat-{user}"))
+                .bind(user)
+                .execute(&pool)
+                .await?;
+        }
+
+        // Act: settle the owner's predecessor and keep the transaction open.
+        let mut tx = pool.begin().await?;
+        settle_previous(&mut tx, &owner, 1).await?;
+        let mut bystander = pool.acquire().await?;
+        sqlx::query("SET SESSION innodb_lock_wait_timeout=2")
+            .execute(&mut *bystander)
+            .await?;
+        let training = sqlx::query("UPDATE t_telex_pat_train SET title='x' WHERE id=?")
+            .bind(format!("train-{other}"))
+            .execute(&mut *bystander)
+            .await;
+        let statistics =
+            sqlx::query("UPDATE t_telex_pat_train_statistical SET total_count=7 WHERE id=?")
+                .bind(format!("stat-{other}"))
+                .execute(&mut *bystander)
+                .await;
+        // The owner's own rows were really settled (finished + counted) inside the transaction.
+        let settled: (Option<i32>, Option<i32>) = (
+            sqlx::query_scalar("SELECT status FROM t_telex_pat_train WHERE id=?")
+                .bind(format!("train-{owner}"))
+                .fetch_one(&mut *tx)
+                .await?,
+            sqlx::query_scalar("SELECT total_count FROM t_telex_pat_train_statistical WHERE id=?")
+                .bind(format!("stat-{owner}"))
+                .fetch_one(&mut *tx)
+                .await?,
+        );
+        tx.rollback().await?;
+        drop(bystander);
+        for user in [&owner, &other] {
+            sqlx::query("DELETE FROM t_telex_pat_train WHERE create_user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("DELETE FROM t_telex_pat_train_statistical WHERE user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+        }
+
+        assert_eq!(settled, (Some(3), Some(1)));
+        assert!(
+            training.is_ok(),
+            "another user's training row is locked: {training:?}"
+        );
+        assert!(
+            statistics.is_ok(),
+            "another user's statistics row is locked: {statistics:?}"
+        );
+        Ok(())
     }
 }
