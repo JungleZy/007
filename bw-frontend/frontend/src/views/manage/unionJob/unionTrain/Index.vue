@@ -152,11 +152,14 @@ onMounted(() => {
     router.push({path: '/preview/basicSkill/unionJob/unionTrainRoom', query: {id: JSON.parse(data).id}})
   })
   PubSub.subscribe(UnionWsCode.UPDATE_ROOM_INFO, (data) => {
-    let index = onlineRooms.value.findIndex(item => item.id === JSON.parse(data).id)
-    if (index === -1) {
-      onlineRooms.value.push(JSON.parse(data))
+    const room = JSON.parse(data)
+    const index = onlineRooms.value.findIndex(item => item.id === room.id)
+    if (room.users.length === 0) {
+      if (index !== -1) onlineRooms.value.splice(index, 1)
+    } else if (index === -1) {
+      onlineRooms.value.push(room)
     } else {
-      onlineRooms.value[index] = JSON.parse(data)
+      onlineRooms.value[index] = room
     }
   })
   PubSub.subscribe(UnionWsCode.JOIN_ROOM_SUCCESS, (data) => {
