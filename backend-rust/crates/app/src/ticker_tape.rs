@@ -7,7 +7,7 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{mysql::MySqlRow, Row};
+use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
@@ -157,7 +157,7 @@ pub(crate) async fn by_id(
     let sql = format!("SELECT {TRAIN_COLUMNS} FROM t_ticker_tape_train WHERE id=? LIMIT 1");
     let row = match sqlx::query(&sql).bind(&id).fetch_optional(pool).await {
         Ok(Some(row)) => row,
-        Ok(None) => return envelope_response(StatusCode::OK, 202, "请求参数错误", ""),
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
         Err(_) => {
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
@@ -192,7 +192,11 @@ pub(crate) async fn last_train(
         .await
     {
         Ok(Some(row)) => match train_json(&row) {
-            Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+            // Java converts lastTrain without parsing the stored body, so it comes back null.
+            Ok(mut data) => {
+                data["codeMessageBody"] = Value::Null;
+                envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
+            }
             Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
         },
         Ok(None) => envelope_json(StatusCode::OK, 200, Some(empty_train()), "ok", ""),
@@ -207,44 +211,12 @@ pub(crate) async fn statistics(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let rows = match sqlx::query("SELECT id,type,total_count,total_time,avg_speed,user_id FROM t_ticker_tape_train_statistical WHERE user_id=? ORDER BY type")
-        .bind(&user.id)
-        .fetch_all(pool)
+    match crate::statistical::load_or_create(pool, "t_ticker_tape_train_statistical", &user.id, 3)
         .await
     {
-        Ok(rows) => rows,
-        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
-    };
-    let mut by_type = std::collections::HashMap::new();
-    for row in rows {
-        let train_type = row.get::<Option<i32>, _>("type").unwrap_or(0);
-        by_type.insert(
-            train_type,
-            json!({
-                "id": row.get::<String, _>("id"),
-                "type": train_type,
-                "totalCount": row.get::<Option<i32>, _>("total_count").unwrap_or(0),
-                "totalTime": row.get::<Option<String>, _>("total_time").unwrap_or_else(|| "0".to_owned()),
-                "avgSpeed": row.get::<Option<Decimal>, _>("avg_speed").unwrap_or(Decimal::ZERO),
-                "userId": row.get::<Option<String>, _>("user_id")
-            }),
-        );
+        Ok(rows) => envelope_json(StatusCode::OK, 200, Some(Value::Array(rows)), "ok", ""),
+        Err(error) => ticker_error(error, "list statistics"),
     }
-    let data = (0..3)
-        .map(|train_type| {
-            by_type.remove(&train_type).unwrap_or_else(|| {
-                json!({
-                    "id": null,
-                    "type": train_type,
-                    "totalCount": 0,
-                    "totalTime": "0",
-                    "avgSpeed": Decimal::ZERO,
-                    "userId": user.id
-                })
-            })
-        })
-        .collect::<Vec<_>>();
-    envelope_json(StatusCode::OK, 200, Some(Value::Array(data)), "ok", "")
 }
 
 pub(crate) async fn settings(State(state): State<AppState>) -> Response {
@@ -467,11 +439,118 @@ fn ticker_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error=%error, operation, "ticker write failed");
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
-fn parse_seconds(value: Option<String>) -> i64 {
-    value
-        .and_then(|v| v.parse::<i64>().ok())
-        .unwrap_or(0)
-        .max(0)
+/// Lifecycle state of one training, read under `FOR UPDATE`.
+struct Locked {
+    train_type: Option<i32>,
+    status: i32,
+    accumulated: i64,
+    active_ms: Option<i64>,
+}
+
+impl Locked {
+    /// Java `accrue`: accumulated millis plus the time since the clock was last started.
+    fn accrued(&self) -> i64 {
+        self.accumulated.saturating_add(self.active_ms.unwrap_or(0))
+    }
+}
+
+/// Java `ownedForUpdate`: a missing training is IllegalArgumentException (202), someone
+/// else's training is ForbiddenException (207).
+async fn lock_owned(
+    tx: &mut Transaction<'_, MySql>,
+    id: &str,
+    user_id: &str,
+) -> Result<Locked, Response> {
+    let row = sqlx::query("SELECT user_id,type,status,CAST(COALESCE(accumulated_active_millis,0) AS SIGNED) AS accumulated,CAST(CASE WHEN active_since IS NULL THEN NULL ELSE GREATEST(0,TIMESTAMPDIFF(MICROSECOND,active_since,NOW(6)) DIV 1000) END AS SIGNED) AS active_ms FROM t_ticker_tape_train WHERE id=? FOR UPDATE")
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|e| ticker_error(e, "lock train"))?;
+    let Some(row) = row else {
+        return Err(envelope_response(
+            StatusCode::OK,
+            202,
+            "未查询到训练",
+            "未查询到训练",
+        ));
+    };
+    if row.get::<Option<String>, _>("user_id").as_deref() != Some(user_id) {
+        return Err(envelope_response(StatusCode::OK, 207, "无权限", ""));
+    }
+    Ok(Locked {
+        train_type: row.get::<Option<i32>, _>("type"),
+        status: row.get::<Option<i32>, _>("status").unwrap_or(0),
+        accumulated: row.get::<i64, _>("accumulated"),
+        active_ms: row.get::<Option<i64>, _>("active_ms"),
+    })
+}
+
+/// Writes the aggregate into the user's statistics row of `stat_type`, creating it when absent.
+async fn upsert_statistics(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    stat_type: i32,
+    aggregate: &MySqlRow,
+) -> Result<(), sqlx::Error> {
+    let total_time = aggregate.get::<i64, _>("total_time").to_string();
+    let total_count = aggregate.get::<i64, _>("total_count") as i32;
+    let avg_speed = aggregate.get::<Decimal, _>("avg_speed");
+    let existing: Option<String> = sqlx::query_scalar("SELECT id FROM t_ticker_tape_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
+        .bind(user_id)
+        .bind(stat_type)
+        .fetch_optional(&mut **tx)
+        .await?;
+    match existing {
+        Some(id) => {
+            sqlx::query("UPDATE t_ticker_tape_train_statistical SET total_count=?,total_time=?,avg_speed=? WHERE id=?")
+                .bind(total_count)
+                .bind(&total_time)
+                .bind(avg_speed)
+                .bind(id)
+                .execute(&mut **tx)
+                .await?;
+        }
+        None => {
+            sqlx::query("INSERT INTO t_ticker_tape_train_statistical (id,type,total_count,total_time,avg_speed,user_id) VALUES (?,?,?,?,?,?)")
+                .bind(uuid::Uuid::new_v4().to_string())
+                .bind(stat_type)
+                .bind(total_count)
+                .bind(&total_time)
+                .bind(avg_speed)
+                .bind(user_id)
+                .execute(&mut **tx)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Java `finishStatistical`: finished letter/word/mixed trainings (type < 3) feed statistics type 2.
+async fn finish_statistical(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+) -> Result<(), sqlx::Error> {
+    let aggregate = sqlx::query("SELECT CAST(COALESCE(SUM(valid_time),0) AS SIGNED) AS total_time,COUNT(id) AS total_count,CAST(IFNULL(AVG(rate),0) AS DECIMAL(14,4)) AS avg_speed FROM t_ticker_tape_train WHERE user_id=? AND type<3 AND status=3")
+        .bind(user_id)
+        .fetch_one(&mut **tx)
+        .await?;
+    upsert_statistics(tx, user_id, 2, &aggregate).await
+}
+
+/// Java `saveStatistical`: base (21) and department (22) sessions aggregate every session of
+/// that type into statistics type 0 (base) or 1 (department).
+async fn save_statistical(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    train_type: Option<i32>,
+) -> Result<(), sqlx::Error> {
+    let aggregate = sqlx::query("SELECT CAST(COALESCE(SUM(valid_time),0) AS SIGNED) AS total_time,COUNT(id) AS total_count,CAST(IFNULL(AVG(rate),0) AS DECIMAL(14,4)) AS avg_speed FROM t_ticker_tape_train WHERE user_id=? AND type<=>?")
+        .bind(user_id)
+        .bind(train_type)
+        .fetch_one(&mut **tx)
+        .await?;
+    let stat_type = if train_type == Some(22) { 1 } else { 0 };
+    upsert_statistics(tx, user_id, stat_type, &aggregate).await
 }
 
 pub(crate) async fn add(
@@ -485,14 +564,87 @@ pub(crate) async fn add(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return ticker_error(e, "start add"),
+    };
+    // Java: the user's previous training of this type is dropped when it never started, and
+    // finished (with statistics) when it was paused.
+    let last = match sqlx::query("SELECT id,status FROM t_ticker_tape_train WHERE user_id=? AND type=? ORDER BY create_time DESC LIMIT 1 FOR UPDATE")
+        .bind(&user.id)
+        .bind(kind)
+        .fetch_optional(&mut *tx)
+        .await
+    {
+        Ok(row) => row,
+        Err(e) => return ticker_error(e, "load previous"),
+    };
+    if let Some(last) = last {
+        let previous: String = last.get("id");
+        let cleanup = match last.get::<Option<i32>, _>("status") {
+            Some(0) => sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
+                .bind(&previous)
+                .execute(&mut *tx)
+                .await
+                .map(|_| ()),
+            Some(2) => match sqlx::query("UPDATE t_ticker_tape_train SET status=3 WHERE id=?")
+                .bind(&previous)
+                .execute(&mut *tx)
+                .await
+            {
+                Ok(_) => finish_statistical(&mut tx, &user.id).await,
+                Err(e) => Err(e),
+            },
+            _ => Ok(()),
+        };
+        if let Err(e) = cleanup {
+            return ticker_error(e, "settle previous");
+        }
+    }
     let id = uuid::Uuid::new_v4().to_string();
     let content = body
         .code_message_body
+        .as_ref()
         .map(|v| v.to_string())
         .unwrap_or_else(|| "[]".into());
-    match sqlx::query("INSERT INTO t_ticker_tape_train (id,rate,type,code_message_body,code_short,status,name,user_id,mark,schedule,is_low_rate,protocol_version,accumulated_active_millis,valid_time) VALUES (?,?,?,?,?,0,?,?,?,0,?,1,0,'0')").bind(&id).bind(body.rate).bind(kind).bind(content).bind(body.code_short).bind(body.name).bind(&user.id).bind("0,0").bind(body.is_low_rate).execute(pool).await{Ok(_)=>envelope_json(StatusCode::OK,200,Some(json!({"id":id})),"ok",""),Err(e)=>ticker_error(e,"add")}
+    if let Err(e) = sqlx::query("INSERT INTO t_ticker_tape_train (id,rate,type,code_message_body,code_short,status,name,user_id,mark,schedule,is_low_rate,protocol_version,accumulated_active_millis,valid_time,create_time) VALUES (?,?,?,?,?,0,?,?,?,0,?,1,0,'0',NOW())")
+        .bind(&id)
+        .bind(body.rate)
+        .bind(kind)
+        .bind(content)
+        .bind(body.code_short)
+        .bind(body.name.as_deref())
+        .bind(&user.id)
+        .bind("0,0")
+        .bind(body.is_low_rate)
+        .execute(&mut *tx)
+        .await
+    {
+        return ticker_error(e, "add");
+    }
+    if let Err(e) = tx.commit().await {
+        return ticker_error(e, "commit add");
+    }
+    // Java echoes the request (TickerTapeTrainAddParam) with the generated id.
+    envelope_json(
+        StatusCode::OK,
+        200,
+        Some(json!({
+            "id": id,
+            "rate": body.rate,
+            "type": kind,
+            "codeShort": body.code_short,
+            "codeMessageBody": body.code_message_body,
+            "name": body.name,
+            "isLowRate": body.is_low_rate
+        })),
+        "ok",
+        "",
+    )
 }
 
+/// Java `begin`/`goOn`: a finished training stays finished; otherwise the training starts (or
+/// resumes) and its clock is armed unless it is already running.
 pub(crate) async fn begin(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -504,9 +656,32 @@ pub(crate) async fn begin(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("UPDATE t_ticker_tape_train SET status=1,start_time=COALESCE(start_time,NOW(6)),active_since=COALESCE(active_since,NOW(6)) WHERE id=? AND user_id=? AND status<>3").bind(&id).bind(&user.id).execute(pool).await{Ok(_)=>envelope_response(StatusCode::OK,200,"ok",""),Err(e)=>ticker_error(e,"begin")}
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return ticker_error(e, "start begin"),
+    };
+    let locked = match lock_owned(&mut tx, &id, &user.id).await {
+        Ok(locked) => locked,
+        Err(response) => return response,
+    };
+    if locked.status == 3 {
+        return envelope_response(StatusCode::OK, 200, "ok", "");
+    }
+    // Assignments run left to right: active_since must read the old status.
+    if let Err(e) = sqlx::query("UPDATE t_ticker_tape_train SET start_time=COALESCE(start_time,NOW(6)),active_since=IF(NOT (status<=>1),NOW(6),active_since),status=1 WHERE id=?")
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+    {
+        return ticker_error(e, "begin");
+    }
+    if let Err(e) = tx.commit().await {
+        return ticker_error(e, "commit begin");
+    }
+    envelope_response(StatusCode::OK, 200, "ok", "")
 }
 
+/// Java `pause` (terminal = false) and `finish` (terminal = true).
 async fn update_clock(
     state: AppState,
     user: AuthUser,
@@ -523,69 +698,46 @@ async fn update_clock(
         Ok(tx) => tx,
         Err(e) => return ticker_error(e, "start lifecycle"),
     };
-    let row = match sqlx::query("SELECT status,IF(active_since IS NULL,0,1) AS running,accumulated_active_millis,valid_time FROM t_ticker_tape_train WHERE id=? AND user_id=? LIMIT 1 FOR UPDATE")
-        .bind(&id)
-        .bind(&user.id)
-        .fetch_optional(&mut *tx)
-        .await
-    {
-        Ok(Some(r)) => r,
-        Ok(None) => {
-            // Java: a missing train is IllegalArgumentException -> 202; an existing foreign train -> 207.
-            return match sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_ticker_tape_train WHERE id=?")
-                .bind(&id)
-                .fetch_one(&mut *tx)
-                .await
-            {
-                Ok(0) => envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
-                Ok(_) => envelope_response(StatusCode::OK, 207, "无权限", ""),
-                Err(e) => ticker_error(e, "lifecycle ownership"),
-            };
-        }
-        Err(e) => return ticker_error(e, "load lifecycle"),
+    let locked = match lock_owned(&mut tx, &id, &user.id).await {
+        Ok(locked) => locked,
+        Err(response) => return response,
     };
-    let status = row.get::<Option<i32>, _>("status").unwrap_or(0);
-    if status == 3 {
+    if locked.status == 3 {
         return envelope_response(StatusCode::OK, 208, "训练已结束", "");
     }
-    let running = row.get::<i64, _>("running") != 0;
-    let elapsed = if running { 1 } else { 0 };
-    let next_status = if terminal {
-        3
-    } else if body.mark.is_some() || body.schedule.is_some() {
-        2
+    if !terminal && locked.status == 2 {
+        return envelope_response(StatusCode::OK, 200, "ok", "");
+    }
+    let accumulated = locked.accrued();
+    let valid_time = (accumulated / 1000).to_string();
+    let sql = if terminal {
+        "UPDATE t_ticker_tape_train SET accumulated_active_millis=?,valid_time=?,mark=?,schedule=?,status=3,end_time=NOW(6),active_since=NULL WHERE id=?"
     } else {
-        1
+        "UPDATE t_ticker_tape_train SET accumulated_active_millis=?,valid_time=?,mark=?,schedule=?,status=2,active_since=NULL WHERE id=?"
     };
-    let sql = if next_status == 3 {
-        "UPDATE t_ticker_tape_train SET status=3,end_time=NOW(6),active_since=NULL,valid_time=? ,mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
-    } else if next_status == 2 {
-        "UPDATE t_ticker_tape_train SET status=2,active_since=NULL,valid_time=?,mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
-    } else {
-        "UPDATE t_ticker_tape_train SET status=1,active_since=COALESCE(active_since,NOW(6)),mark=COALESCE(?,mark),schedule=COALESCE(?,schedule) WHERE id=?"
-    };
-    let result = if next_status == 1 {
-        sqlx::query(sql)
-            .bind(body.mark)
-            .bind(body.schedule)
-            .bind(&id)
-            .execute(&mut *tx)
-            .await
-    } else {
-        sqlx::query(sql)
-            .bind(parse_seconds(row.get("valid_time")).saturating_add(elapsed))
-            .bind(body.mark)
-            .bind(body.schedule)
-            .bind(&id)
-            .execute(&mut *tx)
-            .await
-    };
-    if let Err(e) = result {
+    if let Err(e) = sqlx::query(sql)
+        .bind(accumulated)
+        .bind(&valid_time)
+        .bind(body.mark.as_deref())
+        .bind(body.schedule)
+        .bind(&id)
+        .execute(&mut *tx)
+        .await
+    {
         return ticker_error(e, "update lifecycle");
-    };
+    }
+    if terminal {
+        let statistics = match locked.train_type {
+            Some(21) | Some(22) => save_statistical(&mut tx, &user.id, locked.train_type).await,
+            _ => finish_statistical(&mut tx, &user.id).await,
+        };
+        if let Err(e) = statistics {
+            return ticker_error(e, "update statistics");
+        }
+    }
     if let Err(e) = tx.commit().await {
         return ticker_error(e, "commit lifecycle");
-    };
+    }
     envelope_response(StatusCode::OK, 200, "ok", "")
 }
 pub(crate) async fn pause(
@@ -595,17 +747,13 @@ pub(crate) async fn pause(
 ) -> Response {
     update_clock(state, user, body, false).await
 }
+/// Java `goOn` is `begin`.
 pub(crate) async fn resume(
-    State(state): State<AppState>,
-    Extension(user): Extension<AuthUser>,
-    Json(body): Json<IdRequest>,
+    state: State<AppState>,
+    user: Extension<AuthUser>,
+    body: Json<IdRequest>,
 ) -> Response {
-    let update = UpdateRequest {
-        id: body.id,
-        mark: None,
-        schedule: None,
-    };
-    update_clock(state, user, update, false).await
+    begin(state, user, body).await
 }
 pub(crate) async fn finish(
     State(state): State<AppState>,
@@ -614,40 +762,85 @@ pub(crate) async fn finish(
 ) -> Response {
     update_clock(state, user, body, true).await
 }
+/// Java `createBaseSession`: an empty base (21) or department (22) session.
 pub(crate) async fn base_session(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<TypeRequest>,
 ) -> Response {
     let Some(kind) = body.train_type.filter(|v| *v == 21 || *v == 22) else {
-        return envelope_response(StatusCode::OK, 202, "基础训练类型无效", "");
+        return envelope_response(StatusCode::OK, 202, "基础训练类型无效", "基础训练类型无效");
     };
-    add(
-        State(state),
-        Extension(user),
-        Json(AddRequest {
-            rate: None,
-            train_type: Some(kind),
-            code_short: None,
-            code_message_body: Some(Value::Array(Vec::new())),
-            name: None,
-            is_low_rate: None,
-        }),
-    )
-    .await
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let id = uuid::Uuid::new_v4().to_string();
+    if let Err(e) = sqlx::query("INSERT INTO t_ticker_tape_train (id,type,status,user_id,protocol_version,accumulated_active_millis,valid_time,mark,schedule,create_time) VALUES (?,?,0,?,1,0,'0','0',0,NOW())")
+        .bind(&id)
+        .bind(kind)
+        .bind(&user.id)
+        .execute(pool)
+        .await
+    {
+        return ticker_error(e, "create base session");
+    }
+    let sql = format!("SELECT {TRAIN_COLUMNS} FROM t_ticker_tape_train WHERE id=?");
+    match sqlx::query(&sql).bind(&id).fetch_one(pool).await {
+        Ok(row) => match train_json(&row) {
+            Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+            Err(_) => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+        },
+        Err(e) => ticker_error(e, "reload base session"),
+    }
 }
+/// Java `saveBaseTrain`: finishes the session (once) and refreshes the base/department statistics.
 pub(crate) async fn save_base(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
     Json(body): Json<BaseRequest>,
 ) -> Response {
-    let update = UpdateRequest {
-        id: body.id,
-        mark: body.mark,
-        schedule: body.schedule,
+    let Some(id) = body.id.filter(|v| !v.trim().is_empty()) else {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "收报会话编号不能为空",
+            "收报会话编号不能为空",
+        );
     };
-    finish(State(state), Extension(user), Json(update)).await
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return ticker_error(e, "start save base"),
+    };
+    let locked = match lock_owned(&mut tx, &id, &user.id).await {
+        Ok(locked) => locked,
+        Err(response) => return response,
+    };
+    if locked.status != 3 {
+        let accumulated = locked.accrued();
+        if let Err(e) = sqlx::query("UPDATE t_ticker_tape_train SET accumulated_active_millis=?,valid_time=?,mark=?,schedule=?,status=3,end_time=NOW(6),active_since=NULL WHERE id=?")
+            .bind(accumulated)
+            .bind((accumulated / 1000).to_string())
+            .bind(body.mark.as_deref())
+            .bind(body.schedule)
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+        {
+            return ticker_error(e, "save base");
+        }
+        if let Err(e) = save_statistical(&mut tx, &user.id, locked.train_type).await {
+            return ticker_error(e, "save base statistics");
+        }
+    }
+    if let Err(e) = tx.commit().await {
+        return ticker_error(e, "commit save base");
+    }
+    envelope_response(StatusCode::OK, 200, "ok", "")
 }
+/// Java `discardBaseSession`: only a session that never started is deleted.
 pub(crate) async fn discard_base(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -659,13 +852,25 @@ pub(crate) async fn discard_base(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=? AND user_id=? AND status=0")
-        .bind(id)
-        .bind(&user.id)
-        .execute(pool)
-        .await
-    {
-        Ok(_) => envelope_response(StatusCode::OK, 200, "ok", ""),
-        Err(e) => ticker_error(e, "discard base"),
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return ticker_error(e, "start discard base"),
+    };
+    let locked = match lock_owned(&mut tx, &id, &user.id).await {
+        Ok(locked) => locked,
+        Err(response) => return response,
+    };
+    if locked.status == 0 {
+        if let Err(e) = sqlx::query("DELETE FROM t_ticker_tape_train WHERE id=?")
+            .bind(&id)
+            .execute(&mut *tx)
+            .await
+        {
+            return ticker_error(e, "discard base");
+        }
     }
+    if let Err(e) = tx.commit().await {
+        return ticker_error(e, "commit discard base");
+    }
+    envelope_response(StatusCode::OK, 200, "ok", "")
 }
