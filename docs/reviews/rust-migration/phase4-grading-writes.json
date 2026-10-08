@@ -48,5 +48,10 @@
     "journey": "grading-rule-save-guard covers null-id create, existing edit, missing string/numeric ids, existing/missing status and default changes, list/find, delete, and refusal to recreate a deleted id",
     "verification": "cargo fmt --all -- --check and cargo test --locked passed (36 passed, 6 ignored); /tmp/t2_c.json only-journeys: 207 requests, 194 identical, 13 ACCEPTED, zero FAIL/OPEN; all 15 grading steps identical"
   },
+  "default_lock_order_regression_2026_10_09": {
+    "contract": "Existing saves plain-read the supplied id, perform the type-wide default reset before any target PK lock, then current-read and revalidate the target; a vanished target rolls back with 202. INSERT and UPDATE remain separate, with no deadlock retry.",
+    "test": "concurrent_default_saves_and_default_change_have_one_lock_order runs two existing-rule default saves and save versus change_default on rust_scratch_lockdemo. A held first PK gates both bulk updates; both responses must be 200 and exactly one default remains.",
+    "mutation": "Restoring FOR UPDATE on the preflight lookup makes the regression fail with HTTP500; the corrected order passes."
+  },
   "next_boundary": "Rust grading writes remain feature-flagged off; device/equipment domains remain Java-only."
 }

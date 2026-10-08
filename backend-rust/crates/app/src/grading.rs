@@ -112,13 +112,11 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
         }
     };
     if !creating {
-        // Lock only the supplied primary key. A deleted/stale id must never create a rule.
-        match sqlx::query_scalar::<_, String>(
-            "SELECT id FROM t_grading_rule WHERE id = ? FOR UPDATE",
-        )
-        .bind(&rule_id)
-        .fetch_optional(&mut *tx)
-        .await
+        // Check existence without taking a target lock before the type-wide default reset.
+        match sqlx::query_scalar::<_, String>("SELECT id FROM t_grading_rule WHERE id = ?")
+            .bind(&rule_id)
+            .fetch_optional(&mut *tx)
+            .await
         {
             Ok(Some(_)) => {}
             Ok(None) => {
@@ -146,6 +144,32 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
     {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if !creating {
+        // Current read revalidates deletion races after acquiring default-reset locks.
+        match sqlx::query_scalar::<_, String>(
+            "SELECT id FROM t_grading_rule WHERE id = ? FOR UPDATE",
+        )
+        .bind(&rule_id)
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                let _ = tx.rollback().await;
+                return envelope_response(
+                    StatusCode::OK,
+                    202,
+                    "未查询到评分规则",
+                    "未查询到评分规则",
+                );
+            }
+            Err(error) => {
+                tracing::warn!(%error, "grading rule current lookup failed");
+                let _ = tx.rollback().await;
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        }
     }
     let is_default = if requested_default == 0 {
         0
@@ -306,4 +330,122 @@ pub(crate) async fn delete(State(state): State<AppState>, Json(body): Json<Value
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     envelope_json(StatusCode::OK, 200, None, "ok", "")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{sync::Arc, time::Duration};
+
+    async fn response_code(response: Response) -> Value {
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "database errors must not escape"
+        );
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        serde_json::from_slice::<Value>(&bytes).unwrap()["code"].clone()
+    }
+
+    #[tokio::test]
+    #[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
+    async fn concurrent_default_saves_and_default_change_have_one_lock_order() {
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("scratch database URL");
+        assert!(url.ends_with("/rust_scratch_lockdemo"));
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(6)
+            .connect(&url)
+            .await
+            .unwrap();
+        let state = AppState {
+            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            pool: Some(pool.clone()),
+            database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        };
+        let suffix = uuid::Uuid::new_v4().to_string();
+        let ids = [
+            format!("000-{suffix}"),
+            format!("aaa-{suffix}"),
+            format!("bbb-{suffix}"),
+        ];
+        for id in &ids {
+            sqlx::query("INSERT INTO t_grading_rule (id,type,title,score,status,is_default) VALUES (?,12345,'lock regression',100,0,1)")
+                .bind(id).execute(&pool).await.unwrap();
+        }
+        for change in [false, true] {
+            // Hold the first scanned PK until BOTH operations reach the bulk UPDATE.
+            // Target-first saves then own different PKs, deterministically exposing the cycle.
+            let mut gate = pool.begin().await.unwrap();
+            let connection: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+                .fetch_one(&mut *gate)
+                .await
+                .unwrap();
+            sqlx::query("SELECT id FROM t_grading_rule WHERE id=? FOR UPDATE")
+                .bind(&ids[0])
+                .fetch_one(&mut *gate)
+                .await
+                .unwrap();
+            let first_state = state.clone();
+            let first_id = ids[1].clone();
+            let first = tokio::spawn(async move {
+                save(
+                    State(first_state),
+                    Json(json!({"id":first_id,"type":12345,"score":100,"isDefault":0})),
+                )
+                .await
+            });
+            let second_state = state.clone();
+            let second_id = ids[2].clone();
+            let second = tokio::spawn(async move {
+                if change {
+                    change_default(State(second_state), Json(json!({"id":second_id}))).await
+                } else {
+                    save(
+                        State(second_state),
+                        Json(json!({"id":second_id,"type":12345,"score":100,"isDefault":0})),
+                    )
+                    .await
+                }
+            });
+            let waiting = tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    let count: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT w.REQUESTING_ENGINE_TRANSACTION_ID) FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks b ON b.ENGINE_LOCK_ID=w.BLOCKING_ENGINE_LOCK_ID JOIN performance_schema.threads t ON t.THREAD_ID=b.THREAD_ID WHERE t.PROCESSLIST_ID=? AND b.OBJECT_NAME='t_grading_rule'")
+                        .bind(connection).fetch_one(&pool).await.unwrap();
+                    if count == 2 { break; }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await;
+            gate.commit().await.unwrap();
+            let (first, second) = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(first, second)
+            })
+            .await
+            .expect("default operations must not deadlock or time out");
+            assert!(
+                waiting.is_ok(),
+                "both operations must contend on the bulk reset gate"
+            );
+            assert_eq!(response_code(first.unwrap()).await, 200);
+            assert_eq!(response_code(second.unwrap()).await, 200);
+            let defaults: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM t_grading_rule WHERE type=12345 AND is_default=0",
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            assert_eq!(
+                defaults, 1,
+                "concurrent default replacement must retain exactly one default"
+            );
+        }
+        for id in &ids {
+            sqlx::query("DELETE FROM t_grading_rule WHERE id=?")
+                .bind(id)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+    }
 }
