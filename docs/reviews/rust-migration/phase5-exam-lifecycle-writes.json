@@ -47,5 +47,5 @@
     "frontend_readback": "formal paper snapshots preserve testPaperId and Gson question fields; admin list keeps FindAllExamDto snake_case fields, dis and userName",
     "websocket_probe": "/tmp/t5b_exam_ws_probe_results.json: six Java/Rust frames compared for states 2/3/4 across member-started and admin-started exams; candidate-only recipients, no retry/rejection frame and offline REST success observed"
   },
-  "known_boundary": "Historical verification above predates the scheduled revision. Remaining adjacent grading/rebuild/delete lock hierarchy is tracked separately; no production traffic cutover."
+  "known_boundary": "Historical verification above predates the scheduled revision. Adjacent grading/rebuild/delete writers now share actor-user -> parent-PK -> child-PK order, with scratch-DB regressions in exam_writer_tests.rs; no production traffic cutover."
 }

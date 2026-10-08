@@ -8,5 +8,6 @@
   "fixture": {"database":"temporary isolated MySQL schema phase5_score_upload_*","exam":"e with two candidate rows","users":"admin, candidate s1, candidate s2","cleanup":"temporary schema dropped after test"},
   "requests": {"ordinary_upload":{"http_status":200,"code":207},"invalid_mixed_batch":{"http_status":200,"code":202},"mixed_batch_before":{"s1":"score=0,state=3","s2":"score=0,state=3"},"valid_batch":{"http_status":200,"code":200},"valid_batch_after":{"s1":"score=80,state=4","s2":"score=90,state=4"}},
   "verification": {"cargo_check_offline":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"admin authorization, invalid candidate rejection without partial writes, and valid batch scoring observed"},
-  "known_boundary":"teacher paper review UI and full exam analytics remain Java-only."
+  "writer_revision": {"date":"2026-10-09","lock_order":"actor user PK -> exam PK -> plain candidate-id discovery -> candidate PK lock/update","batch":"all candidates validated before any grade write; every database error rolls back","authorization":"existing RequireAdmin route middleware remains the authorization boundary","regression":"all-writer candidate isolation also asserts parent ownership while waiting for a child; removing the grading parent lock made it fail"},
+  "known_boundary":"Historical verification above predates the writer revision; no production traffic cutover."
 }

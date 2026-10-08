@@ -8,5 +8,13 @@
   "fixture": {"database":"temporary isolated MySQL schema phase5_formal_gate_*","exam_rows":1,"paper_snapshot_rows":1,"candidate_rows":2,"cleanup":"temporary schema dropped after test"},
   "requests": {"initial_save":{"http_status":200,"code":200,"rows":"1/1/2"},"rebuild_after_answer":{"http_status":200,"code":208,"rows_unchanged":"1/1/2"}},
   "verification": {"cargo_check":"passed","cargo_test_workspace":"9 passed, 2 opt-in ignored","cargo_build_workspace":"passed","real_http_fixture":"atomic exam/snapshot/candidate write and touched-candidate rebuild rejection observed"},
-  "known_boundary":"Explicit SQL failure injection between snapshot and candidate writes remains required for rollback proof."
+  "writer_revision": {
+    "date": "2026-10-09",
+    "lock_order": "actor user PK -> exam PK -> plain child-id discovery -> child PK writes; formal rebuild checks eligibility only after the exam lock",
+    "delete": "parent lock precedes every child delete, unlike Java's unsafe child-first delete; missing-id delete remains idempotent",
+    "failures": "every child/parent write propagates to transaction rollback; no ignored child-delete result",
+    "regressions": "exam_writer_tests.rs: opt-in scratch-DB delete versus finish/edit, all-writer cross-exam candidate isolation/parent ownership, queued rebuild eligibility, and injected child-delete rollback tests",
+    "mutation_checks": "child-first deletion, non-PK child deletion, pre-lock rebuild guard, missing grading parent lock and ignored child-delete failures each made the relevant regression fail; all mutations restored"
+  },
+  "known_boundary":"Historical verification above predates the writer revision; no production traffic cutover."
 }
