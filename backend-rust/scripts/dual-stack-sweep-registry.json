@@ -1,6 +1,6 @@
 {
   "schema": "rust-migration-sweep-registry/v1",
-  "note": "Resolves differences found by dual-stack-sweep.py. category_defaults override the script's built-in defaults (TEXT_ONLY/JAVA_UNHANDLED_500/JAVA_RAW_HTTP_4XX accepted; RUST_FAILS_WHERE_JAVA_OK/RUST_OTHER_CODE fail the run; the rest are OPEN backlog). An override must name the endpoint, may narrow by variant/category, and must say why the difference is acceptable.",
+  "note": "Resolves differences found by dual-stack-sweep.py. category_defaults override the script's built-in defaults (TEXT_ONLY/JAVA_UNHANDLED_500/JAVA_RAW_HTTP_4XX accepted; RUST_FAILS_WHERE_JAVA_OK/RUST_OTHER_CODE fail the run; the rest are OPEN backlog; any non-TEXT_ONLY difference inside a scripted journey fails unless an override says otherwise). An override must name the endpoint, may narrow by variant/category, and must say why the difference is acceptable or still open.",
   "category_defaults": {},
   "overrides": [
     {
@@ -16,6 +16,43 @@
       "category": "DATA",
       "disposition": "ACCEPTED",
       "note": "Rust hardening required by the migration plan (section 4.3): the user entity carries no deviceId, password or token. Java returns deviceId and the SHA-256 token digest in userEntity."
+    },
+    {
+      "endpoint": "journey:personal-ticker-tape/finish-again",
+      "variant": "journey",
+      "category": "TEXT_ONLY",
+      "disposition": "ACCEPTED",
+      "note": "Java answers 208 with description equal to the message; Rust leaves the description empty. The frontend never reads the response-level description."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-create",
+      "disposition": "OPEN",
+      "note": "Personal telex saveTexPatTrain is only partly ported: it answers {id} while Java returns the whole TelexPatTrainEntity (the Vue page spreads res.data and parses res.data.content); a new unstarted training does not delete/finish the previous one (Java lastTration cleanup + statistics); extendBy (append generated groups) is ignored; total/error/accuracy/speed come from the client instead of the stored content; finishing writes no statistics."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-create-second",
+      "disposition": "OPEN",
+      "note": "Same personal telex gap as train-create."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-list",
+      "disposition": "OPEN",
+      "note": "Rust lists two trainings (no cleanup of the unstarted previous one) and omits createTime/createUserId."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-detail",
+      "disposition": "OPEN",
+      "note": "Rust omits createTime and createUserId from the training entity."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-delete",
+      "disposition": "OPEN",
+      "note": "Java already removed the unstarted first training when the second was created, so it answers 202; Rust still has it."
+    },
+    {
+      "endpoint": "journey:personal-telex/train-list-after",
+      "disposition": "OPEN",
+      "note": "Follows from the missing cleanup and the missing createTime/createUserId."
     }
   ]
 }

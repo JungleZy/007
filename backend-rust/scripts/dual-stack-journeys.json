@@ -1,0 +1,111 @@
+{
+  "schema": "rust-migration-journeys/v1",
+  "note": "Scripted write-then-read flows run by dual-stack-sweep.py on both stacks with realistic frontend payloads. ${name} is replaced by a value captured from an earlier step of the same stack ('capture' uses a tiny JSONPath). Every behavioural difference in a journey is a FAIL unless the registry accepts it.",
+  "journeys": [
+    {
+      "name": "device-catalogue",
+      "steps": [
+        {"name": "type-create", "method": "POST", "path": "/api/deviceType/save", "body": {"id": "", "typeName": "短波电台"}, "capture": {"typeId": "$.data.id"}},
+        {"name": "type-list", "method": "POST", "path": "/api/deviceType/findAll"},
+        {"name": "type-rename", "method": "POST", "path": "/api/deviceType/save", "body": {"id": "${typeId}", "typeName": "超短波电台"}},
+        {"name": "type-rename-missing", "method": "POST", "path": "/api/deviceType/save", "body": {"id": 987654, "typeName": "不存在"}},
+        {"name": "device-create", "method": "POST", "path": "/api/device/save", "body": {"id": "", "deviceName": "电台A", "deviceNumber": "A-001", "deviceImg": "a.png", "deviceTypeId": "${typeId}", "descriptions": [{"id": "", "title": "概述", "content": "<p>说明</p>"}]}, "capture": {"deviceId": "$.data.id"}},
+        {"name": "device-list", "method": "POST", "path": "/api/device/listPage", "body": {"id": "${typeId}"}},
+        {"name": "device-edit", "method": "POST", "path": "/api/device/save", "body": {"id": "${deviceId}", "deviceName": "电台A改", "deviceNumber": "A-001", "deviceImg": "a2.png", "deviceTypeId": "${typeId}", "descriptions": [{"id": "", "title": "概述", "content": "<p>新说明</p>"}]}},
+        {"name": "description-add", "method": "POST", "path": "/api/device/addDeviceDescription", "body": {"deviceId": "${deviceId}", "title": "补充", "content": "<p>更多</p>"}},
+        {"name": "device-list-after", "method": "POST", "path": "/api/device/listPage", "body": {"id": "${typeId}"}},
+        {"name": "type-list-counts", "method": "POST", "path": "/api/deviceType/findAll"},
+        {"name": "device-delete", "method": "POST", "path": "/api/device/delete", "body": {"id": "${deviceId}"}},
+        {"name": "type-delete", "method": "POST", "path": "/api/deviceType/delete", "body": {"id": "${typeId}"}},
+        {"name": "type-list-final", "method": "POST", "path": "/api/deviceType/findAll"}
+      ]
+    },
+    {
+      "name": "equipment-devices",
+      "steps": [
+        {"name": "add", "method": "POST", "path": "/api/equipmentDevice/add", "body": {"name": "示波器", "image": "scope.png", "isEnable": 1, "option": "{}"}},
+        {"name": "list", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}, "capture": {"equipId": "$.data[0].id"}},
+        {"name": "update", "method": "POST", "path": "/api/equipmentDevice/update", "body": {"id": "${equipId}", "name": "示波器2", "image": "scope2.png", "isEnable": 0, "option": "{\"a\":1}"}},
+        {"name": "key-points", "method": "POST", "path": "/api/equipmentDevice/addKeyPoints", "body": {"deviceId": "${equipId}", "content": "要点一\n要点二"}},
+        {"name": "key-points-list", "method": "POST", "path": "/api/equipmentDevice/listKeyPoints", "body": {}},
+        {"name": "list-after", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}},
+        {"name": "delete", "method": "POST", "path": "/api/equipmentDevice/delete", "body": {"id": "${equipId}"}},
+        {"name": "list-final", "method": "POST", "path": "/api/equipmentDevice/listPage", "body": {}}
+      ]
+    },
+    {
+      "name": "cable-fixed-message",
+      "steps": [
+        {"name": "type-create", "method": "POST", "path": "/api/cable/type/save", "body": {"title": "电缆类型A"}, "capture": {"typeId": "$.data[0].id"}},
+        {"name": "type-find", "method": "POST", "path": "/api/cable/type/find"},
+        {"name": "cable-create", "method": "POST", "path": "/api/cable/save", "body": {"title": "电缆一", "typeId": "${typeId}", "scope": 0, "codeType": 0, "codeSort": 0, "remark": "备注", "floors": [[["1", "2", "3", "4"], ["5", "6", "7", "8"]], [["9", "0", "1", "2"]]]}, "capture": {"cableId": "$.data.id"}},
+        {"name": "cable-find-all", "method": "POST", "path": "/api/cable/find", "body": {}},
+        {"name": "cable-find-by-type", "method": "POST", "path": "/api/cable/find", "body": {"typeId": "${typeId}"}},
+        {"name": "cable-find-by-id", "method": "POST", "path": "/api/cable/findById", "body": {"id": "${cableId}"}},
+        {"name": "cable-floors", "method": "POST", "path": "/api/cable/floor/find", "body": {"id": "${cableId}"}},
+        {"name": "cable-edit", "method": "POST", "path": "/api/cable/save", "body": {"id": "${cableId}", "title": "电缆一改", "typeId": "${typeId}", "scope": 1, "codeType": 0, "codeSort": 0, "remark": "改", "floors": [[["1", "2", "3", "4"]]]}},
+        {"name": "cable-find-by-id-after", "method": "POST", "path": "/api/cable/findById", "body": {"id": "${cableId}"}},
+        {"name": "cable-delete", "method": "POST", "path": "/api/cable/delete?id=${cableId}"},
+        {"name": "type-delete", "method": "POST", "path": "/api/cable/type/delete?id=${typeId}"},
+        {"name": "type-find-final", "method": "POST", "path": "/api/cable/type/find"}
+      ]
+    },
+    {
+      "name": "personal-ticker-tape",
+      "steps": [
+        {"name": "statistics-first", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}},
+        {"name": "last-empty", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
+        {"name": "add-first", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-1", "rate": 60, "type": 1, "codeShort": 1, "isLowRate": 0, "codeMessageBody": [{"codeMessage": "1234", "sort": 1}]}, "capture": {"firstId": "$.data.id"}, "sleep": 1.1},
+        {"name": "add-second-replaces-unstarted", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-2", "rate": 40, "type": 1, "codeShort": 1, "isLowRate": 1, "codeMessageBody": [{"codeMessage": "5678", "sort": 1}]}, "capture": {"secondId": "$.data.id"}},
+        {"name": "list", "method": "POST", "path": "/api/tickerTapeTrain/listPage", "body": {"page": 1, "rows": 10}},
+        {"name": "last-train", "method": "POST", "path": "/api/tickerTapeTrain/lastTrain", "body": {"type": 1}},
+        {"name": "get-by-id", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${secondId}"}},
+        {"name": "get-by-id-missing", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "no-such-train"}},
+        {"name": "begin", "method": "POST", "path": "/api/tickerTapeTrain/begin", "body": {"id": "${secondId}"}, "sleep": 1.5},
+        {"name": "pause", "method": "POST", "path": "/api/tickerTapeTrain/pause", "body": {"id": "${secondId}", "mark": "1,2", "schedule": 3}},
+        {"name": "pause-again", "method": "POST", "path": "/api/tickerTapeTrain/pause", "body": {"id": "${secondId}", "mark": "9,9", "schedule": 9}},
+        {"name": "go-on", "method": "POST", "path": "/api/tickerTapeTrain/goOn", "body": {"id": "${secondId}"}, "sleep": 1.5},
+        {"name": "finish", "method": "POST", "path": "/api/tickerTapeTrain/finish", "body": {"id": "${secondId}", "mark": "2,3", "schedule": 5}},
+        {"name": "finish-again", "method": "POST", "path": "/api/tickerTapeTrain/finish", "body": {"id": "${secondId}"}},
+        {"name": "get-by-id-after", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${secondId}"}},
+        {"name": "statistics-after", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}},
+        {"name": "add-third-after-finish", "method": "POST", "path": "/api/tickerTapeTrain/add", "body": {"name": "收报训练-3", "rate": 50, "type": 1, "codeShort": 0, "isLowRate": 0, "codeMessageBody": []}, "capture": {"thirdId": "$.data.id"}},
+        {"name": "list-after-third", "method": "POST", "path": "/api/tickerTapeTrain/listPage", "body": {"page": 1, "rows": 10}},
+        {"name": "other-user-forbidden", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${thirdId}"}, "who": "student"}
+      ]
+    },
+    {
+      "name": "personal-ticker-base-session",
+      "steps": [
+        {"name": "invalid-type", "method": "POST", "path": "/api/tickerTapeTrain/baseSession", "body": {"type": 3}},
+        {"name": "create-base", "method": "POST", "path": "/api/tickerTapeTrain/baseSession", "body": {"type": 21}, "capture": {"baseId": "$.data.id"}},
+        {"name": "begin-base", "method": "POST", "path": "/api/tickerTapeTrain/begin", "body": {"id": "${baseId}"}, "sleep": 1.5},
+        {"name": "save-base", "method": "POST", "path": "/api/tickerTapeTrain/saveBaseTrain", "body": {"id": "${baseId}", "mark": "5", "schedule": 1}},
+        {"name": "save-base-again", "method": "POST", "path": "/api/tickerTapeTrain/saveBaseTrain", "body": {"id": "${baseId}", "mark": "5", "schedule": 1}},
+        {"name": "save-base-blank", "method": "POST", "path": "/api/tickerTapeTrain/saveBaseTrain", "body": {"id": " "}},
+        {"name": "create-department", "method": "POST", "path": "/api/tickerTapeTrain/baseSession", "body": {"type": 22}, "capture": {"departmentId": "$.data.id"}},
+        {"name": "discard-unstarted", "method": "POST", "path": "/api/tickerTapeTrain/discardBaseSession", "body": {"id": "${departmentId}"}},
+        {"name": "get-discarded", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${departmentId}"}},
+        {"name": "statistics", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}}
+      ]
+    },
+    {
+      "name": "personal-telex",
+      "steps": [
+        {"name": "statistics-first", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}},
+        {"name": "last-empty", "method": "POST", "path": "/api/telexPat/lastPatTrain", "body": {"type": 1}},
+        {"name": "save-base", "method": "POST", "path": "/api/telexPat/saveTelexPat", "body": {"count": 20, "mistake": 2, "type": 0, "duration": 60}},
+        {"name": "find-base", "method": "POST", "path": "/api/telexPat/findTelexPatById", "body": {"type": 0}},
+        {"name": "train-create", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 1, "numbs": 10, "title": "电传练习", "status": 0, "duration": "0", "totalNumber": 0, "errorNumber": 0, "accuracy": 0, "speed": "0", "content": "[{\"text\":\"abcd\",\"value\":\"\",\"isFocus\":false}]"}, "capture": {"trainId": "$.data.id"}, "sleep": 1.1},
+        {"name": "train-create-second", "method": "POST", "path": "/api/telexPat/saveTexPatTrain", "body": {"type": 1, "numbs": 10, "title": "电传练习二", "status": 0, "duration": "0", "totalNumber": 0, "errorNumber": 0, "accuracy": 0, "speed": "0", "content": "[{\"text\":\"efgh\",\"value\":\"\",\"isFocus\":false}]"}, "capture": {"secondId": "$.data.id"}},
+        {"name": "last-train", "method": "POST", "path": "/api/telexPat/lastPatTrain", "body": {"type": 1}},
+        {"name": "train-list", "method": "POST", "path": "/api/telexPat/findTexPatTrainByToken", "body": {}},
+        {"name": "train-detail", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "${secondId}"}},
+        {"name": "train-detail-missing", "method": "POST", "path": "/api/telexPat/findTexPatTrainById", "body": {"id": "no-such-train"}},
+        {"name": "train-delete", "method": "POST", "path": "/api/telexPat/deleteById", "body": {"id": "${trainId}"}},
+        {"name": "train-list-after", "method": "POST", "path": "/api/telexPat/findTexPatTrainByToken", "body": {}},
+        {"name": "statistics-after", "method": "POST", "path": "/api/telexPat/statisticalPage", "body": {}}
+      ]
+    }
+  ]
+}

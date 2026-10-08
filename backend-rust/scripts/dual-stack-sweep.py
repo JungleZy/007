@@ -48,6 +48,7 @@ import re
 import secrets
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -276,12 +277,69 @@ def brief(resp):
     return {"status": resp["status"], "code": j.get("code"), "message": j.get("message"), "description": j.get("description")}
 
 
+JOURNEY_VAR = re.compile(r"\$\{(\w+)\}")
+
+
+def substitute(value, variables):
+    """Replace ${name} in strings; a string that is exactly one placeholder keeps the captured JSON type."""
+    if isinstance(value, dict):
+        return {key: substitute(item, variables) for key, item in value.items()}
+    if isinstance(value, list):
+        return [substitute(item, variables) for item in value]
+    if isinstance(value, str):
+        whole = JOURNEY_VAR.fullmatch(value)
+        if whole:
+            return variables.get(whole.group(1))
+        return JOURNEY_VAR.sub(lambda match: str(variables.get(match.group(1))), value)
+    return value
+
+
+def extract(document, expression):
+    """Tiny JSONPath for captures: $.data.id, $.data[0].id"""
+    current = document
+    for part in re.findall(r"[^.\[\]$]+|\[\d+\]", expression):
+        current = current[int(part[1:-1])] if part.startswith("[") else current[part]
+    return current
+
+
+def run_journeys(spec, args, headers):
+    """Run scripted write-then-read flows on both stacks.
+
+    Generated ids differ per stack, so each stack keeps its own captured variables;
+    every step is then compared like a sweep request. These flows use realistic
+    payloads (the ones the frontend sends), which empty/probe bodies cannot reach.
+    """
+    results = []
+    for journey in spec.get("journeys", []):
+        variables = {"java": {}, "rust": {}}
+        for step in journey["steps"]:
+            who = step.get("who", "admin")
+            outcome = {}
+            for side, base in (("java", args.java_url), ("rust", args.rust_url)):
+                path = substitute(step["path"], variables[side])
+                body = substitute(step["body"], variables[side]) if "body" in step else ({} if step["method"] == "POST" else None)
+                outcome[side] = http_case(base, step["method"], path, body, headers[who], args.timeout)
+                for name, expression in step.get("capture", {}).items():
+                    try:
+                        variables[side][name] = extract(outcome[side]["json"], expression)
+                    except (KeyError, IndexError, TypeError):
+                        variables[side][name] = None
+            job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
+                   "path": step["path"], "method": step["method"]}
+            results.append((job, outcome["java"], outcome["rust"]))
+            if step.get("sleep"):
+                time.sleep(step["sleep"])
+    return results
+
+
 def disposition(entry, registry):
     for rule in registry.get("overrides", []):
         if rule["endpoint"] == entry["endpoint"] and rule.get("variant", entry["variant"]) == entry["variant"] \
                 and rule.get("category", entry["category"]) == entry["category"]:
             return rule["disposition"], rule.get("note", "")
     default = registry.get("category_defaults", {}).get(entry["category"], CATEGORIES[entry["category"]])
+    if entry["variant"] == "journey" and entry["category"] != "TEXT_ONLY":
+        default = "FAIL"  # curated realistic flows: any behavioural difference is a finding
     return default, ""
 
 
@@ -296,6 +354,10 @@ def main():
     parser.add_argument("--registry", default=str(pathlib.Path(__file__).with_name("dual-stack-sweep-registry.json")))
     parser.add_argument("--out", help="write the full difference report here")
     parser.add_argument("--no-probes", action="store_true", help="skip the id-probe (str/num) variants")
+    parser.add_argument("--journeys", default=str(pathlib.Path(__file__).with_name("dual-stack-journeys.json")),
+                        help="scripted write-then-read flows (default: dual-stack-journeys.json next to this script)")
+    parser.add_argument("--no-journeys", action="store_true", help="skip the scripted journeys")
+    parser.add_argument("--only-journeys", action="store_true", help="run only the scripted journeys (fast)")
     parser.add_argument("--timeout", type=float, default=25)
     args = parser.parse_args()
 
@@ -313,14 +375,19 @@ def main():
         return job, java, rust
 
     results = []
-    db.reset(tokens)
-    results += [pair(job) for job in main_jobs]
-    for job in session_jobs:  # each one invalidates the fixture session, so it gets a fresh state
+    journeys_path = pathlib.Path(args.journeys)
+    if not args.no_journeys and journeys_path.exists():
         db.reset(tokens)
-        results.append(pair(job))
-    if probe_jobs:
+        results += run_journeys(json.loads(journeys_path.read_text()), args, headers)
+    if not args.only_journeys:
         db.reset(tokens)
-        results += [pair(job) for job in probe_jobs]
+        results += [pair(job) for job in main_jobs]
+        for job in session_jobs:  # each one invalidates the fixture session, so it gets a fresh state
+            db.reset(tokens)
+            results.append(pair(job))
+        if probe_jobs:
+            db.reset(tokens)
+            results += [pair(job) for job in probe_jobs]
     db.reset(tokens)
 
     differences, counts = [], collections.Counter()
