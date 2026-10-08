@@ -24,7 +24,7 @@ fn cable_json(row: &sqlx::mysql::MySqlRow) -> Value {
         "codeType": row.get::<Option<i32>, _>("code_type"),
         "codeSort": row.get::<Option<i32>, _>("code_sort"),
         "remark": row.get::<Option<String>, _>("remark"),
-        "createTime": null
+        "createTime": row.get::<Option<String>, _>("create_time_text")
     })
 }
 
@@ -51,7 +51,7 @@ pub(crate) async fn find(State(state): State<AppState>, Json(body): Json<Value>)
                 .collect()
         })
         .unwrap_or_default();
-    let query = "SELECT id, title, type_id, type_title, scope, floor_count, group_count, code_count, code_type, code_sort, remark FROM t_cable";
+    let query = "SELECT id, title, type_id, type_title, scope, floor_count, group_count, code_count, code_type, code_sort, remark, DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') AS create_time_text FROM t_cable";
     let rows = match type_id {
         Some(type_id) => {
             sqlx::query(&format!("{query} WHERE type_id = ?"))
@@ -93,7 +93,7 @@ pub(crate) async fn find_by_id(State(state): State<AppState>, Json(body): Json<V
     else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
-    match sqlx::query("SELECT id, title, type_id, type_title, scope, floor_count, group_count, code_count, code_type, code_sort, remark FROM t_cable WHERE id = ? LIMIT 1")
+    match sqlx::query("SELECT id, title, type_id, type_title, scope, floor_count, group_count, code_count, code_type, code_sort, remark, DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') AS create_time_text FROM t_cable WHERE id = ? LIMIT 1")
         .bind(id)
         .fetch_optional(pool)
         .await
@@ -252,7 +252,7 @@ pub(crate) async fn save(State(state): State<AppState>, Json(body): Json<Value>)
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
     };
-    if let Err(error) = sqlx::query("INSERT INTO t_cable (id,title,type_id,type_title,scope,floor_count,group_count,code_count,code_type,code_sort,remark) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title),type_id=VALUES(type_id),type_title=VALUES(type_title),scope=VALUES(scope),floor_count=VALUES(floor_count),group_count=VALUES(group_count),code_count=VALUES(code_count),code_type=VALUES(code_type),code_sort=VALUES(code_sort),remark=VALUES(remark)")
+    if let Err(error) = sqlx::query("INSERT INTO t_cable (id,title,type_id,type_title,scope,floor_count,group_count,code_count,code_type,code_sort,remark,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE title=VALUES(title),type_id=VALUES(type_id),type_title=VALUES(type_title),scope=VALUES(scope),floor_count=VALUES(floor_count),group_count=VALUES(group_count),code_count=VALUES(code_count),code_type=VALUES(code_type),code_sort=VALUES(code_sort),remark=VALUES(remark)")
         .bind(&id).bind(title).bind(type_id).bind(type_row.get::<Option<String>, _>("title"))
         .bind(scope).bind(floors.len() as i32).bind(group_count).bind(code_count).bind(code_type).bind(code_sort).bind(remark)
         .execute(&mut *tx).await {
