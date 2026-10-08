@@ -1117,15 +1117,16 @@ pub(crate) async fn save_formal(
         let rebuilding = supplied_id.is_some();
         let exam_id = supplied_id.map(Cow::into_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         crate::statistical::lock_user(&mut transaction, &user.id).await?;
-        // INSERT owns the new record directly. A supplied id uses a no-op duplicate
-        // update to lock an existing record without a locking miss/gap-lock upgrade.
-        let insert = if rebuilding {
-            "INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1) ON DUPLICATE KEY UPDATE id=id"
+        if rebuilding {
+            // Reject a stale editor before any parent INSERT or locking miss.
+            let existing = sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_exam WHERE id=?")
+                .bind(&exam_id).fetch_optional(pool).await?
+                .ok_or(ExamError::Parameter("未查询到考试"))?;
+            locked_exam(&mut transaction, &existing).await?;
         } else {
-            "INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1)"
-        };
-        sqlx::query(insert)
-            .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
+            sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1)")
+                .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
+        }
         let touched = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND (state<>1 OR score>0 OR (content IS NOT NULL AND TRIM(content)<>''))")
             .bind(&exam_id).fetch_one(&mut *transaction).await?;
         if touched > 0 {

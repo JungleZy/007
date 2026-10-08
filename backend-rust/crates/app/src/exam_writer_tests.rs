@@ -137,8 +137,8 @@ async fn wait_for_gate(pool: &MySqlPool, connection: u64, table: &str, count: i6
 
 #[tokio::test]
 #[ignore = "requires isolated rust_scratch_lockdemo and MySQL performance_schema lock tables"]
-async fn two_admins_create_fresh_and_supplied_absent_exams_without_gap_upgrade() {
-    for supplied in [false, true] {
+async fn two_admins_create_generated_exams_without_gap_upgrade() {
+    {
         let first = Fixture::new("creation-a", 1, 1).await;
         let second = Fixture::new("creation-b", 1, 1).await;
         let mut gate = first.pool().begin().await.unwrap();
@@ -155,11 +155,7 @@ async fn two_admins_create_fresh_and_supplied_absent_exams_without_gap_upgrade()
             let state = fixture.state.clone();
             let admin = fixture.admin.clone();
             let mut body = fixture.formal_body();
-            if supplied {
-                body["id"] = json!(uuid::Uuid::new_v4().to_string());
-            } else {
-                body.as_object_mut().unwrap().remove("id");
-            }
+            body.as_object_mut().unwrap().remove("id");
             writers.push(tokio::spawn(async move {
                 save_formal(State(state), Extension(admin), Json(body)).await
             }));
@@ -205,6 +201,53 @@ async fn two_admins_create_fresh_and_supplied_absent_exams_without_gap_upgrade()
             assert_eq!(result["code"], 200, "{result}");
         }
     }
+}
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo"]
+async fn supplied_absent_exam_is_not_resurrected() {
+    let fixture = Fixture::new("stale-editor", 1, 1).await;
+    let body = fixture.formal_body();
+    let deletion = response_value(
+        delete_exam(
+            State(fixture.state.clone()),
+            Extension(fixture.admin.clone()),
+            Json(json!({"examId":fixture.exam_id})),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(deletion["code"], 200);
+    let result = response_value(
+        save_formal(
+            State(fixture.state.clone()),
+            Extension(fixture.admin.clone()),
+            Json(body),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(result["code"], 202, "{result}");
+    assert_eq!(result["message"], "未查询到考试");
+    for table in [
+        "t_theory_knowledge_exam",
+        "t_theory_knowledge_exam_user",
+        "t_theory_knowledge_exam_test_paper",
+    ] {
+        let column = if table == "t_theory_knowledge_exam" {
+            "id"
+        } else {
+            "exam_id"
+        };
+        let count: i64 =
+            sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table} WHERE {column}=?"))
+                .bind(&fixture.exam_id)
+                .fetch_one(fixture.pool())
+                .await
+                .unwrap();
+        assert_eq!(count, 0, "stale save must not recreate {table}");
+    }
+    fixture.cleanup().await;
 }
 
 #[tokio::test]

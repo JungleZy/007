@@ -95,6 +95,7 @@
         {"name":"read-forced-candidate-end","method":"POST","path":"/api/theoryKnowledgeExamUser/findExamUser","who":"admin","body":{"examId":"${foreignExamId}","userId":"sweep-admin"}},
         {"name":"cannot-restart-finished","method":"POST","path":"/api/theoryKnowledgeExam/teacherStartTheoryKnowledgeExam","who":"admin","body":{"examId":"${examId}","type":"2"}},
         {"name":"delete-main","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${examId}"}},
+        {"name":"stale-editor-save-after-delete","method":"POST","path":"/api/theoryKnowledgeExam/savetheoryKnowledgeExam","who":"admin","body":{"id":"${examId}","title":"已删除考试的旧编辑页","duration":"30","stuId":["sweep-student"],"testPaper":{"testPaperId":"${paperId}","singleChoice":"${singleChoice}","multipleChoice":[],"judge":[],"completion":[],"shortAnswer":[]}}},
         {"name":"delete-foreign","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${foreignExamId}"}},
         {"name":"delete-later-candidate-exam","method":"POST","path":"/api/theoryKnowledgeExam/deleteTheoryKnowledgeExam","who":"admin","body":{"examId":"${laterExamId}"}},
         {"name":"paper-delete","method":"POST","path":"/api/theoryKnowledgeTestPaper/deleteTestPaper","who":"admin","body":{"id":"${paperId}"}}
