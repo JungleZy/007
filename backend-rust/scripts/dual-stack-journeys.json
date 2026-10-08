@@ -225,6 +225,7 @@
         {"name": "create-type-two", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"type": 2, "totalTime": 7, "totalNum": 1, "totalError": 0, "messageName": "拆字"}},
         {"name": "statistics-all-types", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
         {"name": "clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/clear", "body": {"type": "1"}},
+        {"name": "statistics-immediately-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/statisticalPage", "body": {}},
         {"name": "find-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": "1"}},
         {"name": "clear-without-record", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/clear", "body": {"type": 3}},
         {"name": "save-after-clear", "who": "student", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 1, "totalTime": 3, "totalNum": 2, "totalError": 1}},
@@ -256,7 +257,9 @@
         {"name": "unknown-id", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "no-such-record", "type": 6, "totalTime": 1, "totalNum": 1, "totalError": 1}},
         {"name": "empty-id", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "", "type": 6, "totalTime": 1, "totalNum": 1, "totalError": 1}},
         {"name": "find-unchanged", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 6}},
-        {"name": "id-of-other-type", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 7, "totalTime": 2, "totalNum": 2, "totalError": 2}}
+        {"name": "id-of-other-type", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/save", "body": {"id": "${recId}", "type": 7, "totalTime": 2, "totalNum": 2, "totalError": 2}},
+        {"name": "find-old-type-after-retyping", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 6}},
+        {"name": "find-new-type-after-retyping", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 7}}
       ]
     }
   ]
