@@ -572,10 +572,10 @@ async fn statistics_for(state: &AppState, user: &AuthUser, kind: i32) -> Respons
             .fetch_all(&mut *transaction)
             .await?;
         let child_types = existing.iter()
-            .map(|row| row.try_get::<i32, _>("child_type"))
+            .map(|row| row.try_get::<Option<i32>, _>("child_type"))
             .collect::<Result<Vec<_>, _>>()?;
         for child_type in 0..if kind == 0 { 3 } else { 4 } {
-            if !child_types.contains(&child_type) {
+            if !child_types.contains(&Some(child_type)) {
                 sqlx::query("INSERT INTO t_entering_statistical (id,type,child_type,total_count,total_time,avg_speed,user_id) VALUES (?,?,?,0,'0',0,?)")
                     .bind(Uuid::new_v4().to_string())
                     .bind(kind)
@@ -592,13 +592,17 @@ async fn statistics_for(state: &AppState, user: &AuthUser, kind: i32) -> Respons
             .await?;
         let mut values = Vec::with_capacity(rows.len());
         for row in rows {
+            // Older Java saves could persist an untyped row. It is not a display category.
+            let Some(child_type) = row.try_get::<Option<i32>, _>("child_type")? else {
+                continue;
+            };
             let avg_speed = row.try_get::<Option<Decimal>, _>("avg_speed")?
                 .map(|value| value.to_string().parse::<serde_json::Number>())
                 .transpose()
                 .map_err(|error| sqlx::Error::Decode(Box::new(error)))?;
             values.push(json!({
                 "id": row.try_get::<String, _>("id")?,
-                "type": row.try_get::<i32, _>("child_type")?,
+                "type": child_type,
                 "totalCount": row.try_get::<Option<i32>, _>("total_count")?,
                 "totalTime": row.try_get::<Option<String>, _>("total_time")?,
                 "avgSpeed": avg_speed,
@@ -1112,5 +1116,148 @@ mod tests {
                 StatusCode::BAD_REQUEST
             );
         }
+    }
+
+    #[tokio::test]
+    #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
+    async fn inherited_null_category_is_skipped() -> Result<(), sqlx::Error> {
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("isolated database required");
+        let pool = sqlx::mysql::MySqlPoolOptions::new().connect(&url).await?;
+        let user = AuthUser {
+            id: Uuid::new_v4().to_string(),
+            is_admin: false,
+        };
+        sqlx::query("INSERT INTO t_user(id) VALUES (?)")
+            .bind(&user.id)
+            .execute(&pool)
+            .await?;
+        sqlx::query(
+            "INSERT INTO t_entering_statistical(id,user_id,type,child_type) VALUES (?,?,1,NULL)",
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind(&user.id)
+        .execute(&pool)
+        .await?;
+        let state = AppState {
+            config: std::sync::Arc::new(crate::AppConfig::from_env().unwrap()),
+            pool: Some(pool.clone()),
+            database_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        };
+        let response = statistics_for(&state, &user, 1).await;
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        sqlx::query("DELETE FROM t_entering_statistical WHERE user_id=?")
+            .bind(&user.id)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM t_user WHERE id=?")
+            .bind(&user.id)
+            .execute(&pool)
+            .await?;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["code"], 200);
+        assert_eq!(
+            body["data"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| row["type"].as_i64().unwrap())
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2, 3]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[ignore = "requires an isolated MySQL database with the project schema (RUST_PHASE2_DATABASE_URL)"]
+    async fn statistics_writers_do_not_lock_other_users_rows() -> Result<(), sqlx::Error> {
+        let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("isolated database required");
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(3)
+            .connect(&url)
+            .await?;
+        let tag = Uuid::new_v4().simple().to_string();
+        let owner = format!("owner-{tag}");
+        let other = format!("other-{tag}");
+        for user in [&owner, &other] {
+            sqlx::query("INSERT INTO t_user(id) VALUES (?)")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("INSERT INTO t_entering_exercise(id,create_user_id,type,status,duration,speed) VALUES (?,?,9,2,20,10)")
+                .bind(format!("train-{user}")).bind(user).execute(&pool).await?;
+            for child in [1, 3] {
+                sqlx::query("INSERT INTO t_entering_statistical(id,user_id,type,child_type,total_count,total_time,avg_speed) VALUES (?,?,1,?,0,'0',0)")
+                    .bind(format!("stat-{child}-{user}")).bind(user).bind(child).execute(&pool).await?;
+            }
+        }
+        let mut tx = pool.begin().await?;
+        assert!(crate::statistical::lock_user(&mut tx, &owner).await?);
+        sqlx::query("SELECT id FROM t_entering_exercise WHERE id=? FOR UPDATE")
+            .bind(format!("train-{owner}"))
+            .fetch_one(&mut *tx)
+            .await?;
+        update_exercise_statistics(&mut tx, &owner, 9)
+            .await
+            .unwrap();
+        record_telex_statistics(
+            &mut tx,
+            &owner,
+            &TelexSave {
+                id: None,
+                kind: 1,
+                total_time: Some(60),
+                total_num: Some(10),
+                total_error: Some(0),
+                message_name: None,
+            },
+        )
+        .await?;
+        let mut bystander = pool.acquire().await?;
+        sqlx::query("SET SESSION innodb_lock_wait_timeout=2")
+            .execute(&mut *bystander)
+            .await?;
+        let training = sqlx::query("UPDATE t_entering_exercise SET duration=21 WHERE id=?")
+            .bind(format!("train-{other}"))
+            .execute(&mut *bystander)
+            .await;
+        let statistics = sqlx::query("UPDATE t_entering_statistical SET total_count=7 WHERE id=?")
+            .bind(format!("stat-1-{other}"))
+            .execute(&mut *bystander)
+            .await;
+        let count: Option<i32> =
+            sqlx::query_scalar("SELECT total_count FROM t_entering_statistical WHERE id=?")
+                .bind(format!("stat-1-{owner}"))
+                .fetch_one(&mut *tx)
+                .await?;
+        tx.rollback().await?;
+        drop(bystander);
+        for user in [&owner, &other] {
+            sqlx::query("DELETE FROM t_entering_exercise WHERE create_user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("DELETE FROM t_entering_statistical WHERE user_id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+            sqlx::query("DELETE FROM t_user WHERE id=?")
+                .bind(user)
+                .execute(&pool)
+                .await?;
+        }
+        assert_eq!(count, Some(1));
+        assert!(
+            training.is_ok(),
+            "another user's training locked: {training:?}"
+        );
+        assert!(
+            statistics.is_ok(),
+            "another user's statistics locked: {statistics:?}"
+        );
+        Ok(())
     }
 }
