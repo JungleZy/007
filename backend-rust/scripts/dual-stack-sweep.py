@@ -233,8 +233,7 @@ def category(java, rust):
     if rust.get("json") is None and rs in (400, 404, 405, 415, 422):
         return "RUST_RAW_HTTP_4XX"
     if js == rs and jc == rc:
-        jj, rj = java["json"], rust["json"]
-        return "DATA" if normalize(jj.get("data")) != normalize(rj.get("data")) else "TEXT_ONLY"
+        return "DATA" if envelope_data_diffs(java["json"], rust["json"]) else "TEXT_ONLY"
     if jc == 200 and rc == 202:
         return "RUST_STRICTER"
     if jc == 202 and rc == 200:
@@ -264,6 +263,12 @@ def data_diffs(a, b, path="$", out=None):
     elif a != b:
         out.append([path, a, b])
     return out
+
+
+def envelope_data_diffs(java, rust):
+    """Preserve envelope membership as well as typed, normalized data values."""
+    return data_diffs({"data": normalize(java["data"])} if "data" in java else {},
+                      {"data": normalize(rust["data"])} if "data" in rust else {})
 
 
 def brief(resp):
@@ -486,6 +491,8 @@ def allowed_data_paths(entry, rule):
 
 
 def disposition(entry, registry):
+    if entry["category"] == "TEXT_ONLY" and entry.get("data_diffs") != []:
+        return "FAIL", "TEXT_ONLY requires complete evidence of zero data differences"
     for rule in registry.get("overrides", []):
         if rule["endpoint"] == entry["endpoint"] and rule.get("variant", entry["variant"]) == entry["variant"] \
                 and rule.get("category", entry["category"]) == entry["category"] \
@@ -495,6 +502,19 @@ def disposition(entry, registry):
     if entry["variant"] == "journey" and entry["category"] != "TEXT_ONLY":
         default = "FAIL"  # curated realistic flows: any behavioural difference is a finding
     return default, ""
+
+
+def comparison_entry(job, java, rust, registry):
+    """One production classification/disposition path, also exercised by regressions."""
+    if comparable(java) == comparable(rust):
+        return None
+    entry = {"endpoint": job["endpoint"], "variant": job["variant"], "who": job["who"], "path": job["path"],
+             "category": category(java, rust), "java": brief(java), "rust": brief(rust)}
+    if isinstance(java.get("json"), dict) and isinstance(rust.get("json"), dict):
+        entry["data_diffs"] = envelope_data_diffs(java["json"], rust["json"])
+        entry["first_data_diffs"] = entry["data_diffs"][:4]
+    entry["disposition"], entry["note"] = disposition(entry, registry)
+    return entry
 
 
 def main():
@@ -546,15 +566,10 @@ def main():
 
     differences, counts = [], collections.Counter()
     for job, java, rust in results:
-        if comparable(java) == comparable(rust):
+        entry = comparison_entry(job, java, rust, registry)
+        if entry is None:
             counts["identical"] += 1
             continue
-        entry = {"endpoint": job["endpoint"], "variant": job["variant"], "who": job["who"], "path": job["path"],
-                 "category": category(java, rust), "java": brief(java), "rust": brief(rust)}
-        if isinstance(java.get("json"), dict) and isinstance(rust.get("json"), dict):
-            entry["data_diffs"] = data_diffs(normalize(java["json"].get("data")), normalize(rust["json"].get("data")), "$.data")
-            entry["first_data_diffs"] = entry["data_diffs"][:4]
-        entry["disposition"], entry["note"] = disposition(entry, registry)
         differences.append(entry)
         counts[f"{entry['disposition']}:{entry['category']}"] += 1
 

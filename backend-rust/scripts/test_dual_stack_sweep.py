@@ -177,6 +177,47 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertEqual(original, results[1][1]["json"]["data"]["content"])
 
 
+class ClassificationTest(unittest.TestCase):
+    def compare(self, java, rust, registry=None):
+        job = {"endpoint": "journey:typed/read", "variant": "journey", "who": "admin", "path": "/read"}
+        java, rust = ({"status": 200, "json": {"code": 200, **document}} for document in (java, rust))
+        self.assertNotEqual(sweep.comparable(java), sweep.comparable(rust))
+        return sweep.comparison_entry(job, java, rust, registry or {})
+
+    def test_nested_boolean_integer_changes_are_data_and_fail_closed(self):
+        for integer, boolean in [(1, True), (0, False)]:
+            with self.subTest(integer=integer):
+                entry = self.compare({"data": {"rows": [{"score": integer}]}},
+                                     {"data": {"rows": [{"score": boolean}]}})
+                self.assertEqual("DATA", entry["category"])
+                self.assertEqual("FAIL", entry["disposition"])
+                self.assertEqual([["$.data.rows[0].score", integer, boolean]], entry["data_diffs"])
+
+    def test_envelope_absent_and_null_data_preserve_presence_both_directions(self):
+        for java, rust in [({}, {"data": None}), ({"data": None}, {})]:
+            with self.subTest(java=java):
+                entry = self.compare(java, rust)
+                self.assertEqual("DATA", entry["category"])
+                self.assertEqual("FAIL", entry["disposition"])
+                self.assertEqual([["$.data", None, None,
+                                   {"java_present": "data" in java, "rust_present": "data" in rust}]], entry["data_diffs"])
+
+    def test_text_only_requires_zero_data_differences_even_with_override(self):
+        entry = self.compare({"data": {"rows": [{"score": 1}]}, "message": "java"},
+                             {"data": {"rows": [{"score": 1}]}, "message": "rust"})
+        self.assertEqual("TEXT_ONLY", entry["category"])
+        self.assertEqual([], entry["data_diffs"])
+        self.assertEqual("ACCEPTED", entry["disposition"])
+        registry = {"overrides": [{"endpoint": entry["endpoint"], "category": "TEXT_ONLY", "disposition": "ACCEPTED"}]}
+        for differences in [None, [["$.data.score", 1, True]]]:
+            changed = copy.deepcopy(entry)
+            if differences is None:
+                del changed["data_diffs"]
+            else:
+                changed["data_diffs"] = differences
+            self.assertEqual("FAIL", sweep.disposition(changed, registry)[0])
+
+
 class RegistryPredicateTest(unittest.TestCase):
     def test_full_differences_not_four_item_preview_control_acceptance(self):
         java = {f"artefact{index}": 0 for index in range(4)} | {"supportedScore": 100}
