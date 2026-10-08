@@ -78,6 +78,34 @@ fn body_room(body: &Value) -> Result<i32, Error> {
     required_id(int(body, "roomId"))
 }
 
+// ListenIn submits route.query.id as text; Jackson Integer also accepts fractional numbers.
+fn deserialize_room_id<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Id {
+        Number(i32),
+        Float(f64),
+        Text(String),
+    }
+    match Option::<Id>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(Id::Number(id)) => Ok(Some(id)),
+        Some(Id::Float(id)) if id >= f64::from(i32::MIN) && id <= f64::from(i32::MAX) => {
+            Ok(Some(id as i32))
+        }
+        Some(Id::Float(_)) => Err(serde::de::Error::custom("roomId exceeds Integer range")),
+        Some(Id::Text(id)) if id.trim().is_empty() => Ok(None),
+        Some(Id::Text(id)) => id
+            .trim()
+            .parse()
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RoomQuery {
@@ -86,6 +114,7 @@ pub(crate) struct RoomQuery {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChannelRequest {
+    #[serde(default, deserialize_with = "deserialize_room_id")]
     room_id: Option<i32>,
     user_id: Option<String>,
     channel: Option<i32>,
@@ -1021,4 +1050,32 @@ pub(crate) async fn save_page(
         }.await;
         complete(tx,result).await
     }.await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn channel_room_id_accepts_jackson_integer_inputs() {
+        for (body, expected) in [
+            (json!({}), None),
+            (json!({"roomId": null}), None),
+            (json!({"roomId": ""}), None),
+            (json!({"roomId": " 42 "}), Some(42)),
+            (json!({"roomId": 42}), Some(42)),
+            (json!({"roomId": 42.9}), Some(42)),
+            (json!({"roomId": -1.9}), Some(-1)),
+        ] {
+            assert_eq!(
+                serde_json::from_value::<ChannelRequest>(body)
+                    .unwrap()
+                    .room_id,
+                expected
+            );
+        }
+        for value in [json!("bad"), json!(true), json!([]), json!(2147483648_i64)] {
+            assert!(serde_json::from_value::<ChannelRequest>(json!({"roomId": value})).is_err());
+        }
+    }
 }

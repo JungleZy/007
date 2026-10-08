@@ -261,6 +261,17 @@
         {"name": "find-old-type-after-retyping", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 6}},
         {"name": "find-new-type-after-retyping", "who": "admin", "method": "POST", "path": "/api/enteringTelexPat/findByUserIdAndType", "body": {"type": 7}}
       ]
+    },
+    {
+      "name": "simulation-channel-room-id",
+      "steps": [
+        {"name": "create-router-room", "who": "admin", "method": "POST", "path": "/api/simulation/router/addRoom", "body": {"roomName": "线路通报字符串房间编号", "sendUserList": ["sweep-admin"], "receiveUserList": ["sweep-student"], "content": "", "bdType": 1, "bwType": 1, "bwCount": 100, "isRandom": 0, "isCable": 0, "startPage": 1}},
+        {"name": "find-room", "who": "admin", "method": "POST", "path": "/api/simulation/router/findRoom", "body": {}, "capture": {"roomId": "$.data[0].id"}},
+        {"name": "change-string-room-id", "who": "student", "method": "POST", "path": "/api/simulation/router/changeChannel", "body": {"roomId": " ${roomId}", "userId": "sweep-student", "channel": 1}},
+        {"name": "change-number-room-id", "who": "student", "method": "POST", "path": "/api/simulation/router/changeChannel", "body": {"roomId": "${roomId}", "userId": "sweep-student", "channel": 0}},
+        {"name": "room-users-after-changes", "who": "admin", "method": "GET", "path": "/api/simulation/router/getRoomUserList/${roomId}"},
+        {"name": "delete-room", "who": "admin", "method": "GET", "path": "/api/simulation/router/delete?roomId=${roomId}"}
+      ]
     }
   ]
 }

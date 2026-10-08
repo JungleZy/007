@@ -6,5 +6,6 @@
   "implemented":{"router":["addRoom","findRoom","getRoomUserList","changeChannel","getRoomDetail","getRoomChannels","sendFinish","delete"],"report":["addRoom","findRoom","getRoomDetail","delete"],"recept":["addRoom","findRoom","getRoomDetail","delete"],"disturb":["addRoomAndContent","findAlls","findById","findTrainUser","uploadResult","saveSetting","delete"]},
   "transaction":"room, content and members are inserted in one transaction; delete removes page values/pages/users/content/room in one transaction",
   "verification":{"isolated_mysql":"report room add/list/detail/delete passed; all related tables returned zero rows after delete","rust_workspace":"cargo check/test/build passed"},
+  "channel_room_id_regression_2026_10_08":{"frontend":"ListenIn.vue changePin sends route.query.id as text","contract":"channel roomId accepts absent/null, Integer numbers, fractional numbers truncated toward zero, and trimmed numeric strings","verification":"cargo fmt --all -- --check and cargo test --locked passed (36 passed, 6 ignored); /tmp/t2_b.json only-journeys: 192 requests, 179 identical, 13 ACCEPTED, zero FAIL/OPEN; all six simulation-channel-room-id steps identical"},
   "known_boundary":"Generated pages, domain scoring, full room-role semantics, and Java/Rust response parity remain incomplete."
 }
