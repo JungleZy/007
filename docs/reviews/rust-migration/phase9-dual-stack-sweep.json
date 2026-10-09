@@ -3,7 +3,24 @@
   "generated_at_utc": "2026-10-09T03:19:23Z",
   "git_commit": "e6fba0f0",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
-  "execution_provenance": "Successful recorded sweeps below ran on identity harness code 42f312e9; later cleanup and fixture commits are listed with separate regression/live evidence. Post-documentation repeats exposed three message-body chronology differences (46fbe845) and four personal-ticker seconds/aggregate differences (e6fba0f0). All ten newly encountered endpoints and their bounded fixture resolutions are recorded below. Fresh final3 repeat commands follow the last documentation commit; actual final results are delivered in the handoff, never inferred from earlier successful counts.",
+  "execution_provenance": "The original top-level counters below retain the historical H1 identity checkpoint and its repeat history. latest_verified_batch records the newer B2 code/registry commits, actual live HTTP runs, database regressions, mutation results and Java gate; do not substitute older successful counts for that batch.",
+  "latest_verified_batch": {
+    "name": "B2 post-job handkey, electronic-key and telex",
+    "code_commits": ["ea24b2f1", "740dc367", "04d2d400"],
+    "source_and_registry_commit": "171db7ef",
+    "coverage": {"routes": 31, "active_frontend_routes": 27, "added_journeys": 6, "added_http_steps": 288, "planned_lock_sites_addressed": 26},
+    "rust": {"passed": 56, "ignored": 60, "fmt": "passed", "debug_build": "passed", "artifact": "artifact://1207"},
+    "isolated_mysql": {"database": "rust_scratch_lockdemo", "handkey_passed": 8, "electronic_key_passed": 8, "telex_passed": 9, "total_passed": 25, "artifact": "artifact://1207", "scope": "All affected tables verified InnoDB; includes queued current-attempt reads, old Java UUID aliases and exact replay, frozen scoring, lazy-generation atomicity, rollback injections and unrelated-row writability."},
+    "python_harness": {"passed": 54, "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'"},
+    "java": {"jdk": 21, "command": "JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify", "cwd": "backend", "passed": 513, "failures": 0, "errors": 0, "skipped": 0, "artifact": "artifact://1215"},
+    "raw_outcome_smoke": {"artifact": "/tmp/b2_validated_raw_assertions.json", "requests": 288, "assertion_failures": 0, "identical": 280, "accepted": 8, "scope": "Both-stack raw outcomes checked before optional comparison transforms; Java-undefined page-set order compared as a complete multiset."},
+    "journeys": {"artifact": "/tmp/b2_all_integrated_journeys.json", "requests": 857, "identical": 830, "accepted": 27, "fail": 0, "open": 0, "exit_code": 0, "chronology": "Verified final working-tree content before the four B2 code/contract commits."},
+    "full_sweep": {"artifact": "/tmp/b2_postcommit_full.json", "requests": 2306, "identical": 1750, "accepted": 556, "fail": 0, "open": 0, "exit_code": 0, "chronology": "Executed after 171db7ef against the rebuilt Java verification artifact and unchanged verified Rust binary."},
+    "mutations": {"artifact": "/tmp/b2_lock_mutations.json", "runtime_rejections": 3, "restored": true, "scope": "One original broad locking read restored per domain. Each corresponding regression failed on unrelated-training-row writability, not compilation; all 25 regressions passed again after restoration. This is not a mutation claim for every SQL site."},
+    "comparison": "No score/content/id masks were added. Server elapsed clocks alone are masked. Java codeAll and existPage queries lack ORDER BY, so only these declared arrays use complete duplicate-preserving multiset comparisons. Receipt-validity fixtures move only a synthetic running parent's clock anchor; they do not seed answers or scores.",
+    "new_accepted_java_defects": ["Valid foreign handkey finish wraps ForbiddenException in RuntimeException and returns Java HTTP500 rather than207; Rust retains207.", "Valid stale-attempt handkey finish wraps TerminalStateException in RuntimeException and returns Java HTTP500 rather than208; Rust retains208."],
+    "boundaries": ["Fixed cable copying is a single first MVCC floor snapshot, without mixing current cable-parent metadata; unrelated cable writer debt is unchanged.", "Java's trainType4 telex special scoring branch versus the frontend's trainType1 remains a shared behavior, not redefined by migration.", "HTTP payload replay and isolated SQL regressions do not replace actual browser, Electron, physical-device, multi-platform or production-cutover acceptance."]
+  },
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
