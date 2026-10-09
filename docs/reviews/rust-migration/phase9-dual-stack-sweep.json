@@ -1,23 +1,23 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-09T02:55:18Z",
-  "git_commit": "33fad926",
+  "generated_at_utc": "2026-10-09T03:05:06Z",
+  "git_commit": "46fbe845",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
-  "execution_provenance": "Recorded sweeps below ran on final identity harness code 42f312e9. The later 33fad926 registry commit removed an unused generated-description offset rule and was checked by 48 Python regressions. Post-documentation repeat commands are listed separately; their actual results are delivered in the handoff rather than inferred from this checkpoint.",
+  "execution_provenance": "Successful recorded sweeps below ran on identity harness code 42f312e9; 33fad926 later removed an unused description-offset rule. A post-documentation FULL repeat then exposed three further message-body chronology fixture differences, recorded below and fixed by 46fbe845 with 49 Python tests and a ten-step live probe. Post-documentation repeat commands target fresh output paths; actual final results are delivered in the handoff, not inferred from the earlier successful checkpoint.",
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
       "exit_code": 0,
       "passed": 53,
       "ignored": 28,
-      "artifact": "artifact://1016"
+      "artifact": "artifact://1023"
     },
     "python": {
       "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
       "exit_code": 0,
-      "tests": 48,
-      "output": "Ran 48 tests in 4.356s; OK",
-      "source": "H1IdentityMapping final code/registry tests before 33fad926 commit"
+      "tests": 49,
+      "output": "Ran 49 tests in 4.333s; OK",
+      "source": "H1IdentityMapping message-body chronology tests before 46fbe845 commit"
     },
     "isolated_database": {
       "database": "rust_scratch_lockdemo",
@@ -44,8 +44,8 @@
     "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_verified_full.json"
   },
   "post_documentation_repeat_commands": [
-    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_final_journeys.json",
-    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_final_full.json"
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_final2_journeys.json",
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_final2_full.json"
   ],
   "sweep_rerun_this_checkpoint": true,
   "journeys": {
@@ -295,9 +295,9 @@
     },
     {
       "finding": "H1",
-      "commits": ["d581ee8e", "c2f56469", "89bf42a5", "4a2f9592", "42f312e9", "33fad926"],
+      "commits": ["d581ee8e", "c2f56469", "89bf42a5", "4a2f9592", "42f312e9", "33fad926", "46fbe845"],
       "status": "CLOSED_IN_DOCUMENTED_SCOPE",
-      "result": "Production comparisons now check a journey/response-local bijection, including matched unordered rows, opted-in JSON strings, entity-key fields and known numeric PK/reference domains. 48 Python regressions pass, including wrong questions, swapped references, reverse reuse, persistent mappings, ambiguity, embedded JSON and nested integer domains. No Rust business-code fix or new acceptance rule was required; pagination fixture chronology was made deterministic and one obsolete integer-offset DATA rule was removed."
+      "result": "Production comparisons now check a journey/response-local bijection, including matched unordered rows, opted-in JSON strings, entity-key fields and known numeric PK/reference domains. 49 Python regressions pass, including wrong questions, swapped references, reverse reuse, persistent mappings, ambiguity, embedded JSON, nested integer domains and unchanged ordered/body-projection checks under deterministic fixture clocks. No Rust business-code fix or new acceptance rule was required; both affected ticker chronology fixtures were made deterministic and one obsolete integer-offset DATA rule was removed."
     }
   ],
   "identity_review_findings": {
@@ -312,14 +312,19 @@
     "newly_encountered_differences": [
       {"endpoint": "journey:training-list-pagination/post-ticker-2-rows-page-1", "paths": ["$.data.data[0].name", "$.data.data[1].name", "$.data.data[0].id", "$.data.data[1].id"], "resolution": "89bf42a5 deterministic two-row creation-time fixture; ordered pagination and bijection checks remain active"},
       {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-1", "paths": ["$.data.data[1].name", "$.data.data[1].id"], "resolution": "89bf42a5 deterministic three-row creation-time fixture; ordered pagination and bijection checks remain active"},
-      {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-2", "paths": ["$.data.data[0].name", "$.data.data[0].id"], "resolution": "89bf42a5 the same deterministic three-row creation-time fixture; page boundaries still compare literally"}
+      {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-2", "paths": ["$.data.data[0].name", "$.data.data[0].id"], "resolution": "89bf42a5 the same deterministic three-row creation-time fixture; page boundaries still compare literally"},
+      {"endpoint": "journey:post-ticker-list-message-body/list-populated-body", "paths": ["$.data.data[0].codeMessageBody", "$.data.data[1].codeMessageBody", "$.data.data[0].name", "$.data.data[1].name", "$.data.data[0].id", "$.data.data[1].id"], "resolution": "46fbe845 deterministic two-row message-body chronology; []/null projection, names and identity checks remain active"},
+      {"endpoint": "journey:post-ticker-list-message-body/list-null-body", "paths": ["$.data.data[1].codeMessageBody", "$.data.data[2].codeMessageBody", "$.data.data[1].name", "$.data.data[2].name", "$.data.data[1].id", "$.data.data[2].id"], "resolution": "46fbe845 deterministic three-row message-body chronology; no projection or identity exemption"},
+      {"endpoint": "journey:post-ticker-list-message-body/list-absent-body", "paths": ["$.data.data[2].codeMessageBody", "$.data.data[3].codeMessageBody", "$.data.data[2].name", "$.data.data[3].name", "$.data.data[2].id", "$.data.data[3].id"], "resolution": "46fbe845 deterministic four-row message-body chronology; ordered rows and absent/null/empty representation remain compared"}
     ],
+    "additional_post_documentation_run": {"artifact": "/tmp/h1_identity_final_full.json", "generated_at_utc": "2026-10-09T03:05:06Z", "requests": 1870, "identical": 1318, "accepted": 549, "fail": 3, "open": 0, "resolution_commit": "46fbe845"},
     "pagination_evidence": {
       "java_source": "PostTickerTapeTrainService.listPage orders createTime descending; entity default is LocalDateTime.now()",
       "rust_source": "post_ticker::list orders create_time DESC; add persists NOW(6)",
       "live_probe": "/tmp/h1_ticker_order_probe.json: both databases had distinct creation seconds and all eight pagination responses compared equal",
+      "message_body_live_probe": "/tmp/h1_ticker_body_order_probe.json: all ten journey steps compare equal; both databases store the same four distinct fixture timestamps and raw []/nonempty/null/absent body inventories",
       "evidence_limit": "The initial mismatch report did not preserve raw clocks. Exact initial clock values or ties cannot be inferred; this was an uncontrolled chronology fixture, not evidence of a Rust sorting defect",
-      "regression": "Both isolated databases receive the same step seed before HTTP; reversed ordered rows remain a difference"
+      "regression": "Both isolated databases receive the same step seed before HTTP; reversed ordered rows and [] versus null body projection remain differences"
     },
     "equivalence_reclassification": {
       "endpoint": "POST /api/device/addDeviceDescription",
