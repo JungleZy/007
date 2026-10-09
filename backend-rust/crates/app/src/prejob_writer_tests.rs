@@ -314,6 +314,92 @@ async fn same_owner_writers_serialize_before_children_and_preserve_totals() {
     }
 }
 
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo and performance_schema"]
+async fn different_parents_settle_with_current_owner_history() {
+    let fixture = Fixture::new().await;
+    let sibling = format!("{}-sibling", fixture.target);
+    sqlx::query("INSERT INTO t_telegraph_key_pat_synthetical_train (id,create_user_id,status,protocol_version,source_content,content,accumulated_active_millis,duration,total_number,error_number,accuracy,speed,message_type,create_time) SELECT ?,create_user_id,status,protocol_version,source_content,content,accumulated_active_millis,duration,total_number,error_number,accuracy,speed,message_type,'2020-01-02' FROM t_telegraph_key_pat_synthetical_train WHERE id=?")
+        .bind(&sibling).bind(&fixture.target).execute(&fixture.pool).await.unwrap();
+    let (gate, connection) = gate(&fixture.pool, "t_user", &fixture.owner).await;
+    let mut writers = Vec::new();
+    for id in [fixture.target.clone(), sibling] {
+        let state = fixture.state.clone();
+        let actor = fixture.actor();
+        writers.push(tokio::spawn(async move {
+            invoke(state, actor, "synth-finish", id).await
+        }));
+    }
+    let reached = waiting(&fixture.pool, connection, "t_user", 2).await;
+    gate.commit().await.unwrap();
+    let mut replies = Vec::new();
+    for writer in writers {
+        replies.push(
+            document(
+                tokio::time::timeout(Duration::from_secs(5), writer)
+                    .await
+                    .unwrap()
+                    .unwrap(),
+            )
+            .await,
+        );
+    }
+    let row = sqlx::query("SELECT total_count,total_time,CAST(avg_speed AS CHAR) AS speed FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=2")
+        .bind(&fixture.owner).fetch_one(&fixture.pool).await.unwrap();
+    let count: Option<i32> = row.get("total_count");
+    let time: Option<String> = row.get("total_time");
+    let speed: Option<String> = row.get("speed");
+    fixture.cleanup().await;
+    assert!(reached, "both settlements must wait for the same owner");
+    for response in replies {
+        assert_eq!(response["code"], 200, "{response}");
+    }
+    assert_eq!(
+        count,
+        Some(2),
+        "RR preflight snapshots must not hide another parent's committed settlement"
+    );
+    assert_eq!(time.as_deref(), Some("120000"));
+    assert_eq!(speed.as_deref(), Some("4.00"));
+}
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo"]
+async fn synthetical_existing_writes_use_one_pool_connection() {
+    let fixture = Fixture::new().await;
+    sqlx::query("UPDATE t_telegraph_key_pat_synthetical_train SET status=0 WHERE id=?")
+        .bind(&fixture.target)
+        .execute(&fixture.pool)
+        .await
+        .unwrap();
+    let url = std::env::var("RUST_PHASE2_DATABASE_URL").unwrap();
+    let bounded = sqlx::mysql::MySqlPoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(Duration::from_millis(200))
+        .connect(&url)
+        .await
+        .unwrap();
+    let mut state = fixture.state.clone();
+    state.pool = Some(bounded);
+    let actor = fixture.actor();
+    let id = fixture.target.clone();
+    let replies = tokio::time::timeout(Duration::from_secs(5), async {
+        let mut replies = Vec::new();
+        replies.push(document(synthetical::save(State(state.clone()), Extension(actor.clone()), Json(json!({"id":id,"title":"single connection"}))).await).await);
+        replies.push(document(synthetical::begin(State(state.clone()), Extension(actor.clone()), Json(json!({"id":id}))).await).await);
+        let body = json!({"id":id,"content":"[{\"text\":\"1234\",\"value\":\"1234\",\"type\":true,\"isFocus\":true}]"});
+        replies.push(document(synthetical::stop(State(state.clone()), Extension(actor.clone()), Json(body.clone())).await).await);
+        replies.push(document(synthetical::go_to(State(state.clone()), Extension(actor.clone()), Json(json!({"id":id}))).await).await);
+        replies.push(document(synthetical::finish(State(state), Extension(actor), Json(body)).await).await);
+        replies
+    }).await;
+    fixture.cleanup().await;
+    for response in replies.expect("preflight must not reenter a one-connection pool inside BEGIN")
+    {
+        assert_eq!(response["code"], 200, "{response}");
+    }
+}
+
 fn settings(offset: i32) -> Value {
     let mut values = Vec::new();
     for (key, min, max) in [("0", 10 + offset, 80), ("1", 80, 560)] {

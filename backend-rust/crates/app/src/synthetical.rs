@@ -136,26 +136,28 @@ fn owner_of(row: &MySqlRow) -> Result<String, Error> {
         .ok_or_else(|| parameter("训练属主不存在"))
 }
 
-async fn authorized_locked(
-    tx: &mut Transaction<'_, MySql>,
-    user: &AuthUser,
-    id: &str,
-) -> Result<MySqlRow, Error> {
-    let initial = sqlx::query(TRAIN_SELECT)
-        .bind(id)
-        .fetch_optional(&mut **tx)
-        .await?;
-    let initial = initial.ok_or_else(|| parameter(TRAIN_NOT_FOUND))?;
+// Preflight must precede BEGIN: a plain read inside an RR transaction would pin
+// history before waiting for the owner, hiding another parent's committed finish.
+async fn authorized_owner(pool: &MySqlPool, user: &AuthUser, id: &str) -> Result<String, Error> {
+    let initial = find_train(pool, id)
+        .await?
+        .ok_or_else(|| parameter(TRAIN_NOT_FOUND))?;
     let owner = initial.try_get::<Option<String>, _>("create_user_id")?;
     if owner.as_deref() != Some(user.id.as_str()) && !user.is_admin {
         return Err(Error::Forbidden(format!("非创建者访问电子键综合训练 {id}")));
     }
-    let owner = owner.ok_or_else(|| parameter("id to load is required for loading"))?;
+    owner.ok_or_else(|| parameter("id to load is required for loading"))
+}
 
-    // Every train mutation takes the owner row before taking the train row.
-    lock_user(tx, &owner).await?;
-    let refreshed = find_train_locked(tx, id).await?;
-    refreshed.ok_or_else(|| parameter(TRAIN_NOT_FOUND))
+async fn authorized_locked(
+    tx: &mut Transaction<'_, MySql>,
+    owner: &str,
+    id: &str,
+) -> Result<MySqlRow, Error> {
+    lock_user(tx, owner).await?;
+    find_train_locked(tx, id)
+        .await?
+        .ok_or_else(|| parameter(TRAIN_NOT_FOUND))
 }
 
 fn protocol_guard(row: &MySqlRow) -> Result<(), Error> {
@@ -559,10 +561,14 @@ pub(crate) async fn save(
         }
         let pool = pool(&state)?;
         let id = field_string(&body, "id")?;
+        let existing = match id.filter(|value| !value.trim().is_empty()) {
+            Some(id) => Some((id, authorized_owner(pool, &user, id).await?)),
+            None => None,
+        };
         let mut tx = pool.begin().await?;
         let outcome = async {
-            if let Some(id) = id.filter(|value| !value.trim().is_empty()) {
-                let row = authorized_locked(&mut tx, &user, id).await?;
+            if let Some((id, owner)) = existing {
+                let row = authorized_locked(&mut tx, &owner, id).await?;
                 protocol_guard(&row)?;
                 if row.get::<Option<i32>, _>("status") != Some(0) {
                     return Err(terminal("训练已开始，不能修改配置"));
@@ -660,9 +666,10 @@ pub(crate) async fn begin(
     let result = async {
         let id = required_id(&body)?;
         let pool = pool(&state)?;
+        let owner = authorized_owner(pool, &user, id).await?;
         let mut tx = pool.begin().await?;
         let outcome = async {
-            let row = authorized_locked(&mut tx, &user, id).await?;
+            let row = authorized_locked(&mut tx, &owner, id).await?;
             protocol_guard(&row)?;
             match row.get::<Option<i32>, _>("status") {
                 Some(1) => view(&row),
@@ -703,9 +710,10 @@ pub(crate) async fn stop(
     let result = async {
         let id = required_id(&body)?;
         let pool = pool(&state)?;
+        let owner = authorized_owner(pool, &user, id).await?;
         let mut tx = pool.begin().await?;
         let outcome = async {
-            let row = authorized_locked(&mut tx, &user, id).await?;
+            let row = authorized_locked(&mut tx, &owner, id).await?;
             protocol_guard(&row)?;
             let content = required_content(&body)?;
             let normalized = answers(&row, content)?;
@@ -751,9 +759,10 @@ pub(crate) async fn go_to(
     let result = async {
         let id = required_id(&body)?;
         let pool = pool(&state)?;
+        let owner = authorized_owner(pool, &user, id).await?;
         let mut tx = pool.begin().await?;
         let outcome = async {
-            let row = authorized_locked(&mut tx, &user, id).await?;
+            let row = authorized_locked(&mut tx, &owner, id).await?;
             protocol_guard(&row)?;
             match row.get::<Option<i32>, _>("status") {
                 Some(1) => view(&row),
@@ -794,9 +803,10 @@ pub(crate) async fn finish(
     let result = async {
         let id = required_id(&body)?;
         let pool = pool(&state)?;
+        let owner = authorized_owner(pool, &user, id).await?;
         let mut tx = pool.begin().await?;
         let outcome = async {
-            let row = authorized_locked(&mut tx, &user, id).await?;
+            let row = authorized_locked(&mut tx, &owner, id).await?;
             protocol_guard(&row)?;
             let content = required_content(&body)?;
             let normalized = answers(&row, content)?;
