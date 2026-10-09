@@ -39,6 +39,7 @@ Setup (all synthetic, nothing touches production):
 """
 import argparse
 import collections
+import copy
 import datetime
 import hashlib
 import json
@@ -182,10 +183,9 @@ EPOCH_MS = re.compile(r"^\d{13}$")
 
 
 def normalize(value):
-    """Mask values the server generates (UUIDs, clocks) by shape, never by field name.
+    """Identity-agnostic canonical form; production comparisons also check IdentityMap.
 
-    Both stacks produce a value of the same shape; the value itself carries no
-    information. Integral floats equal their integer (JS cannot tell 0 from 0.0).
+    Clocks retain shape masking. Integral floats equal their integer (as in JS).
     """
     if isinstance(value, dict):
         return {key: normalize(item) for key, item in value.items()}
@@ -206,6 +206,132 @@ def normalize(value):
     if isinstance(value, int) and 10**12 <= value < 10**13:
         return "<epoch-ms>"
     return value
+
+
+class Unordered(list):
+    """Opted-in multiset whose raw identities remain available for pair matching."""
+
+
+NUMERIC_ID_DOMAINS = {"device", "deviceType", "deviceDescription", "deviceScoringRule", "groupNetTrain", "room"}
+
+
+def identity_domain(path):
+    endpoint = path.split("?")[0].split("/")
+    return "room" if "router" in endpoint else next((part for part in endpoint if part in NUMERIC_ID_DOMAINS), None)
+
+
+class IdentityMap:
+    """One journey (or standalone response) owns a bijection, numeric PKs per entity domain."""
+
+    def __init__(self):
+        self.java_to_rust, self.rust_to_java = {}, {}
+
+    def clone(self):
+        other = IdentityMap()
+        other.java_to_rust = self.java_to_rust.copy()
+        other.rust_to_java = self.rust_to_java.copy()
+        return other
+
+    def key(self, value, field, domain):
+        if isinstance(value, str) and UUID.fullmatch(value):
+            return ("uuid", value)
+        numeric_domain = domain if field == "id" else field[:-2] if field.endswith("Id") else None
+        if numeric_domain in NUMERIC_ID_DOMAINS and type(value) is int and value > 0:
+            return (numeric_domain, value)
+        return None
+
+    def canonical(self, value, side, field="", domain=None, agnostic=False):
+        key = self.key(value, field, domain)
+        if key is not None and key[0] != "uuid":
+            if agnostic:
+                return "<numeric-id>"
+            if side == "rust" and key in self.rust_to_java:
+                return self.rust_to_java[key][1]
+        if isinstance(value, dict):
+            return {name: self.canonical(item, side, name, domain, agnostic) for name, item in value.items()}
+        if isinstance(value, list):
+            items = [self.canonical(item, side, field, domain, agnostic) for item in value]
+            return unordered_array(items) if isinstance(value, Unordered) else items
+        return value
+
+    def bind(self, java, rust, path, field="", domain=None):
+        left, right = self.key(java, field, domain), self.key(rust, field, domain)
+        if left is None or right is None:
+            return []
+        expected = self.java_to_rust.get(left)
+        inverse = self.rust_to_java.get(right)
+        if (expected is not None and expected != right) or (inverse is not None and inverse != left):
+            return [[path, java, rust, {"reason": "identity mismatch",
+                                      "java_mapped_to": expected[1] if expected else None,
+                                      "rust_mapped_to": inverse[1] if inverse else None}]]
+        self.java_to_rust[left], self.rust_to_java[right] = right, left
+        return []
+
+    def compare(self, java, rust, path="$", field="", domain=None):
+        pending, differences = [], []
+
+        def walk(left, right, at, name):
+            differences.extend(self.bind(left, right, at, name, domain))
+            if isinstance(left, dict) and isinstance(right, dict):
+                for key in sorted(left.keys() & right.keys()):
+                    walk(left[key], right[key], f"{at}.{key}", key)
+            elif isinstance(left, Unordered) and isinstance(right, Unordered):
+                pending.append((left, right, at))
+            elif isinstance(left, list) and isinstance(right, list):
+                for index, (x, y) in enumerate(zip(left, right)):
+                    walk(x, y, f"{at}[{index}]", name)
+
+        walk(java, rust, path, field)
+        for left, right, at in pending:
+            differences.extend(self.match_unordered(left, right, at, domain))
+        return differences
+
+    def match_unordered(self, java, rust, path, domain):
+        """Match canonical forms first; existing identities must select a unique bijection."""
+        groups = collections.defaultdict(lambda: [[], []])
+        for side, values in enumerate((java, rust)):
+            for index, value in enumerate(values):
+                canonical = json.dumps(normalize(self.canonical(value, "java" if side == 0 else "rust", domain=domain, agnostic=True)),
+                                       ensure_ascii=False, sort_keys=True)
+                groups[canonical][side].append((index, value))
+        differences = []
+        for left, right in groups.values():
+            if len(left) != len(right):
+                # Ordinary data_diffs reports the full unmatched inventory; do not invent identities.
+                continue
+            solutions, failed = {}, []
+
+            def search(index, remaining, mapping):
+                if len(solutions) > 1:
+                    return
+                if index == len(left):
+                    signature = frozenset(mapping.java_to_rust.items())
+                    solutions[signature] = mapping
+                    return
+                java_index, item = left[index]
+                seen = set()
+                for candidate, (_, value) in enumerate(remaining):
+                    spelling = json.dumps(value, ensure_ascii=False, sort_keys=True)
+                    if spelling in seen:
+                        continue
+                    seen.add(spelling)
+                    trial = mapping.clone()
+                    errors = trial.compare(item, value, f"{path}[{java_index}]", domain=domain)
+                    if errors:
+                        failed.extend(errors)
+                    else:
+                        search(index + 1, remaining[:candidate] + remaining[candidate + 1:], trial)
+
+            search(0, right, self.clone())
+            if len(solutions) == 1:
+                match = next(iter(solutions.values()))
+                self.java_to_rust, self.rust_to_java = match.java_to_rust, match.rust_to_java
+            elif solutions:
+                differences.append([path, normalize([item for _, item in left]), normalize([item for _, item in right]),
+                                    {"reason": "ambiguous identity correspondence"}])
+            elif failed:
+                differences.extend(failed)
+        return differences
 
 
 def code(resp):
@@ -332,14 +458,14 @@ def parsed_json(value):
     """Parse only opted-in string values; keep the wire string type distinguishable."""
     if not isinstance(value, str):
         return value
-    return {"<parsed-json-string>": normalize(json.loads(value))}
+    return {"<parsed-json-string>": json.loads(value)}
 
 
 def unordered_array(value):
     """Canonical multiset ordering retains duplicates and every row's fields."""
     if not isinstance(value, list):
         return value
-    return sorted(value, key=lambda item: json.dumps(normalize(item), ensure_ascii=False, sort_keys=True))
+    return Unordered(sorted(value, key=lambda item: json.dumps(normalize(item), ensure_ascii=False, sort_keys=True)))
 
 
 STUDY_ENTITY_KEY = re.compile(
@@ -359,17 +485,14 @@ def normalized_entity_keys(value):
         if match:
             matched = True
             fields = dict(zip(STUDY_ENTITY_FIELDS, match.groups()))
-            for name in ("id", "createUserId", "difficultyId", "specialtyId"):
-                if UUID.fullmatch(fields[name]):
-                    fields[name] = "<uuid>"
             if EPOCH_MS.fullmatch(fields["createTime"]) or DATETIME.fullmatch(fields["createTime"]):
                 fields["createTime"] = "<clock>"
-            key = "TheoryKnowledgeEntity(" + ", ".join(f"{name}={fields[name]}" for name in STUDY_ENTITY_FIELDS) + ")"
+            key = {"<entity-key>": fields}
         entries.append([key, item])
     if not matched:
         return value
     # A multiset, not a dict: two generated keys can normalize to the same spelling.
-    return {"<normalized-entity-key-entries>": sorted(entries, key=lambda entry: json.dumps(normalize(entry), ensure_ascii=False, sort_keys=True))}
+    return {"<normalized-entity-key-entries>": unordered_array(entries)}
 
 
 def captured_floor_content(document, floor_id):
@@ -382,9 +505,7 @@ def captured_floor_content(document, floor_id):
     rows = data[floor_id]
     if not isinstance(rows, list) or any(not isinstance(row, dict) or row.get("floorId") != floor_id for row in rows):
         return ["floor-content rows do not reference the captured requested floor"]
-    document["data"] = {"<requested-floor>": unordered_array([
-        {**row, "floorId": "<requested-floor>"} for row in rows
-    ])}
+    document["data"] = {"<requested-floor>": unordered_array(rows)}
     return []
 
 
@@ -417,6 +538,7 @@ def run_journeys(spec, args, headers, db):
             for database in db.dbs:
                 db.run(database, journey["seed_sql"])
         variables = {"java": {}, "rust": {}}
+        identities = IdentityMap()
         for step in journey["steps"]:
             who = step.get("who", "admin")
             outcome = {}
@@ -426,12 +548,21 @@ def run_journeys(spec, args, headers, db):
                 outcome[side] = http_case(base, step["method"], path, body, headers[who], args.timeout)
                 for name, expression in step.get("capture", {}).items():
                     try:
-                        variables[side][name] = extract(outcome[side]["json"], expression)
+                        variables[side][name] = copy.deepcopy(extract(outcome[side]["json"], expression))
                     except (KeyError, IndexError, TypeError):
                         variables[side][name] = None
                 errors = prepare_journey_response(outcome[side].get("json"), step, variables[side])
                 if errors:
                     outcome[side]["comparison_errors"] = errors
+            identity_diffs = []
+            domain = identity_domain(step["path"])
+            for name, expression in step.get("capture", {}).items():
+                identity_diffs.extend(identities.compare(variables["java"][name], variables["rust"][name],
+                                                         expression, "id" if name.endswith("Id") else name, domain))
+            identity_diffs.extend(identities.compare(outcome["java"].get("json"), outcome["rust"].get("json"), domain=domain))
+            outcome["java"]["identity_diffs"] = identity_diffs
+            for side in ("java", "rust"):
+                outcome[side]["comparison_json"] = identities.canonical(outcome[side].get("json"), side, domain=domain)
             job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
                    "path": step["path"], "method": step["method"]}
             results.append((job, outcome["java"], outcome["rust"]))
@@ -531,14 +662,23 @@ def comparison_entry(job, java, rust, registry):
     """One production classification/disposition path, also exercised by regressions."""
     errors = {side: response["comparison_errors"] for side, response in (("java", java), ("rust", rust))
               if response.get("comparison_errors")}
-    if not errors and comparable(java) == comparable(rust):
+    identity_diffs = java.get("identity_diffs")
+    if identity_diffs is None:
+        identities, domain = IdentityMap(), identity_domain(job["path"])
+        identity_diffs = identities.compare(java.get("json"), rust.get("json"), domain=domain)
+        java = {**java, "json": identities.canonical(java.get("json"), "java", domain=domain)}
+        rust = {**rust, "json": identities.canonical(rust.get("json"), "rust", domain=domain)}
+    else:
+        java = {**java, "json": java.get("comparison_json", java.get("json"))}
+        rust = {**rust, "json": rust.get("comparison_json", rust.get("json"))}
+    if not errors and not identity_diffs and comparable(java) == comparable(rust):
         return None
     entry = {"endpoint": job["endpoint"], "variant": job["variant"], "who": job["who"], "path": job["path"],
-             "category": "DATA" if errors else category(java, rust), "java": brief(java), "rust": brief(rust)}
+             "category": "DATA" if errors or identity_diffs else category(java, rust), "java": brief(java), "rust": brief(rust)}
     if errors:
         entry["comparison_errors"] = errors
     if isinstance(java.get("json"), dict) and isinstance(rust.get("json"), dict):
-        entry["data_diffs"] = envelope_data_diffs(java["json"], rust["json"])
+        entry["data_diffs"] = envelope_data_diffs(java["json"], rust["json"]) + identity_diffs
         entry["first_data_diffs"] = entry["data_diffs"][:4]
     entry["disposition"], entry["note"] = disposition(entry, registry)
     return entry

@@ -18,7 +18,8 @@ class JourneyComparisonTest(unittest.TestCase):
         left, right = copy.deepcopy(left), copy.deepcopy(right)
         sweep.prepare_journey_response(left, step)
         sweep.prepare_journey_response(right, step)
-        return sweep.comparable({"status": 200, "json": left}) == sweep.comparable({"status": 200, "json": right})
+        job = {"endpoint": "journey:test/read", "variant": "journey", "who": "admin", "path": "/read"}
+        return sweep.comparison_entry(job, {"status": 200, "json": left}, {"status": 200, "json": right}, {}) is None
 
     def test_unordered_is_opt_in_and_preserves_multiset_counts_and_values(self):
         left = {"data": [{"key": "a", "value": "1"}, {"key": "b", "value": "2"}, {"key": "a", "value": "1"}]}
@@ -117,7 +118,7 @@ class JourneyComparisonTest(unittest.TestCase):
         second = self.study_key("99999999-9999-9999-9999-999999999999", "1790000000100")
         entries = sweep.normalized_entity_keys({first: {"课件": 1}, second: {"课件": 1}})["<normalized-entity-key-entries>"]
         self.assertEqual(2, len(entries))
-        self.assertEqual(entries[0], entries[1])
+        self.assertEqual(sweep.normalize(entries[0]), sweep.normalize(entries[1]))
         step = {"normalize_keys": ["$.data.down"]}
         self.assertFalse(self.equivalent({"data": {"down": {first: {"课件": 1}, second: {"课件": 1}}}},
                                          {"data": {"down": {first: {"课件": 1}}}}, step))
@@ -132,7 +133,7 @@ class JourneyComparisonTest(unittest.TestCase):
         for key, item in nonmatching.items():
             self.assertIn([key, item], entries)
         plain = self.study_key("fixed-id", "fixed-time")
-        self.assertEqual(plain, sweep.normalized_entity_keys({plain: 1})["<normalized-entity-key-entries>"][0][0])
+        self.assertEqual("fixed-id", sweep.normalized_entity_keys({plain: 1})["<normalized-entity-key-entries>"][0][0]["<entity-key>"]["id"])
 
     def test_scheduled_candidate_journey_preserves_named_query_order(self):
         spec = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
@@ -183,8 +184,8 @@ class FloorContentComparisonTest(unittest.TestCase):
 
     def document(self, floor_id):
         return {"code": 200, "data": {floor_id: [
-            {"id": self.java_id, "floorId": floor_id, "sort": 0, "moresKey": "E", "moresValue": "[]", "moresTime": "[]"},
-            {"id": self.rust_id, "floorId": floor_id, "sort": 1, "moresKey": "T", "moresValue": "[1]", "moresTime": "[160]"},
+            {"id": "22222222-2222-2222-2222-222222222222", "floorId": floor_id, "sort": 0, "moresKey": "E", "moresValue": "[]", "moresTime": "[]"},
+            {"id": "33333333-3333-3333-3333-333333333333", "floorId": floor_id, "sort": 1, "moresKey": "T", "moresValue": "[1]", "moresTime": "[160]"},
         ]}}
 
     def compare(self, java, rust, java_id=None, rust_id=None):
@@ -273,6 +274,142 @@ class FloorContentComparisonTest(unittest.TestCase):
             results = sweep.run_journeys(spec, args, {"admin": {}}, None)
         self.assertEqual([[self.java_id], [self.rust_id]], calls)
         self.assertIsNone(sweep.comparison_entry(*results[-1], {}))
+
+
+class IdentityCorrespondenceTest(unittest.TestCase):
+    java_one = "11111111-1111-1111-1111-111111111111"
+    java_two = "22222222-2222-2222-2222-222222222222"
+    rust_one = "88888888-8888-8888-8888-888888888888"
+    rust_two = "99999999-9999-9999-9999-999999999999"
+
+    def compare(self, java, rust, identities=None, step=None, variant="journey", path="/read"):
+        java, rust = copy.deepcopy(java), copy.deepcopy(rust)
+        for document in (java, rust):
+            sweep.prepare_journey_response(document, step or {})
+        left = {"status": 200, "json": {"code": 200, **java}}
+        right = {"status": 200, "json": {"code": 200, **rust}}
+        if identities is not None:
+            domain = sweep.identity_domain(path)
+            left["identity_diffs"] = identities.compare(left["json"], right["json"], domain=domain)
+            left["comparison_json"] = identities.canonical(left["json"], "java", domain=domain)
+            right["comparison_json"] = identities.canonical(right["json"], "rust", domain=domain)
+        job = {"endpoint": "journey:identity/read", "variant": variant, "who": "admin", "path": path}
+        return sweep.comparison_entry(job, left, right, {})
+
+    def seeded(self):
+        identities = sweep.IdentityMap()
+        self.assertEqual([], identities.compare([self.java_one, self.java_two], [self.rust_one, self.rust_two]))
+        return identities
+
+    def assert_mismatch(self, entry, path):
+        self.assertEqual("DATA", entry["category"])
+        self.assertEqual("FAIL", entry["disposition"])
+        self.assertTrue(any(diff[0] == path and len(diff) > 3 and diff[3].get("reason") == "identity mismatch" for diff in entry["data_diffs"]))
+
+    def test_wrong_question_reference_is_not_hidden_by_uuid_shape(self):
+        entry = self.compare({"data": {"answer": {"questionId": self.java_one}}},
+                             {"data": {"answer": {"questionId": self.rust_two}}}, self.seeded())
+        self.assert_mismatch(entry, "$.data.answer.questionId")
+
+    def test_swapped_references_between_rows_fail(self):
+        java = {"data": [{"name": "first", "questionId": self.java_one}, {"name": "second", "questionId": self.java_two}]}
+        rust = {"data": [{"name": "first", "questionId": self.rust_two}, {"name": "second", "questionId": self.rust_one}]}
+        entry = self.compare(java, rust, self.seeded())
+        self.assert_mismatch(entry, "$.data[0].questionId")
+        self.assert_mismatch(entry, "$.data[1].questionId")
+
+    def test_reused_identifier_fails_in_both_bijection_directions(self):
+        java = {"data": [{"id": self.java_one}, {"id": self.java_two}]}
+        rust = {"data": [{"id": self.rust_one}, {"id": self.rust_one}]}
+        for left, right in [(java, rust), (rust, java)]:
+            self.assert_mismatch(self.compare(left, right), "$.data[1].id")
+        entry = self.compare(java, rust, variant="empty")
+        self.assertEqual("DATA", entry["category"], "standalone requests also check a response-local map")
+
+    def test_consistent_ids_across_steps_and_literal_fixture_ids(self):
+        identities = sweep.IdentityMap()
+        for left, right in [({"id": self.java_one}, {"id": self.rust_one}),
+                            ({"questionId": self.java_one}, {"questionId": self.rust_one}),
+                            ({"rows": [{"parentId": self.java_one, "id": self.java_two}]},
+                             {"rows": [{"parentId": self.rust_one, "id": self.rust_two}]})]:
+            self.assertIsNone(self.compare({"data": left}, {"data": right}, identities))
+        self.assertIsNone(self.compare({"data": "sweep-admin"}, {"data": "sweep-admin"}, identities))
+        self.assertEqual("DATA", self.compare({"data": "sweep-admin"}, {"data": "sweep-student"}, identities)["category"])
+        self.assertIsNone(self.compare({"data": {"time": "1790000000000"}}, {"data": {"time": "1790000000100"}}, identities))
+
+    def test_unordered_references_use_canonical_rows_and_existing_mapping(self):
+        java = {"data": [{"name": "one", "questionId": self.java_one}, {"name": "two", "questionId": self.java_two}]}
+        rust = {"data": [{"name": "two", "questionId": self.rust_two}, {"name": "one", "questionId": self.rust_one}]}
+        step = {"unordered": ["$.data"]}
+        self.assertIsNone(self.compare(java, rust, self.seeded(), step))
+        rust["data"][0]["questionId"] = self.rust_one
+        rust["data"][1]["questionId"] = self.rust_two
+        self.assert_mismatch(self.compare(java, rust, self.seeded(), step), "$.data[0].questionId")
+
+    def test_ambiguous_unordered_entities_fail_until_identity_is_known(self):
+        java = {"data": [{"id": self.java_one}, {"id": self.java_two}]}
+        rust = {"data": [{"id": self.rust_two}, {"id": self.rust_one}]}
+        step = {"unordered": ["$.data"]}
+        entry = self.compare(java, rust, step=step)
+        self.assertEqual("ambiguous identity correspondence", entry["data_diffs"][0][3]["reason"])
+        self.assertIsNone(self.compare(java, rust, self.seeded(), step))
+        self.assertIsNone(self.compare({"data": [java["data"][0]] * 2}, {"data": [rust["data"][1]] * 2}, step=step))
+
+    def test_embedded_json_shares_the_outer_and_prior_step_identity_map(self):
+        java = {"data": {"questions": [{"id": self.java_one}, {"id": self.java_two}],
+                         "content": json.dumps({"answers": [{"questionId": self.java_one}]})}}
+        rust = {"data": {"questions": [{"id": self.rust_one}, {"id": self.rust_two}],
+                         "content": json.dumps({"answers": [{"questionId": self.rust_one}]})}}
+        step = {"parse_json": ["$.data.content"]}
+        self.assertIsNone(self.compare(java, rust, step=step))
+        rust["data"]["content"] = json.dumps({"answers": [{"questionId": self.rust_two}]})
+        self.assertEqual("DATA", self.compare(java, rust, step=step)["category"])
+        self.assert_mismatch(self.compare(java, rust, self.seeded(), step), "$.data.content.<parsed-json-string>.answers[0].questionId")
+
+    def test_normalized_entity_keys_preserve_identity_references(self):
+        helper = JourneyComparisonTest()
+        java = {"data": {"down": {helper.study_key(self.java_one, "1790000000000"): {"questionId": self.java_one}}}}
+        rust = {"data": {"down": {helper.study_key(self.rust_one, "1790000000100"): {"questionId": self.rust_one}}}}
+        step = {"normalize_keys": ["$.data.down"]}
+        self.assertIsNone(self.compare(java, rust, self.seeded(), step))
+        rust["data"]["down"] = {helper.study_key(self.rust_two, "1790000000100"): {"questionId": self.rust_one}}
+        self.assert_mismatch(self.compare(java, rust, self.seeded(), step), "$.data.down.<normalized-entity-key-entries>[0][0].<entity-key>.id")
+
+    def test_numeric_generated_ids_are_scoped_to_entity_domains_not_scores(self):
+        identities = sweep.IdentityMap()
+        self.assertEqual([], identities.compare({"id": 1}, {"id": 1}, domain="device"))
+        self.assertEqual([], identities.compare({"id": 1}, {"id": 1}, domain="deviceType"))
+        self.assertIsNone(self.compare({"data": {"deviceId": 1, "deviceTypeId": 1}},
+                                      {"data": {"deviceId": 1, "deviceTypeId": 1}}, identities))
+        self.assert_mismatch(self.compare({"data": {"deviceId": 1}}, {"data": {"deviceId": 2}}, identities), "$.data.deviceId")
+        self.assertEqual("DATA", self.compare({"data": {"score": 1}}, {"data": {"score": 2}}, identities)["category"])
+
+    def test_numeric_mapping_accepts_consistent_generated_pk_offsets(self):
+        identities = sweep.IdentityMap()
+        self.assertIsNone(self.compare({"data": {"id": 1}}, {"data": {"id": 41}}, identities, path="/api/deviceType/save"))
+        self.assertIsNone(self.compare({"data": {"id": 1, "deviceTypeId": 1}},
+                                      {"data": {"id": 19, "deviceTypeId": 41}}, identities, path="/api/device/save"))
+        java = {"data": [{"name": "one", "deviceId": 1, "deviceTypeId": 1}, {"name": "two", "deviceId": 2, "deviceTypeId": 1}]}
+        rust = {"data": [{"name": "two", "deviceId": 20, "deviceTypeId": 41}, {"name": "one", "deviceId": 19, "deviceTypeId": 41}]}
+        step = {"unordered": ["$.data"]}
+        self.assertIsNone(self.compare(java, rust, identities, step))
+        rust["data"][0]["deviceId"] = 19
+        self.assert_mismatch(self.compare(java, rust, identities, step), "$.data[1].deviceId")
+
+    def test_run_journeys_seeds_captures_before_masking_and_resets_per_journey(self):
+        spec = {"journeys": [{"name": name, "steps": [
+            {"name": "capture", "method": "POST", "path": "/create", "capture": {"id": "$.data.id"}, "mask": ["$.data.id"]},
+            {"name": "read", "method": "POST", "path": "/read"},
+        ]} for name in ("first", "second")]}
+        replies = [self.java_one, self.rust_one, self.java_one, self.rust_two,
+                   self.java_one, self.rust_two, self.java_one, self.rust_two]
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", side_effect=[{"status": 200, "json": {"code": 200, "data": {"id": value}}} for value in replies]):
+            results = sweep.run_journeys(spec, args, {"admin": {}}, None)
+        self.assertIsNone(sweep.comparison_entry(*results[0], {}))
+        self.assert_mismatch(sweep.comparison_entry(*results[1], {}), "$.data.id")
+        self.assertIsNone(sweep.comparison_entry(*results[2], {}))
+        self.assertIsNone(sweep.comparison_entry(*results[3], {}))
 
 
 class ClassificationTest(unittest.TestCase):
