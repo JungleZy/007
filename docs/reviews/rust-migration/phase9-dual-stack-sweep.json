@@ -1,23 +1,23 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-09T03:05:06Z",
-  "git_commit": "46fbe845",
+  "generated_at_utc": "2026-10-09T03:19:23Z",
+  "git_commit": "e6fba0f0",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
-  "execution_provenance": "Successful recorded sweeps below ran on identity harness code 42f312e9; 33fad926 later removed an unused description-offset rule. A post-documentation FULL repeat then exposed three further message-body chronology fixture differences, recorded below and fixed by 46fbe845 with 49 Python tests and a ten-step live probe. Post-documentation repeat commands target fresh output paths; actual final results are delivered in the handoff, not inferred from the earlier successful checkpoint.",
+  "execution_provenance": "Successful recorded sweeps below ran on identity harness code 42f312e9; later cleanup and fixture commits are listed with separate regression/live evidence. Post-documentation repeats exposed three message-body chronology differences (46fbe845) and four personal-ticker seconds/aggregate differences (e6fba0f0). All ten newly encountered endpoints and their bounded fixture resolutions are recorded below. Fresh final3 repeat commands follow the last documentation commit; actual final results are delivered in the handoff, never inferred from earlier successful counts.",
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
       "exit_code": 0,
       "passed": 53,
       "ignored": 28,
-      "artifact": "artifact://1023"
+      "artifact": "artifact://1031"
     },
     "python": {
       "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
       "exit_code": 0,
-      "tests": 49,
-      "output": "Ran 49 tests in 4.333s; OK",
-      "source": "H1IdentityMapping message-body chronology tests before 46fbe845 commit"
+      "tests": 50,
+      "output": "Ran 50 tests in 4.352s; OK",
+      "source": "H1IdentityMapping closed-active-history regressions before e6fba0f0 commit"
     },
     "isolated_database": {
       "database": "rust_scratch_lockdemo",
@@ -44,8 +44,8 @@
     "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_verified_full.json"
   },
   "post_documentation_repeat_commands": [
-    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_final2_journeys.json",
-    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_final2_full.json"
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_final3_journeys.json",
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_final3_full.json"
   ],
   "sweep_rerun_this_checkpoint": true,
   "journeys": {
@@ -295,9 +295,9 @@
     },
     {
       "finding": "H1",
-      "commits": ["d581ee8e", "c2f56469", "89bf42a5", "4a2f9592", "42f312e9", "33fad926", "46fbe845"],
+      "commits": ["d581ee8e", "c2f56469", "89bf42a5", "4a2f9592", "42f312e9", "33fad926", "46fbe845", "e6fba0f0"],
       "status": "CLOSED_IN_DOCUMENTED_SCOPE",
-      "result": "Production comparisons now check a journey/response-local bijection, including matched unordered rows, opted-in JSON strings, entity-key fields and known numeric PK/reference domains. 49 Python regressions pass, including wrong questions, swapped references, reverse reuse, persistent mappings, ambiguity, embedded JSON, nested integer domains and unchanged ordered/body-projection checks under deterministic fixture clocks. No Rust business-code fix or new acceptance rule was required; both affected ticker chronology fixtures were made deterministic and one obsolete integer-offset DATA rule was removed."
+      "result": "Production comparisons check a journey/response-local bijection, including matched unordered rows, opted-in JSON strings/entity keys and known numeric PK/reference domains. 50 Python regressions pass, including incorrect/reused references, ambiguity, nested integer domains, ordered/body-projection checks and strict duration/aggregate values with deterministic fixture inputs. No Rust business-code fix or new acceptance rule was required; affected ticker chronology/closed-active-history fixtures were made deterministic and one obsolete integer-offset DATA rule was removed."
     }
   ],
   "identity_review_findings": {
@@ -315,9 +315,14 @@
       {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-2", "paths": ["$.data.data[0].name", "$.data.data[0].id"], "resolution": "89bf42a5 the same deterministic three-row creation-time fixture; page boundaries still compare literally"},
       {"endpoint": "journey:post-ticker-list-message-body/list-populated-body", "paths": ["$.data.data[0].codeMessageBody", "$.data.data[1].codeMessageBody", "$.data.data[0].name", "$.data.data[1].name", "$.data.data[0].id", "$.data.data[1].id"], "resolution": "46fbe845 deterministic two-row message-body chronology; []/null projection, names and identity checks remain active"},
       {"endpoint": "journey:post-ticker-list-message-body/list-null-body", "paths": ["$.data.data[1].codeMessageBody", "$.data.data[2].codeMessageBody", "$.data.data[1].name", "$.data.data[2].name", "$.data.data[1].id", "$.data.data[2].id"], "resolution": "46fbe845 deterministic three-row message-body chronology; no projection or identity exemption"},
-      {"endpoint": "journey:post-ticker-list-message-body/list-absent-body", "paths": ["$.data.data[2].codeMessageBody", "$.data.data[3].codeMessageBody", "$.data.data[2].name", "$.data.data[3].name", "$.data.data[2].id", "$.data.data[3].id"], "resolution": "46fbe845 deterministic four-row message-body chronology; ordered rows and absent/null/empty representation remain compared"}
+      {"endpoint": "journey:post-ticker-list-message-body/list-absent-body", "paths": ["$.data.data[2].codeMessageBody", "$.data.data[3].codeMessageBody", "$.data.data[2].name", "$.data.data[3].name", "$.data.data[2].id", "$.data.data[3].id"], "resolution": "46fbe845 deterministic four-row message-body chronology; ordered rows and absent/null/empty representation remain compared"},
+      {"endpoint": "journey:personal-ticker-tape/get-by-id-after", "paths": ["$.data.validTime"], "java": "1", "rust": "2", "resolution": "e6fba0f0 provides the same closed 3500ms active history before finish; strict validTime now derives as 3 on both sides"},
+      {"endpoint": "journey:personal-ticker-tape/statistics-after", "paths": ["$.data[2].totalTime"], "java": "1", "rust": "2", "resolution": "e6fba0f0 removes unequal wall-clock inputs to finish; downstream totalTime remains a strict compared value"},
+      {"endpoint": "journey:personal-ticker-tape/list-after-third", "paths": ["$.data.data[1].validTime"], "java": "1", "rust": "2", "resolution": "e6fba0f0 the same closed active-history fixture; finished record duration is still checked in the ordered list"},
+      {"endpoint": "journey:personal-ticker-base-session/statistics", "paths": ["$.data[2].totalTime"], "java": "1", "rust": "2", "resolution": "e6fba0f0 fixes the preceding personal-ticker aggregate inherited by this journey; base-session behavior is not altered"}
     ],
     "additional_post_documentation_run": {"artifact": "/tmp/h1_identity_final_full.json", "generated_at_utc": "2026-10-09T03:05:06Z", "requests": 1870, "identical": 1318, "accepted": 549, "fail": 3, "open": 0, "resolution_commit": "46fbe845"},
+    "timer_post_documentation_run": {"artifact": "/tmp/h1_identity_final2_full.json", "generated_at_utc": "2026-10-09T03:19:23Z", "requests": 1870, "identical": 1317, "accepted": 549, "fail": 4, "open": 0, "resolution_commit": "e6fba0f0"},
     "pagination_evidence": {
       "java_source": "PostTickerTapeTrainService.listPage orders createTime descending; entity default is LocalDateTime.now()",
       "rust_source": "post_ticker::list orders create_time DESC; add persists NOW(6)",
@@ -325,6 +330,14 @@
       "message_body_live_probe": "/tmp/h1_ticker_body_order_probe.json: all ten journey steps compare equal; both databases store the same four distinct fixture timestamps and raw []/nonempty/null/absent body inventories",
       "evidence_limit": "The initial mismatch report did not preserve raw clocks. Exact initial clock values or ties cannot be inferred; this was an uncontrolled chronology fixture, not evidence of a Rust sorting defect",
       "regression": "Both isolated databases receive the same step seed before HTTP; reversed ordered rows and [] versus null body projection remain differences"
+    },
+    "active_history_evidence": {
+      "java_source": "TickerTapeTrainService.accrue adds independently sampled Duration milliseconds when activeSince exists; seconds divides accumulated millis by 1000",
+      "rust_source": "ticker_tape::Locked.accrued adds independently sampled TIMESTAMPDIFF milliseconds; update_clock divides accumulated millis by 1000",
+      "fixture": "Before finishing only the named synthetic owner's underway train, seed accumulated_active_millis=3500 and active_since=NULL on both isolated schemas; do not mask derived validTime or totalTime",
+      "live_probe": "/tmp/h1_ticker_active_history_probe.json: 31 requests, only the existing finish-again TEXT_ONLY acceptance, 0 FAIL/0 OPEN; both final training rows have 3500ms, validTime 3, status 3 and active_since NULL",
+      "regression": "Two schemas receive the same seed before HTTP; a validTime or totalTime change 3->4 remains a difference",
+      "scope_limit": "Initial elapsed milliseconds were not archived. The fixture proves known closed-history seconds conversion, settlement, terminal retries and downstream aggregation, not real-time accrual equality between independently scheduled Java and Rust clocks"
     },
     "equivalence_reclassification": {
       "endpoint": "POST /api/device/addDeviceDescription",
