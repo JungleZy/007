@@ -147,6 +147,32 @@ fn random_groups(message_type: i32, count: usize) -> Vec<String> {
     }
     result
 }
+// Caller holds the canonical train PRIMARY row before reading or generating children.
+pub(super) async fn generate_source_page(
+    connection: &mut sqlx::MySqlConnection,
+    train: &MySqlRow,
+    train_id: &str,
+    page_number: i32,
+) -> Result<(), sqlx::Error> {
+    let total = train.get::<Option<i32>, _>("total_number").unwrap_or(0);
+    let remaining = total.saturating_sub((page_number - 1).saturating_mul(100));
+    let count = remaining.min(100) as usize;
+    let message_type = train.get::<Option<i32>, _>("message_type").unwrap_or(0);
+    for (sort, group) in random_groups(message_type, count).into_iter().enumerate() {
+        let key = serde_json::to_string(
+            &group
+                .chars()
+                .map(|character| character.to_string())
+                .collect::<Vec<_>>(),
+        )
+        .expect("generated report characters are JSON-safe");
+        sqlx::query("INSERT INTO t_post_telegraph_key_pat_train_page (id,train_id,page_number,sort,`key`,value,time) VALUES (?,?,?,?,?,?,?)")
+            .bind(uuid::Uuid::new_v4().to_string()).bind(train_id).bind(page_number)
+            .bind(sort as i32).bind(key).bind("[]").bind("[]")
+            .execute(&mut *connection).await?;
+    }
+    Ok(())
+}
 
 async fn train_query(pool: &MySqlPool, id: &str) -> Result<Option<MySqlRow>, sqlx::Error> {
     let sql = format!(
@@ -155,16 +181,15 @@ async fn train_query(pool: &MySqlPool, id: &str) -> Result<Option<MySqlRow>, sql
     sqlx::query(&sql).bind(id).fetch_optional(pool).await
 }
 
-async fn saved_pages(
-    pool: &MySqlPool,
-    train_id: &str,
-    row: &MySqlRow,
-) -> Result<(Value, Value), sqlx::Error> {
-    let raw_rows = sqlx::query("SELECT id,train_id,page_number,attempt,value,capture_intervals FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=? ORDER BY page_number")
-        .bind(train_id).fetch_all(pool).await?;
+async fn raw_pages(pool: &MySqlPool, train_id: &str) -> Result<Vec<MySqlRow>, sqlx::Error> {
+    sqlx::query("SELECT raw.id,raw.train_id,raw.page_number,raw.attempt,raw.value,raw.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,train.begin_time,raw.received_at) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train_raw_page raw JOIN t_post_telegraph_key_pat_train train ON train.id=raw.train_id COLLATE utf8mb4_general_ci WHERE raw.train_id=? ORDER BY raw.page_number")
+        .bind(train_id).fetch_all(pool).await
+}
+
+fn saved_pages(raw_rows: &[MySqlRow], row: &MySqlRow) -> Result<(Value, Value), sqlx::Error> {
     let mut pages = Vec::with_capacity(raw_rows.len());
     let mut numbers = Vec::with_capacity(raw_rows.len());
-    for raw in &raw_rows {
+    for raw in raw_rows {
         let value =
             raw_values(raw).map_err(|_| sqlx::Error::Protocol("invalid raw page JSON".into()))?;
         pages.push(json!({
@@ -174,7 +199,7 @@ async fn saved_pages(
             "submitted": true,
             "savedCaptureIntervals": json_text(Some(raw.get::<String, _>("capture_intervals"))),
             "messageVO": value,
-            "resolverMessage": [], "moreGroup": [], "moreLine": [],
+            "resolverMessage": null, "moreGroup": null, "moreLine": null,
         }));
         numbers.push(raw.get::<i32, _>("page_number"));
     }
@@ -192,7 +217,8 @@ pub(crate) async fn owned_train_json(
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user_id) {
         return Ok(Err(207));
     }
-    let (pages, numbers) = saved_pages(pool, train_id, &row).await?;
+    let raw_rows = raw_pages(pool, train_id).await?;
+    let (pages, numbers) = saved_pages(&raw_rows, &row)?;
     let mut item = row_json(&row);
     item["serverElapsedMs"] = json!(row.get::<Option<i64>, _>("elapsed_ms").unwrap_or(0));
     item["savedPages"] = pages;
@@ -235,7 +261,11 @@ pub(crate) async fn detail(
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    let (pages, numbers) = match saved_pages(pool, &id, &row).await {
+    let raw_rows = match raw_pages(pool, &id).await {
+        Ok(rows) => rows,
+        Err(error) => return err(error, "detail-raw-pages"),
+    };
+    let (pages, numbers) = match saved_pages(&raw_rows, &row) {
         Ok(value) => value,
         Err(error) => return err(error, "detail-saved-pages"),
     };
@@ -268,11 +298,36 @@ pub(crate) async fn detail(
         && preview.len() < preview_sources.len()
     {
         let start = preview_sources.len() - preview.len();
-        preview.extend(preview_sources[start..].iter().map(message_json));
+        preview.extend(
+            preview_sources
+                .iter()
+                .skip(start)
+                .take(start)
+                .map(message_json),
+        );
     }
     item["content"] = Value::Array(preview);
-    item["pageAnalyzeVOS"] = json!([]);
-    item["moreGroupLine"] = json!([]);
+    if row.get::<Option<i32>, _>("protocol_version") == Some(1) {
+        let mut analyses = Vec::with_capacity(raw_rows.len());
+        for raw in &raw_rows {
+            match super::post_telegraph_write::raw_page_analysis(raw) {
+                Ok(analysis) => analyses.push(analysis),
+                Err(error) => return err(error, "detail-capture-analysis"),
+            }
+        }
+        item["pageAnalyzeVOS"] = json!(analyses);
+    } else {
+        item["pageAnalyzeVOS"] = json!([]);
+    }
+    if row.get::<Option<i32>, _>("is_cable") == Some(1) {
+        let counts = match sqlx::query("SELECT COUNT(*) AS total,MAX(page_number) AS maximum_page FROM t_post_telegraph_key_pat_train_page WHERE train_id=?")
+            .bind(&id).fetch_one(pool).await {
+            Ok(row) => row,
+            Err(error) => return err(error, "detail-fixed-source-count"),
+        };
+        item["totalNumber"] = json!(counts.get::<i64, _>("total"));
+        item["pageNumber"] = json!(counts.get::<Option<i32>, _>("maximum_page"));
+    }
     envelope_json(StatusCode::OK, 200, Some(item), "ok", "")
 }
 
@@ -306,6 +361,7 @@ pub(crate) async fn get_page(
         Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
         Err(error) => return err(error, "get-page-train"),
     };
+    let train_id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
@@ -347,6 +403,7 @@ pub(crate) async fn get_page(
         Ok(rows) => rows,
         Err(error) => return err(error, "get-page-sources"),
     };
+    let had_sources = !generated_rows.is_empty();
     if generated_rows.is_empty() {
         if status == 2 {
             return envelope_response(
@@ -357,24 +414,9 @@ pub(crate) async fn get_page(
             );
         }
         if train.get::<Option<i32>, _>("is_cable").unwrap_or(0) == 0 {
-            let total = train.get::<Option<i32>, _>("total_number").unwrap_or(0);
-            let remaining = total.saturating_sub((page_number - 1).saturating_mul(100));
-            let count = remaining.min(100) as usize;
-            let message_type = train.get::<Option<i32>, _>("message_type").unwrap_or(0);
-            for (sort, group) in random_groups(message_type, count).into_iter().enumerate() {
-                let key = serde_json::to_string(
-                    &group
-                        .chars()
-                        .map(|character| character.to_string())
-                        .collect::<Vec<_>>(),
-                )
-                .unwrap_or_else(|_| "[]".to_owned());
-                if let Err(error) = sqlx::query("INSERT INTO t_post_telegraph_key_pat_train_page (id,train_id,page_number,sort,`key`,value,time) VALUES (?,?,?,?,?,?,?)")
-                    .bind(uuid::Uuid::new_v4().to_string()).bind(&train_id).bind(page_number)
-                    .bind(sort as i32).bind(key).bind("[]").bind("[]")
-                    .execute(&mut *tx).await {
-                    return err(error, "get-page-generate");
-                }
+            if let Err(error) = generate_source_page(&mut tx, &train, &train_id, page_number).await
+            {
+                return err(error, "get-page-generate");
             }
             generated_rows = match sqlx::query("SELECT id,train_id,page_number,sort,`key`,value,time FROM t_post_telegraph_key_pat_train_page WHERE train_id=? AND page_number=? ORDER BY sort")
                 .bind(&train_id).bind(page_number).fetch_all(&mut *tx).await {
@@ -420,8 +462,13 @@ pub(crate) async fn get_page(
             };
         }
     }
+    let resolver_rows = if had_sources {
+        generated_rows.as_slice()
+    } else {
+        &[]
+    };
     let resolver = Value::Array(
-        generated_rows
+        resolver_rows
             .iter()
             .filter_map(|row| row.get::<Option<String>, _>("value"))
             .map(|value| json!(value))

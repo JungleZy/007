@@ -55,7 +55,6 @@ pub(crate) struct CaptureInterval {
 
 #[derive(Clone, Deserialize)]
 pub(crate) struct PageMessage {
-    id: Option<String>,
     #[serde(rename = "trainId")]
     train_id: Option<String>,
     #[serde(rename = "pageNumber")]
@@ -171,7 +170,10 @@ fn canonical_messages(
     for item in values {
         let sort = item.sort.ok_or("原始组必须有序且属于当前训练页")?;
         if sort <= previous_sort
-            || item.train_id.as_deref().is_some_and(|id| id != train_id)
+            || item
+                .train_id
+                .as_deref()
+                .is_some_and(|id| Some(id) != dto.id.as_deref())
             || item.page_number.is_some_and(|page| page != page_number)
         {
             return Err("原始组必须有序且属于当前训练页");
@@ -190,10 +192,35 @@ fn canonical_messages(
                 return Err("原始事件时长不能为负");
             }
         }
-        output.push(json!({"id": item.id, "trainId": train_id, "pageNumber": page_number, "key": key, "value": value, "time": time, "sort": sort}));
+        output.push(json!({"id": null, "trainId": train_id, "pageNumber": page_number, "key": key, "value": value, "time": time, "sort": sort}));
         previous_sort = sort;
     }
     Ok(output)
+}
+
+fn same_raw_messages(
+    stored: &str,
+    incoming: &[Value],
+    train_id: &str,
+) -> Result<bool, serde_json::Error> {
+    let stored: Vec<Value> = serde_json::from_str(stored)?;
+    Ok(stored.len() == incoming.len()
+        && stored.iter().zip(incoming).all(|(stored, incoming)| {
+            let (Some(stored), Some(incoming)) = (stored.as_object(), incoming.as_object()) else {
+                return false;
+            };
+            stored.len() == incoming.len()
+                && stored.iter().all(|(field, value)| {
+                    if field == "trainId" {
+                        value
+                            .as_str()
+                            .is_some_and(|id| id.eq_ignore_ascii_case(train_id))
+                            && incoming.get(field).and_then(Value::as_str) == Some(train_id)
+                    } else {
+                        incoming.get(field) == Some(value)
+                    }
+                })
+        }))
 }
 
 fn valid_intervals(intervals: &[CaptureInterval], maximum_end: i64) -> Result<i64, &'static str> {
@@ -569,7 +596,10 @@ fn captured_groups(
     for value in values {
         let sort = value.sort.ok_or("原始组必须有序且属于当前训练页")?;
         if sort <= previous_sort
-            || value.train_id.as_deref().is_some_and(|id| id != train_id)
+            || value
+                .train_id
+                .as_deref()
+                .is_some_and(|id| !id.eq_ignore_ascii_case(train_id))
             || value.page_number.is_some_and(|number| number != page)
         {
             return Err("原始组必须有序且属于当前训练页");
@@ -631,6 +661,44 @@ fn captured_groups(
         }
     }
     Ok((groups, characters, has_events))
+}
+
+pub(super) fn raw_page_analysis(raw: &MySqlRow) -> Result<Value, sqlx::Error> {
+    let values: Vec<PageMessage> = serde_json::from_str(&raw.try_get::<String, _>("value")?)
+        .map_err(|_| sqlx::Error::Protocol("invalid raw page JSON".into()))?;
+    let intervals: Vec<CaptureInterval> =
+        serde_json::from_str(&raw.try_get::<String, _>("capture_intervals")?)
+            .map_err(|_| sqlx::Error::Protocol("invalid capture timeline".into()))?;
+    let elapsed = raw
+        .try_get::<Option<i64>, _>("elapsed_ms")?
+        .ok_or_else(|| sqlx::Error::Protocol("missing capture receipt timestamp".into()))?;
+    let duration = valid_intervals(&intervals, elapsed)
+        .map_err(|message| sqlx::Error::Protocol(message.into()))?;
+    let mut characters = 0_i64;
+    for value in values {
+        let body = value
+            .value
+            .ok_or_else(|| sqlx::Error::Protocol("missing captured value".into()))?;
+        for token in string_array(&body).map_err(|message| sqlx::Error::Protocol(message.into()))? {
+            if !matches!(token.as_str(), "开始" | "句号" | "结束" | "?") {
+                characters = characters
+                    .checked_add(
+                        token
+                            .chars()
+                            .filter(|c| !c.is_whitespace() && !c.is_control())
+                            .count() as i64,
+                    )
+                    .ok_or_else(|| {
+                        sqlx::Error::Protocol("capture character count overflow".into())
+                    })?;
+            }
+        }
+    }
+    let characters = i32::try_from(characters)
+        .map_err(|_| sqlx::Error::Protocol("capture character count overflow".into()))?;
+    Ok(
+        json!({"pageNumber": raw.try_get::<i32, _>("page_number")?, "patNumber": characters, "totalTime": duration}),
+    )
 }
 
 fn score_result(
@@ -697,6 +765,26 @@ fn score_result(
     Ok((score, speed, Value::Object(deduct)))
 }
 
+// Every caller holds the canonical train PRIMARY row before its first consistent read.
+// All page writers (including lazy getPage generation) use that same parent lock.
+async fn delete_child_rows(
+    connection: &mut sqlx::MySqlConnection,
+    table: &str,
+    train_id: &str,
+) -> Result<(), sqlx::Error> {
+    let ids = sqlx::query_scalar::<_, String>(&format!(
+        "SELECT id FROM {table} WHERE train_id=? ORDER BY id"
+    ))
+    .bind(train_id)
+    .fetch_all(&mut *connection)
+    .await?;
+    let sql = format!("DELETE FROM {table} WHERE id=?");
+    for id in ids {
+        sqlx::query(&sql).bind(id).execute(&mut *connection).await?;
+    }
+    Ok(())
+}
+
 async fn settle_locked(
     connection: &mut sqlx::MySqlConnection,
     id: &str,
@@ -714,11 +802,9 @@ async fn settle_locked(
         return Err("训练满分快照无效，请新建训练".into());
     }
     let attempt = row.try_get::<i32, _>("attempt")?;
-    let sources = sqlx::query("SELECT page_number,sort,`key` FROM t_post_telegraph_key_pat_train_page WHERE train_id=? ORDER BY page_number,sort FOR UPDATE")
+    let sources = sqlx::query("SELECT page_number,sort,`key` FROM t_post_telegraph_key_pat_train_page WHERE train_id=? ORDER BY page_number,sort")
         .bind(id).fetch_all(&mut *connection).await?;
-    let raw_pages = sqlx::query("SELECT raw.page_number,raw.attempt,raw.value,raw.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,train.begin_time,raw.received_at) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train_raw_page raw JOIN t_post_telegraph_key_pat_train train ON train.id=raw.train_id COLLATE utf8mb4_general_ci WHERE raw.train_id=? ORDER BY raw.page_number FOR UPDATE")
-        .bind(id).fetch_all(&mut *connection).await?;
-    sqlx::query("SELECT id FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=? ORDER BY page_number,sort FOR UPDATE")
+    let raw_pages = sqlx::query("SELECT raw.page_number,raw.attempt,raw.value,raw.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,train.begin_time,raw.received_at) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train_raw_page raw JOIN t_post_telegraph_key_pat_train train ON train.id=raw.train_id COLLATE utf8mb4_general_ci WHERE raw.train_id=? ORDER BY raw.page_number")
         .bind(id).fetch_all(&mut *connection).await?;
     let total_groups = if row.try_get::<Option<i32>, _>("is_cable")? == Some(1) {
         i32::try_from(sources.len()).map_err(|_| "训练总组数超出范围")?
@@ -836,10 +922,7 @@ async fn settle_locked(
     );
     let error_number = i32::try_from(statistics.error).map_err(|_| "错误组数超出范围")?;
     // Validate and calculate everything before replacing the derived values.
-    sqlx::query("DELETE FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=?")
-        .bind(id)
-        .execute(&mut *connection)
-        .await?;
+    delete_child_rows(connection, "t_post_telegraph_key_pat_train_page_value", id).await?;
     for value in output {
         sqlx::query("INSERT INTO t_post_telegraph_key_pat_train_page_value (id,train_id,page_number,sort,`key`,value,time) VALUES (?,?,?,?,?,?,?)")
             .bind(uuid::Uuid::new_v4().to_string()).bind(id).bind(value.page).bind(value.sort)
@@ -863,8 +946,10 @@ async fn action_locked(
     attempt: Option<i32>,
     finish: bool,
 ) -> Result<(), SettlementError> {
-    let row = sqlx::query("SELECT create_user_id,status,protocol_version,attempt,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,total_number,is_cable,rule_content,full_score FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let row = sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,total_number,is_cable,rule_content,full_score FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(id).fetch_optional(&mut *connection).await?.ok_or("未查询到训练")?;
+    let canonical_id = row.try_get::<String, _>("id")?;
+    let id = canonical_id.as_str();
     if row
         .try_get::<Option<String>, _>("create_user_id")?
         .as_deref()
@@ -1103,7 +1188,9 @@ pub(crate) async fn add(
             }
         }
     } else {
-        let floors = match sqlx::query("SELECT floor_number,sort,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort FOR UPDATE")
+        // This is the transaction's first consistent read. Only floor content is copied,
+        // so one committed MVCC snapshot is sufficient even for child-first cable deletes.
+        let floors = match sqlx::query("SELECT floor_number,sort,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort")
             .bind(cable_id.as_deref())
             .fetch_all(&mut *tx)
             .await
@@ -1213,12 +1300,13 @@ pub(crate) async fn reset(
         Ok(tx) => tx,
         Err(e) => return err(e, "reset-begin"),
     };
-    let row = match sqlx::query("SELECT create_user_id,protocol_version,attempt FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let row = match sqlx::query("SELECT id,create_user_id,protocol_version,attempt FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => return business(202, "未查询到训练"),
         Err(e) => return err(e, "reset-select"),
     };
+    let id = row.get::<String, _>("id");
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return business(207, "无权限");
     }
@@ -1231,12 +1319,12 @@ pub(crate) async fn reset(
     {
         return business(208, "训练协议或轮次已失效，请重新读取训练");
     }
-    for sql in [
-        "DELETE FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train_more WHERE train_id=?",
+    for table in [
+        "t_post_telegraph_key_pat_train_raw_page",
+        "t_post_telegraph_key_pat_train_page_value",
+        "t_post_telegraph_key_pat_train_more",
     ] {
-        if let Err(e) = sqlx::query(sql).bind(&id).execute(&mut *tx).await {
+        if let Err(e) = delete_child_rows(&mut tx, table, &id).await {
             return err(e, "reset-delete");
         }
     }
@@ -1278,11 +1366,12 @@ pub(crate) async fn finish_page(
         Ok(tx) => tx,
         Err(e) => return err(e, "finish-page-begin"),
     };
-    let row = match sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,total_number,is_cable,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,CAST(COALESCE(GREATEST(0,TIMESTAMPDIFF(MICROSECOND,begin_time,NOW(6)) DIV 1000),0) AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await {
+    let row = match sqlx::query("SELECT id,create_user_id,status,protocol_version,attempt,total_number,is_cable,message_type,CAST(begin_time IS NOT NULL AS SIGNED) AS begun,CAST(COALESCE(GREATEST(0,TIMESTAMPDIFF(MICROSECOND,begin_time,NOW(6)) DIV 1000),0) AS SIGNED) AS elapsed_ms FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => return business(202, "未查询到训练"),
         Err(e) => return err(e, "finish-page-select"),
     };
+    let id = row.get::<String, _>("id");
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return business(207, "无权限");
     }
@@ -1322,13 +1411,22 @@ pub(crate) async fn finish_page(
         Ok(value) => value,
         Err(_) => return business(202, "采集时间轴无效"),
     };
-    let existing = match sqlx::query("SELECT id,attempt,value,capture_intervals FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=? AND page_number=? LIMIT 1 FOR UPDATE").bind(&id).bind(page_number).fetch_optional(&mut *tx).await { Ok(row) => row, Err(e) => return err(e, "finish-page-existing") };
+    let existing = match sqlx::query("SELECT id,attempt,value,capture_intervals FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=? AND page_number=? LIMIT 1").bind(&id).bind(page_number).fetch_optional(&mut *tx).await { Ok(row) => row, Err(e) => return err(e, "finish-page-existing") };
     if let Some(existing) = existing.as_ref() {
         if existing.get::<i32, _>("attempt") != dto.attempt.unwrap_or(-1) {
             return business(208, "已保存页轮次不匹配，请重新读取训练");
         }
         if existing.get::<String, _>("capture_intervals") == interval_json {
-            if existing.get::<String, _>("value") == raw_value {
+            let saved_value = existing.get::<String, _>("value");
+            let same_content = if saved_value == raw_value {
+                true
+            } else {
+                match same_raw_messages(&saved_value, &values, &id) {
+                    Ok(same) => same,
+                    Err(_) => return business(500, "已保存原始页内容无效"),
+                }
+            };
+            if same_content {
                 if let Err(e) = tx.rollback().await {
                     return err(e, "finish-page-rollback");
                 }
@@ -1342,7 +1440,7 @@ pub(crate) async fn finish_page(
                 )
                 .await;
             }
-            return business(208, "同一采集时间轴内容冲突，请重新读取已保存页");
+            return business(202, "同一采集时间轴内容冲突，请重新读取已保存页");
         }
         let old: Vec<CaptureInterval> =
             match serde_json::from_str(existing.get::<String, _>("capture_intervals").as_str()) {
@@ -1392,6 +1490,20 @@ pub(crate) async fn finish_page(
     if let Err(message) = check_no_overlap(timelines) {
         return business(202, message);
     }
+    if row.get::<Option<i32>, _>("is_cable") == Some(0) {
+        let generated = match sqlx::query_scalar::<_, i64>("SELECT EXISTS(SELECT 1 FROM t_post_telegraph_key_pat_train_page WHERE train_id=? AND page_number=?)")
+            .bind(&id).bind(page_number).fetch_one(&mut *tx).await {
+            Ok(generated) => generated != 0,
+            Err(e) => return err(e, "finish-page-source-exists"),
+        };
+        if !generated {
+            if let Err(e) =
+                post_telegraph::generate_source_page(&mut tx, &row, &id, page_number).await
+            {
+                return err(e, "finish-page-source");
+            }
+        }
+    }
     let result = if let Some(existing) = existing {
         sqlx::query("UPDATE t_post_telegraph_key_pat_train_raw_page SET value=?,capture_intervals=?,received_at=NOW(6) WHERE id=?").bind(raw_value).bind(interval_json).bind(existing.get::<String, _>("id")).execute(&mut *tx).await
     } else {
@@ -1431,7 +1543,7 @@ pub(crate) async fn delete(
         Err(e) => return err(e, "delete-begin"),
     };
     let row = match sqlx::query(
-        "SELECT create_user_id FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE",
+        "SELECT id,create_user_id FROM t_post_telegraph_key_pat_train WHERE id=? LIMIT 1 FOR UPDATE",
     )
     .bind(&id)
     .fetch_optional(&mut *tx)
@@ -1441,31 +1553,35 @@ pub(crate) async fn delete(
         Ok(None) => return business(202, "未查询到训练"),
         Err(e) => return err(e, "delete-select"),
     };
+    let id = row.get::<String, _>("id");
     if row.get::<Option<String>, _>("create_user_id").as_deref() != Some(user.id.as_str()) {
         return business(207, "无权限");
     }
-    for sql in [
-        "DELETE FROM t_post_telegraph_key_pat_train_raw_page WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train_page_value WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train_more WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train_page WHERE train_id=?",
-        "DELETE FROM t_post_telegraph_key_pat_train WHERE id=? AND create_user_id=?",
+    for table in [
+        "t_post_telegraph_key_pat_train_raw_page",
+        "t_post_telegraph_key_pat_train_page_value",
+        "t_post_telegraph_key_pat_train_more",
+        "t_post_telegraph_key_pat_train_page",
     ] {
-        let result = if sql.ends_with("create_user_id=?") {
-            sqlx::query(sql)
-                .bind(&id)
-                .bind(&user.id)
-                .execute(&mut *tx)
-                .await
-        } else {
-            sqlx::query(sql).bind(&id).execute(&mut *tx).await
-        };
-        if let Err(e) = result {
-            return err(e, "delete");
+        if let Err(e) = delete_child_rows(&mut tx, table, &id).await {
+            return err(e, "delete-child");
         }
+    }
+    if let Err(e) =
+        sqlx::query("DELETE FROM t_post_telegraph_key_pat_train WHERE id=? AND create_user_id=?")
+            .bind(&id)
+            .bind(&user.id)
+            .execute(&mut *tx)
+            .await
+    {
+        return err(e, "delete-parent");
     }
     if let Err(e) = tx.commit().await {
         return err(e, "delete-commit");
     }
     envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", "")
 }
+
+#[cfg(test)]
+#[path = "post_telegraph_writer_tests.rs"]
+mod writer_tests;
