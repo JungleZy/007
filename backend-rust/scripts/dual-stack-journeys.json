@@ -546,11 +546,11 @@
         {"name":"group-3-rows-page-3","method":"POST","path":"/api/groupNetTrain/listPage","who":"student","body":{"page":3,"rows":2}},
         {"name":"post-ticker-create-1","method":"POST","path":"/api/postTickerTapeTrain/add","who":"student","body":{"name":"岗位收报分页-1","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":[],"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"sleep":1.1},
         {"name":"post-ticker-create-2","method":"POST","path":"/api/postTickerTapeTrain/add","who":"student","body":{"name":"岗位收报分页-2","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":[],"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"sleep":1.1},
-        {"name":"post-ticker-2-rows-page-1","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":1,"rows":2}},
+        {"name":"post-ticker-2-rows-page-1","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":1,"rows":2},"seed_sql":"UPDATE t_post_ticker_tape_train SET create_time=CASE name WHEN '岗位收报分页-1' THEN '2026-10-01 00:00:01' WHEN '岗位收报分页-2' THEN '2026-10-01 00:00:02' END WHERE user_id='sweep-student' AND name IN ('岗位收报分页-1','岗位收报分页-2');"},
         {"name":"post-ticker-2-rows-page-2","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":2,"rows":2}},
         {"name":"post-ticker-2-rows-page-3","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":3,"rows":2}},
         {"name":"post-ticker-create-3","method":"POST","path":"/api/postTickerTapeTrain/add","who":"student","body":{"name":"岗位收报分页-3","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":[],"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"sleep":1.1},
-        {"name":"post-ticker-3-rows-page-1","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":1,"rows":2}},
+        {"name":"post-ticker-3-rows-page-1","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":1,"rows":2},"seed_sql":"UPDATE t_post_ticker_tape_train SET create_time=CASE name WHEN '岗位收报分页-1' THEN '2026-10-01 00:00:01' WHEN '岗位收报分页-2' THEN '2026-10-01 00:00:02' WHEN '岗位收报分页-3' THEN '2026-10-01 00:00:03' END WHERE user_id='sweep-student' AND name IN ('岗位收报分页-1','岗位收报分页-2','岗位收报分页-3');"},
         {"name":"post-ticker-3-rows-page-2","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":2,"rows":2}},
         {"name":"post-ticker-3-rows-page-3","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"student","body":{"page":3,"rows":2}}
       ]

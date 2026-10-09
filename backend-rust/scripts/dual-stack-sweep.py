@@ -530,7 +530,7 @@ def run_journeys(spec, args, headers, db):
     every step is then compared like a sweep request. These flows use realistic
     payloads (the ones the frontend sends), which empty/probe bodies cannot reach.
     Optional seed_sql fixtures execute through Mysql's isolated-schema guard on
-    both databases before that journey (needed for identical fixed hash keys).
+    both databases before a journey or step (fixed hash keys or pagination clocks).
     """
     results = []
     for journey in spec.get("journeys", []):
@@ -540,6 +540,9 @@ def run_journeys(spec, args, headers, db):
         variables = {"java": {}, "rust": {}}
         identities = IdentityMap()
         for step in journey["steps"]:
+            if "seed_sql" in step:
+                for database in db.dbs:
+                    db.run(database, step["seed_sql"])
             who = step.get("who", "admin")
             outcome = {}
             for side, base in (("java", args.java_url), ("rust", args.rust_url)):

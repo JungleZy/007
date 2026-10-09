@@ -157,6 +157,30 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertEqual([], sweep.run_journeys(spec, None, {}, db))
         self.assertEqual([(name, "INSERT fixture") for name in db.dbs], seeded)
 
+    def test_step_fixture_seeds_both_databases_before_http_and_preserves_order_assertions(self):
+        events = []
+        db = SimpleNamespace(dbs=("rust_parity_java_test", "rust_parity_rust_test"),
+                             run=lambda database, sql: events.append((database, sql)))
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
+        steps = next(journey["steps"] for journey in journeys["journeys"] if journey["name"] == "training-list-pagination")
+        listings = [step for step in steps if step["name"] in ("post-ticker-2-rows-page-1", "post-ticker-3-rows-page-1")]
+        self.assertEqual(2, len(listings))
+
+        def http_case(base, *args):
+            events.append((base, "http"))
+            return {"status": 200, "json": {"code": 200, "data": []}}
+
+        for listing in listings:
+            self.assertNotIn("$.data.data", listing.get("unordered", []))
+            events.clear()
+            with patch.object(sweep, "http_case", side_effect=http_case):
+                sweep.run_journeys({"journeys": [{"name": "clock-fixture", "steps": [listing]}]}, args, {"student": {}}, db)
+            self.assertEqual([(database, listing["seed_sql"]) for database in db.dbs] + [("java", "http"), ("rust", "http")], events)
+            left = {"data": {"data": [{"name": "second"}, {"name": "first"}]}}
+            right = {"data": {"data": [{"name": "first"}, {"name": "second"}]}}
+            self.assertFalse(self.equivalent(left, right, listing), "deterministic clocks do not exempt reordered results")
+
     def test_run_journeys_captures_original_content_before_transforms(self):
         original = '{"value": 1}'
         calls = []
