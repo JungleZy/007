@@ -236,6 +236,10 @@ class IdentityMap:
         if isinstance(value, str) and UUID.fullmatch(value):
             return ("uuid", value)
         numeric_domain = domain if field == "id" else field[:-2] if field.endswith("Id") else None
+        if field == "deviceType":
+            numeric_domain = "deviceType"
+        elif field == "trainId" and domain == "groupNetTrain":
+            numeric_domain = domain
         if numeric_domain in NUMERIC_ID_DOMAINS and type(value) is int and value > 0:
             return (numeric_domain, value)
         return None
@@ -561,7 +565,7 @@ def run_journeys(spec, args, headers, db):
             domain = identity_domain(step["path"])
             for name, expression in step.get("capture", {}).items():
                 identity_diffs.extend(identities.compare(variables["java"][name], variables["rust"][name],
-                                                         expression, "id" if name.endswith("Id") else name, domain))
+                                                         expression, expression.rsplit(".", 1)[-1], domain))
             identity_diffs.extend(identities.compare(outcome["java"].get("json"), outcome["rust"].get("json"), domain=domain))
             outcome["java"]["identity_diffs"] = identity_diffs
             for side in ("java", "rust"):

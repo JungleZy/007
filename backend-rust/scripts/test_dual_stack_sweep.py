@@ -420,6 +420,43 @@ class IdentityCorrespondenceTest(unittest.TestCase):
         rust["data"][0]["deviceId"] = 19
         self.assert_mismatch(self.compare(java, rust, identities, step), "$.data[1].deviceId")
 
+    def test_group_net_device_type_alias_uses_the_same_integer_identity(self):
+        identities = sweep.IdentityMap()
+        self.assertIsNone(self.compare({"data": {"id": 1}}, {"data": {"id": 41}}, identities, path="/api/deviceType/save"))
+        self.assertIsNone(self.compare({"data": {"id": 2, "deviceType": 1, "trainId": 2}},
+                                      {"data": {"id": 52, "deviceType": 41, "trainId": 52}}, identities, path="/api/groupNetTrain/saveTrain"))
+        self.assert_mismatch(self.compare({"data": {"deviceType": 1}}, {"data": {"deviceType": 42}}, identities), "$.data.deviceType")
+
+    def test_capture_path_not_variable_name_binds_integer_ids_before_masking(self):
+        spec = {"journeys": [{"name": "numeric", "steps": [
+            {"name": "capture", "method": "POST", "path": "/api/deviceType/save", "capture": {"groupType": "$.data.id"}, "mask": ["$.data.id"]},
+            {"name": "read", "method": "POST", "path": "/api/groupNetTrain/saveTrain"},
+        ]}]}
+        replies = [{"id": 1}, {"id": 41}, {"deviceType": 1}, {"deviceType": 42}]
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", side_effect=[{"status": 200, "json": {"code": 200, "data": value}} for value in replies]):
+            results = sweep.run_journeys(spec, args, {"admin": {}}, None)
+        self.assertIsNone(sweep.comparison_entry(*results[0], {}))
+        self.assert_mismatch(sweep.comparison_entry(*results[1], {}), "$.data.deviceType")
+
+    def test_nested_captures_remain_raw_when_response_masks_an_id(self):
+        spec = {"journeys": [{"name": "nested", "steps": [
+            {"name": "capture", "method": "POST", "path": "/create", "capture": {"record": "$.data"}, "mask": ["$.data.id"]},
+            {"name": "read", "method": "POST", "path": "/read", "body": "${record}"},
+        ]}]}
+        calls = []
+
+        def http_case(base, method, path, body, *args):
+            calls.append(body)
+            identity = self.java_one if base == "java" else self.rust_one
+            return {"status": 200, "json": {"code": 200, "data": {"id": identity}}}
+
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", side_effect=http_case):
+            results = sweep.run_journeys(spec, args, {"admin": {}}, None)
+        self.assertEqual([{"id": self.java_one}, {"id": self.rust_one}], calls[2:])
+        self.assertTrue(all(sweep.comparison_entry(*result, {}) is None for result in results))
+
     def test_run_journeys_seeds_captures_before_masking_and_resets_per_journey(self):
         spec = {"journeys": [{"name": name, "steps": [
             {"name": "capture", "method": "POST", "path": "/create", "capture": {"id": "$.data.id"}, "mask": ["$.data.id"]},
