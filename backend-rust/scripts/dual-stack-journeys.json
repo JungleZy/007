@@ -1438,7 +1438,8 @@
     },
     {
       "name": "prejob-telex-word-clear",
-      "note": "telegram/telexTrain/WordTrain.vue and datagram/telexTrain/WordTrain.vue share save whole local state, switch tabs, clear, reload. Visible number/letter/special/correction tabs are types 0..3.",
+      "note": "telegram/telexTrain/WordTrain.vue and datagram/telexTrain/WordTrain.vue share save whole local state, switch tabs, clear, reload. Visible number/letter/special/correction tabs are types 0..3. Start this independent frontend flow from empty synthetic student telex history: personal-telex-null-duration deliberately leaves accepted Java/Rust history differences that must not contaminate later journeys. The original defect journey and its registry assertions remain unchanged.",
+      "seed_sql": "DELETE FROM t_telex_pat_train WHERE create_user_id='sweep-student'; DELETE FROM t_telex_pat_train_statistical WHERE user_id='sweep-student'; DELETE FROM t_telex_pat WHERE user_id='sweep-student';",
       "steps": [
         {
           "name": "find-0",

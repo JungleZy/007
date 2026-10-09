@@ -80,6 +80,20 @@ class JourneyComparisonTest(unittest.TestCase):
         for name in ["enter", "reenter-preserves-answers"]:
             self.assertIn("$.data.student.content", by_name[name]["parse_json"])
 
+    def test_prejob_telex_starts_after_an_explicit_fixture_boundary(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())["journeys"]
+        names = [journey["name"] for journey in journeys]
+        boundary = next(journey for journey in journeys if journey["name"] == "prejob-telex-word-clear")
+        self.assertEqual(boundary["seed_sql"],
+                         "DELETE FROM t_telex_pat_train WHERE create_user_id='sweep-student'; "
+                         "DELETE FROM t_telex_pat_train_statistical WHERE user_id='sweep-student'; "
+                         "DELETE FROM t_telex_pat WHERE user_id='sweep-student';")
+        self.assertLess(names.index("personal-telex-null-duration"), names.index(boundary["name"]))
+        for suffix in ["telegram", "datagram"]:
+            self.assertLess(names.index(boundary["name"]), names.index(f"prejob-student-telex-{suffix}"))
+        original = next(journey for journey in journeys if journey["name"] == "personal-telex-null-duration")
+        self.assertNotIn("seed_sql", original)
+
     def test_prejob_frontend_endpoints_have_student_journey_steps(self):
         journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())["journeys"]
         paths = {step["path"] for journey in journeys if journey["name"].startswith("prejob-")
