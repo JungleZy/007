@@ -1,25 +1,27 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-08T21:15:31Z",
-  "git_commit": "d120e188",
+  "generated_at_utc": "2026-10-09T02:55:18Z",
+  "git_commit": "33fad926",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
+  "execution_provenance": "Recorded sweeps below ran on final identity harness code 42f312e9. The later 33fad926 registry commit removed an unused generated-description offset rule and was checked by 48 Python regressions. Post-documentation repeat commands are listed separately; their actual results are delivered in the handoff rather than inferred from this checkpoint.",
   "commands": {
     "rust": {
       "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked",
       "exit_code": 0,
       "passed": 53,
       "ignored": 28,
-      "artifact": "artifact://993"
+      "artifact": "artifact://1016"
     },
     "python": {
       "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
       "exit_code": 0,
-      "tests": 31,
-      "output": "Ran 31 tests in 4.295s; OK",
-      "source": "T10FinalFixes final execution after d120e188"
+      "tests": 48,
+      "output": "Ran 48 tests in 4.356s; OK",
+      "source": "H1IdentityMapping final code/registry tests before 33fad926 commit"
     },
     "isolated_database": {
       "database": "rust_scratch_lockdemo",
+      "execution_checkpoint": "Historical d120e188 execution; H1 changed no Rust business code and did not rerun these ignored DB tests",
       "env": "RUST_PHASE2_DATABASE_URL=mysql://root:root@127.0.0.1:3306/rust_scratch_lockdemo",
       "commands": [
         "cargo test --locked -p rust-backend exam::writer_tests -- --ignored --test-threads=1",
@@ -34,16 +36,21 @@
     },
     "debug_build": {
       "command": "cd backend-rust && cargo build --locked -p rust-backend",
+      "execution_checkpoint": "Historical d120e188 execution; H1 did not rebuild the unchanged Rust business code",
       "exit_code": 0,
       "artifact": "artifact://993"
     },
-    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/z_final_journeys_afterd120e188.json",
-    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/z_final_full_afterd120e188.json"
+    "journeys": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_verified_journeys.json",
+    "full_sweep": "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_verified_full.json"
   },
+  "post_documentation_repeat_commands": [
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --only-journeys --out /tmp/h1_identity_final_journeys.json",
+    "MYSQL_PWD=root python3 backend-rust/scripts/dual-stack-sweep.py --java-db rust_parity_java_4473a0d80c --rust-db rust_parity_rust_4473a0d80c --out /tmp/h1_identity_final_full.json"
+  ],
   "sweep_rerun_this_checkpoint": true,
   "journeys": {
-    "artifact": "/tmp/z_final_journeys_afterd120e188.json",
-    "generated_at_utc": "2026-10-08T21:09:03Z",
+    "artifact": "/tmp/h1_identity_verified_journeys.json",
+    "generated_at_utc": "2026-10-09T02:48:34Z",
     "exit_code": 0,
     "summary": {
       "requests": 421,
@@ -66,22 +73,22 @@
     }
   },
   "full_sweep": {
-    "artifact": "/tmp/z_final_full_afterd120e188.json",
-    "generated_at_utc": "2026-10-08T21:15:31Z",
+    "artifact": "/tmp/h1_identity_verified_full.json",
+    "generated_at_utc": "2026-10-09T02:55:18Z",
     "exit_code": 0,
     "summary": {
       "requests": 1870,
-      "identical": 1320,
-      "different": 550,
+      "identical": 1321,
+      "different": 549,
       "by_disposition": {
-        "ACCEPTED": 550,
+        "ACCEPTED": 549,
         "FAIL": 0,
         "OPEN": 0
       },
       "by_category": {
         "JAVA_UNHANDLED_500": 53,
         "RUST_STRICTER": 60,
-        "DATA": 27,
+        "DATA": 26,
         "TEXT_ONLY": 287,
         "RUST_PERMISSIVE": 9,
         "RUST_OTHER_CODE": 1,
@@ -142,18 +149,27 @@
       "normalize_keys",
       "floor_content"
     ],
-    "allowed_paths": "Exact leaf paths by default; explicit subtree_paths opt into descendants. All 28 constrained rules (27 DATA plus one other category) have typed value/presence predicates. Complete data_diffs includes presence direction and every unmatched array row, not just first_data_diffs preview or length. No DATA override without allowed_paths matches",
+    "allowed_paths": "Exact leaf paths by default; explicit subtree_paths opt into descendants. All 27 constrained rules (26 DATA plus one other category) have typed value/presence predicates. Complete data_diffs includes presence direction and every unmatched array row, not just first_data_diffs preview or length. No DATA override without allowed_paths matches",
     "data_classification": "Type-aware envelope_data_diffs decides DATA; envelope-level absent data and explicit null retain separate presence evidence. TEXT_ONLY requires complete evidence of zero data differences, including before overrides",
-    "floor_content": "Opt-in only at personal-telegram/floor-content: sole object key and every row floorId must match that stack's captured requested floor. Substitute shared floor identity and compare every field/value/Morse content as a duplicate-preserving multiset; wrong keys/references fail even if both wire responses match. Java DAO has no ORDER BY and HashMap values are append-only ArrayLists. Live fixed-PK probe Java T(sort=1), E(sort=0) vs Rust E(sort=0), T(sort=1): order is unspecified, not identical ordered E/T. Source /tmp/z3_floor_order_probe.json",
+    "floor_content": "Opt-in only at personal-telegram/floor-content: sole object key and every row floorId must match that stack's captured requested floor. Substitute only the object key; raw row ids and floorId references participate in the journey bijection while every field/value/Morse content is compared as a duplicate-preserving multiset. Wrong keys/references fail even if both wire responses match. Java DAO has no ORDER BY and HashMap values are append-only ArrayLists. Live fixed-PK probe Java T(sort=1), E(sort=0) vs Rust E(sort=0), T(sort=1): order is unspecified, not identical ordered E/T. Historical order probe /tmp/z3_floor_order_probe.json",
+    "identity_correspondence": {
+      "lifetime": "One bijection per journey; standalone sweep requests get a fresh response-local bijection. No cross-journey or cross-request history",
+      "shapes": "Lowercase UUID-shaped strings at paired values/captures; positive integer PKs and references in known device, deviceType, deviceDescription, deviceScoringRule, groupNetTrain and router-room domains, including descriptions nesting and deviceType/trainId aliases",
+      "seeding": "Untransformed captured values are deep-copied before mask/parse transforms. Capture JSON paths and endpoint/entity context determine integer scope; matching structural positions extend the same forward and reverse maps. Conflicting mapped values or reverse reuse yield DATA at that path with reason identity mismatch",
+      "unordered": "Opt-in arrays match complete identity-agnostic canonical multiset elements first, then verify each candidate pair's identity map. Distinct possible bijections fail as ambiguous identity correspondence; repeated identical rows retain multiplicity. Unmatched inventories remain ordinary complete data differences and do not establish identities",
+      "embedded_json_and_keys": "Opted-in parse_json retains raw identifiers inside parsed-string wrappers, preserving wire string-vs-object type. Opted-in normalized Lombok entity keys become field-bearing multiset entries so key ids and value references share the journey map",
+      "literals_and_clocks": "Non-generated fixture strings such as sweep-admin and ordinary numeric fields still compare literally. Clock values retain their existing shape masking",
+      "not_proven": "Explicitly masked fields, non-opted-in JSON strings/entity-toString keys, unmatched rows, unknown generated shapes and unobserved intended relationships are outside identity correspondence; first observations cannot establish intended graph semantics or detect a bug common to both stacks"
+    },
     "accepted_does_not_mean_identical": true
   },
   "registry": {
     "source": "backend-rust/scripts/dual-stack-sweep-registry.json",
-    "explicit_rules": 161,
+    "explicit_rules": 160,
     "by_category": {
       "JAVA_UNHANDLED_500": 5,
       "RUST_STRICTER": 60,
-      "DATA": 27,
+      "DATA": 26,
       "TEXT_ONLY": 6,
       "RUST_FAILS_WHERE_JAVA_OK": 2,
       "RUST_PERMISSIVE": 9,
@@ -164,9 +180,9 @@
       "EXPLICIT_BEHAVIORAL_ACCEPTANCE": 23,
       "JAVA_DEFECT_ACCEPT": 14,
       "MALFORMED_INPUT_ONLY": 108,
-      "STATE_ARTEFACT": 16
+      "STATE_ARTEFACT": 15
     },
-    "class_semantics": "23 named behavioral acceptances include the stale-editor Java 500 rule. The floor UUID-key blanket acceptance was removed: captured identity validation plus full multiset comparison now covers that step. The unchanged historical 138-rule classified subset is preserved below; classes are evidence labels, not schema fields.",
+    "class_semantics": "23 named behavioral acceptances include the stale-editor Java 500 rule. Floor UUID-key and numeric device-description auto-increment exemptions have been replaced by actual scoped identity/multiset comparison. The historical 138-rule classified subset below predates removal of the description-offset rule; current registry has 137 rules from that subset plus 23 named acceptances. Classes are evidence labels, not schema fields.",
     "classification_artifact": "/tmp/t6_registration_classification.json",
     "classified_subset": {
       "registered_count": 138,
@@ -251,7 +267,7 @@
       "result": "Answered formal rebuild returns 202 after parent lock, preserving title and candidate answer. Populated answered-rebuild journey added."
     }
   ],
-  "closure_scope": "The named Y/Z findings below are closed within their stated regressions and final sweep evidence only. ACCEPTED is not identical, UUID mapping is not generally bijective, and phase10 remains blocked; all documented limitations remain in force.",
+  "closure_scope": "The named Y/Z/H1 findings are closed only within their stated regressions and sweep evidence. ACCEPTED is not identical. Identity correspondence is now bijective only within the documented journey/response matched-value and known integer-domain scope, not a global DB graph audit. Phase10 remains blocked and the other documented limitations remain in force.",
   "closed_review_followups": [
     {
       "finding": "Z1",
@@ -269,15 +285,51 @@
       "finding": "Z3",
       "commit": "75c744ee",
       "status": "CLOSED",
-      "result": "Java unordered query plus HashMap/ArrayList source and live fixed-PK probe establish unspecified row order. Removed blanket floor DATA rule; captured key/row-floorId validation and complete duplicate-preserving multiset comparison replace it. Changed Morse fields, sort value/type, missing/extra/duplicate rows, missing/extra fields and mismatched floor references fail. Generic UUID row identities remain shape-masked."
+      "result": "Java unordered query plus HashMap/ArrayList source and live fixed-PK probe establish unspecified row order. Removed blanket floor DATA rule; captured key/row-floorId validation and complete duplicate-preserving multiset comparison replace it. Changed Morse fields, sort value/type, missing/extra/duplicate rows, missing/extra fields and mismatched floor references fail. The then-shape-masked generic UUID row identities are now also checked by H1's scoped bijection."
     },
     {
       "finding": "Z4",
       "commit": "d120e188",
       "status": "CLOSED",
       "result": "Concurrency gate comment now describes blocked creators and successful final inventories and explicitly disclaims deterministic rejection of the missing-read gap-lock mutation. Test logic is unchanged."
+    },
+    {
+      "finding": "H1",
+      "commits": ["d581ee8e", "c2f56469", "89bf42a5", "4a2f9592", "42f312e9", "33fad926"],
+      "status": "CLOSED_IN_DOCUMENTED_SCOPE",
+      "result": "Production comparisons now check a journey/response-local bijection, including matched unordered rows, opted-in JSON strings, entity-key fields and known numeric PK/reference domains. 48 Python regressions pass, including wrong questions, swapped references, reverse reuse, persistent mappings, ambiguity, embedded JSON and nested integer domains. No Rust business-code fix or new acceptance rule was required; pagination fixture chronology was made deterministic and one obsolete integer-offset DATA rule was removed."
     }
   ],
+  "identity_review_findings": {
+    "initial_journeys": {
+      "artifact": "/tmp/h1_identity_initial_journeys.json",
+      "requests": 421,
+      "identical": 399,
+      "accepted": 19,
+      "fail": 3,
+      "open": 0
+    },
+    "newly_encountered_differences": [
+      {"endpoint": "journey:training-list-pagination/post-ticker-2-rows-page-1", "paths": ["$.data.data[0].name", "$.data.data[1].name", "$.data.data[0].id", "$.data.data[1].id"], "resolution": "89bf42a5 deterministic two-row creation-time fixture; ordered pagination and bijection checks remain active"},
+      {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-1", "paths": ["$.data.data[1].name", "$.data.data[1].id"], "resolution": "89bf42a5 deterministic three-row creation-time fixture; ordered pagination and bijection checks remain active"},
+      {"endpoint": "journey:training-list-pagination/post-ticker-3-rows-page-2", "paths": ["$.data.data[0].name", "$.data.data[0].id"], "resolution": "89bf42a5 the same deterministic three-row creation-time fixture; page boundaries still compare literally"}
+    ],
+    "pagination_evidence": {
+      "java_source": "PostTickerTapeTrainService.listPage orders createTime descending; entity default is LocalDateTime.now()",
+      "rust_source": "post_ticker::list orders create_time DESC; add persists NOW(6)",
+      "live_probe": "/tmp/h1_ticker_order_probe.json: both databases had distinct creation seconds and all eight pagination responses compared equal",
+      "evidence_limit": "The initial mismatch report did not preserve raw clocks. Exact initial clock values or ties cannot be inferred; this was an uncontrolled chronology fixture, not evidence of a Rust sorting defect",
+      "regression": "Both isolated databases receive the same step seed before HTTP; reversed ordered rows remain a difference"
+    },
+    "equivalence_reclassification": {
+      "endpoint": "POST /api/device/addDeviceDescription",
+      "variant": "probe-num",
+      "old_difference": "Java generated description id 2 vs Rust 1 after the accepted earlier string-id probe",
+      "resolution": "Response-local description-domain bijection now establishes correspondence; 33fad926 removes the obsolete exact numeric DATA exemption. Changed supported title still resolves OPEN without a rule"
+    },
+    "new_acceptance_rules": 0,
+    "rust_business_code_changes": 0
+  },
   "mutation_checks": [
     {
       "test": "supplied_exam_saves_use_one_pool_connection",
@@ -332,8 +384,8 @@
   ],
   "limitations": [
     {
-      "risk": "UUID shape masking does not generally check Java<->Rust identity correspondence; a wrong-but-UUID-shaped reference can compare equal outside the captured floor key/floorId validation",
-      "proposal": "Per-journey bijective id mapping"
+      "risk": "Identity correspondence is scoped to matched/captured values within one journey or one standalone response and known positive integer entity domains; explicit mask, non-opted-in embedded JSON/entity keys, unmatched inventories and unknown shapes do not establish correspondence. A first positional match cannot prove intended reference semantics or detect a shared Java/Rust defect",
+      "proposal": "Extend curated entity/reference observations or additional known generated shapes with focused regressions; do not claim global graph correctness from the sweep"
     },
     {
       "risk": "HashMap tree-bin traversal order is not emulated; linked-bin parity does not prove Java ordering for >=8 colliding ids in one bucket at capacity >=64",
