@@ -217,7 +217,13 @@ NUMERIC_ID_DOMAINS = {"device", "deviceType", "deviceDescription", "deviceScorin
 
 def identity_domain(path):
     endpoint = path.split("?")[0].split("/")
+    if "addDeviceDescription" in endpoint:
+        return "deviceDescription"
     return "room" if "router" in endpoint else next((part for part in endpoint if part in NUMERIC_ID_DOMAINS), None)
+
+
+def child_identity_domain(field, domain):
+    return "deviceDescription" if field == "descriptions" and domain == "device" else domain
 
 
 class IdentityMap:
@@ -252,7 +258,8 @@ class IdentityMap:
             if side == "rust" and key in self.rust_to_java:
                 return self.rust_to_java[key][1]
         if isinstance(value, dict):
-            return {name: self.canonical(item, side, name, domain, agnostic) for name, item in value.items()}
+            return {name: self.canonical(item, side, name, child_identity_domain(name, domain), agnostic)
+                    for name, item in value.items()}
         if isinstance(value, list):
             items = [self.canonical(item, side, field, domain, agnostic) for item in value]
             return unordered_array(items) if isinstance(value, Unordered) else items
@@ -274,20 +281,20 @@ class IdentityMap:
     def compare(self, java, rust, path="$", field="", domain=None):
         pending, differences = [], []
 
-        def walk(left, right, at, name):
-            differences.extend(self.bind(left, right, at, name, domain))
+        def walk(left, right, at, name, entity_domain):
+            differences.extend(self.bind(left, right, at, name, entity_domain))
             if isinstance(left, dict) and isinstance(right, dict):
                 for key in sorted(left.keys() & right.keys()):
-                    walk(left[key], right[key], f"{at}.{key}", key)
+                    walk(left[key], right[key], f"{at}.{key}", key, child_identity_domain(key, entity_domain))
             elif isinstance(left, Unordered) and isinstance(right, Unordered):
-                pending.append((left, right, at))
+                pending.append((left, right, at, entity_domain))
             elif isinstance(left, list) and isinstance(right, list):
                 for index, (x, y) in enumerate(zip(left, right)):
-                    walk(x, y, f"{at}[{index}]", name)
+                    walk(x, y, f"{at}[{index}]", name, entity_domain)
 
-        walk(java, rust, path, field)
-        for left, right, at in pending:
-            differences.extend(self.match_unordered(left, right, at, domain))
+        walk(java, rust, path, field, domain)
+        for left, right, at, entity_domain in pending:
+            differences.extend(self.match_unordered(left, right, at, entity_domain))
         return differences
 
     def match_unordered(self, java, rust, path, domain):
@@ -564,8 +571,9 @@ def run_journeys(spec, args, headers, db):
             identity_diffs = []
             domain = identity_domain(step["path"])
             for name, expression in step.get("capture", {}).items():
+                capture_domain = child_identity_domain("descriptions", domain) if ".descriptions" in expression else domain
                 identity_diffs.extend(identities.compare(variables["java"][name], variables["rust"][name],
-                                                         expression, expression.rsplit(".", 1)[-1], domain))
+                                                         expression, expression.rsplit(".", 1)[-1], capture_domain))
             identity_diffs.extend(identities.compare(outcome["java"].get("json"), outcome["rust"].get("json"), domain=domain))
             outcome["java"]["identity_diffs"] = identity_diffs
             for side in ("java", "rust"):

@@ -427,6 +427,16 @@ class IdentityCorrespondenceTest(unittest.TestCase):
                                       {"data": {"id": 52, "deviceType": 41, "trainId": 52}}, identities, path="/api/groupNetTrain/saveTrain"))
         self.assert_mismatch(self.compare({"data": {"deviceType": 1}}, {"data": {"deviceType": 42}}, identities), "$.data.deviceType")
 
+    def test_nested_device_description_ids_do_not_alias_device_primary_keys(self):
+        identities = sweep.IdentityMap()
+        java = {"data": {"id": 1, "descriptions": [{"id": 1, "deviceId": 1}]}}
+        rust = {"data": {"id": 19, "descriptions": [{"id": 27, "deviceId": 19}]}}
+        self.assertIsNone(self.compare(java, rust, identities, path="/api/device/save"))
+        self.assertIsNone(self.compare({"data": {"id": 1, "deviceId": 1}},
+                                      {"data": {"id": 27, "deviceId": 19}}, identities, path="/api/device/addDeviceDescription"))
+        rust["data"]["descriptions"][0]["id"] = 28
+        self.assert_mismatch(self.compare(java, rust, identities, path="/api/device/listPage"), "$.data.descriptions[0].id")
+
     def test_capture_path_not_variable_name_binds_integer_ids_before_masking(self):
         spec = {"journeys": [{"name": "numeric", "steps": [
             {"name": "capture", "method": "POST", "path": "/api/deviceType/save", "capture": {"groupType": "$.data.id"}, "mask": ["$.data.id"]},
