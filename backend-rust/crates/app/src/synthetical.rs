@@ -108,11 +108,7 @@ fn required_message_type(body: &Value) -> Result<i32, Error> {
 }
 
 async fn lock_user(tx: &mut Transaction<'_, MySql>, user_id: &str) -> Result<(), Error> {
-    let row = sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut **tx)
-        .await?;
-    if row.is_none() {
+    if !crate::statistical::lock_user(tx, user_id).await? {
         return Err(parameter("训练属主不存在"));
     }
     Ok(())
@@ -412,7 +408,8 @@ async fn recompute_statistics(
     tx: &mut Transaction<'_, MySql>,
     owner_id: &str,
 ) -> Result<(), Error> {
-    let rows = sqlx::query("SELECT CAST(CASE WHEN protocol_version=1 THEN accumulated_active_millis ELSE duration END AS CHAR) AS total_time_value,speed FROM t_telegraph_key_pat_synthetical_train WHERE create_user_id=? AND status=3 FOR UPDATE")
+    // The owner lock serializes every settlement; historical rows need no locking scan.
+    let rows = sqlx::query("SELECT CAST(CASE WHEN protocol_version=1 THEN accumulated_active_millis ELSE duration END AS CHAR) AS total_time_value,speed FROM t_telegraph_key_pat_synthetical_train WHERE create_user_id=? AND status=3")
         .bind(owner_id)
         .fetch_all(&mut **tx)
         .await?;
@@ -448,10 +445,12 @@ async fn recompute_statistics(
         i32::try_from(rows.len()).map_err(|_| Error::Internal("训练次数超出有效范围".into()))?;
     let total_time = total_time.to_string();
 
-    let existing = sqlx::query("SELECT id FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=2 LIMIT 1 FOR UPDATE")
-        .bind(owner_id)
-        .fetch_optional(&mut **tx)
-        .await?;
+    let existing = sqlx::query(
+        "SELECT id FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=2 LIMIT 1",
+    )
+    .bind(owner_id)
+    .fetch_optional(&mut **tx)
+    .await?;
     if let Some(row) = existing {
         let id = row.get::<String, _>("id");
         sqlx::query("UPDATE t_telegraph_key_train_statistical SET total_count=?,total_time=?,avg_speed=? WHERE id=?")
@@ -583,10 +582,14 @@ pub(crate) async fn save(
                 let message_type = required_message_type(&body)?;
                 let source = initial_source(&body)?;
                 lock_user(&mut tx, &user.id).await?;
-                let last = sqlx::query("SELECT id,status,protocol_version,source_content,accumulated_active_millis FROM t_telegraph_key_pat_synthetical_train WHERE create_user_id=? ORDER BY create_time DESC,id DESC LIMIT 1 FOR UPDATE")
+                let last_id: Option<String> = sqlx::query_scalar("SELECT id FROM t_telegraph_key_pat_synthetical_train WHERE create_user_id=? ORDER BY create_time DESC,id DESC LIMIT 1")
                     .bind(&user.id)
                     .fetch_optional(&mut *tx)
                     .await?;
+                let last = match last_id {
+                    Some(id) => find_train_locked(&mut tx, &id).await?,
+                    None => None,
+                };
                 if let Some(last) = last {
                     let last_id = last.get::<String, _>("id");
                     match last.get::<Option<i32>, _>("status") {

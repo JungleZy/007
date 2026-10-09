@@ -99,17 +99,16 @@ pub(crate) async fn save_base(
         Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
         Err(error) => return database_error(error, "lock user for base save"),
     }
-    let existing = match sqlx::query(
-        "SELECT id FROM t_telex_pat WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE",
-    )
-    .bind(&user.id)
-    .bind(train_type)
-    .fetch_optional(&mut *transaction)
-    .await
-    {
-        Ok(row) => row,
-        Err(error) => return database_error(error, "load base training for save"),
-    };
+    let existing =
+        match sqlx::query("SELECT id FROM t_telex_pat WHERE user_id=? AND type=? LIMIT 1")
+            .bind(&user.id)
+            .bind(train_type)
+            .fetch_optional(&mut *transaction)
+            .await
+        {
+            Ok(row) => row,
+            Err(error) => return database_error(error, "load base training for save"),
+        };
     let id = if let Some(row) = existing {
         let id = row.get::<String, _>("id");
         if let Err(error) =
@@ -151,7 +150,7 @@ pub(crate) async fn save_base(
         Ok(row) => row.get::<i64, _>("total_time"),
         Err(error) => return database_error(error, "sum base duration"),
     };
-    let statistical = match sqlx::query("SELECT id,total_count FROM t_telex_pat_train_statistical WHERE user_id=? AND type=0 LIMIT 1 FOR UPDATE")
+    let statistical = match sqlx::query("SELECT id,total_count FROM t_telex_pat_train_statistical WHERE user_id=? AND type=0 LIMIT 1")
         .bind(&user.id)
         .fetch_optional(&mut *transaction)
         .await
@@ -218,21 +217,45 @@ pub(crate) async fn delete_base(
         Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
         Err(error) => return database_error(error, "lock user for base delete"),
     }
-    if let Err(error) = sqlx::query("DELETE FROM t_telex_pat WHERE user_id=? AND type=?")
-        .bind(&user.id)
-        .bind(train_type)
-        .execute(&mut *transaction)
-        .await
+    let ids: Vec<String> = match sqlx::query_scalar(
+        "SELECT id FROM t_telex_pat WHERE user_id=? AND type=? ORDER BY id",
+    )
+    .bind(&user.id)
+    .bind(train_type)
+    .fetch_all(&mut *transaction)
+    .await
     {
-        return database_error(error, "delete base training");
+        Ok(ids) => ids,
+        Err(error) => return database_error(error, "discover base training for delete"),
+    };
+    for id in ids {
+        if let Err(error) = sqlx::query("DELETE FROM t_telex_pat WHERE id=?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+        {
+            return database_error(error, "delete base training");
+        }
     }
-    if let Err(error) = sqlx::query("UPDATE t_telex_pat_train_statistical SET total_time='0',total_count=0,avg_speed=0 WHERE user_id=? AND type=?")
-        .bind(&user.id)
-        .bind(train_type)
-        .execute(&mut *transaction)
-        .await
+    let ids: Vec<String> = match sqlx::query_scalar(
+        "SELECT id FROM t_telex_pat_train_statistical WHERE user_id=? AND type=? ORDER BY id",
+    )
+    .bind(&user.id)
+    .bind(train_type)
+    .fetch_all(&mut *transaction)
+    .await
     {
-        return database_error(error, "clear base statistics");
+        Ok(ids) => ids,
+        Err(error) => return database_error(error, "discover base statistics for clear"),
+    };
+    for id in ids {
+        if let Err(error) = sqlx::query("UPDATE t_telex_pat_train_statistical SET total_time='0',total_count=0,avg_speed=0 WHERE id=?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+        {
+            return database_error(error, "clear base statistics");
+        }
     }
     if let Err(error) = transaction.commit().await {
         return database_error(error, "commit base delete transaction");

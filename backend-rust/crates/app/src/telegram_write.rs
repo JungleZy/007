@@ -1,4 +1,5 @@
 use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::statistical::lock_user;
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -6,19 +7,12 @@ use axum::{
     Json,
 };
 use serde_json::{json, Value};
-use sqlx::{MySql, Row, Transaction};
+use sqlx::{pool::PoolConnection, Connection, MySql, Row};
 
 #[path = "telegram_lifecycle.rs"]
 mod lifecycle;
 pub(crate) use lifecycle::{control, save_captured_content, save_captured_log, save_floor_content};
 
-async fn lock_user(tx: &mut Transaction<'_, MySql>, user_id: &str) -> Result<bool, sqlx::Error> {
-    sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut **tx)
-        .await
-        .map(|row| row.is_some())
-}
 fn train(body: &Value) -> &Value {
     body.get("train").unwrap_or(body)
 }
@@ -328,6 +322,24 @@ fn validate_settings(values: &[Value]) -> Result<(), &'static str> {
     Ok(())
 }
 
+// The global set may be empty; a database-scoped named lock serializes replacements.
+// Close the session on every exit (including cancellation) so its lock cannot leak.
+async fn settings_connection(pool: &sqlx::MySqlPool) -> Result<PoolConnection<MySql>, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    connection.close_on_drop();
+    let acquired: Option<i64> = sqlx::query_scalar(
+        "SELECT GET_LOCK(CONCAT('telegram-settings:', LEFT(SHA2(DATABASE(),256),46)),10)",
+    )
+    .fetch_one(&mut *connection)
+    .await?;
+    if acquired != Some(1) {
+        return Err(sqlx::Error::Protocol(
+            "telegram settings lock unavailable".into(),
+        ));
+    }
+    Ok(connection)
+}
+
 pub(crate) async fn save_setting(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -345,15 +357,35 @@ pub(crate) async fn save_setting(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
+    let mut connection = match settings_connection(pool).await {
+        Ok(connection) => connection,
+        Err(e) => return error(e, "lock telegram settings"),
+    };
+    let mut tx = match connection.begin().await {
         Ok(tx) => tx,
         Err(e) => return error(e, "start telegram settings"),
     };
-    if let Err(e) = sqlx::query("DELETE FROM t_telegram_train_setting")
-        .execute(&mut *tx)
-        .await
-    {
-        return error(e, "delete telegram settings");
+    match lock_user(&mut tx, &user.id).await {
+        Ok(true) => {}
+        Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
+        Err(e) => return error(e, "lock settings actor"),
+    }
+    let ids: Vec<String> =
+        match sqlx::query_scalar("SELECT id FROM t_telegram_train_setting ORDER BY id")
+            .fetch_all(&mut *tx)
+            .await
+        {
+            Ok(ids) => ids,
+            Err(e) => return error(e, "discover telegram settings"),
+        };
+    for id in ids {
+        if let Err(e) = sqlx::query("DELETE FROM t_telegram_train_setting WHERE id=?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+        {
+            return error(e, "delete telegram settings");
+        }
     }
     let mut saved = Vec::with_capacity(values.len());
     for value in values {

@@ -59,6 +59,8 @@ mod post_telegraph_write;
 mod post_telex;
 mod post_telex_write;
 mod post_ticker;
+#[cfg(test)]
+mod prejob_writer_tests;
 mod question_level;
 mod radio_term;
 mod radiotelephone;

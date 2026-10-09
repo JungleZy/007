@@ -1,4 +1,5 @@
 use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
+use crate::statistical::lock_user;
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -7,7 +8,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::{MySql, Row, Transaction};
+use sqlx::Row;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TypeRequest {
@@ -31,17 +32,6 @@ pub(crate) struct SaveRequest {
 fn database_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error = %error, operation, "telegraph key database operation failed");
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-}
-
-async fn lock_user(
-    transaction: &mut Transaction<'_, MySql>,
-    user_id: &str,
-) -> Result<bool, sqlx::Error> {
-    sqlx::query("SELECT id FROM t_user WHERE id=? LIMIT 1 FOR UPDATE")
-        .bind(user_id)
-        .fetch_optional(&mut **transaction)
-        .await
-        .map(|row| row.is_some())
 }
 
 pub(crate) async fn find_by_type(
@@ -180,7 +170,7 @@ pub(crate) async fn save(
     };
 
     let average_speed = scoring::rate_per_minute(i64::from(total_num), i64::from(total_time));
-    let statistical = match sqlx::query("SELECT id,total_count FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=? LIMIT 1 FOR UPDATE")
+    let statistical = match sqlx::query("SELECT id,total_count FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=? LIMIT 1")
         .bind(&user.id)
         .bind(train_type)
         .fetch_optional(&mut *transaction)
@@ -238,11 +228,13 @@ pub(crate) async fn clear(
         Ok(false) => return envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
         Err(error) => return database_error(error, "lock user for clear"),
     }
-    let existing = match sqlx::query("SELECT id FROM t_telegraph_key_pat_train WHERE create_user_id=? AND type=? LIMIT 1 FOR UPDATE")
-        .bind(&user.id)
-        .bind(train_type)
-        .fetch_optional(&mut *transaction)
-        .await
+    let existing = match sqlx::query(
+        "SELECT id FROM t_telegraph_key_pat_train WHERE create_user_id=? AND type=? LIMIT 1",
+    )
+    .bind(&user.id)
+    .bind(train_type)
+    .fetch_optional(&mut *transaction)
+    .await
     {
         Ok(row) => row,
         Err(error) => return database_error(error, "load train for clear"),
@@ -270,13 +262,25 @@ pub(crate) async fn clear(
         }
         id
     };
-    if let Err(error) = sqlx::query("UPDATE t_telegraph_key_train_statistical SET total_count=0,total_time='0',avg_speed=0 WHERE user_id=? AND type=?")
-        .bind(&user.id)
-        .bind(train_type)
-        .execute(&mut *transaction)
-        .await
+    let ids: Vec<String> = match sqlx::query_scalar(
+        "SELECT id FROM t_telegraph_key_train_statistical WHERE user_id=? AND type=? ORDER BY id",
+    )
+    .bind(&user.id)
+    .bind(train_type)
+    .fetch_all(&mut *transaction)
+    .await
     {
-        return database_error(error, "clear statistics");
+        Ok(ids) => ids,
+        Err(error) => return database_error(error, "discover statistics for clear"),
+    };
+    for id in ids {
+        if let Err(error) = sqlx::query("UPDATE t_telegraph_key_train_statistical SET total_count=0,total_time='0',avg_speed=0 WHERE id=?")
+            .bind(id)
+            .execute(&mut *transaction)
+            .await
+        {
+            return database_error(error, "clear statistics");
+        }
     }
     if let Err(error) = transaction.commit().await {
         return database_error(error, "commit clear transaction");
