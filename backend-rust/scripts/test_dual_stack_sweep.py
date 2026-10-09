@@ -570,7 +570,7 @@ class RegistryPredicateTest(unittest.TestCase):
     def test_all_state_artefacts_have_bounded_paths_and_supported_field_mutation_is_open(self):
         registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
         artefacts = [rule for rule in registry["overrides"] if rule.get("note", "").startswith("STATE_ARTEFACT:")]
-        self.assertEqual(16, len(artefacts))
+        self.assertEqual(15, len(artefacts))
         self.assertTrue(all(rule.get("allowed_paths") for rule in artefacts))
         rule = next(rule for rule in artefacts if rule["endpoint"] == "POST /api/telegramTrain/statisticalPage")
         expected = [["$.data[2].totalCount", 0, 2], ["$.data[2].totalTime", "0", "0.0"]]
@@ -578,6 +578,17 @@ class RegistryPredicateTest(unittest.TestCase):
         self.assertEqual("ACCEPTED", sweep.disposition(entry, registry)[0])
         entry["data_diffs"] = expected + [["$.data[2].avgSpeed", 50, 0]]
         self.assertEqual("OPEN", sweep.disposition(entry, registry)[0])
+
+    def test_generated_description_offset_needs_correspondence_not_a_data_exemption(self):
+        registry = json.loads(Path(__file__).with_name("dual-stack-sweep-registry.json").read_text())
+        endpoint = "POST /api/device/addDeviceDescription"
+        self.assertFalse(any(rule["endpoint"] == endpoint and rule["variant"] == "probe-num" for rule in registry["overrides"]))
+        job = {"endpoint": endpoint, "variant": "probe-num", "who": "admin", "path": "/api/device/addDeviceDescription"}
+        java = {"status": 200, "json": {"code": 200, "data": {"id": 2, "deviceId": 999999, "title": "x"}}}
+        rust = {"status": 200, "json": {"code": 200, "data": {"id": 1, "deviceId": 999999, "title": "x"}}}
+        self.assertIsNone(sweep.comparison_entry(job, java, rust, registry))
+        rust["json"]["data"]["title"] = "changed"
+        self.assertEqual("OPEN", sweep.comparison_entry(job, java, rust, registry)["disposition"])
 
     def test_in_region_value_type_and_presence_mutations_are_rejected(self):
         rule = {"allowed_paths": ["$.data.score"], "path_predicates": {"$.data.score": {"java": {"value": 0}, "rust": {"value": 2}}}}
