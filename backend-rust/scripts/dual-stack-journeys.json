@@ -515,13 +515,13 @@
         {"name":"create-empty-body","method":"POST","path":"/api/postTickerTapeTrain/add","who":"admin","body":{"name":"列表空报文","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":[],"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"sleep":1.1},
         {"name":"list-empty-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20}},
         {"name":"create-populated-body","method":"POST","path":"/api/postTickerTapeTrain/add","who":"admin","body":{"name":"列表非空报文","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":[{"codeMessage":"1234","sort":1}],"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"sleep":1.1},
-        {"name":"list-populated-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20}},
+        {"name":"list-populated-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20},"seed_sql":"UPDATE t_post_ticker_tape_train SET create_time=CASE name WHEN '列表空报文' THEN '2026-10-02 00:00:01' WHEN '列表非空报文' THEN '2026-10-02 00:00:02' END WHERE user_id='sweep-admin' AND name IN ('列表空报文','列表非空报文');"},
         {"name":"create-null-body","method":"POST","path":"/api/postTickerTapeTrain/add","who":"admin","body":{"name":"列表null报文","isCable":0,"rate":40,"type":0,"codeShort":0,"codeMessageBody":null,"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"capture":{"nullBodyId":"$.data.id"},"sleep":1.1},
-        {"name":"list-null-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20}},
+        {"name":"list-null-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20},"seed_sql":"UPDATE t_post_ticker_tape_train SET create_time=CASE name WHEN '列表空报文' THEN '2026-10-02 00:00:01' WHEN '列表非空报文' THEN '2026-10-02 00:00:02' WHEN '列表null报文' THEN '2026-10-02 00:00:03' END WHERE user_id='sweep-admin' AND name IN ('列表空报文','列表非空报文','列表null报文');"},
         {"name":"detail-null-body","method":"POST","path":"/api/postTickerTapeTrain/getById","who":"admin","body":{"id":"${nullBodyId}"}},
         {"name":"create-absent-body","method":"POST","path":"/api/postTickerTapeTrain/add","who":"admin","body":{"name":"列表缺失报文","isCable":0,"rate":40,"type":0,"codeShort":0,"isLowRate":0,"disturb":"","isAvg":0,"isRandom":0,"totalNumber":1,"ratio":0,"isStartSign":1},"capture":{"absentBodyId":"$.data.id"}},
         {"name":"detail-absent-body","method":"POST","path":"/api/postTickerTapeTrain/getById","who":"admin","body":{"id":"${absentBodyId}"}},
-        {"name":"list-absent-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20}}
+        {"name":"list-absent-body","method":"POST","path":"/api/postTickerTapeTrain/listPage","who":"admin","body":{"page":1,"rows":20},"seed_sql":"UPDATE t_post_ticker_tape_train SET create_time=CASE name WHEN '列表空报文' THEN '2026-10-02 00:00:01' WHEN '列表非空报文' THEN '2026-10-02 00:00:02' WHEN '列表null报文' THEN '2026-10-02 00:00:03' WHEN '列表缺失报文' THEN '2026-10-02 00:00:04' END WHERE user_id='sweep-admin' AND name IN ('列表空报文','列表非空报文','列表null报文','列表缺失报文');"}
       ]
     },
     {

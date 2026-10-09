@@ -181,6 +181,32 @@ class JourneyComparisonTest(unittest.TestCase):
             right = {"data": {"data": [{"name": "first"}, {"name": "second"}]}}
             self.assertFalse(self.equivalent(left, right, listing), "deterministic clocks do not exempt reordered results")
 
+    def test_message_body_lists_have_deterministic_clocks_without_masking_projection_or_order(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
+        steps = next(journey["steps"] for journey in journeys["journeys"] if journey["name"] == "post-ticker-list-message-body")
+        listings = [step for step in steps if step["name"] in ("list-populated-body", "list-null-body", "list-absent-body")]
+        self.assertEqual(3, len(listings))
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        for listing in listings:
+            events = []
+            db = SimpleNamespace(dbs=("rust_parity_java_test", "rust_parity_rust_test"),
+                                 run=lambda database, sql: events.append((database, sql)))
+
+            def http_case(base, *args):
+                events.append((base, "http"))
+                return {"status": 200, "json": {"code": 200, "data": []}}
+
+            with patch.object(sweep, "http_case", side_effect=http_case):
+                sweep.run_journeys({"journeys": [{"name": "body-clock-fixture", "steps": [listing]}]}, args, {"admin": {}}, db)
+            self.assertEqual([(database, listing["seed_sql"]) for database in db.dbs] + [("java", "http"), ("rust", "http")], events)
+            rows = [{"name": "列表非空报文", "codeMessageBody": None}, {"name": "列表空报文", "codeMessageBody": []}]
+            document = {"data": {"data": rows}}
+            self.assertTrue(self.equivalent(document, document, listing))
+            self.assertFalse(self.equivalent(document, {"data": {"data": list(reversed(rows))}}, listing))
+            changed = copy.deepcopy(document)
+            changed["data"]["data"][1]["codeMessageBody"] = None
+            self.assertFalse(self.equivalent(document, changed, listing), "[] versus null projection remains significant")
+
     def test_run_journeys_captures_original_content_before_transforms(self):
         original = '{"value": 1}'
         calls = []
