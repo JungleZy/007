@@ -441,6 +441,7 @@ pub(crate) async fn finish_page(
         let received = clock.get::<i64,_>("millis");
         let received_text = clock.get::<String,_>("received_text");
         let train = owned_page_train(&mut tx, id, &user).await?;
+        let id = train.get::<String, _>("id");
         if attempt.is_none() || attempt != train.get::<Option<i32>,_>("attempt") { return Err(PageError::Business(208, "训练轮次已改变，请重新读取训练，旧轮次不能提交")); }
         if train.get::<Option<i32>,_>("protocol_version") != Some(1) { return Err(PageError::Business(202, "历史训练不支持逐页采集写入")); }
         let maximum = maximum_page(&mut tx, &train).await?;
@@ -448,7 +449,7 @@ pub(crate) async fn finish_page(
         let capture: Option<Vec<Interval>> = text
             .map(|_| serde_json::from_value(capture_raw.clone()).ok())
             .flatten();
-        let saved = sqlx::query("SELECT id,pat_value,capture_intervals,attempt FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number=? LIMIT 1").bind(id).bind(number).fetch_optional(&mut *tx).await?;
+        let saved = sqlx::query("SELECT id,pat_value,capture_intervals,attempt FROM t_post_telex_pat_train_page_value WHERE train_id=? AND page_number=? LIMIT 1").bind(&id).bind(number).fetch_optional(&mut *tx).await?;
         let previous = if let Some(row) = saved.as_ref() {
             if row.get::<Option<i32>,_>("attempt") != attempt { return Err(PageError::Business(208, "训练轮次已改变")); }
             let previous = intervals(row.get("capture_intervals"))?;
@@ -479,10 +480,10 @@ pub(crate) async fn finish_page(
                 .bind(text).bind(serde_json::to_string(&capture)?).bind(attempt).bind(&received_text).bind(saved.get::<String,_>("id")).execute(&mut *tx).await?;
         } else {
             sqlx::query("INSERT INTO t_post_telex_pat_train_page_value (id,train_id,page_number,pat_value,capture_intervals,attempt,received_at) VALUES (?,?,?,?,?,?,?)")
-                .bind(uuid::Uuid::new_v4().to_string()).bind(id).bind(number).bind(text).bind(serde_json::to_string(&capture)?).bind(attempt).bind(&received_text).execute(&mut *tx).await?;
+                .bind(uuid::Uuid::new_v4().to_string()).bind(&id).bind(number).bind(text).bind(serde_json::to_string(&capture)?).bind(attempt).bind(&received_text).execute(&mut *tx).await?;
         }
         derive_capture(&mut tx, &train, received, maximum).await?;
-        let updated = owned_page_train(&mut tx, id, &user).await?;
+        let updated = owned_page_train(&mut tx, &id, &user).await?;
         let data = receipt(&mut tx, &updated, number, true).await?;
         tx.commit().await?;
         Ok(data)

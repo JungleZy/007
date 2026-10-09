@@ -149,6 +149,51 @@ async fn generate_page(
     Ok(())
 }
 
+async fn mutate_children(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    id: &str,
+    delete_pages: bool,
+) -> Result<(), sqlx::Error> {
+    // Existing writers (lazy receipt, capture and settlement included) hold the
+    // train PK before their first child read; creation owns its uncommitted PK.
+    // Discover without scan locks, then mutate in table/PRIMARY order.
+    let page_select = if delete_pages {
+        "SELECT id FROM t_post_telex_pat_train_page WHERE train_id=? ORDER BY id"
+    } else {
+        "SELECT id FROM t_post_telex_pat_train_page WHERE train_id=? AND value IS NOT NULL ORDER BY id"
+    };
+    for (select, mutation) in [
+        (
+            page_select,
+            if delete_pages {
+                "DELETE FROM t_post_telex_pat_train_page WHERE id=? AND train_id=?"
+            } else {
+                "UPDATE t_post_telex_pat_train_page SET value=NULL WHERE id=? AND train_id=?"
+            },
+        ),
+        (
+            "SELECT id FROM t_post_telex_pat_train_page_value WHERE train_id=? ORDER BY id",
+            "DELETE FROM t_post_telex_pat_train_page_value WHERE id=? AND train_id=?",
+        ),
+    ] {
+        let children: Vec<String> = sqlx::query_scalar(select)
+            .bind(id)
+            .fetch_all(&mut **tx)
+            .await?;
+        for child in children {
+            let result = sqlx::query(mutation)
+                .bind(child)
+                .bind(id)
+                .execute(&mut **tx)
+                .await?;
+            if result.rows_affected() != 1 {
+                return Err(sqlx::Error::RowNotFound);
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(crate) async fn add(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
@@ -424,6 +469,7 @@ struct ScoreStats {
 struct SourceGroup {
     id: String,
     key: String,
+    sort: i32,
 }
 
 fn numeric_selector(value: &str, maximum: usize) -> Option<usize> {
@@ -438,7 +484,7 @@ fn numeric_selector(value: &str, maximum: usize) -> Option<usize> {
 
 fn normalize_submission(text: &str, kind: i32, stats: &mut ScoreStats) -> Vec<Vec<String>> {
     let mut pages = Vec::new();
-    for raw_line in text.split(['\r', '\n']) {
+    for raw_line in text.split_inclusive(['\r', '\n']) {
         let mut tokens: Vec<String> = raw_line.split_whitespace().map(str::to_owned).collect();
         if tokens.is_empty() {
             continue;
@@ -489,6 +535,9 @@ fn normalize_submission(text: &str, kind: i32, stats: &mut ScoreStats) -> Vec<Ve
             index += 1;
         }
         stats.pat_groups += normalized.len() as i64;
+        if kind != 4 && raw_line.ends_with(['\r', '\n']) {
+            stats.pat_groups += 1;
+        }
         if kind != 4 {
             let mut corrected = Vec::with_capacity(normalized.len());
             let mut index = 0;
@@ -574,10 +623,12 @@ fn score_pages(
     let mut stats = ScoreStats::default();
     let mut updates = Vec::new();
     for (page, expected) in source {
+        let previous_groups = stats.pat_groups;
         let mut actual = submitted
             .get(page)
             .map(|text| normalize_submission(text, kind, &mut stats))
             .unwrap_or_default();
+        let attempted_groups = stats.pat_groups - previous_groups;
         let mut row_index = 0;
         while row_index < actual.len() {
             let expected_index = (row_index + 1) * 10;
@@ -619,7 +670,7 @@ fn score_pages(
                 continue;
             };
             for (column, group) in expected_row.iter().enumerate() {
-                let value = actual_row.get(column).cloned().unwrap_or_default();
+                let mut value = actual_row.get(column).cloned().unwrap_or_default();
                 if value.is_empty() {
                     stats.less_groups += 1;
                 } else {
@@ -635,14 +686,17 @@ fn score_pages(
                     if value == expected_value {
                         // exact
                     } else if expected_value.contains('-') && value == base {
-                        stats.less_page += 1;
+                        if kind == 4 {
+                            stats.less_page += 1;
+                        }
                     } else if expected_value.contains('-') && value.split('-').next() == Some(base)
                     {
-                        if value
-                            .rsplit('-')
-                            .next()
-                            .and_then(|marker| marker.parse::<i32>().ok())
-                            != Some(*page)
+                        if kind == 4
+                            && value
+                                .rsplit('-')
+                                .next()
+                                .and_then(|marker| marker.parse::<i32>().ok())
+                                != Some(*page)
                         {
                             stats.error_page += 1;
                         }
@@ -658,6 +712,14 @@ fn score_pages(
                         stats.error_code += 1;
                     }
                 }
+                if kind != 4 {
+                    let base = group.key.split('-').next().unwrap_or(&group.key);
+                    if let Some((body, _)) = value.split_once('-') {
+                        if body == base {
+                            value.truncate(body.len());
+                        }
+                    }
+                }
                 updates.push((group.id.clone(), value));
             }
             if actual_row.len() > expected_row.len() {
@@ -668,7 +730,7 @@ fn score_pages(
         if actual.len() > expected_rows {
             stats.more_line += (actual.len() - expected_rows) as i64;
         }
-        if expected.len() >= 100 {
+        if (kind == 4 && expected.len() >= 100) || (kind != 4 && attempted_groups >= 100) {
             let last = actual.iter().flat_map(|row| row.iter()).last();
             match last.and_then(|value| value.rsplit_once('-')) {
                 Some((_, marker)) if marker == page.to_string() => {}
@@ -678,6 +740,19 @@ fn score_pages(
         }
     }
     (stats, updates)
+}
+
+fn score_accuracy(groups: i64, errors: i64, kind: i32) -> Decimal {
+    if groups <= 0 {
+        return Decimal::ZERO;
+    }
+    let ratio = Decimal::from((groups - errors).max(0)) / Decimal::from(groups);
+    let ratio = if kind == 4 {
+        ratio
+    } else {
+        ratio.round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
+    };
+    ratio * Decimal::from(100)
 }
 
 fn decimal_text(value: Decimal) -> String {
@@ -725,7 +800,7 @@ async fn settle(
         .get::<Option<i32>, _>("train_type")
         .ok_or("训练类型缺失，无法结算")?;
     let source_rows = sqlx::query(
-        "SELECT id,page_number,`key` FROM t_post_telex_pat_train_page WHERE train_id=? ORDER BY page_number,sort",
+        "SELECT id,page_number,sort,`key` FROM t_post_telex_pat_train_page WHERE train_id=? ORDER BY page_number,sort",
     )
     .bind(id)
     .fetch_all(&mut **tx)
@@ -740,6 +815,7 @@ async fn settle(
         source.entry(page).or_default().push(SourceGroup {
             id: row.get::<String, _>("id"),
             key,
+            sort: row.get::<Option<i32>, _>("sort").ok_or("报底排序缺失")?,
         });
     }
     let value_rows = sqlx::query(
@@ -765,15 +841,50 @@ async fn settle(
                 .unwrap_or_default()
         });
     }
-    let (stats, page_updates) = score_pages(&source, &submitted, kind);
-    for (page_id, value) in page_updates {
-        sqlx::query("UPDATE t_post_telex_pat_train_page SET value=? WHERE id=? AND train_id=?")
-            .bind(value)
-            .bind(page_id)
-            .bind(id)
-            .execute(&mut **tx)
-            .await
-            .map_err(|_| "服务器错误")?;
+    let (stats, mut page_updates) = score_pages(&source, &submitted, kind);
+    page_updates.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    if kind == 4 {
+        for (page_id, value) in page_updates {
+            sqlx::query("UPDATE t_post_telex_pat_train_page SET value=? WHERE id=? AND train_id=?")
+                .bind(value)
+                .bind(page_id)
+                .bind(id)
+                .execute(&mut **tx)
+                .await
+                .map_err(|_| "服务器错误")?;
+        }
+    } else {
+        // Java rebuilds telex source rows with fresh identities, unlike type 4.
+        // The train PK protects replacement, lazy generation and exact retries.
+        for (page_id, _) in &page_updates {
+            let removed =
+                sqlx::query("DELETE FROM t_post_telex_pat_train_page WHERE id=? AND train_id=?")
+                    .bind(page_id)
+                    .bind(id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(|_| "服务器错误")?;
+            if removed.rows_affected() != 1 {
+                return Err("服务器错误");
+            }
+        }
+        for (page, groups) in source {
+            for group in groups {
+                let index = page_updates
+                    .binary_search_by(|(page_id, _)| page_id.cmp(&group.id))
+                    .map_err(|_| "服务器错误")?;
+                sqlx::query("INSERT INTO t_post_telex_pat_train_page (id,train_id,`key`,value,page_number,sort) VALUES (?,?,?,?,?,?)")
+                    .bind(uuid::Uuid::new_v4().to_string())
+                    .bind(id)
+                    .bind(group.key)
+                    .bind(&page_updates[index].1)
+                    .bind(page)
+                    .bind(group.sort)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(|_| "服务器错误")?;
+            }
+        }
     }
     let base = number(
         rule.get("wpm")
@@ -841,12 +952,7 @@ async fn settle(
     } else {
         stats.error_code
     };
-    let accuracy = if stats.pat_groups <= 0 {
-        Decimal::ZERO
-    } else {
-        let correct = (stats.pat_groups - error_number).max(0);
-        Decimal::from(correct) / Decimal::from(stats.pat_groups) * Decimal::from(100)
-    };
+    let accuracy = score_accuracy(stats.pat_groups, error_number, kind);
     let mut deduct = serde_json::Map::new();
     let mut add_deduction = |number_key: &str, score_key: &str, count: i64, value: Decimal| {
         deduct.insert(number_key.to_owned(), json!(count));
@@ -1044,10 +1150,11 @@ async fn action(state: AppState, user: AuthUser, body: ActionRequest, action: Ac
         Ok(v) => v,
         Err(e) => return err(e, "action begin"),
     };
-    let row=match sqlx::query("SELECT create_user,status,protocol_version,attempt,group_number,type,rule_content,score,countdown_seconds,pause_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',start_time) DIV 1000 AS SIGNED) start_ms,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',deadline) DIV 1000 AS SIGNED) deadline_ms,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',paused_at) DIV 1000 AS SIGNED) paused_ms FROM t_post_telex_pat_train WHERE id=? FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await{Ok(Some(v))=>v,Ok(None)=>return business(202,"未查询到训练信息"),Err(e)=>return err(e,"action select")};
+    let row=match sqlx::query("SELECT id,create_user,status,protocol_version,attempt,group_number,type,rule_content,score,countdown_seconds,pause_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',start_time) DIV 1000 AS SIGNED) start_ms,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',deadline) DIV 1000 AS SIGNED) deadline_ms,CAST(TIMESTAMPDIFF(MICROSECOND,'1970-01-01',paused_at) DIV 1000 AS SIGNED) paused_ms FROM t_post_telex_pat_train WHERE id=? FOR UPDATE").bind(&id).fetch_optional(&mut *tx).await{Ok(Some(v))=>v,Ok(None)=>return business(202,"未查询到训练信息"),Err(e)=>return err(e,"action select")};
     if row.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return business(207, "无权限");
     };
+    let id = row.get::<String, _>("id");
     let status = row.get::<Option<i32>, _>("status");
     let attempt = row.get::<Option<i32>, _>("attempt").unwrap_or(0);
     if row.get::<Option<i32>, _>("protocol_version") != Some(1) && status != Some(3) {
@@ -1123,12 +1230,9 @@ async fn action(state: AppState, user: AuthUser, body: ActionRequest, action: Ac
             settle(&mut tx, &id, &user.id, attempt).await
         }
         Action::Reset if matches!(status, Some(0 | 1 | 2)) => {
-            match sqlx::query("DELETE FROM t_post_telex_pat_train_page_value WHERE train_id=?").bind(&id).execute(&mut *tx).await {
-                Err(e) => { tracing::warn!(error=%e, operation="delete telex page values", train_id=%id, "post telex reset failed"); Err("服务器错误") }
-                Ok(_) => match sqlx::query("UPDATE t_post_telex_pat_train_page SET value=NULL WHERE train_id=?").bind(&id).execute(&mut *tx).await {
-                    Err(e) => { tracing::warn!(error=%e, operation="clear telex page values", train_id=%id, "post telex reset failed"); Err("服务器错误") }
-                    Ok(_) => sqlx::query("UPDATE t_post_telex_pat_train SET status=0,attempt=attempt+1,start_time=NULL,end_time=NULL,countdown_seconds=NULL,deadline=NULL,paused_at=NULL,pause_intervals='[]',speed='0',total_speed='0',valid_time=0,speed_log=NULL,valid_time_log=NULL,accuracy='0.00',error_number=0,`change`=0,deduct_info=NULL,score=? WHERE id=? AND create_user=? AND attempt=?").bind(row.get::<Option<String>,_>("score")).bind(&id).bind(&user.id).bind(attempt).execute(&mut *tx).await.map(|_|()).map_err(|e| { tracing::warn!(error=%e, operation="reset telex train", train_id=%id, "post telex reset failed"); "服务器错误" }),
-                }
+            match mutate_children(&mut tx, &id, false).await {
+                Err(e) => { tracing::warn!(error=%e, operation="reset telex children", train_id=%id, "post telex reset failed"); Err("服务器错误") }
+                Ok(()) => sqlx::query("UPDATE t_post_telex_pat_train SET status=0,attempt=attempt+1,start_time=NULL,end_time=NULL,countdown_seconds=NULL,deadline=NULL,paused_at=NULL,pause_intervals='[]',speed='0',total_speed='0',valid_time=0,speed_log=NULL,valid_time_log=NULL,accuracy='0.00',error_number=0,`change`=0,deduct_info=NULL,score=? WHERE id=? AND create_user=? AND attempt=?").bind(row.get::<Option<String>,_>("score")).bind(&id).bind(&user.id).bind(attempt).execute(&mut *tx).await.map(|_|()).map_err(|e| { tracing::warn!(error=%e, operation="reset telex train", train_id=%id, "post telex reset failed"); "服务器错误" }),
             }
         }
         _ => Err("训练状态不可执行"),
@@ -1202,7 +1306,7 @@ pub(crate) async fn delete(
         Err(e) => return err(e, "delete-begin"),
     };
     let row = match sqlx::query(
-        "SELECT create_user FROM t_post_telex_pat_train WHERE id=? LIMIT 1 FOR UPDATE",
+        "SELECT id,create_user FROM t_post_telex_pat_train WHERE id=? LIMIT 1 FOR UPDATE",
     )
     .bind(&id)
     .fetch_optional(&mut *tx)
@@ -1215,19 +1319,9 @@ pub(crate) async fn delete(
     if row.get::<Option<String>, _>("create_user").as_deref() != Some(u.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    if let Err(e) = sqlx::query("DELETE FROM t_post_telex_pat_train_page WHERE train_id=?")
-        .bind(&id)
-        .execute(&mut *tx)
-        .await
-    {
-        return err(e, "delete-pages");
-    }
-    if let Err(e) = sqlx::query("DELETE FROM t_post_telex_pat_train_page_value WHERE train_id=?")
-        .bind(&id)
-        .execute(&mut *tx)
-        .await
-    {
-        return err(e, "delete-values");
+    let id = row.get::<String, _>("id");
+    if let Err(e) = mutate_children(&mut tx, &id, true).await {
+        return err(e, "delete-children");
     }
     let result =
         match sqlx::query("DELETE FROM t_post_telex_pat_train WHERE id=? AND create_user=?")
@@ -1247,3 +1341,7 @@ pub(crate) async fn delete(
     }
     envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", "")
 }
+
+#[cfg(test)]
+#[path = "post_telex_writer_tests.rs"]
+mod writer_tests;
