@@ -80,6 +80,58 @@ class JourneyComparisonTest(unittest.TestCase):
         for name in ["enter", "reenter-preserves-answers"]:
             self.assertIn("$.data.student.content", by_name[name]["parse_json"])
 
+    def test_prejob_frontend_endpoints_have_student_journey_steps(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())["journeys"]
+        paths = {step["path"] for journey in journeys if journey["name"].startswith("prejob-")
+                 for step in journey["steps"] if step.get("who") == "student"}
+        expected = {f"/api/telegraphKeyPatTrainSynthetical/{name}" for name in
+                    ["save", "begin", "goTo", "finish", "findById", "lastTrain", "statisticalPage"]}
+        expected.update(f"/api/telegraphKeyPatTrain/{name}" for name in ["save", "findByType", "clear"])
+        expected.add("/api/telexPat/deleteTexPatByToken")
+        self.assertTrue(expected <= paths, expected - paths)
+
+    def test_prejob_launchers_replay_real_100_group_payloads(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())["journeys"]
+        for journey in journeys:
+            if journey["name"].startswith(("prejob-synthetical-", "prejob-student-telex-")):
+                with self.subTest(journey=journey["name"]):
+                    body = next(step["body"] for step in journey["steps"] if step["name"] == "create")
+                    content = json.loads(body["content"])
+                    self.assertEqual(len(content), 100)
+                    for row in content:
+                        self.assertEqual(set(row), {"text", "value", "type", "isFocus"})
+                        self.assertEqual(len(row["text"]), 4)
+                        self.assertEqual(row["value"], "")
+                        self.assertIs(row["type"], True)
+                        self.assertIs(row["isFocus"], False)
+
+    def test_prejob_fixed_results_and_statistics_are_not_masked(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())["journeys"]
+        for journey in journeys:
+            if not journey["name"].startswith("prejob-synthetical-"):
+                continue
+            steps = {step["name"]: step for step in journey["steps"]}
+            result = steps.get("detail-finished", steps.get("detail-settled"))
+            statistics = steps.get("statistics-finished", steps.get("statistics-settled"))
+            with self.subTest(journey=journey["name"]):
+                self.assertNotIn("mask", result)
+                self.assertNotIn("mask", statistics)
+                left = {"data": {"duration": "60", "speed": "8.00", "totalNumber": 100,
+                                 "errorNumber": 1, "accuracy": 50.0,
+                                 "content": '[{"text":"1234","value":"1234","type":true,"isFocus":true}]'}}
+                self.assertTrue(self.equivalent(left, left, result))
+                for field, value in [("duration", "61"), ("speed", "9.00"), ("totalNumber", 99),
+                                     ("errorNumber", 0), ("accuracy", 100.0),
+                                     ("content", '[{"text":"1234","value":"1235","type":false,"isFocus":true}]')]:
+                    changed = copy.deepcopy(left)
+                    changed["data"][field] = value
+                    self.assertFalse(self.equivalent(left, changed, result), field)
+                totals = {"data": [{"type": 2, "totalCount": 1, "totalTime": "60000", "avgSpeed": 8}]}
+                for field, value in [("totalCount", 2), ("totalTime", "61000"), ("avgSpeed", 9)]:
+                    changed = copy.deepcopy(totals)
+                    changed["data"][0][field] = value
+                    self.assertFalse(self.equivalent(totals, changed, statistics), field)
+
     def test_parse_json_retains_array_order_and_rejects_invalid_json(self):
         step = {"parse_json": ["$.data.content"]}
         self.assertFalse(self.equivalent({"data": {"content": "[1,2]"}}, {"data": {"content": "[2,1]"}}, step))
