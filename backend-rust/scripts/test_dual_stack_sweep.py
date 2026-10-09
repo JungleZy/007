@@ -207,6 +207,29 @@ class JourneyComparisonTest(unittest.TestCase):
             changed["data"]["data"][1]["codeMessageBody"] = None
             self.assertFalse(self.equivalent(document, changed, listing), "[] versus null projection remains significant")
 
+    def test_ticker_finish_uses_identical_closed_active_history_without_masking_seconds(self):
+        journeys = json.loads(Path(__file__).with_name("dual-stack-journeys.json").read_text())
+        steps = next(journey["steps"] for journey in journeys["journeys"] if journey["name"] == "personal-ticker-tape")
+        finish = next(step for step in steps if step["name"] == "finish")
+        self.assertIn("accumulated_active_millis=3500,active_since=NULL", finish["seed_sql"])
+        events = []
+        db = SimpleNamespace(dbs=("rust_parity_java_test", "rust_parity_rust_test"),
+                             run=lambda database, sql: events.append((database, sql)))
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+
+        def http_case(base, *args):
+            events.append((base, "http"))
+            return {"status": 200, "json": {"code": 200}}
+
+        with patch.object(sweep, "http_case", side_effect=http_case):
+            sweep.run_journeys({"journeys": [{"name": "active-history", "steps": [finish]}]}, args, {"admin": {}}, db)
+        self.assertEqual([(database, finish["seed_sql"]) for database in db.dbs] + [("java", "http"), ("rust", "http")], events)
+        for name in ("get-by-id-after", "statistics-after", "list-after-third"):
+            step = next(step for step in steps if step["name"] == name)
+            left = {"data": {"validTime": "3", "rows": [{"totalTime": "3"}]}}
+            self.assertFalse(self.equivalent(left, {"data": {"validTime": "4", "rows": [{"totalTime": "3"}]}}, step))
+            self.assertFalse(self.equivalent(left, {"data": {"validTime": "3", "rows": [{"totalTime": "4"}]}}, step))
+
     def test_run_journeys_captures_original_content_before_transforms(self):
         original = '{"value": 1}'
         calls = []

@@ -279,7 +279,7 @@
         {"name": "pause", "method": "POST", "path": "/api/tickerTapeTrain/pause", "body": {"id": "${secondId}", "mark": "1,2", "schedule": 3}},
         {"name": "pause-again", "method": "POST", "path": "/api/tickerTapeTrain/pause", "body": {"id": "${secondId}", "mark": "9,9", "schedule": 9}},
         {"name": "go-on", "method": "POST", "path": "/api/tickerTapeTrain/goOn", "body": {"id": "${secondId}"}, "sleep": 1.5},
-        {"name": "finish", "method": "POST", "path": "/api/tickerTapeTrain/finish", "body": {"id": "${secondId}", "mark": "2,3", "schedule": 5}},
+        {"name": "finish", "method": "POST", "path": "/api/tickerTapeTrain/finish", "body": {"id": "${secondId}", "mark": "2,3", "schedule": 5}, "seed_sql": "UPDATE t_ticker_tape_train SET accumulated_active_millis=3500,active_since=NULL WHERE user_id='sweep-admin' AND name='收报训练-2' AND status=1;"},
         {"name": "finish-again", "method": "POST", "path": "/api/tickerTapeTrain/finish", "body": {"id": "${secondId}"}},
         {"name": "get-by-id-after", "method": "POST", "path": "/api/tickerTapeTrain/getById", "body": {"id": "${secondId}"}},
         {"name": "statistics-after", "method": "POST", "path": "/api/tickerTapeTrain/statisticalPage", "body": {}},
