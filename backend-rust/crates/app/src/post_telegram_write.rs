@@ -55,6 +55,8 @@ struct CaptureInterval {
 
 #[derive(Deserialize, Serialize, Clone)]
 struct PatLog {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
     key: i32,
     value: f64,
 }
@@ -130,14 +132,19 @@ fn count_characters(body: &[Value]) -> Result<i64, &'static str> {
         let Some(object) = item.as_object() else {
             return Err("拍发组无效");
         };
-        let (_, mores_value, mores_time, pat_keys, pat_logs) = content_item_json(object)?;
-        let keys: Vec<String> = serde_json::from_str(&pat_keys).map_err(|_| "拍发内容字段无效")?;
+        let mores_key = field_string(object, "moresKey")?;
+        let mores_value = field_string(object, "moresValue")?;
+        let mores_time = field_string(object, "moresTime")?;
+        let pat_keys = field_string(object, "patKeys")?;
+        let pat_logs = field_string(object, "patLogs")?;
+        serde_json::from_str::<Vec<String>>(mores_key).map_err(|_| "拍发内容字段无效")?;
         let values: Vec<Vec<i32>> =
-            serde_json::from_str(&mores_value).map_err(|_| "拍发内容字段无效")?;
+            serde_json::from_str(mores_value).map_err(|_| "拍发内容字段无效")?;
         let times: Vec<Vec<f64>> =
-            serde_json::from_str(&mores_time).map_err(|_| "拍发内容字段无效")?;
+            serde_json::from_str(mores_time).map_err(|_| "拍发内容字段无效")?;
         let logs: Vec<Vec<PatLog>> =
-            serde_json::from_str(&pat_logs).map_err(|_| "拍发内容字段无效")?;
+            serde_json::from_str(pat_logs).map_err(|_| "拍发内容字段无效")?;
+        let keys: Vec<String> = serde_json::from_str(pat_keys).map_err(|_| "拍发内容字段无效")?;
         if keys.len() != values.len() || keys.len() != times.len() || keys.len() != logs.len() {
             return Err("拍发字符、码值与时长记录不一致");
         }
@@ -890,7 +897,9 @@ fn training_view(row: &sqlx::mysql::MySqlRow) -> Value {
         "score":row.get::<Option<String>,_>("score"),
         "ruleId":row.get::<Option<String>,_>("rule_id"), "ruleContent":row.get::<Option<String>,_>("rule_content"),
         "statisticInfo":row.get::<Option<String>,_>("statistic_info"), "deductInfo":row.get::<Option<String>,_>("deduct_info"),
-        "floorNow":row.get::<Option<i32>,_>("floor_now"), "speedLog":row.get::<Option<String>,_>("speed_log")
+        "floorNow":row.get::<Option<i32>,_>("floor_now"), "speedLog":row.get::<Option<String>,_>("speed_log"),
+        "messageGroup":null, "pageAnalyzeVOS":null, "finishInfo":null, "messageBody":null,
+        "existNumber":null, "standards":null, "resolver":null
     })
 }
 
@@ -903,6 +912,104 @@ fn corrupt_saved(message: &str, train_id: &str) -> Response {
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
 
+pub(super) fn saved_page_analysis(
+    page: &sqlx::mysql::MySqlRow,
+    train_id: &str,
+) -> Result<Value, Response> {
+    let body: Vec<Value> = serde_json::from_str(
+        &page
+            .get::<Option<String>, _>("message_body")
+            .ok_or_else(|| corrupt_saved("已保存拍发正文缺失", train_id))?,
+    )
+    .map_err(|error| corrupt_saved(&error.to_string(), train_id))?;
+    let intervals: Vec<CaptureInterval> = serde_json::from_str(
+        &page
+            .get::<Option<String>, _>("capture_intervals")
+            .ok_or_else(|| corrupt_saved("已保存采集时间轴缺失", train_id))?,
+    )
+    .map_err(|error| corrupt_saved(&error.to_string(), train_id))?;
+    let received = page
+        .get::<Option<i64>, _>("received_elapsed_ms")
+        .ok_or_else(|| corrupt_saved("已保存接收时间缺失", train_id))?;
+    Ok(json!({
+        "pageNumber": page.get::<Option<i32>, _>("floor_number"),
+        "patNumber": count_characters(&body).map_err(invalid)?,
+        "totalTime": capture_duration(&intervals, received.max(0)).map_err(invalid)?,
+    }))
+}
+
+// Every existing-train writer locks the canonical train PK before its first
+// consistent child read, including lazy generation, reset, settlement and delete.
+async fn clear_content(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    train_id: &str,
+    delete_sources: bool,
+) -> Result<(), sqlx::Error> {
+    let values: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM t_post_telegram_train_floor_content_value WHERE train_id=? ORDER BY id",
+    )
+    .bind(train_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    for id in values {
+        sqlx::query("DELETE FROM t_post_telegram_train_floor_content_value WHERE id=?")
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+    }
+    let sources: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM t_post_telegram_train_floor_content WHERE train_id=? ORDER BY id",
+    )
+    .bind(train_id)
+    .fetch_all(&mut **tx)
+    .await?;
+    let source_sql = if delete_sources {
+        "DELETE FROM t_post_telegram_train_floor_content WHERE id=?"
+    } else {
+        "UPDATE t_post_telegram_train_floor_content SET mores_value='[]',mores_time='[]',pat_keys='[]' WHERE id=?"
+    };
+    for id in sources {
+        sqlx::query(source_sql).bind(id).execute(&mut **tx).await?;
+    }
+    Ok(())
+}
+
+async fn generate_source_page(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    train: &sqlx::mysql::MySqlRow,
+    train_id: &str,
+    floor_number: i32,
+) -> Result<(), Response> {
+    let message_number = train
+        .get::<Option<i32>, _>("message_number")
+        .ok_or_else(|| invalid("训练报文数量缺失，无法生成报底"))?;
+    let train_type = train
+        .get::<Option<i32>, _>("type")
+        .ok_or_else(|| invalid("报文类型缺失，无法生成报底"))?;
+    let remaining =
+        (i64::from(message_number) - (i64::from(floor_number) - 1) * 100).min(100) as usize;
+    for (sort, group) in generated_groups(
+        remaining,
+        train_type,
+        train.get::<Option<i32>, _>("is_random") == Some(1),
+        train.get::<Option<i32>, _>("is_average") == Some(1),
+    )
+    .into_iter()
+    .enumerate()
+    {
+        let keys: Vec<String> = group
+            .chars()
+            .map(|character| character.to_string())
+            .collect();
+        let key = serde_json::to_string(&keys)
+            .map_err(|error| corrupt_saved(&error.to_string(), train_id))?;
+        sqlx::query("INSERT INTO t_post_telegram_train_floor_content (id,train_id,floor_number,sort,mores_key,mores_value,mores_time,pat_keys) VALUES (?,?,?,?,?,'[]','[]','[]')")
+            .bind(uuid::Uuid::new_v4().to_string()).bind(train_id).bind(floor_number).bind(sort as i32).bind(key)
+            .execute(&mut **tx).await.map_err(|error| err(error, "generate content page"))?;
+    }
+    Ok(())
+}
+
 async fn settle_train(
     tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
     train: &sqlx::mysql::MySqlRow,
@@ -911,10 +1018,10 @@ async fn settle_train(
 ) -> Result<(), Response> {
     let id = train.get::<String, _>("id");
     let attempt = train.get::<Option<i32>, _>("attempt");
-    let pages = sqlx::query("SELECT p.id,p.floor_number,p.attempt,p.message_body,p.standard,p.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,t.start_time,p.received_at) DIV 1000 AS SIGNED) AS received_elapsed_ms FROM t_post_telegram_train_floor_content_value p JOIN t_post_telegram_train t ON t.id=p.train_id WHERE p.train_id=? ORDER BY p.floor_number FOR UPDATE")
-        .bind(&id).fetch_all(&mut **tx).await.map_err(|error| err(error, "finish-lock-pages"))?;
-    let sources = sqlx::query("SELECT floor_number,mores_key FROM t_post_telegram_train_floor_content WHERE train_id=? ORDER BY floor_number,sort FOR UPDATE")
-        .bind(&id).fetch_all(&mut **tx).await.map_err(|error| err(error, "finish-lock-sources"))?;
+    let pages = sqlx::query("SELECT p.id,p.floor_number,p.attempt,p.message_body,p.standard,p.capture_intervals,CAST(TIMESTAMPDIFF(MICROSECOND,t.start_time,p.received_at) DIV 1000 AS SIGNED) AS received_elapsed_ms FROM t_post_telegram_train_floor_content_value p JOIN t_post_telegram_train t ON t.id=p.train_id WHERE p.train_id=? ORDER BY p.floor_number")
+        .bind(&id).fetch_all(&mut **tx).await.map_err(|error| err(error, "finish-read-pages"))?;
+    let sources = sqlx::query("SELECT floor_number,mores_key FROM t_post_telegram_train_floor_content WHERE train_id=? ORDER BY floor_number,sort")
+        .bind(&id).fetch_all(&mut **tx).await.map_err(|error| err(error, "finish-read-sources"))?;
     let mut timelines = Vec::with_capacity(pages.len());
     let mut active_millis = 0_i64;
     let mut characters = 0_i64;
@@ -1020,6 +1127,7 @@ async fn settle_train(
     } else {
         speed.to_string()
     };
+    resolvers.sort_unstable_by(|left, right| left.0.cmp(&right.0));
     for (page_id, resolver) in resolvers {
         sqlx::query("UPDATE t_post_telegram_train_floor_content_value SET resolver=? WHERE id=?")
             .bind(resolver)
@@ -1059,16 +1167,18 @@ pub(crate) async fn add(
         Ok(tx) => tx,
         Err(error) => return err(error, "add-begin"),
     };
-    let grading =
-        match sqlx::query("SELECT content,score FROM t_grading_rule WHERE id=? LIMIT 1 FOR UPDATE")
-            .bind(rule_id)
-            .fetch_optional(&mut *tx)
-            .await
-        {
-            Ok(Some(row)) => row,
-            Ok(None) => return invalid("评分规则不存在"),
-            Err(error) => return err(error, "add-rule"),
-        };
+    let grading = match sqlx::query(
+        "SELECT id,content,score FROM t_grading_rule WHERE id=? LIMIT 1 FOR UPDATE",
+    )
+    .bind(rule_id)
+    .fetch_optional(&mut *tx)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return invalid("评分规则不存在"),
+        Err(error) => return err(error, "add-rule"),
+    };
+    let rule_id = grading.get::<String, _>("id");
     let rule_content = grading.get::<Option<String>, _>("content");
     if let Err(message) = handkey_rule(rule_content.as_deref()) {
         return invalid(message);
@@ -1108,7 +1218,9 @@ pub(crate) async fn add(
         if total_pages == 0 {
             return invalid("报文组数不足一页，无法建立训练");
         }
-        let rows = match sqlx::query("SELECT floor_number,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort FOR UPDATE")
+        // A single MVCC read freezes cable floors without acquiring child scan
+        // locks or inverting cable deletion's child-before-parent lock order.
+        let rows = match sqlx::query("SELECT floor_number,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort")
             .bind(body.cable_id.as_deref()).fetch_all(&mut *tx).await {
             Ok(rows) => rows,
             Err(error) => return err(error, "add-cable-pages"),
@@ -1203,7 +1315,7 @@ pub(crate) async fn stop(
         Ok(tx) => tx,
         Err(error) => return err(error, "stop-begin"),
     };
-    let row = match sqlx::query("SELECT name,create_user,status,protocol_version,attempt FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let row = match sqlx::query("SELECT id,name,create_user,status,protocol_version,attempt FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&id)
         .fetch_optional(&mut *tx)
         .await
@@ -1212,6 +1324,7 @@ pub(crate) async fn stop(
         Ok(None) => return invalid("未查询到训练"),
         Err(error) => return err(error, "stop-lock"),
     };
+    let id = row.get::<String, _>("id");
     if row.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
@@ -1231,13 +1344,8 @@ pub(crate) async fn stop(
         let message = format!("{name}训练的状态不是进行中");
         return envelope_response(StatusCode::OK, 202, &message, &message);
     }
-    for sql in [
-        "DELETE FROM t_post_telegram_train_floor_content_value WHERE train_id=?",
-        "UPDATE t_post_telegram_train_floor_content SET mores_value='[]',mores_time='[]',pat_keys='[]' WHERE train_id=?",
-    ] {
-        if let Err(error) = sqlx::query(sql).bind(&id).execute(&mut *tx).await {
-            return err(error, "stop-clear-content");
-        }
+    if let Err(error) = clear_content(&mut tx, &id, false).await {
+        return err(error, "stop-clear-content");
     }
     if let Err(error) = sqlx::query("UPDATE t_post_telegram_train SET status=0,floor_now=1,speed_log=NULL,error_number=0,accuracy='0.00',attempt=attempt+1,start_time=NULL,end_time=NULL,valid_time=0,active_millis=0,speed='0.00',score=COALESCE(full_score,'0'),finish_info=NULL,statistic_info=NULL,deduct_info=NULL,lack=0 WHERE id=?")
         .bind(&id)
@@ -1272,6 +1380,7 @@ async fn action(state: AppState, user: AuthUser, body: ActionRequest, status: i3
         Ok(None) => return invalid("未查询到训练"),
         Err(error) => return err(error, "action-lock"),
     };
+    let id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
@@ -1366,7 +1475,7 @@ pub(crate) async fn delete(
         Err(error) => return err(error, "delete-begin"),
     };
     let row = match sqlx::query(
-        "SELECT create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE",
+        "SELECT id,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE",
     )
     .bind(&id)
     .fetch_optional(&mut *tx)
@@ -1376,16 +1485,12 @@ pub(crate) async fn delete(
         Ok(None) => return invalid("未查询到训练"),
         Err(error) => return err(error, "delete-lock"),
     };
+    let id = row.get::<String, _>("id");
     if row.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    for sql in [
-        "DELETE FROM t_post_telegram_train_floor_content_value WHERE train_id=?",
-        "DELETE FROM t_post_telegram_train_floor_content WHERE train_id=?",
-    ] {
-        if let Err(error) = sqlx::query(sql).bind(&id).execute(&mut *tx).await {
-            return err(error, "delete-content");
-        }
+    if let Err(error) = clear_content(&mut tx, &id, true).await {
+        return err(error, "delete-content");
     }
     let deleted =
         match sqlx::query("DELETE FROM t_post_telegram_train WHERE id=? AND create_user=?")
@@ -1424,12 +1529,13 @@ pub(crate) async fn content(
         Ok(tx) => tx,
         Err(error) => return err(error, "start content transaction"),
     };
-    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,type,is_random,is_average,create_user,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT id,protocol_version,attempt,status,message_number,type,is_random,is_average,create_user,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"),
         Err(error) => return err(error, "lock content train"),
     };
+    let train_id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
@@ -1455,31 +1561,9 @@ pub(crate) async fn content(
         if status == Some(2) {
             return invalid("历史训练缺少该页报底，不再生成新内容");
         }
-        let Some(train_type) = train.get::<Option<i32>, _>("type") else {
-            return invalid("报文类型缺失，无法生成报底");
-        };
-        let remaining = (message_number - (floor_number - 1) * 100).min(100) as usize;
-        for (sort, group) in generated_groups(
-            remaining,
-            train_type,
-            train.get::<Option<i32>, _>("is_random") == Some(1),
-            train.get::<Option<i32>, _>("is_average") == Some(1),
-        )
-        .into_iter()
-        .enumerate()
+        if let Err(response) = generate_source_page(&mut tx, &train, &train_id, floor_number).await
         {
-            let keys: Vec<String> = group
-                .chars()
-                .map(|character| character.to_string())
-                .collect();
-            let key = match serde_json::to_string(&keys) {
-                Ok(key) => key,
-                Err(error) => return corrupt_saved(&error.to_string(), &train_id),
-            };
-            if let Err(error) = sqlx::query("INSERT INTO t_post_telegram_train_floor_content (id,train_id,floor_number,sort,mores_key,mores_value,mores_time,pat_keys) VALUES (?,?,?,?,?,'[]','[]','[]')")
-                .bind(uuid::Uuid::new_v4().to_string()).bind(&train_id).bind(floor_number).bind(sort as i32).bind(key).execute(&mut *tx).await {
-                return err(error, "generate content page");
-            }
+            return response;
         }
         rows = match sqlx::query(source_query)
             .bind(&train_id)
@@ -1609,12 +1693,13 @@ pub(crate) async fn save_content(
         Ok(tx) => tx,
         Err(error) => return err(error, "start save content"),
     };
-    let train = match sqlx::query("SELECT protocol_version,attempt,status,message_number,start_time,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT id,protocol_version,attempt,status,message_number,type,is_random,is_average,start_time,CAST(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6)) DIV 1000 AS SIGNED) AS elapsed_ms,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock save train"); }
     };
+    let train_id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -1622,6 +1707,13 @@ pub(crate) async fn save_content(
     if train.get::<Option<i32>, _>("protocol_version") != Some(1) {
         let _ = tx.rollback().await;
         return invalid("旧训练缺少原始采集协议，请终止旧训练并新建");
+    }
+    if train
+        .get::<Option<i32>, _>("message_number")
+        .is_none_or(|number| i64::from(floor_number) > (i64::from(number) + 99) / 100)
+    {
+        let _ = tx.rollback().await;
+        return invalid("页码超出训练范围");
     }
     if train.get::<Option<i32>, _>("attempt") != Some(attempt) {
         let _ = tx.rollback().await;
@@ -1631,12 +1723,6 @@ pub(crate) async fn save_content(
             "训练轮次已变化，请重新加载训练",
             "训练轮次已变化，请重新加载训练",
         );
-    }
-    if train.get::<Option<i32>, _>("status") != Some(1)
-        || train.get::<Option<i64>, _>("elapsed_ms").is_none()
-    {
-        let _ = tx.rollback().await;
-        return invalid("训练不在进行中");
     }
     let elapsed_ms = train
         .get::<Option<i64>, _>("elapsed_ms")
@@ -1653,25 +1739,33 @@ pub(crate) async fn save_content(
         let _ = tx.rollback().await;
         return invalid("拍发正文缺少有效采集区间");
     }
-    let existing = match sqlx::query("SELECT id,message_body,standard,capture_intervals,finish_info FROM t_post_telegram_train_floor_content_value WHERE train_id=? AND floor_number=? LIMIT 1 FOR UPDATE")
+    let existing = match sqlx::query("SELECT id,message_body,standard,capture_intervals,finish_info FROM t_post_telegram_train_floor_content_value WHERE train_id=? AND floor_number=? LIMIT 1")
         .bind(&train_id).bind(floor_number).fetch_optional(&mut *tx).await {
         Ok(value) => value,
-        Err(error) => { let _ = tx.rollback().await; return err(error, "lock save content value"); }
+        Err(error) => { let _ = tx.rollback().await; return err(error, "read save content value"); }
     };
-    let finish_info = body.finish_info.unwrap_or_else(|| "[]".into());
+    let finish_info = body.finish_info;
     if let Some(row) = &existing {
         let same = row.get::<Option<String>, _>("message_body").as_deref()
             == Some(body_json.as_str())
             && row.get::<Option<String>, _>("standard").as_deref() == Some(standard_json.as_str())
             && row.get::<Option<String>, _>("capture_intervals").as_deref()
                 == Some(capture_json.as_str())
-            && row.get::<Option<String>, _>("finish_info").as_deref() == Some(finish_info.as_str());
+            && row.get::<Option<String>, _>("finish_info").as_deref() == finish_info.as_deref();
         if same {
             if let Err(error) = tx.commit().await {
                 return err(error, "commit idempotent content");
             }
             return envelope_response(StatusCode::OK, 200, "ok", "");
         }
+    }
+    if train.get::<Option<i32>, _>("status") != Some(1)
+        || train.get::<Option<i64>, _>("elapsed_ms").is_none()
+    {
+        let _ = tx.rollback().await;
+        return invalid("训练不在进行中");
+    }
+    if let Some(row) = &existing {
         let previous: Vec<CaptureInterval> = match row.get::<Option<String>, _>("capture_intervals")
         {
             Some(value) => match serde_json::from_str(&value) {
@@ -1693,20 +1787,23 @@ pub(crate) async fn save_content(
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
             }
         };
-        if capture_intervals.len() <= previous.len()
-            || previous
-                .iter()
-                .zip(&capture_intervals)
-                .any(|(left, right)| left != right)
-        {
+        if capture_intervals.len() <= previous.len() {
             let _ = tx.rollback().await;
             return invalid("页内容已变化，必须读取已确认记录后继续采集");
         }
+        if previous
+            .iter()
+            .zip(&capture_intervals)
+            .any(|(left, right)| left != right)
+        {
+            let _ = tx.rollback().await;
+            return invalid("不能覆盖已确认的原始采集区间");
+        }
     }
-    let other_values = match sqlx::query("SELECT capture_intervals FROM t_post_telegram_train_floor_content_value WHERE train_id=? AND floor_number<>? FOR UPDATE")
+    let other_values = match sqlx::query("SELECT capture_intervals FROM t_post_telegram_train_floor_content_value WHERE train_id=? AND floor_number<>?")
         .bind(&train_id).bind(floor_number).fetch_all(&mut *tx).await {
         Ok(rows) => rows,
-        Err(error) => { let _ = tx.rollback().await; return err(error, "lock other capture values"); }
+        Err(error) => { let _ = tx.rollback().await; return err(error, "read other capture values"); }
     };
     let mut pages = vec![capture_intervals.clone()];
     for row in other_values {
@@ -1735,8 +1832,11 @@ pub(crate) async fn save_content(
         Err(error) => { let _ = tx.rollback().await; return err(error, "find source content"); }
     };
     if source.is_none() {
-        let _ = tx.rollback().await;
-        return invalid("训练报底不存在");
+        if let Err(response) = generate_source_page(&mut tx, &train, &train_id, floor_number).await
+        {
+            let _ = tx.rollback().await;
+            return response;
+        }
     }
     let write_result = if let Some(row) = existing {
         sqlx::query("UPDATE t_post_telegram_train_floor_content_value SET attempt=?,message_body=?,standard=?,finish_info=?,capture_intervals=?,received_at=NOW(6),resolver=NULL WHERE id=?")
@@ -1887,12 +1987,13 @@ pub(crate) async fn print_bottom_report(
         Ok(tx) => tx,
         Err(error) => return err(error, "start print report"),
     };
-    let train = match sqlx::query("SELECT message_number,type,is_random,is_average,status,protocol_version,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT id,message_number,type,is_random,is_average,status,protocol_version,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock print train"); }
     };
+    let train_id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -1993,12 +2094,13 @@ pub(crate) async fn add_content_value(
         Ok(tx) => tx,
         Err(error) => return err(error, "start add content"),
     };
-    let train = match sqlx::query("SELECT protocol_version,status,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
+    let train = match sqlx::query("SELECT id,protocol_version,status,create_user FROM t_post_telegram_train WHERE id=? LIMIT 1 FOR UPDATE")
         .bind(&train_id).fetch_optional(&mut *tx).await {
         Ok(Some(row)) => row,
         Ok(None) => { let _ = tx.rollback().await; return envelope_response(StatusCode::OK, 202, "未查询到训练", "未查询到训练"); }
         Err(error) => { let _ = tx.rollback().await; return err(error, "lock add content train"); }
     };
+    let train_id = train.get::<String, _>("id");
     if train.get::<Option<String>, _>("create_user").as_deref() != Some(user.id.as_str()) {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -2137,3 +2239,7 @@ mod source_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "post_telegram_writer_tests.rs"]
+mod writer_tests;
