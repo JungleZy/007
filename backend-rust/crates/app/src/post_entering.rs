@@ -1,7 +1,7 @@
 use axum::{
     extract::{Extension, Multipart, Query, State},
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use serde_json::{json, Value};
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 
-const EXERCISE_COLS: &str = "id,type,create_user_id,start_time,end_time,create_time,accuracy,speed,content,duration,status,name,error_num,correct_num";
+const EXERCISE_COLS: &str = "id,type,create_user_id,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,accuracy,speed,content,duration,status,name,error_num,correct_num";
 const STOCK_COLS: &str = "id,type,name,content,create_user_id,word_size,create_time";
 const MAX_PREVIEW_BYTES: usize = 10 * 1024 * 1024;
 
@@ -23,9 +23,9 @@ fn exercise_json(row: &sqlx::mysql::MySqlRow, duration: Option<i32>) -> Value {
     json!({
         "id": row.get::<String, _>("id"),
         "type": row.get::<Option<i32>, _>("type"),
-        "startTime": row.get::<Option<String>, _>("start_time"),
-        "endTime": row.get::<Option<String>, _>("end_time"),
-        "createTime": row.get::<Option<String>, _>("create_time"),
+        "startTime": row.get::<Option<&str>, _>("start_time_text"),
+        "endTime": row.get::<Option<&str>, _>("end_time_text"),
+        "createTime": row.get::<Option<&str>, _>("create_time_text"),
         "accuracy": row.get::<Option<f64>, _>("accuracy"),
         "speed": row.get::<Option<i32>, _>("speed"),
         "content": row.get::<Option<String>, _>("content"),
@@ -55,32 +55,55 @@ fn stock_json(row: &sqlx::mysql::MySqlRow, word_size: Option<i32>) -> Value {
     })
 }
 
-fn required_string(body: &Value, field: &str) -> Option<String> {
-    body.get(field)
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
+macro_rules! request_field {
+    ($value:expr) => {
+        match $value {
+            Ok(value) => value,
+            Err(response) => return response,
+        }
+    };
 }
 
-fn optional_i32(body: &Value, field: &str) -> Option<i32> {
-    body.get(field)
-        .and_then(|value| value.as_i64().and_then(|value| i32::try_from(value).ok()))
+fn request_body(body: &Value) -> Result<(), Response> {
+    if body.is_null() {
+        Err(envelope_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            500,
+            "服务器错误",
+            "",
+        ))
+    } else if !body.is_object() {
+        Err(StatusCode::BAD_REQUEST.into_response())
+    } else {
+        Ok(())
+    }
 }
 
-fn normalize_stock_lines(content: &str) -> Vec<String> {
+fn training_id(body: &Value) -> Result<std::borrow::Cow<'_, str>, Response> {
+    request_body(body)?;
+    super::entering::request_string(body.get("id"))?
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| envelope_response(StatusCode::OK, 202, "训练ID不能为空", ""))
+}
+
+fn normalize_stock_lines(content: &str, updating: bool) -> Vec<&str> {
     content
         .split(|character| character == '\r' || character == '\n')
+        .flat_map(|line| line.split(if updating { "##" } else { "@" }))
         .filter(|line| !line.is_empty())
-        .map(ToOwned::to_owned)
         .collect()
 }
 
 fn english_word_size(content: &str) -> i32 {
     // Java String.split(" ") removes trailing empty fields but retains interior ones.
-    let mut words: Vec<&str> = content.split(' ').collect();
-    while words.len() > 1 && words.last() == Some(&"") {
-        words.pop();
+    if content.is_empty() {
+        return 1;
     }
-    i32::try_from(words.len()).unwrap_or(i32::MAX)
+    let content = content.trim_end_matches(' ');
+    if content.is_empty() {
+        return 0;
+    }
+    i32::try_from(content.split(' ').count()).unwrap_or(i32::MAX)
 }
 
 fn utf16_len(content: &str) -> i32 {
@@ -91,7 +114,7 @@ fn stock_word_size(kind: Option<i32>, content: &str) -> i32 {
     if kind == Some(2) {
         english_word_size(content)
     } else {
-        utf16_len(content.trim())
+        utf16_len(content.trim_matches(|character| character <= '\u{20}'))
     }
 }
 fn default_stock_error(kind: i32) -> Response {
@@ -112,6 +135,10 @@ fn content_array(content: Option<&str>) -> Result<Vec<Value>, &'static str> {
     let Some(content) = content else {
         return Err("训练内容不能为空");
     };
+    let content = content.trim_matches([' ', '\t', '\r', '\n']);
+    if content.is_empty() || content == "null" {
+        return Err("训练内容不能为空");
+    }
     serde_json::from_str(content).map_err(|_| "训练内容必须为有效的数组")
 }
 
@@ -133,24 +160,19 @@ fn english_display(source: &str) -> String {
     result
 }
 
-fn same_answers(stored: Option<&str>, submitted: Option<&str>) -> bool {
-    let (Ok(previous), Ok(current)) = (content_array(stored), content_array(submitted)) else {
-        return false;
-    };
-    previous.len() == current.len()
+fn same_answers(stored: Option<&str>, submitted: Option<&str>) -> Result<bool, &'static str> {
+    if submitted.is_none() {
+        return Ok(false);
+    }
+    let previous = content_array(stored)?;
+    let current = content_array(submitted)?;
+    Ok(previous.len() == current.len()
         && previous.iter().zip(current.iter()).all(|(left, right)| {
-            left.get("font") == right.get("font") && left.get("value") == right.get("value")
-        })
-}
-
-async fn owned_row(
-    pool: &MySqlPool,
-    id: &str,
-    owner: &str,
-) -> Result<Option<sqlx::mysql::MySqlRow>, sqlx::Error> {
-    let sql = format!("SELECT {EXERCISE_COLS} FROM t_post_entering_exercise WHERE id=? LIMIT 1");
-    let row = sqlx::query(&sql).bind(id).fetch_optional(pool).await?;
-    Ok(row.filter(|row| row.get::<Option<String>, _>("create_user_id").as_deref() == Some(owner)))
+            left.is_object()
+                && right.is_object()
+                && left.get("font") == right.get("font")
+                && left.get("value") == right.get("value")
+        }))
 }
 
 pub(crate) async fn add(
@@ -158,14 +180,16 @@ pub(crate) async fn add(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
+    request_field!(request_body(&body));
+    let kind = request_field!(super::entering::request_integer(body.get("type")));
+    let name = request_field!(super::entering::request_string(body.get("name")));
+    let word_id = request_field!(super::entering::request_integer(body.get("wordId")));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let Some(kind) = optional_i32(&body, "type") else {
+    let Some(kind) = kind else {
         return envelope_response(StatusCode::OK, 202, "训练类型不能为空", "");
     };
-    let name = body.get("name").and_then(Value::as_str);
-    let word_id = body.get("wordId").and_then(|value| value.as_i64());
     let content = if kind == 1 || kind == 3 {
         match sqlx::query(
             "SELECT content FROM t_post_entering_exercise_word_stock WHERE type=? LIMIT 1",
@@ -210,7 +234,7 @@ pub(crate) async fn add(
         .bind(content)
         .bind(0_i32)
         .bind(0_i32)
-        .bind(name)
+        .bind(name.as_deref())
         .bind(0_i32)
         .bind(0_i32)
         .execute(pool)
@@ -233,10 +257,12 @@ pub(crate) async fn list_page(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
+    request_field!(request_body(&body));
+    let kind = request_field!(super::entering::request_integer(body.get("type")));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let Some(kind) = optional_i32(&body, "type") else {
+    let Some(kind) = kind else {
         return envelope_response(StatusCode::OK, 202, "训练类型不能为空", "");
     };
     let predicate = match kind {
@@ -266,9 +292,7 @@ pub(crate) async fn begin(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = required_string(&body, "id") else {
-        return envelope_response(StatusCode::OK, 202, "训练ID不能为空", "");
-    };
+    let id = request_field!(training_id(&body));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
@@ -278,7 +302,7 @@ pub(crate) async fn begin(
     };
     let sql = format!("SELECT {EXERCISE_COLS} FROM t_post_entering_exercise WHERE id=? FOR UPDATE");
     let row = match sqlx::query(&sql)
-        .bind(&id)
+        .bind(id.as_ref())
         .fetch_optional(&mut *transaction)
         .await
     {
@@ -296,7 +320,7 @@ pub(crate) async fn begin(
         _ => return envelope_response(StatusCode::OK, 202, "训练状态无效", ""),
     }
     match sqlx::query("UPDATE t_post_entering_exercise SET status=1,start_time=NOW(6) WHERE id=? AND create_user_id=? AND status=0")
-        .bind(&id)
+        .bind(id.as_ref())
         .bind(&user.id)
         .execute(&mut *transaction)
         .await
@@ -314,21 +338,12 @@ pub(crate) async fn finish(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = required_string(&body, "id") else {
-        return envelope_response(StatusCode::OK, 202, "训练ID不能为空", "");
-    };
-    let Some(submitted_content) = body.get("content").and_then(Value::as_str) else {
-        return envelope_response(StatusCode::OK, 202, "训练内容不能为空", "");
-    };
-    for field in ["accuracy", "speed", "duration", "correctNum", "errorNum"] {
-        if body.get(field).is_some_and(|value| !value.is_null()) {
-            return envelope_response(
-                StatusCode::OK,
-                202,
-                "成绩和用时由服务端计算，请仅提交录入内容",
-                "",
-            );
-        }
+    let id = request_field!(training_id(&body));
+    let submitted_content = request_field!(super::entering::request_string(body.get("content")));
+    let accuracy = request_field!(super::entering::request_double(body.get("accuracy")));
+    let mut has_metrics = accuracy.is_some();
+    for field in ["speed", "duration", "correctNum", "errorNum"] {
+        has_metrics |= request_field!(super::entering::request_integer(body.get(field))).is_some();
     }
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -339,7 +354,7 @@ pub(crate) async fn finish(
     };
     let sql = format!("SELECT {EXERCISE_COLS},TIMESTAMPDIFF(SECOND,start_time,NOW(6)) AS elapsed_seconds FROM t_post_entering_exercise WHERE id=? FOR UPDATE");
     let row = match sqlx::query(&sql)
-        .bind(&id)
+        .bind(id.as_ref())
         .fetch_optional(&mut *transaction)
         .await
     {
@@ -352,23 +367,33 @@ pub(crate) async fn finish(
     }
     let status = row.get::<Option<i32>, _>("status");
     if status == Some(2) {
-        if same_answers(
-            row.get::<Option<String>, _>("content").as_deref(),
-            Some(submitted_content),
+        match same_answers(
+            row.get::<Option<&str>, _>("content"),
+            submitted_content.as_deref(),
         ) {
-            return envelope_response(StatusCode::OK, 200, "ok", "");
+            Ok(true) => return envelope_response(StatusCode::OK, 200, "ok", ""),
+            Ok(false) => {}
+            Err(message) => return envelope_response(StatusCode::OK, 202, message, ""),
         }
         return envelope_response(StatusCode::OK, 208, "训练已结束，不能修改结果", "");
     }
-    if status != Some(1) || row.get::<Option<String>, _>("start_time").is_none() {
+    if status != Some(1) || row.get::<Option<&str>, _>("start_time_text").is_none() {
         return envelope_response(StatusCode::OK, 202, "训练尚未开始", "");
+    }
+    if has_metrics {
+        return envelope_response(
+            StatusCode::OK,
+            202,
+            "成绩和用时由服务端计算，请仅提交录入内容",
+            "",
+        );
     }
     let source = match content_array(row.get::<Option<String>, _>("content").as_deref()) {
         Ok(source) if !source.is_empty() => source,
         Ok(_) => return envelope_response(StatusCode::OK, 202, "训练题面或录入内容无效", ""),
         Err(message) => return envelope_response(StatusCode::OK, 202, message, ""),
     };
-    let mut answers = match content_array(Some(submitted_content)) {
+    let mut answers = match content_array(submitted_content.as_deref()) {
         Ok(answers) if !answers.is_empty() => answers,
         Ok(_) => return envelope_response(StatusCode::OK, 202, "训练题面或录入内容无效", ""),
         Err(message) => return envelope_response(StatusCode::OK, 202, message, ""),
@@ -393,9 +418,11 @@ pub(crate) async fn finish(
         let rendered = if terms {
             value.to_owned()
         } else if !english {
-            value.trim().to_owned()
+            value
+                .trim_matches(|character| character <= '\u{20}')
+                .to_owned()
         } else {
-            english_display(value.trim())
+            english_display(value.trim_matches(|character| character <= '\u{20}'))
         };
         expected.push_str(&rendered);
     }
@@ -487,7 +514,7 @@ pub(crate) async fn finish(
         .bind(correct as i32)
         .bind((total - correct) as i32)
         .bind(captured)
-        .bind(&id)
+        .bind(id.as_ref())
         .bind(&user.id)
         .execute(&mut *transaction)
         .await
@@ -505,7 +532,8 @@ pub(crate) async fn get_word_stock(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(kind) = optional_i32(&body, "type") else {
+    request_field!(request_body(&body));
+    let Some(kind) = request_field!(super::entering::request_integer(body.get("type"))) else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
     let Some(pool) = state.pool.as_ref() else {
@@ -529,20 +557,22 @@ pub(crate) async fn get_by_id(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = required_string(&body, "id") else {
-        return envelope_response(StatusCode::OK, 202, "训练ID不能为空", "");
-    };
+    let id = request_field!(training_id(&body));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let sql = format!("SELECT {EXERCISE_COLS},TIMESTAMPDIFF(SECOND,start_time,NOW(6)) AS elapsed_seconds FROM t_post_entering_exercise WHERE id=? LIMIT 1");
-    match sqlx::query(&sql).bind(&id).fetch_optional(pool).await {
+    match sqlx::query(&sql)
+        .bind(id.as_ref())
+        .fetch_optional(pool)
+        .await
+    {
         Ok(Some(row))
             if row.get::<Option<String>, _>("create_user_id").as_deref()
                 == Some(user.id.as_str()) =>
         {
             let duration = if row.get::<Option<i32>, _>("status") == Some(1)
-                && row.get::<Option<String>, _>("start_time").is_some()
+                && row.get::<Option<&str>, _>("start_time_text").is_some()
             {
                 row.get::<Option<i64>, _>("elapsed_seconds")
                     .and_then(|value| i32::try_from(value).ok())
@@ -574,42 +604,41 @@ pub(crate) async fn delete(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match owned_row(pool, id, &user.id).await {
-        Ok(Some(_)) => match sqlx::query(
-            "DELETE FROM t_post_entering_exercise WHERE id=? AND create_user_id=?",
-        )
+    let mut transaction = match pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(error) => return db_error(error, "begin delete exercise"),
+    };
+    let row = match sqlx::query(
+        "SELECT create_user_id FROM t_post_entering_exercise WHERE id=? FOR UPDATE",
+    )
+    .bind(id)
+    .fetch_optional(&mut *transaction)
+    .await
+    {
+        Ok(Some(row)) => row,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到该训练", ""),
+        Err(error) => return db_error(error, "lock exercise for delete"),
+    };
+    if row.get::<Option<&str>, _>("create_user_id") != Some(user.id.as_str()) {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
+    let result = match sqlx::query("DELETE FROM t_post_entering_exercise WHERE id=?")
         .bind(id)
-        .bind(&user.id)
-        .execute(pool)
+        .execute(&mut *transaction)
         .await
-        {
-            Ok(result) => envelope_json(
-                StatusCode::OK,
-                200,
-                Some(json!(result.rows_affected() == 1)),
-                "ok",
-                "",
-            ),
-            Err(error) => db_error(error, "delete exercise"),
-        },
-        Ok(None) => match sqlx::query(
-            "SELECT create_user_id FROM t_post_entering_exercise WHERE id=? LIMIT 1",
-        )
-        .bind(id)
-        .fetch_optional(pool)
-        .await
-        {
-            Ok(Some(row))
-                if row.get::<Option<String>, _>("create_user_id").as_deref()
-                    != Some(user.id.as_str()) =>
-            {
-                envelope_response(StatusCode::OK, 207, "无权限", "")
-            }
-            Ok(Some(_)) => envelope_response(StatusCode::OK, 202, "未查询到该训练", ""),
-            Ok(None) => envelope_response(StatusCode::OK, 202, "未查询到该训练", ""),
-            Err(error) => db_error(error, "check exercise before delete"),
-        },
-        Err(error) => db_error(error, "find exercise before delete"),
+    {
+        Ok(result) => result,
+        Err(error) => return db_error(error, "delete exercise"),
+    };
+    match transaction.commit().await {
+        Ok(()) => envelope_json(
+            StatusCode::OK,
+            200,
+            Some(json!(result.rows_affected() == 1)),
+            "ok",
+            "",
+        ),
+        Err(error) => db_error(error, "commit delete exercise"),
     }
 }
 
@@ -618,31 +647,31 @@ pub(crate) async fn word_stock_add(
     Extension(user): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
+    request_field!(request_body(&body));
+    let kind = request_field!(super::entering::request_integer(body.get("type")));
+    let name = request_field!(super::entering::request_string(body.get("name")));
+    let id = request_field!(super::entering::request_integer(body.get("id")));
+    request_field!(super::entering::request_integer(body.get("wordSize")));
+    let raw_content = request_field!(super::entering::request_string(body.get("content")));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let kind = optional_i32(&body, "type");
-    let name = body.get("name").and_then(Value::as_str);
-    let Some(raw_content) = body.get("content").and_then(Value::as_str) else {
+    let Some(raw_content) = raw_content else {
         return envelope_response(StatusCode::OK, 202, "内容不能为空", "");
     };
-    let lines = normalize_stock_lines(raw_content);
+    let lines = normalize_stock_lines(&raw_content, id.is_some());
     let content = match serde_json::to_string(&lines) {
         Ok(content) => content,
         Err(error) => {
             return db_error(sqlx::Error::Decode(Box::new(error)), "serialize word stock")
         }
     };
-    let word_size = stock_word_size(kind, raw_content);
-    if let Some(id) = body.get("id").and_then(|value| value.as_i64()) {
-        let id = match i32::try_from(id) {
-            Ok(id) => id,
-            Err(_) => return envelope_response(StatusCode::OK, 202, "词库ID无效", ""),
-        };
+    let word_size = stock_word_size(kind, &raw_content);
+    if let Some(id) = id {
         match sqlx::query(
             "UPDATE t_post_entering_exercise_word_stock SET name=?,type=?,content=? WHERE id=?",
         )
-        .bind(name)
+        .bind(name.as_deref())
         .bind(kind)
         .bind(content)
         .bind(id)
@@ -666,7 +695,7 @@ pub(crate) async fn word_stock_add(
         }
     } else {
         match sqlx::query("INSERT INTO t_post_entering_exercise_word_stock (type,name,content,create_user_id,word_size,create_time) VALUES (?,?,?,?,?,NOW(6))")
-            .bind(kind).bind(name).bind(content).bind(&user.id).bind(word_size).execute(pool).await
+            .bind(kind).bind(name.as_deref()).bind(content).bind(&user.id).bind(word_size).execute(pool).await
         {
             Ok(result) => {
                 let id = result.last_insert_id() as i32;
@@ -741,6 +770,66 @@ pub(crate) async fn word_stock_view(mut multipart: Multipart) -> Response {
     }
 }
 
+async fn backfilled_stock(pool: &MySqlPool, id: i32) -> Result<Option<Value>, Response> {
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|error| db_error(error, "begin stock size backfill"))?;
+    let result = async {
+        // Catalog edits and deletes also mutate this PRIMARY row. Derive the lazy value only
+        // after a current locking read, never from the earlier list snapshot.
+        let row = sqlx::query(&format!(
+            "SELECT {STOCK_COLS} FROM t_post_entering_exercise_word_stock WHERE id=? FOR UPDATE"
+        ))
+        .bind(id)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|error| db_error(error, "lock stock for size backfill"))?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let size = match row.get::<Option<i32>, _>("word_size") {
+            Some(size) => size,
+            None => {
+                let raw = row
+                    .get::<Option<&str>, _>("content")
+                    .ok_or_else(|| envelope_response(StatusCode::OK, 500, "服务器错误", ""))?;
+                let parsed: Vec<String> = serde_json::from_str(raw)
+                    .map_err(|_| envelope_response(StatusCode::OK, 500, "服务器错误", ""))?;
+                let joined: String = parsed.into_iter().collect();
+                let size = stock_word_size(row.get::<Option<i32>, _>("type"), &joined);
+                sqlx::query(
+                    "UPDATE t_post_entering_exercise_word_stock SET word_size=? WHERE id=?",
+                )
+                .bind(size)
+                .bind(id)
+                .execute(&mut *transaction)
+                .await
+                .map_err(|error| db_error(error, "backfill word stock size"))?;
+                size
+            }
+        };
+        Ok(Some(stock_json(&row, Some(size))))
+    }
+    .await;
+    match result {
+        Ok(value) => {
+            transaction
+                .commit()
+                .await
+                .map_err(|error| db_error(error, "commit stock size backfill"))?;
+            Ok(value)
+        }
+        Err(response) => {
+            transaction
+                .rollback()
+                .await
+                .map_err(|error| db_error(error, "rollback stock size backfill"))?;
+            Err(response)
+        }
+    }
+}
+
 pub(crate) async fn word_stock_list_page(
     State(state): State<AppState>,
     Json(body): Json<Value>,
@@ -748,7 +837,8 @@ pub(crate) async fn word_stock_list_page(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let kind = optional_i32(&body, "type");
+    request_field!(request_body(&body));
+    let kind = request_field!(super::entering::request_integer(body.get("type")));
     let (sql, bind_kind) = if kind.is_some() {
         (format!("SELECT {STOCK_COLS} FROM t_post_entering_exercise_word_stock WHERE type=? ORDER BY create_time DESC"), true)
     } else {
@@ -765,32 +855,13 @@ pub(crate) async fn word_stock_list_page(
     };
     let mut result = Vec::with_capacity(rows.len());
     for row in rows {
-        let size = match row.get::<Option<i32>, _>("word_size") {
-            Some(size) => Some(size),
-            None => {
-                let Some(raw) = row.get::<Option<String>, _>("content") else {
-                    return envelope_response(StatusCode::OK, 500, "服务器错误", "");
-                };
-                let parsed: Vec<String> = match serde_json::from_str(&raw) {
-                    Ok(parsed) => parsed,
-                    Err(_) => return envelope_response(StatusCode::OK, 500, "服务器错误", ""),
-                };
-                let joined: String = parsed.into_iter().collect();
-                let size = stock_word_size(row.get::<Option<i32>, _>("type"), &joined);
-                if let Err(error) = sqlx::query(
-                    "UPDATE t_post_entering_exercise_word_stock SET word_size=? WHERE id=?",
-                )
-                .bind(size)
-                .bind(row.get::<i32, _>("id"))
-                .execute(pool)
-                .await
-                {
-                    return db_error(error, "backfill word stock size");
-                }
-                Some(size)
+        if row.get::<Option<i32>, _>("word_size").is_none() {
+            if let Some(value) = request_field!(backfilled_stock(pool, row.get("id")).await) {
+                result.push(value);
             }
-        };
-        result.push(stock_json(&row, size));
+        } else {
+            result.push(stock_json(&row, None));
+        }
     }
     envelope_json(StatusCode::OK, 200, Some(Value::Array(result)), "ok", "")
 }
@@ -799,11 +870,8 @@ pub(crate) async fn word_stock_delete(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(id) = body
-        .get("id")
-        .and_then(|value| value.as_i64())
-        .and_then(|id| i32::try_from(id).ok())
-    else {
+    request_field!(request_body(&body));
+    let Some(id) = request_field!(super::entering::request_integer(body.get("id"))) else {
         return envelope_response(StatusCode::OK, 202, "词库ID不能为空", "");
     };
     let Some(pool) = state.pool.as_ref() else {
@@ -816,5 +884,47 @@ pub(crate) async fn word_stock_delete(
     {
         Ok(_) => envelope_response(StatusCode::OK, 200, "ok", ""),
         Err(error) => db_error(error, "delete word stock"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stock_delimiters_and_word_counts_match_java_create_and_edit() {
+        assert_eq!(
+            normalize_stock_lines("A@B\r\nC##D", false),
+            ["A", "B", "C##D"]
+        );
+        assert_eq!(
+            normalize_stock_lines("A@B\r\nC##D", true),
+            ["A@B", "C", "D"]
+        );
+        for (content, expected) in [("", 1), (" ", 0), ("   ", 0), ("A  B ", 3), (" A ", 2)] {
+            assert_eq!(english_word_size(content), expected, "{content:?}");
+        }
+        assert_eq!(stock_word_size(Some(0), "\u{00a0}甲\u{00a0}"), 3);
+    }
+
+    #[test]
+    fn terminal_retry_requires_objects_and_preserves_parse_failures() {
+        for content in ["", " \r\n", "null", " null "] {
+            assert_eq!(content_array(Some(content)), Err("训练内容不能为空"));
+        }
+        assert_eq!(same_answers(Some("[1]"), Some("[2]")), Ok(false));
+        assert_eq!(same_answers(Some("[{}]"), Some("[{}]")), Ok(true));
+        assert_eq!(
+            same_answers(Some("[]"), Some("bad json")),
+            Err("训练内容必须为有效的数组")
+        );
+        assert_eq!(same_answers(Some("[]"), None), Ok(false));
+        assert_eq!(
+            same_answers(
+                Some(r#"[{"font":"A","value":"A","trueOrfalse":true}]"#),
+                Some(r#"[{"font":"A","value":"A","trueOrfalse":false}]"#)
+            ),
+            Ok(true)
+        );
     }
 }

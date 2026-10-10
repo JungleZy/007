@@ -343,25 +343,7 @@ fn validate_exercise_previews(body: &Value) -> Result<(), ExerciseError> {
     for field in ["speed", "duration", "correctNum", "errorNum"] {
         request_integer(body.get(field))?;
     }
-    let valid_accuracy = match body.get("accuracy") {
-        None | Some(Value::Null | Value::Number(_)) => true,
-        Some(Value::String(value)) => {
-            let value = value.trim_matches(|character| character <= '\u{20}');
-            matches!(
-                value,
-                "" | "null" | "NaN" | "INF" | "-INF" | "Infinity" | "-Infinity"
-            ) || (value
-                .bytes()
-                .all(|byte| matches!(byte, b'0'..=b'9' | b'+' | b'-' | b'.' | b'e' | b'E'))
-                && value.parse::<f64>().is_ok())
-        }
-        Some(_) => false,
-    };
-    if !valid_accuracy {
-        return Err(ExerciseError::Request(
-            StatusCode::BAD_REQUEST.into_response(),
-        ));
-    }
+    request_double(body.get("accuracy"))?;
     Ok(())
 }
 
@@ -621,8 +603,16 @@ async fn statistics_for(state: &AppState, user: &AuthUser, kind: i32) -> Respons
     }
 }
 pub(crate) async fn keypoints(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
-    let Some(kind) = body.get("type").and_then(Value::as_i64) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    if body.is_null() {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
+    if !body.is_object() {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let kind = match request_integer(body.get("type")) {
+        Ok(Some(kind)) => kind,
+        Ok(None) => return envelope_response(StatusCode::OK, 202, "请求参数错误", ""),
+        Err(response) => return response,
     };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -898,7 +888,7 @@ pub(crate) async fn telex_clear(
     }
 }
 
-fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
+pub(super) fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
     match value {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Number(value)) => {
@@ -924,6 +914,36 @@ fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
                     .parse()
                     .map(Some)
                     .map_err(|_| StatusCode::BAD_REQUEST.into_response())
+            }
+        }
+        Some(_) => Err(StatusCode::BAD_REQUEST.into_response()),
+    }
+}
+
+pub(super) fn request_double(value: Option<&Value>) -> Result<Option<f64>, Response> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => value
+            .as_f64()
+            .map(Some)
+            .ok_or_else(|| StatusCode::BAD_REQUEST.into_response()),
+        Some(Value::String(value)) => {
+            let value = value.trim_matches(|character| character <= '\u{20}');
+            match value {
+                "" | "null" => Ok(None),
+                "NaN" => Ok(Some(f64::NAN)),
+                "INF" | "Infinity" => Ok(Some(f64::INFINITY)),
+                "-INF" | "-Infinity" => Ok(Some(f64::NEG_INFINITY)),
+                _ if value
+                    .bytes()
+                    .all(|byte| matches!(byte, b'0'..=b'9' | b'+' | b'-' | b'.' | b'e' | b'E')) =>
+                {
+                    value
+                        .parse()
+                        .map(Some)
+                        .map_err(|_| StatusCode::BAD_REQUEST.into_response())
+                }
+                _ => Err(StatusCode::BAD_REQUEST.into_response()),
             }
         }
         Some(_) => Err(StatusCode::BAD_REQUEST.into_response()),
@@ -975,7 +995,9 @@ pub(crate) async fn get_word_stock(
     }
 }
 
-fn request_string(value: Option<&Value>) -> Result<Option<std::borrow::Cow<'_, str>>, Response> {
+pub(super) fn request_string(
+    value: Option<&Value>,
+) -> Result<Option<std::borrow::Cow<'_, str>>, Response> {
     match value {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(value)) => Ok(Some(std::borrow::Cow::Borrowed(value.as_str()))),
@@ -1261,3 +1283,7 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "input_writer_tests.rs"]
+mod input_writer_tests;

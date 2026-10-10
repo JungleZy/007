@@ -11,7 +11,7 @@ use std::{
 };
 
 use axum::{
-    extract::{Extension, Request, State},
+    extract::{DefaultBodyLimit, Extension, Request, State},
     http::{HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -562,7 +562,11 @@ fn build_router(state: AppState) -> Router {
             .route("/delete", get(post_entering::delete))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let word_stock_read_routes = Router::new()
-            .route("/view", post(post_entering::word_stock_view))
+            .route(
+                "/view",
+                post(post_entering::word_stock_view)
+                    .layer(DefaultBodyLimit::max(state.config.body_limit)),
+            )
             .route("/listPage", post(post_entering::word_stock_list_page))
             .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
         let word_stock_admin_routes = Router::new()
