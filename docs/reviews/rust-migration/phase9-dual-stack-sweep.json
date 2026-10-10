@@ -1,10 +1,94 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-09T03:19:23Z",
-  "git_commit": "e6fba0f0",
+  "generated_at_utc": "2026-10-10T04:43:54Z",
+  "git_commit": "e94a07b5",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
-  "execution_provenance": "The original top-level counters below retain the historical H1 identity checkpoint and its repeat history. latest_verified_batch records the newer B2 code/registry commits, actual live HTTP runs, database regressions, mutation results and Java gate; do not substitute older successful counts for that batch.",
+  "execution_provenance": "The original top-level counters retain the historical H1 identity checkpoint and repeats. previous_verified_batch preserves B2 evidence; latest_verified_batch records B3 final code, live HTTP, database regressions, precommit corrections and Java gate. Full-sweep live results and post-registry reclassification are explicitly distinct.",
   "latest_verified_batch": {
+    "name": "B3 pre/post-job receiver and entering input",
+    "code_commits": [
+      "71e39172",
+      "bee138ff"
+    ],
+    "source_and_registry_commit": "e94a07b5",
+    "coverage": {
+      "added_journeys": 12,
+      "added_http_steps": 359
+    },
+    "rust": {
+      "workspace_passed": 61,
+      "ignored": 77,
+      "fmt": "passed",
+      "debug_build": "passed",
+      "artifact": "artifact://29"
+    },
+    "isolated_mysql": {
+      "database": "rust_scratch_lockdemo",
+      "input_writer_passed": 9,
+      "receiver_writer_passed": 8,
+      "total_passed": 17,
+      "artifact": "artifact://29",
+      "scope": "Affected tables checked InnoDB; serial regressions cover queued current reads, authoritative scoring, retries, complete rollback, unrelated-row writability, global replacement serialization and pool-one waiter cancellation."
+    },
+    "python_harness": {
+      "passed": 60,
+      "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'"
+    },
+    "java": {
+      "jdk": 21,
+      "command": "JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify",
+      "cwd": "backend",
+      "passed": 513,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "artifact": "artifact://25"
+    },
+    "b3_journeys": {
+      "artifact": "/tmp/commit-b3-sweep-5bf76186.json",
+      "requests": 359,
+      "identical": 293,
+      "accepted": 66,
+      "fail": 0,
+      "open": 0,
+      "exit_code": 0,
+      "chronology": "Live run against the final Rust binary and rebuilt Java artifact, before the code/contract commits."
+    },
+    "full_sweep_live": {
+      "artifact": "/tmp/commit-full-sweep-5bf76186.json",
+      "requests": 2665,
+      "identical": 2041,
+      "accepted": 621,
+      "fail": 0,
+      "open": 3,
+      "exit_code": 0
+    },
+    "full_sweep_final_classification": {
+      "artifact": "/tmp/commit-full-classified-5bf76186.json",
+      "requests": 2665,
+      "identical": 2041,
+      "accepted": 624,
+      "fail": 0,
+      "open": 0,
+      "provenance": "All original complete differences reclassified with the final registry. The three personal-settings missing-paramList variants (empty/probe-str/probe-num) were individually repeated live on both stacks and Rust original IDs/values/order verified. No second full HTTP run is claimed."
+    },
+    "real_http_smoke": {
+      "multipart": "2 MiB+7 and exactly 10 MiB UTF-8 contents returned intact; 10 MiB+1, empty, invalid UTF-8 and unsupported extensions returned202; missing token returned203.",
+      "rate_compatibility": "Both settings domains accepted string 30, number30.0, fractional30.5 -> integer30 and null on both stacks; Rust invalid object/list/string/bool rates returned HTTP400 without changing the prior set.",
+      "settings_retention": "Missing/null lists and learner207 keep the same complete raw Rust ID/value/order snapshot; explicit[] clears. B3 retained_settings checks occur before normalization and registry acceptance."
+    },
+    "precommit_review_corrections": [
+      "Real HTTP reproduced rate string/fraction rejection as Rust HTTP400 before adding the shared Jackson integer deserializer; corrected requests and persisted readbacks matched Java.",
+      "Reproduced registry acceptance of duplicate retained IDs; same-side full snapshot checks now reject changed/duplicate IDs, missing/extra rows, changed values and reordered rows."
+    ],
+    "comparison": "No score or source-content masks added. Controlled receiver fixtures verify each UUID-to-Integer projection against persisted source rows before comparing source identity. Exact absent/null settings differences are intentional data-loss prevention; only explicit[] authorizes clearing.",
+    "cleanup": "Created parity schemas and temporary journey fixture removed; both owned smoke services stopped; scratch database has zero remaining triggers.",
+    "boundaries": [
+      "The 77 normally ignored Rust tests were not all run: 17 affected database regressions were explicitly executed.",
+      "Actual browser/Electron, physical-device, native multi-platform and production cutover acceptance were not exercised. Phase10 remains blocked."
+    ]
+  },
+  "previous_verified_batch": {
     "name": "B2 post-job handkey, electronic-key and telex",
     "code_commits": ["ea24b2f1", "740dc367", "04d2d400"],
     "source_and_registry_commit": "171db7ef",
