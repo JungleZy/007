@@ -744,5 +744,73 @@ class RegistryPredicateTest(unittest.TestCase):
                             self.assertFalse(sweep.allowed_data_paths({"data_diffs": [bad]}, rule))
 
 
+class ReceiverProjectionTest(unittest.TestCase):
+    train = "11111111-1111-4111-8111-111111111111"
+    source = "12345678-1234-4234-8234-123456789abc"
+
+    def page(self, projected_id=12345678):
+        return {"code": 200, "data": {"messageBody": [{"id": projected_id,
+            "trainId": self.train, "pageNumber": 3, "sort": 0, "key": "1234", "value": None}]}}
+
+    def test_observed_uuid_projection_becomes_a_checked_reference(self):
+        left, right = self.page(), self.page(87654321)
+        other = "87654321-1234-4234-8234-123456789abc"
+        self.assertEqual(sweep.post_ticker_source_ids(left, self.train, 3, [(0, self.source)]), [])
+        self.assertEqual(sweep.post_ticker_source_ids(right, self.train, 3, [(0, other)]), [])
+        job = {"endpoint": "journey:test/page", "path": "/api/postTickerTapeTrain/findPage", "who": "student", "variant": "journey"}
+        self.assertIsNone(sweep.comparison_entry(job, {"status": 200, "json": left}, {"status": 200, "json": right}, {}))
+        right["data"]["messageBody"][0]["key"] = "wrong source text"
+        self.assertEqual(sweep.comparison_entry(job, {"status": 200, "json": left}, {"status": 200, "json": right}, {})["disposition"], "FAIL")
+
+    def test_wrong_projection_type_value_and_absence_are_not_masked(self):
+        for bad in [12345679, "12345678", True, None, {"id": 12345678}]:
+            document = self.page(bad)
+            self.assertTrue(sweep.post_ticker_source_ids(document, self.train, 3, [(0, self.source)]))
+        document = self.page()
+        del document["data"]["messageBody"][0]["id"]
+        self.assertTrue(sweep.post_ticker_source_ids(document, self.train, 3, [(0, self.source)]))
+
+    def test_null_projection_is_verified_against_each_source_uuid(self):
+        for source in ["abcdef01-1234-4234-8234-123456789abc", "12345678-1234-4234-8234-123456789abe"]:
+            self.assertEqual(sweep.post_ticker_source_ids(self.page(None), self.train, 3, [(0, source)]), [])
+            self.assertTrue(sweep.post_ticker_source_ids(self.page(12345678), self.train, 3, [(0, source)]))
+
+    def test_wrong_parent_page_missing_extra_and_duplicate_rows_fail(self):
+        for key, value in [("trainId", "22222222-2222-4222-8222-222222222222"), ("pageNumber", 2), ("sort", 1)]:
+            document = self.page()
+            document["data"]["messageBody"][0][key] = value
+            self.assertTrue(sweep.post_ticker_source_ids(document, self.train, 3, [(0, self.source)]))
+        for rows in [[], self.page()["data"]["messageBody"] * 2]:
+            self.assertTrue(sweep.post_ticker_source_ids({"code": 200, "data": {"messageBody": rows}}, self.train, 3, [(0, self.source)]))
+        self.assertTrue(sweep.post_ticker_source_ids(self.page(), self.train, 3, [(0, self.source), (0, self.source)]))
+        document = self.page()
+        document["data"]["messageBody"][0]["pageNumber"] = True
+        self.assertTrue(sweep.post_ticker_source_ids(document, self.train, 1, [(0, self.source)]))
+
+
+class RetainedSettingsTest(unittest.TestCase):
+    def setUp(self):
+        self.rows = [
+            {"id": "11111111-1111-4111-8111-111111111111", "type": "fast", "rate": 75, "text": "快速练习", "createTime": None},
+            {"id": "22222222-2222-4222-8222-222222222222", "type": "slow", "rate": 30, "text": "慢速已编辑", "createTime": None},
+        ]
+
+    def test_original_complete_set_is_retained(self):
+        self.assertEqual(sweep.retained_settings({"code": 200, "data": copy.deepcopy(self.rows)}, self.rows), [])
+
+    def test_changed_identity_inventory_values_and_order_cannot_be_accepted(self):
+        changed_id, duplicate_id, changed_rate = (copy.deepcopy(self.rows) for _ in range(3))
+        changed_id[0]["id"] = "33333333-3333-4333-8333-333333333333"
+        duplicate_id[1]["id"] = duplicate_id[0]["id"]
+        changed_rate[0]["rate"] = 76
+        for rows in [changed_id, duplicate_id, changed_rate, self.rows[::-1], self.rows[:1], self.rows + [self.rows[0]]]:
+            document = {"code": 200, "data": rows}
+            errors = sweep.retained_settings(document, self.rows)
+            job = {"endpoint": "journey:test/retained", "variant": "journey", "who": "student", "path": "/api/tickerTapeTrainSetting/findAll"}
+            entry = sweep.comparison_entry(job, {"status": 200, "json": {"code": 200, "data": []}},
+                {"status": 200, "json": document, "comparison_errors": errors}, {})
+            self.assertEqual(entry["disposition"], "FAIL", rows)
+
+
 if __name__ == "__main__":
     unittest.main()

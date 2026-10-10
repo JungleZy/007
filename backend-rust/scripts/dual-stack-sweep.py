@@ -520,6 +520,68 @@ def captured_floor_content(document, floor_id):
     return []
 
 
+def post_ticker_source_ids(document, train_id, page_number, source_rows):
+    """Validate the legacy UUID-to-Integer projection, then compare actual source IDs.
+
+    This is opt-in for controlled findPage fixtures. Only canonical UUID source
+    rows are supported; other historical String-to-Integer conversions stay outside
+    this comparison proof. No response field is blindly masked.
+    """
+    data = document.get("data") if isinstance(document, dict) else None
+    rows = data.get("messageBody") if isinstance(data, dict) else None
+    if not isinstance(document, dict) or document.get("code") != 200 or not isinstance(rows, list):
+        return ["post-ticker source proof requires a successful page response"]
+    sources = {}
+    for sort, source_id in source_rows:
+        if type(sort) is not int or sort in sources or not isinstance(source_id, str) or not UUID.fullmatch(source_id):
+            return ["post-ticker source inventory must have unique ordinals and UUID identities"]
+        sources[sort] = source_id
+    if len(rows) != len(sources):
+        return ["post-ticker response inventory differs from persisted page"]
+    replacements, seen = [], set()
+    for row in rows:
+        if not isinstance(row, dict) or type(row.get("sort")) is not int:
+            return ["post-ticker response row has no integer ordinal"]
+        sort = row["sort"]
+        if sort in seen or sort not in sources or row.get("trainId") != train_id or type(row.get("pageNumber")) not in (int, float) or row.get("pageNumber") != page_number:
+            return ["post-ticker response does not reference its captured train/page inventory"]
+        seen.add(sort)
+        source_id = sources[sort]
+        # Hutool NumberUtil.parseInt rejects e/E before trying NumberFormat's
+        # decimal prefix. A UUID has at most eight leading decimal digits.
+        prefix = re.match(r"[0-9]+", source_id)
+        expected = int(prefix.group()) if prefix and "e" not in source_id.lower() else None
+        actual = row.get("id")
+        if "id" not in row or (actual is not None if expected is None else type(actual) not in (int, float) or actual != expected):
+            return [f"post-ticker source projection differs at ordinal {sort}"]
+        replacements.append((row, source_id))
+    for row, source_id in replacements:
+        row["id"] = {"<verified-source-uuid>": source_id}
+    return []
+
+
+def verify_post_ticker_sources(document, selector, db, database):
+    train_id, page = selector.get("trainId"), selector.get("pageNumber")
+    if not isinstance(train_id, str) or not UUID.fullmatch(train_id) or type(page) is not int or page < 1:
+        return ["post-ticker source proof needs a captured UUID train and positive page"]
+    # Mysql.run itself restricts access to the two isolated parity schemas.
+    inventory = db.run(database, "SELECT sort,id FROM t_post_ticker_tape_train_page "
+                       f"WHERE train_id='{train_id}' AND page_number={page} ORDER BY sort,id")
+    source_rows = []
+    for line in inventory.splitlines():
+        ordinal, source_id = line.split("\t", 1)
+        source_rows.append((int(ordinal), source_id))
+    return post_ticker_source_ids(document, train_id, page, source_rows)
+
+
+def retained_settings(document, expected):
+    if not isinstance(document, dict) or document.get("code") != 200 or not isinstance(expected, list):
+        return ["retained settings proof requires a successful response and captured set"]
+    if document.get("data") != expected:
+        return ["retained settings differ from original IDs, values or order"]
+    return []
+
+
 def prepare_journey_response(document, step, variables=None):
     for expression in step.get("mask", []):
         transform_path(document, expression, lambda _: "<masked>")
@@ -565,7 +627,15 @@ def run_journeys(spec, args, headers, db):
                         variables[side][name] = copy.deepcopy(extract(outcome[side]["json"], expression))
                     except (KeyError, IndexError, TypeError):
                         variables[side][name] = None
-                errors = prepare_journey_response(outcome[side].get("json"), step, variables[side])
+                errors = []
+                if side == "rust" and "retained_settings" in step:
+                    expected = substitute(step["retained_settings"], variables[side])
+                    errors.extend(retained_settings(outcome[side].get("json"), expected))
+                if "post_ticker_source_ids" in step:
+                    selector = substitute(step["post_ticker_source_ids"], variables[side])
+                    database = db.dbs[0 if side == "java" else 1]
+                    errors.extend(verify_post_ticker_sources(outcome[side].get("json"), selector, db, database))
+                errors.extend(prepare_journey_response(outcome[side].get("json"), step, variables[side]))
                 if errors:
                     outcome[side]["comparison_errors"] = errors
             identity_diffs = []
@@ -659,7 +729,7 @@ def allowed_data_paths(entry, rule):
 
 def disposition(entry, registry):
     if entry.get("comparison_errors"):
-        return "FAIL", "Captured floor identity validation failed"
+        return "FAIL", "Journey response identity or contract validation failed"
     if entry["category"] == "TEXT_ONLY" and entry.get("data_diffs") != []:
         return "FAIL", "TEXT_ONLY requires complete evidence of zero data differences"
     for rule in registry.get("overrides", []):
