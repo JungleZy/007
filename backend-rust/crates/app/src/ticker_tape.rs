@@ -7,7 +7,7 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
+use sqlx::{mysql::MySqlRow, pool::PoolConnection, Acquire, MySql, Row, Transaction};
 
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 use crate::statistical::lock_user;
@@ -262,21 +262,60 @@ pub(crate) async fn settings(State(state): State<AppState>) -> Response {
     }
 }
 
-#[derive(Debug, Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct SettingRequest {
-    param_list: Option<Vec<SettingRow>>,
+// These global setting tables have no indexes, including on id. Keep the actual
+// whole-set DELETE and serialize replacements even when the current set is empty.
+// The dedicated session retains its pool permit and closes on cancellation/error.
+pub(super) async fn settings_connection(
+    pool: &sqlx::MySqlPool,
+    domain: &str,
+) -> Result<PoolConnection<MySql>, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    connection.close_on_drop();
+    let acquired: Option<i64> = sqlx::query_scalar(
+        "SELECT GET_LOCK(CONCAT('receive-settings:', LEFT(SHA2(CONCAT(DATABASE(), ':', ?),256),47)),10)",
+    )
+    .bind(domain)
+    .fetch_one(&mut *connection)
+    .await?;
+    if acquired != Some(1) {
+        return Err(sqlx::Error::Protocol(
+            "receive settings lock unavailable".into(),
+        ));
+    }
+    Ok(connection)
 }
 
 #[derive(Debug, Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SettingRow {
-    id: Option<String>,
+pub(crate) struct SettingRequest {
+    pub(super) param_list: Option<Vec<SettingRow>>,
+}
+
+impl SettingRequest {
+    pub(super) fn replacement_rows(&self) -> Result<&[SettingRow], &'static str> {
+        self.param_list.as_deref().ok_or("配置不能为空")
+    }
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct SettingRow {
+    pub(super) id: Option<String>,
     #[serde(rename = "type")]
-    setting_type: Option<String>,
-    rate: Option<i32>,
-    text: Option<String>,
-    create_time: Option<chrono::NaiveDateTime>,
+    pub(super) setting_type: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_setting_rate")]
+    pub(super) rate: Option<i32>,
+    pub(super) text: Option<String>,
+    pub(super) create_time: Option<chrono::NaiveDateTime>,
+}
+
+fn deserialize_setting_rate<'de, D>(deserializer: D) -> Result<Option<i32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    super::entering::request_integer(value.as_ref())
+        .map_err(|_| serde::de::Error::custom("invalid setting rate"))
 }
 
 #[derive(Debug, Deserialize, serde::Serialize)]
@@ -307,22 +346,22 @@ pub(crate) async fn setting_add_or_update(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    // Missing/null is not permission to erase the global set. An explicit [] is.
+    let rows = match body.replacement_rows() {
+        Ok(rows) => rows,
+        Err(message) => return envelope_response(StatusCode::OK, 202, message, message),
+    };
     // Java's generated-ID entities cannot be merged after the bulk deletion.
     // Reject supplied IDs before deleting anything, preserving the same rollback result.
-    if body
-        .param_list
-        .as_deref()
-        .unwrap_or_default()
-        .iter()
-        .any(|row| row.id.is_some())
-    {
+    if rows.iter().any(|row| row.id.is_some()) {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     let result: Result<(), sqlx::Error> = async {
-        let mut tx = pool.begin().await?;
+        let mut connection = settings_connection(pool, "personal").await?;
+        let mut tx = connection.begin().await?;
         sqlx::query("DELETE FROM t_ticker_tape_train_setting")
             .execute(&mut *tx).await?;
-        for row in body.param_list.as_deref().unwrap_or_default() {
+        for row in rows {
             let id = uuid::Uuid::new_v4().to_string();
             sqlx::query("INSERT INTO t_ticker_tape_train_setting (id,type,rate,text,create_time,dot) VALUES (?,?,?,?,?,NULL)")
                 .bind(id).bind(&row.setting_type).bind(row.rate).bind(&row.text)
@@ -371,8 +410,18 @@ pub(crate) async fn stage_settings(State(state): State<AppState>) -> Response {
 pub(crate) async fn stage_setting_add(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
-    Json(mut body): Json<StageSettingRequest>,
+    body: Result<Json<StageSettingRequest>, JsonRejection>,
 ) -> Response {
+    let Json(mut body) = match body {
+        Ok(body) => body,
+        Err(error) => {
+            return if error.status() == StatusCode::UNSUPPORTED_MEDIA_TYPE {
+                StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response()
+            } else {
+                StatusCode::BAD_REQUEST.into_response()
+            }
+        }
+    };
     if !user.is_admin {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }

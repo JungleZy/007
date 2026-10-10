@@ -1,14 +1,14 @@
 use super::{envelope_json, envelope_response, AppState, AuthUser};
 use axum::{
-    extract::{Extension, Query, State},
+    extract::{rejection::JsonRejection, Extension, Query, State},
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
     Json,
 };
 use rand::seq::SliceRandom;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
+use sqlx::{mysql::MySqlRow, Acquire, MySql, Row, Transaction};
 
 const COLS: &str = "id,name,is_cable,rate,type,message_number,code_short,valid_time,score,status,user_id,result,more_code,lack_code,error_code,more_group,lack_group,total_number,disturb,ratio,is_start_sign,is_low_rate,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text";
 
@@ -62,6 +62,40 @@ async fn owned(
         return Err(Error::Business(207, "无权限"));
     }
     Ok(row)
+}
+
+// The train is locked before discovery. Every child writer, including lazy findPage,
+// uses that parent, so plain discovery followed by sorted PRIMARY deletes is safe.
+async fn delete_values(tx: &mut Transaction<'_, MySql>, id: &str) -> Result<(), Error> {
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM t_post_ticker_tape_train_page_value WHERE train_id=? ORDER BY id",
+    )
+    .bind(id)
+    .fetch_all(&mut **tx)
+    .await?;
+    for child in ids {
+        sqlx::query("DELETE FROM t_post_ticker_tape_train_page_value WHERE id=?")
+            .bind(child)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
+async fn delete_pages(tx: &mut Transaction<'_, MySql>, id: &str) -> Result<(), Error> {
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM t_post_ticker_tape_train_page WHERE train_id=? ORDER BY id",
+    )
+    .bind(id)
+    .fetch_all(&mut **tx)
+    .await?;
+    for child in ids {
+        sqlx::query("DELETE FROM t_post_ticker_tape_train_page WHERE id=?")
+            .bind(child)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
 }
 fn item(row: &MySqlRow, detail: bool) -> Result<Value, Error> {
     let content = if detail {
@@ -324,7 +358,7 @@ async fn lifecycle(state: AppState, user: AuthUser, id: Option<String>, action: 
         match action {
             0 => {
                 if status == 0 { return Err(Error::Business(202, "训练还未开始，无需重置")); }
-                sqlx::query("DELETE FROM t_post_ticker_tape_train_page_value WHERE train_id=?").bind(id).execute(&mut *tx).await?;
+                delete_values(&mut tx, id).await?;
                 sqlx::query("UPDATE t_post_ticker_tape_train SET status=0,start_time=NULL WHERE id=?").bind(id).execute(&mut *tx).await?;
             }
             1 => {
@@ -386,21 +420,27 @@ pub(crate) async fn upload_result(
         let result = body.result.as_ref().filter(|v| !v.is_empty()).ok_or(Error::Business(202, "填报结果不能为空"))?;
         let images = body.images.as_ref().filter(|v| v.len() == result.len()).ok_or(Error::Business(202, "截图数量与填报页数不一致"))?;
         let mut more_group = 0i64; let mut lack_group = 0i64; let mut more_code = 0i64; let mut lack_code = 0i64; let mut error_code = 0i64; let mut total_groups = 0i64;
+        let mut updates = Vec::new();
         for (page_index, groups) in result.iter().enumerate() {
             let pages = sqlx::query("SELECT id,`key` FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort").bind(id).bind((page_index + 1) as i32).fetch_all(&mut *tx).await?;
             total_groups += groups.len() as i64;
             for (index, group) in groups.iter().enumerate() {
                 if let Some(page) = pages.get(index) {
-                    let expected = page.get::<Option<String>,_>("key").ok_or(Error::Business(202, "报底内容缺失"))?;
-                    if expected != *group {
+                    let expected = page.get::<Option<&str>,_>("key").ok_or(Error::Business(202, "报底内容缺失"))?;
+                    if expected != group.as_str() {
                         let delta = group.encode_utf16().count() as i64 - expected.encode_utf16().count() as i64;
                         if group.is_empty() { lack_group += 1; } else if delta > 0 { more_code += delta; } else if delta < 0 { lack_code -= delta; } else { error_code += 1; }
                     }
-                    sqlx::query("UPDATE t_post_ticker_tape_train_page SET value=? WHERE id=?").bind(group).bind(page.get::<String,_>("id")).execute(&mut *tx).await?;
+                    updates.push((page.get::<String,_>("id"), group.as_str()));
                 } else if !group.is_empty() { more_group += 1; }
             }
             sqlx::query("INSERT INTO t_post_ticker_tape_train_page_value (id,train_id,page_number,value,image) VALUES (?,?,?,?,?)")
                 .bind(uuid::Uuid::new_v4().to_string()).bind(id).bind((page_index + 1) as i32).bind(serde_json::to_string(groups)?).bind(&images[page_index]).execute(&mut *tx).await?;
+        }
+        updates.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+        for (page_id, value) in updates {
+            sqlx::query("UPDATE t_post_ticker_tape_train_page SET value=? WHERE id=?")
+                .bind(value).bind(page_id).execute(&mut *tx).await?;
         }
         let total = train.get::<Option<i32>,_>("total_number").ok_or(Error::Business(202, "训练总组数缺失"))? as i64;
         lack_group += (total - total_groups).max(0);
@@ -419,8 +459,55 @@ pub(crate) async fn upload_result(
     }.await)
 }
 
+// PojoUtils copies the UUID String into Integer through Hutool 5.8.12:
+// NumberConverter trims/strips one D/L/F suffix; NumberUtil.parseInt rejects
+// any e/E anywhere, otherwise its NumberFormat fallback accepts leading digits.
+// Source IDs are generated UUIDs, so that prefix is locale-independent. Preserve
+// null on conversion failure and Java BigDecimal.intValue's wrapping for legacy
+// decimal IDs, rather than assuming every UUID fails the Integer projection.
+fn page_id_projection(raw: &str) -> Option<i32> {
+    let mut value = raw.trim();
+    if value.len() > 1
+        && matches!(
+            value.as_bytes().last(),
+            Some(b'd' | b'D' | b'l' | b'L' | b'f' | b'F')
+        )
+    {
+        value = &value[..value.len() - 1];
+    }
+    if value.is_empty() || value.bytes().any(|byte| matches!(byte, b'e' | b'E')) {
+        return None;
+    }
+    if let Some(hex) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
+        return i32::from_str_radix(hex, 16).ok();
+    }
+    if value.starts_with('+') {
+        return value.parse().ok();
+    }
+    let negative = value.starts_with('-');
+    let digits = value.strip_prefix('-').unwrap_or(value);
+    let mut integer = 0u32;
+    let mut found = false;
+    for byte in digits.bytes().take_while(u8::is_ascii_digit) {
+        integer = integer
+            .wrapping_mul(10)
+            .wrapping_add(u32::from(byte - b'0'));
+        found = true;
+    }
+    found.then(|| {
+        if negative {
+            integer.wrapping_neg() as i32
+        } else {
+            integer as i32
+        }
+    })
+}
+
 fn page_json(row: &MySqlRow) -> Value {
-    json!({"id":null,"trainId":row.get::<Option<String>,_>("train_id"),"pageNumber":row.get::<Option<i32>,_>("page_number"),"key":row.get::<Option<String>,_>("key"),"value":row.get::<Option<String>,_>("value"),"sort":row.get::<Option<i32>,_>("sort")})
+    json!({"id":page_id_projection(row.get::<&str,_>("id")),"trainId":row.get::<Option<String>,_>("train_id"),"pageNumber":row.get::<Option<i32>,_>("page_number"),"key":row.get::<Option<String>,_>("key"),"value":row.get::<Option<String>,_>("value"),"sort":row.get::<Option<i32>,_>("sort")})
 }
 pub(crate) async fn find_page(
     State(state): State<AppState>,
@@ -437,7 +524,7 @@ pub(crate) async fn find_page(
         let number = query.page_number.filter(|v| *v > 0).ok_or(Error::Business(202, "页码不正确"))?;
         let total = train.get::<Option<i32>,_>("total_number").ok_or(Error::Business(202, "训练总组数缺失，无法取页"))?;
         let maximum = (i64::from(total) + 99) / 100;
-        let sql = "SELECT train_id,page_number,`key`,value,sort FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort";
+        let sql = "SELECT id,train_id,page_number,`key`,value,sort FROM t_post_ticker_tape_train_page WHERE train_id=? AND page_number=? ORDER BY sort";
         let rows = sqlx::query(sql).bind(id).bind(number).fetch_all(&mut *tx).await?;
         let mut pages = rows.iter().map(page_json).collect::<Vec<_>>();
         if pages.is_empty() && i64::from(number) <= maximum {
@@ -448,7 +535,7 @@ pub(crate) async fn find_page(
                 let page_id = uuid::Uuid::new_v4().to_string();
                 sqlx::query("INSERT INTO t_post_ticker_tape_train_page (id,train_id,page_number,sort,`key`) VALUES (?,?,?,?,?)")
                     .bind(&page_id).bind(id).bind(page).bind(sort).bind(&key).execute(&mut *tx).await?;
-                pages.push(json!({"id":null,"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":null}));
+                pages.push(json!({"id":page_id_projection(&page_id),"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":null}));
             }
             pages.sort_by_key(|row| row["sort"].as_i64());
         }
@@ -473,14 +560,8 @@ pub(crate) async fn delete(
             let id = required_id(query.train_id.as_deref())?;
             let mut tx = pool.begin().await?;
             owned(&mut tx, id, &user).await?;
-            sqlx::query("DELETE FROM t_post_ticker_tape_train_page_value WHERE train_id=?")
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
-            sqlx::query("DELETE FROM t_post_ticker_tape_train_page WHERE train_id=?")
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
+            delete_values(&mut tx, id).await?;
+            delete_pages(&mut tx, id).await?;
             let deleted = sqlx::query("DELETE FROM t_post_ticker_tape_train WHERE id=?")
                 .bind(id)
                 .execute(&mut *tx)
@@ -506,22 +587,49 @@ pub(crate) async fn setting_list(State(state): State<AppState>) -> Response {
 
 pub(crate) async fn setting_add_or_update(
     State(state): State<AppState>,
-    Json(body): Json<Value>,
+    Extension(user): Extension<AuthUser>,
+    body: Result<Json<super::ticker_tape::SettingRequest>, JsonRejection>,
 ) -> Response {
+    let Json(body) = match body {
+        Ok(body) => body,
+        Err(error) => {
+            return if error.status() == StatusCode::UNSUPPORTED_MEDIA_TYPE {
+                StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response()
+            } else {
+                StatusCode::BAD_REQUEST.into_response()
+            }
+        }
+    };
+    if !user.is_admin {
+        return envelope_response(StatusCode::OK, 207, "无权限", "");
+    }
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    // Absence/null never authorizes a destructive replacement; [] is explicit.
+    let rows = match body.replacement_rows() {
+        Ok(rows) => rows,
+        Err(message) => return envelope_response(StatusCode::OK, 202, message, message),
+    };
+    // Like personal receive settings, generated-ID entities cannot be merged
+    // after Java's bulk deletion. Reject IDs without destroying the current set.
+    if rows.iter().any(|row| row.id.is_some()) {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    }
     respond(async {
-        let values = body.get("paramList").and_then(Value::as_array).ok_or(Error::Business(202, "配置不能为空"))?;
-        let mut tx = pool.begin().await?;
+        let mut connection = super::ticker_tape::settings_connection(pool, "post").await?;
+        let mut tx = connection.begin().await?;
         sqlx::query("DELETE FROM t_post_ticker_tape_train_setting").execute(&mut *tx).await?;
-        for value in values {
-            sqlx::query("INSERT INTO t_post_ticker_tape_train_setting (id,type,rate,text,create_time) VALUES (?,?,?,?,COALESCE(?,NOW(6)))")
-                .bind(value.get("id").and_then(Value::as_str).filter(|v| !v.is_empty()).map(str::to_owned).unwrap_or_else(|| uuid::Uuid::new_v4().to_string()))
-                .bind(value.get("type").and_then(Value::as_str)).bind(value.get("rate").and_then(Value::as_i64)).bind(value.get("text").and_then(Value::as_str))
-                .bind(value.get("createTime").and_then(Value::as_str)).execute(&mut *tx).await?;
+        for row in rows {
+            sqlx::query("INSERT INTO t_post_ticker_tape_train_setting (id,type,rate,text,create_time,dot) VALUES (?,?,?,?,?,NULL)")
+                .bind(uuid::Uuid::new_v4().to_string()).bind(&row.setting_type).bind(row.rate)
+                .bind(&row.text).bind(row.create_time).execute(&mut *tx).await?;
         }
         tx.commit().await?;
-        Ok(Some(body))
+        Ok(Some(json!(body)))
     }.await)
 }
+
+#[cfg(test)]
+#[path = "post_ticker/receiver_writer_tests.rs"]
+mod receiver_writer_tests;
