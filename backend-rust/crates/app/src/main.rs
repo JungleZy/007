@@ -1605,62 +1605,61 @@ async fn user_signin(
         );
     }
     let Some(id_card) = request.id_card.filter(|value| !value.is_empty()) else {
-        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
+        return envelope_response(StatusCode::OK, 500, admin::ID_CARD_FORMAT_ERROR, "");
     };
     let Some(bday) = registration_birthday(&id_card) else {
-        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
-    };
-    let Some(plaintext) = request.password.filter(|value| !value.is_empty()) else {
-        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+        return envelope_response(StatusCode::OK, 500, admin::ID_CARD_FORMAT_ERROR, "");
     };
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut transaction = match pool.begin().await {
+    // Hash before taking the account lock; a missing password is reported only after the
+    // duplicate check, as in UserService.handleNewUser.
+    let password_hash = match request.password.filter(|value| !value.is_empty()) {
+        Some(plaintext) => match admin::hash_blocking(plaintext).await {
+            Ok(hash) => Some(hash),
+            Err(error) => {
+                warn!(error, "registration password hash failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        },
+        None => None,
+    };
+    let mut connection = match admin::account_connection(pool).await {
+        Ok(connection) => connection,
+        Err(error) => {
+            warn!(error = %error, "registration account lock failed");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        }
+    };
+    let mut transaction = match sqlx::Connection::begin(&mut *connection).await {
         Ok(transaction) => transaction,
         Err(error) => {
             warn!(error = %error, "registration transaction could not start");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
     };
-    let account_exists = sqlx::query("SELECT 1 FROM t_user WHERE user_account = ? LIMIT 1")
-        .bind(&user_account)
-        .fetch_optional(&mut *transaction)
-        .await;
-    match account_exists {
-        Ok(Some(_)) => {
-            let _ = transaction.rollback().await;
-            return envelope_response(StatusCode::OK, 500, "用户名已被注册", "");
+    match admin::account_exists(&mut transaction, &user_account).await {
+        Ok(false) => {}
+        Ok(true) => {
+            return envelope_response(StatusCode::OK, 500, admin::USER_ACCOUNT_REPEAT, "");
         }
         Err(error) => {
-            let _ = transaction.rollback().await;
             warn!(error = %error, "registration duplicate query failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
-        Ok(None) => {}
     }
-    let default_role =
-        match sqlx::query("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id LIMIT 1")
-            .fetch_optional(&mut *transaction)
-            .await
-        {
-            Ok(Some(row)) => row.get::<String, _>("id"),
-            Ok(None) => {
-                let _ = transaction.rollback().await;
-                warn!("registration cannot proceed without a default role");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-            Err(error) => {
-                let _ = transaction.rollback().await;
-                warn!(error = %error, "registration default role query failed");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-        };
-    let password_hash = match password::hash(&plaintext) {
-        Ok(hash) => hash,
+    let Some(password_hash) = password_hash else {
+        return admin::rejected(admin::PASSWORD_REQUIRED);
+    };
+    let default_role = match admin::default_role_id(&mut transaction).await {
+        Ok(Some(role_id)) => role_id,
+        Ok(None) => {
+            warn!("registration cannot proceed without a default role");
+            return admin::rejected(admin::NO_DEFAULT_ROLE);
+        }
         Err(error) => {
-            let _ = transaction.rollback().await;
-            warn!(error, "registration password hash failed");
+            warn!(error = %error, "registration default role query failed");
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
     };
@@ -1745,6 +1744,32 @@ async fn verify_password(
     }
 }
 
+// Java's login rejections use ResponseResult.error(SYSTEM_ERROR, reason): the generic system
+// message with the reason in the description (UserService.login).
+fn login_rejected(reason: &str) -> Response {
+    envelope_response(StatusCode::OK, 500, "服务器错误", reason)
+}
+
+/// PBKDF2 verification (and the rehash of an outdated hash) runs on the blocking pool so a login
+/// burst does not stall the async workers.
+async fn verify_login_password(
+    plaintext: &str,
+    stored: Option<String>,
+) -> Result<(password::Verification, Option<String>), &'static str> {
+    let plaintext = plaintext.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let verification = password::verify(&plaintext, stored.as_deref());
+        let upgraded = if verification.matches && verification.needs_upgrade {
+            Some(password::hash(&plaintext)?)
+        } else {
+            None
+        };
+        Ok((verification, upgraded))
+    })
+    .await
+    .map_err(|_| "password verification task failed")?
+}
+
 async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequest>) -> Response {
     let Some(user_account) = request.user_account.filter(|value| !value.is_empty()) else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
@@ -1758,66 +1783,105 @@ async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequ
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut transaction = match pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(error) => {
-            warn!(error = %error, "login transaction could not start");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    // t_user is indexed by primary key only: a locking read filtered by user_account would lock
+    // every row scanned (and the gap after it) for the whole PBKDF2 check, stalling every other
+    // user's writes. Verify against a plain read off the transaction, then lock the matched row by
+    // primary key and retry if its account or password hash changed in between.
+    let mut attempts = 0;
+    let (mut transaction, row, upgraded_password) = loop {
+        attempts += 1;
+        let candidate = match sqlx::query(
+            "SELECT id, password FROM t_user WHERE user_account = ? ORDER BY id LIMIT 1",
+        )
+        .bind(&user_account)
+        .fetch_optional(pool)
+        .await
+        {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                warn!(error = %error, "login user query failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+        let Some(candidate) = candidate else {
+            return login_rejected("系统中不存在该账号");
+        };
+        let user_id: String = candidate.get("id");
+        let stored: Option<String> = candidate.get("password");
+        let (verification, upgraded_password) =
+            match verify_login_password(&plaintext, stored.clone()).await {
+                Ok(result) => result,
+                Err(error) => {
+                    warn!(error, "login password verification failed");
+                    return envelope_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        500,
+                        "服务器错误",
+                        "",
+                    );
+                }
+            };
+        if !verification.matches {
+            return login_rejected("密码错误");
+        }
+        let mut transaction = match pool.begin().await {
+            Ok(transaction) => transaction,
+            Err(error) => {
+                warn!(error = %error, "login transaction could not start");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+        let locked = match sqlx::query(
+            "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, password, update_flag, status, bday, eday, dday FROM t_user WHERE id = ? FOR UPDATE",
+        )
+        .bind(&user_id)
+        .fetch_optional(&mut *transaction)
+        .await
+        {
+            Ok(locked) => locked,
+            Err(error) => {
+                let _ = transaction.rollback().await;
+                warn!(error = %error, "login user lock failed");
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            }
+        };
+        match locked {
+            Some(row)
+                if row.get::<Option<String>, _>("user_account").as_deref()
+                    == Some(user_account.as_str())
+                    && row.get::<Option<String>, _>("password") == stored =>
+            {
+                break (transaction, row, upgraded_password);
+            }
+            _ => {
+                let _ = transaction.rollback().await;
+                if attempts >= 3 {
+                    warn!(user_id = %user_id, "login credentials kept changing while being verified");
+                    return envelope_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        500,
+                        "服务器错误",
+                        "",
+                    );
+                }
+            }
         }
     };
-    let row = match sqlx::query(
-        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, password, update_flag, status, bday, eday, dday FROM t_user WHERE user_account = ? LIMIT 1 FOR UPDATE",
-    )
-    .bind(&user_account)
-    .fetch_optional(&mut *transaction)
-    .await
-    {
-        Ok(row) => row,
-        Err(error) => {
-            let _ = transaction.rollback().await;
-            warn!(error = %error, "login user query failed");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    };
-    let Some(row) = row else {
-        let _ = transaction.rollback().await;
-        return envelope_response(StatusCode::OK, 500, "系统中不存在该账号", "");
-    };
-    let verification = password::verify(
-        &plaintext,
-        row.get::<Option<String>, _>("password").as_deref(),
-    );
-    if !verification.matches {
-        let _ = transaction.rollback().await;
-        return envelope_response(StatusCode::OK, 500, "密码错误", "");
-    }
     match row.get::<Option<i32>, _>("status") {
         Some(1) => {
             let _ = transaction.rollback().await;
-            return envelope_response(StatusCode::OK, 500, "该账号正在审核中", "");
+            return login_rejected("该账号正在审核中");
         }
         Some(-1) => {
             let _ = transaction.rollback().await;
-            return envelope_response(StatusCode::OK, 500, "该账号已停用", "");
+            return login_rejected("该账号已停用");
         }
         Some(0) => {}
         _ => {
             let _ = transaction.rollback().await;
-            return envelope_response(StatusCode::OK, 500, "数据异常", "");
+            return login_rejected("数据异常");
         }
     }
-    let upgraded_password = if verification.needs_upgrade {
-        match password::hash(&plaintext) {
-            Ok(hash) => Some(hash),
-            Err(error) => {
-                let _ = transaction.rollback().await;
-                warn!(error, "login password upgrade failed");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-        }
-    } else {
-        None
-    };
     let role = match sqlx::query(
         "SELECT r.id, r.title, r.remark, r.is_admin, r.is_default FROM t_role r JOIN t_user_role ur ON ur.role_id = r.id WHERE ur.user_id = ? LIMIT 1",
     )
@@ -1828,7 +1892,7 @@ async fn user_login(State(state): State<AppState>, Json(request): Json<LoginRequ
         Ok(Some(role)) => role,
         Ok(None) => {
             let _ = transaction.rollback().await;
-            return envelope_response(StatusCode::OK, 500, "数据异常", "");
+            return login_rejected("数据异常");
         }
         Err(error) => {
             let _ = transaction.rollback().await;
@@ -2169,34 +2233,10 @@ async fn role_get_all(State(state): State<AppState>, _user: Extension<AuthUser>)
     let mut result = Vec::with_capacity(roles.len());
     for role in roles {
         let role_id: String = role.get("id");
-        let menus = match sqlx::query(
-            "SELECT m.id, m.parent_id, m.`key`, m.path, m.name, m.icon, m.icon_f, m.height, m.title, m.is_menu, m.is_bread, m.component, m.sort, rm.per FROM t_menus m JOIN t_role_menus rm ON rm.menu_id = m.id WHERE rm.role_id = ? ORDER BY m.sort",
-        )
-        .bind(&role_id)
-        .fetch_all(pool)
-        .await
-        {
-            Ok(rows) => rows
-                .into_iter()
-                .map(|menu| {
-                    json!({
-                        "id": menu.get::<String, _>("id"),
-                        "parentId": menu.get::<Option<String>, _>("parent_id"),
-                        "key": menu.get::<Option<String>, _>("key"),
-                        "path": menu.get::<Option<String>, _>("path"),
-                        "name": menu.get::<Option<String>, _>("name"),
-                        "icon": menu.get::<Option<String>, _>("icon"),
-                        "iconF": menu.get::<Option<String>, _>("icon_f"),
-                        "height": menu.get::<Option<String>, _>("height"),
-                        "title": menu.get::<Option<String>, _>("title"),
-                        "isMenu": menu.get::<Option<i32>, _>("is_menu"),
-                        "isBread": menu.get::<Option<i32>, _>("is_bread"),
-                        "component": menu.get::<Option<String>, _>("component"),
-                        "sort": menu.get::<Option<i32>, _>("sort"),
-                        "per": menu.get::<Option<String>, _>("per")
-                    })
-                })
-                .collect::<Vec<_>>(),
+        // RoleService.getRoleAll -> getMenusEntityByRoleId: the same projection, buttons included,
+        // as getRoleById.
+        let menus = match admin::role_menu_values(pool, &role_id).await {
+            Ok(menus) => menus,
             Err(error) => {
                 warn!(error = %error, role_id = %role_id, "role menu query failed");
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

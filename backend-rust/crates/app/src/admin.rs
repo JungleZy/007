@@ -7,12 +7,14 @@ use axum::{
     Json,
 };
 use serde_json::{json, Value};
-use sqlx::{MySqlPool, Row};
+use sqlx::{pool::PoolConnection, Connection, MySql, MySqlPool, Row, Transaction};
+use std::fmt::Display;
 use uuid::Uuid;
 
 use super::{
     envelope_json, envelope_response, password, registration_birthday, valid_account, AppState,
 };
+use crate::statistical::lock_user;
 
 fn string_field(body: &Value, name: &str) -> Option<String> {
     body.get(name)
@@ -21,9 +23,159 @@ fn string_field(body: &Value, name: &str) -> Option<String> {
 }
 
 fn int_field(body: &Value, name: &str) -> Option<i32> {
-    body.get(name)
-        .and_then(Value::as_i64)
-        .and_then(|value| value.try_into().ok())
+    body.get(name).and_then(java_int)
+}
+
+/// Jackson's Integer coercion: JSON integers and integral numeric strings.
+fn java_int(value: &Value) -> Option<i32> {
+    match value {
+        Value::Number(number) => number.as_i64().and_then(|value| value.try_into().ok()),
+        Value::String(text) => text.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+/// `String.valueOf` of a Jackson-bound Object: strings as-is, scalars by their JSON text.
+pub(crate) fn java_string_value(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        other => other.to_string(),
+    }
+}
+
+const DEFAULT_AVATAR: &str = "/userImages/pag-avatar-man.png";
+pub(crate) const ID_CARD_FORMAT_ERROR: &str = "身份证号码格式错误";
+pub(crate) const USER_ACCOUNT_REPEAT: &str = "用户名已被注册";
+pub(crate) const PASSWORD_REQUIRED: &str = "Password must not be null or empty";
+pub(crate) const NO_DEFAULT_ROLE: &str = "系统未配置默认角色，无法创建用户";
+const DATA_SUCCESS: &str = "数据正常";
+const PROFILE_COLUMNS: &str = "id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday";
+
+fn server_error(error: impl Display, context: &'static str) -> Response {
+    tracing::warn!(error = %error, "{context}");
+    envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+}
+
+/// Java's IllegalArgumentException/IllegalStateException mappers: 202 with the message repeated
+/// in the description.
+pub(crate) fn rejected(message: &str) -> Response {
+    envelope_response(StatusCode::OK, 202, message, message)
+}
+
+/// A pooled session holding a database-scoped GET_LOCK. Closed on every exit (including
+/// cancellation while waiting) so the lock cannot leak into another request; never reused.
+async fn named_lock_connection(
+    pool: &MySqlPool,
+    prefix: &'static str,
+) -> Result<PoolConnection<MySql>, sqlx::Error> {
+    let mut connection = pool.acquire().await?;
+    connection.close_on_drop();
+    let acquired: Option<i64> = sqlx::query_scalar(
+        "SELECT GET_LOCK(CONCAT(?, LEFT(SHA2(DATABASE(), 256), 64 - CHAR_LENGTH(?))), 10)",
+    )
+    .bind(prefix)
+    .bind(prefix)
+    .fetch_one(&mut *connection)
+    .await?;
+    if acquired != Some(1) {
+        return Err(sqlx::Error::Protocol(format!("{prefix} lock unavailable")));
+    }
+    Ok(connection)
+}
+
+/// t_user.user_account has no unique index, so every path that creates accounts (signin,
+/// saveUser, importUser) runs its duplicate check and insert under this one named lock.
+pub(crate) async fn account_connection(
+    pool: &MySqlPool,
+) -> Result<PoolConnection<MySql>, sqlx::Error> {
+    named_lock_connection(pool, "user-account:").await
+}
+
+pub(crate) async fn account_exists(
+    tx: &mut Transaction<'_, MySql>,
+    account: &str,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query("SELECT 1 FROM t_user WHERE user_account = ? LIMIT 1")
+        .bind(account)
+        .fetch_optional(&mut **tx)
+        .await
+        .map(|row| row.is_some())
+}
+
+/// The signin default role is the `is_default = 0` row (inverted flag, like is_admin); Java's
+/// unordered firstResult reads the clustered index, i.e. the lowest id.
+pub(crate) async fn default_role_id(
+    tx: &mut Transaction<'_, MySql>,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id LIMIT 1")
+        .fetch_optional(&mut **tx)
+        .await
+}
+
+pub(crate) async fn insert_user_role(
+    tx: &mut Transaction<'_, MySql>,
+    user_id: &str,
+    role_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("INSERT INTO t_user_role (id, user_id, role_id) VALUES (?, ?, ?)")
+        .bind(Uuid::new_v4().to_string())
+        .bind(user_id)
+        .bind(role_id)
+        .execute(&mut **tx)
+        .await
+        .map(|_| ())
+}
+
+/// Replaces nothing by itself: deletes the child rows of one parent by primary key after a plain
+/// discovery read. These tables are indexed by primary key only, so a DELETE filtered on the
+/// parent column would lock every scanned row (and gap) of every other parent. Callers must hold
+/// the lock that serializes writers of this set before the discovery read.
+async fn delete_children(
+    tx: &mut Transaction<'_, MySql>,
+    table: &'static str,
+    column: &'static str,
+    parent: &str,
+) -> Result<(), sqlx::Error> {
+    let ids: Vec<String> = sqlx::query_scalar(&format!(
+        "SELECT id FROM {table} WHERE {column} = ? ORDER BY id"
+    ))
+    .bind(parent)
+    .fetch_all(&mut **tx)
+    .await?;
+    for id in ids {
+        sqlx::query(&format!("DELETE FROM {table} WHERE id = ?"))
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
+/// PBKDF2 on the blocking pool so password-heavy requests do not stall the async workers.
+pub(crate) async fn hash_blocking(plaintext: String) -> Result<String, &'static str> {
+    tokio::task::spawn_blocking(move || password::hash(&plaintext))
+        .await
+        .map_err(|_| "password hash task failed")?
+}
+
+/// `UserProfile.from(entity)` of a posted (unsaved) import row.
+fn posted_profile(item: &Value) -> Value {
+    json!({
+        "id": string_field(item, "id"),
+        "wkno": string_field(item, "wkno"),
+        "phone": string_field(item, "phone"),
+        "email": string_field(item, "email"),
+        "userAccount": string_field(item, "userAccount"),
+        "userImg": string_field(item, "userImg"),
+        "userName": string_field(item, "userName"),
+        "idCard": string_field(item, "idCard"),
+        "userSex": int_field(item, "userSex"),
+        "updateFlag": string_field(item, "updateFlag"),
+        "status": int_field(item, "status"),
+        "bday": string_field(item, "bday"),
+        "eday": string_field(item, "eday"),
+        "dday": string_field(item, "dday")
+    })
 }
 
 fn profile(row: &sqlx::mysql::MySqlRow) -> Value {
@@ -59,122 +211,145 @@ pub(crate) async fn save_user(State(state): State<AppState>, Json(body): Json<Va
     else {
         return bad_account();
     };
-    let Some(id_card) = string_field(&body, "idCard") else {
-        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
-    };
-    let Some(bday) = registration_birthday(&id_card) else {
-        return envelope_response(StatusCode::OK, 500, "身份证格式错误", "");
+    let id_card = string_field(&body, "idCard");
+    let Some(bday) = id_card.as_deref().and_then(registration_birthday) else {
+        return envelope_response(StatusCode::OK, 500, ID_CARD_FORMAT_ERROR, "");
     };
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(error) => {
-            tracing::warn!(error = %error, "admin save user transaction could not start");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    };
-    let requested_id = string_field(&body, "id").filter(|value| !value.is_empty());
-    let id = requested_id
-        .clone()
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
-    let user_name = string_field(&body, "userName");
-    let user_sex = int_field(&body, "userSex");
-    let eday = string_field(&body, "eday");
-    if let Some(existing_id) = requested_id {
-        let result = sqlx::query(
-            "UPDATE t_user SET user_account = ?, user_name = ?, id_card = ?, user_sex = ?, bday = ?, eday = ? WHERE id = ?",
-        )
-        .bind(&account)
-        .bind(&user_name)
-        .bind(&id_card)
-        .bind(user_sex)
-        .bind(&bday)
-        .bind(&eday)
-        .bind(existing_id)
-        .execute(&mut *tx)
-        .await;
-        if let Err(error) = result {
-            let _ = tx.rollback().await;
-            tracing::warn!(error = %error, "admin user update failed");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    } else {
-        let Some(plaintext) = string_field(&body, "password").filter(|value| !value.is_empty())
-        else {
-            let _ = tx.rollback().await;
-            return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
-        };
-        let hash = match password::hash(&plaintext) {
-            Ok(hash) => hash,
-            Err(error) => {
-                let _ = tx.rollback().await;
-                tracing::warn!(error, "admin user password hash failed");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-        };
-        let image = string_field(&body, "userImg")
-            .unwrap_or_else(|| "/userImages/pag-avatar-man.png".into());
-        if let Err(error) = sqlx::query(
-            "INSERT INTO t_user (id, user_account, user_img, user_name, id_card, user_sex, password, status, bday, eday) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
-        )
-        .bind(&id)
-        .bind(&account)
-        .bind(&image)
-        .bind(&user_name)
-        .bind(&id_card)
-        .bind(user_sex)
-        .bind(hash)
-        .bind(&bday)
-        .bind(&eday)
-        .execute(&mut *tx)
-        .await
-        {
-            let _ = tx.rollback().await;
-            tracing::warn!(error = %error, "admin user insert failed");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-        let role = sqlx::query("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id LIMIT 1")
-            .fetch_optional(&mut *tx)
-            .await;
-        match role {
-            Ok(Some(role)) => {
-                if let Err(error) =
-                    sqlx::query("INSERT INTO t_user_role (id, user_id, role_id) VALUES (?, ?, ?)")
-                        .bind(Uuid::new_v4().to_string())
-                        .bind(&id)
-                        .bind(role.get::<String, _>("id"))
-                        .execute(&mut *tx)
-                        .await
-                {
-                    let _ = tx.rollback().await;
-                    tracing::warn!(error = %error, "admin default role assignment failed");
-                    return envelope_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        500,
-                        "服务器错误",
-                        "",
-                    );
-                }
-            }
-            Ok(None) | Err(_) => {
-                let _ = tx.rollback().await;
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-        }
-    }
-    if let Err(error) = tx.commit().await {
-        tracing::warn!(error = %error, "admin user transaction commit failed");
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    match reload_profile(pool, &id).await {
-        Ok(Some(row)) => envelope_json(StatusCode::OK, 200, Some(profile(&row)), "ok", ""),
-        Ok(None) | Err(_) => {
-            envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-        }
+    match string_field(&body, "id").filter(|value| !value.is_empty()) {
+        Some(user_id) => update_user(pool, &user_id, &body, &account, id_card, &bday).await,
+        None => create_user(pool, &body, &account, id_card, &bday).await,
     }
 }
+
+// UserService.handleExistingUser: only the profile fields below change; the password, status,
+// contact fields and session columns are left alone, and the account is not re-checked for
+// duplicates (Java does not either).
+async fn update_user(
+    pool: &MySqlPool,
+    user_id: &str,
+    body: &Value,
+    account: &str,
+    id_card: Option<String>,
+    bday: &str,
+) -> Response {
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(error) => return server_error(error, "admin user update transaction could not start"),
+    };
+    match lock_user(&mut tx, user_id).await {
+        Ok(true) => {}
+        Ok(false) => return rejected("未查询到该用户"),
+        Err(error) => return server_error(error, "admin user update lock failed"),
+    }
+    if let Err(error) = sqlx::query(
+        "UPDATE t_user SET user_account = ?, user_name = ?, id_card = ?, user_sex = ?, bday = ?, eday = ?, user_img = COALESCE(user_img, ?) WHERE id = ?",
+    )
+    .bind(account)
+    .bind(string_field(body, "userName"))
+    .bind(id_card)
+    .bind(int_field(body, "userSex"))
+    .bind(bday)
+    .bind(string_field(body, "eday"))
+    .bind(DEFAULT_AVATAR)
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await
+    {
+        return server_error(error, "admin user update failed");
+    }
+    commit_with_profile(tx, user_id).await
+}
+
+// UserService.handleNewUser: the account check, hash, insert and default-role assignment form one
+// transaction under the account lock. Hashing happens before the lock, but a missing password is
+// only reported after the duplicate check, matching Java's error precedence.
+async fn create_user(
+    pool: &MySqlPool,
+    body: &Value,
+    account: &str,
+    id_card: Option<String>,
+    bday: &str,
+) -> Response {
+    let hash = match string_field(body, "password").filter(|value| !value.is_empty()) {
+        Some(plaintext) => match hash_blocking(plaintext).await {
+            Ok(hash) => Some(hash),
+            Err(error) => return server_error(error, "admin user password hash failed"),
+        },
+        None => None,
+    };
+    let mut connection = match account_connection(pool).await {
+        Ok(connection) => connection,
+        Err(error) => return server_error(error, "admin user account lock failed"),
+    };
+    let mut tx = match connection.begin().await {
+        Ok(tx) => tx,
+        Err(error) => return server_error(error, "admin user create transaction could not start"),
+    };
+    match account_exists(&mut tx, account).await {
+        Ok(false) => {}
+        Ok(true) => return envelope_response(StatusCode::OK, 500, USER_ACCOUNT_REPEAT, ""),
+        Err(error) => return server_error(error, "admin user duplicate query failed"),
+    }
+    let Some(hash) = hash else {
+        return rejected(PASSWORD_REQUIRED);
+    };
+    let user_id = Uuid::new_v4().to_string();
+    // Java persists the posted entity, so contact fields survive; status, birthday and password are
+    // server-decided and the session columns are never taken from the request.
+    if let Err(error) = sqlx::query(
+        "INSERT INTO t_user (id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, password, update_flag, status, bday, eday, dday) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)",
+    )
+    .bind(&user_id)
+    .bind(string_field(body, "wkno"))
+    .bind(string_field(body, "phone"))
+    .bind(string_field(body, "email"))
+    .bind(account)
+    .bind(string_field(body, "userImg").unwrap_or_else(|| DEFAULT_AVATAR.into()))
+    .bind(string_field(body, "userName"))
+    .bind(id_card)
+    .bind(int_field(body, "userSex"))
+    .bind(hash)
+    .bind(string_field(body, "updateFlag"))
+    .bind(bday)
+    .bind(string_field(body, "eday"))
+    .bind(string_field(body, "dday"))
+    .execute(&mut *tx)
+    .await
+    {
+        return server_error(error, "admin user insert failed");
+    }
+    match default_role_id(&mut tx).await {
+        Ok(Some(role_id)) => {
+            if let Err(error) = insert_user_role(&mut tx, &user_id, &role_id).await {
+                return server_error(error, "admin default role assignment failed");
+            }
+        }
+        Ok(None) => return rejected(NO_DEFAULT_ROLE),
+        Err(error) => return server_error(error, "admin default role query failed"),
+    }
+    commit_with_profile(tx, &user_id).await
+}
+
+async fn commit_with_profile(mut tx: Transaction<'_, MySql>, user_id: &str) -> Response {
+    let row = match sqlx::query(&format!(
+        "SELECT {PROFILE_COLUMNS} FROM t_user WHERE id = ?"
+    ))
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(row) => row,
+        Err(error) => return server_error(error, "admin user reload failed"),
+    };
+    if let Err(error) = tx.commit().await {
+        return server_error(error, "admin user transaction commit failed");
+    }
+    envelope_json(StatusCode::OK, 200, Some(profile(&row)), "ok", "")
+}
+
 pub(crate) async fn get_all_user(
     State(state): State<AppState>,
     _body: Option<Json<Value>>,
@@ -184,9 +359,9 @@ pub(crate) async fn get_all_user(
     };
     // Keep this projection identical to Java's UserProfile DTO.  In particular,
     // do not select session credentials or the password, even transiently.
-    let rows = match sqlx::query(
-        "SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday FROM t_user ORDER BY status DESC",
-    )
+    let rows = match sqlx::query(&format!(
+        "SELECT {PROFILE_COLUMNS} FROM t_user ORDER BY status DESC"
+    ))
     .fetch_all(pool)
     .await
     {
@@ -209,12 +384,17 @@ async fn reload_profile(
     pool: &MySqlPool,
     id: &str,
 ) -> Result<Option<sqlx::mysql::MySqlRow>, sqlx::Error> {
-    sqlx::query("SELECT id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, update_flag, status, bday, eday, dday FROM t_user WHERE id = ?")
-        .bind(id)
-        .fetch_optional(pool)
-        .await
+    sqlx::query(&format!(
+        "SELECT {PROFILE_COLUMNS} FROM t_user WHERE id = ?"
+    ))
+    .bind(id)
+    .fetch_optional(pool)
+    .await
 }
 
+// UserService.importUser: rows whose account or id card already exists are skipped and returned
+// as posted; every other row is stored as posted except that the password is hashed and the
+// session columns stay NULL. Any row without a password rejects the whole batch.
 pub(crate) async fn import_user(
     State(state): State<AppState>,
     Json(body): Json<Value>,
@@ -225,155 +405,131 @@ pub(crate) async fn import_user(
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(_) => {
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-        }
+    let mut connection = match account_connection(pool).await {
+        Ok(connection) => connection,
+        Err(error) => return server_error(error, "admin import account lock failed"),
     };
-    let default_role =
-        match sqlx::query("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id LIMIT 1")
-            .fetch_optional(&mut *tx)
-            .await
-        {
-            Ok(row) => row.map(|row| row.get::<String, _>("id")),
-            Err(error) => {
-                let _ = tx.rollback().await;
-                tracing::warn!(error = %error, "admin import default role query failed");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
-        };
-    let mut created = Vec::new();
+    let mut tx = match connection.begin().await {
+        Ok(tx) => tx,
+        Err(error) => return server_error(error, "admin import transaction could not start"),
+    };
+    let mut skipped = Vec::new();
     for item in items {
-        let Some(account) = string_field(item, "userAccount").filter(|value| valid_account(value))
-        else {
-            continue;
-        };
+        let account = string_field(item, "userAccount");
         let id_card = string_field(item, "idCard");
-        let Some(bday) = id_card.as_deref().and_then(registration_birthday) else {
-            continue;
-        };
         let duplicate =
-            match sqlx::query("SELECT 1 FROM t_user WHERE user_account = ? OR id_card = ? LIMIT 1")
-                .bind(&account)
+            match sqlx::query("SELECT 1 FROM t_user WHERE id_card = ? OR user_account = ? LIMIT 1")
                 .bind(&id_card)
+                .bind(&account)
                 .fetch_optional(&mut *tx)
                 .await
             {
-                Ok(row) => row,
-                Err(error) => {
-                    let _ = tx.rollback().await;
-                    tracing::warn!(error = %error, "admin import duplicate query failed");
-                    return envelope_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        500,
-                        "服务器错误",
-                        "",
-                    );
-                }
+                Ok(row) => row.is_some(),
+                Err(error) => return server_error(error, "admin import duplicate query failed"),
             };
-        if duplicate.is_some() {
+        if duplicate {
+            skipped.push(posted_profile(item));
             continue;
         }
         let Some(plaintext) = string_field(item, "password").filter(|value| !value.is_empty())
         else {
-            continue;
+            return rejected(PASSWORD_REQUIRED);
         };
-        let Ok(hash) = password::hash(&plaintext) else {
-            continue;
+        let hash = match hash_blocking(plaintext).await {
+            Ok(hash) => hash,
+            Err(error) => return server_error(error, "admin import password hash failed"),
         };
-        let id = Uuid::new_v4().to_string();
-        let image = string_field(item, "userImg")
-            .unwrap_or_else(|| "/userImages/pag-avatar-man.png".into());
-        if let Err(error) = sqlx::query("INSERT INTO t_user (id, user_account, user_img, user_name, id_card, user_sex, password, status, bday, eday, token, device_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, NULL)")
-            .bind(&id)
-            .bind(&account)
-            .bind(&image)
-            .bind(string_field(item, "userName"))
-            .bind(&id_card)
-            .bind(int_field(item, "userSex"))
-            .bind(hash)
-            .bind(&bday)
-            .bind(string_field(item, "eday"))
-            .execute(&mut *tx)
-            .await
+        let user_id = Uuid::new_v4().to_string();
+        if let Err(error) = sqlx::query(
+            "INSERT INTO t_user (id, wkno, phone, email, user_account, user_img, user_name, id_card, user_sex, password, update_flag, status, bday, eday, dday, token, device_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)",
+        )
+        .bind(&user_id)
+        .bind(string_field(item, "wkno"))
+        .bind(string_field(item, "phone"))
+        .bind(string_field(item, "email"))
+        .bind(&account)
+        .bind(string_field(item, "userImg"))
+        .bind(string_field(item, "userName"))
+        .bind(&id_card)
+        .bind(int_field(item, "userSex"))
+        .bind(hash)
+        .bind(string_field(item, "updateFlag"))
+        .bind(int_field(item, "status"))
+        .bind(string_field(item, "bday"))
+        .bind(string_field(item, "eday"))
+        .bind(string_field(item, "dday"))
+        .execute(&mut *tx)
+        .await
         {
-            let _ = tx.rollback().await;
-            tracing::warn!(error = %error, "admin import user insert failed");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            return server_error(error, "admin import user insert failed");
         }
-        if let Some(role_id) = &default_role {
-            if let Err(error) =
-                sqlx::query("INSERT INTO t_user_role (id, user_id, role_id) VALUES (?, ?, ?)")
-                    .bind(Uuid::new_v4().to_string())
-                    .bind(&id)
-                    .bind(role_id)
-                    .execute(&mut *tx)
-                    .await
-            {
-                let _ = tx.rollback().await;
-                tracing::warn!(error = %error, "admin import role insert failed");
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        match default_role_id(&mut tx).await {
+            Ok(Some(role_id)) => {
+                if let Err(error) = insert_user_role(&mut tx, &user_id, &role_id).await {
+                    return server_error(error, "admin import role insert failed");
+                }
             }
+            Ok(None) => {}
+            Err(error) => return server_error(error, "admin import default role query failed"),
         }
-        created.push(json!({"id": id, "userName": string_field(item, "userName"), "userAccount": account, "userImg": image}));
     }
-    if tx.commit().await.is_err() {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    if let Err(error) = tx.commit().await {
+        return server_error(error, "admin import commit failed");
     }
-    envelope_json(StatusCode::OK, 200, Some(json!(created)), "ok", "")
+    envelope_json(StatusCode::OK, 200, Some(Value::Array(skipped)), "ok", "")
 }
 
+// UserController.addUserRole: Java stringifies every posted role id and treats an empty user id
+// or an empty/non-list roleIds as a successful no-op (the structure page posts userId:'' right
+// after creating a user).
 pub(crate) async fn add_user_role(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> Response {
-    let Some(user_id) = string_field(&body, "userId") else {
+    let Some(user_id) = body
+        .get("userId")
+        .filter(|value| !value.is_null())
+        .map(java_string_value)
+    else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
-    let role_ids = body
+    // ToolUtil.objToList returns null for anything but a list; an empty user id short-circuits
+    // before that null is dereferenced, otherwise the caught NPE becomes 500 "数据异常".
+    let role_ids: Option<Vec<String>> = body
         .get("roleIds")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+        .map(|ids| ids.iter().map(java_string_value).collect());
+    if user_id.is_empty() {
+        return envelope_json(StatusCode::OK, 200, Some(json!(DATA_SUCCESS)), "ok", "");
+    }
+    let Some(role_ids) = role_ids else {
+        return envelope_response(StatusCode::OK, 500, "数据异常", "");
+    };
     if role_ids.is_empty() {
-        return envelope_json(StatusCode::OK, 200, Some(json!("数据正常")), "ok", "");
+        return envelope_json(StatusCode::OK, 200, Some(json!(DATA_SUCCESS)), "ok", "");
     }
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(_) => {
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+    let result: Result<(), sqlx::Error> = async {
+        let mut tx = pool.begin().await?;
+        // Java does not require the user to exist; the lock still serializes this user's role set
+        // against delete and other role replacements before the plain discovery read.
+        lock_user(&mut tx, &user_id).await?;
+        delete_children(&mut tx, "t_user_role", "user_id", &user_id).await?;
+        for role_id in &role_ids {
+            insert_user_role(&mut tx, &user_id, role_id).await?;
         }
-    };
-    if sqlx::query("DELETE FROM t_user_role WHERE user_id = ?")
-        .bind(&user_id)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+        tx.commit().await
     }
-    for role_id in role_ids.iter().filter_map(Value::as_str) {
-        if sqlx::query("INSERT INTO t_user_role (id, user_id, role_id) VALUES (?, ?, ?)")
-            .bind(Uuid::new_v4().to_string())
-            .bind(&user_id)
-            .bind(role_id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-        {
-            let _ = tx.rollback().await;
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    .await;
+    match result {
+        Ok(()) => envelope_json(StatusCode::OK, 200, Some(json!(DATA_SUCCESS)), "ok", ""),
+        Err(error) => {
+            tracing::warn!(error = %error, "admin user role replacement failed");
+            envelope_response(StatusCode::OK, 500, "数据异常", "")
         }
     }
-    if tx.commit().await.is_err() {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    envelope_json(StatusCode::OK, 200, Some(json!("数据正常")), "ok", "")
 }
 
 pub(crate) async fn delete_user(
@@ -386,39 +542,24 @@ pub(crate) async fn delete_user(
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(error) => {
-            tracing::warn!(error = %error, "delete user transaction could not start");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    };
-    if let Err(error) = sqlx::query("DELETE FROM t_user_role WHERE user_id = ?")
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-    {
-        let _ = tx.rollback().await;
-        tracing::warn!(error = %error, "delete user role associations failed");
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    let result: Result<bool, sqlx::Error> = async {
+        let mut tx = pool.begin().await?;
+        lock_user(&mut tx, user_id).await?;
+        delete_children(&mut tx, "t_user_role", "user_id", user_id).await?;
+        let deleted = sqlx::query("DELETE FROM t_user WHERE id = ?")
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await?
+            .rows_affected()
+            == 1;
+        tx.commit().await?;
+        Ok(deleted)
     }
-    let deleted = match sqlx::query("DELETE FROM t_user WHERE id = ?")
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await
-    {
-        Ok(result) => result.rows_affected() == 1,
-        Err(error) => {
-            let _ = tx.rollback().await;
-            tracing::warn!(error = %error, "delete user row failed");
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    };
-    if let Err(error) = tx.commit().await {
-        tracing::warn!(error = %error, "delete user transaction commit failed");
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    .await;
+    match result {
+        Ok(deleted) => envelope_json(StatusCode::OK, 200, Some(json!(deleted)), "ok", ""),
+        Err(error) => server_error(error, "delete user failed"),
     }
-    envelope_json(StatusCode::OK, 200, Some(json!(deleted)), "ok", "")
 }
 
 pub(crate) async fn reset_password(
@@ -454,19 +595,34 @@ pub(crate) async fn reset_password(
     }
 }
 
+// RoleService.addRole. All role writes hold one database-scoped named lock: the "single default
+// role" invariant spans unindexed rows, and the role-menu set is replaced by discovery plus
+// primary-key deletes inside the same serialized section.
 pub(crate) async fn add_role(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
     let Some(role) = body.get("role").and_then(Value::as_object) else {
-        return envelope_response(StatusCode::OK, 202, "角色信息不能为空", "");
+        return rejected("角色信息不能为空");
     };
-    let Some(pool) = &state.pool else {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    // Java parses every entry before it can be stored (Gson map, then menusId/per toString);
+    // anything it would fail on with an NPE is rejected here before any write.
+    let Some(menus) = body.get("menus").and_then(Value::as_array) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(_) => {
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
-        }
-    };
+    let mut role_menus = Vec::with_capacity(menus.len());
+    for menu in menus {
+        let parsed = match menu {
+            Value::String(text) => serde_json::from_str::<Value>(text).ok(),
+            other => Some(other.clone()),
+        };
+        let entry = parsed.as_ref().and_then(|parsed| {
+            let menu_id = parsed.get("menusId").filter(|value| !value.is_null())?;
+            let per = parsed.get("per").filter(|value| !value.is_null())?;
+            Some((java_string_value(menu_id), stored_per(per)))
+        });
+        let Some(entry) = entry else {
+            return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+        };
+        role_menus.push(entry);
+    }
     let role_id = role
         .get("id")
         .and_then(Value::as_str)
@@ -475,66 +631,50 @@ pub(crate) async fn add_role(State(state): State<AppState>, Json(body): Json<Val
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     let title = role.get("title").and_then(Value::as_str);
     let remark = role.get("remark").and_then(Value::as_str);
-    let is_admin = role
-        .get("isAdmin")
-        .and_then(Value::as_i64)
-        .map(|value| value as i32);
-    let is_default = role
-        .get("isDefault")
-        .and_then(Value::as_i64)
-        .map(|value| value as i32);
-    if is_admin == Some(1) && is_default == Some(0) {
-        let _ = sqlx::query("UPDATE t_role SET is_default = 1 WHERE is_default = 0")
-            .execute(&mut *tx)
-            .await;
-    }
-    let result = sqlx::query("INSERT INTO t_role (id, title, remark, is_admin, is_default) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), remark=VALUES(remark), is_admin=VALUES(is_admin), is_default=VALUES(is_default)")
-        .bind(&role_id).bind(title).bind(remark).bind(is_admin).bind(is_default).execute(&mut *tx).await;
-    if result.is_err() {
-        let _ = tx.rollback().await;
+    let is_admin = role.get("isAdmin").and_then(java_int);
+    let is_default = role.get("isDefault").and_then(java_int);
+    let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    if sqlx::query("DELETE FROM t_role_menus WHERE role_id = ?")
-        .bind(&role_id)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    if let Some(menus) = body.get("menus").and_then(Value::as_array) {
-        for menu in menus {
-            let parsed = menu
-                .as_str()
-                .and_then(|value| serde_json::from_str::<Value>(value).ok())
-                .unwrap_or_else(|| menu.clone());
-            let Some(menu_id) = parsed.get("menusId").and_then(Value::as_str) else {
-                continue;
-            };
-            let permissions = parsed
-                .get("per")
-                .cloned()
-                .unwrap_or_else(|| json!([]))
-                .to_string();
-            if sqlx::query(
-                "INSERT INTO t_role_menus (id, role_id, menu_id, per) VALUES (?, ?, ?, ?)",
-            )
-            .bind(Uuid::new_v4().to_string())
-            .bind(&role_id)
-            .bind(menu_id)
-            .bind(permissions)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-            {
-                let _ = tx.rollback().await;
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    let result: Result<(), sqlx::Error> = async {
+        let mut connection = named_lock_connection(pool, "role-catalogue:").await?;
+        let mut tx = connection.begin().await?;
+        // An ordinary (isAdmin=1) role becoming the signin default demotes the previous defaults.
+        if is_admin == Some(1) && is_default == Some(0) {
+            let defaults: Vec<String> =
+                sqlx::query_scalar("SELECT id FROM t_role WHERE is_default = 0 ORDER BY id")
+                    .fetch_all(&mut *tx)
+                    .await?;
+            for id in defaults {
+                sqlx::query("UPDATE t_role SET is_default = 1 WHERE id = ?")
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await?;
             }
         }
+        sqlx::query("INSERT INTO t_role (id, title, remark, is_admin, is_default) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), remark=VALUES(remark), is_admin=VALUES(is_admin), is_default=VALUES(is_default)")
+            .bind(&role_id)
+            .bind(title)
+            .bind(remark)
+            .bind(is_admin)
+            .bind(is_default)
+            .execute(&mut *tx)
+            .await?;
+        delete_children(&mut tx, "t_role_menus", "role_id", &role_id).await?;
+        for (menu_id, per) in &role_menus {
+            sqlx::query("INSERT INTO t_role_menus (id, role_id, menu_id, per) VALUES (?, ?, ?, ?)")
+                .bind(Uuid::new_v4().to_string())
+                .bind(&role_id)
+                .bind(menu_id)
+                .bind(per)
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await
     }
-    if tx.commit().await.is_err() {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    .await;
+    if let Err(error) = result {
+        return server_error(error, "admin role save failed");
     }
     envelope_json(
         StatusCode::OK,
@@ -547,93 +687,132 @@ pub(crate) async fn add_role(State(state): State<AppState>, Json(body): Json<Val
     )
 }
 
-pub(crate) async fn add_menu(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
-    if body.get("permissions").is_none() {
-        return envelope_response(
-            StatusCode::OK,
-            202,
-            "permissions 缺失，拒绝编辑菜单权限",
-            "",
-        );
+/// Java stores `map.get("per").toString()`. A string is stored as-is and `[]` as `[]`, like Java;
+/// other values are stored as JSON because Java's `[add, edit]` cannot be read back by the role
+/// form's `JSON.parse(m.per)` (registered as a deliberate difference, not replicated).
+fn stored_per(per: &Value) -> String {
+    match per {
+        Value::String(text) => text.clone(),
+        other => other.to_string(),
     }
+}
+
+// MenusService.addMenus: a new menu is persisted with the entity defaults (isMenu/isBread/keepAlive
+// 0 when absent); an edit locks the existing row and changes only the fields Java copies. The
+// button set is replaced after the menu row is locked.
+pub(crate) async fn add_menu(State(state): State<AppState>, Json(body): Json<Value>) -> Response {
+    let Some(permissions) = body.get("permissions").and_then(Value::as_array) else {
+        return rejected("permissions 缺失，拒绝编辑菜单权限");
+    };
     let Some(menu) = body.get("menus").and_then(Value::as_object) else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
+    let text = |name: &str| {
+        menu.get(name)
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+    };
+    let number = |name: &str| menu.get(name).and_then(java_int);
+    // Entity defaults apply only to absent fields; an explicit null is stored as NULL.
+    let defaulted = |name: &str| match menu.get(name) {
+        None => Some(0),
+        Some(value) => java_int(value),
+    };
+    let requested_id = text("id").filter(|value| !value.is_empty());
     let Some(pool) = &state.pool else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
-        Err(_) => {
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        Err(error) => return server_error(error, "admin menu transaction could not start"),
+    };
+    let menu_id = match requested_id {
+        Some(menu_id) => {
+            match sqlx::query("SELECT id FROM t_menus WHERE id = ? FOR UPDATE")
+                .bind(&menu_id)
+                .fetch_optional(&mut *tx)
+                .await
+            {
+                Ok(Some(_)) => {}
+                Ok(None) => return rejected(&format!("菜单不存在: {menu_id}")),
+                Err(error) => return server_error(error, "admin menu lock failed"),
+            }
+            if let Err(error) = sqlx::query("UPDATE t_menus SET parent_id = ?, component = ?, `key` = ?, path = ?, name = ?, icon = ?, title = ?, sort = ? WHERE id = ?")
+                .bind(text("parentId"))
+                .bind(text("component"))
+                .bind(text("key"))
+                .bind(text("path"))
+                .bind(text("name"))
+                .bind(text("icon"))
+                .bind(text("title"))
+                .bind(number("sort"))
+                .bind(&menu_id)
+                .execute(&mut *tx)
+                .await
+            {
+                return server_error(error, "admin menu update failed");
+            }
+            menu_id
+        }
+        None => {
+            let menu_id = Uuid::new_v4().to_string();
+            if let Err(error) = sqlx::query("INSERT INTO t_menus (id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort, keep_alive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                .bind(&menu_id)
+                .bind(text("parentId"))
+                .bind(text("key"))
+                .bind(text("path"))
+                .bind(text("name"))
+                .bind(text("icon"))
+                .bind(text("iconF"))
+                .bind(text("height"))
+                .bind(text("title"))
+                .bind(defaulted("isMenu"))
+                .bind(defaulted("isBread"))
+                .bind(text("component"))
+                .bind(number("sort"))
+                .bind(defaulted("keepAlive"))
+                .execute(&mut *tx)
+                .await
+            {
+                return server_error(error, "admin menu insert failed");
+            }
+            menu_id
         }
     };
-    let menu_id = menu
-        .get("id")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
-    let fields = (
-        menu.get("parentId").and_then(Value::as_str),
-        menu.get("key").and_then(Value::as_str),
-        menu.get("path").and_then(Value::as_str),
-        menu.get("name").and_then(Value::as_str),
-        menu.get("icon").and_then(Value::as_str),
-        menu.get("iconF").and_then(Value::as_str),
-        menu.get("height").and_then(Value::as_str),
-        menu.get("title").and_then(Value::as_str),
-        menu.get("isMenu")
-            .and_then(Value::as_i64)
-            .map(|value| value as i32),
-        menu.get("isBread")
-            .and_then(Value::as_i64)
-            .map(|value| value as i32),
-        menu.get("component").and_then(Value::as_str),
-        menu.get("sort")
-            .and_then(Value::as_i64)
-            .map(|value| value as i32),
-    );
-    let result = sqlx::query("INSERT INTO t_menus (id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id), `key`=VALUES(`key`), path=VALUES(path), name=VALUES(name), icon=VALUES(icon), icon_f=VALUES(icon_f), height=VALUES(height), title=VALUES(title), is_menu=VALUES(is_menu), is_bread=VALUES(is_bread), component=VALUES(component), sort=VALUES(sort)")
-        .bind(&menu_id).bind(fields.0).bind(fields.1).bind(fields.2).bind(fields.3).bind(fields.4).bind(fields.5).bind(fields.6).bind(fields.7).bind(fields.8).bind(fields.9).bind(fields.10).bind(fields.11).execute(&mut *tx).await;
-    if result.is_err() {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    if sqlx::query("DELETE FROM t_menus_button WHERE menus_id = ?")
-        .bind(&menu_id)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    }
-    if let Some(permissions) = body.get("permissions").and_then(Value::as_array) {
+    let result: Result<(Value, Vec<Value>), sqlx::Error> = async {
+        delete_children(&mut tx, "t_menus_button", "menus_id", &menu_id).await?;
+        let mut saved = Vec::with_capacity(permissions.len());
         for permission in permissions {
-            if sqlx::query(
-                "INSERT INTO t_menus_button (id, menus_id, title, `key`) VALUES (?, ?, ?, ?)",
-            )
-            .bind(Uuid::new_v4().to_string())
-            .bind(&menu_id)
-            .bind(permission.get("title").and_then(Value::as_str))
-            .bind(permission.get("key").and_then(Value::as_str))
-            .execute(&mut *tx)
-            .await
-            .is_err()
-            {
-                let _ = tx.rollback().await;
-                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-            }
+            let id = Uuid::new_v4().to_string();
+            let title = permission.get("title").and_then(Value::as_str);
+            let key = permission.get("key").and_then(Value::as_str);
+            sqlx::query("INSERT INTO t_menus_button (id, menus_id, title, `key`) VALUES (?, ?, ?, ?)")
+                .bind(&id)
+                .bind(&menu_id)
+                .bind(title)
+                .bind(key)
+                .execute(&mut *tx)
+                .await?;
+            saved.push(json!({"id": id, "menusId": menu_id, "title": title, "key": key}));
         }
+        let row = sqlx::query("SELECT id, parent_id, `key`, path, name, icon, icon_f, height, title, is_menu, is_bread, component, sort, keep_alive FROM t_menus WHERE id = ?")
+            .bind(&menu_id)
+            .fetch_one(&mut *tx)
+            .await?;
+        Ok((menu_entity_value(&row), saved))
     }
-    if tx.commit().await.is_err() {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    .await;
+    let (menus, saved) = match result {
+        Ok(saved) => saved,
+        Err(error) => return server_error(error, "admin menu buttons replacement failed"),
+    };
+    if let Err(error) = tx.commit().await {
+        return server_error(error, "admin menu commit failed");
     }
     envelope_json(
         StatusCode::OK,
         200,
-        Some(json!({"menus": {"id": menu_id}, "permissions": body.get("permissions")})),
+        Some(json!({"menus": menus, "permissions": saved})),
         "ok",
         "",
     )
@@ -718,7 +897,10 @@ fn group_buttons(rows: Vec<sqlx::mysql::MySqlRow>) -> HashMap<String, Vec<Value>
     grouped
 }
 
-async fn role_menu_values(pool: &MySqlPool, role_id: &str) -> Result<Vec<Value>, sqlx::Error> {
+pub(crate) async fn role_menu_values(
+    pool: &MySqlPool,
+    role_id: &str,
+) -> Result<Vec<Value>, sqlx::Error> {
     let menu_rows = sqlx::query(
         "SELECT m.id, m.parent_id, m.`key`, m.path, m.name, m.icon, m.icon_f, m.height, m.title, m.is_menu, m.is_bread, m.component, m.sort, rm.per FROM t_menus m JOIN t_role_menus rm ON rm.menu_id = m.id WHERE rm.role_id = ? ORDER BY m.sort",
     )
@@ -1198,6 +1380,17 @@ async fn get_role_view(
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
             }
         };
+        // RoleMenusDto.menusChecked is List<MenusTwoDto>: the converted rows gain its keepAlive
+        // property, which the role-menu query never populates.
+        let menus_checked: Vec<Value> = menus_checked
+            .into_iter()
+            .map(|mut menu| {
+                if let Value::Object(fields) = &mut menu {
+                    fields.insert("keepAlive".into(), Value::Null);
+                }
+                menu
+            })
+            .collect();
         json!({
             "role": role_value(&role_row),
             "menusAll": menus_all,
@@ -1208,3 +1401,7 @@ async fn get_role_view(
     };
     envelope_json(StatusCode::OK, 200, Some(data), "ok", "")
 }
+
+#[cfg(test)]
+#[path = "admin_writer_tests.rs"]
+mod writer_tests;
