@@ -1,7 +1,7 @@
 use super::{envelope_json, lookup_user, AppState};
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
+        ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade},
         OriginalUri, Query, State,
     },
     http::StatusCode,
@@ -18,6 +18,21 @@ use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 
 const HEARTBEAT_PING: &str = "__nip_heartbeat_ping__";
+
+/// Answers a peer-initiated close. tungstenite queues the echoed close frame when it reads the
+/// peer's close but refuses further sends, and only flushes the reply on the next read; read once
+/// more (bounded) so the peer gets the echo like the Java container sends it.
+async fn finish_peer_close(socket: &mut WebSocket) {
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(1), socket.recv()).await;
+}
+
+/// Server-initiated closes carry 1000 like the Java container (javax Session.close()).
+fn normal_close() -> Message {
+    Message::Close(Some(CloseFrame {
+        code: close_code::NORMAL,
+        reason: "".into(),
+    }))
+}
 const HEARTBEAT_PONG: &str = "__nip_heartbeat_pong__";
 
 #[derive(Debug, Deserialize, Clone)]
@@ -861,7 +876,18 @@ async fn status_serve(mut socket: WebSocket) {
                     break;
                 }
             }
-            Ok(Message::Close(_)) | Err(_) => break,
+            // StatusWebSocket answers every other text frame with a literal "pong".
+            Ok(Message::Text(_)) => {
+                if let Err(error) = socket.send(Message::Text("pong".into())).await {
+                    tracing::warn!(%error, "status websocket reply delivery failed");
+                    break;
+                }
+            }
+            Ok(Message::Close(_)) => {
+                finish_peer_close(&mut socket).await;
+                break;
+            }
+            Err(_) => break,
             Ok(_) => {}
         }
     }
@@ -1244,7 +1270,7 @@ async fn serve(
             {
                 tracing::warn!(%send_error, ?family, "websocket handshake error delivery failed");
             }
-            if let Err(error) = socket.send(Message::Close(None)).await {
+            if let Err(error) = socket.send(normal_close()).await {
                 tracing::debug!(%error, ?family, "websocket close delivery failed");
             }
             return;
@@ -1263,7 +1289,10 @@ async fn serve(
                 tracing::warn!(?family, "websocket outbound queue closed");
             }
         }
-        if old.send(Outbound::Close).is_err() {
+        // WebSocketService only tells a replaced classic session to close and leaves the
+        // disconnect to the client; its next business message is rejected below. Every other
+        // family closes the replaced session server-side.
+        if !matches!(family, Family::Classic) && old.send(Outbound::Close).is_err() {
             tracing::warn!(?family, "websocket outbound queue closed");
         }
     }
@@ -1275,9 +1304,11 @@ async fn serve(
 
     let session_id = registration.session_id;
     let generation = registration.generation;
+    // A replaced classic session loses its outbound queue but stays connected (see above).
+    let mut addressable = true;
     loop {
         tokio::select! {
-            command = outgoing.recv() => {
+            command = outgoing.recv(), if addressable => {
                 match command {
                     Some(Outbound::Text(text)) => {
                         if let Err(error) = socket.send(Message::Text(text.into())).await {
@@ -1286,11 +1317,12 @@ async fn serve(
                         }
                     }
                     Some(Outbound::Close) => {
-                        if let Err(error) = socket.send(Message::Close(None)).await {
+                        if let Err(error) = socket.send(normal_close()).await {
                             tracing::debug!(%error, ?family, "websocket close delivery failed");
                         }
                         break;
                     }
+                    None if matches!(family, Family::Classic) => addressable = false,
                     None => break,
                 }
             }
@@ -1308,7 +1340,15 @@ async fn serve(
                             continue;
                         }
                         let active = MANAGER.lock().await.active(&session_id, generation);
-                        if !active { break; }
+                        if !active {
+                            if matches!(family, Family::Classic) {
+                                let rejected = classic_response(1, "当前连接已失效");
+                                if socket.send(Message::Text(rejected.into())).await.is_ok() {
+                                    let _ = socket.send(normal_close()).await;
+                                }
+                            }
+                            break;
+                        }
                         dispatch(&state, &prepared, &session_id, &text).await;
                     }
                     Message::Ping(data) => {
@@ -1317,7 +1357,10 @@ async fn serve(
                             break;
                         }
                     }
-                    Message::Close(_) => break,
+                    Message::Close(_) => {
+                        finish_peer_close(&mut socket).await;
+                        break;
+                    }
                     Message::Binary(_) | Message::Pong(_) => {}
                 }
             }
@@ -1695,7 +1738,7 @@ async fn union_message(_state: &AppState, prepared: &Prepared, session_id: &str,
         code,
         0 | 1 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 20 | 112 | 182
     ) {
-        send_union_error(session_id, "未知指令").await;
+        // UnionConstants.getByCode maps unknown codes to UNKNOWN, which dispatch() ignores.
         return;
     }
     let tx = current_tx(prepared, session_id).await;
@@ -2986,7 +3029,12 @@ fn sim_response(code: i32, data: &str, send: &str, receive: &str) -> String {
 }
 fn handshake_error(family: Family, message: &str, authenticated_id: Option<&str>) -> String {
     match family {
-        Family::Classic | Family::Union => classic_response(1, message),
+        Family::Classic => classic_response(1, message),
+        // WebSocketUnionService words its credential rejection for joint training.
+        Family::Union if message == "登录凭据无效，拒绝建立连接" => {
+            classic_response(1, "登录凭据无效，拒绝建立联合训练连接")
+        }
+        Family::Union => classic_response(1, message),
         Family::Simulation => {
             let id = authenticated_id.unwrap_or("");
             sim_response(-1, message, id, id)
