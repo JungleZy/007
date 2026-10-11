@@ -38,6 +38,7 @@ Setup (all synthetic, nothing touches production):
        --java-db rust_parity_java_<id> --rust-db rust_parity_rust_<id> --out report.json
 """
 import argparse
+import base64
 import collections
 import copy
 import datetime
@@ -47,6 +48,8 @@ import os
 import pathlib
 import re
 import secrets
+import socket
+import struct
 import subprocess
 import sys
 import time
@@ -137,6 +140,176 @@ def http_case(base, method, path, body, headers, timeout):
         return {"status": response.status, "json": json.loads(raw.decode("utf-8"))}
     except ValueError:
         return {"status": response.status, "json": None, "raw": raw[:160].decode("utf-8", "replace")}
+
+
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+class WsConnection:
+    """Minimal RFC 6455 client (stdlib only): masked text frames out, fragmented text in, ping -> pong.
+
+    Every received text frame is kept in arrival order; nothing is filtered, so heartbeats and
+    rejection frames stay visible to the comparison.
+    """
+
+    def __init__(self, base, path, timeout):
+        parts = urllib.parse.urlsplit(base)
+        self.sock = socket.create_connection((parts.hostname, parts.port or 80), timeout=timeout)
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall((f"GET {path} HTTP/1.1\r\nHost: {parts.hostname}:{parts.port or 80}\r\n"
+                           "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+                           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        self.buffer = b""
+        while b"\r\n\r\n" not in self.buffer:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("connection closed during the WebSocket handshake")
+            self.buffer += chunk
+        head, self.buffer = self.buffer.split(b"\r\n\r\n", 1)
+        lines = head.decode("latin-1").split("\r\n")
+        self.status = int(lines[0].split()[1])
+        fields = {name.strip().lower(): value.strip() for name, value in
+                  (line.split(":", 1) for line in lines[1:] if ":" in line)}
+        expected = base64.b64encode(hashlib.sha1((key + WS_GUID).encode()).digest()).decode()
+        if self.status == 101 and fields.get("sec-websocket-accept") != expected:
+            raise ConnectionError("invalid Sec-WebSocket-Accept")
+        self.closed = self.status != 101
+        self.close_code = None
+        self.fragments = []
+
+    def _read(self, count, deadline):
+        while len(self.buffer) < count:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError
+            self.sock.settimeout(remaining)
+            try:
+                chunk = self.sock.recv(65536)
+            except socket.timeout:
+                raise TimeoutError from None
+            except OSError:
+                chunk = b""
+            if not chunk:
+                self.closed = True
+                raise ConnectionError("connection closed")
+            self.buffer += chunk
+        data, self.buffer = self.buffer[:count], self.buffer[count:]
+        return data
+
+    def _write(self, opcode, payload):
+        header = bytearray([0x80 | opcode])
+        size = len(payload)
+        if size < 126:
+            header.append(0x80 | size)
+        elif size < 1 << 16:
+            header += bytes([0x80 | 126]) + struct.pack("!H", size)
+        else:
+            header += bytes([0x80 | 127]) + struct.pack("!Q", size)
+        mask = os.urandom(4)
+        self.sock.sendall(bytes(header) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def send_text(self, text):
+        self._write(0x1, text.encode())
+
+    def recv(self, count, timeout):
+        """Up to `count` text frames within `timeout` seconds; stops early if the server closes."""
+        frames, deadline = [], time.monotonic() + timeout
+        while len(frames) < count and not self.closed:
+            try:
+                first, second = self._read(2, deadline)
+                size = second & 0x7F
+                if size == 126:
+                    size = struct.unpack("!H", self._read(2, deadline))[0]
+                elif size == 127:
+                    size = struct.unpack("!Q", self._read(8, deadline))[0]
+                mask = self._read(4, deadline) if second & 0x80 else None
+                payload = self._read(size, deadline)
+            except (TimeoutError, ConnectionError):
+                break
+            if mask:
+                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+            opcode = first & 0x0F
+            if opcode == 0x9:
+                self._write(0xA, payload)
+            elif opcode == 0x8:
+                self.close_code = struct.unpack("!H", payload[:2])[0] if len(payload) >= 2 else None
+                self.closed = True
+                try:
+                    self._write(0x8, payload[:2])
+                except OSError:
+                    pass
+            elif opcode in (0x0, 0x1, 0x2):
+                self.fragments.append(payload)
+                if first & 0x80:
+                    frames.append(b"".join(self.fragments).decode("utf-8", "replace"))
+                    self.fragments = []
+        return frames
+
+    def close(self):
+        if not self.closed:
+            try:
+                self._write(0x8, struct.pack("!H", 1000))
+                self.recv(1 << 30, 1)
+            except OSError:
+                pass
+        self.closed = True
+        self.sock.close()
+
+
+def ws_frame(text):
+    """Frames are compared as JSON when they are JSON documents, otherwise as their literal text."""
+    try:
+        return json.loads(text)
+    except ValueError:
+        return text
+
+
+def ws_observation(status, frames, connection):
+    """A WS step as a 200 envelope so the journey comparator, registry and identity map apply unchanged."""
+    data = {"handshake": status, "frames": [ws_frame(frame) for frame in frames],
+            "closed": bool(connection and connection.closed),
+            "closeCode": connection.close_code if connection else None}
+    return {"status": 200, "json": {"code": 200, "message": "ws", "description": "", "data": data}}
+
+
+def ws_step(step, connections, base, auth, variables, timeout):
+    """open/send/recv/close one connection named step["conn"] on one stack.
+
+    open authenticates through the query (token, deviceId) exactly like the frontend; every step
+    then waits `settle`/`timeout` seconds collecting up to `count` frames (default: all that arrive).
+    """
+    action, name = step["ws"], step["conn"]
+    count = step.get("count", 1 << 30)
+    if action == "open":
+        path = substitute(step["path"], variables)
+        if auth:
+            path += ("&" if "?" in path else "?") + urllib.parse.urlencode(auth)
+        try:
+            connection = WsConnection(base, path, timeout)
+        except (OSError, ConnectionError) as error:
+            return {"status": None, "error": f"{type(error).__name__}: {error}"[:200]}
+        connections[name] = connection
+        frames = connection.recv(count, step.get("settle", 0.3)) if connection.status == 101 else []
+        return ws_observation(connection.status, frames, connection)
+    connection = connections.get(name)
+    if connection is None:
+        return {"status": None, "error": f"connection {name!r} was never opened"}
+    if action == "send":
+        text = (substitute(step["text"], variables) if "text" in step
+                else json.dumps(substitute(step["json"], variables), ensure_ascii=False))
+        try:
+            connection.send_text(text)
+        except OSError:
+            connection.closed = True
+        frames = connection.recv(count, step.get("settle", 0.3))
+    elif action == "recv":
+        frames = connection.recv(count, step.get("timeout", 3))
+    elif action == "close":
+        connection.close()
+        frames = []
+    else:
+        raise ValueError(f"unknown ws action {action!r}")
+    return ws_observation(connection.status, frames, connection)
 
 
 def query_pairs(row):
@@ -624,49 +797,68 @@ def run_journeys(spec, args, headers, db):
             for database in db.dbs:
                 db.run(database, journey["seed_sql"])
         variables = {"java": {}, "rust": {}}
+        connections = {"java": {}, "rust": {}}
         identities = IdentityMap()
-        for step in journey["steps"]:
-            if "seed_sql" in step:
-                for database in db.dbs:
-                    db.run(database, step["seed_sql"])
-            who = step.get("who", "session" if "headers" in step else "admin")
-            outcome = {}
-            for side, base in (("java", args.java_url), ("rust", args.rust_url)):
+        try:
+            results.extend(run_journey_steps(journey, args, headers, db, variables, connections, identities))
+        finally:
+            for side in connections.values():
+                for connection in side.values():
+                    connection.close()
+    return results
+
+
+def run_journey_steps(journey, args, headers, db, variables, connections, identities):
+    results = []
+    for step in journey["steps"]:
+        if "seed_sql" in step:
+            for database in db.dbs:
+                db.run(database, step["seed_sql"])
+        # send/recv/close reuse the identity the connection was opened with.
+        reuses_connection = step.get("ws", "open") != "open"
+        who = step.get("who", "session" if "headers" in step else "connection" if reuses_connection else "admin")
+        outcome = {}
+        for side, base in (("java", args.java_url), ("rust", args.rust_url)):
+            if "ws" in step:
+                auth = None if reuses_connection else step_headers(step, headers, who, variables[side])
+                outcome[side] = ws_step(step, connections[side], base, auth, variables[side], args.timeout)
+            else:
                 path = substitute(step["path"], variables[side])
                 body = substitute(step["body"], variables[side]) if "body" in step else ({} if step["method"] == "POST" else None)
-                outcome[side] = http_case(base, step["method"], path, body, step_headers(step, headers, who, variables[side]),
-                                          args.timeout)
-                for name, expression in step.get("capture", {}).items():
-                    try:
-                        variables[side][name] = copy.deepcopy(extract(outcome[side]["json"], expression))
-                    except (KeyError, IndexError, TypeError):
-                        variables[side][name] = None
-                errors = []
-                if side == "rust" and "retained_settings" in step:
-                    expected = substitute(step["retained_settings"], variables[side])
-                    errors.extend(retained_settings(outcome[side].get("json"), expected))
-                if "post_ticker_source_ids" in step:
-                    selector = substitute(step["post_ticker_source_ids"], variables[side])
-                    database = db.dbs[0 if side == "java" else 1]
-                    errors.extend(verify_post_ticker_sources(outcome[side].get("json"), selector, db, database))
-                errors.extend(prepare_journey_response(outcome[side].get("json"), step, variables[side]))
-                if errors:
-                    outcome[side]["comparison_errors"] = errors
-            identity_diffs = []
-            domain = identity_domain(step["path"])
+                outcome[side] = http_case(base, step["method"], path, body,
+                                          step_headers(step, headers, who, variables[side]), args.timeout)
             for name, expression in step.get("capture", {}).items():
-                capture_domain = child_identity_domain("descriptions", domain) if ".descriptions" in expression else domain
-                identity_diffs.extend(identities.compare(variables["java"][name], variables["rust"][name],
-                                                         expression, expression.rsplit(".", 1)[-1], capture_domain))
-            identity_diffs.extend(identities.compare(outcome["java"].get("json"), outcome["rust"].get("json"), domain=domain))
-            outcome["java"]["identity_diffs"] = identity_diffs
-            for side in ("java", "rust"):
-                outcome[side]["comparison_json"] = identities.canonical(outcome[side].get("json"), side, domain=domain)
-            job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
-                   "path": step["path"], "method": step["method"]}
-            results.append((job, outcome["java"], outcome["rust"]))
-            if step.get("sleep"):
-                time.sleep(step["sleep"])
+                try:
+                    variables[side][name] = copy.deepcopy(extract(outcome[side]["json"], expression))
+                except (KeyError, IndexError, TypeError):
+                    variables[side][name] = None
+            errors = []
+            if side == "rust" and "retained_settings" in step:
+                expected = substitute(step["retained_settings"], variables[side])
+                errors.extend(retained_settings(outcome[side].get("json"), expected))
+            if "post_ticker_source_ids" in step:
+                selector = substitute(step["post_ticker_source_ids"], variables[side])
+                database = db.dbs[0 if side == "java" else 1]
+                errors.extend(verify_post_ticker_sources(outcome[side].get("json"), selector, db, database))
+            errors.extend(prepare_journey_response(outcome[side].get("json"), step, variables[side]))
+            if errors:
+                outcome[side]["comparison_errors"] = errors
+        identity_diffs = []
+        path = step.get("path", f"ws:{step.get('conn')}")
+        domain = identity_domain(path)
+        for name, expression in step.get("capture", {}).items():
+            capture_domain = child_identity_domain("descriptions", domain) if ".descriptions" in expression else domain
+            identity_diffs.extend(identities.compare(variables["java"][name], variables["rust"][name],
+                                                     expression, expression.rsplit(".", 1)[-1], capture_domain))
+        identity_diffs.extend(identities.compare(outcome["java"].get("json"), outcome["rust"].get("json"), domain=domain))
+        outcome["java"]["identity_diffs"] = identity_diffs
+        for side in ("java", "rust"):
+            outcome[side]["comparison_json"] = identities.canonical(outcome[side].get("json"), side, domain=domain)
+        job = {"endpoint": f"journey:{journey['name']}/{step['name']}", "variant": "journey", "who": who,
+               "path": path, "method": step.get("method", f"WS-{step.get('ws', '').upper()}")}
+        results.append((job, outcome["java"], outcome["rust"]))
+        if step.get("sleep"):
+            time.sleep(step["sleep"])
     return results
 
 

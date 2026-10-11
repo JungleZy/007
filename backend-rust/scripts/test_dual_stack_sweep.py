@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Regression coverage for opt-in dual-stack journey response comparisons."""
+import base64
 import copy
+import hashlib
 import importlib.util
 import json
+import socket
+import struct
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -842,6 +848,130 @@ class RetainedSettingsTest(unittest.TestCase):
             entry = sweep.comparison_entry(job, {"status": 200, "json": {"code": 200, "data": []}},
                 {"status": 200, "json": document, "comparison_errors": errors}, {})
             self.assertEqual(entry["disposition"], "FAIL", rows)
+
+
+RFC6455_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+
+class ScriptedWsServer:
+    """One-connection RFC 6455 server on 127.0.0.1 that runs a scripted exchange in a thread."""
+
+    def __init__(self, script):
+        self.listener = socket.socket()
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(1)
+        self.base = f"http://127.0.0.1:{self.listener.getsockname()[1]}"
+        self.request_line, self.received, self.error = None, [], None
+        self.thread = threading.Thread(target=self._serve, args=(script,), daemon=True)
+        self.thread.start()
+
+    def _serve(self, script):
+        try:
+            connection, _ = self.listener.accept()
+            with connection:
+                data = b""
+                while b"\r\n\r\n" not in data:
+                    data += connection.recv(4096)
+                lines = data.split(b"\r\n\r\n")[0].decode().split("\r\n")
+                self.request_line = lines[0]
+                key = next(line.split(":", 1)[1].strip() for line in lines if line.lower().startswith("sec-websocket-key"))
+                accept = base64.b64encode(hashlib.sha1((key + RFC6455_GUID).encode()).digest()).decode()
+                connection.sendall(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                                    f"Sec-WebSocket-Accept: {accept}\r\n\r\n").encode())
+                script(self, connection)
+        except Exception as error:  # surfaced by the test through self.error
+            self.error = error
+        finally:
+            self.listener.close()
+
+    @staticmethod
+    def send(connection, opcode, payload, fin=True):
+        connection.sendall(bytes([(0x80 if fin else 0) | opcode, len(payload)]) + payload)
+
+    def read(self, connection):
+        first, second = connection.recv(2, socket.MSG_WAITALL)
+        assert second & 0x80, "client frames must be masked"
+        mask = connection.recv(4, socket.MSG_WAITALL)
+        payload = connection.recv(second & 0x7F, socket.MSG_WAITALL)
+        frame = (first & 0x0F, bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+        self.received.append(frame)
+        return frame
+
+
+class WsClientTest(unittest.TestCase):
+    def test_accept_key_matches_the_rfc6455_example(self):
+        # RFC 6455 section 1.3: the sample nonce must produce this Sec-WebSocket-Accept value.
+        accept = base64.b64encode(hashlib.sha1(("dGhlIHNhbXBsZSBub25jZQ==" + sweep.WS_GUID).encode()).digest()).decode()
+        self.assertEqual("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", accept)
+
+    def test_fragments_ping_and_close_are_handled_and_every_text_frame_is_kept(self):
+        def script(server, connection):
+            server.send(connection, 0x1, b"he", fin=False)
+            server.send(connection, 0x0, b"llo")
+            server.send(connection, 0x9, b"p")
+            server.read(connection)  # the pong
+            server.send(connection, 0x1, '{"code":1,"data":"登录"}'.encode())
+            server.send(connection, 0x8, struct.pack("!H", 1000))
+
+        server = ScriptedWsServer(script)
+        client = sweep.WsConnection(server.base, "/websocket/x?token=t", 2)
+        frames = client.recv(10, 2)
+        server.thread.join(2)
+        self.assertIsNone(server.error)
+        self.assertEqual("GET /websocket/x?token=t HTTP/1.1", server.request_line)
+        self.assertEqual(["hello", '{"code":1,"data":"登录"}'], frames)
+        self.assertEqual((0xA, b"p"), server.received[0])
+        self.assertTrue(client.closed)
+        self.assertEqual(1000, client.close_code)
+
+    def test_outbound_text_is_masked_and_recv_stops_at_count_or_timeout(self):
+        def script(server, connection):
+            _, payload = server.read(connection)
+            server.send(connection, 0x1, payload)
+            server.send(connection, 0x1, b"second")
+            time.sleep(0.5)
+
+        server = ScriptedWsServer(script)
+        client = sweep.WsConnection(server.base, "/status", 2)
+        client.send_text("__nip_heartbeat_ping__")
+        self.assertEqual(["__nip_heartbeat_ping__"], client.recv(1, 2))
+        self.assertEqual(["second"], client.recv(5, 0.2))
+        self.assertFalse(client.closed)
+        client.close()
+        server.thread.join(2)
+        self.assertIsNone(server.error)
+
+    def test_ws_journey_steps_authenticate_by_query_and_compare_like_rest_steps(self):
+        def script(server, connection):
+            server.send(connection, 0x1, b'{"code":18001,"data":{"id":"6f1c2a52-0f7b-4c47-9a9e-111111111111"}}')
+            _, payload = server.read(connection)
+            server.send(connection, 0x1, payload)
+            server.read(connection)  # close
+
+        servers = [ScriptedWsServer(script), ScriptedWsServer(script)]
+        spec = {"journeys": [{"name": "ws", "steps": [
+            {"name": "open", "ws": "open", "conn": "a", "path": "/websocket/x", "who": "student", "count": 1, "settle": 2},
+            {"name": "echo", "ws": "send", "conn": "a", "text": "__nip_heartbeat_ping__", "count": 1, "settle": 2},
+            {"name": "close", "ws": "close", "conn": "a"},
+        ]}]}
+        args = SimpleNamespace(java_url=servers[0].base, rust_url=servers[1].base, timeout=2)
+        results = sweep.run_journeys(spec, args, {"student": {"token": "tok", "deviceId": "dev"}}, None)
+        for server in servers:
+            server.thread.join(2)
+            self.assertIsNone(server.error)
+            self.assertEqual("GET /websocket/x?token=tok&deviceId=dev HTTP/1.1", server.request_line)
+        job, java, rust = results[0]
+        self.assertEqual({"handshake": 101, "frames": [{"code": 18001, "data": {"id": "6f1c2a52-0f7b-4c47-9a9e-111111111111"}}],
+                          "closed": False, "closeCode": None}, java["json"]["data"])
+        self.assertEqual(("WS-OPEN", "/websocket/x"), (job["method"], job["path"]))
+        self.assertEqual(("WS-SEND", "ws:a", "connection"), (results[1][0]["method"], results[1][0]["path"], results[1][0]["who"]))
+        self.assertEqual(["__nip_heartbeat_ping__"], results[1][1]["json"]["data"]["frames"])
+        self.assertTrue(results[2][1]["json"]["data"]["closed"])
+        for job, java, rust in results:
+            self.assertIsNone(sweep.comparison_entry(job, java, rust, {}))
+        changed = copy.deepcopy(rust)
+        changed["comparison_json"]["data"]["closed"] = False
+        self.assertEqual("DATA", sweep.comparison_entry(results[2][0], results[2][1], changed, {})["category"])
 
 
 if __name__ == "__main__":
