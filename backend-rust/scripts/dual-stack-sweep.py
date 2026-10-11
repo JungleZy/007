@@ -596,6 +596,19 @@ def prepare_journey_response(document, step, variables=None):
     return []
 
 
+def step_headers(step, headers, who, variables):
+    """Fixture identity headers, or per-stack session headers captured earlier in the journey (e.g. a login token).
+
+    A placeholder whose capture failed is omitted instead of sent as a literal, so the missing session stays visible.
+    """
+    if "headers" not in step:
+        return headers[who]
+    if who != "session":
+        raise ValueError(f"step {step.get('name')!r}: explicit headers require who='session'")
+    resolved = substitute(step["headers"], variables)
+    return {name: str(value) for name, value in resolved.items() if value is not None}
+
+
 def run_journeys(spec, args, headers, db):
     """Run scripted write-then-read flows on both stacks.
 
@@ -616,12 +629,13 @@ def run_journeys(spec, args, headers, db):
             if "seed_sql" in step:
                 for database in db.dbs:
                     db.run(database, step["seed_sql"])
-            who = step.get("who", "admin")
+            who = step.get("who", "session" if "headers" in step else "admin")
             outcome = {}
             for side, base in (("java", args.java_url), ("rust", args.rust_url)):
                 path = substitute(step["path"], variables[side])
                 body = substitute(step["body"], variables[side]) if "body" in step else ({} if step["method"] == "POST" else None)
-                outcome[side] = http_case(base, step["method"], path, body, headers[who], args.timeout)
+                outcome[side] = http_case(base, step["method"], path, body, step_headers(step, headers, who, variables[side]),
+                                          args.timeout)
                 for name, expression in step.get("capture", {}).items():
                     try:
                         variables[side][name] = copy.deepcopy(extract(outcome[side]["json"], expression))
@@ -791,7 +805,7 @@ def main():
     inventory = json.loads(pathlib.Path(args.inventory).read_text())["endpoint_inventory"]
     db = Mysql(args.mysql_container, args.java_db, args.rust_db)
     tokens = {"admin": secrets.token_hex(24), "student": secrets.token_hex(24), "device": "sweep-device-" + secrets.token_hex(4)}
-    headers = {"admin": {"token": tokens["admin"], "deviceId": tokens["device"]},
+    headers = {"anon": {}, "admin": {"token": tokens["admin"], "deviceId": tokens["device"]},
                "student": {"token": tokens["student"], "deviceId": tokens["device"]}}
     main_jobs, session_jobs, probe_jobs = build_jobs(inventory, headers, not args.no_probes)
 

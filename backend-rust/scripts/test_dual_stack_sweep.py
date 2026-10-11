@@ -316,6 +316,38 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertEqual({"<parsed-json-string>": {"value": 1}}, results[0][1]["json"]["data"]["content"])
         self.assertEqual(original, results[1][1]["json"]["data"]["content"])
 
+    def test_session_headers_use_each_stacks_own_login_token_and_omit_failed_captures(self):
+        sent = []
+
+        def http_case(base, method, path, body, headers, timeout):
+            sent.append((base, path, headers))
+            if path == "/login":
+                return {"status": 200, "json": {"code": 200, "data": {"token": f"{base}-token"}}}
+            return {"status": 200, "json": {"code": 200, "data": True}}
+
+        spec = {"journeys": [{"name": "session", "steps": [
+            {"name": "login", "method": "POST", "path": "/login", "who": "anon", "capture": {"tok": "$.data.token"},
+             "mask": ["$.data.token"]},
+            {"name": "me", "method": "POST", "path": "/me", "headers": {"token": "${tok}", "deviceId": "d1"}},
+            {"name": "lost", "method": "POST", "path": "/lost", "headers": {"token": "${never}", "deviceId": "d1"}},
+        ]}]}
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", side_effect=http_case):
+            results = sweep.run_journeys(spec, args, {"anon": {}, "admin": {"token": "fixture"}}, None)
+        self.assertEqual([("java", "/login", {}), ("rust", "/login", {}),
+                          ("java", "/me", {"token": "java-token", "deviceId": "d1"}),
+                          ("rust", "/me", {"token": "rust-token", "deviceId": "d1"}),
+                          ("java", "/lost", {"deviceId": "d1"}), ("rust", "/lost", {"deviceId": "d1"})], sent)
+        self.assertEqual(["anon", "session", "session"], [job["who"] for job, _, _ in results])
+
+    def test_explicit_session_headers_cannot_be_combined_with_a_fixture_identity(self):
+        spec = {"journeys": [{"name": "mixed", "steps": [
+            {"name": "x", "method": "POST", "path": "/x", "who": "admin", "headers": {"token": "t"}}]}]}
+        args = SimpleNamespace(java_url="java", rust_url="rust", timeout=1)
+        with patch.object(sweep, "http_case", return_value={"status": 200, "json": {}}):
+            with self.assertRaises(ValueError):
+                sweep.run_journeys(spec, args, {"admin": {}}, None)
+
 
 class FloorContentComparisonTest(unittest.TestCase):
     java_id = "11111111-1111-1111-1111-111111111111"
