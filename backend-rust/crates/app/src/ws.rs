@@ -1304,6 +1304,19 @@ async fn serve(
 
     let session_id = registration.session_id;
     let generation = registration.generation;
+    // Business messages run on a per-connection worker in arrival order, so a handler waiting on a
+    // row lock (up to innodb_lock_wait_timeout) no longer stalls this connection's heartbeats and
+    // outbound frames. Cleanup below waits for the queued messages first: the Java container never
+    // runs onClose concurrently with onMessage of the same session.
+    let (work, mut queue) = mpsc::unbounded_channel::<String>();
+    let worker = {
+        let (state, prepared, session_id) = (state.clone(), prepared.clone(), session_id.clone());
+        tokio::spawn(async move {
+            while let Some(text) = queue.recv().await {
+                dispatch(&state, &prepared, &session_id, &text).await;
+            }
+        })
+    };
     // A replaced classic session loses its outbound queue but stays connected (see above).
     let mut addressable = true;
     loop {
@@ -1349,7 +1362,7 @@ async fn serve(
                             }
                             break;
                         }
-                        dispatch(&state, &prepared, &session_id, &text).await;
+                        if work.send(text).is_err() { break; }
                     }
                     Message::Ping(data) => {
                         if let Err(error) = socket.send(Message::Pong(data)).await {
@@ -1365,6 +1378,10 @@ async fn serve(
                 }
             }
         }
+    }
+    drop(work);
+    if let Err(error) = worker.await {
+        tracing::error!(%error, ?family, session_id, "websocket message worker failed");
     }
     let disconnect = {
         let mut manager = MANAGER.lock().await;
@@ -3050,3 +3067,7 @@ fn union_or_classic_close(family: Family) -> String {
         _ => String::new(),
     }
 }
+
+#[cfg(test)]
+#[path = "ws_worker_tests.rs"]
+mod worker_tests;
