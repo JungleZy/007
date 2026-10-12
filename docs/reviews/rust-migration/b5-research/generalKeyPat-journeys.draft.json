@@ -1,0 +1,2344 @@
+{
+ "journeys": [
+  {
+   "name": "b5-general-key-cable-two-student-lifecycle",
+   "note": "Electronic-key group training (generalKeyPat) on a fixed 12-group cable floor, frontend payloads (list.js:124, teacher.js:310, handKeyTrain.js:104/238/455/489/569). Teacher (sweep-admin, creator role=1) + sweep-student + seeded b5k-stu2; b5k-out is a non-member. Covers WS online/ready/pat/finish/begin/end relay, topic/role errors, heartbeat, roster, 207/208 precedence, upload replay/conflict/extension, settlement (student1 one wrong group; student2 finishes in the 60 s grace window with no pages), statistics, export, delete closing sockets. Determinism: cable source is fixed; upload intervals are fixed ([0,400]) and the 0.5 s sleep after start plus the WS settles keep them below the server elapsed bound; scores derive only from fixed content; only serverElapsedMs and validTime are masked. pageValue omits the source id (servers ignore it). Expected diffs: see generalKeyPat.md.",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b5k-stu2','b5k-stu2','B5 Key Student2',0,'b5k-dev',SHA2('b5k-stu2-token',256)),('b5k-out','b5k-out','B5 Key Outsider',0,'b5k-dev',SHA2('b5k-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b5k-stu2-m','b5k-stu2','sweep-student-role'),('b5k-out-m','b5k-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 3,
+      "title": "B5 general key frozen rule",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"FOUR_CHARACTER_GROUPS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":0,\"l\":0},\"other\":{\"errorCode\":1,\"muchLessCode\":1,\"muchLessLine\":1,\"muchLessGroups\":1,\"alterError\":1,\"bunchGroup\":1,\"lessGap\":1}}"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     }
+    },
+    {
+     "name": "cable-type-create",
+     "method": "POST",
+     "path": "/api/cable/type/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 general key cable type"
+     },
+     "capture": {
+      "typeId": "$.data[0].id"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "cable-create",
+     "method": "POST",
+     "path": "/api/cable/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 general key 12-group floor",
+      "typeId": "${typeId}",
+      "scope": 0,
+      "codeType": 1,
+      "codeSort": 0,
+      "floors": [
+       [
+        [
+         "A",
+         "B",
+         "C",
+         "D"
+        ],
+        [
+         "E",
+         "F",
+         "G",
+         "H"
+        ],
+        [
+         "I",
+         "J",
+         "K",
+         "L"
+        ],
+        [
+         "M",
+         "N",
+         "O",
+         "P"
+        ],
+        [
+         "Q",
+         "R",
+         "S",
+         "T"
+        ],
+        [
+         "U",
+         "V",
+         "W",
+         "X"
+        ],
+        [
+         "1",
+         "2",
+         "3",
+         "4"
+        ],
+        [
+         "5",
+         "6",
+         "7",
+         "8"
+        ],
+        [
+         "9",
+         "0",
+         "1",
+         "2"
+        ],
+        [
+         "3",
+         "4",
+         "5",
+         "6"
+        ],
+        [
+         "7",
+         "8",
+         "9",
+         "0"
+        ],
+        [
+         "Y",
+         "Z",
+         "A",
+         "B"
+        ]
+       ]
+      ]
+     },
+     "capture": {
+      "cableId": "$.data.id"
+     }
+    },
+    {
+     "name": "student-classic-open",
+     "ws": "open",
+     "conn": "sc",
+     "path": "/websocket/sweep-student",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "add-missing-total-rejected",
+     "method": "POST",
+     "path": "/api/generalKeyPat/add",
+     "who": "admin",
+     "body": {
+      "trainType": 0,
+      "title": "B5 key invalid",
+      "messageType": 0,
+      "isRandom": 0,
+      "isAverage": 0,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "isCable": 1,
+      "cableId": "${cableId}",
+      "startPage": 1
+     }
+    },
+    {
+     "name": "add-cable-train",
+     "method": "POST",
+     "path": "/api/generalKeyPat/add",
+     "who": "admin",
+     "body": {
+      "trainType": 0,
+      "title": "B5电子键组训-固定报",
+      "messageType": 0,
+      "isRandom": 0,
+      "totalNumber": 100,
+      "isAverage": 0,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student",
+       "b5k-stu2"
+      ],
+      "isCable": 1,
+      "cableId": "${cableId}",
+      "startPage": 1
+     },
+     "capture": {
+      "trainId": "$.data.id"
+     },
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-new-train-notice",
+     "ws": "recv",
+     "conn": "sc",
+     "timeout": 1.5
+    },
+    {
+     "name": "student-list",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findAll",
+     "who": "student",
+     "body": {
+      "page": 1,
+      "rows": 10
+     },
+     "unordered": [
+      "$.data.data[*].userInfoList"
+     ]
+    },
+    {
+     "name": "detail-unstarted-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "find-page-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     }
+    },
+    {
+     "name": "teacher-room-open",
+     "ws": "open",
+     "conn": "t",
+     "path": "/generalKeyPatTrain/sweep-admin/${trainId}",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "teacher-classic-open",
+     "ws": "open",
+     "conn": "tc",
+     "path": "/websocket/sweep-admin",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "student-room-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/generalKeyPatTrain/sweep-student/${trainId}",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "teacher-sees-student-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-room-open",
+     "ws": "open",
+     "conn": "s2",
+     "path": "/generalKeyPatTrain/b5k-stu2/${trainId}",
+     "settle": 0.5,
+     "headers": {
+      "token": "b5k-stu2-token",
+      "deviceId": "b5k-dev"
+     }
+    },
+    {
+     "name": "teacher-sees-student2-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "outsider-room-rejected",
+     "ws": "open",
+     "conn": "o",
+     "path": "/generalKeyPatTrain/b5k-out/${trainId}",
+     "settle": 1.5,
+     "headers": {
+      "token": "b5k-out-token",
+      "deviceId": "b5k-dev"
+     }
+    },
+    {
+     "name": "ws-malformed-text",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "text": "not-json"
+    },
+    {
+     "name": "ws-blank-topic",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "  "
+     }
+    },
+    {
+     "name": "ws-unknown-topic",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "dance"
+     }
+    },
+    {
+     "name": "ws-student-begin-forbidden",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "begin"
+     }
+    },
+    {
+     "name": "ws-teacher-pat-forbidden",
+     "ws": "send",
+     "conn": "t",
+     "settle": 1,
+     "json": {
+      "topic": "pat",
+      "log": {
+       "key": "A",
+       "time": 1
+      }
+     }
+    },
+    {
+     "name": "ws-heartbeat",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "text": "__nip_heartbeat_ping__",
+     "count": 1
+    },
+    {
+     "name": "student-ready",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "ready",
+      "id": "sweep-student"
+     }
+    },
+    {
+     "name": "teacher-sees-ready",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "roster-teacher",
+     "method": "GET",
+     "path": "/api/GeneralKeyPatTrain/getOneline/${trainId}?trainId=${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "roster-outsider-forbidden",
+     "method": "GET",
+     "path": "/api/GeneralKeyPatTrain/getOneline/${trainId}?trainId=${trainId}",
+     "headers": {
+      "token": "b5k-out-token",
+      "deviceId": "b5k-dev"
+     }
+    },
+    {
+     "name": "roster-path-param-only",
+     "method": "GET",
+     "path": "/api/GeneralKeyPatTrain/getOneline/${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "student-start-before-begin",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-finish-before-begin",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "student-status-forbidden",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     }
+    },
+    {
+     "name": "status-invalid",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 5
+     }
+    },
+    {
+     "name": "teacher-start",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     },
+     "sleep": 0.5
+    },
+    {
+     "name": "teacher-ws-begin",
+     "ws": "send",
+     "conn": "t",
+     "settle": 0.3,
+     "json": {
+      "topic": "begin"
+     }
+    },
+    {
+     "name": "student-receives-begin",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-receives-begin",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "detail-running-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "student-start",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-start-stale-attempt",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=5",
+     "who": "student"
+    },
+    {
+     "name": "student-page-1",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs"
+     ]
+    },
+    {
+     "name": "student2-reads-student1-page-forbidden",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "headers": {
+      "token": "b5k-stu2-token",
+      "deviceId": "b5k-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     }
+    },
+    {
+     "name": "outsider-reads-own-page",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "headers": {
+      "token": "b5k-out-token",
+      "deviceId": "b5k-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "b5k-out",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs"
+     ]
+    },
+    {
+     "name": "outsider-pat-value-self",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPatValue",
+     "headers": {
+      "token": "b5k-out-token",
+      "deviceId": "b5k-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     }
+    },
+    {
+     "name": "ws-student-pat",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "pat",
+      "id": "sweep-student",
+      "log": {
+       "key": "开始",
+       "time": 0
+      }
+     }
+    },
+    {
+     "name": "teacher-sees-pat",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "teacher-upload-rejected",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"D\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-page-1",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"D\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-replay",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"D\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-conflict",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-page-1-after-upload",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs"
+     ]
+    },
+    {
+     "name": "teacher-pat-value",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPatValue",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "userId": "sweep-student"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "student-pat-detail-running",
+     "method": "POST",
+     "path": "/api/generalKeyPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.capturePages",
+      "$.data.deductInfo"
+     ]
+    },
+    {
+     "name": "student-finish",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-classic-result-notice",
+     "ws": "recv",
+     "conn": "tc",
+     "timeout": 1.5
+    },
+    {
+     "name": "teacher-room-after-result",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0
+    },
+    {
+     "name": "ws-student-finish",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "finish",
+      "id": "sweep-student"
+     }
+    },
+    {
+     "name": "teacher-sees-finish",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student-finish-replay",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "student-start-after-finish",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "teacher-finish-rejected",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "teacher-end",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 2
+     }
+    },
+    {
+     "name": "teacher-ws-end",
+     "ws": "send",
+     "conn": "t",
+     "settle": 0.3,
+     "json": {
+      "topic": "end"
+     }
+    },
+    {
+     "name": "student-receives-end",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-receives-end",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-start-in-grace",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "headers": {
+      "token": "b5k-stu2-token",
+      "deviceId": "b5k-dev"
+     }
+    },
+    {
+     "name": "student2-reset-in-grace",
+     "method": "POST",
+     "path": "/api/generalKeyPat/reset",
+     "headers": {
+      "token": "b5k-stu2-token",
+      "deviceId": "b5k-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "student2-finish-in-grace-no-pages",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "headers": {
+      "token": "b5k-stu2-token",
+      "deviceId": "b5k-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-classic-result-notice-2",
+     "ws": "recv",
+     "conn": "tc",
+     "timeout": 1.5
+    },
+    {
+     "name": "teacher-room-after-result-2",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0
+    },
+    {
+     "name": "detail-final-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "mask": [
+      "$.data.validTime"
+     ],
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "statistics-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/statistics",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "unordered": [
+      "$.data.userTendencyVO"
+     ]
+    },
+    {
+     "name": "student-pat-detail-final",
+     "method": "POST",
+     "path": "/api/generalKeyPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.capturePages",
+      "$.data.deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-pat-detail-student2",
+     "method": "POST",
+     "path": "/api/generalKeyPat/patDetail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "b5k-stu2"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.capturePages",
+      "$.data.deductInfo"
+     ]
+    },
+    {
+     "name": "student-start-after-end",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-replay-after-end",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"D\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-extension-after-end",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"A\",\"B\",\"C\",\"D\"]",
+        "value": "[\"A\",\"B\",\"C\",\"D\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 1,
+        "key": "[\"E\",\"F\",\"G\",\"H\"]",
+        "value": "[\"E\",\"F\",\"G\",\"H\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 2,
+        "key": "[\"I\",\"J\",\"K\",\"L\"]",
+        "value": "[\"I\",\"J\",\"K\",\"L\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 3,
+        "key": "[\"M\",\"N\",\"O\",\"P\"]",
+        "value": "[\"M\",\"N\",\"O\",\"P\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 4,
+        "key": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "value": "[\"Q\",\"R\",\"S\",\"T\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 5,
+        "key": "[\"U\",\"V\",\"W\",\"X\"]",
+        "value": "[\"U\",\"V\",\"W\",\"X\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 6,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 7,
+        "key": "[\"5\",\"6\",\"7\",\"8\"]",
+        "value": "[\"5\",\"6\",\"7\",\"8\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 8,
+        "key": "[\"9\",\"0\",\"1\",\"2\"]",
+        "value": "[\"9\",\"0\",\"1\",\"2\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 9,
+        "key": "[\"3\",\"4\",\"5\",\"6\"]",
+        "value": "[\"3\",\"4\",\"5\",\"7\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 10,
+        "key": "[\"7\",\"8\",\"9\",\"0\"]",
+        "value": "[\"7\",\"8\",\"9\",\"0\"]",
+        "time": "[5,5,5,5]"
+       },
+       {
+        "pageNumber": 1,
+        "sort": 11,
+        "key": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "value": "[\"Y\",\"Z\",\"A\",\"B\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       },
+       {
+        "startedMs": 500,
+        "endedMs": 600
+       }
+      ]
+     }
+    },
+    {
+     "name": "teacher-restart-ended",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     }
+    },
+    {
+     "name": "teacher-end-again",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 2
+     }
+    },
+    {
+     "name": "export-teacher",
+     "method": "GET",
+     "path": "/api/generalKeyPat/getTrainInfo?trainId=${trainId}",
+     "who": "admin",
+     "parse_json": [
+      "$.data.trainDto.ruleContent",
+      "$.data.userDto[*].deductInfo",
+      "$.data.userDto[*].capturePages"
+     ],
+     "unordered": [
+      "$.data.pageDto",
+      "$.data.userDto",
+      "$.data.userValueDto",
+      "$.data.users",
+      "$.data.moreDto"
+     ]
+    },
+    {
+     "name": "export-student-forbidden",
+     "method": "GET",
+     "path": "/api/generalKeyPat/getTrainInfo?trainId=${trainId}",
+     "who": "student"
+    },
+    {
+     "name": "student-delete-forbidden",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${trainId}",
+     "who": "student"
+    },
+    {
+     "name": "teacher-delete",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "teacher-room-closed",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.5
+    },
+    {
+     "name": "student-room-closed",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.5
+    },
+    {
+     "name": "student2-room-closed",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.5
+    },
+    {
+     "name": "detail-after-delete",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     }
+    },
+    {
+     "name": "student-classic-close",
+     "ws": "close",
+     "conn": "sc"
+    },
+    {
+     "name": "teacher-classic-close",
+     "ws": "close",
+     "conn": "tc"
+    },
+    {
+     "name": "cable-delete",
+     "method": "POST",
+     "path": "/api/cable/delete?id=${cableId}",
+     "who": "admin"
+    },
+    {
+     "name": "type-delete",
+     "method": "POST",
+     "path": "/api/cable/type/delete?id=${typeId}",
+     "who": "admin"
+    },
+    {
+     "name": "rule-delete",
+     "method": "POST",
+     "path": "/api/gradingRule/deleteGradingRule",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}"
+     }
+    }
+   ]
+  },
+  {
+   "name": "b5-general-key-generated-reset-export-import",
+   "note": "Generated (isCable=0) 250-group training: add pre-generates pages 1-2, page 3 is lazy. Upload, reset to attempt 1, stale-attempt 208 fence on upload/start/reset/finish, empty finish (missing-page arithmetic), lazy page 3 after finish, end, reset after end, statistics, export, delete, admin import of each stack's own archive, detail and delete of the import. Generated group keys are random and therefore masked; scores of the empty finish do not depend on them.",
+   "steps": [
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 3,
+      "title": "B5 general key generated rule",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"FOUR_CHARACTER_GROUPS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":0,\"l\":0},\"other\":{\"errorCode\":1,\"muchLessCode\":1,\"muchLessLine\":1,\"muchLessGroups\":1,\"alterError\":1,\"bunchGroup\":1,\"lessGap\":1}}"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     }
+    },
+    {
+     "name": "add-generated-train",
+     "method": "POST",
+     "path": "/api/generalKeyPat/add",
+     "who": "admin",
+     "body": {
+      "trainType": 0,
+      "title": "B5电子键组训-随机报",
+      "messageType": 0,
+      "isRandom": 1,
+      "totalNumber": 250,
+      "isAverage": 0,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "isCable": 0,
+      "startPage": 1
+     },
+     "capture": {
+      "trainId": "$.data.id"
+     },
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "detail-unstarted-student",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "uid": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "find-page-3-before-generation",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 3
+     }
+    },
+    {
+     "name": "find-page-2-generated-at-add",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 2
+     },
+     "mask": [
+      "$.data.messageContent[*].key"
+     ]
+    },
+    {
+     "name": "teacher-start",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     },
+     "sleep": 0.8
+    },
+    {
+     "name": "student-page-1",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].key"
+     ]
+    },
+    {
+     "name": "student-start",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-page-1",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 300
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-page-out-of-range",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 4,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 300
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-page-1-submitted",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs"
+     ]
+    },
+    {
+     "name": "student-reset",
+     "method": "POST",
+     "path": "/api/generalKeyPat/reset",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "student-page-1-after-reset",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].key"
+     ]
+    },
+    {
+     "name": "stale-upload",
+     "method": "POST",
+     "path": "/api/generalKeyPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "pageValue": [
+       {
+        "pageNumber": 1,
+        "sort": 0,
+        "key": "[\"1\",\"2\",\"3\",\"4\"]",
+        "value": "[\"1\",\"2\",\"3\",\"4\"]",
+        "time": "[5,5,5,5]"
+       }
+      ],
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 300
+       }
+      ]
+     }
+    },
+    {
+     "name": "stale-start",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "stale-reset",
+     "method": "POST",
+     "path": "/api/generalKeyPat/reset",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "stale-finish",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     }
+    },
+    {
+     "name": "student-start-attempt-1",
+     "method": "GET",
+     "path": "/api/generalKeyPat/startTrain?trainId=${trainId}&attempt=1",
+     "who": "student"
+    },
+    {
+     "name": "student-finish-no-pages",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 1
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "student-finish-replay",
+     "method": "POST",
+     "path": "/api/generalKeyPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 1
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "student-pat-detail-after-finish",
+     "method": "POST",
+     "path": "/api/generalKeyPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.capturePages",
+      "$.data.deductInfo"
+     ]
+    },
+    {
+     "name": "find-page-3-after-finish",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 3
+     },
+     "mask": [
+      "$.data.messageContent[*].key"
+     ]
+    },
+    {
+     "name": "student-page-3-lazy",
+     "method": "POST",
+     "path": "/api/generalKeyPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 3
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].key"
+     ]
+    },
+    {
+     "name": "teacher-end",
+     "method": "POST",
+     "path": "/api/generalKeyPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 2
+     }
+    },
+    {
+     "name": "student-reset-after-end",
+     "method": "POST",
+     "path": "/api/generalKeyPat/reset",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 1
+     }
+    },
+    {
+     "name": "detail-final-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "mask": [
+      "$.data.validTime"
+     ],
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "statistics-teacher",
+     "method": "POST",
+     "path": "/api/generalKeyPat/statistics",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "unordered": [
+      "$.data.userTendencyVO"
+     ]
+    },
+    {
+     "name": "export-teacher",
+     "method": "GET",
+     "path": "/api/generalKeyPat/getTrainInfo?trainId=${trainId}",
+     "who": "admin",
+     "capture": {
+      "archive": "$.data"
+     },
+     "mask": [
+      "$.data.pageDto[*].key"
+     ],
+     "parse_json": [
+      "$.data.trainDto.ruleContent",
+      "$.data.userDto[*].deductInfo",
+      "$.data.userDto[*].capturePages"
+     ],
+     "unordered": [
+      "$.data.pageDto",
+      "$.data.userDto",
+      "$.data.userValueDto",
+      "$.data.users",
+      "$.data.moreDto"
+     ]
+    },
+    {
+     "name": "export-batch-student-empty",
+     "method": "GET",
+     "path": "/api/generalKeyPat/getTrainInfoBatch",
+     "who": "student"
+    },
+    {
+     "name": "teacher-delete-original",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "import-student-forbidden",
+     "method": "POST",
+     "path": "/api/generalKeyPat/importTrainInfo",
+     "who": "student",
+     "body": "${archive}"
+    },
+    {
+     "name": "import-archive",
+     "method": "POST",
+     "path": "/api/generalKeyPat/importTrainInfo",
+     "who": "admin",
+     "body": "${archive}"
+    },
+    {
+     "name": "admin-list-imported",
+     "method": "POST",
+     "path": "/api/generalKeyPat/findAll",
+     "who": "admin",
+     "body": {
+      "page": 1,
+      "rows": 10
+     },
+     "capture": {
+      "importedId": "$.data.data[0].id"
+     },
+     "unordered": [
+      "$.data.data[*].userInfoList"
+     ]
+    },
+    {
+     "name": "detail-imported",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${importedId}"
+     },
+     "mask": [
+      "$.data.validTime"
+     ],
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "delete-imported",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${importedId}",
+     "who": "admin"
+    },
+    {
+     "name": "detail-imported-after-delete",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${importedId}"
+     }
+    },
+    {
+     "name": "rule-delete",
+     "method": "POST",
+     "path": "/api/gradingRule/deleteGradingRule",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}"
+     }
+    }
+   ]
+  },
+  {
+   "name": "b5-general-key-ws-replacement-notices",
+   "note": "WS-only lifecycle without starting the training: same-user second tab replaces the first (server close 1000), teacher leave/rejoin offline/online frames, begin relay, NOTIFICATION_NEW_TRAIN (code 200) for a second training created while the student sits in the first room (Java pushes it only on /websocket), roster order, delete closes both room sockets.",
+   "steps": [
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 3,
+      "title": "B5 general key ws rule",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"FOUR_CHARACTER_GROUPS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":0,\"l\":0},\"other\":{\"errorCode\":1,\"muchLessCode\":1,\"muchLessLine\":1,\"muchLessGroups\":1,\"alterError\":1,\"bunchGroup\":1,\"lessGap\":1}}"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     }
+    },
+    {
+     "name": "add-train-x",
+     "method": "POST",
+     "path": "/api/generalKeyPat/add",
+     "who": "admin",
+     "body": {
+      "trainType": 0,
+      "title": "B5电子键-WS-X",
+      "messageType": 0,
+      "isRandom": 0,
+      "totalNumber": 100,
+      "isAverage": 0,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "isCable": 0,
+      "startPage": 1
+     },
+     "capture": {
+      "xId": "$.data.id"
+     },
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-open",
+     "ws": "open",
+     "conn": "sc",
+     "path": "/websocket/sweep-student",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "teacher-room-open",
+     "ws": "open",
+     "conn": "t",
+     "path": "/generalKeyPatTrain/sweep-admin/${xId}",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "student-room-open",
+     "ws": "open",
+     "conn": "s1",
+     "path": "/generalKeyPatTrain/sweep-student/${xId}",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "teacher-sees-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student-second-tab-replaces",
+     "ws": "open",
+     "conn": "s2",
+     "path": "/generalKeyPatTrain/sweep-student/${xId}",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "first-tab-closed-by-server",
+     "ws": "recv",
+     "conn": "s1",
+     "timeout": 1.5
+    },
+    {
+     "name": "teacher-sees-online-again",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "teacher-leaves",
+     "ws": "close",
+     "conn": "t"
+    },
+    {
+     "name": "student-sees-teacher-offline",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "teacher-rejoins",
+     "ws": "open",
+     "conn": "t2",
+     "path": "/generalKeyPatTrain/sweep-admin/${xId}",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "student-sees-teacher-online",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "teacher-ws-begin-relay-only",
+     "ws": "send",
+     "conn": "t2",
+     "settle": 0.3,
+     "json": {
+      "topic": "begin"
+     }
+    },
+    {
+     "name": "student-receives-begin",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "add-train-y-while-in-room",
+     "method": "POST",
+     "path": "/api/generalKeyPat/add",
+     "who": "admin",
+     "body": {
+      "trainType": 0,
+      "title": "B5电子键-WS-Y",
+      "messageType": 0,
+      "isRandom": 0,
+      "totalNumber": 100,
+      "isAverage": 0,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "isCable": 0,
+      "startPage": 1
+     },
+     "capture": {
+      "yId": "$.data.id"
+     },
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-notice-y",
+     "ws": "recv",
+     "conn": "sc",
+     "timeout": 1.5
+    },
+    {
+     "name": "student-room-socket-after-y",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.5
+    },
+    {
+     "name": "roster-x",
+     "method": "GET",
+     "path": "/api/GeneralKeyPatTrain/getOneline/${xId}?trainId=${xId}",
+     "who": "admin"
+    },
+    {
+     "name": "detail-x-online-status",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${xId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ]
+    },
+    {
+     "name": "delete-y",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${yId}",
+     "who": "admin"
+    },
+    {
+     "name": "delete-x",
+     "method": "GET",
+     "path": "/api/generalKeyPat/delete?trainId=${xId}",
+     "who": "admin"
+    },
+    {
+     "name": "student-room-closed-by-delete",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.5
+    },
+    {
+     "name": "teacher-room-closed-by-delete",
+     "ws": "recv",
+     "conn": "t2",
+     "timeout": 1.5
+    },
+    {
+     "name": "detail-x-after-delete",
+     "method": "POST",
+     "path": "/api/generalKeyPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${xId}"
+     }
+    },
+    {
+     "name": "student-classic-close",
+     "ws": "close",
+     "conn": "sc"
+    },
+    {
+     "name": "rule-delete",
+     "method": "POST",
+     "path": "/api/gradingRule/deleteGradingRule",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}"
+     }
+    }
+   ]
+  }
+ ]
+}
