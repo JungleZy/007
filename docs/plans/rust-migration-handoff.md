@@ -30,7 +30,8 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 
 ## B5 组训三域：下一步
 范围：`generalKeyPat`（电子键，19 个）、`generalTickerPatTrain` 及 openApi/socket（手键，14 个）、`generalTelexPat`（报文/电传，14 个）+ 各自 WS。
-调研笔记与旅程草稿：`docs/reviews/rust-migration/b5-research/`（键、手键草稿已实跑修正；报文草稿未实跑）。修复顺序：手键 → 电子键 → 报文。
+调研笔记与旅程草稿：`docs/reviews/rust-migration/b5-research/`（键、手键草稿已实跑修正；报文草稿未实跑）。修复顺序：手键（已完成：2f997d9f、2956b15d）→ 电子键 → 报文。
+待补验证：手键结算复用了岗位报务比对引擎，`post_telegram_write.rs` 的 `group_slice` 粘组耗时改为 Java 的 `300.0` 格式，岗位报务旅程仍全过但没有一条覆盖粘组耗时，需补一条岗位报务粘组旅程。
 
 1. （Sonnet 子代理）把两份草稿逐条跑：`$S journeys docs/reviews/rust-migration/b5-research/generalKeyPat-journeys.draft.json`，草稿本身的错误先修草稿，记录真实差异清单。
 2. （Sonnet 子代理，窄范围）补报文域调研，同样产出旅程草稿。
