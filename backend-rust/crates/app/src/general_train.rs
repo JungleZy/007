@@ -167,7 +167,7 @@ fn detail_member(member: &Value, domain: Domain) -> Value {
                 "activeMillis": common("activeMillis"), "totalNumber": Value::Null,
                 "pageCount": common("pageCount"), "ruleContent": Value::Null,
                 "finishTime": common("finishTime"), "patValue": Value::Null,
-                "pageAnalyzeVOS": json!([]), "existPage": Value::Null,
+                "pageAnalyzeVOS": common("pageAnalyzeVOS"), "existPage": Value::Null,
                 "content": Value::Null
             })
         }
@@ -664,20 +664,28 @@ async fn list(state: AppState, user: AuthUser, body: Value, domain: Domain) -> R
         let total: i64 = sqlx::query_scalar(&count).bind(&user.id).fetch_one(&mut *connection).await?;
         let filter = format!("{filter} ORDER BY create_time DESC,id DESC LIMIT {size} OFFSET {}", (page - 1).saturating_mul(size));
         let mut data = rows(&mut connection, table(domain), train_fields(domain), &filter, &[&user.id]).await?;
-        if matches!(domain, Domain::Ticker) {
+        if !matches!(domain, Domain::Telex) {
             // Java findAll: every item carries its member list (list.js runs `userInfoList.forEach`),
             // booleans for codeSort/isRandom, and the real page count for fixed (cable) reports.
+            // The electronic-key list leaves the total alone and hides the frozen rule.
             let mut items = Vec::with_capacity(data.len());
             for mut train in data {
                 let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
-                if train["isCable"] == 1 {
+                if matches!(domain, Domain::Key) {
+                    train["ruleContent"] = Value::Null;
+                }
+                if matches!(domain, Domain::Ticker) && train["isCable"] == 1 {
                     let pages: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {} WHERE train_id=?", page_table(domain)))
                         .bind(&id)
                         .fetch_one(&mut *connection)
                         .await?;
                     train["messageNumber"] = json!(pages);
                 }
-                let members = members_with_profiles(&mut connection, &id, domain, "id").await?;
+                let mut members = members_with_profiles(&mut connection, &id, domain, "id").await?;
+                if matches!(domain, Domain::Key) {
+                    // Java's findAll member DTO (`find_general_key_pat_user_dto`) has no active time.
+                    for member in &mut members { member["activeMillis"] = Value::Null; }
+                }
                 let infos = members.iter().map(|member| detail_member(member, domain)).collect::<Vec<_>>();
                 let mut item = train_response(train, domain);
                 item["userInfoList"] = json!(infos);
@@ -752,6 +760,9 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
                     .as_str()
                     .ok_or_else(|| invalid("参训用户ID缺失"))?
                     .to_owned();
+                if matches!(domain, Domain::Key) && train["protocolVersion"] != 1 {
+                    member["activeMillis"] = Value::Null;
+                }
                 if matches!(domain, Domain::Key) && train["protocolVersion"] == 1 {
                     let captures = stored_json(
                         member["capturePages"]
@@ -792,6 +803,9 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
                 if matches!(domain, Domain::Ticker) && train["protocolVersion"] == 1 {
                     member["validTime"] = json!(member["activeMillis"].as_i64().unwrap_or(0) / 1000);
                 }
+                if matches!(domain, Domain::Key) {
+                    member["pageAnalyzeVOS"] = page_analyze(&mut connection, &train, member).await?;
+                }
                 member["userStatus"] =
                     json!(super::ws::general_connection_status(kind, &id, &target)
                         .await
@@ -831,7 +845,7 @@ async fn set_status(
         if !ticker && train["protocolVersion"] != 1 { return Err(protocol()); }
         if train["status"] == status || (!matches!(domain, Domain::Telex) && train["status"] == 3 && status == 2) { transaction.commit().await?; return Ok(done()); }
         if status == 1 {
-            if train["status"] != 0 { return Err(if ticker { invalid("训练不能重新开始") } else { terminal("训练不能重新开始") }); }
+            if train["status"] != 0 { return Err(if matches!(domain, Domain::Telex) { terminal("训练不能重新开始") } else { invalid("训练不能重新开始") }); }
             frozen_rule(&train, domain)?;
             let sql = format!("UPDATE {} SET status=1,start_time=NOW(6) WHERE id=?", table(domain));
             sqlx::query(&sql).bind(&id).execute(&mut *transaction).await?;
@@ -868,6 +882,8 @@ async fn delete(state: AppState, user: AuthUser, id: String, domain: Domain) -> 
     };
     response(
         async {
+            // Excludes a socket opening this room until the room is closed (Java RoomLifecycleLocks).
+            let _room = super::ws::general_room_lifecycle(ws_kind(domain), &id).await;
             let mut transaction = pool.begin().await?;
             let train = load_train(&mut transaction, &id, domain, true).await?;
             if !manages(&mut transaction, &train, &user, domain).await? {
@@ -925,7 +941,8 @@ async fn statistic(state: AppState, actor: AuthUser, body: Value, domain: Domain
             let history = rows(&mut connection,user_table(domain),"score",history_filter,&[target,member["createTime"].as_str().unwrap_or("")]).await?;
             let mut tendency = json!({"userId":target,"userName":profile["userName"],"userImg":profile["userImg"],"thisScore":member["score"],"lastScore":history.first().map(|row| &row["score"]).unwrap_or(&Value::Null),"lastLastScore":history.get(1).map(|row| &row["score"]).unwrap_or(&Value::Null)});
             if !matches!(domain,Domain::Ticker) {
-                tendency["status"] = member["isFinish"].clone();
+                // Java's statistics builder sets no status for the electronic key.
+                tendency["status"] = if matches!(domain, Domain::Key) { Value::Null } else { member["isFinish"].clone() };
                 for field in ["lastScore","lastLastScore"] { if tendency[field].is_null() { tendency[field] = json!(0); } }
             }
             tendencies.push(tendency);
@@ -1170,6 +1187,109 @@ pub(crate) async fn ticker_statistics(
 ) -> Response {
     statistic(s, u, b, Domain::Ticker).await
 }
+/// Characters of one stored key value (a JSON list of single characters): blanks and `?` do not
+/// count, anything else that is not exactly one code point is rejected (Java `countCharacters`).
+fn key_value_characters(value: &Value) -> Outcome<i64> {
+    let text = value
+        .as_str()
+        .ok_or_else(|| invalid("拍发字符列表不能为空"))?;
+    let characters: Vec<Option<String>> = serde_json::from_str::<Option<Vec<Option<String>>>>(text)
+        .map_err(|_| invalid("拍发字符列表不能为空"))?
+        .ok_or_else(|| invalid("拍发字符列表不能为空"))?;
+    let mut count = 0;
+    for character in characters {
+        let character = character
+            .filter(|character| character.chars().count() == 1)
+            .ok_or_else(|| invalid("每个拍发事件必须是一个正文字符"))?;
+        if !character.trim().is_empty() && character != "?" {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
+/// Java `generatePageAnalyze`: one `{pageNumber, patNumber, totalTime}` per captured page (raw
+/// protocol), or per stored value page for pre-protocol trainings.
+async fn page_analyze(
+    connection: &mut MySqlConnection,
+    train: &Value,
+    member: &Value,
+) -> Outcome<Value> {
+    let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
+    let user_id = member["userId"]
+        .as_str()
+        .ok_or_else(|| invalid("参训用户ID缺失"))?;
+    let values = rows(
+        connection,
+        value_table(Domain::Key),
+        value_fields(Domain::Key),
+        "WHERE train_id=? AND user_id=? ORDER BY page_number,sort",
+        &[&id, user_id],
+    )
+    .await?;
+    let mut analysis = Vec::new();
+    if train["protocolVersion"] == 1 {
+        let captures = stored_json(
+            member["capturePages"]
+                .as_str()
+                .ok_or_else(|| invalid("缺少原始采集页索引"))?,
+        )?;
+        let captures = captures
+            .as_object()
+            .ok_or_else(|| invalid("缺少原始采集页索引"))?;
+        let mut pages = captures
+            .keys()
+            .map(|page| {
+                page.parse::<i64>()
+                    .map(|number| (number, page))
+                    .map_err(|_| invalid("采集页索引无效"))
+            })
+            .collect::<Outcome<Vec<_>>>()?;
+        pages.sort_unstable();
+        for (number, key) in pages {
+            let mut characters = 0;
+            for value in values
+                .iter()
+                .filter(|value| value["pageNumber"].as_i64() == Some(number))
+            {
+                characters += key_value_characters(&value["value"])?;
+            }
+            let intervals = capture_intervals(&captures[key.as_str()]["intervals"])?;
+            analysis.push(json!({"pageNumber": number, "patNumber": characters, "totalTime": interval_duration(&intervals, i64::MAX)?}));
+        }
+        return Ok(json!(analysis));
+    }
+    let mut by_page: std::collections::BTreeMap<i64, (i64, i64)> =
+        std::collections::BTreeMap::new();
+    for value in &values {
+        let page = value["pageNumber"]
+            .as_i64()
+            .ok_or_else(|| invalid("拍发页码缺失"))?;
+        let entry = by_page.entry(page).or_default();
+        if let Some(times) = value["time"]
+            .as_str()
+            .map(stored_json)
+            .transpose()?
+            .and_then(|times| times.as_array().cloned())
+        {
+            for time in times {
+                entry.1 += time
+                    .as_str()
+                    .and_then(|time| time.trim().parse::<i64>().ok())
+                    .ok_or_else(|| invalid("拍发时间不合法"))?;
+            }
+        }
+        let pat = value["value"].as_str().unwrap_or("[]");
+        entry.0 += stored_json(pat)?
+            .as_array()
+            .map_or(0, |values| values.len() as i64);
+    }
+    for (page, (count, time)) in by_page {
+        analysis.push(json!({"pageNumber": page, "patNumber": count, "totalTime": time}));
+    }
+    Ok(json!(analysis))
+}
+
 async fn members(state: AppState, user: AuthUser, body: Value, domain: Domain) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -1178,14 +1298,25 @@ async fn members(state: AppState, user: AuthUser, body: Value, domain: Domain) -
         let id = train_id(&body)?;
         let mut connection = pool.acquire().await?;
         let train = load_train(&mut connection, &id, domain, false).await?;
-        let target = readable_target(&mut connection, &train, &user, &body, domain).await?;
-        let mut member = load_member(&mut connection, &id, &target, domain).await?.ok_or_else(|| invalid("未查询到参训记录"))?;
+        let key = matches!(domain, Domain::Key);
+        // Java `requireReadableTarget` (key) never asks for membership of the caller itself: an
+        // outsider reading their own record gets 202 "no such participant", not 207.
+        let target = if key {
+            let target = body["userId"].as_str().filter(|id| !id.trim().is_empty()).unwrap_or(&user.id);
+            if target != user.id && !manages(&mut connection, &train, &user, domain).await? { return Err(denied()); }
+            target.to_owned()
+        } else {
+            readable_target(&mut connection, &train, &user, &body, domain).await?
+        };
+        let mut member = load_member(&mut connection, &id, &target, domain).await?.ok_or_else(|| invalid(if key { "未查询到该用户的参训记录" } else { "未查询到参训记录" }))?;
         member["protocolVersion"] = train["protocolVersion"].clone();
         member["ruleContent"] = train["ruleContent"].clone();
         member["totalNumber"] = train["totalNumber"].clone();
         member["isCable"] = train["isCable"].clone();
         member["duration"] = if train["protocolVersion"] == 1 { json!(member["activeMillis"].as_i64().unwrap_or(0)/1000) } else { train["validTime"].clone() };
-        if let Some(profile) = rows(&mut connection,"t_user","id userName userImg","WHERE id=?",&[&target]).await?.pop() { member["userName"] = profile["userName"].clone(); member["userImg"] = profile["userImg"].clone(); }
+        if !key {
+            if let Some(profile) = rows(&mut connection,"t_user","id userName userImg","WHERE id=?",&[&target]).await?.pop() { member["userName"] = profile["userName"].clone(); member["userImg"] = profile["userImg"].clone(); }
+        }
         let page_column = if matches!(domain, Domain::Ticker) { "floor_number" } else { "page_number" };
         let sql = format!("SELECT DISTINCT {page_column} FROM {} WHERE train_id=? ORDER BY {page_column}", page_table(domain));
         let pages: Vec<i32> = sqlx::query_scalar(&sql).bind(&id).fetch_all(&mut *connection).await?;
@@ -1195,13 +1326,33 @@ async fn members(state: AppState, user: AuthUser, body: Value, domain: Domain) -
         member["content"] = if member["isFinish"] == 1 {
             json!(rows(&mut connection, value_table(domain), value_fields(domain), &format!("WHERE train_id=? AND user_id=? AND {page_column}<=2 ORDER BY {page_column},id"), &[&id,&target]).await?)
         } else { json!(rows(&mut connection, page_table(domain), page_fields(domain), &filter, &[&id]).await?) };
-        if matches!(domain, Domain::Key) && train["protocolVersion"] == 1 {
+        if key && train["protocolVersion"] == 1 {
             let captures = stored_json(member["capturePages"].as_str().unwrap_or("{}"))?;
             let object = captures.as_object().ok_or_else(|| invalid("缺少原始采集页索引"))?;
             let mut submitted = object.keys().map(|key| key.parse::<i32>().map_err(|_| invalid("采集页索引无效"))).collect::<Outcome<Vec<_>>>()?;
             submitted.sort_unstable();
             member["existPageNumber"] = json!(submitted.len());
             member["existNumber"] = json!(submitted);
+        }
+        if key {
+            // Java `PojoUtils.convertOne(member, GeneralKeyPatUserInfoVO)`: a typed user VO
+            // (no raw columns, no profile), the fixed-report totals only for cable trainings.
+            member["pageAnalyzeVOS"] = page_analyze(&mut connection, &train, &member).await?;
+            let content = member["content"].as_array().map(|rows| rows.iter().map(|row| page_dto(row, domain, false)).collect::<Vec<_>>()).unwrap_or_default();
+            let mut result = detail_member(&member, domain);
+            result["protocolVersion"] = member["protocolVersion"].clone();
+            result["isCable"] = member["isCable"].clone();
+            result["duration"] = member["duration"].clone();
+            result["ruleContent"] = member["ruleContent"].clone();
+            result["totalNumber"] = member["totalNumber"].clone();
+            result["existPage"] = member["existPage"].clone();
+            result["content"] = json!(content);
+            result["pageCount"] = Value::Null;
+            if train["isCable"] == 1 {
+                result["totalNumber"] = json!(sqlx::query_scalar::<_, i64>(&format!("SELECT COUNT(*) FROM {} WHERE train_id=?", page_table(domain))).bind(&id).fetch_one(&mut *connection).await?);
+                result["pageCount"] = member["pageCount"].clone();
+            }
+            return Ok(result);
         }
         Ok(member)
     }.await)
@@ -1223,6 +1374,13 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
         let not_student = || if matches!(domain, Domain::Telex) { denied() } else { invalid(STUDENT_MISSING) };
         let member = load_member(&mut transaction, &id, &actor.id, domain).await?.ok_or_else(not_student)?;
         if member["role"] != 0 { return Err(not_student()); }
+        if matches!(domain, Domain::Key) {
+            // Lock order is training -> member -> values everywhere (reset and finish lock the
+            // member before touching values); the member row is written at the end of upload.
+            sqlx::query("SELECT id FROM general_key_pat_user WHERE id=? FOR UPDATE")
+                .bind(text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?)
+                .fetch_one(&mut *transaction).await?;
+        }
         if train["protocolVersion"] != 1 || (matches!(domain, Domain::Telex) && body["protocolVersion"] != 1) { return Err(invalid("客户端采集协议版本不匹配，请刷新后重新进入训练")); }
         if body["attempt"].as_i64().is_none() || body["attempt"] != member["attempt"] { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         let total = train[if matches!(domain, Domain::Ticker) { "messageNumber" } else { "totalNumber" }].as_i64().ok_or_else(|| invalid("训练总组数缺失"))?;
@@ -1383,7 +1541,8 @@ async fn export_train(
     actor: &AuthUser,
     id: &str,
 ) -> Outcome<Value> {
-    let train = load_train(connection, id, Domain::Key, true).await?;
+    // Read-only: plain reads inside the transaction's snapshot, no row lock.
+    let train = load_train(connection, id, Domain::Key, false).await?;
     if !manages(connection, &train, actor, Domain::Key).await? {
         return Err(denied());
     }
@@ -1499,10 +1658,20 @@ async fn import_train(connection: &mut MySqlConnection, body: &Value) -> Outcome
         if user_ids.contains_key(old_id) {
             return Err(invalid("导入用户ID重复"));
         }
-        let existing = sqlx::query("SELECT id FROM t_user WHERE user_account=? FOR UPDATE")
-            .bind(account)
-            .fetch_optional(&mut *connection)
-            .await?;
+        // t_user is indexed by primary key only: a locking read by account would lock the whole
+        // table (and every login token write). Read the account plainly, then take a shared
+        // lock on that one row by primary key so the user cannot be deleted under the import.
+        let existing =
+            sqlx::query("SELECT id FROM t_user WHERE user_account=? ORDER BY id LIMIT 1")
+                .bind(account)
+                .fetch_optional(&mut *connection)
+                .await?;
+        if let Some(row) = &existing {
+            sqlx::query("SELECT id FROM t_user WHERE id=? FOR SHARE")
+                .bind(row.try_get::<String, _>("id")?)
+                .fetch_optional(&mut *connection)
+                .await?;
+        }
         let id =
             if let Some(row) = existing {
                 row.try_get::<String, _>("id")?
@@ -1526,7 +1695,10 @@ async fn import_train(connection: &mut MySqlConnection, body: &Value) -> Outcome
     if train["protocolVersion"].is_null() {
         train["protocolVersion"] = json!(0);
     }
-    let fields = KEY_SYNC
+    // The sync DTO carries neither isCable nor trainType: Java's entity default is isCable=0.
+    train["isCable"] = json!(0);
+    let fields = format!("{KEY_SYNC} isCable");
+    let fields = fields
         .split_whitespace()
         .filter(|field| *field != "id")
         .collect::<Vec<_>>()
@@ -1699,7 +1871,8 @@ async fn page_response(
         let id = train_id(&body)?;
         let number = body.get("pageNumber").or_else(|| body.get("floorNumber")).and_then(Value::as_i64).filter(|number| *number > 0).ok_or_else(|| invalid("页码不正确"))?;
         let mut transaction = pool.begin().await?;
-        let train = load_train(&mut transaction, &id, domain, true).await?;
+        // Only getPage may generate a missing page; findPage is a plain read and must not lock.
+        let train = load_train(&mut transaction, &id, domain, personal).await?;
         // Java `readableMember` (key and hand-key): 207 for reading others without being the
         // creator/organizer, 202 for a target that is not a member. Telex keeps its own check.
         let java_member = personal && !matches!(domain, Domain::Telex);
@@ -1708,7 +1881,14 @@ async fn page_response(
         let filter = format!("WHERE train_id=? AND {page_column}=? ORDER BY sort");
         let number_text = number.to_string();
         let mut messages = rows(&mut transaction, page_table(domain), page_fields(domain), &filter, &[&id, &number_text]).await?;
-        if !personal { transaction.commit().await?; return Ok(json!({"messageContent":messages})); }
+        if !personal {
+            transaction.commit().await?;
+            if matches!(domain, Domain::Key) {
+                // Java `GeneralKeyPatPageDetailDto`: no trainId.
+                for message in &mut messages { message.as_object_mut().map(|row| row.remove("trainId")); }
+            }
+            return Ok(json!({"messageContent":messages}));
+        }
         let (target, member) = if java_member {
             readable_member(&mut transaction, &train, &actor, body.get("userId").and_then(Value::as_str), domain).await?
         } else {
@@ -1781,17 +1961,34 @@ async fn pat_value(state: AppState, actor: AuthUser, body: Value, domain: Domain
                 .to_string();
             let mut connection = pool.acquire().await?;
             let train = load_train(&mut connection, &id, domain, false).await?;
-            let target = readable_target(&mut connection, &train, &actor, &body, domain).await?;
-            Ok(json!(
-                rows(
-                    &mut connection,
-                    value_table(domain),
-                    value_fields(domain),
-                    "WHERE train_id=? AND user_id=? AND page_number=? ORDER BY sort,id",
-                    &[&id, &target, &page]
-                )
-                .await?
-            ))
+            // Java key `requireReadableTarget`: no membership check for reading oneself, so an
+            // outsider gets an empty list; the VO has no `id`.
+            let target = if matches!(domain, Domain::Key) {
+                let target = body["userId"]
+                    .as_str()
+                    .filter(|id| !id.trim().is_empty())
+                    .unwrap_or(&actor.id);
+                if target != actor.id && !manages(&mut connection, &train, &actor, domain).await? {
+                    return Err(denied());
+                }
+                target.to_owned()
+            } else {
+                readable_target(&mut connection, &train, &actor, &body, domain).await?
+            };
+            let mut values = rows(
+                &mut connection,
+                value_table(domain),
+                value_fields(domain),
+                "WHERE train_id=? AND user_id=? AND page_number=? ORDER BY sort,id",
+                &[&id, &target, &page],
+            )
+            .await?;
+            if matches!(domain, Domain::Key) {
+                for value in &mut values {
+                    value.as_object_mut().map(|row| row.remove("id"));
+                }
+            }
+            Ok(json!(values))
         }
         .await,
     )
@@ -3348,17 +3545,40 @@ async fn settle_key(
     let remaining = total_groups % 100;
     let captured_count = captured_pages.len() as i64;
     if captured_count < total_pages {
-        if remaining == 0 {
-            statistics.lack_line += (total_pages - captured_count) * 10;
-            statistics.lack_group += (total_pages - captured_count) * 100;
-            statistics.lack_line -= statistics.pat_group / 10 + 1;
-        } else {
-            statistics.lack_line += (total_pages - captured_count - 1) * 10 + remaining / 10;
-            if remaining % 10 > 0 {
-                statistics.more_group += remaining % 10;
+        // Registered Java defect (GeneralKeyPatService.countScore, the missing-page block):
+        // the per-missing-page loop and the closed formula below both add to the same lack
+        // counters, so a missing page is charged twice. Replicated exactly until both stacks
+        // are fixed together (decided 2026-10-11). `missing` is Java's `totalPageNumberList`
+        // after `removeAll(capturedPages)`; its last entry takes the remainder branch.
+        let captured_numbers = captured_pages
+            .keys()
+            .filter_map(|page| page.parse::<i64>().ok())
+            .collect::<Vec<_>>();
+        let missing = (1..=total_pages)
+            .filter(|page| !captured_numbers.contains(page))
+            .count() as i64;
+        for index in 0..missing {
+            if index == missing - 1 {
+                if total_groups % 100 == 0 {
+                    statistics.lack_line += 10;
+                } else {
+                    statistics.lack_line += remaining / 10;
+                    if remaining % 10 > 0 {
+                        statistics.more_group += remaining % 10;
+                    }
+                }
+            } else {
+                statistics.lack_line += 10;
             }
-            statistics.lack_group += (total_pages - captured_count - 1) * 100 + remaining;
-            statistics.lack_line -= statistics.pat_group / 10 + 1;
+        }
+        if remaining > 0 {
+            statistics.lack_group += (total_pages - 1 - captured_count) * 100 + remaining;
+            statistics.lack_line += (total_pages - 1 - captured_count) * 10 + remaining / 10
+                - (statistics.pat_group / 10 + 1);
+        } else {
+            statistics.lack_group += (total_pages - captured_count) * 100;
+            statistics.lack_line +=
+                (total_pages - captured_count) * 10 - (statistics.pat_group / 10 + 1);
         }
     }
     let speed = if duration > 0 {
@@ -3661,8 +3881,8 @@ async fn finish_participant(
         let status = train["status"].as_i64().unwrap_or(-1);
         frozen_rule(&train, domain)?;
         // Java settles with whatever pages exist: a missing page is counted as lacking groups,
-        // never generated at finish. The telex and key services still rely on generated pages.
-        if !matches!(domain, Domain::Ticker) {
+        // never generated at finish. Only the telex service still relies on generated pages.
+        if matches!(domain, Domain::Telex) {
             ensure_settlement_pages(&mut transaction, &train, domain).await?;
         }
         let mut settled_all = false;
@@ -3773,7 +3993,7 @@ async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<()> 
         return Ok(());
     }
     frozen_rule(&train, domain)?;
-    if !matches!(domain, Domain::Ticker) {
+    if matches!(domain, Domain::Telex) {
         ensure_settlement_pages(&mut transaction, &train, domain).await?;
     }
     // Plain read: each member is then locked by primary key (locked_member), in id order.
@@ -3854,3 +4074,7 @@ pub(crate) async fn recover_general_trainings(state: &AppState) {
 #[cfg(test)]
 #[path = "general_ticker_writer_tests.rs"]
 mod ticker_writer_tests;
+
+#[cfg(test)]
+#[path = "general_key_writer_tests.rs"]
+mod key_writer_tests;

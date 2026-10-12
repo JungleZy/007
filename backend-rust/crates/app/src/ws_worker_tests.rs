@@ -167,3 +167,85 @@ async fn business_message_waiting_on_a_row_lock_does_not_stall_heartbeats() {
         "the blocked capture must finish after the gate: {reply}"
     );
 }
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo"]
+async fn opening_a_key_room_waits_for_the_room_lifecycle_lock() {
+    // Java RoomLifecycleLocks: a socket's role lookup and registration run inside the room's
+    // lifecycle lock, the same one a delete holds from commit to closing the room. While the
+    // lock is held the socket must not be registered; afterwards it joins normally.
+    let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("scratch database URL");
+    assert!(url.ends_with("/rust_scratch_lockdemo"));
+    let pool = sqlx::mysql::MySqlPoolOptions::new()
+        .max_connections(8)
+        .connect(&url)
+        .await
+        .unwrap();
+    let tag = Uuid::new_v4().simple().to_string();
+    let (user, token) = (format!("ws-room-{tag}"), format!("ws-room-token-{tag}"));
+    sqlx::query("INSERT INTO t_user (id,user_account,user_name,status,device_id,token) VALUES (?,?,'ws room regression',0,'ws-room-dev',?)")
+        .bind(&user)
+        .bind(&user)
+        .bind(token_digest(&token))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let train = sqlx::query("INSERT INTO general_key_pat (title,is_cable,create_time,create_user,status,total_number,protocol_version) VALUES (?,0,NOW(),'ws-room-organizer',0,100,1)")
+        .bind(format!("ws room regression {tag}"))
+        .execute(&pool)
+        .await
+        .unwrap()
+        .last_insert_id() as i64;
+    let member = sqlx::query("INSERT INTO general_key_pat_user (train_id,user_id,role,attempt,is_finish,create_time) VALUES (?,?,0,0,0,NOW())")
+        .bind(train)
+        .bind(&user)
+        .execute(&pool)
+        .await
+        .unwrap()
+        .last_insert_id();
+    let mut config = AppConfig::from_env().unwrap();
+    config.ws_readonly_enabled = true;
+    let state = AppState {
+        config: Arc::new(config),
+        pool: Some(pool.clone()),
+        database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, build_router(state)).await });
+
+    let train_id = train.to_string();
+    let delete_side = general_room_lifecycle("key", &train_id).await.unwrap();
+    let _client = Client::connect(
+        address,
+        &format!("/generalKeyPatTrain/{user}/{train}?token={token}&deviceId=ws-room-dev"),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    let while_locked = general_connection_status("key", &train_id, &user).await;
+    drop(delete_side);
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    let after = general_connection_status("key", &train_id, &user).await;
+
+    server.abort();
+    sqlx::query("DELETE FROM general_key_pat_user WHERE id=?")
+        .bind(member)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM general_key_pat WHERE id=?")
+        .bind(train)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM t_user WHERE id=?")
+        .bind(&user)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        while_locked, None,
+        "the socket must not register while the lifecycle lock is held"
+    );
+    assert_eq!(after, Some(1), "once released the socket joins the room");
+}

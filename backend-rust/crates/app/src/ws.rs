@@ -784,6 +784,55 @@ impl WsManager {
     }
 }
 
+/// Java `RoomLifecycleLocks.generalKeyRoom`: opening a general-training room (role lookup plus
+/// registration) and deleting the training (commit plus closing its room) exclude each other, so
+/// a socket whose role lookup preceded the delete cannot register after the room was closed.
+/// Striped by (kind, train id) so the table never grows; unrelated trainings sharing a stripe
+/// merely wait for each other for the duration of one lookup or one delete.
+static ROOM_LIFECYCLE: LazyLock<Vec<Arc<Mutex<()>>>> =
+    LazyLock::new(|| (0..64).map(|_| Arc::new(Mutex::new(()))).collect());
+
+async fn lock_room_lifecycle(
+    kind: GeneralKind,
+    train_id: &str,
+) -> tokio::sync::OwnedMutexGuard<()> {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    kind.hash(&mut hasher);
+    train_id.hash(&mut hasher);
+    ROOM_LIFECYCLE[(hasher.finish() % 64) as usize]
+        .clone()
+        .lock_owned()
+        .await
+}
+
+pub(crate) async fn general_room_lifecycle(
+    kind: &str,
+    train_id: &str,
+) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+    let kind = parse_general_kind(kind)?;
+    let train_id = match kind {
+        GeneralKind::Telex => train_id.to_owned(),
+        _ => train_id
+            .parse::<i32>()
+            .map_or_else(|_| train_id.to_owned(), |id| id.to_string()),
+    };
+    Some(lock_room_lifecycle(kind, &train_id).await)
+}
+
+/// The room a connection is about to open, as the registration will name it.
+async fn lock_route_room(route: &RouteSpec) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+    let kind = route.general_kind()?;
+    let train_id = match route {
+        RouteSpec::GeneralKey { raw_train_id } | RouteSpec::GeneralTicker { raw_train_id, .. } => {
+            raw_train_id.parse::<i32>().ok()?.to_string()
+        }
+        RouteSpec::GeneralTelex { train_id } => train_id.clone(),
+        _ => return None,
+    };
+    Some(lock_room_lifecycle(kind, &train_id).await)
+}
+
 static MANAGER: LazyLock<Arc<Mutex<WsManager>>> =
     LazyLock::new(|| Arc::new(Mutex::new(WsManager::default())));
 
@@ -958,12 +1007,19 @@ pub(crate) async fn general_online_rooms(kind: &str) -> HashMap<String, Vec<Valu
 }
 
 fn general_users_for_key(manager: &WsManager, key: &GeneralRoomKey) -> Vec<Value> {
-    manager
+    let mut connections: Vec<&Connection> = manager
         .general_rooms
         .get(key)
         .into_iter()
         .flat_map(|session_ids| session_ids.iter())
         .filter_map(|session_id| manager.sessions.get(session_id))
+        .collect();
+    if key.kind == GeneralKind::Key {
+        // Java `getOneline` (electronic key): students in join order, the organizer last.
+        connections.sort_by_key(|connection| connection.role == Some(1));
+    }
+    connections
+        .into_iter()
         .map(|connection| {
             json!({
                 "id": connection.user.id,
@@ -1257,6 +1313,7 @@ async fn serve(
 ) {
     let family = route.family();
     let (tx, mut outgoing) = mpsc::unbounded_channel();
+    let room_guard = lock_route_room(&route).await;
     let prepared = match prepare(&state, route.clone(), &token, &device_id).await {
         Ok(prepared) => prepared,
         Err((error, authenticated_id)) => {
@@ -1278,6 +1335,7 @@ async fn serve(
         let mut manager = MANAGER.lock().await;
         manager.register(&prepared, tx)
     };
+    drop(room_guard);
     for (old, with_error) in registration.replaced {
         if with_error {
             if old
@@ -2349,7 +2407,7 @@ async fn general_message(prepared: &Prepared, session_id: &str, text: &str) {
     let Some(topic) = object
         .get("topic")
         .and_then(Value::as_str)
-        .filter(|topic| !topic.is_empty())
+        .filter(|topic| !topic.trim().is_empty())
     else {
         send_family_error(session_id, prepared.family, "消息格式错误").await;
         return;
