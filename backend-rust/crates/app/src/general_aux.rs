@@ -259,69 +259,11 @@ pub(crate) async fn ticker_update_status(
     let Some(train_id) = body.get("trainId").and_then(Value::as_i64) else {
         return envelope_response(StatusCode::OK, 202, "训练ID不能为空", "");
     };
-    let Some(status) = body.get("status").and_then(Value::as_i64) else {
-        return envelope_response(StatusCode::OK, 202, "训练状态不合法", "");
-    };
-    if !matches!(status, 1 | 2) {
-        return envelope_response(StatusCode::OK, 202, "训练状态不合法", "");
-    }
-    let Some(pool) = state.pool.as_ref() else {
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-    };
-    let train_id_text = train_id.to_string();
-    match can_manage(pool, &train_id_text, &user).await {
-        Ok(false) => return envelope_response(StatusCode::OK, 207, "无权限", ""),
-        Err(error) => return db_error(error, "authorize ticker status"),
-        Ok(true) => {}
-    }
-    let mut tx = match pool.begin().await {
-        Ok(tx) => tx,
-        Err(error) => return db_error(error, "begin ticker status transaction"),
-    };
-    let train = match sqlx::query("SELECT status,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') AS start_time_text FROM general_ticker_pat WHERE id=? LIMIT 1 FOR UPDATE")
-        .bind(train_id)
-        .fetch_optional(&mut *tx)
-        .await
-    {
-        Ok(Some(train)) => train,
-        Ok(None) => return envelope_response(StatusCode::OK, 202, "未查询到训练", ""),
-        Err(error) => return db_error(error, "lock ticker status"),
-    };
-    let current = train.get::<Option<i32>, _>("status");
-    if current == Some(status as i32) || (current == Some(3) && status == 2) {
-        return envelope_json(StatusCode::OK, 200, Some(json!("ok")), "ok", "");
-    }
-    let result = if status == 1 {
-        if current != Some(0) {
-            return envelope_response(StatusCode::OK, 202, "训练不能重新开始", "");
-        }
-        sqlx::query("UPDATE general_ticker_pat SET status=1,start_time=NOW(6) WHERE id=?")
-            .bind(train_id)
-            .execute(&mut *tx)
-            .await
-    } else {
-        if current != Some(1) || train.get::<Option<String>, _>("start_time_text").is_none() {
-            return envelope_response(StatusCode::OK, 202, "训练尚未开始", "");
-        }
-        let unfinished = match sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM general_ticker_pat_train_user WHERE train_id=? AND role=0 AND (is_finish IS NULL OR is_finish<>1)")
-            .bind(train_id)
-            .fetch_one(&mut *tx)
-            .await
-        {
-            Ok(unfinished) => unfinished,
-            Err(error) => return db_error(error, "count unfinished ticker users"),
-        };
-        sqlx::query("UPDATE general_ticker_pat SET status=?,end_time=NOW(6),valid_time=TIMESTAMPDIFF(SECOND,start_time,NOW(6)) WHERE id=?")
-            .bind(if unfinished == 0 { 2 } else { 3 })
-            .bind(train_id)
-            .execute(&mut *tx)
-            .await
-    };
-    if let Err(error) = result {
-        return db_error(error, "update ticker status");
-    }
-    if let Err(error) = tx.commit().await {
-        return db_error(error, "commit ticker status");
-    }
-    envelope_json(StatusCode::OK, 200, Some(json!("ok")), "ok", "")
+    super::general_train::ticker_socket_update(
+        state,
+        user,
+        train_id,
+        body.get("status").and_then(Value::as_i64),
+    )
+    .await
 }

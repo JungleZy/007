@@ -1102,6 +1102,8 @@ pub(crate) async fn close_general_room(kind: &str, train_id: &str) {
 }
 
 /// Notify invited users after a general-training creation transaction commits.
+/// Java's WebSocketService.sendInfo only reaches the classic `/websocket/{sid}` session,
+/// so room sockets (which `JSON.parse` every frame as a room message) never see it.
 /// The payload intentionally uses the legacy ResponseModel `map` field.
 pub(crate) async fn notify_general_new_train(
     kind: &str,
@@ -1126,11 +1128,9 @@ pub(crate) async fn notify_general_new_train(
         json!({"type": kind.protocol_name(), "id": train_id_value, "title": title}),
     );
     let manager = MANAGER.lock().await;
-    for connection in manager
-        .sessions
-        .values()
-        .filter(|connection| recipient_ids.contains(connection.user.id.as_str()))
-    {
+    for connection in manager.sessions.values().filter(|connection| {
+        connection.family == Family::Classic && recipient_ids.contains(connection.user.id.as_str())
+    }) {
         if connection.tx.send(Outbound::Text(message.clone())).is_err() {
             tracing::warn!(kind = ?kind, train_id, user_id = %connection.user.id, "general new-train notification queue is closed");
         }
@@ -1163,11 +1163,9 @@ pub(crate) async fn notify_general_result(
         json!({"type": kind.protocol_name(), "userId": user_id, "trainId": train_id_value}),
     );
     let manager = MANAGER.lock().await;
-    for connection in manager
-        .sessions
-        .values()
-        .filter(|connection| recipient_ids.contains(connection.user.id.as_str()))
-    {
+    for connection in manager.sessions.values().filter(|connection| {
+        connection.family == Family::Classic && recipient_ids.contains(connection.user.id.as_str())
+    }) {
         if connection.tx.send(Outbound::Text(message.clone())).is_err() {
             tracing::warn!(kind = ?kind, train_id, user_id, recipient = %connection.user.id, "general result notification queue is closed");
         }

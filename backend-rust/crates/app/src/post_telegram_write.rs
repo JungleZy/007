@@ -253,14 +253,14 @@ fn validate_standard(standard: &[Value], has_body: bool) -> Result<(), &'static 
 }
 
 #[derive(Clone, Copy)]
-struct TimingRule {
+pub(crate) struct TimingRule {
     base: i64,
     low: i64,
     high: i64,
     max: i64,
 }
 
-struct HandkeyRule {
+pub(crate) struct HandkeyRule {
     timing: [TimingRule; 5],
     other: [(i64, i64); 6],
     speed: TimingRule,
@@ -293,7 +293,7 @@ fn timing_rule(value: &Value, speed: bool) -> Result<TimingRule, &'static str> {
     Ok(rule)
 }
 
-fn handkey_rule(content: Option<&str>) -> Result<HandkeyRule, &'static str> {
+pub(crate) fn handkey_rule(content: Option<&str>) -> Result<HandkeyRule, &'static str> {
     let root: Value = serde_json::from_str(content.ok_or("训练评分规则快照缺失，请新建训练")?)
         .map_err(|_| "评分规则必须是完整JSON对象")?;
     if root["rateUnit"].as_str() != Some("CHARACTERS_PER_MINUTE") {
@@ -331,12 +331,12 @@ fn handkey_rule(content: Option<&str>) -> Result<HandkeyRule, &'static str> {
 }
 
 #[derive(Default)]
-struct HandkeyScore {
+pub(crate) struct HandkeyScore {
     correct: i64,
     errors: i64,
     total: i64,
     more_groups: i64,
-    lack_groups: i64,
+    pub(crate) lack_groups: i64,
     words: i64,
     lines: i64,
     bunches: i64,
@@ -344,6 +344,18 @@ struct HandkeyScore {
     timing: [i64; 5],
     durations: [i64; 5],
     statistics: [[i64; 3]; 5],
+}
+
+impl HandkeyScore {
+    pub(crate) fn correct(&self) -> i64 {
+        self.correct
+    }
+    pub(crate) fn total(&self) -> i64 {
+        self.total
+    }
+    pub(crate) fn errors(&self) -> i64 {
+        self.errors
+    }
 }
 
 #[derive(Default)]
@@ -413,15 +425,34 @@ fn parse_groups(body: &[Value]) -> Result<Vec<RawGroup>, &'static str> {
     Ok(groups)
 }
 
+/// A parsed `List<Double>` as Gson prints it again: every element is a floating-point number.
+fn java_doubles(value: &Value) -> Value {
+    match value {
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| {
+                    item.as_f64()
+                        .map_or_else(|| item.clone(), |number| json!(number))
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
 fn group_slice(group: &ResolvedGroup, key: String, start: usize, length: usize) -> ResolvedGroup {
     ResolvedGroup {
         key,
         logs: (start..start + length)
             .map(|i| group.logs.get(i).cloned().unwrap_or_default())
             .collect(),
-        // Java's resolver stores split/corrected symbol arrays as JSON strings.
+        // Java's resolver stores split/corrected symbol arrays as JSON strings. Durations were
+        // parsed as `List<Double>`, so Gson writes whole milliseconds as `300.0`.
         times: (start..start + length)
-            .map(|i| Value::String(group.times.get(i).unwrap_or(&Value::Null).to_string()))
+            .map(|i| {
+                Value::String(java_doubles(group.times.get(i).unwrap_or(&Value::Null)).to_string())
+            })
             .collect(),
         values: (start..start + length)
             .map(|i| Value::String(group.values.get(i).unwrap_or(&Value::Null).to_string()))
@@ -580,7 +611,7 @@ fn score_timing(
 
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PageResolver {
+pub(crate) struct PageResolver {
     resolver_message: Vec<String>,
     resolver_pat_logs: Vec<String>,
     resolver_mores_value: Vec<String>,
@@ -609,7 +640,7 @@ impl PageResolver {
     }
 }
 
-fn compare_page(
+pub(crate) fn compare_page(
     sources: &[String],
     body: &[Value],
     standards: &[Value],
@@ -767,7 +798,7 @@ fn compare_page(
     Ok(output)
 }
 
-fn scoring_result(
+pub(crate) fn scoring_result(
     score: &HandkeyScore,
     rule: &HandkeyRule,
     full_score: i32,
