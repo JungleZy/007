@@ -242,9 +242,9 @@
      "who": "admin"
     },
     {
-     "name": "openapi-online-roster-encoded-path",
+     "name": "openapi-find-train-info-roster",
      "method": "GET",
-     "path": "/api/openApi/generalTickerPatTrain/%E7%BB%BC%E5%90%88%E8%AE%AD%E7%BB%83-%E6%89%8B%E9%94%AE%E6%8B%8D%E5%8F%91Api?trainId=${trainId}",
+     "path": "/api/openApi/generalTickerPatTrain/findTrainInfo",
      "who": "admin"
     },
     {

@@ -1010,6 +1010,9 @@
      },
      "unordered": [
       "$.data"
+     ],
+     "mask": [
+      "$.data[*].id"
      ]
     },
     {
@@ -1500,6 +1503,9 @@
       "$.data.userValueDto",
       "$.data.users",
       "$.data.moreDto"
+     ],
+     "mask": [
+      "$.data.pageDto[*].id"
      ]
     },
     {
@@ -1762,7 +1768,8 @@
       "pageNumber": 1
      },
      "mask": [
-      "$.data.serverElapsedMs"
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].key"
      ]
     },
     {
@@ -1977,7 +1984,8 @@
       "archive": "$.data"
      },
      "mask": [
-      "$.data.pageDto[*].key"
+      "$.data.pageDto[*].key",
+      "$.data.pageDto[*].id"
      ],
      "parse_json": [
       "$.data.trainDto.ruleContent",

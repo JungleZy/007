@@ -30,16 +30,17 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 
 ## B5 组训三域：下一步
 范围：`generalKeyPat`（电子键，19 个）、`generalTickerPatTrain` 及 openApi/socket（手键，14 个）、`generalTelexPat`（报文/电传，14 个）+ 各自 WS。
-调研笔记和**未验证**的旅程草稿：`docs/reviews/rust-migration/b5-research/`（报文域调研因限额中断，需补做）。
+调研笔记与旅程草稿：`docs/reviews/rust-migration/b5-research/`（键、手键草稿已实跑修正；报文草稿未实跑）。修复顺序：手键 → 电子键 → 报文。
 
 1. （Sonnet 子代理）把两份草稿逐条跑：`$S journeys docs/reviews/rust-migration/b5-research/generalKeyPat-journeys.draft.json`，草稿本身的错误先修草稿，记录真实差异清单。
 2. （Sonnet 子代理，窄范围）补报文域调研，同样产出旅程草稿。
-3. （主会话）拍板以下判断题，结论写回本文件：
-   - Java 抛 IllegalStateException → 202 的地方，Rust 用了 208/207（reset、finish、startTrain、upload、非成员读页）：统一回 202，还是登记为刻意差异？
-   - Java 缺页扣分重复累加（GeneralKeyPatService.java:897-925）：复制还是登记？
-   - 正确率 Java 用 ScoreMath 取整（"92.00"），Rust 保留两位小数（"91.67"）：按 Java 改（倾向）。
-   - Rust 交卷时补生成缺页、Java 不补：按 Java 改（倾向，且有大 totalNumber 的拒绝服务风险）。
-   - 成员表/拍发值表只有主键，Rust 按 train_id/user_id 加锁：加索引迁移，还是改"先锁训练行主键、普通读出 id、按主键写"（与 B2–B4 一致，倾向后者）。
+3. 已拍板（2026-10-11，用户整体采纳）：
+   - 状态类错误按 Java 返回 202（不用 208）；非成员/非学员按 Java（202，getPatValue 读自己 200 空数组）；手键 detail 学员传他人 uid 按 Java 补 207。
+   - 缺页扣分复制 Java 的重复累加（登记为已知 Java 缺陷，日后两栈一起修）。
+   - 交卷/收尾不补生成缺页（同 Java）。
+   - 锁：先锁训练行主键、普通读出 id、按主键写；不加索引、不改表结构。
+   - 刻意差异（登记 registry）：报文 updateTrainStatus 的 Rust 状态机；报文规则缺 alterError 时回退 correctMistakes（Java 500）；手键 getByTrainIdAndUserId 的在线 status、findTrainInfo 名单结构、Java 导出页 id 乱值。
+   差异明细：`docs/reviews/rust-migration/b5-research/b5-diffs.md`（键、手键）与 `generalTelexPat.md`（报文）。
 4. （Sonnet 子代理）按结论修：前端会直接报错的优先——findAll 缺 userInfoList（两域）、patDetail 缺 pageAnalyzeVOS、手键开训不写采集时钟、结算不回写 resolver、通知发到所有 WS 会话（Java 只发经典 /websocket）。
 5. 每个修复配隔离库回归 + 一次变异；旅程并入 `dual-stack-journeys.json`；提交按"修复 / 旅程 / 证据"拆分。
 
