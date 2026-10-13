@@ -3,7 +3,7 @@
 最后更新：2026-10-11，基线提交见 `git log -1`。本文件只记"下一步要做什么"；历史证据在 `docs/reviews/rust-migration/`，不要在这里追加长段落。
 
 ## 现状一句话
-B4、WS 逐帧设施、B5 组训三域（手键 2f997d9f/2956b15d、电子键 12af8262/f6475709、报文 b193b052/235309bc）已完成，0 FAIL。**下一步：B5 收尾两项（见下）→ B6 仿真。** Phase10 仍阻断。
+B4、WS 逐帧设施、B5 组训三域（手键 2f997d9f/2956b15d、电子键 12af8262/f6475709、报文 b193b052/235309bc）已完成，0 FAIL。**下一步：查时钟旅程不稳定 + B6 仿真。** Phase10 仍阻断。
 
 ## 成本规则（用户明确要求，2026-10-11 修订）
 - 主会话（Opus）只做调度与判断：拆任务、写子代理指令、拍板判断题、审回报、决定提交；不亲自读大段代码或日志。
@@ -46,9 +46,8 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 4. （Sonnet 子代理）按结论修：前端会直接报错的优先——findAll 缺 userInfoList（两域）、patDetail 缺 pageAnalyzeVOS、手键开训不写采集时钟、结算不回写 resolver、通知发到所有 WS 会话（Java 只发经典 /websocket）。
 5. 每个修复配隔离库回归 + 一次变异；旅程并入 `dual-stack-journeys.json`；提交按"修复 / 旅程 / 证据"拆分。
 
-## B5 收尾（待做）
-- 报文非成员 getPage 改为不写库（见上，2026-10-12 拍板）。
-- 补一条岗位报务粘组旅程（`group_slice` 粘组耗时 `300.0`）。
+## B5 收尾（已完成：b2e643b5 非成员读页不写库，2fbc6ead 岗位报务粘组旅程）
+- 待查：时钟相关旅程不稳定——`b5-general-ticker-scoring-expiry` 偶发 validTime Java -3 / Rust 0，`personal-ticker-tape` 偶发 2 FAIL。需查明 Java 负值来源并固定夹具。
 - 已知遗留：Java/Rust 报底类型列表顺序不同（cable 域），排入 B8。
 
 ## 之后的批次（按顺序）
