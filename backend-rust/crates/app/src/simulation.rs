@@ -380,6 +380,9 @@ async fn detail_json(
     if kind != 1 {
         // Java details project the content DTO, which has no room creation timestamp.
         out["createTime"] = Value::Null;
+        // Known Java defect copied on purpose: details are built from a DTO whose isStartSign
+        // stays at its default 1, whatever the room stores (lists still return the stored value).
+        out["isStartSign"] = json!(1);
     }
     out["existPageNumber"] = json!(answer_count(tx, id, &user.id).await?);
     if kind == 0 {
@@ -549,11 +552,12 @@ async fn add_room(
     body: Value,
     kind: i32,
 ) -> Result<Option<Value>, Error> {
-    let name = body
-        .get("roomName")
-        .and_then(Value::as_str)
-        .filter(|v| !v.is_empty())
-        .ok_or(Error::Business(202, "房间名称不能为空"))?;
+    // Java does not validate roomName at all: empty and missing names are stored (NULL when missing).
+    let name = match body.get("roomName") {
+        Some(Value::String(v)) => Some(v.clone()),
+        Some(v @ (Value::Number(_) | Value::Bool(_))) => Some(v.to_string()),
+        _ => None,
+    };
     let cable = match body.get("isCable") {
         None if kind == 1 => return Err(Error::Business(202, "是否使用电缆报底不能为空")),
         None => 0,
@@ -567,7 +571,7 @@ async fn add_room(
     let mut tx = pool(state)?.begin().await?;
     let result = async {
         let room = sqlx::query("INSERT INTO simulation_router_room (name,is_cable,create_user_Id,stats,create_time,room_type,is_start_sign) VALUES (?,?,?,0,NOW(),?,?)")
-            .bind(name).bind(cable).bind(&user.id).bind(kind).bind(if kind == 3 { int(&body,"isStartSign").unwrap_or(1) } else { 1 })
+            .bind(&name).bind(cable).bind(&user.id).bind(kind).bind(if kind == 3 { int(&body,"isStartSign").unwrap_or(1) } else { 1 })
             .execute(&mut *tx).await?.last_insert_id() as i32;
         sqlx::query("INSERT INTO simulation_router_room_content (room_id,content,main_signal,interference_signal,bd_type,bw_type,bw_count,is_random) VALUES (?,?,?,?,?,?,?,?)")
             .bind(room).bind(body.get("content").and_then(Value::as_str)).bind(body.get("mainSignal").and_then(Value::as_str))
@@ -1024,14 +1028,17 @@ pub(crate) async fn find_page(
         let id = required_id(query.room_id)?;
         let page = query.page_number.unwrap_or(1);
         if page <= 0 { return Err(Error::Business(202,"页码不正确")); }
-        let target = query.user_id.as_deref().unwrap_or(&user.id);
+        // Java passes the raw userId through: without it nobody's answers are read (value stays empty).
+        let target = query.user_id.as_deref();
         let mut tx = pool(&state)?.begin().await?;
         let result = async {
             let room = lock_room(&mut tx,id).await?;
             let (teacher,_) = access(&mut tx,&room,&user).await?;
-            if target != user.id && !teacher { return Err(Error::Business(207,"无权查看其他学员答案")); }
-            if query.user_id.is_some() && room.get::<Option<String>,_>("create_user_Id").as_deref() != Some(target) && member(&mut tx,id,target).await?.is_none() {
-                return Err(Error::Business(202,"该人员不属于此训练"));
+            if let Some(target) = target {
+                if target != user.id && !teacher { return Err(Error::Business(207,"无权查看其他学员答案")); }
+                if room.get::<Option<String>,_>("create_user_Id").as_deref() != Some(target) && member(&mut tx,id,target).await?.is_none() {
+                    return Err(Error::Business(202,"该人员不属于此训练"));
+                }
             }
             let body = content(&mut tx,id).await?;
             let mut rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort")
@@ -1046,8 +1053,11 @@ pub(crate) async fn find_page(
                 rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort")
                     .bind(id).bind(page).fetch_all(&mut *tx).await?;
             }
-            let saved: Option<Option<String>> = sqlx::query_scalar("SELECT value FROM simulation_router_room_page_value WHERE room_id=? AND page_number=? AND user_id=?")
-                .bind(id).bind(page).bind(target).fetch_optional(&mut *tx).await?;
+            let saved: Option<Option<String>> = match target {
+                Some(target) => sqlx::query_scalar("SELECT value FROM simulation_router_room_page_value WHERE room_id=? AND page_number=? AND user_id=?")
+                    .bind(id).bind(page).bind(target).fetch_optional(&mut *tx).await?,
+                None => None,
+            };
             let values = match saved.flatten() { Some(value) => serde_json::from_str::<Vec<String>>(&value)?, None => Vec::new() };
             let pages: Vec<Value> = rows.iter().map(|r| json!({"id":r.get::<String,_>("id"),"roomId":r.get::<i32,_>("room_id"),"pageNumber":r.get::<i32,_>("page_number"),"sort":r.get::<i32,_>("sort"),"key":r.get::<Option<String>,_>("key")})).collect();
             Ok(Some(json!({"pageVos":pages,"value":values,"pageCode":[]})))

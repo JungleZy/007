@@ -2649,6 +2649,24 @@ async fn simulation_disturb(
             return;
         };
         if let Some(pool) = &state.pool {
+            // Java only acts when the sender has a member row (e.g. a room creator without one:
+            // no database change, no broadcast, no session channel change).
+            match sqlx::query_scalar::<_, i32>(
+                "SELECT id FROM simulation_router_room_user WHERE room_id=? AND user_id=? LIMIT 1",
+            )
+            .bind(room_id)
+            .bind(&sender.user.id)
+            .fetch_optional(pool)
+            .await
+            {
+                Ok(Some(_)) => {}
+                Ok(None) => return,
+                Err(error) => {
+                    tracing::error!(%error, room_id, session_id, operation = "select member", "simulation lookup failed");
+                    send_session_sim_system_error(session_id).await;
+                    return;
+                }
+            }
             if let Err(error) = sqlx::query(
                 "UPDATE simulation_router_room_user SET channel=? WHERE room_id=? AND user_id=?",
             )
