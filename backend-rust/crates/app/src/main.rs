@@ -29,6 +29,8 @@ use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, limit::RequestBo
 use tracing::{error, info, warn};
 use uuid::Uuid;
 mod admin;
+#[cfg(test)]
+mod b8_writer_tests;
 mod bean_conversion;
 mod cable;
 mod comprehensive;
@@ -1273,27 +1275,54 @@ fn build_router(state: AppState) -> Router {
         api = api
             .route("/api/ws/status", get(ws::status))
             .route("/api/status", get(ws::status_open))
-            .route("/api/websocket/{sid}", get(ws::open))
-            .route("/api/websocketUnion/{sid}", get(ws::open))
-            .route("/api/startWebsocket/{sid}", get(ws::open))
-            .route("/api/simulation/{id}/{roomId}", get(ws::open))
-            .route("/api/generalKeyPatTrain/{uid}/{trainId}", get(ws::open))
-            .route("/api/generalTelexPatTrain/{uid}/{trainId}", get(ws::open))
+            .route("/api/websocket/{sid}", get(ws::open).fallback(not_found))
+            .route(
+                "/api/websocketUnion/{sid}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/api/startWebsocket/{sid}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/api/simulation/{id}/{roomId}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/api/generalKeyPatTrain/{uid}/{trainId}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/api/generalTelexPatTrain/{uid}/{trainId}",
+                get(ws::open).fallback(not_found),
+            )
             .route(
                 "/api/generalTickerPat/{uid}/{trainId}/{role}",
-                get(ws::open),
+                get(ws::open).fallback(not_found),
             );
     }
     let ws_root = if state.config.ws_readonly_enabled {
         Router::new()
             .route("/status", get(ws::status_open))
-            .route("/websocket/{sid}", get(ws::open))
-            .route("/websocketUnion/{sid}", get(ws::open))
-            .route("/startWebsocket/{sid}", get(ws::open))
-            .route("/simulation/{id}/{roomId}", get(ws::open))
-            .route("/generalKeyPatTrain/{uid}/{trainId}", get(ws::open))
-            .route("/generalTelexPatTrain/{uid}/{trainId}", get(ws::open))
-            .route("/generalTickerPat/{uid}/{trainId}/{role}", get(ws::open))
+            .route("/websocket/{sid}", get(ws::open).fallback(not_found))
+            .route("/websocketUnion/{sid}", get(ws::open).fallback(not_found))
+            .route("/startWebsocket/{sid}", get(ws::open).fallback(not_found))
+            .route(
+                "/simulation/{id}/{roomId}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/generalKeyPatTrain/{uid}/{trainId}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/generalTelexPatTrain/{uid}/{trainId}",
+                get(ws::open).fallback(not_found),
+            )
+            .route(
+                "/generalTickerPat/{uid}/{trainId}/{role}",
+                get(ws::open).fallback(not_found),
+            )
     } else {
         Router::new()
     };
@@ -1317,11 +1346,16 @@ fn build_router(state: AppState) -> Router {
         .route("/ready", get(ready))
         .merge(ws_root)
         .merge(api)
+        .fallback(not_found)
         .layer(CatchPanicLayer::custom(panic_response))
         .layer(RequestBodyLimitLayer::new(state.config.body_limit))
         .layer(cors)
         .layer(middleware::from_fn(request_id))
         .with_state(state)
+}
+
+async fn not_found() -> StatusCode {
+    StatusCode::NOT_FOUND
 }
 
 /// A handler panic must not drop the connection: answer with the standard
@@ -2595,6 +2629,71 @@ mod tests {
     use axum::{body::Body, middleware, routing::get, Router};
     use http_body_util::BodyExt;
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn websocket_wildcards_reject_plain_http_without_changing_rest_405() {
+        let mut config = AppConfig::from_env().unwrap();
+        config.ws_readonly_enabled = true;
+        let state = AppState {
+            config: Arc::new(config),
+            pool: None,
+            database_ready: Arc::new(AtomicBool::new(false)),
+        };
+        let app = build_router(state);
+        for prefix in ["", "/api"] {
+            for path in [
+                "/websocket/missing",
+                "/websocketUnion/missing",
+                "/startWebsocket/missing",
+                "/simulation/router/savePage",
+                "/generalKeyPatTrain/missing/missing",
+                "/generalTelexPatTrain/missing/missing",
+                "/generalTickerPat/missing/missing/missing",
+            ] {
+                for method in ["GET", "POST", "PUT", "DELETE"] {
+                    let response = app
+                        .clone()
+                        .oneshot(
+                            Request::builder()
+                                .method(method)
+                                .uri(format!("{prefix}{path}"))
+                                .body(Body::empty())
+                                .unwrap(),
+                        )
+                        .await
+                        .unwrap();
+                    assert_eq!(
+                        response.status(),
+                        StatusCode::NOT_FOUND,
+                        "{method} {prefix}{path}"
+                    );
+                }
+            }
+        }
+        let missing = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/unknown-b8-route")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+        let wrong_method = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(wrong_method.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
 
     #[tokio::test]
     async fn admin_middleware_returns_207_for_non_admin_and_200_for_admin() {

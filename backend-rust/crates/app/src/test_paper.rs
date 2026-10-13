@@ -64,7 +64,7 @@ pub(crate) async fn by_id(State(state): State<AppState>, Json(body): Json<Value>
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    match sqlx::query("SELECT id,name,level_id,total,pass_the_exam_than,pass_mark,create_time FROM t_theory_knowledge_test_paper WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await{Ok(Some(row))=>match paper(pool,&row).await{Ok(v)=>envelope_json(StatusCode::OK,200,Some(v),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")},Ok(None)=>envelope_response(StatusCode::OK,500,"未查询到该试卷",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
+    match sqlx::query("SELECT id,name,level_id,total,pass_the_exam_than,pass_mark,create_time FROM t_theory_knowledge_test_paper WHERE id=? LIMIT 1").bind(id).fetch_optional(pool).await{Ok(Some(row))=>match paper(pool,&row).await{Ok(v)=>envelope_json(StatusCode::OK,200,Some(v),"ok",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")},Ok(None)=>envelope_response(StatusCode::OK,202,"未查询到该试卷",""),Err(_)=>envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","")}
 }
 async fn level_ids(pool: &sqlx::MySqlPool, root: &str) -> Result<Vec<String>, sqlx::Error> {
     let rows = sqlx::query("SELECT id,parent_id FROM t_theory_question_level")

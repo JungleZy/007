@@ -1,11 +1,14 @@
 use super::{envelope_json, lookup_user, AppState};
 use axum::{
     extract::{
-        ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade},
+        ws::{
+            close_code, rejection::WebSocketUpgradeRejection, CloseFrame, Message, WebSocket,
+            WebSocketUpgrade,
+        },
         OriginalUri, Query, State,
     },
     http::StatusCode,
-    response::Response,
+    response::{IntoResponse, Response},
 };
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -1256,8 +1259,11 @@ pub(crate) async fn open(
     State(state): State<AppState>,
     OriginalUri(uri): OriginalUri,
     Query(auth): Query<WsAuth>,
-    upgrade: WebSocketUpgrade,
+    upgrade: Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
 ) -> Response {
+    let Ok(upgrade) = upgrade else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
     let route = route_spec(uri.path());
     let token = auth.token.unwrap_or_default();
     let device_id = auth.device_id.unwrap_or_default();

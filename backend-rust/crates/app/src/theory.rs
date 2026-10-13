@@ -47,14 +47,17 @@ pub(crate) async fn list_basic(
     State(state): State<AppState>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
-    let requested_type = body
-        .get("type")
-        .and_then(|value| {
-            value
-                .as_i64()
-                .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
-        })
-        .unwrap_or(0);
+    let requested_type = if body.as_object().is_some_and(|body| body.is_empty()) {
+        0
+    } else if let Some(kind) = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    }) {
+        kind
+    } else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
     list_basic_type(state, body, requested_type).await
 }
 
@@ -90,22 +93,30 @@ async fn list_basic_type(state: AppState, body: Value, requested_type: i64) -> R
     };
     let difficulty = parse_ids(body.get("difficulty"));
     let specialty = parse_ids(body.get("specialty"));
-    let mut sql = String::from("SELECT k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,COUNT(s.id) AS swfs,d.name AS difficulty_name,sp.name AS specialty_name FROM t_theory_knowledge k LEFT JOIN t_theory_knowledge_swf s ON s.knowledge_id=k.id LEFT JOIN t_theory_knowledge_classify d ON d.id=k.difficulty_id LEFT JOIN t_theory_knowledge_classify sp ON sp.id=k.specialty_id WHERE k.type=?");
+    let mut sql = String::from("SELECT k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,COUNT(s.id) AS swfs,u.user_name AS create_user_name,d.name AS difficulty_name,sp.name AS specialty_name FROM t_theory_knowledge k INNER JOIN t_theory_knowledge_swf s ON s.knowledge_id=k.id LEFT JOIN t_user u ON u.id=k.create_user_id LEFT JOIN t_theory_knowledge_classify d ON d.id=k.difficulty_id LEFT JOIN t_theory_knowledge_classify sp ON sp.id=k.specialty_id WHERE k.type=?");
     if let Some(ids) = &difficulty {
         if !ids.is_empty() {
             sql.push_str(" AND k.difficulty_id IN (");
             sql.push_str(&vec!["?"; ids.len()].join(","));
             sql.push(')');
+        } else {
+            sql.push_str(" AND 1=0");
         }
+    } else {
+        sql.push_str(" AND d.type=1");
     }
     if let Some(ids) = &specialty {
         if !ids.is_empty() {
             sql.push_str(" AND k.specialty_id IN (");
             sql.push_str(&vec!["?"; ids.len()].join(","));
             sql.push(')');
+        } else {
+            sql.push_str(" AND 1=0");
         }
+    } else {
+        sql.push_str(" AND sp.type=0");
     }
-    sql.push_str(" GROUP BY k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,d.name,sp.name ORDER BY k.create_time DESC");
+    sql.push_str(" GROUP BY k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,u.user_name,d.name,sp.name ORDER BY k.create_time DESC");
     let mut query = sqlx::query(&sql).bind(requested_type);
     if let Some(ids) = &difficulty {
         for id in ids {
@@ -124,7 +135,7 @@ async fn list_basic_type(state: AppState, body: Value, requested_type: i64) -> R
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
     };
-    let data = rows.into_iter().map(|row| json!({"swfs": row.get::<i64,_>("swfs"), "createUserName": Value::Null, "specialtyName": row.get::<Option<String>,_>("specialty_name"), "difficultyName": row.get::<Option<String>,_>("difficulty_name"), "title": row.get::<Option<String>,_>("title"), "cover": row.get::<Option<String>,_>("cover"), "createTime": row.get::<Option<String>,_>("create_time"), "createUserId": row.get::<Option<String>,_>("create_user_id"), "id": row.get::<String,_>("id"), "status": row.get::<Option<i32>,_>("status").unwrap_or_default(), "type": row.get::<Option<i32>,_>("type").unwrap_or_default()})).collect::<Vec<_>>();
+    let data = rows.into_iter().map(|row| json!({"swfs": row.get::<i64,_>("swfs"), "createUserName": row.get::<Option<String>,_>("create_user_name"), "specialtyName": row.get::<Option<String>,_>("specialty_name"), "difficultyName": row.get::<Option<String>,_>("difficulty_name"), "title": row.get::<Option<String>,_>("title"), "cover": row.get::<Option<String>,_>("cover"), "createTime": row.get::<Option<String>,_>("create_time"), "createUserId": row.get::<Option<String>,_>("create_user_id"), "id": row.get::<String,_>("id"), "status": row.get::<Option<i32>,_>("status").unwrap_or_default(), "type": row.get::<Option<i32>,_>("type").unwrap_or_default()})).collect::<Vec<_>>();
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
 }
 pub(crate) async fn list_open(
@@ -135,14 +146,13 @@ pub(crate) async fn list_open(
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
-    let requested_type = body
-        .get("type")
-        .and_then(|value| {
-            value
-                .as_i64()
-                .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
-        })
-        .unwrap_or(0);
+    let Some(requested_type) = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    }) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
     let parse_ids = |value: Option<&Value>| {
         value.and_then(|value| {
             value
@@ -163,40 +173,31 @@ pub(crate) async fn list_open(
     };
     let difficulty = parse_ids(body.get("difficulty"));
     let specialty = parse_ids(body.get("specialty"));
-    let status = body
-        .get("status")
-        .and_then(|value| {
-            value
-                .as_array()
-                .map(|values| values.iter().filter_map(Value::as_i64).collect::<Vec<_>>())
-                .or_else(|| {
-                    value
-                        .as_str()
-                        .and_then(|text| serde_json::from_str::<Vec<i64>>(text).ok())
-                })
-        })
-        .unwrap_or_else(|| vec![1]);
-    let status_placeholders = vec!["?"; status.len()].join(",");
-    let mut sql = format!("SELECT k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,COUNT(s.id) AS swfs,d.name AS difficulty_name,sp.name AS specialty_name FROM t_theory_knowledge k LEFT JOIN t_theory_knowledge_swf s ON s.knowledge_id=k.id LEFT JOIN t_theory_knowledge_classify d ON d.id=k.difficulty_id LEFT JOIN t_theory_knowledge_classify sp ON sp.id=k.specialty_id WHERE k.type=? AND k.status IN ({status_placeholders})");
+    let mut sql = String::from("SELECT k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,COUNT(s.id) AS swfs,u.user_name AS create_user_name,d.name AS difficulty_name,sp.name AS specialty_name FROM t_theory_knowledge k INNER JOIN t_theory_knowledge_swf s ON s.knowledge_id=k.id LEFT JOIN t_user u ON u.id=k.create_user_id LEFT JOIN t_theory_knowledge_classify d ON d.id=k.difficulty_id LEFT JOIN t_theory_knowledge_classify sp ON sp.id=k.specialty_id WHERE k.type=? AND k.status=1");
     if let Some(ids) = &difficulty {
         if !ids.is_empty() {
             sql.push_str(" AND k.difficulty_id IN (");
             sql.push_str(&vec!["?"; ids.len()].join(","));
             sql.push(')');
+        } else {
+            sql.push_str(" AND 1=0");
         }
+    } else {
+        sql.push_str(" AND d.type=1");
     }
     if let Some(ids) = &specialty {
         if !ids.is_empty() {
             sql.push_str(" AND k.specialty_id IN (");
             sql.push_str(&vec!["?"; ids.len()].join(","));
             sql.push(')');
+        } else {
+            sql.push_str(" AND 1=0");
         }
+    } else {
+        sql.push_str(" AND sp.type=0");
     }
-    sql.push_str(" GROUP BY k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,d.name,sp.name ORDER BY k.create_time DESC");
+    sql.push_str(" GROUP BY k.id,k.type,k.status,k.cover,k.title,k.create_user_id,k.create_time,u.user_name,d.name,sp.name ORDER BY k.create_time DESC");
     let mut query = sqlx::query(&sql).bind(requested_type);
-    for item in &status {
-        query = query.bind(item);
-    }
     if let Some(ids) = &difficulty {
         for id in ids {
             query = query.bind(id);
@@ -229,7 +230,7 @@ pub(crate) async fn list_open(
                 return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
             }
         };
-        data.push(json!({"swfs":row.get::<i64,_>("swfs"),"doneCount":done,"swfTestCount":tests,"createUserName":Value::Null,"specialtyName":row.get::<Option<String>,_>("specialty_name"),"difficultyName":row.get::<Option<String>,_>("difficulty_name"),"title":row.get::<Option<String>,_>("title"),"cover":row.get::<Option<String>,_>("cover"),"createTime":row.get::<Option<String>,_>("create_time"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"id":id,"status":row.get::<Option<i32>,_>("status").unwrap_or_default(),"type":row.get::<Option<i32>,_>("type").unwrap_or_default()}));
+        data.push(json!({"swfs":row.get::<i64,_>("swfs"),"doneCount":done,"swfTestCount":tests,"createUserName":row.get::<Option<String>,_>("create_user_name"),"specialtyName":row.get::<Option<String>,_>("specialty_name"),"difficultyName":row.get::<Option<String>,_>("difficulty_name"),"title":row.get::<Option<String>,_>("title"),"cover":row.get::<Option<String>,_>("cover"),"createTime":row.get::<Option<String>,_>("create_time"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"id":id,"status":row.get::<Option<i32>,_>("status").unwrap_or_default(),"type":row.get::<Option<i32>,_>("type").unwrap_or_default()}));
     }
     envelope_json(StatusCode::OK, 200, Some(json!(data)), "ok", "")
 }
@@ -268,97 +269,64 @@ pub(crate) async fn save_knowledge(
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let existing =
+        match sqlx::query("SELECT create_user_id,create_time FROM t_theory_knowledge WHERE id=?")
+            .bind(&id)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(row) => row,
+            Err(_) => {
+                return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+            }
+        };
+    let create_user_id = existing
+        .as_ref()
+        .and_then(|row| row.get::<Option<String>, _>("create_user_id"))
+        .unwrap_or_else(|| user.id.clone());
+    let now = existing
+        .as_ref()
+        .and_then(|row| row.get::<Option<String>, _>("create_time"))
+        .or_else(|| {
+            knowledge
+                .get("createTime")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .unwrap_or_else(|| crate::now_time_millis().to_string());
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
         Err(_) => {
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    let existing_owner = match sqlx::query_scalar::<_, Option<String>>(
-        "SELECT create_user_id FROM t_theory_knowledge WHERE id=?",
-    )
-    .bind(&id)
-    .fetch_optional(&mut *tx)
-    .await
-    {
-        Ok(value) => value.flatten(),
-        Err(_) => {
-            let _ = tx.rollback().await;
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
-        }
-    };
-    let create_user_id = existing_owner.unwrap_or_else(|| user.id.clone());
-    let now = (Utc::now() + Duration::hours(8))
-        .format("%Y-%m-%d %H:%M:%S")
-        .to_string();
     if sqlx::query("INSERT INTO t_theory_knowledge (id,type,status,cover,title,create_user_id,create_time,credit,difficulty_id,specialty_id) VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE type=VALUES(type),status=VALUES(status),cover=VALUES(cover),title=VALUES(title),credit=VALUES(credit),difficulty_id=VALUES(difficulty_id),specialty_id=VALUES(specialty_id)")
         .bind(&id).bind(knowledge.get("type").and_then(Value::as_i64)).bind(knowledge.get("status").and_then(Value::as_i64)).bind(knowledge.get("cover").and_then(Value::as_str)).bind(title).bind(&create_user_id).bind(&now).bind(knowledge.get("credit").and_then(Value::as_f64)).bind(knowledge.get("difficultyId").and_then(Value::as_str)).bind(knowledge.get("specialtyId").and_then(Value::as_str)).execute(&mut *tx).await.is_err() {
         let _ = tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
-    let old_swfs = match sqlx::query("SELECT id FROM t_theory_knowledge_swf WHERE knowledge_id=?")
-        .bind(&id)
-        .fetch_all(&mut *tx)
-        .await
+    // Discover courseware without opening this transaction's repeatable-read
+    // snapshot before its per-courseware writer locks have been acquired.
+    let old_swfs = match sqlx::query_scalar::<_, String>(
+        "SELECT id FROM t_theory_knowledge_swf WHERE knowledge_id=? ORDER BY id",
+    )
+    .bind(&id)
+    .fetch_all(pool)
+    .await
     {
-        Ok(rows) => rows,
+        Ok(ids) => ids,
         Err(_) => {
-            let _ = tx.rollback().await;
-            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    for row in old_swfs {
-        let swf_id: String = row.get("id");
-        let old_tests =
-            match sqlx::query("SELECT id FROM t_theory_knowledge_test WHERE knowledge_swf_id=?")
-                .bind(&swf_id)
-                .fetch_all(&mut *tx)
-                .await
-            {
-                Ok(rows) => rows,
-                Err(_) => {
-                    let _ = tx.rollback().await;
-                    return envelope_response(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        500,
-                        "服务器错误",
-                        "",
-                    );
-                }
-            };
-        if sqlx::query("DELETE FROM t_theory_knowledge_test_content WHERE knowledge_swf_id=?")
-            .bind(&swf_id)
+    for swf_id in old_swfs {
+        if sqlx::query("DELETE FROM t_theory_knowledge_swf WHERE id=?")
+            .bind(swf_id)
             .execute(&mut *tx)
             .await
             .is_err()
-            || sqlx::query("DELETE FROM t_theory_knowledge_test_user WHERE knowledge_swf_id=?")
-                .bind(&swf_id)
-                .execute(&mut *tx)
-                .await
-                .is_err()
-            || sqlx::query("DELETE FROM t_theory_knowledge_test WHERE knowledge_swf_id=?")
-                .bind(&swf_id)
-                .execute(&mut *tx)
-                .await
-                .is_err()
-            || sqlx::query("DELETE FROM t_theory_knowledge_swf_record WHERE knowledge_swf_id=?")
-                .bind(&swf_id)
-                .execute(&mut *tx)
-                .await
-                .is_err()
         {
-            let _ = tx.rollback().await;
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
         }
-        let _ = old_tests;
-    }
-    if sqlx::query("DELETE FROM t_theory_knowledge_swf WHERE knowledge_id=?")
-        .bind(&id)
-        .execute(&mut *tx)
-        .await
-        .is_err()
-    {
-        let _ = tx.rollback().await;
-        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     }
     for (swf_index, swf) in swfs.iter().enumerate() {
         let swf_id = swf
@@ -368,7 +336,7 @@ pub(crate) async fn save_knowledge(
             .map(str::to_owned)
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         if sqlx::query("INSERT INTO t_theory_knowledge_swf (id,knowledge_id,cover,title,content,create_user_id,create_time,sort) VALUES (?,?,?,?,?,?,?,?)")
-            .bind(&swf_id).bind(&id).bind(swf.get("cover").and_then(Value::as_str)).bind(swf.get("title").and_then(Value::as_str)).bind(swf.get("content").and_then(Value::as_str)).bind(&create_user_id).bind(&now).bind(swf.get("sort").and_then(Value::as_i64).unwrap_or(swf_index as i64)).execute(&mut *tx).await.is_err() {
+            .bind(&swf_id).bind(&id).bind(swf.get("cover").and_then(Value::as_str)).bind(swf.get("title").and_then(Value::as_str)).bind(swf.get("content").and_then(Value::as_str)).bind(&create_user_id).bind(swf.get("createTime").and_then(Value::as_str).unwrap_or(&now)).bind(swf.get("sort").and_then(Value::as_i64).unwrap_or(swf_index as i64)).execute(&mut *tx).await.is_err() {
             let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");
         }
         if let Some(tests) = swf
@@ -383,27 +351,102 @@ pub(crate) async fn save_knowledge(
                     .filter(|value| !value.is_empty())
                     .map(str::to_owned)
                     .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                if sqlx::query("INSERT INTO t_theory_knowledge_test (id,knowledge_id,knowledge_swf_id,title,versions,create_user_id,create_time) VALUES (?,?,?,?,?,?,?)")
-                    .bind(&test_id).bind(&id).bind(&swf_id).bind(test.get("title").and_then(Value::as_str)).bind(test.get("versions").and_then(Value::as_i64).unwrap_or(1)).bind(&create_user_id).bind(&now).execute(&mut *tx).await.is_err() {
-                    let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");
-                }
-                if let Some(contents) = test
+                let contents = test
                     .get("knowledgeTestContents")
                     .or_else(|| test.get("contents"))
                     .and_then(Value::as_array)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
+                if test
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| !id.is_empty())
+                    && test.get("versions").and_then(Value::as_i64) == Some(1)
                 {
-                    for (sort, content) in contents.iter().enumerate() {
-                        let content_id = content
-                            .get("id")
-                            .and_then(Value::as_str)
-                            .filter(|value| !value.is_empty())
-                            .map(str::to_owned)
-                            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                        if sqlx::query("INSERT INTO t_theory_knowledge_test_content (id,knowledge_id,knowledge_swf_id,knowledge_test_id,type,topic,options,answer,analysis,sort,create_user_id,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
-                            .bind(&content_id).bind(&id).bind(&swf_id).bind(&test_id).bind(content.get("type").and_then(Value::as_i64)).bind(content.get("topic").and_then(Value::as_str)).bind(content.get("options").and_then(Value::as_str)).bind(content.get("answer").and_then(Value::as_str)).bind(content.get("analysis").and_then(Value::as_str)).bind(content.get("sort").and_then(Value::as_i64).unwrap_or(sort as i64)).bind(&create_user_id).bind(&now).execute(&mut *tx).await.is_err() {
-                            let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");
+                    let source_swf = test
+                        .get("knowledgeSwfId")
+                        .and_then(Value::as_str)
+                        .unwrap_or(&swf_id);
+                    let active = match sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_test WHERE knowledge_swf_id=? AND versions=1 LIMIT 1")
+                        .bind(source_swf).fetch_optional(&mut *tx).await {
+                        Ok(Some(id)) => id,
+                        Ok(None) => return envelope_response(StatusCode::OK, 202, "版本1测验不存在", ""),
+                        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+                    };
+                    let old_contents = match sqlx::query("SELECT id,knowledge_id,knowledge_swf_id,knowledge_test_id,type,topic,options,answer,analysis,sort,create_user_id,create_time FROM t_theory_knowledge_test_content WHERE knowledge_test_id=?")
+                        .bind(&test_id).fetch_all(&mut *tx).await {
+                        Ok(rows) => rows,
+                        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+                    };
+                    let unchanged = old_contents.len() == contents.len()
+                        && old_contents.iter().all(|row| {
+                            let saved = super::theory_test::content_json(row);
+                            contents.iter().any(|content| {
+                                saved
+                                    .as_object()
+                                    .unwrap()
+                                    .iter()
+                                    .all(|(key, value)| &content[key] == value)
+                            })
+                        });
+                    if active != test_id || !unchanged {
+                        let answer_ids = match sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_test_user WHERE knowledge_id=? AND knowledge_swf_id=?")
+                            .bind(test.get("knowledgeId").and_then(Value::as_str).unwrap_or(&id)).bind(source_swf).fetch_all(&mut *tx).await {
+                            Ok(ids) => ids,
+                            Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+                        };
+                        for answer_id in answer_ids {
+                            if sqlx::query("DELETE FROM t_theory_knowledge_test_user WHERE id=?")
+                                .bind(answer_id)
+                                .execute(&mut *tx)
+                                .await
+                                .is_err()
+                            {
+                                return envelope_response(
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    500,
+                                    "服务器错误",
+                                    "",
+                                );
+                            }
                         }
                     }
+                }
+                if sqlx::query("INSERT INTO t_theory_knowledge_test (id,knowledge_id,knowledge_swf_id,title,versions,create_user_id,create_time) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE knowledge_swf_id=VALUES(knowledge_swf_id),title=VALUES(title),versions=VALUES(versions)")
+                    .bind(&test_id).bind(&id).bind(&swf_id).bind(test.get("title").and_then(Value::as_str)).bind(test.get("versions").and_then(Value::as_i64).unwrap_or(1)).bind(&create_user_id).bind(&now).execute(&mut *tx).await.is_err() {
+                    let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");
+                }
+                let old_content_ids = match sqlx::query_scalar::<_, String>("SELECT id FROM t_theory_knowledge_test_content WHERE knowledge_id=? AND create_user_id=? AND knowledge_swf_id=? AND knowledge_test_id=?")
+                    .bind(&id).bind(&create_user_id).bind(&swf_id).bind(&test_id).fetch_all(&mut *tx).await {
+                    Ok(ids) => ids,
+                    Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+                };
+                for content_id in old_content_ids {
+                    if sqlx::query("DELETE FROM t_theory_knowledge_test_content WHERE id=?")
+                        .bind(content_id)
+                        .execute(&mut *tx)
+                        .await
+                        .is_err()
+                    {
+                        return envelope_response(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            500,
+                            "服务器错误",
+                            "",
+                        );
+                    }
+                }
+                for (sort, content) in contents.iter().enumerate() {
+                    let content_id = content
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                    if sqlx::query("INSERT INTO t_theory_knowledge_test_content (id,knowledge_id,knowledge_swf_id,knowledge_test_id,type,topic,options,answer,analysis,sort,create_user_id,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE type=VALUES(type),topic=VALUES(topic),options=VALUES(options),answer=VALUES(answer),analysis=VALUES(analysis),sort=VALUES(sort)")
+                            .bind(&content_id).bind(&id).bind(&swf_id).bind(&test_id).bind(content.get("type").and_then(Value::as_i64)).bind(content.get("topic").and_then(Value::as_str)).bind(content.get("options").and_then(Value::as_str)).bind(content.get("answer").and_then(Value::as_str)).bind(content.get("analysis").and_then(Value::as_str)).bind(content.get("sort").and_then(Value::as_i64).unwrap_or(sort as i64)).bind(content.get("createUserId").and_then(Value::as_str).unwrap_or(&create_user_id)).bind(content.get("createTime").and_then(Value::as_str).unwrap_or(&now)).execute(&mut *tx).await.is_err() {
+                            let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","");
+                        }
                 }
             }
         }
@@ -778,31 +821,184 @@ mod study_statistics_tests {
 
 pub(crate) async fn grade_count(
     State(state): State<AppState>,
-    Extension(user): Extension<super::AuthUser>,
-    Json(body): Json<serde_json::Value>,
+    Extension(user): Extension<AuthUser>,
+    Json(body): Json<Value>,
 ) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let year = body
         .get("year")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string())
+        })
+        .unwrap_or_else(|| "null".to_owned());
     let month = body
         .get("month")
-        .and_then(serde_json::Value::as_str)
-        .filter(|v| !v.is_empty());
-    let like = month
-        .map(|m| format!("{year}-{m:0>2}%"))
-        .unwrap_or_else(|| format!("{year}%"));
-    let count = match sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE user_id=? AND state=4 AND end_time LIKE ?").bind(&user.id).bind(&like).fetch_one(pool).await { Ok(value) => value, Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") };
-    envelope_json(
-        StatusCode::OK,
-        200,
-        Some(json!({"up":{"all":count,"good":count},"down":{}})),
-        "ok",
-        "",
-    )
+        .filter(|value| !value.is_null())
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string())
+        })
+        .filter(|value| !value.is_empty());
+    let by_month = month.is_none();
+    let like = match month {
+        Some(month) => match month.parse::<i32>() {
+            Ok(month) => format!("{year}-{month:02}%"),
+            Err(_) => return envelope_response(StatusCode::OK, 202, "请求参数错误", ""),
+        },
+        None => format!("{year}%"),
+    };
+    let Some(kind) = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    }) else {
+        return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
+    };
+    let records = match sqlx::query_as::<_, (Option<String>, Option<i32>)>("SELECT end_time,score FROM t_theory_knowledge_exam_user WHERE user_id=? AND state=4 AND end_time LIKE ?")
+        .bind(&user.id).bind(&like).fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
+    let thresholds = match sqlx::query_as::<_, (Option<i32>, Option<i32>, Option<i32>)>("SELECT eu.score,tp.pass_mark,tp.total FROM t_theory_knowledge_exam_user eu LEFT JOIN t_theory_knowledge_exam_test_paper tp ON tp.exam_id=eu.exam_id WHERE eu.user_id=? AND eu.state=4 AND eu.end_time LIKE ?")
+        .bind(&user.id).bind(&like).fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", ""),
+    };
+    match grade_statistics(&records, &thresholds, kind, by_month) {
+        Ok(data) => envelope_json(StatusCode::OK, 200, Some(data), "ok", ""),
+        Err(message) => envelope_response(StatusCode::OK, 202, message, ""),
+    }
+}
+
+fn grade_statistics(
+    records: &[(Option<String>, Option<i32>)],
+    thresholds: &[(Option<i32>, Option<i32>, Option<i32>)],
+    kind: i64,
+    by_month: bool,
+) -> Result<Value, &'static str> {
+    let good = thresholds
+        .iter()
+        .filter(
+            |(score, pass, _)| matches!((score, pass), (Some(score), Some(pass)) if score >= pass),
+        )
+        .count();
+    let mut down = serde_json::Map::new();
+    if kind == 0 {
+        for &(score, pass, total) in thresholds {
+            let (Some(score), Some(pass), Some(total)) = (score, pass, total) else {
+                return Err("考试成绩或试卷分数配置缺失");
+            };
+            let boundary = ((i64::from(total) - i64::from(pass)) / 2 + i64::from(pass)) as i32;
+            let key = if score < pass {
+                "59"
+            } else if score < boundary {
+                "60"
+            } else {
+                "81"
+            };
+            let count = down.entry(key).or_insert(json!(0));
+            *count = json!(count.as_u64().unwrap() + 1);
+        }
+    } else {
+        let mut groups = std::collections::BTreeMap::<i32, (u64, i64, i32, i32)>::new();
+        for (end_time, score) in records {
+            let range = if by_month { 5..7 } else { 8..10 };
+            let key = end_time
+                .as_deref()
+                .and_then(|time| time.get(range))
+                .and_then(|part| part.parse::<i32>().ok())
+                .ok_or("考试结束时间缺失或格式错误")?;
+            let group = groups.entry(key).or_insert((0, 0, i32::MAX, i32::MIN));
+            group.0 += 1;
+            if kind != 1 {
+                let score = score.ok_or("考试成绩缺失")?;
+                group.1 += i64::from(score);
+                group.2 = group.2.min(score);
+                group.3 = group.3.max(score);
+            }
+        }
+        for (key, (count, sum, low, high)) in groups {
+            down.insert(key.to_string(), if kind == 1 {
+                json!(count)
+            } else {
+                json!({"high":high.to_string(),"low":low.to_string(),"avg":format!("{:.2}", sum as f64 / count as f64)})
+            });
+        }
+    }
+    Ok(json!({"up":{"all":records.len(),"good":good},"down":down}))
+}
+
+#[cfg(test)]
+mod grade_statistics_tests {
+    use super::*;
+
+    #[test]
+    fn grade_modes_use_paper_thresholds_and_sparse_calendar_groups() {
+        let records = [
+            ("2026-01-02 10:00:00", 69),
+            ("2026-01-02 11:00:00", 70),
+            ("2026-01-03 10:00:00", 85),
+            ("2026-02-04 10:00:00", 80),
+        ]
+        .map(|(time, score)| (Some(time.to_owned()), Some(score)));
+        let thresholds = [
+            (Some(69), Some(70), Some(101)),
+            (Some(70), Some(70), Some(101)),
+            (Some(85), Some(70), Some(101)),
+            (Some(80), Some(90), Some(100)),
+        ];
+        assert_eq!(
+            grade_statistics(&records, &thresholds, 0, true).unwrap(),
+            json!({"up":{"all":4,"good":2},"down":{"59":2,"60":1,"81":1}})
+        );
+        assert_eq!(
+            grade_statistics(&records, &thresholds, 1, true).unwrap()["down"],
+            json!({"1":3,"2":1})
+        );
+        assert_eq!(
+            grade_statistics(&records[..3], &thresholds[..3], 1, false).unwrap()["down"],
+            json!({"2":2,"3":1})
+        );
+        assert_eq!(
+            grade_statistics(&records, &thresholds, 2, true).unwrap()["down"],
+            json!({"1":{"high":"85","low":"69","avg":"74.67"},"2":{"high":"80","low":"80","avg":"80.00"}})
+        );
+        assert_eq!(
+            grade_statistics(&records[..3], &thresholds[..3], 9, false).unwrap()["down"],
+            json!({"2":{"high":"70","low":"69","avg":"69.50"},"3":{"high":"85","low":"85","avg":"85.00"}})
+        );
+        for kind in [0, 1, 2] {
+            assert_eq!(
+                grade_statistics(&[], &[], kind, true).unwrap(),
+                json!({"up":{"all":0,"good":0},"down":{}})
+            );
+        }
+        assert!(grade_statistics(&records[..1], &[(Some(69), None, None)], 0, true).is_err());
+        assert_eq!(
+            grade_statistics(&records[..1], &[(Some(69), None, None)], 1, true).unwrap()["up"]
+                ["good"],
+            0
+        );
+    }
+
+    #[test]
+    fn score_averages_keep_two_digits_and_half_even_ties() {
+        for (sum, expected) in [(9, "1.12"), (11, "1.38"), (-9, "-1.12")] {
+            let mut records = vec![(Some("2026-01-01 00:00:00".to_owned()), Some(0)); 8];
+            records[0].1 = Some(sum);
+            assert_eq!(
+                grade_statistics(&records, &[], 2, true).unwrap()["down"]["1"]["avg"],
+                expected
+            );
+        }
+    }
 }
 
 pub(crate) async fn save_classify(
@@ -940,36 +1136,11 @@ pub(crate) async fn delete_knowledge(
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    if sqlx::query("DELETE FROM t_theory_knowledge_test_user WHERE knowledge_id=?")
+    if sqlx::query("DELETE FROM t_theory_knowledge WHERE id=?")
         .bind(id)
         .execute(&mut *tx)
         .await
         .is_err()
-        || sqlx::query("DELETE FROM t_theory_knowledge_swf_record WHERE knowledge_id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-        || sqlx::query("DELETE FROM t_theory_knowledge_test_content WHERE knowledge_id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-        || sqlx::query("DELETE FROM t_theory_knowledge_test WHERE knowledge_id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-        || sqlx::query("DELETE FROM t_theory_knowledge_swf WHERE knowledge_id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
-        || sqlx::query("DELETE FROM t_theory_knowledge WHERE id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
     {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

@@ -97,6 +97,40 @@ impl Client {
 }
 
 #[tokio::test]
+async fn websocket_routes_still_accept_real_upgrades() {
+    let mut config = AppConfig::from_env().unwrap();
+    config.ws_readonly_enabled = true;
+    let state = AppState {
+        config: Arc::new(config),
+        pool: None,
+        database_ready: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, build_router(state)).await });
+    for prefix in ["", "/api"] {
+        for path in [
+            "/websocket/test",
+            "/websocketUnion/test",
+            "/startWebsocket/test",
+            "/simulation/test/1",
+            "/generalKeyPatTrain/test/1",
+            "/generalTelexPatTrain/test/1",
+            "/generalTickerPat/test/1/0",
+        ] {
+            let _client = tokio::time::timeout(
+                Duration::from_secs(5),
+                Client::connect(address, &format!("{prefix}{path}")),
+            )
+            .await
+            .unwrap();
+        }
+    }
+    server.abort();
+    let _ = server.await;
+}
+
+#[tokio::test]
 #[ignore = "requires isolated rust_scratch_lockdemo and performance_schema"]
 async fn business_message_waiting_on_a_row_lock_does_not_stall_heartbeats() {
     let url = std::env::var("RUST_PHASE2_DATABASE_URL").expect("scratch database URL");

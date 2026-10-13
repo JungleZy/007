@@ -115,24 +115,37 @@ pub(crate) async fn list_questions(
             }
         }
     }
-    let rows=match sqlx::query("SELECT id,type,topic,options,answer,analysis,create_user_id,create_time,level_id FROM t_theory_question").fetch_all(pool).await { Ok(rows)=>rows, Err(_)=>return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误","") };
-    let kind = body
-        .get("type")
+    let kind = body.get("type").and_then(|value| {
+        value
+            .as_i64()
+            .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+    });
+    let name = body
+        .get("name")
         .and_then(Value::as_str)
-        .and_then(|v| v.parse::<i32>().ok());
-    let name = body.get("name").and_then(Value::as_str).unwrap_or("");
+        .filter(|name| !name.is_empty());
+    let mut query = sqlx::QueryBuilder::<sqlx::MySql>::new("SELECT q.id,q.type,q.topic,q.options,q.answer,q.analysis,q.create_user_id,q.create_time,q.level_id,u.user_name AS create_user_name FROM t_theory_question q LEFT JOIN t_user u ON u.id=q.create_user_id WHERE q.level_id IN (");
+    let mut levels = query.separated(",");
+    for id in &ids {
+        levels.push_bind(id);
+    }
+    query.push(")");
+    if let Some(kind) = kind {
+        query.push(" AND q.type=").push_bind(kind);
+    }
+    if let Some(name) = name {
+        query
+            .push(" AND q.topic LIKE ")
+            .push_bind(format!("%{name}%"));
+    }
+    let rows = match query.build().fetch_all(pool).await {
+        Ok(rows) => rows,
+        Err(_) => {
+            return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
+        }
+    };
     let data = rows
         .into_iter()
-        .filter(|row| {
-            // level_id is nullable in t_theory_question; a NULL row belongs to no level
-            // and must be skipped rather than panic the handler.
-            row.get::<Option<String>, _>("level_id")
-                .is_some_and(|level| ids.contains(&level))
-                && kind.is_none_or(|v| row.get::<Option<i32>, _>("type") == Some(v))
-                && row
-                    .get::<Option<String>, _>("topic")
-                    .is_none_or(|v| v.contains(name))
-        })
         .map(|row| {
             json!({
                 "id": row.get::<String, _>("id"),
@@ -144,7 +157,7 @@ pub(crate) async fn list_questions(
                 "createUserId": row.get::<Option<String>, _>("create_user_id"),
                 "createTime": row.get::<Option<String>, _>("create_time"),
                 "levelId": row.get::<Option<String>, _>("level_id"),
-                "createUserName": Value::Null
+                "createUserName": row.get::<Option<String>, _>("create_user_name")
             })
         })
         .collect::<Vec<_>>();
@@ -190,16 +203,11 @@ pub(crate) async fn delete_level(
             return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
         }
     };
-    if sqlx::query("DELETE FROM t_theory_question WHERE level_id=?")
+    if sqlx::query("DELETE FROM t_theory_question_level WHERE id=?")
         .bind(id)
         .execute(&mut *tx)
         .await
         .is_err()
-        || sqlx::query("DELETE FROM t_theory_question_level WHERE id=?")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .is_err()
     {
         let _ = tx.rollback().await;
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -265,8 +273,9 @@ pub(crate) async fn save_batch(
             return envelope_response(StatusCode::OK, 202, &format!("第 {row} 行格式不完整"), "");
         }
         let id = uuid::Uuid::new_v4().to_string();
-        if sqlx::query("INSERT INTO t_theory_question (id,type,topic,options,answer,analysis,create_user_id,create_time,level_id) VALUES (?,?,?,?,?,?,?,?,?)").bind(&id).bind(qtype).bind(topic).bind(item.get("options").and_then(Value::as_str)).bind(item.get("answer").and_then(Value::as_str)).bind(item.get("analysis").and_then(Value::as_str)).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(level).execute(&mut *tx).await.is_err() { let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
-        saved.push(json!({"id":id,"type":qtype,"topic":topic,"levelId":level}));
+        let create_time = crate::now_time_millis().to_string();
+        if sqlx::query("INSERT INTO t_theory_question (id,type,topic,options,answer,analysis,create_user_id,create_time,level_id) VALUES (?,?,?,?,?,?,?,?,?)").bind(&id).bind(qtype).bind(topic).bind(item.get("options").and_then(Value::as_str)).bind(item.get("answer").and_then(Value::as_str)).bind(item.get("analysis").and_then(Value::as_str)).bind(&user.id).bind(&create_time).bind(level).execute(&mut *tx).await.is_err() { let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
+        saved.push(json!({"id":id,"type":qtype,"topic":topic,"options":item.get("options"),"answer":item.get("answer"),"analysis":item.get("analysis"),"createUserId":user.id,"createTime":create_time,"levelId":level}));
     }
     if tx.commit().await.is_err() {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");

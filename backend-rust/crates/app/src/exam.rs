@@ -1265,7 +1265,7 @@ pub(crate) async fn analyse(
     let Some(paper) = paper else {
         return envelope_response(
             StatusCode::OK,
-            500,
+            202,
             "未查询到试卷快照，无法进行考核分析",
             "",
         );
@@ -1276,6 +1276,8 @@ pub(crate) async fn analyse(
     ) else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
+    let good_boundary =
+        ((i64::from(total) - i64::from(pass_mark)) / 2 + i64::from(pass_mark)) as i32;
     let mut questions = Vec::new();
     for column in [
         "single_choice_list",
@@ -1316,7 +1318,7 @@ pub(crate) async fn analyse(
         scores.push(json!({"userName":row.get::<Option<String>,_>("user_account"),"currentScore":current,"previousScore":previous}));
         if current < pass_mark {
             failing += 1;
-        } else if current < total {
+        } else if current < good_boundary {
             ordinary += 1;
         } else {
             good += 1;
@@ -1393,7 +1395,6 @@ pub(crate) async fn analyse(
             .and_then(Value::as_i64)
             .cmp(&a.get("number").and_then(Value::as_i64))
     });
-    error_top3.truncate(3);
     envelope_json(
         StatusCode::OK,
         200,

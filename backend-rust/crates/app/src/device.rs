@@ -238,7 +238,7 @@ pub(crate) async fn find_scoring_rule(
         .fetch_all(pool)
         .await
     {
-        Ok(rows) if rows.len() > 1 => envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "该设备存在重复评分规则，请先清理", ""),
+        Ok(rows) if rows.len() > 1 => envelope_response(StatusCode::OK, 202, "该设备存在重复评分规则，请先清理", ""),
         Ok(rows) => envelope_json(
             StatusCode::OK,
             200,

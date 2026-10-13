@@ -89,16 +89,15 @@ pub(crate) async fn save(
             return envelope_response(StatusCode::OK, 207, "报头编号与训练不匹配", "");
         }
     }
-    let existing_by_train = match sqlx::query(
-        "SELECT id,train_id,content FROM t_masthead WHERE train_id=? LIMIT 1 FOR UPDATE",
-    )
-    .bind(train_id)
-    .fetch_optional(&mut *transaction)
-    .await
-    {
-        Ok(row) => row,
-        Err(error) => return database_error(error, "load masthead by train"),
-    };
+    let existing_by_train =
+        match sqlx::query("SELECT id,train_id,content FROM t_masthead WHERE train_id=? LIMIT 1")
+            .bind(train_id)
+            .fetch_optional(&mut *transaction)
+            .await
+        {
+            Ok(row) => row,
+            Err(error) => return database_error(error, "load masthead by train"),
+        };
     if let (Some(by_id), Some(by_train)) = (existing_by_id.as_ref(), existing_by_train.as_ref()) {
         if by_id.get::<String, _>("id") != by_train.get::<String, _>("id") {
             return envelope_response(StatusCode::OK, 207, "该训练已有其他报头", "");
