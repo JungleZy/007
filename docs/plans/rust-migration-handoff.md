@@ -3,7 +3,7 @@
 最后更新：2026-10-11，基线提交见 `git log -1`。本文件只记"下一步要做什么"；历史证据在 `docs/reviews/rust-migration/`，不要在这里追加长段落。
 
 ## 现状一句话
-用户/角色/菜单（B4）和 WS 逐帧设施已完成，0 FAIL；**下一批是 B5 组训三域**，调研完成两域，未开始修。Phase10 仍阻断。
+B4、WS 逐帧设施、B5 组训三域（手键 2f997d9f/2956b15d、电子键 12af8262/f6475709、报文 b193b052/235309bc）已完成，0 FAIL。**下一步：B5 收尾两项（见下）→ B6 仿真。** Phase10 仍阻断。
 
 ## 成本规则（用户明确要求，2026-10-11 修订）
 - 主会话（Opus）只做调度与判断：拆任务、写子代理指令、拍板判断题、审回报、决定提交；不亲自读大段代码或日志。
@@ -41,9 +41,15 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
    - 交卷/收尾不补生成缺页（同 Java）。
    - 锁：先锁训练行主键、普通读出 id、按主键写；不加索引、不改表结构。
    - 刻意差异（登记 registry）：报文 updateTrainStatus 的 Rust 状态机；报文规则缺 alterError 时回退 correctMistakes（Java 500）；手键 getByTrainIdAndUserId 的在线 status、findTrainInfo 名单结构、Java 导出页 id 乱值。
+   - 报文补充（2026-10-12）：成员 detail 的 validTime/speedLog/duration 照 Java 返回 null；非成员读 getPage 返回与 Java 相同的 200 和形态，但不建页、不写库（登记刻意差异）；页组数非 10 倍数且末行错码时照 Java 返回 500（不改）。
    差异明细：`docs/reviews/rust-migration/b5-research/b5-diffs.md`（键、手键）与 `generalTelexPat.md`（报文）。
 4. （Sonnet 子代理）按结论修：前端会直接报错的优先——findAll 缺 userInfoList（两域）、patDetail 缺 pageAnalyzeVOS、手键开训不写采集时钟、结算不回写 resolver、通知发到所有 WS 会话（Java 只发经典 /websocket）。
 5. 每个修复配隔离库回归 + 一次变异；旅程并入 `dual-stack-journeys.json`；提交按"修复 / 旅程 / 证据"拆分。
+
+## B5 收尾（待做）
+- 报文非成员 getPage 改为不写库（见上，2026-10-12 拍板）。
+- 补一条岗位报务粘组旅程（`group_slice` 粘组耗时 `300.0`）。
+- 已知遗留：Java/Rust 报底类型列表顺序不同（cable 域），排入 B8。
 
 ## 之后的批次（按顺序）
 B6 仿真（router/recept/report/routerRoomContent，含仿真 WS）→ B7 报话/军语/mtd → B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
