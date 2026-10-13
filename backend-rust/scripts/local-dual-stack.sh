@@ -55,10 +55,10 @@ build)
   (cd "$ROOT/backend-rust" && cargo build --locked -p rust-backend) ;;
 up)
   "$0" down
-  (cd "$WORK" && DB_USER=root DB_PASSWORD=root QUARKUS_HTTP_PORT=18121 QUARKUS_HTTP_HOST=127.0.0.1 \
+  (cd "$WORK" && exec env DB_USER=root DB_PASSWORD=root QUARKUS_HTTP_PORT=18121 QUARKUS_HTTP_HOST=127.0.0.1 \
     QUARKUS_DATASOURCE_JDBC_URL="jdbc:mysql://127.0.0.1:3306/$JDB?useSSL=false&allowPublicKeyRetrieval=true" \
     nohup "$HOME/.local/opt/jdk21/bin/java" -Duser.timezone=UTC -jar "$ROOT/backend/target/quarkus-app/quarkus-run.jar" \
-    > "$WORK/java.log" 2>&1 & echo $! > "$WORK/java.pid")
+    > "$WORK/java.log" 2>&1) & echo $! > "$WORK/java.pid"
   env RUST_BACKEND_ADDR=127.0.0.1:18122 RUST_BACKEND_DATABASE_URL="mysql://root:root@127.0.0.1:3306/$RDB" \
     $(grep -oE '"RUST_[A-Z0-9_]+_ENABLED"' "$ROOT/backend-rust/crates/app/src/main.rs" | sort -u | tr -d '"' | sed 's/$/=true/') \
     nohup "$ROOT/backend-rust/target/debug/rust-backend" > "$WORK/rust.log" 2>&1 & echo $! > "$WORK/rust.pid"
