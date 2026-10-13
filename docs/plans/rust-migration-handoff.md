@@ -64,6 +64,7 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - 待修：findPage 不传 userId 按 Java 返回空 value；建房空房名/缺 isCable 校验按 Java（Java 若 500 则 Rust 202 并登记）；建房人无成员行时 select 按 Java 不广播不改频道；通报教学详情 isStartSign 照 Java 恒为 1（登记为已知 Java 缺陷）。
 - 不存在子路径 Java 404 / Rust 405：并入 B8 统一修路由兜底。
 - personal-ticker-tape 偶发 FAIL 未复现，继续观察。
+- B6 收尾已完成（b343a5a9）。`b5-general-ticker-scoring-expiry` 在 aafae6f7 之后仍偶发 1 FAIL（重跑通过）：B7 后专门派任务把该旅程所有时钟全部 seed 固定。
 
 ## B7 报话/军语（2026-10-13 用户整体采纳；调研：docs/reviews/rust-migration/b7-research/）
 - 直接修：DECIMAL 列解码 panic；非主键 FOR UPDATE/DELETE 按既定锁方案改。
