@@ -1,0 +1,1236 @@
+{
+ "journeys": [
+  {
+   "name": "b6-router-room-lifecycle",
+   "note": "线路通报房：REST+WS 全流程。begin/end/over 对发送者回显、play 频道过滤、begin 写 start_time 在 Rust 侧待验证；totalTime/startTime 取决于时钟，已 mask。",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b6-out','b6out','B6 Outsider',0,'b6-dev',SHA2('b6-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b6-out-m','b6-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "create",
+     "method": "POST",
+     "path": "/api/simulation/router/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-router",
+      "content": "",
+      "bdType": 1,
+      "bwType": 1,
+      "bwCount": 150,
+      "isRandom": 0,
+      "isCable": 0,
+      "startPage": 1,
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ]
+     }
+    },
+    {
+     "name": "find-room",
+     "method": "POST",
+     "path": "/api/simulation/router/findRoom",
+     "who": "admin",
+     "body": {},
+     "capture": {
+      "roomId": "$.data[0].id"
+     },
+     "mask": [
+      "$.data[*].createTime"
+     ]
+    },
+    {
+     "name": "outsider-detail-207",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomDetail?roomId=${roomId}",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     }
+    },
+    {
+     "name": "outsider-users-207",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomUserList/${roomId}",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     }
+    },
+    {
+     "name": "admin-open",
+     "ws": "open",
+     "conn": "a",
+     "path": "/simulation/sweep-admin/${roomId}",
+     "who": "admin",
+     "settle": 0.5
+    },
+    {
+     "name": "student-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/simulation/sweep-student/${roomId}",
+     "who": "student",
+     "settle": 0.5
+    },
+    {
+     "name": "admin-gets-online",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "student-ready",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "topic": "ready"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-gets-ready",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "users-after-ready",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomUserList/${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "channels",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomChannels?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "admin-begin",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "begin"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-begin",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "detail-running",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomDetail?roomId=${roomId}",
+     "who": "student",
+     "mask": [
+      "$.data.totalTime",
+      "$.data.startTime"
+     ]
+    },
+    {
+     "name": "student-play",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "topic": "play",
+      "body": {
+       "k": 1
+      }
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-gets-play",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "move-student-ch1",
+     "method": "POST",
+     "path": "/api/simulation/router/changeChannel",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}",
+      "userId": "sweep-student",
+      "channel": 1
+     }
+    },
+    {
+     "name": "student-change-other-207",
+     "method": "POST",
+     "path": "/api/simulation/router/changeChannel",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "userId": "sweep-admin",
+      "channel": 1
+     }
+    },
+    {
+     "name": "page1",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=1&userId=sweep-student",
+     "who": "student",
+     "mask": [
+      "$.data.pageVos[*].id"
+     ]
+    },
+    {
+     "name": "page2-generated",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=2&userId=sweep-student",
+     "who": "student",
+     "mask": [
+      "$.data.pageVos[*].id"
+     ]
+    },
+    {
+     "name": "page3-empty",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=3&userId=sweep-student",
+     "who": "student"
+    },
+    {
+     "name": "page0-202",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=0&userId=sweep-student",
+     "who": "student"
+    },
+    {
+     "name": "student-reads-admin-page-207",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=1&userId=sweep-admin",
+     "who": "student"
+    },
+    {
+     "name": "admin-reads-student-page",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=1&userId=sweep-student",
+     "who": "admin",
+     "mask": [
+      "$.data.pageVos[*].id"
+     ]
+    },
+    {
+     "name": "student-sendFinish-202",
+     "method": "POST",
+     "path": "/api/simulation/router/sendFinish?roomId=${roomId}",
+     "who": "student",
+     "mask": [
+      "$.data.totalTime",
+      "$.data.startTime"
+     ]
+    },
+    {
+     "name": "admin-sendFinish",
+     "method": "POST",
+     "path": "/api/simulation/router/sendFinish?roomId=${roomId}",
+     "who": "admin",
+     "mask": [
+      "$.data.totalTime",
+      "$.data.startTime"
+     ]
+    },
+    {
+     "name": "users-after-finish",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomUserList/${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "admin-over",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "over"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-over",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "admin-end",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "end"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-end",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "detail-ended",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomDetail?roomId=${roomId}",
+     "who": "admin",
+     "mask": [
+      "$.data.totalTime",
+      "$.data.startTime"
+     ]
+    },
+    {
+     "name": "student-unknown-topic",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "topic": "zzz"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-ws-heartbeat",
+     "ws": "send",
+     "conn": "s",
+     "text": "__nip_heartbeat_ping__",
+     "count": 1,
+     "settle": 0.5
+    },
+    {
+     "name": "student-delete-207",
+     "method": "GET",
+     "path": "/api/simulation/router/delete?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "admin-delete",
+     "method": "GET",
+     "path": "/api/simulation/router/delete?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "student-closed-by-delete",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "delete-again-202",
+     "method": "GET",
+     "path": "/api/simulation/router/delete?roomId=${roomId}",
+     "who": "admin"
+    }
+   ]
+  },
+  {
+   "name": "b6-disturb-content-flow",
+   "note": "快报/干扰房 routerRoomContent/*：建房、自助入房、答案上传、结果通知(应为 SimulationResponseModel 信封)、频道推送、发送者回显。",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b6-out','b6out','B6 Outsider',0,'b6-dev',SHA2('b6-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b6-out-m','b6-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "create",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/addRoomAndContent",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-disturb",
+      "bdType": 1,
+      "bwType": 1,
+      "bwCount": 100,
+      "isRandom": 0,
+      "content": "[]",
+      "mainSignal": "{\"1\":{\"checked\":true}}",
+      "interferenceSignal": "{}",
+      "isCable": 0,
+      "startPage": 1
+     },
+     "capture": {
+      "roomId": "$.data"
+     }
+    },
+    {
+     "name": "create-missing-bwCount-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/addRoomAndContent",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-disturb",
+      "bdType": 1,
+      "bwType": 1,
+      "isRandom": 0,
+      "content": "[]",
+      "mainSignal": "{\"1\":{\"checked\":true}}",
+      "interferenceSignal": "{}",
+      "isCable": 0,
+      "startPage": 1
+     }
+    },
+    {
+     "name": "findAlls",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findAlls",
+     "who": "admin",
+     "body": {},
+     "mask": [
+      "$.data[*].createTime"
+     ]
+    },
+    {
+     "name": "outsider-findById-207",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findById",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     },
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "student-not-member-findById-207",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findById",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "student-join",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/addStudent",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     },
+     "mask": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "student-join-again-null",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/addStudent",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "findById-admin",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findById",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "findById-student",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findById",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "findTrainUser-admin",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findTrainUser",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "upload-before-start-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\"]"
+      ]
+     }
+    },
+    {
+     "name": "admin-open",
+     "ws": "open",
+     "conn": "a",
+     "path": "/simulation/sweep-admin/${roomId}",
+     "who": "admin",
+     "settle": 0.5
+    },
+    {
+     "name": "student-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/simulation/sweep-student/${roomId}",
+     "who": "student",
+     "settle": 0.5
+    },
+    {
+     "name": "admin-gets-online",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "admin-begin",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "begin",
+      "body": {}
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-begin",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "student-select-ch1",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "topic": "select",
+      "body": {
+       "road": 1
+      }
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-topic1",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "1",
+      "body": {
+       "x": 1
+      }
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-topic0-echo",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "0",
+      "body": {
+       "y": 2
+      }
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-unknown-topic",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "zzz",
+      "body": {}
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "upload-bad-page-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "not-json"
+      ]
+     }
+    },
+    {
+     "name": "upload-null-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "admin-upload-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\"]"
+      ]
+     }
+    },
+    {
+     "name": "student-upload",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\",\"1234\"]",
+       "[]"
+      ]
+     }
+    },
+    {
+     "name": "admin-gets-result-frame",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "student-saveSetting-207",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/saveSetting",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "setting": "{\"a\":1}"
+     }
+    },
+    {
+     "name": "admin-saveSetting",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/saveSetting",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}",
+      "setting": "{\"a\":1}"
+     }
+    },
+    {
+     "name": "saveSetting-missing-room-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/saveSetting",
+     "who": "admin",
+     "body": {
+      "roomId": 99999999,
+      "setting": "x"
+     }
+    },
+    {
+     "name": "admin-reads-student-page",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=1&userId=sweep-student",
+     "who": "admin",
+     "mask": [
+      "$.data.pageVos[*].id"
+     ]
+    },
+    {
+     "name": "student-findPage-no-userId",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=${roomId}&pageNumber=1",
+     "who": "student",
+     "mask": [
+      "$.data.pageVos[*].id"
+     ]
+    },
+    {
+     "name": "admin-end",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "topic": "end",
+      "body": {
+       "totalTime": 12
+      }
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-end",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "upload-retry-after-end",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\"]"
+      ]
+     }
+    },
+    {
+     "name": "findById-after-end",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findById",
+     "who": "admin",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "findTrainUser-student",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findTrainUser",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}"
+     }
+    },
+    {
+     "name": "student-delete-207",
+     "method": "GET",
+     "path": "/api/simulation/routerRoomContent/delete?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "admin-delete",
+     "method": "GET",
+     "path": "/api/simulation/routerRoomContent/delete?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "student-closed-by-delete",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    }
+   ]
+  },
+  {
+   "name": "b6-report-recept-teaching",
+   "note": "通报教学(report)与收报组训(recept)：type 帧控制、online/准备、无权控制错误帧、result 通知、getAllRoomInfo 调试端点。",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b6-out','b6out','B6 Outsider',0,'b6-dev',SHA2('b6-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b6-out-m','b6-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "report-create",
+     "method": "POST",
+     "path": "/api/simulation/report/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-report",
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ],
+      "content": "",
+      "bdType": 1,
+      "mainSignal": "1",
+      "bwType": 1,
+      "bwCount": 100,
+      "isRandom": 0,
+      "isCable": 0,
+      "startPage": 1
+     },
+     "mask": [
+      "$.data.createTime"
+     ]
+    },
+    {
+     "name": "report-find-student",
+     "method": "POST",
+     "path": "/api/simulation/report/findRoom",
+     "who": "student",
+     "body": {},
+     "capture": {
+      "roomId": "$.data[0].id"
+     },
+     "mask": [
+      "$.data[*].createTime"
+     ]
+    },
+    {
+     "name": "report-detail-student",
+     "method": "GET",
+     "path": "/api/simulation/report/getRoomDetail?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "report-detail-outsider-207",
+     "method": "GET",
+     "path": "/api/simulation/report/getRoomDetail?roomId=${roomId}",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     }
+    },
+    {
+     "name": "report-find-outsider-empty",
+     "method": "POST",
+     "path": "/api/simulation/report/findRoom",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     },
+     "body": {}
+    },
+    {
+     "name": "admin-open",
+     "ws": "open",
+     "conn": "a",
+     "path": "/simulation/sweep-admin/${roomId}",
+     "who": "admin",
+     "settle": 0.5
+    },
+    {
+     "name": "student-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/simulation/sweep-student/${roomId}",
+     "who": "student",
+     "settle": 0.5
+    },
+    {
+     "name": "admin-gets-student-online",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "all-room-info-admin",
+     "method": "GET",
+     "path": "/api/simulation/socket/getAllRoomInfo",
+     "who": "admin"
+    },
+    {
+     "name": "all-room-info-student-207",
+     "method": "GET",
+     "path": "/api/simulation/socket/getAllRoomInfo",
+     "who": "student"
+    },
+    {
+     "name": "student-ready",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "type": "online"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-gets-ready",
+     "ws": "recv",
+     "conn": "a",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "student-start-denied",
+     "ws": "send",
+     "conn": "s",
+     "json": {
+      "type": "1"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-start",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "type": "1"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-start",
+     "ws": "recv",
+     "conn": "s",
+     "count": 1,
+     "timeout": 2
+    },
+    {
+     "name": "admin-pause",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "type": "2"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-goon",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "type": "3"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "report-detail-playing",
+     "method": "GET",
+     "path": "/api/simulation/report/getRoomDetail?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "admin-bogus-type",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "type": "bogus"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "admin-finish",
+     "ws": "send",
+     "conn": "a",
+     "json": {
+      "type": "4",
+      "count": "30"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "student-gets-finish",
+     "ws": "recv",
+     "conn": "s",
+     "count": 3,
+     "timeout": 2
+    },
+    {
+     "name": "report-detail-finished",
+     "method": "GET",
+     "path": "/api/simulation/report/getRoomDetail?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "report-student-delete-207",
+     "method": "GET",
+     "path": "/api/simulation/report/delete?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "report-admin-delete",
+     "method": "GET",
+     "path": "/api/simulation/report/delete?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "recept-create",
+     "method": "POST",
+     "path": "/api/simulation/recept/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-recept",
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ],
+      "content": "",
+      "bdType": 1,
+      "mainSignal": "1",
+      "bwType": 1,
+      "bwCount": 100,
+      "isRandom": 0,
+      "isCable": 0,
+      "startPage": 1,
+      "isStartSign": 0
+     },
+     "capture": {
+      "roomId": "$.data.id"
+     },
+     "mask": [
+      "$.data.createTime",
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "recept-find-student",
+     "method": "POST",
+     "path": "/api/simulation/recept/findRoom",
+     "who": "student",
+     "body": {},
+     "mask": [
+      "$.data[*].createTime",
+      "$.data[*].id"
+     ]
+    },
+    {
+     "name": "recept-detail-student",
+     "method": "GET",
+     "path": "/api/simulation/recept/getRoomDetail?roomId=${roomId}",
+     "who": "student"
+    },
+    {
+     "name": "admin-open2",
+     "ws": "open",
+     "conn": "a2",
+     "path": "/simulation/sweep-admin/${roomId}",
+     "who": "admin",
+     "settle": 0.5
+    },
+    {
+     "name": "student-open2",
+     "ws": "open",
+     "conn": "s2",
+     "path": "/simulation/sweep-student/${roomId}",
+     "who": "student",
+     "settle": 0.5
+    },
+    {
+     "name": "recept-upload-before-start-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\"]"
+      ]
+     }
+    },
+    {
+     "name": "recept-admin-start",
+     "ws": "send",
+     "conn": "a2",
+     "json": {
+      "type": "1"
+     },
+     "settle": 0.6
+    },
+    {
+     "name": "recept-student-upload",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/uploadResult",
+     "who": "student",
+     "body": {
+      "roomId": "${roomId}",
+      "contentValue": [
+       "[\"ABCD\"]"
+      ]
+     }
+    },
+    {
+     "name": "recept-admin-gets-result",
+     "ws": "recv",
+     "conn": "a2",
+     "count": 2,
+     "timeout": 2
+    },
+    {
+     "name": "recept-admin-delete",
+     "method": "GET",
+     "path": "/api/simulation/recept/delete?roomId=${roomId}",
+     "who": "admin"
+    },
+    {
+     "name": "recept-delete-again-202",
+     "method": "GET",
+     "path": "/api/simulation/recept/delete?roomId=${roomId}",
+     "who": "admin"
+    }
+   ]
+  },
+  {
+   "name": "b6-validation-and-auth",
+   "note": "入参校验与授权：202/207/203，Rust 独有路由 savePage 在 Java 为 404。",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b6-out','b6out','B6 Outsider',0,'b6-dev',SHA2('b6-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b6-out-m','b6-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "anon-findRoom",
+     "method": "POST",
+     "path": "/api/simulation/router/findRoom",
+     "who": "anon",
+     "body": {}
+    },
+    {
+     "name": "router-missing-bwCount-202",
+     "method": "POST",
+     "path": "/api/simulation/router/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "B6",
+      "content": "",
+      "bdType": 1,
+      "bwType": 1,
+      "isRandom": 0,
+      "isCable": 0,
+      "startPage": 1,
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ]
+     }
+    },
+    {
+     "name": "router-missing-isCable-202",
+     "method": "POST",
+     "path": "/api/simulation/router/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "B6",
+      "content": "",
+      "bdType": 1,
+      "bwType": 1,
+      "bwCount": 150,
+      "isRandom": 0,
+      "startPage": 1,
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ]
+     }
+    },
+    {
+     "name": "router-missing-bwType-202",
+     "method": "POST",
+     "path": "/api/simulation/router/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "B6",
+      "content": "",
+      "bdType": 1,
+      "bwCount": 150,
+      "isRandom": 0,
+      "isCable": 0,
+      "startPage": 1,
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ]
+     }
+    },
+    {
+     "name": "report-cable-not-a-page-202",
+     "method": "POST",
+     "path": "/api/simulation/report/addRoom",
+     "who": "admin",
+     "body": {
+      "roomName": "b6-bad",
+      "sendUserList": [
+       "sweep-admin"
+      ],
+      "receiveUserList": [
+       "sweep-student"
+      ],
+      "content": "",
+      "bdType": 1,
+      "mainSignal": "1",
+      "bwType": 1,
+      "bwCount": 50,
+      "isRandom": 0,
+      "isCable": 1,
+      "startPage": 1,
+      "cableId": "no-such-cable"
+     }
+    },
+    {
+     "name": "detail-missing-room-202",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomDetail?roomId=99999999",
+     "who": "admin"
+    },
+    {
+     "name": "detail-no-roomId",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomDetail",
+     "who": "admin"
+    },
+    {
+     "name": "users-missing-room-202",
+     "method": "GET",
+     "path": "/api/simulation/router/getRoomUserList/99999999",
+     "who": "admin"
+    },
+    {
+     "name": "sendFinish-missing-room-202",
+     "method": "POST",
+     "path": "/api/simulation/router/sendFinish?roomId=99999999",
+     "who": "admin"
+    },
+    {
+     "name": "page-missing-room-202",
+     "method": "GET",
+     "path": "/api/simulation/router/findPage?roomId=99999999&pageNumber=1&userId=sweep-admin",
+     "who": "admin"
+    },
+    {
+     "name": "delete-missing-202",
+     "method": "GET",
+     "path": "/api/simulation/router/delete?roomId=99999999",
+     "who": "admin"
+    },
+    {
+     "name": "addStudent-missing-room-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/addStudent",
+     "who": "student",
+     "body": {
+      "roomId": 99999999
+     }
+    },
+    {
+     "name": "findTrainUser-missing-202",
+     "method": "POST",
+     "path": "/api/simulation/routerRoomContent/findTrainUser",
+     "who": "admin",
+     "body": {
+      "roomId": 99999999
+     }
+    },
+    {
+     "name": "savePage-rust-only",
+     "method": "POST",
+     "path": "/api/simulation/router/savePage",
+     "who": "student",
+     "body": {
+      "roomId": 1,
+      "pageNumber": 1,
+      "value": "[]"
+     }
+    },
+    {
+     "name": "ws-student-nonmember-reject",
+     "ws": "open",
+     "conn": "x",
+     "path": "/simulation/b6-out/99999999",
+     "headers": {
+      "token": "b6-out-token",
+      "deviceId": "b6-dev"
+     },
+     "settle": 0.5
+    }
+   ]
+  }
+ ]
+}

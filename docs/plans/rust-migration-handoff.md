@@ -50,5 +50,14 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - 待查：时钟相关旅程不稳定——`b5-general-ticker-scoring-expiry` 偶发 validTime Java -3 / Rust 0，`personal-ticker-tape` 偶发 2 FAIL。需查明 Java 负值来源并固定夹具。
 - 已知遗留：Java/Rust 报底类型列表顺序不同（cable 域），排入 B8。
 
+## B6 仿真（已拍板 2026-10-13，用户整体采纳；调研：docs/reviews/rust-migration/b6-research/）
+- R1 结果通知按 Java 包 SimulationResponseModel 信封；R2 房间广播含发送者；R3/R4 开始/结束写 start_time/total_time、通报房话题 1/3 两项都写——均按 Java 修。
+- R5 非学员上传按 Java 返回 202。
+- 干扰房/路由房未知话题按 Java 静默（与 B4 联合未知指令一致）。
+- 学员 stats=0 断线删成员：继续照 Java。
+- 读接口去掉 FOR UPDATE（findPage 与 Java 一致可保留），写接口改主键先锁；`/router/savePage` 确认前端无调用后删除。
+- addStudent 对任意登录用户开放、findAlls 不按成员过滤：先查前端调用方，仅教员页调用则收紧并登记刻意差异，学员页也调用则照 Java。
+- 旅程草稿里 getRoomDetail 的 startTime/totalTime 不得 mask（会掩盖 R3），改用固定时钟或只比较是否有值。
+
 ## 之后的批次（按顺序）
-B6 仿真（router/recept/report/routerRoomContent，含仿真 WS）→ B7 报话/军语/mtd → B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
+B7 报话/军语/mtd → B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
