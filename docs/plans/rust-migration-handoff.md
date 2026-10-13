@@ -71,7 +71,10 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - 军语评分取整按 Java（先舍入再 ×100）；报话 duration 按 Java 向上取整。
 - 军语 add 类型下无题：保留 Rust 202 并登记（Java 500），提示补 "类型 X " 前缀。
 - 完整移植 Java checkKeyword 干扰项逻辑。
-- radiotelephone/listPage 无请求体：另用 curl 双栈核对。
+- radiotelephone/listPage 无请求体：已核对（前端 ditto/menu 调用不带 data，axios 0.26 去掉 Content-Type → Java 415、Rust 200）。保留 Rust 200 并登记（Java 线上缺陷）；JSON 空体与 null 体按 Java 返回 200。
+- 军语 begin/finish 的 types：Java 双重编码 id、Rust 名称，前端不读，已登记（e0be382b）。
+- 军语 add：各类型题目均少于 4 条且 totalNumber=0 时 Java 成功，Rust 按 Java 改并补旅程。
+- B7 主体已完成：04a6a9fe、e0be382b。
 
 ## 之后的批次（按顺序）
 B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
