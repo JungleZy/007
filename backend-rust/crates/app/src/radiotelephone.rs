@@ -84,16 +84,14 @@ async fn foreign_session(
     session_id: &str,
     user_id: &str,
 ) -> Result<bool, sqlx::Error> {
-    sqlx::query(
-        "SELECT user_id FROM t_radiotelephone_train WHERE active_session_id=? LIMIT 1 FOR UPDATE",
-    )
-    .bind(session_id)
-    .fetch_optional(&mut **transaction)
-    .await
-    .map(|row| {
-        row.and_then(|row| row.get::<Option<String>, _>("user_id"))
-            .is_some_and(|owner| owner != user_id)
-    })
+    sqlx::query("SELECT user_id FROM t_radiotelephone_train WHERE active_session_id=? LIMIT 1")
+        .bind(session_id)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map(|row| {
+            row.and_then(|row| row.get::<Option<String>, _>("user_id"))
+                .is_some_and(|owner| owner != user_id)
+        })
 }
 
 async fn session_error(
@@ -120,12 +118,13 @@ pub(crate) async fn list(
         Ok(transaction) => transaction,
         Err(error) => return database_error(error, "start list transaction"),
     };
-    match lock_user(&mut transaction, &user.id).await {
-        Ok(true) => {}
-        Ok(false) => return envelope_response(StatusCode::OK, 202, "用户不存在", ""),
-        Err(error) => return database_error(error, "lock user for list"),
-    }
+    // 只有带 type 的请求会初始化汇总行（写路径），才先按主键锁用户行；纯读取不加锁。
     if let Some(Json(body)) = body {
+        match lock_user(&mut transaction, &user.id).await {
+            Ok(true) => {}
+            Ok(false) => return envelope_response(StatusCode::OK, 202, "用户不存在", ""),
+            Err(error) => return database_error(error, "lock user for list"),
+        }
         let train_type = match require_type(&body) {
             Ok(train_type) => train_type,
             Err(response) => return response,
@@ -146,7 +145,7 @@ pub(crate) async fn list(
             Err(error) => return database_error(error, "load aggregate for list"),
         }
     }
-    let rows = match sqlx::query("SELECT user_id,type,total_time,total_count,active_session_id FROM t_radiotelephone_train WHERE user_id=? ORDER BY type FOR UPDATE")
+    let rows = match sqlx::query("SELECT user_id,type,total_time,total_count,active_session_id FROM t_radiotelephone_train WHERE user_id=? ORDER BY type")
         .bind(&user.id)
         .fetch_all(&mut *transaction)
         .await

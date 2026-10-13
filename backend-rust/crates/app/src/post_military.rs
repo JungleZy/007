@@ -5,7 +5,8 @@ use axum::{
     response::Response,
     Json,
 };
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
+use rust_decimal::{Decimal, RoundingStrategy};
 use serde_json::{json, Map, Value};
 use sqlx::{mysql::MySqlRow, MySql, MySqlPool, Row, Transaction};
 use std::collections::{HashMap, HashSet};
@@ -26,6 +27,13 @@ fn database_error(error: sqlx::Error, operation: &'static str) -> Response {
     envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "")
 }
 
+/// DECIMAL 列经 CAST(... AS CHAR) 读出，sqlx 无法直接把 DECIMAL 解码成 f64/String。
+fn decimal_json(value: Option<String>) -> Value {
+    value
+        .and_then(|value| value.parse::<f64>().ok())
+        .map_or(Value::Null, |value| json!(value))
+}
+
 fn train_json(row: &MySqlRow, types: Vec<String>, papers: Option<Vec<Value>>) -> Value {
     let mut result = json!({
         "id": row.get::<String, _>("id"),
@@ -36,13 +44,12 @@ fn train_json(row: &MySqlRow, types: Vec<String>, papers: Option<Vec<Value>>) ->
         "totalNumber": row.get::<Option<i32>, _>("total_number"),
         "correctNumber": row.get::<Option<i32>, _>("correct_number"),
         "errorNumber": row.get::<Option<i32>, _>("error_number"),
-        "accuracy": row.get::<Option<f64>, _>("accuracy"),
+        "accuracy": decimal_json(row.get::<Option<String>, _>("accuracy")),
         "duration": row.get::<Option<i32>, _>("duration"),
-        "score": row.get::<Option<f64>, _>("score")
+        "score": decimal_json(row.get::<Option<String>, _>("score"))
     });
-    if let Some(papers) = papers {
-        result["testPaperList"] = Value::Array(papers);
-    }
+    // Java 的 VO 在无试卷时输出 "testPaperList": null。
+    result["testPaperList"] = papers.map_or(Value::Null, Value::Array);
     result
 }
 
@@ -114,7 +121,7 @@ async fn load_owned(
     id: &str,
     user: &AuthUser,
 ) -> Result<Result<MySqlRow, Response>, sqlx::Error> {
-    let query = "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score \
+    let query = "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score \
          FROM t_post_military_term_train WHERE id=? LIMIT 1";
     match sqlx::query(query).bind(id).fetch_optional(pool).await? {
         Some(row)
@@ -140,7 +147,7 @@ pub(crate) async fn list_page(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let rows = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score \
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score \
          FROM t_post_military_term_train WHERE user_id=? ORDER BY create_time DESC",
     )
     .bind(&user.id)
@@ -243,54 +250,286 @@ async fn category_terms(
     Ok(result)
 }
 
+/// Java String.hashCode：按 UTF-16 码元计算。
 fn java_hash(value: &str) -> i32 {
-    value.chars().fold(0i32, |hash, ch| {
-        hash.wrapping_mul(31).wrapping_add(ch as i32)
+    value.encode_utf16().fold(0i32, |hash, unit| {
+        hash.wrapping_mul(31).wrapping_add(i32::from(unit))
     })
 }
 
-fn make_paper(category: &[CategoryTerm]) -> Result<(String, String, String), String> {
+/// 出题失败：Business 对应 Java 的 IllegalArgumentException（202），
+/// Fault 对应 Java 的 NumberFormatException 等未处理异常（500）。
+#[derive(Debug, PartialEq)]
+enum PaperError {
+    Business(String),
+    Fault,
+}
+
+/// Java 正则 `.` 不匹配的行终止符。
+fn is_line_terminator(ch: char) -> bool {
+    matches!(ch, '\n' | '\r' | '\u{85}' | '\u{2028}' | '\u{2029}')
+}
+
+/// Java String.trim：去掉两端所有 <= U+0020 的字符。
+fn java_trim(value: &str) -> &str {
+    value.trim_matches(|ch: char| ch <= ' ')
+}
+
+/// Java `split(str)`：丢弃末尾的空串。
+fn java_split<'a>(value: &'a str, separator: char) -> Vec<&'a str> {
+    let mut parts = value.split(separator).collect::<Vec<_>>();
+    while parts.len() > 1 && parts.last().is_some_and(|part| part.is_empty()) {
+        parts.pop();
+    }
+    if parts.len() == 1 && parts[0].is_empty() && !value.is_empty() {
+        parts.clear();
+    }
+    parts
+}
+
+/// `Pattern.matches("^.*\\d{1,}.{0,3}～\\d{1,}.*")`
+fn matches_number_range(answer: &str) -> bool {
+    if answer.chars().any(is_line_terminator) {
+        return false;
+    }
+    let chars = answer.chars().collect::<Vec<_>>();
+    (0..chars.len()).any(|p| {
+        chars[p] == '～'
+            && chars.get(p + 1).is_some_and(char::is_ascii_digit)
+            && (p.saturating_sub(4)..p).any(|q| chars[q].is_ascii_digit())
+    })
+}
+
+/// `Pattern.matches("^.*、.{1,}、.{1,}$.*")`
+fn matches_enumeration(answer: &str) -> bool {
+    if answer.chars().any(is_line_terminator) {
+        return false;
+    }
+    let chars = answer.chars().collect::<Vec<_>>();
+    let marks = (0..chars.len())
+        .filter(|i| chars[*i] == '、')
+        .collect::<Vec<_>>();
+    marks
+        .iter()
+        .any(|i| marks.iter().any(|j| *j >= i + 2 && j + 2 <= chars.len()))
+}
+
+fn replace_first(answer: &str, from: &str, to: &str) -> String {
+    answer.replacen(from, to, 1)
+}
+
+fn push_if_new(options: &mut Vec<String>, candidate: String) -> bool {
+    if options.contains(&candidate) {
+        false
+    } else {
+        options.push(candidate);
+        true
+    }
+}
+
+/// 数字区间：把 `～` 两侧的数字各加一个数量级单位（Java 逐字符口径，含 int 溢出回绕与 NumberFormatException）。
+fn number_range_variant(answer: &str) -> Result<String, PaperError> {
+    let parts = java_split(answer, '～');
+    let (Some(first), Some(second)) = (parts.first(), parts.get(1)) else {
+        return Err(PaperError::Fault);
+    };
+    let first_units = java_trim(first).encode_utf16().collect::<Vec<_>>();
+    let second_units = java_trim(second).encode_utf16().collect::<Vec<_>>();
+    let is_digit = |unit: u16| (48..=57).contains(&unit);
+    let mut first_digits = Vec::new();
+    for index in (0..first_units.len()).rev() {
+        let unit = first_units[index];
+        if is_digit(unit) {
+            first_digits.push(unit);
+            continue;
+        }
+        if (index as i64) < (first_units.len() as i64 - 1) - 3 {
+            break;
+        }
+    }
+    let mut last_digits = Vec::new();
+    for unit in &second_units {
+        if is_digit(*unit) {
+            last_digits.push(*unit);
+            continue;
+        }
+        break;
+    }
+    first_digits.reverse();
+    let first_text = String::from_utf16(&first_digits).map_err(|_| PaperError::Fault)?;
+    let last_text = String::from_utf16(&last_digits).map_err(|_| PaperError::Fault)?;
+    let first_add = format!("1{}", "0".repeat(first_text.len().saturating_sub(1)));
+    let last_add = format!("1{}", "0".repeat(last_text.len().saturating_sub(1)));
+    let parse = |text: &str| text.parse::<i32>().map_err(|_| PaperError::Fault);
+    let new_first = parse(&first_add)?
+        .wrapping_add(parse(&first_text)?)
+        .to_string();
+    let new_last = parse(&last_add)?
+        .wrapping_add(parse(&last_text)?)
+        .to_string();
+    Ok(replace_first(
+        &replace_first(answer, &last_text, &new_last),
+        &first_text,
+        &new_first,
+    ))
+}
+
+/// Java `checkKeyword` 的完整移植：按相同顺序尝试各规则，命中且不与已有选项重复则追加并返回 true。
+fn check_keyword(
+    answer: &str,
+    options: &mut Vec<String>,
+    rng: &mut impl Rng,
+) -> Result<bool, PaperError> {
+    let mut flag = false;
+    if matches_number_range(answer) {
+        let variant = number_range_variant(answer)?;
+        if push_if_new(options, variant) {
+            flag = true;
+        }
+    }
+    if !flag && answer.contains("无线") {
+        flag = push_if_new(options, replace_first(answer, "无线", "有线"));
+    }
+    if !flag && (answer.contains("出口") || answer.contains("入口")) {
+        let variant = if answer.contains("出口") {
+            replace_first(answer, "出口", "入口")
+        } else {
+            replace_first(answer, "入口", "出口")
+        };
+        flag = push_if_new(options, variant);
+    }
+    if !flag && answer.contains("干线") {
+        flag = push_if_new(options, replace_first(answer, "干线", "主线"));
+    }
+    if !flag && answer.contains("小时") {
+        flag = push_if_new(options, answer.replace("小时", "分钟"));
+    }
+    if !flag && (answer.contains("线状") || answer.contains("面状")) {
+        let variant = if answer.contains("线状") {
+            replace_first(answer, "线状", "面状")
+        } else {
+            replace_first(answer, "面状", "线状")
+        };
+        flag = push_if_new(options, variant);
+    }
+    if !flag && (answer.contains("接收") || answer.contains("发射")) {
+        let variant = if answer.contains("接收") {
+            replace_first(answer, "接收", "发射")
+        } else {
+            replace_first(answer, "发射", "接收")
+        };
+        flag = push_if_new(options, variant);
+    }
+    if !flag && (answer.contains("战术") || answer.contains("战役")) {
+        let variant = if answer.contains("战术") {
+            replace_first(answer, "战术", "战役")
+        } else {
+            replace_first(answer, "战役", "战术")
+        };
+        flag = push_if_new(options, variant);
+    }
+    if !flag && matches_enumeration(answer) {
+        let mut parts = java_split(answer, '、');
+        if parts.len() > 3 {
+            parts.remove(1);
+            flag = push_if_new(options, parts.join("、"));
+        }
+    }
+    if !flag
+        && !answer.chars().any(is_line_terminator)
+        && answer.chars().any(|ch| ch.is_ascii_digit())
+    {
+        let start = answer.find(|ch: char| ch.is_ascii_digit());
+        if let Some(start) = start {
+            let number = answer[start..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect::<String>();
+            let parsed = number.parse::<i32>().map_err(|_| PaperError::Fault)?;
+            let mut replacement = rng.gen_range(1..=9);
+            while replacement == parsed {
+                replacement = rng.gen_range(1..=9);
+            }
+            let variant = replace_first(answer, &number, &replacement.to_string());
+            flag = push_if_new(options, variant);
+        }
+    }
+    Ok(flag)
+}
+
+/// 对应 Java generateTestPaper 的单题逻辑（含 100 次尝试后的顺序补足降级）。
+fn make_paper(
+    category_id: &str,
+    category: &[CategoryTerm],
+    rng: &mut impl Rng,
+) -> Result<(String, String, String), PaperError> {
     let distinct = category
         .iter()
+        .filter(|term| !term.value.is_empty())
         .map(|term| term.value.as_str())
         .collect::<HashSet<_>>();
     if distinct.len() < 4 {
-        return Err("有效题目不足4条，无法生成干扰项".to_owned());
+        return Err(PaperError::Business(format!(
+            "类型 {category_id} 有效题目不足4条，无法生成干扰项"
+        )));
     }
-    let mut rng = rand::thread_rng();
-    let answer = category
-        .choose(&mut rng)
-        .ok_or_else(|| "训练题目为空".to_owned())?;
-    let mut values = vec![answer.value.clone()];
-    let mut candidates = category
-        .iter()
-        .map(|term| term.value.clone())
-        .collect::<Vec<_>>();
-    candidates.shuffle(&mut rng);
-    for value in candidates {
-        if values.len() >= 4 {
+    let title_index = if category.len() == 1 {
+        0
+    } else {
+        rng.gen_range(0..category.len())
+    };
+    let answer = &category[title_index];
+    let mut options = vec![answer.value.clone()];
+    let mut flag = 1;
+    if check_keyword(&answer.value, &mut options, rng)? {
+        flag = 2;
+    }
+    let mut attempts = 0;
+    while flag <= 3 {
+        attempts += 1;
+        if attempts > 100 {
+            for term in category {
+                if !term.value.is_empty() && !options.contains(&term.value) {
+                    options.push(term.value.clone());
+                    if options.len() >= 4 {
+                        break;
+                    }
+                }
+            }
             break;
         }
-        if !values.contains(&value) {
-            values.push(value);
+        let option_id = if category.len() == 1 {
+            0
+        } else {
+            rng.gen_range(0..category.len())
+        };
+        if title_index != option_id || option_id == 0 {
+            let value = &category[option_id].value;
+            if !value.is_empty() {
+                if options.contains(value) {
+                    if check_keyword(value, &mut options, rng)? {
+                        flag += 1;
+                    }
+                } else {
+                    options.push(value.clone());
+                    flag += 1;
+                }
+            }
         }
     }
-    values.sort_by_key(|value| java_hash(value));
-    let correct_index = values
-        .iter()
-        .position(|value| value == &answer.value)
-        .ok_or_else(|| "正确答案生成失败".to_owned())?;
-    let correct = ((b'A' + correct_index as u8) as char).to_string();
-    let mut options = Map::new();
-    for (index, value) in values.into_iter().enumerate() {
-        options.insert(
-            ((b'A' + index as u8) as char).to_string(),
-            Value::String(value),
-        );
+    options.sort_by_key(|value| java_hash(value));
+    let mut correct = String::new();
+    let mut map = Map::new();
+    for (index, option) in options.into_iter().enumerate() {
+        let letter = ((b'A' + index as u8) as char).to_string();
+        if option == answer.value {
+            correct = letter.clone();
+        }
+        map.insert(letter, Value::String(option));
     }
     Ok((
         answer.key.clone(),
-        serde_json::to_string(&options).map_err(|_| "选项生成失败".to_owned())?,
+        serde_json::to_string(&map).map_err(|_| PaperError::Fault)?,
         correct,
     ))
 }
@@ -355,7 +594,10 @@ pub(crate) async fn add(
         return envelope_response(
             StatusCode::OK,
             202,
-            "该类型条目少于4条，不能生成训练，请重新选择类型",
+            &format!(
+                "类型 {} 该类型条目少于4条，不能生成训练，请重新选择类型",
+                effective_types.join(",")
+            ),
             "",
         );
     }
@@ -392,9 +634,19 @@ pub(crate) async fn add(
             let Some(terms) = categories.get(category_id) else {
                 return envelope_response(StatusCode::OK, 202, "训练类型无效", "");
             };
-            let paper = match make_paper(terms) {
+            let paper = match make_paper(category_id, terms, &mut rng) {
                 Ok(paper) => paper,
-                Err(message) => return envelope_response(StatusCode::OK, 202, &message, ""),
+                Err(PaperError::Business(message)) => {
+                    return envelope_response(StatusCode::OK, 202, &message, &message)
+                }
+                Err(PaperError::Fault) => {
+                    return envelope_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        500,
+                        "服务器错误",
+                        "",
+                    )
+                }
             };
             generated.push(paper);
         }
@@ -423,7 +675,7 @@ pub(crate) async fn add(
         Err(error) => return database_error(error, "load military term names"),
     };
     let row = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score \
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score \
          FROM t_post_military_term_train WHERE id=?",
     ).bind(&id).fetch_one(pool).await {
         Ok(row) => row,
@@ -458,7 +710,7 @@ pub(crate) async fn begin(
         Err(error) => return database_error(error, "start military term begin transaction"),
     };
     let row = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score \
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score \
          FROM t_post_military_term_train WHERE id=? LIMIT 1 FOR UPDATE",
     ).bind(id).fetch_optional(&mut *transaction).await {
         Ok(Some(row)) if row.get::<Option<String>, _>("user_id").as_deref() == Some(user.id.as_str()) => row,
@@ -485,7 +737,7 @@ pub(crate) async fn begin(
         _ => return envelope_response(StatusCode::OK, 202, "训练状态无效", ""),
     }
     let current = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score \
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score \
          FROM t_post_military_term_train WHERE id=?",
     ).bind(id).fetch_one(&mut *transaction).await {
         Ok(row) => row,
@@ -542,7 +794,7 @@ pub(crate) async fn finish(
         Err(error) => return database_error(error, "start military term finish transaction"),
     };
     let train = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score,IF(start_time IS NULL,0,1) AS has_start_time \
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score,IF(start_time IS NULL,0,1) AS has_start_time \
          FROM t_post_military_term_train WHERE id=? LIMIT 1 FOR UPDATE",
     ).bind(id).fetch_optional(&mut *transaction).await {
         Ok(Some(row)) if row.get::<Option<String>, _>("user_id").as_deref() == Some(user.id.as_str()) => row,
@@ -551,10 +803,10 @@ pub(crate) async fn finish(
         Err(error) => return database_error(error, "load military term for finish"),
     };
     let papers = match sqlx::query(
-        "SELECT id,train_id,title,`option`,correct_answer,user_answer FROM t_post_military_term_train_test_paper WHERE train_id=? FOR UPDATE",
+        "SELECT id,train_id,title,`option`,correct_answer,user_answer FROM t_post_military_term_train_test_paper WHERE train_id=?",
     ).bind(id).fetch_all(&mut *transaction).await {
         Ok(rows) => rows,
-        Err(error) => return database_error(error, "lock military term papers"),
+        Err(error) => return database_error(error, "load military term papers"),
     };
     let paper_ids = papers
         .iter()
@@ -686,13 +938,29 @@ pub(crate) async fn finish(
             return database_error(error, "save military term answer");
         }
     }
+    // Java: accuracy = round(c/answered, 2) * 100，score = round(c/n, 3) * 100（先舍入再 ×100，已知 Java 口径）。
+    let hundred = Decimal::from(100_i64);
+    let accuracy = if answered == 0 {
+        Decimal::ZERO
+    } else {
+        (Decimal::from(correct) / Decimal::from(answered))
+            .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)
+            * hundred
+    };
+    let score = if papers.is_empty() {
+        Decimal::ZERO
+    } else {
+        (Decimal::from(correct) / Decimal::from(papers.len() as i64))
+            .round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero)
+            * hundred
+    };
     if let Err(error) = sqlx::query(
-        "UPDATE t_post_military_term_train SET status=2,end_time=NOW(),correct_number=?,error_number=?,accuracy=IF(?=0,0,ROUND(?/?*100,2)),score=IF(?=0,0,ROUND(?/?*100,3)),duration=TIMESTAMPDIFF(SECOND,start_time,NOW()) WHERE id=?",
-    ).bind(correct).bind(answered - correct).bind(answered).bind(correct).bind(answered).bind(papers.len() as i32).bind(correct).bind(papers.len() as i32).bind(id).execute(&mut *transaction).await {
+        "UPDATE t_post_military_term_train SET status=2,end_time=NOW(),correct_number=?,error_number=?,accuracy=?,score=?,duration=TIMESTAMPDIFF(SECOND,start_time,NOW()) WHERE id=?",
+    ).bind(correct).bind(answered - correct).bind(accuracy.to_string()).bind(score.to_string()).bind(id).execute(&mut *transaction).await {
         return database_error(error, "finish military term training");
     }
     let current = match sqlx::query(
-        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,accuracy,duration,score FROM t_post_military_term_train WHERE id=?",
+        "SELECT id,user_id,types,name,status,total_number,correct_number,error_number,CAST(accuracy AS CHAR) AS accuracy,duration,CAST(score AS CHAR) AS score FROM t_post_military_term_train WHERE id=?",
     ).bind(id).fetch_one(&mut *transaction).await {
         Ok(row) => row,
         Err(error) => return database_error(error, "reload military term after finish"),
@@ -748,13 +1016,27 @@ pub(crate) async fn delete(
     if owner.as_deref() != Some(user.id.as_str()) {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
     }
-    if let Err(error) =
-        sqlx::query("DELETE FROM t_post_military_term_train_test_paper WHERE train_id=?")
-            .bind(&id)
-            .execute(&mut *transaction)
-            .await
+    // 试卷表只有主键索引：训练行已按主键锁住，这里普通读出试卷 id，再逐个按主键删除，
+    // 避免 `WHERE train_id=?` 全表扫描锁住所有训练的试卷（会挡住别人的 add）。
+    let paper_ids = match sqlx::query_scalar::<_, String>(
+        "SELECT id FROM t_post_military_term_train_test_paper WHERE train_id=?",
+    )
+    .bind(&id)
+    .fetch_all(&mut *transaction)
+    .await
     {
-        return database_error(error, "delete military term papers");
+        Ok(ids) => ids,
+        Err(error) => return database_error(error, "load military term papers for delete"),
+    };
+    for paper_id in &paper_ids {
+        if let Err(error) =
+            sqlx::query("DELETE FROM t_post_military_term_train_test_paper WHERE id=?")
+                .bind(paper_id)
+                .execute(&mut *transaction)
+                .await
+        {
+            return database_error(error, "delete military term papers");
+        }
     }
     if let Err(error) =
         sqlx::query("DELETE FROM t_post_military_term_train WHERE id=? AND user_id=?")
@@ -769,4 +1051,288 @@ pub(crate) async fn delete(
         return database_error(error, "commit military term delete");
     }
     envelope_json(StatusCode::OK, 200, Some(json!(true)), "ok", "")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    type Case = (
+        &'static str,
+        &'static [&'static str],
+        Option<(bool, &'static [&'static str])>,
+    );
+
+    /// 期望值由 Java `PostMilitaryTermTrainService.checkKeyword` 实跑得到（确定性规则；含边界与异常）。
+    #[test]
+    fn check_keyword_matches_java_outputs() {
+        let cases: &[Case] = &[
+            (
+                "由喷火手和单兵火箭手4～6人混合编成",
+                &["由喷火手和单兵火箭手4～6人混合编成"],
+                Some((
+                    true,
+                    &[
+                        "由喷火手和单兵火箭手4～6人混合编成",
+                        "由喷火手和单兵火箭手5～7人混合编成",
+                    ],
+                )),
+            ),
+            (
+                "装备2～3具",
+                &["装备2～3具"],
+                Some((true, &["装备2～3具", "装备3～4具"])),
+            ),
+            (
+                "共10～20人",
+                &["共10～20人"],
+                Some((true, &["共10～20人", "共20～30人"])),
+            ),
+            (
+                "数量9～99",
+                &["数量9～99"],
+                Some((true, &["数量9～99", "数量10～109"])),
+            ),
+            (
+                "12345～6",
+                &["12345～6"],
+                Some((true, &["12345～6", "22345～7"])),
+            ),
+            (
+                "a1～2～3",
+                &["a1～2～3"],
+                Some((true, &["a1～2～3", "a2～3～3"])),
+            ),
+            ("～1～2", &["～1～2"], None),
+            (
+                "无线电台",
+                &["无线电台"],
+                Some((true, &["无线电台", "有线电台"])),
+            ),
+            (
+                "无线无线",
+                &["无线无线"],
+                Some((true, &["无线无线", "有线无线"])),
+            ),
+            (
+                "出口通道",
+                &["出口通道"],
+                Some((true, &["出口通道", "入口通道"])),
+            ),
+            (
+                "入口通道",
+                &["入口通道"],
+                Some((true, &["入口通道", "出口通道"])),
+            ),
+            (
+                "出口入口",
+                &["出口入口"],
+                Some((true, &["出口入口", "入口入口"])),
+            ),
+            (
+                "干线传输",
+                &["干线传输"],
+                Some((true, &["干线传输", "主线传输"])),
+            ),
+            (
+                "每小时三小时",
+                &["每小时三小时"],
+                Some((true, &["每小时三小时", "每分钟三分钟"])),
+            ),
+            (
+                "线状天线",
+                &["线状天线"],
+                Some((true, &["线状天线", "面状天线"])),
+            ),
+            (
+                "面状天线",
+                &["面状天线"],
+                Some((true, &["面状天线", "线状天线"])),
+            ),
+            (
+                "线状面状",
+                &["线状面状"],
+                Some((true, &["线状面状", "面状面状"])),
+            ),
+            ("接收机", &["接收机"], Some((true, &["接收机", "发射机"]))),
+            ("发射机", &["发射机"], Some((true, &["发射机", "接收机"]))),
+            (
+                "接收发射",
+                &["接收发射"],
+                Some((true, &["接收发射", "发射发射"])),
+            ),
+            ("战术级", &["战术级"], Some((true, &["战术级", "战役级"]))),
+            ("战役级", &["战役级"], Some((true, &["战役级", "战术级"]))),
+            (
+                "战术战役",
+                &["战术战役"],
+                Some((true, &["战术战役", "战役战役"])),
+            ),
+            (
+                "甲、乙、丙、丁",
+                &["甲、乙、丙、丁"],
+                Some((true, &["甲、乙、丙、丁", "甲、丙、丁"])),
+            ),
+            (
+                "甲、乙、丙",
+                &["甲、乙、丙"],
+                Some((false, &["甲、乙、丙"])),
+            ),
+            (
+                "甲、乙、丙、丁、戊、",
+                &["甲、乙、丙、丁、戊、"],
+                Some((true, &["甲、乙、丙、丁、戊、", "甲、丙、丁、戊"])),
+            ),
+            ("、、、、", &["、、、、"], Some((false, &["、、、、"]))),
+            (
+                "甲、乙、丙、丁、",
+                &["甲、乙、丙、丁、"],
+                Some((true, &["甲、乙、丙、丁、", "甲、丙、丁"])),
+            ),
+            ("一二三", &["一二三"], Some((false, &["一二三"]))),
+            (
+                "无线\n电台",
+                &["无线\n电台"],
+                Some((true, &["无线\n电台", "有线\n电台"])),
+            ),
+            ("3～4\n", &["3～4\n"], Some((false, &["3～4\n"]))),
+            (
+                "6～7无线",
+                &["6～7无线"],
+                Some((true, &["6～7无线", "7～8无线"])),
+            ),
+            ("99999999999～1", &["99999999999～1"], None),
+            ("1～99999999999", &["1～99999999999"], None),
+            (
+                "x2147483647～1",
+                &["x2147483647～1"],
+                Some((true, &["x2147483647～1", "x2247483647～1"])),
+            ),
+            (
+                "2147483647～5",
+                &["2147483647～5"],
+                Some((true, &["2147483647～5", "-1147483649～6"])),
+            ),
+            (
+                "a、b、c、d1无线",
+                &["a、b、c、d1无线"],
+                Some((true, &["a、b、c、d1无线", "a、b、c、d1有线"])),
+            ),
+            ("行李", &["行李"], Some((false, &["行李"]))),
+            ("", &[""], Some((false, &[""]))),
+            (
+                "小时无线干线",
+                &["小时无线干线"],
+                Some((true, &["小时无线干线", "小时有线干线"])),
+            ),
+            (
+                "出口2～3",
+                &["出口2～3"],
+                Some((true, &["出口2～3", "出口3～4"])),
+            ),
+            (
+                "😀😀😀1～2",
+                &["😀😀😀1～2"],
+                Some((true, &["😀😀😀1～2", "😀😀😀2～3"])),
+            ),
+            (
+                "，，，，，1～2",
+                &["，，，，，1～2"],
+                Some((true, &["，，，，，1～2", "，，，，，2～3"])),
+            ),
+            (
+                "无线电台",
+                &["无线电台", "有线电台"],
+                Some((false, &["无线电台", "有线电台"])),
+            ),
+            (
+                "无线电台出口",
+                &["无线电台出口", "有线电台出口"],
+                Some((true, &["无线电台出口", "有线电台出口", "无线电台入口"])),
+            ),
+            (
+                "线状天线",
+                &["线状天线", "面状天线"],
+                Some((false, &["线状天线", "面状天线"])),
+            ),
+        ];
+        let mut rng = rand::thread_rng();
+        for (answer, start, expected) in cases {
+            let mut options = start
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect::<Vec<_>>();
+            let actual = check_keyword(answer, &mut options, &mut rng);
+            match expected {
+                None => assert_eq!(actual, Err(PaperError::Fault), "answer {answer:?}"),
+                Some((flag, expected_options)) => {
+                    assert_eq!(actual, Ok(*flag), "answer {answer:?}");
+                    assert_eq!(&options, expected_options, "answer {answer:?}");
+                }
+            }
+        }
+    }
+
+    /// 最后一条规则（改一个数字）是随机的：只校验换掉了第一个数字、其余字符不变。
+    #[test]
+    fn check_keyword_digit_rule_changes_first_number_only() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..50 {
+            let mut options = vec!["约 5 ～ 8个".to_owned()];
+            assert_eq!(
+                check_keyword("约 5 ～ 8个", &mut options, &mut rng),
+                Ok(true)
+            );
+            assert_eq!(options.len(), 2);
+            let variant = &options[1];
+            assert!(
+                variant.starts_with("约 ") && variant.ends_with(" ～ 8个"),
+                "{variant}"
+            );
+            assert_ne!(variant, "约 5 ～ 8个");
+        }
+    }
+
+    #[test]
+    fn make_paper_always_yields_four_distinct_options_with_correct_letter() {
+        let category = ["线路", "无线电台", "出口通道", "主线", "2～3具"]
+            .iter()
+            .enumerate()
+            .map(|(index, value)| CategoryTerm {
+                key: format!("题{index}"),
+                value: (*value).to_owned(),
+            })
+            .collect::<Vec<_>>();
+        let mut rng = rand::thread_rng();
+        for _ in 0..200 {
+            let (title, options, correct) = make_paper("t", &category, &mut rng).unwrap();
+            let options: Map<String, Value> = serde_json::from_str(&options).unwrap();
+            assert_eq!(options.len(), 4, "{options:?}");
+            let values = options.values().collect::<HashSet<_>>();
+            assert_eq!(values.len(), 4);
+            let index = category.iter().position(|term| term.key == title).unwrap();
+            assert_eq!(
+                options[&correct],
+                Value::String(category[index].value.clone())
+            );
+        }
+    }
+
+    #[test]
+    fn make_paper_rejects_fewer_than_four_distinct_values_with_type_prefix() {
+        let category = ["甲", "甲", "乙", "", "丙"]
+            .iter()
+            .map(|value| CategoryTerm {
+                key: "k".to_owned(),
+                value: (*value).to_owned(),
+            })
+            .collect::<Vec<_>>();
+        let mut rng = rand::thread_rng();
+        assert_eq!(
+            make_paper("T9", &category, &mut rng),
+            Err(PaperError::Business(
+                "类型 T9 有效题目不足4条，无法生成干扰项".to_owned()
+            ))
+        );
+    }
 }

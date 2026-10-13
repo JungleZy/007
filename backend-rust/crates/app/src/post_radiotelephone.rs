@@ -12,7 +12,7 @@ use serde_json::{json, Map, Value};
 use sqlx::{mysql::MySqlRow, MySql, Row, Transaction};
 use std::str::FromStr;
 
-const TRAIN_COLUMNS: &str = "id,name,user_id,status,type,speed,number,disturb,start_time,end_time,duration,create_time,content,accuracy,error_number,pass_number,score,train_type";
+const TRAIN_COLUMNS: &str = "id,name,user_id,status,type,CAST(speed AS CHAR) AS speed,number,disturb,CAST(start_time AS CHAR) AS start_time,end_time,duration,create_time,content,CAST(accuracy AS CHAR) AS accuracy,error_number,pass_number,CAST(score AS CHAR) AS score,train_type";
 const TERM_QUERY: &str = "SELECT id,type,`key`,value,sort FROM t_post_radiotelephone_term_data WHERE type=? ORDER BY `key`,id";
 
 #[derive(Debug, Deserialize)]
@@ -258,7 +258,7 @@ async fn select_train(
 ) -> Result<Option<MySqlRow>, sqlx::Error> {
     let suffix = if lock { " FOR UPDATE" } else { "" };
     let query = format!(
-        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration FROM t_post_radiotelephone_train WHERE id=? LIMIT 1{suffix}"
+        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration, CASE WHEN status=1 AND start_time IS NOT NULL THEN CAST(FLOOR(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6))/1000) AS SIGNED) ELSE NULL END AS elapsed_millis FROM t_post_radiotelephone_train WHERE id=? LIMIT 1{suffix}"
     );
     sqlx::query(&query)
         .bind(id)
@@ -271,7 +271,7 @@ async fn select_train_pool(state: &AppState, id: &str) -> Result<Option<MySqlRow
         return Ok(None);
     };
     let query = format!(
-        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration FROM t_post_radiotelephone_train WHERE id=? LIMIT 1"
+        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration, CASE WHEN status=1 AND start_time IS NOT NULL THEN CAST(FLOOR(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6))/1000) AS SIGNED) ELSE NULL END AS elapsed_millis FROM t_post_radiotelephone_train WHERE id=? LIMIT 1"
     );
     sqlx::query(&query).bind(id).fetch_optional(pool).await
 }
@@ -392,7 +392,7 @@ pub(crate) async fn list_page(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let query = format!(
-        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration FROM t_post_radiotelephone_train WHERE user_id=? ORDER BY create_time DESC"
+        "SELECT {TRAIN_COLUMNS}, CASE WHEN status=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW(6)) ELSE duration END AS effective_duration, CASE WHEN status=1 AND start_time IS NOT NULL THEN CAST(FLOOR(TIMESTAMPDIFF(MICROSECOND,start_time,NOW(6))/1000) AS SIGNED) ELSE NULL END AS elapsed_millis FROM t_post_radiotelephone_train WHERE user_id=? ORDER BY create_time DESC"
     );
     let rows = match sqlx::query(&query).bind(&user.id).fetch_all(pool).await {
         Ok(rows) => rows,
@@ -613,13 +613,14 @@ pub(crate) async fn finish(
         target.insert("answer".to_owned(), Value::Object(captured_answer));
         target.insert("trueOrfalse".to_owned(), Value::Bool(passed));
     }
-    let elapsed = row.get::<Option<i64>, _>("effective_duration");
-    let Some(elapsed) = elapsed else {
+    // Java: 毫秒差向上取整到秒（PostRadiotelephoneService.finish: (millis+999)/1000）。
+    let Some(millis) = row.get::<Option<i64>, _>("elapsed_millis") else {
         return invalid("训练开始时间无效");
     };
-    if elapsed < 0 || elapsed > i64::from(i32::MAX) {
+    if millis < 0 || millis > i64::from(i32::MAX) * 1000 {
         return invalid("训练开始时间无效");
     }
+    let elapsed = (millis + 999) / 1000;
     let total = captured.len() as i64;
     let accuracy = (Decimal::from(correct as i64) * Decimal::from(100_i64) / Decimal::from(total))
         .round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)

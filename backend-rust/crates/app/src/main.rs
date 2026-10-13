@@ -62,6 +62,8 @@ mod post_ticker;
 #[cfg(test)]
 mod prejob_writer_tests;
 mod question_level;
+#[cfg(test)]
+mod radio_military_writer_tests;
 mod radio_term;
 mod radiotelephone;
 mod receive_keypoints;

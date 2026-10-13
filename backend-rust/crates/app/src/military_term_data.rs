@@ -129,6 +129,36 @@ async fn tree(conn: &mut MySqlConnection) -> Result<Value, Error> {
     Ok(json!(result))
 }
 
+/// 表只有主键索引：按 parent_id/sort 的写入会 next-key 锁住整表。这里先按主键锁父行（根级的 '0'
+/// 没有对应行，不锁），再由调用方普通读出兄弟 id，最后逐个按主键改 sort。
+async fn lock_parent(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    parent: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    if let Some(parent) = parent.filter(|parent| *parent != "0") {
+        sqlx::query("SELECT id FROM t_military_term_data WHERE id=? FOR UPDATE")
+            .bind(parent)
+            .fetch_optional(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
+async fn shift_sorts(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    ids: &[String],
+    delta: i32,
+) -> Result<(), sqlx::Error> {
+    for id in ids {
+        sqlx::query("UPDATE t_military_term_data SET sort=sort+? WHERE id=?")
+            .bind(delta)
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
 pub(crate) async fn find_all(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return failure(Error::System);
@@ -252,7 +282,7 @@ pub(crate) async fn delete(
                 .ok_or(Error::Invalid("未查询到该军语"))?;
         let parent: Option<String> = row.try_get("parent_id")?;
         let sort: Option<i32> = row.try_get("sort")?;
-        if sqlx::query("SELECT id FROM t_military_term_data WHERE parent_id=? LIMIT 1 FOR UPDATE")
+        if sqlx::query("SELECT id FROM t_military_term_data WHERE parent_id=? LIMIT 1")
             .bind(id)
             .fetch_optional(&mut *tx)
             .await?
@@ -260,11 +290,15 @@ pub(crate) async fn delete(
         {
             return Err(Error::Invalid("存在子级军语不能删除"));
         }
-        sqlx::query("UPDATE t_military_term_data SET sort=sort-1 WHERE parent_id=? AND sort>?")
-            .bind(parent)
-            .bind(sort)
-            .execute(&mut *tx)
-            .await?;
+        lock_parent(&mut tx, parent.as_deref()).await?;
+        let siblings = sqlx::query_scalar::<_, String>(
+            "SELECT id FROM t_military_term_data WHERE parent_id=? AND sort>?",
+        )
+        .bind(&parent)
+        .bind(sort)
+        .fetch_all(&mut *tx)
+        .await?;
+        shift_sorts(&mut tx, &siblings, -1).await?;
         sqlx::query("DELETE FROM t_military_term_data WHERE id=?")
             .bind(id)
             .execute(&mut *tx)
@@ -351,31 +385,58 @@ pub(crate) async fn move_term(
         Err(error) => return failure(error.into()),
     };
     let result = async {
-        let source = sqlx::query("SELECT parent_id,sort FROM t_military_term_data WHERE id=? FOR UPDATE")
-            .bind(&body.source_id).fetch_optional(&mut *tx).await?
-            .ok_or(Error::Invalid("未查询到移动源词条"))?;
-        let target = sqlx::query("SELECT parent_id,sort FROM t_military_term_data WHERE id=? FOR UPDATE")
-            .bind(&body.target_id).fetch_optional(&mut *tx).await?
-            .ok_or(Error::Invalid("未查询到移动目标词条"))?;
+        let source =
+            sqlx::query("SELECT parent_id,sort FROM t_military_term_data WHERE id=? FOR UPDATE")
+                .bind(&body.source_id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(Error::Invalid("未查询到移动源词条"))?;
+        let target =
+            sqlx::query("SELECT parent_id,sort FROM t_military_term_data WHERE id=? FOR UPDATE")
+                .bind(&body.target_id)
+                .fetch_optional(&mut *tx)
+                .await?
+                .ok_or(Error::Invalid("未查询到移动目标词条"))?;
         let parent: Option<String> = source.try_get("parent_id")?;
         if parent != target.try_get::<Option<String>, _>("parent_id")? {
             return Err(Error::Invalid("仅支持同级词条间移动"));
         }
-        let source_sort = source.try_get::<Option<i32>, _>("sort")?
+        let source_sort = source
+            .try_get::<Option<i32>, _>("sort")?
             .ok_or(Error::Invalid("词条排序缺失，无法移动"))?;
-        let target_sort = target.try_get::<Option<i32>, _>("sort")?
+        let target_sort = target
+            .try_get::<Option<i32>, _>("sort")?
             .ok_or(Error::Invalid("词条排序缺失，无法移动"))?;
+        lock_parent(&mut tx, parent.as_deref()).await?;
         if source_sort > target_sort {
-            sqlx::query("UPDATE t_military_term_data SET sort=sort+1 WHERE parent_id=? AND sort>=? AND sort<?")
-                .bind(&parent).bind(target_sort).bind(source_sort).execute(&mut *tx).await?;
+            let ids = sqlx::query_scalar::<_, String>(
+                "SELECT id FROM t_military_term_data WHERE parent_id=? AND sort>=? AND sort<?",
+            )
+            .bind(&parent)
+            .bind(target_sort)
+            .bind(source_sort)
+            .fetch_all(&mut *tx)
+            .await?;
+            shift_sorts(&mut tx, &ids, 1).await?;
         } else {
-            sqlx::query("UPDATE t_military_term_data SET sort=sort-1 WHERE parent_id=? AND sort>? AND sort<=?")
-                .bind(&parent).bind(source_sort).bind(target_sort).execute(&mut *tx).await?;
+            let ids = sqlx::query_scalar::<_, String>(
+                "SELECT id FROM t_military_term_data WHERE parent_id=? AND sort>? AND sort<=?",
+            )
+            .bind(&parent)
+            .bind(source_sort)
+            .bind(target_sort)
+            .fetch_all(&mut *tx)
+            .await?;
+            shift_sorts(&mut tx, &ids, -1).await?;
         }
         sqlx::query("UPDATE t_military_term_data SET sort=? WHERE id=?")
-            .bind(target_sort).bind(&body.source_id).execute(&mut *tx).await?;
+            .bind(target_sort)
+            .bind(&body.source_id)
+            .execute(&mut *tx)
+            .await?;
         Ok(None)
-    }.await;
+    }
+    .await;
     finish(tx, result).await
 }
 
@@ -399,28 +460,62 @@ pub(crate) async fn save_batch(
     let result = async {
         for row in rows {
             let row = row.ok_or(Error::System)?;
-            let parent = sqlx::query("SELECT id FROM t_military_term_data WHERE parent_id='0' AND `key`=? LIMIT 1 FOR UPDATE")
-                .bind(&row.parent_name).fetch_optional(&mut *tx).await?;
+            let parent = sqlx::query(
+                "SELECT id FROM t_military_term_data WHERE parent_id='0' AND `key`=? LIMIT 1",
+            )
+            .bind(&row.parent_name)
+            .fetch_optional(&mut *tx)
+            .await?;
             let Some(parent) = parent else {
                 let sort = next_sort(&mut tx, Some("0")).await?;
-                let parent = insert(&mut tx, Some("0"), row.parent_name.as_deref(), None, Some(sort)).await?;
-                insert(&mut tx, parent.id.as_deref(), row.child_name.as_deref(), row.content.as_deref(), Some(0)).await?;
+                let parent = insert(
+                    &mut tx,
+                    Some("0"),
+                    row.parent_name.as_deref(),
+                    None,
+                    Some(sort),
+                )
+                .await?;
+                insert(
+                    &mut tx,
+                    parent.id.as_deref(),
+                    row.child_name.as_deref(),
+                    row.content.as_deref(),
+                    Some(0),
+                )
+                .await?;
                 continue;
             };
             let parent_id: String = parent.try_get("id")?;
-            let child = sqlx::query("SELECT id FROM t_military_term_data WHERE parent_id=? AND `key`=? LIMIT 1 FOR UPDATE")
-                .bind(&parent_id).bind(&row.child_name).fetch_optional(&mut *tx).await?;
+            let child = sqlx::query(
+                "SELECT id FROM t_military_term_data WHERE parent_id=? AND `key`=? LIMIT 1",
+            )
+            .bind(&parent_id)
+            .bind(&row.child_name)
+            .fetch_optional(&mut *tx)
+            .await?;
             if let Some(child) = child {
                 let child_id: String = child.try_get("id")?;
                 sqlx::query("UPDATE t_military_term_data SET value=? WHERE id=?")
-                    .bind(&row.content).bind(child_id).execute(&mut *tx).await?;
+                    .bind(&row.content)
+                    .bind(child_id)
+                    .execute(&mut *tx)
+                    .await?;
             } else {
                 let sort = next_sort(&mut tx, Some(&parent_id)).await?;
-                insert(&mut tx, Some(&parent_id), row.child_name.as_deref(), row.content.as_deref(), Some(sort)).await?;
+                insert(
+                    &mut tx,
+                    Some(&parent_id),
+                    row.child_name.as_deref(),
+                    row.content.as_deref(),
+                    Some(sort),
+                )
+                .await?;
             }
         }
         Ok(Some(tree(&mut tx).await?))
-    }.await;
+    }
+    .await;
     finish(tx, result).await
 }
 
