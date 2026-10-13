@@ -529,7 +529,7 @@
   },
   {
    "name": "b8-explain-key-points-and-global-rules",
-   "note": "preJob explain pages (explain.js:24-113): first save posts id \"\" and the returned id is reused. Global-rule payloads follow GradeModal.vue:98-112 (accuracy \"a~b\"); delete posts {id,type}. Same-second rows tie on create_time (Java ORDER BY createTime in PostTrainGlobalRuleService.findByType), so the list uses unordered.",
+   "note": "preJob explain pages send id empty-string on the initial save: Java fails that generated-id merge, while Rust creates successfully (retained as separate type-90/91 probes). Omit id for the valid create/update/read lifecycle so failed Java capture cannot hide writer coverage. Global-rule payloads follow GradeModal.vue:98-112; same-second create_time ties use unordered.",
    "steps": [
     {
      "name": "kp-find-empty",
@@ -558,6 +558,7 @@
       "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
      }
     },
+    {"name":"kp-save-empty-id-java-defect","method":"POST","path":"/api/keyPoints/saveKeyPoints","who":"admin","body":{"type":90,"id":"","content":"B8 empty-id probe"}},
     {
      "name": "kp-save-create",
      "method": "POST",
@@ -565,7 +566,6 @@
      "who": "admin",
      "body": {
       "type": 0,
-      "id": "",
       "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
      },
      "capture": {
@@ -649,6 +649,7 @@
       "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
      }
     },
+    {"name":"rkp-save-empty-id-java-defect","method":"POST","path":"/api/receiveKeyPoints/save","who":"admin","body":{"type":91,"id":"","content":"B8 empty-id probe"}},
     {
      "name": "rkp-save-create",
      "method": "POST",
@@ -656,7 +657,6 @@
      "who": "admin",
      "body": {
       "type": 1,
-      "id": "",
       "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
      },
      "capture": {
@@ -1076,7 +1076,7 @@
   },
   {
    "name": "b8-theory-catalog-lists-detail-test-answers-delete",
-   "note": "Frontend: useList.js:70-82 (getBasicTheoryOpen posts type + status \"[1]\"), useDetails.js:77-132 (getByIdAndToken, enable/answer reads), edit/Index.vue:285 (delete). Fixtures are created through endpoints; classified/unclassified/draft/no-courseware knowledge expose the INNER JOIN + classify-IN filter (TheoryKnowledgeEntity.java:25-40) vs the Rust LEFT JOIN + optional filter (theory.rs:69-128), and createUserName (Java joins t_user, Rust hard-codes null). getTestContentById by an unrelated user is Java 200 (no owner check) vs Rust 207 - expected registry entry. Extra student b8-stu2 via seed_sql.",
+   "note": "Frontend useList.js:70-82, useDetails.js:77-132 and edit/Index.vue:285. Classified/unclassified/draft/no-courseware fixtures verify Java-equivalent courseware/category filters, empty category-array semantics, fixed open status1, author names and millisecond clocks. User-confirmed deletion preserves child tests and student answers. Unrelated getTestContentById stays Rust207 versus Java200 and is narrowly registered; owner/admin reads are fully compared.",
    "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b8-stu2','b8stu2','B8 Student2',0,'b8-dev',SHA2('b8-stu2-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b8-stu2-m','b8-stu2','sweep-student-role');",
    "steps": [
     {
@@ -1437,6 +1437,7 @@
     },
     {
      "name": "test-list-by-swf",
+     "seed_sql": "UPDATE t_theory_knowledge_test_content SET create_time=CASE topic WHEN '通信测验题一' THEN '1773144001000' ELSE '1773144000000' END WHERE topic IN ('通信测验题一','通信测验题二');",
      "method": "POST",
      "path": "/api/theoryKnowledgeTest/getTestBySwfId",
      "who": "student",
@@ -1646,7 +1647,7 @@
   },
   {
    "name": "b8-theory-question-bank-levels-search-batch-delete",
-   "note": "questionBank pages (useQuestionBank.js:108-127, knowledgeTabel.js:156-401). Name search uses SQL LIKE in Java (case-insensitive, % and _ are wildcards: TheoryKnowledgeQuestionDao.java:22-31) vs literal case-sensitive contains in Rust (theory_question.rs list_questions). createUserName comes from t_user in Java and is hard-coded null in Rust. Level delete: Java deletes only the level (TheoryKnowledgeQuestionService.java:159-163), Rust also deletes its questions (theory_question.rs:193) - expected to FAIL until decided. Lists without ORDER BY in Java use unordered.",
+   "note": "questionBank pages useQuestionBank.js:108-127 and knowledgeTabel.js:156-401. SQL LIKE keeps the database case-insensitive collation and %/_ wildcards; author names come from t_user. User-confirmed level deletion removes only the node and preserves questions, verified by admin export; a separate student export retains Rust207. Java lists without ORDER BY use unordered, preserving every row field.",
    "steps": [
     {
      "name": "level-save-student-207",
@@ -1893,11 +1894,12 @@
       "name": ""
      }
     },
+    {"name":"export-child-student-207","method":"POST","path":"/api/theoryKnowledgeQuestion/exportQuestionByLevelId","who":"student","body":{"levelId":"${lvChild}"},"unordered":["$.data"]},
     {
      "name": "export-child",
      "method": "POST",
      "path": "/api/theoryKnowledgeQuestion/exportQuestionByLevelId",
-     "who": "student",
+     "who": "admin",
      "body": {
       "levelId": "${lvChild}"
      },
@@ -2038,7 +2040,7 @@
      "name": "export-deleted-level-orphans",
      "method": "POST",
      "path": "/api/theoryKnowledgeQuestion/exportQuestionByLevelId",
-     "who": "student",
+     "who": "admin",
      "body": {
       "levelId": "${lvChild}"
      },
@@ -2131,7 +2133,7 @@
   },
   {
    "name": "b8-theory-score-analytics-fixed-exams",
-   "note": "Fixed exam results seeded as INPUT rows (API cannot back-date end_time): exam b8x-exam, pass_mark 60/total 100 (good boundary 80), four graded results 95/70/55/85 in Mar-Apr 2026, six single-choice questions where q1..q4 are answered wrong 4/3/2/1 times (distinct counts, no tie order) so errorTop3 shows Java returning all 4 entries vs Rust truncate(3) (exam.rs:1396). gradeCount in Rust is a stub (theory.rs:779-806): it ignores type and returns down={} - frontend scoreUseChart.js:82 iterates down. Java getUserOverallInfo serialises the full UserEntity; Rust projects safe fields (expected registry entry). Times: fixed 2026 strings; knowledge/test_user create_time 1773144000000 = 2026-03-10T12:00Z (mid-month, TZ-safe).",
+   "note": "Fixed INPUT exam rows, not expected output: pass_mark60/total100 gives good boundary80; grades95/70/55/85 in March-April2026 exercise all gradeCount modes and full examineAnalyse. Across the exam q1..q4 have distinct wrong counts4/3/2/1, so all four ranked errors are compared. Within only the admin's two submissions q1/q2/q3 tie; registry accepts only the exact tied permutation in comprehensive.errorTopic, never the entire ranking array. UserEntity credential omission is preserved. Course/test timestamps1773144000000 are mid-month/TZ-safe.",
    "seed_sql": "DELETE FROM t_theory_knowledge_exam_user WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_exam WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_exam_test_paper WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_paper_question WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_user WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_swf_record WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_swf WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_fallible WHERE user_id IN ('sweep-student','sweep-admin');INSERT INTO t_theory_knowledge_exam(id,title,start_time,duration,create_user_id,create_time,teacher,state,end_time) VALUES ('b8x-exam','B8固定考试','2026-03-05 09:00:00','60','sweep-admin','1772700000000','sweep-admin',3,'2026-04-15 11:00:00');INSERT INTO t_theory_knowledge_exam_test_paper(id,name,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,test_paper_id,short_answer) VALUES ('b8x-etp','B8固定试卷',100,'60','b8x-exam',60,'[{\"id\":\"b8x-q1\",\"type\":1,\"topic\":\"B8题1\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q2\",\"type\":1,\"topic\":\"B8题2\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q3\",\"type\":1,\"topic\":\"B8题3\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"type\":1,\"topic\":\"B8题4\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"type\":1,\"topic\":\"B8题5\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"type\":1,\"topic\":\"B8题6\",\"options\":\"[]\",\"answer\":\"A\"}]','[]','[]','[]','b8x-paper','[]');INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu1','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"A\"},{\"id\":\"b8x-q3\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',95,'sweep-student','2026-03-05 10:00:00','b8x-exam','2026-03-05 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu2','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',70,'sweep-student','2026-03-20 10:00:00','b8x-exam','2026-03-20 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu3','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"B\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',55,'sweep-admin','2026-04-02 10:00:00','b8x-exam','2026-04-02 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu4','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"B\"},{\"id\":\"b8x-q4\",\"answer\":\"B\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',85,'sweep-admin','2026-04-15 10:00:00','b8x-exam','2026-04-15 09:00:00',4,1);INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q1','b8x-paper',10,1,1,'B8题1','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q2','b8x-paper',10,2,1,'B8题2','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q3','b8x-paper',10,3,1,'B8题3','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q4','b8x-paper',10,4,1,'B8题4','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge(id,type,status,title,create_user_id,create_time,credit) VALUES ('b8x-k',0,1,'B8学分课程','sweep-admin','1773144000000',2);INSERT INTO t_theory_knowledge_swf(id,knowledge_id,title,sort,record) VALUES ('b8x-s1','b8x-k','B8章节',0,0);INSERT INTO t_theory_knowledge_test_user(id,user_id,knowledge_id,knowledge_swf_id,score,create_time) VALUES ('b8x-tu1','sweep-student','b8x-k','b8x-s1',100,'1773144000000');INSERT INTO t_theory_knowledge_swf_record(id,knowledge_id,knowledge_swf_id,user_id,join_time,exit_time,type) VALUES ('b8x-r1','b8x-k','b8x-s1','sweep-student','2026-03-10 10:00:00','2026-03-10 11:30:00',1);",
    "steps": [
     {
@@ -2317,6 +2319,18 @@
      "path": "/api/tools/getTwelvemonth",
      "who": "anon"
     }
+   ]
+  },
+  {
+   "name":"b8-duplicate-rules-and-routing-boundaries",
+   "note":"Two persisted scoring rules for one device must produce business 202, not Rust 500. Unknown REST paths matching WS wildcards remain 404 with or without GET; actual REST paths with the wrong method remain 405. Legitimate upgraded WS flows are covered by the existing full journey suite.",
+   "seed_sql":"INSERT INTO device_scoring_rule(id,device_id,name,rule_content) VALUES (987001,987123,'B8 duplicate-a','[]'),(987002,987123,'B8 duplicate-b','[]');",
+   "steps":[
+    {"name":"duplicate-rules-202","method":"GET","path":"/api/deviceScoringRule/findAllByDeviceId?deviceId=987123","who":"student"},
+    {"name":"unknown-ws-shaped-post-404","method":"POST","path":"/api/simulation/router/savePage","who":"admin","body":{}},
+    {"name":"unknown-ws-shaped-get-404","method":"GET","path":"/api/simulation/router/savePage","who":"admin"},
+    {"name":"unknown-generic-post-404","method":"POST","path":"/api/unknown-b8-route","who":"admin","body":{}},
+    {"name":"known-rest-wrong-method-405","method":"GET","path":"/api/theoryKnowledge/gradeCount","who":"admin"}
    ]
   }
  ]

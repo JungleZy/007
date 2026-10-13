@@ -1,6 +1,6 @@
-# B8 杂项端点调研（只读，未实跑）
+# B8 杂项端点调研与实跑
 
-结论：inventory 359 个端点里 52 个没有任何旅程路径命中（用路径模板匹配，`/GeneralKeyPatTrain/getOneline/{trainId}` 实际已被覆盖）。其中 9 个 `NO_STATIC_CONSUMER`；另有 4 个前端只导出从未调用（`saveTheoryKnowledgeTest`、`getTestBySwfId`、`tools/getTwelvemonth`、`user/verifyPassword`）。真有前端调用的是 39 个。读码发现一个必修项（`gradeCount` 是桩）、两个会让页面列直接空白的字段缺失、两处 Rust 比 Java 多删数据。旅程草稿 10 条/194 步覆盖 47 个，剩 5 个（两个 multipart、`importTrainInfoBatch`、openApi 中文路径、`verifyPassword` 文本体）harness 做不了。
+初始静态清单：inventory 359 个端点里 52 个没有任何旅程路径命中（`/GeneralKeyPatTrain/getOneline/{trainId}` 实际已被覆盖）。metadata 标记 9 个 `NO_STATIC_CONSUMER`，另有 4 个前端只导出未调用。后续核对动态上传 action 发现 `uploadFileToNip` 有真实消费者，因此实际有前端调用的是 **40 个**，不是初稿的 39 个。原草稿 10 条/194 步覆盖 47 个；剩 5 个特殊协议请求采用一次性 curl 验证。下文第 2–5 节保留首轮静态分析，第 6 节记录本轮运行证据。
 
 ## 1 未覆盖清单（按 class_path，括号为数量）
 
@@ -57,3 +57,96 @@ theoryKnowledgeQuestion(9)、theoryKnowledge(7)、theoryKnowledgeTest(6)、compr
 ## 5 草稿旅程
 
 `misc-journeys.draft.json`（10 条，194 步，已验证可解析）：装备训练、组网规则 CRUD、组网训练详情/提交/208 + 评分规则删除、要点讲解 + 全局规则、报头属主流程、理论目录（分类/无课件/草稿/删除/答题）、题库（层级/LIKE 通配/批量/删除）、试卷按编号、成绩分析（种子考试结果，固定 2026 日期）、tools。时钟：tools 的 `getNowTime` 仅此一项 mask，其余不 mask 分数或内容；成绩分析的考试行是输入夹具，不是预期结果。预期首跑会 FAIL 的步骤：gradeCount 6 步、createUserName、名称 LIKE、两处级联删除、`getTestContentById` 非属主、errorTop3。
+
+## 6 本轮实跑（2026-10-13）
+
+- 用户已确认：删除课程/题库节点不级联；课程列表完整对齐 Java 筛选；保留 Rust 属主保护和现有解析能力；无前端调用端点保持最小覆盖，特殊协议使用一次性 curl。
+- 初始草稿运行：`backend-rust/scripts/local-dual-stack.sh journeys docs/reviews/rust-migration/b8-research/misc-journeys.draft.json`，194 请求，119 identical、18 ACCEPTED、57 FAIL。这是修复前证据，不是最终门禁结果。
+- 草稿修正：要点页面首次确实发送 `id:""`（telegram/receive 的 `explain.js:10,19-28,62-67`），Java generated-id merge 返回 500。保留空 ID 缺陷探针，另以省略 ID 的有效后端请求覆盖创建/更新/读取；不能把省略 ID 夹具称为前端原样请求。题库删除后的导出改用管理员，另留学员 207 探针，避免权限拒绝掩盖数据保留验证。
+- `difficulty:"[]"` 实测 Java 为 200 + 空数组，不是静态调研猜测的 SQL 错误；按已确认的完整筛选口径对齐空集语义。
+- `comprehensive.errorTopic` 前端直接按数组下标编号展示（`bw-frontend/frontend/src/views/manage/basicTheory/studyManage/analyze/Index.vue:87-98,353-354`）。非并列排名不能 unordered；本夹具管理员前三题错误次数并列，只能登记确切并列排列差异。
+
+### 五项特殊请求
+
+对隔离库 `rust_parity_java_local` / `rust_parity_rust_local` 使用专用合成账号与真实 curl 请求，不扩展 JSON harness：
+
+| 请求 | 已观察结果 |
+|---|---|
+| multipart `postEnteringExerciseWordStock/view`，`file=b8-note.txt`，内容 `甲乙\nAB\n` | Java 200 + 全 null DTO；Rust 200 + 原文、文件名、`wordSize=5`。保留用户已确认的有效预览能力差异。 |
+| multipart `theoryKnowledge/uploadFileToNip`，同一文本文件 | 两栈 200，`type=2`、完整 `wordContent`、`imgUrls=[]` 一致。该接口并非能力超集；当前两栈都只支持文本。 |
+| JSON 数组 `generalKeyPat/importTrainInfoBatch`，一个含用户/训练/成员的真实归档包 | 学员两栈 207；管理员两栈 200。SQL 核对导入账号、训练创建者、成员身份均正确重映射，`password/token/device_id` 为 NULL。不是空数组空操作验证。 |
+| GET 中文 `openApi/generalTickerPatTrain/综合训练-手键拍发Api` | 常规 curl 自动百分号编码、显式百分号编码均为两栈 404。强制 `curl --request-target` 发送字面 UTF-8：Java HTTP 400，Rust 200 + 属主离线训练的空在线列表。邻近 `findTrainInfo` 两栈 200；记录既有编码边界，不宣称常规客户端可调用该中文端点。 |
+| `user/verifyPassword`，`Content-Type: text/plain; charset=utf-8`，无 JSON 引号/尾换行 | 合成历史 MD5 账号，正确/错误明文两栈分别 200 + true/false。 |
+
+`uploadFileToNip` 的真实调用：`bw-frontend/frontend/src/views/manage/basicTheory/study/basic/edit/Index.vue:171,199-237` 的 `a-upload` action，以及 `views/manage/equipment/equipmentIndex.vue:273-277`。它未被静态 API 导出扫描捕获，不能继续列为无前端调用。
+
+### 两个横切项的运行证据
+
+- 修复前：`POST /api/simulation/router/savePage` Java 404 / Rust 405；同路径非升级 GET 为 Java 404 / Rust 400。真实 REST `GET /api/theoryKnowledge/gradeCount` 两栈 405，必须保留。
+- cable 固定相同三个主键时，`find` 和更新 `save` 两栈列表顺序完全一致，都是主键序；两栈分别生成新 UUID 时，实跑连续三次新增均出现不同相对位置。保留 Rust `ORDER BY id`；现有四处生成 ID 的 `unordered` 仅消除独立随机主键的相对顺序，不是忽略业务字段。此处没有 Rust 排序缺陷。
+
+### 修复范围与回归
+
+- `theory.rs`：完整 `gradeCount` 三种图表、课程创建人、有效分类/课件过滤、开放课程固定发布状态、毫秒时间；移除超出 Java 的学习数据级联，课程改题仅按 Java 条件失效答题，关联写入改为主键操作。
+- `theory_question.rs` / `theory_test.rs`：数据库 LIKE、创建人、删除节点保留题目、完整批量/测验返回形态；无启用测验返回空数组。测验写入锁现有课件主键，缺父课件返回 202，不创建孤儿测验。
+- `exam.rs` / `test_paper.rs` / `device.rs`：全部错题及 Java 分档、缺试卷 202、重复评分规则 202。
+- `masthead.rs` / `main.rs` / `ws.rs`：报头按训练主键串行、非主键查询不锁；未知 WS 形状路径的普通 GET/POST 404，真实 REST 错方法仍 405，真实升级仍可用。
+- 新增 11 项 `b8_writer_tests` 隔离库行为/锁回归，覆盖列表/LIKE、分档与过滤、保留学习数据、改题失效、并发启用单一版本及并发报头唯一性。首次运行中两处夹具漏填 `swf_record.type`，修正后 11/11 通过；不是放宽断言。
+- 平均分静态结论纠正：合成已完成考试分数 `100/80/70` 的 HTTP 实跑，Java 为 `83.3333`，推测性的 Rust DOUBLE 实现为 `83.33333333333333`。撤回该改动，保留原 `AVG(score)` DECIMAL 口径；不依据过时调研改坏兼容性。
+
+### 逐处锁变异（全部失败于行为断言，随后恢复）
+
+统一命令前缀（在 `backend-rust/`）：`RUST_PHASE2_DATABASE_URL=mysql://root:root@127.0.0.1:3306/rust_scratch_lockdemo cargo test --locked -p rust-backend <测试名> -- --ignored --test-threads=1`。
+
+| 独立变异 | 捕获测试 | 失败证据 |
+|---|---|---|
+| 去掉测验父课件 `FOR UPDATE` | `simultaneous_activations_wait_for_courseware_and_keep_one_enabled` | 两个写者未等待课件主键 |
+| 兄弟测验 UPDATE 恢复非主键 `knowledge_swf_id` 条件 | `activation_does_not_lock_other_courseware_tests_or_contents` | 无关测验/题目锁阻塞启用 |
+| 测验题目 DELETE 恢复非主键 `knowledge_test_id` 条件 | 同上 | 无关测验/题目锁阻塞启用 |
+| 去掉报头父训练 `FOR UPDATE` | `simultaneous_masthead_creates_wait_for_train_and_share_one_header` | 两个写者未等待训练主键 |
+| 报头 `train_id` 查询恢复 `FOR UPDATE` | `masthead_save_does_not_lock_other_train_headers` | 无关报头锁阻塞本训练更新 |
+| 课程替换课件 DELETE 恢复 `knowledge_id` 条件 | `course_edit_deletes_only_primary_keys_without_locking_other_courses` | 无关课程数据锁阻塞编辑 |
+| 课程失效答题 DELETE 恢复 `knowledge_id/knowledge_swf_id` 条件 | 同上 | 无关课程数据锁阻塞编辑 |
+| 课程题目 DELETE 恢复关联字段组合条件 | 同上 | 无关课程数据锁阻塞编辑 |
+
+### 跨栈调用面
+
+实际 grep `bw-frontend/frontend/src/common/api/*.js`：`StudyManage_classHours.js:16` gradeCount；`TheoryKnowledgeApi.js:6,13` 两种课程列表；`TheoryQuestionBankApi.js:19,33,46` 节点删除、批量保存、LIKE 查询；`TestApi.js:19,61,165` 启用测验、课程删除、成绩分析；`TrainingDetails.js:30` 评分规则；`ReceiveApi.js:205,212` 报头。
+
+真实消费：`scoreUseChart.js` 读取 `up.all/up.good/down` 三种形态；课程 `useList.js` 展示作者与时间；题库 `knowledgeTabel.js` 展示作者并解析字符串 options；详情 `useDetails.js` 遍历启用测验数组；`testAnalyse.vue` 遍历全部 errorTop3。接口名、请求参数和响应信封不变，无需前端迁移；凭据字段不外泄、207 属主保护仍保留。
+
+### 已执行验证
+
+- `backend/`，JDK 21：`JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify`，513 测试，0 失败/错误/跳过。
+- `backend-rust/`：`cargo fmt --check`、`cargo test --locked`，79 通过、154 ignored；ignored 不计作已验证。
+- 同目录，隔离库 `rust_scratch_lockdemo`：`cargo test --locked -p rust-backend b8_writer_tests:: -- --ignored --test-threads=1`，最终 11/11 通过；以上八处变异分别使对应测试失败，全部恢复后重跑 11/11 通过。
+- 同隔离库，分别运行 `business_message_waiting_on_a_row_lock_does_not_stall_heartbeats` 与 `opening_a_key_room_waits_for_the_room_lifecycle_lock`，各 1/1 通过。前者证明行锁等待不阻塞心跳，后者证明开房等待生命周期锁。常规套件另覆盖真实 WS 升级及普通 HTTP 的 404/405 边界。
+- `python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'`，68/68 通过；输出含一次未关闭 socket 的 `ResourceWarning`，没有测试失败，本批未改 harness Python 实现。
+- `backend-rust/scripts/local-dual-stack.sh journeys`，合并 11 条 B8 旅程/202 步后，共 2454 请求：2285 identical、169 ACCEPTED、0 FAIL/OPEN；未为分数/正文增加 mask。随后平均分单独 HTTP 复验，两栈均返回 `83.3333`。
+- 临时上传文件已移除；两处失败夹具遗留的合成账号及关联行按已选主键清理，未清空其他 scratch 数据。双栈扫描自身会重置其专用 parity 库。
+
+### 首次全量扫描补充发现
+
+3903 请求首轮有 5 个 FAIL：4 个同源于测验题目排序，1 个为旧 B5 导入列表漏掉时钟字段归一化。
+
+- Java `TheoryKnowledgeTestContentDao:47-61` 按 `createTime` 升序，Rust 原读接口按 `sort`。同毫秒创建的题目恰好按随机主键换序时才暴露。已把测验列表、启用测验、课程详情三个读路径改为 Java 的创建时间顺序；保存响应仍保留输入顺序。B8 夹具在保存后把两题创建时间设为不同固定值、且刻意与 sort 反序，随后四个读取步骤严格比较题目、答案、sort 和 ID，不使用 unordered 掩盖排名。
+- B5 `admin-list-imported` 实测 Java `validTime=-2` / Rust `0`；Java `GeneralKeyPatService:623-631` 用两次本地墙钟差，Rust `general_train.rs` 用 `GREATEST(0,TIMESTAMPDIFF(...))`，沿用已拍板的负时长截零口径。该旅程 export/detail 已归一化此时钟字段，补齐导入列表同一字段的 mask；分数、采集区间、正文和导入身份仍原样比较。
+
+### 最终门禁
+
+排序修正及确定性夹具合入后再次执行 `cargo fmt --check`、`cargo test --locked`（79 通过）、B8 ignored 隔离库回归（11 通过）、Rust build 与 Python unittest（68 通过）。重启实际 Java/Rust 服务后连续运行：
+
+| 命令 | 请求 | identical | ACCEPTED | FAIL / OPEN |
+|---|---:|---:|---:|---:|
+| `$S journeys docs/reviews/rust-migration/b8-research/misc-journeys.draft.json` | 202 | 168 | 34 | 0 / 0 |
+| `$S full`（含全部 2454 旅程请求） | 3903 | 3225 | 678 | 0 / 0 |
+
+已执行 `$S down`。本批没有生产切流、浏览器/Electron 实测或 Windows/arm64 交付证明；Phase10 继续阻断，下一步仍是单域真实切换与回滚演练。
+
+### 双栈进程生命周期纠正
+
+收尾实际连接检查发现旧脚本 `$S down` 后 Java :18121 仍返回 200。`ss` / `ps` 确认是前一日遗留 PID 9671、命令指向本仓库 fast-jar；旧 `up` 把后台 `cd && java` 的中间 shell PID 写进 `java.pid`，停止时未命中 Java，后续启动也可能误把旧服务当成就绪。
+
+`local-dual-stack.sh` 现将整个子 shell 放到后台，并以 `exec env … nohup java` 替换进程，确保 `$!` 就是 Java PID。`bash -n` 通过；实跑 `up` 后 `java.pid=418628` 与 :18121 监听进程完全一致；随后 `down`，curl 对 :18121/:18122 均连接拒绝（exit 7 / HTTP 000）。旧孤儿进程已按核实 PID 终止。最终对账再使用这一正确生命周期启动的本轮构建产物，不把旧 Java 的存活当作新构建的验证。
+
+生命周期修复后，使用本轮 JDK21 `clean verify` fast-jar 与最终 Rust binary，完整执行 `$S up && $S journeys <B8草稿> && $S full && $S down`：B8 202 请求 / 168 identical / 34 ACCEPTED；全量 3903 请求 / 3225 identical / 678 ACCEPTED，均 0 FAIL/OPEN。结束后两端口再次连接拒绝（exit 7 / HTTP 000）。最终结论以这次全新进程运行结果为准，前述同计数结果不替代它。
