@@ -264,9 +264,23 @@ def ws_frame(text):
         return text
 
 
-def ws_observation(status, frames, connection):
+def ws_frame_data(frame):
+    """Opt-in (`parse_data`): compare a JSON-object `data` string as JSON, so key order and spacing inside the
+    embedded document (Java keeps insertion order, Rust sorts keys) are not differences."""
+    if isinstance(frame, dict) and isinstance(frame.get("data"), str):
+        try:
+            inner = json.loads(frame["data"])
+        except ValueError:
+            return frame
+        if isinstance(inner, (dict, list)):
+            return {**frame, "data": inner}
+    return frame
+
+
+def ws_observation(status, frames, connection, parse_data=False):
     """A WS step as a 200 envelope so the journey comparator, registry and identity map apply unchanged."""
-    data = {"handshake": status, "frames": [ws_frame(frame) for frame in frames],
+    parse = ws_frame_data if parse_data else (lambda frame: frame)
+    data = {"handshake": status, "frames": [parse(ws_frame(frame)) for frame in frames],
             "closed": bool(connection and connection.closed),
             "closeCode": connection.close_code if connection else None}
     return {"status": 200, "json": {"code": 200, "message": "ws", "description": "", "data": data}}
@@ -290,7 +304,7 @@ def ws_step(step, connections, base, auth, variables, timeout):
             return {"status": None, "error": f"{type(error).__name__}: {error}"[:200]}
         connections[name] = connection
         frames = connection.recv(count, step.get("settle", 0.3)) if connection.status == 101 else []
-        return ws_observation(connection.status, frames, connection)
+        return ws_observation(connection.status, frames, connection, step.get("parse_data", False))
     connection = connections.get(name)
     if connection is None:
         return {"status": None, "error": f"connection {name!r} was never opened"}
@@ -309,7 +323,7 @@ def ws_step(step, connections, base, auth, variables, timeout):
         frames = []
     else:
         raise ValueError(f"unknown ws action {action!r}")
-    return ws_observation(connection.status, frames, connection)
+    return ws_observation(connection.status, frames, connection, step.get("parse_data", False))
 
 
 def query_pairs(row):
@@ -758,6 +772,9 @@ def retained_settings(document, expected):
 def prepare_journey_response(document, step, variables=None):
     for expression in step.get("mask", []):
         transform_path(document, expression, lambda _: "<masked>")
+    for expression in step.get("presence", []):
+        # Clock-derived values (e.g. an elapsed time of a running room) are compared as present/absent only.
+        transform_path(document, expression, lambda value: "<null>" if value is None else "<present>")
     for expression in step.get("parse_json", []):
         transform_path(document, expression, parsed_json)
     for expression in step.get("unordered", []):

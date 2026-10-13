@@ -160,6 +160,22 @@ class JourneyComparisonTest(unittest.TestCase):
         self.assertFalse(self.equivalent({"data": {"content": "null"}}, {"data": {"content": None}}, step))
         self.assertFalse(self.equivalent({"data": {"content": "[]"}}, {"data": {}}, step))
 
+    def test_presence_compares_null_against_value_but_not_the_value(self):
+        step = {"presence": ["$.data.totalTime"]}
+        self.assertTrue(self.equivalent({"data": {"totalTime": 61}}, {"data": {"totalTime": 62}}, step))
+        self.assertFalse(self.equivalent({"data": {"totalTime": 61}}, {"data": {"totalTime": None}}, step))
+        self.assertFalse(self.equivalent({"data": {"totalTime": 61}}, {"data": {}}, step))
+
+    def test_ws_frame_data_is_parsed_only_when_it_is_a_json_container(self):
+        java = {"code": 1, "data": '{"topic":"online","body":{"id":"a"}}'}
+        rust = {"code": 1, "data": '{"body":{"id":"a"},"topic":"online"}'}
+        self.assertEqual(sweep.ws_frame_data(java), sweep.ws_frame_data(rust))
+        self.assertNotEqual(java, rust)
+        changed = {"code": 1, "data": '{"body":{"id":"b"},"topic":"online"}'}
+        self.assertNotEqual(sweep.ws_frame_data(java), sweep.ws_frame_data(changed))
+        for plain in ({"data": "300.0"}, {"data": "not json"}, {"data": 5}, "text"):
+            self.assertEqual(sweep.ws_frame_data(plain), plain)
+
     def test_paths_are_selective_and_missing_paths_do_not_erase_differences(self):
         step = {"unordered": ["$.data[0].rows"], "mask": ["$.data[0].duration"]}
         left = {"data": [{"rows": [1, 2], "duration": 1}, {"rows": [1, 2]}]}
