@@ -652,6 +652,36 @@ async fn a_missing_page_is_generated_under_the_training_lock_beside_other_traini
 
 #[tokio::test]
 #[ignore = "requires isolated rust_scratch_lockdemo"]
+async fn a_non_member_reading_a_missing_page_gets_it_without_any_write() {
+    let fixture = Fixture::new(Phase::Running, false, 250).await;
+    let outsider = format!("zzz-outsider-{}", fixture.tag);
+    let result = document(
+        telex_get_page(
+            State(fixture.state.clone()),
+            Extension(fixture.user(outsider)),
+            Json(json!({"trainId": fixture.target, "pageNumber": 3})),
+        )
+        .await,
+    )
+    .await;
+    let stored: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM general_telex_pat_page WHERE train_id=?")
+            .bind(&fixture.target)
+            .fetch_one(&fixture.pool)
+            .await
+            .unwrap();
+    fixture.cleanup().await;
+    assert_eq!(result["code"], 200, "{result}");
+    assert_eq!(
+        result["data"]["messageVO"].as_array().map(Vec::len),
+        Some(50),
+        "the response still shows the 50 groups of page 3"
+    );
+    assert_eq!(stored, 0, "a non-member read must not persist pages");
+}
+
+#[tokio::test]
+#[ignore = "requires isolated rust_scratch_lockdemo"]
 async fn pat_detail_of_a_non_member_reading_oneself_is_202() {
     let fixture = Fixture::new(Phase::Running, true, 100).await;
     let outsider = format!("zzz-outsider-{}", fixture.tag);

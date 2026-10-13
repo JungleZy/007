@@ -4126,6 +4126,20 @@
         {"name":"statistics-teacher","method":"POST","path":"/api/generalTelexPat/statistics","who":"admin","unordered":["$.data.userTendencyVO"],"body":{"trainId":"${trainId}"}},
         {"name":"teacher-delete","method":"GET","path":"/api/generalTelexPat/delete?trainId=${trainId}","who":"admin"}
       ]
+    },
+    {
+      "name": "b5-telex-nonmember-read-page",
+      "note": "generalTelexPat getPage by a non-member (an outsider user reading their own page) on a random 250-group training whose page 3 does not exist yet. Java generates and persists the page; Rust returns the same 200 envelope and shape without writing. Random group text (key) and generated ids are masked because they are drawn per call; everything else (page number, sort, value, trainId, attempt, submitted) is compared. The later findPage shows whether the rows were stored.",
+      "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b5nm-out','b5nm-out','B5 NonMember Outsider',0,'b5nm-dev',SHA2('b5nm-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b5nm-out-m','b5nm-out','sweep-student-role');",
+      "steps": [
+        {"name":"rule-create","method":"POST","path":"/api/gradingRule/saveGradingRule","who":"admin","body":{"type":2,"title":"rule-create","score":100,"status":0,"isDefault":1,"content":"{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":1,\"l\":1},\"other\":{\"errorCode\":3,\"muchLessCode\":2,\"muchLessLine\":2,\"muchLessGroups\":2,\"correctMistakes\":2,\"lessPage\":7,\"lessReturnLine\":2,\"errorPage\":3,\"nonStandart\":1,\"alterError\":2}}"},"capture":{"ruleId":"$.data.id"}},
+        {"name":"add-random-train","method":"POST","path":"/api/generalTelexPat/add","who":"admin","body":{"title":"B5电传-非成员读页","isCable":0,"startPage":1,"totalNumber":250,"ruleId":"${ruleId}","userId":["sweep-student"],"trainType":0,"patType":2,"type":0},"capture":{"trainId":"$.data.id"},"mask":["$.data.id"],"parse_json":["$.data.ruleContent"]},
+        {"name":"find-page-3-before","method":"POST","path":"/api/generalTelexPat/findPage","who":"admin","body":{"trainId":"${trainId}","pageNumber":3},"mask":["$.data.messageContent[*].id","$.data.messageContent[*].key"]},
+        {"name":"non-member-reads-missing-page-3","method":"POST","path":"/api/generalTelexPat/getPage","body":{"trainId":"${trainId}","pageNumber":3,"userId":"b5nm-out"},"mask":["$.data.serverElapsedMs","$.data.messageVO[*].id","$.data.messageVO[*].key"],"headers":{"token":"b5nm-out-token","deviceId":"b5nm-dev"}},
+        {"name":"find-page-3-after","method":"POST","path":"/api/generalTelexPat/findPage","who":"admin","body":{"trainId":"${trainId}","pageNumber":3},"mask":["$.data.messageContent[*].id","$.data.messageContent[*].key"]},
+        {"name":"pat-detail-student-after","method":"POST","path":"/api/generalTelexPat/patDetail","who":"admin","body":{"trainId":"${trainId}","userId":"sweep-student"},"parse_json":["$.data.ruleContent","$.data.deductInfo"],"mask":["$.data.content[*].id","$.data.content[*].key"]},
+        {"name":"teacher-delete","method":"GET","path":"/api/generalTelexPat/delete?trainId=${trainId}","who":"admin"}
+      ]
     }
   ]
 }

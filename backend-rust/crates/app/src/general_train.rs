@@ -2151,7 +2151,8 @@ pub(crate) async fn key_get_page(
 }
 /// Java `GeneralTelexPatService.getPage`: the reader is checked like `requireReadableTarget`
 /// (no membership needed to read oneself). A missing source page of a random report is generated
-/// on first read; only then is the training row locked (plain reads otherwise).
+/// on first read by a member; only then is the training row locked (plain reads otherwise).
+/// A non-member read gets the same response but writes nothing.
 pub(crate) async fn telex_get_page(
     State(state): State<AppState>,
     Extension(actor): Extension<AuthUser>,
@@ -2185,24 +2186,33 @@ pub(crate) async fn telex_get_page(
         }
         let number_text = number.to_string();
         let page_filter = "WHERE train_id=? AND page_number=? ORDER BY sort";
+        let member = load_member(&mut connection, &id, &target, domain).await?;
         let mut messages = rows(&mut connection, page_table(domain), page_fields(domain), page_filter, &[&id, &number_text]).await?;
         if messages.is_empty() {
             if train["isCable"] == 1 { return Err(invalid("固定报底页不存在")); }
-            let mut transaction = pool.begin().await?;
-            load_train(&mut transaction, &id, domain, true).await?;
-            messages = rows(&mut transaction, page_table(domain), page_fields(domain), page_filter, &[&id, &number_text]).await?;
-            if messages.is_empty() {
+            if member.is_none() {
+                // Deliberate difference from Java: a non-member read gets the same response
+                // (freshly generated groups) but nothing is persisted and nothing is locked.
                 let groups = generate_groups(&train, domain, generate_count.max(0) as usize)?;
                 for (sort, group) in groups.into_iter().enumerate() {
-                    let row = json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":train["id"],"pageNumber":number,"sort":sort,"key":group,"value":Value::Null});
-                    insert_fields(&mut transaction, page_table(domain), page_fields(domain), &row).await?;
-                    messages.push(row);
+                    messages.push(json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":train["id"],"pageNumber":number,"sort":sort,"key":group,"value":Value::Null}));
                 }
+            } else {
+                let mut transaction = pool.begin().await?;
+                load_train(&mut transaction, &id, domain, true).await?;
+                messages = rows(&mut transaction, page_table(domain), page_fields(domain), page_filter, &[&id, &number_text]).await?;
+                if messages.is_empty() {
+                    let groups = generate_groups(&train, domain, generate_count.max(0) as usize)?;
+                    for (sort, group) in groups.into_iter().enumerate() {
+                        let row = json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":train["id"],"pageNumber":number,"sort":sort,"key":group,"value":Value::Null});
+                        insert_fields(&mut transaction, page_table(domain), page_fields(domain), &row).await?;
+                        messages.push(row);
+                    }
+                }
+                transaction.commit().await?;
             }
-            transaction.commit().await?;
         }
         let values = rows(&mut connection, value_table(domain), value_fields(domain), "WHERE train_id=? AND user_id=? AND page_number=? ORDER BY sort,id", &[&id, &target, &number_text]).await?;
-        let member = load_member(&mut connection, &id, &target, domain).await?;
         let raw = values.iter().find(|row| row["sort"] == -1);
         let mut result = json!({
             "protocolVersion": train["protocolVersion"],
