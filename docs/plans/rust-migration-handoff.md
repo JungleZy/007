@@ -65,5 +65,12 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - 不存在子路径 Java 404 / Rust 405：并入 B8 统一修路由兜底。
 - personal-ticker-tape 偶发 FAIL 未复现，继续观察。
 
+## B7 报话/军语（2026-10-13 用户整体采纳；调研：docs/reviews/rust-migration/b7-research/）
+- 直接修：DECIMAL 列解码 panic；非主键 FOR UPDATE/DELETE 按既定锁方案改。
+- 军语评分取整按 Java（先舍入再 ×100）；报话 duration 按 Java 向上取整。
+- 军语 add 类型下无题：保留 Rust 202 并登记（Java 500），提示补 "类型 X " 前缀。
+- 完整移植 Java checkKeyword 干扰项逻辑。
+- radiotelephone/listPage 无请求体：另用 curl 双栈核对。
+
 ## 之后的批次（按顺序）
-B7 报话/军语/mtd → B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
+B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
