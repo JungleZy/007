@@ -59,5 +59,11 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - addStudent 对任意登录用户开放、findAlls 不按成员过滤：先查前端调用方，仅教员页调用则收紧并登记刻意差异，学员页也调用则照 Java。
 - 旅程草稿里 getRoomDetail 的 startTime/totalTime 不得 mask（会掩盖 R3），改用固定时钟或只比较是否有值。
 
+## B6 收尾（2026-10-13 用户整体采纳；B6 主体已完成 67bc677a/0b573507）
+- 时钟回跳时 Java 有效时长为负、Rust 截 0：保留 Rust，记为刻意差异（旅程夹具已避开，aafae6f7）。
+- 待修：findPage 不传 userId 按 Java 返回空 value；建房空房名/缺 isCable 校验按 Java（Java 若 500 则 Rust 202 并登记）；建房人无成员行时 select 按 Java 不广播不改频道；通报教学详情 isStartSign 照 Java 恒为 1（登记为已知 Java 缺陷）。
+- 不存在子路径 Java 404 / Rust 405：并入 B8 统一修路由兜底。
+- personal-ticker-tape 偶发 FAIL 未复现，继续观察。
+
 ## 之后的批次（按顺序）
 B7 报话/军语/mtd → B8 理论题库余项与杂项 → 单域真实切换与回滚演练。浏览器/Electron、Windows/arm64 构建、生产切换均未做。
