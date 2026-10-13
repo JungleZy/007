@@ -259,7 +259,7 @@ async fn list_without_a_body_does_not_wait_for_a_locked_row() {
     let document = within(crate::radiotelephone::list(
         State(fixture.state.clone()),
         Extension(fixture.user("zzz")),
-        None,
+        axum::body::Bytes::new(),
     ))
     .await;
     hold.rollback().await.unwrap();

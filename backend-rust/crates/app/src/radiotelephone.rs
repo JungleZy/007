@@ -109,8 +109,22 @@ async fn session_error(
 pub(crate) async fn list(
     State(state): State<AppState>,
     Extension(user): Extension<AuthUser>,
-    body: Option<Json<LifecycleRequest>>,
+    raw: axum::body::Bytes,
 ) -> Response {
+    // Java：空体或 JSON null 与“无过滤”等价（200）；无 Content-Type 的无体请求 Java 为 415，Rust 保留 200（已登记）。
+    let body = if raw.iter().all(u8::is_ascii_whitespace) || raw.trim_ascii() == b"null" {
+        None
+    } else {
+        match serde_json::from_slice::<LifecycleRequest>(&raw) {
+            Ok(body) => Some(Json(body)),
+            Err(error) => {
+                return axum::response::IntoResponse::into_response((
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to parse the request body as JSON: {error}"),
+                ))
+            }
+        }
+    };
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };

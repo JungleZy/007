@@ -589,7 +589,9 @@ pub(crate) async fn add(
         .filter(|id| categories.get(*id).is_some_and(|terms| terms.len() >= 4))
         .cloned()
         .collect::<Vec<_>>();
-    if valid_types.is_empty() {
+    // Java 仅在所选类型下一条题目都没有（dataMap 为空）时抛错；有题但都不足 4 条时，
+    // totalNumber=0 不进出题循环，照常成功（total>0 才会在出题处失败，此处仍返回 202）。
+    if valid_types.is_empty() && (total > 0 || categories.is_empty()) {
         let _ = transaction.rollback().await;
         return envelope_response(
             StatusCode::OK,
