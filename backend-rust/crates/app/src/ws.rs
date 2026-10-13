@@ -453,12 +453,16 @@ impl WsManager {
                 room.members.push(session_id.clone());
                 let member = prepared.sim_member.clone().expect("simulation has member");
                 let message = if room.room_type == 1 {
-                    let body = json!({
+                    let mut body = json!({
                         "id": prepared.user.id,
                         "userName": prepared.user.name,
                         "userImg": prepared.user.user_img,
                         "channel": member.channel,
                     });
+                    // Java serialises the body with Gson, which leaves null fields out.
+                    if let Some(object) = body.as_object_mut() {
+                        object.retain(|_, value| !value.is_null());
+                    }
                     let notice = json!({"topic":"online","body":body}).to_string();
                     if prepared.user.id == room.creator {
                         recipients
@@ -746,7 +750,6 @@ impl WsManager {
         let recipients = room
             .members
             .iter()
-            .filter(|id| id.as_str() != session_id)
             .filter_map(|id| {
                 self.sessions.get(id).and_then(|conn| {
                     conn.sim_member
@@ -1230,8 +1233,10 @@ pub(crate) async fn notify_general_result(
 
 pub(crate) async fn notify_simulation_result(room_id: i32, user_id: &str, recipients: &[String]) {
     let manager = MANAGER.lock().await;
-    let payload =
+    // Java SimulationResultNotifier sends through sendMessage: the notice is the envelope's `data`.
+    let notice =
         json!({"type":"result","topic":"result","roomId":room_id,"userId":user_id}).to_string();
+    let payload = sim_response(1, &notice, "", "");
     for target in recipients {
         for connection in manager.sessions.values().filter(|connection| {
             connection.sim_room_id == Some(room_id) && connection.user.id == *target
@@ -2517,18 +2522,26 @@ async fn simulation_message(state: &AppState, prepared: &Prepared, session_id: &
         send_family_error(session_id, Family::Simulation, "消息格式错误").await;
         return;
     };
-    let Some((sender, recipients)) = ({
+    let Some((sender, everyone)) = ({
         let manager = MANAGER.lock().await;
         manager.sim_snapshot(room_id, session_id)
     }) else {
         return;
     };
+    // Java excludes the sender (by user id) for some topics and includes it for others: handlers
+    // that broadcast to the whole room take `everyone`, the rest take `recipients`.
+    let recipients: Vec<_> = everyone
+        .iter()
+        .filter(|(_, member)| member.user.id != sender.user.id)
+        .cloned()
+        .collect();
     if room_type == 1 {
         simulation_disturb(
             state,
             room_id,
             session_id,
             &sender,
+            &everyone,
             &recipients,
             &topic,
             object,
@@ -2553,6 +2566,7 @@ async fn simulation_message(state: &AppState, prepared: &Prepared, session_id: &
             room_id,
             session_id,
             &sender,
+            &everyone,
             &recipients,
             &topic,
             text,
@@ -2568,6 +2582,7 @@ async fn simulation_disturb(
     room_id: i32,
     session_id: &str,
     sender: &SimMember,
+    everyone: &[(mpsc::UnboundedSender<Outbound>, SimMember)],
     recipients: &[(mpsc::UnboundedSender<Outbound>, SimMember)],
     topic: &str,
     object: &Map<String, Value>,
@@ -2578,7 +2593,8 @@ async fn simulation_disturb(
         output.insert("topic".to_owned(), Value::String(topic.to_owned()));
         let output = Value::Object(output).to_string();
         let channel = topic.parse::<i32>().ok();
-        for (tx, member) in recipients {
+        // Java sends these to the whole room, the sender included.
+        for (tx, member) in everyone {
             if topic == "0" || member.channel == channel {
                 let _ = tx.send(Outbound::Text(sim_response(1, &output, "", "")));
             }
@@ -2647,18 +2663,19 @@ async fn simulation_disturb(
                 return;
             }
         }
-        {
+        // Java updates the in-memory channel only for a sender that is not a userType 0 member
+        // (its broadcast branch comes first); the database row changes either way.
+        if sender.user_type != Some(0) {
             let mut manager = MANAGER.lock().await;
             manager.set_sim_channel(session_id, channel);
         }
-        for (tx, member) in recipients {
+        for (tx, member) in everyone {
             if member.user_type == Some(0) {
                 let _ = tx.send(Outbound::Text(sim_response(1, text, "", "")));
             }
         }
-    } else if topic != "result" {
-        send_session_sim_error(session_id, "消息格式错误").await;
     }
+    // Java ignores every other disturb topic silently (result included).
 }
 
 async fn simulation_report(
@@ -2708,10 +2725,12 @@ async fn simulation_report(
     }
     if topic == "1" {
         if let Some(pool) = &state.pool {
-            if let Err(error) = sqlx::query("UPDATE simulation_router_room SET stats=1 WHERE id=?")
-                .bind(room_id)
-                .execute(pool)
-                .await
+            // Java updateStatsToGoing: stats=1 and play_status=1 (topics 1 and 3).
+            if let Err(error) =
+                sqlx::query("UPDATE simulation_router_room SET stats=1,play_status=1 WHERE id=?")
+                    .bind(room_id)
+                    .execute(pool)
+                    .await
             {
                 tracing::error!(%error, room_id, session_id, operation = "start report", "simulation update failed");
                 send_session_sim_system_error(session_id).await;
@@ -2720,13 +2739,12 @@ async fn simulation_report(
         }
     } else if topic == "2" || topic == "3" {
         if let Some(pool) = &state.pool {
-            if let Err(error) =
-                sqlx::query("UPDATE simulation_router_room SET play_status=? WHERE id=?")
-                    .bind(if topic == "2" { 0 } else { 1 })
-                    .bind(room_id)
-                    .execute(pool)
-                    .await
-            {
+            let sql = if topic == "2" {
+                "UPDATE simulation_router_room SET play_status=0 WHERE id=?"
+            } else {
+                "UPDATE simulation_router_room SET stats=1,play_status=1 WHERE id=?"
+            };
+            if let Err(error) = sqlx::query(sql).bind(room_id).execute(pool).await {
                 tracing::error!(%error, room_id, session_id, operation = "set report playback", "simulation update failed");
                 send_session_sim_system_error(session_id).await;
                 return;
@@ -2782,6 +2800,7 @@ async fn simulation_router(
     room_id: i32,
     session_id: &str,
     sender: &SimMember,
+    everyone: &[(mpsc::UnboundedSender<Outbound>, SimMember)],
     recipients: &[(mpsc::UnboundedSender<Outbound>, SimMember)],
     topic: &str,
     text: &str,
@@ -2803,7 +2822,10 @@ async fn simulation_router(
         }
         "play" => {
             for (tx, member) in recipients {
-                if sender.user_type.is_none() || member.channel == sender.channel {
+                // Java: a participant without a channel reaches nobody.
+                if sender.user_type.is_none()
+                    || (sender.channel.is_some() && member.channel == sender.channel)
+                {
                     let _ = tx.send(Outbound::Text(sim_response(
                         1,
                         text,
@@ -2815,18 +2837,19 @@ async fn simulation_router(
         }
         "begin" => {
             if let Some(pool) = &state.pool {
-                if let Err(error) =
-                    sqlx::query("UPDATE simulation_router_room SET stats=1 WHERE id=?")
-                        .bind(room_id)
-                        .execute(pool)
-                        .await
+                if let Err(error) = sqlx::query(
+                    "UPDATE simulation_router_room SET stats=1,start_time=NOW() WHERE id=?",
+                )
+                .bind(room_id)
+                .execute(pool)
+                .await
                 {
                     tracing::error!(%error, room_id, session_id, operation = "begin router", "simulation update failed");
                     send_session_sim_system_error(session_id).await;
                     return;
                 }
             }
-            for (tx, member) in recipients {
+            for (tx, member) in everyone {
                 if member.user_type.is_some() {
                     let _ = tx.send(Outbound::Text(sim_response(1, text, "", "")));
                 }
@@ -2834,29 +2857,51 @@ async fn simulation_router(
         }
         "end" => {
             if let Some(pool) = &state.pool {
-                if let Err(error) =
-                    sqlx::query("UPDATE simulation_router_room SET stats=2 WHERE id=?")
-                        .bind(room_id)
-                        .execute(pool)
-                        .await
+                // Java: total_time = now - start_time, then start_time is reset to now; a room
+                // that never began has no start_time and the whole message is rejected.
+                let started = sqlx::query_scalar::<_, Option<String>>(
+                    "SELECT CAST(start_time AS CHAR) FROM simulation_router_room WHERE id=?",
+                )
+                .bind(room_id)
+                .fetch_optional(pool)
+                .await;
+                match started {
+                    Ok(Some(None)) => {
+                        send_session_sim_error(session_id, "消息格式错误").await;
+                        return;
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        tracing::error!(%error, room_id, session_id, operation = "end router", "simulation lookup failed");
+                        send_session_sim_system_error(session_id).await;
+                        return;
+                    }
+                }
+                if let Err(error) = sqlx::query(
+                    "UPDATE simulation_router_room SET stats=2,total_time=TIMESTAMPDIFF(SECOND,start_time,NOW()),start_time=NOW() WHERE id=?",
+                )
+                .bind(room_id)
+                .execute(pool)
+                .await
                 {
                     tracing::error!(%error, room_id, session_id, operation = "end router", "simulation update failed");
                     send_session_sim_system_error(session_id).await;
                     return;
                 }
             }
-            for (tx, member) in recipients {
+            for (tx, member) in everyone {
                 if member.user_type.is_some() {
                     let _ = tx.send(Outbound::Text(sim_response(1, text, "", "")));
                 }
             }
         }
         "over" | "change" => {
-            for (tx, _) in recipients {
+            for (tx, _) in everyone {
                 let _ = tx.send(Outbound::Text(sim_response(1, text, "", "")));
             }
         }
-        _ => send_session_sim_error(session_id, "消息格式错误").await,
+        // Java only logs unknown router topics.
+        _ => {}
     }
 }
 

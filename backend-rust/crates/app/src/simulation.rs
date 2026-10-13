@@ -126,25 +126,52 @@ pub(crate) struct PageQuery {
     page_number: Option<i32>,
     user_id: Option<String>,
 }
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PageValue {
-    room_id: Option<i32>,
-    page_number: Option<i32>,
-    value: Option<String>,
-}
-
-// Every child-table mutation locks its parent first, including lazy standard-page creation.
+// The simulation tables are indexed by primary key only, so a locking read or write filtered by
+// `room_id`/`user_id` next-key locks every row it scans, other rooms' rows included. Writers lock
+// the room row by primary key first (that serialises every writer of the room), read child ids
+// with plain reads and write children by primary key; readers take no locks at all.
+const ROOM_SELECT: &str = "SELECT r.*,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,CASE WHEN stats=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW()) ELSE total_time END elapsed_time FROM simulation_router_room r WHERE id=?";
 async fn lock_room(tx: &mut Transaction<'_, MySql>, id: i32) -> Result<MySqlRow, Error> {
-    sqlx::query("SELECT r.*,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,CASE WHEN stats=1 AND start_time IS NOT NULL THEN TIMESTAMPDIFF(SECOND,start_time,NOW()) ELSE total_time END elapsed_time FROM simulation_router_room r WHERE id=? FOR UPDATE")
-        .bind(id).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未查询到房间信息"))
+    sqlx::query(&format!("{ROOM_SELECT} FOR UPDATE"))
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(Error::Business(202, "未查询到房间信息"))
+}
+async fn read_room(tx: &mut Transaction<'_, MySql>, id: i32) -> Result<MySqlRow, Error> {
+    sqlx::query(ROOM_SELECT)
+        .bind(id)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(Error::Business(202, "未查询到房间信息"))
+}
+/// Deletes the rows `select_ids` returns, one primary-key delete each.
+async fn delete_by_id(
+    tx: &mut Transaction<'_, MySql>,
+    table: &str,
+    filter: &str,
+    binds: &[&str],
+    numeric_room: i32,
+) -> Result<(), Error> {
+    let select = format!("SELECT CAST(id AS CHAR) FROM {table} WHERE {filter} ORDER BY id");
+    let mut query = sqlx::query_scalar::<_, String>(&select).bind(numeric_room);
+    for bind in binds {
+        query = query.bind(*bind);
+    }
+    for id in query.fetch_all(&mut **tx).await? {
+        sqlx::query(&format!("DELETE FROM {table} WHERE id=?"))
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
 }
 async fn member(
     tx: &mut Transaction<'_, MySql>,
     room: i32,
     user: &str,
 ) -> Result<Option<MySqlRow>, Error> {
-    Ok(sqlx::query("SELECT id,user_id,user_type,channel,content_value,user_status FROM simulation_router_room_user WHERE room_id=? AND user_id=? ORDER BY id LIMIT 1 FOR UPDATE")
+    Ok(sqlx::query("SELECT id,user_id,user_type,channel,content_value,user_status FROM simulation_router_room_user WHERE room_id=? AND user_id=? ORDER BY id LIMIT 1")
         .bind(room).bind(user).fetch_optional(&mut **tx).await?)
 }
 fn manages(room: &MySqlRow, user: &AuthUser, member: Option<&MySqlRow>) -> bool {
@@ -172,13 +199,6 @@ fn control(teacher: bool) -> Result<(), Error> {
         Err(Error::Business(207, "无权限"))
     }
 }
-fn mutable(room: &MySqlRow) -> Result<(), Error> {
-    if room.get::<Option<i32>, _>("stats").is_some_and(|s| s >= 2) {
-        Err(Error::Business(208, "训练已结束"))
-    } else {
-        Ok(())
-    }
-}
 fn room_json(row: &MySqlRow) -> Value {
     json!({"id":row.get::<i32,_>("id"),"name":row.get::<Option<String>,_>("name"),
         "isCable":row.get::<Option<i32>,_>("is_cable"),"createUserId":row.get::<Option<String>,_>("create_user_Id"),
@@ -188,8 +208,11 @@ fn room_json(row: &MySqlRow) -> Value {
         "startTime":row.get::<Option<String>,_>("start_time_text"),"isStartSign":row.get::<Option<i32>,_>("is_start_sign")})
 }
 async fn content(tx: &mut Transaction<'_, MySql>, room: i32) -> Result<MySqlRow, Error> {
-    sqlx::query("SELECT * FROM simulation_router_room_content WHERE room_id=? ORDER BY id LIMIT 1 FOR UPDATE")
-        .bind(room).fetch_optional(&mut **tx).await?.ok_or(Error::Business(202, "未找到房间报底"))
+    sqlx::query("SELECT * FROM simulation_router_room_content WHERE room_id=? ORDER BY id LIMIT 1")
+        .bind(room)
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(Error::Business(202, "未找到房间报底"))
 }
 fn content_json(out: &mut Value, row: &MySqlRow) {
     for (key, column) in [
@@ -557,7 +580,7 @@ async fn add_room(
             insert_groups(&mut tx, room, 1, &groups).await?;
         } else {
             let cable_id = body.get("cableId").and_then(Value::as_str).ok_or(Error::Business(202,"固定报编号不能为空"))?;
-            let rows = sqlx::query("SELECT floor_number,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort FOR UPDATE")
+            let rows = sqlx::query("SELECT floor_number,mores_key FROM t_cable_floor WHERE cable_id=? ORDER BY floor_number,sort")
                 .bind(cable_id).fetch_all(&mut *tx).await?;
             let mut floors = BTreeMap::<i32,Vec<String>>::new();
             for row in rows {
@@ -595,7 +618,7 @@ async fn add_room(
         Ok(match kind {
             0 => None,
             1 => Some(json!(room)),
-            _ => Some(room_json(&lock_room(&mut tx, room).await?)),
+            _ => Some(room_json(&read_room(&mut tx, room).await?)),
         })
     }.await;
     complete(tx, result).await
@@ -698,7 +721,7 @@ async fn get_detail(
     let id = required_id(id)?;
     let mut tx = pool(state)?.begin().await?;
     let result = async {
-        let room = lock_room(&mut tx, id).await?;
+        let room = read_room(&mut tx, id).await?;
         Ok(Some(detail_json(&mut tx, &room, user, content_view).await?))
     }
     .await;
@@ -728,7 +751,7 @@ pub(crate) async fn users(
             let id = required_id(Some(id))?;
             let mut tx = pool(&state)?.begin().await?;
             let result = async {
-                let room = lock_room(&mut tx, id).await?;
+                let room = read_room(&mut tx, id).await?;
                 access(&mut tx, &room, &user).await?;
                 Ok(Some(users_json(&mut tx, id).await?))
             }
@@ -748,7 +771,7 @@ pub(crate) async fn users_body(
             let id = body_room(&body)?;
             let mut tx = pool(&state)?.begin().await?;
             let result = async {
-                let room = lock_room(&mut tx, id).await?;
+                let room = read_room(&mut tx, id).await?;
                 let (teacher, _) = access(&mut tx, &room, &user).await?;
                 let mut items = Vec::new();
                 for row in member_rows(&mut tx, id).await? {
@@ -801,7 +824,7 @@ pub(crate) async fn channels(
         let id = required_id(query.room_id)?;
         let mut tx = pool(&state)?.begin().await?;
         let result = async {
-            let room = lock_room(&mut tx,id).await?;
+            let room = read_room(&mut tx,id).await?;
             access(&mut tx,&room,&user).await?;
             let values: Vec<Option<i32>> = sqlx::query_scalar("SELECT channel FROM simulation_router_room_user WHERE room_id=? AND user_type=0 ORDER BY id")
                 .bind(id).fetch_all(&mut *tx).await?;
@@ -862,8 +885,11 @@ pub(crate) async fn finish(
             let room = lock_room(&mut tx,id).await?;
             let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(202,"未找到用户信息"))?;
             if actor.get::<Option<i32>,_>("user_type") != Some(0) { return Err(Error::Business(202,"该用户不是发报人员")); }
-            sqlx::query("UPDATE simulation_router_room_user SET user_status=1 WHERE room_id=? AND (id=? OR (user_type=1 AND channel <=> ?))")
-                .bind(id).bind(actor.get::<i32,_>("id")).bind(actor.get::<Option<i32>,_>("channel")).execute(&mut *tx).await?;
+            let finished: Vec<i32> = sqlx::query_scalar("SELECT id FROM simulation_router_room_user WHERE room_id=? AND (id=? OR (user_type=1 AND channel <=> ?)) ORDER BY id")
+                .bind(id).bind(actor.get::<i32,_>("id")).bind(actor.get::<Option<i32>,_>("channel")).fetch_all(&mut *tx).await?;
+            for member_id in finished {
+                sqlx::query("UPDATE simulation_router_room_user SET user_status=1 WHERE id=?").bind(member_id).execute(&mut *tx).await?;
+            }
             Ok(Some(detail_json(&mut tx,&room,&user,false).await?))
         }.await;
         complete(tx,result).await
@@ -882,15 +908,18 @@ pub(crate) async fn delete(
                 let room = lock_room(&mut tx, id).await?;
                 let actor = member(&mut tx, id, &user.id).await?;
                 control(manages(&room, &user, actor.as_ref()))?;
-                for sql in [
-                    "DELETE FROM simulation_router_room_page_value WHERE room_id=?",
-                    "DELETE FROM simulation_router_room_page WHERE room_id=?",
-                    "DELETE FROM simulation_router_room_user WHERE room_id=?",
-                    "DELETE FROM simulation_router_room_content WHERE room_id=?",
-                    "DELETE FROM simulation_router_room WHERE id=?",
+                for table in [
+                    "simulation_router_room_page_value",
+                    "simulation_router_room_page",
+                    "simulation_router_room_user",
+                    "simulation_router_room_content",
                 ] {
-                    sqlx::query(sql).bind(id).execute(&mut *tx).await?;
+                    delete_by_id(&mut tx, table, "room_id=?", &[], id).await?;
                 }
+                sqlx::query("DELETE FROM simulation_router_room WHERE id=?")
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await?;
                 Ok(Some(json!(true)))
             }
             .await;
@@ -957,8 +986,8 @@ pub(crate) async fn upload_result(
         let mut recipients = Vec::new();
         let result = async {
             let room = lock_room(&mut tx,id).await?;
-            let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(207,"仅参训收报人员可提交答案"))?;
-            if actor.get::<Option<i32>,_>("user_type") != Some(1) { return Err(Error::Business(207,"仅参训收报人员可提交答案")); }
+            let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(202,"仅参训收报人员可提交答案"))?;
+            if actor.get::<Option<i32>,_>("user_type") != Some(1) { return Err(Error::Business(202,"仅参训收报人员可提交答案")); }
             // Java intentionally accepts complete answer retries after playback has finished (stats=2).
             match room.get::<Option<i32>,_>("stats") {
                 Some(1 | 2) => (),
@@ -973,7 +1002,7 @@ pub(crate) async fn upload_result(
             if let Some(creator) = room.get::<Option<String>,_>("create_user_Id") {
                 if !recipients.contains(&creator) { recipients.push(creator); }
             }
-            sqlx::query("DELETE FROM simulation_router_room_page_value WHERE room_id=? AND user_id=?").bind(id).bind(&user.id).execute(&mut *tx).await?;
+            delete_by_id(&mut tx, "simulation_router_room_page_value", "room_id=? AND user_id=?", &[user.id.as_str()], id).await?;
             for (index,page) in pages.iter().enumerate() {
                 sqlx::query("INSERT INTO simulation_router_room_page_value (page_number,room_id,value,user_id) VALUES (?,?,?,?)")
                     .bind((index + 1) as i32).bind(id).bind(page.as_str().expect("validated answer page")).bind(&user.id).execute(&mut *tx).await?;
@@ -1005,7 +1034,7 @@ pub(crate) async fn find_page(
                 return Err(Error::Business(202,"该人员不属于此训练"));
             }
             let body = content(&mut tx,id).await?;
-            let mut rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort FOR UPDATE")
+            let mut rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort")
                 .bind(id).bind(page).fetch_all(&mut *tx).await?;
             let total = body.get::<Option<i32>,_>("bw_count").ok_or(Error::Business(202,"报文组数缺失"))?;
             let remaining = i64::from(total) - (i64::from(page) - 1) * 100;
@@ -1014,10 +1043,10 @@ pub(crate) async fn find_page(
                 let average = body.get::<Option<i32>,_>("bd_type").ok_or(Error::Business(202,"报底类型缺失"))? == 1;
                 let random = body.get::<Option<i32>,_>("is_random").ok_or(Error::Business(202,"随机配置缺失"))? == 1;
                 insert_groups(&mut tx,id,page,&generated_groups(remaining.min(100) as usize,page,kind,average,random)).await?;
-                rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort FOR UPDATE")
+                rows = sqlx::query("SELECT id,room_id,page_number,sort,`key` FROM simulation_router_room_page WHERE room_id=? AND page_number=? ORDER BY sort")
                     .bind(id).bind(page).fetch_all(&mut *tx).await?;
             }
-            let saved: Option<Option<String>> = sqlx::query_scalar("SELECT value FROM simulation_router_room_page_value WHERE room_id=? AND page_number=? AND user_id=? FOR UPDATE")
+            let saved: Option<Option<String>> = sqlx::query_scalar("SELECT value FROM simulation_router_room_page_value WHERE room_id=? AND page_number=? AND user_id=?")
                 .bind(id).bind(page).bind(target).fetch_optional(&mut *tx).await?;
             let values = match saved.flatten() { Some(value) => serde_json::from_str::<Vec<String>>(&value)?, None => Vec::new() };
             let pages: Vec<Value> = rows.iter().map(|r| json!({"id":r.get::<String,_>("id"),"roomId":r.get::<i32,_>("room_id"),"pageNumber":r.get::<i32,_>("page_number"),"sort":r.get::<i32,_>("sort"),"key":r.get::<Option<String>,_>("key")})).collect();
@@ -1026,32 +1055,6 @@ pub(crate) async fn find_page(
         complete(tx,result).await
     }.await)
 }
-pub(crate) async fn save_page(
-    State(state): State<AppState>,
-    Extension(user): Extension<AuthUser>,
-    Json(body): Json<PageValue>,
-) -> Response {
-    respond(async {
-        let id = required_id(body.room_id)?;
-        let page = body.page_number.filter(|p| *p > 0).ok_or(Error::Business(202,"页码不正确"))?;
-        let value = body.value.as_deref().ok_or(Error::Business(202,"答案页必须是字符串数组"))?;
-        validate_answer(value)?;
-        let mut tx = pool(&state)?.begin().await?;
-        let result = async {
-            let room = lock_room(&mut tx,id).await?;
-            let actor = member(&mut tx,id,&user.id).await?.ok_or(Error::Business(207,"无权限"))?;
-            if actor.get::<Option<i32>,_>("user_type") != Some(1) { return Err(Error::Business(207,"仅参训收报人员可保存答案")); }
-            mutable(&room)?;
-            if room.get::<Option<i32>,_>("stats") != Some(1) { return Err(Error::Business(202,"训练尚未开始，不能提交答案")); }
-            if actor.get::<Option<i32>,_>("user_status") == Some(1) { return Err(Error::Business(208,"训练已完成")); }
-            sqlx::query("INSERT INTO simulation_router_room_page_value (page_number,room_id,value,user_id) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value)")
-                .bind(page).bind(id).bind(value).bind(&user.id).execute(&mut *tx).await?;
-            Ok(None)
-        }.await;
-        complete(tx,result).await
-    }.await)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1079,3 +1082,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "simulation_writer_tests.rs"]
+mod writer_tests;
