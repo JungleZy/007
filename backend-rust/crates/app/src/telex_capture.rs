@@ -19,7 +19,7 @@ fn in_bmp_ranges(character: char, ranges: &[(u16, u16)]) -> bool {
         .is_ok()
 }
 
-fn decimal_digit(character: char) -> Option<usize> {
+pub(crate) fn decimal_digit(character: char) -> Option<usize> {
     let value = u32::from(character);
     if value > u32::from(u16::MAX) {
         return None;

@@ -194,7 +194,7 @@ fn detail_member(member: &Value, domain: Domain) -> Value {
             "validTime": common("validTime"), "totalNumber": Value::Null,
             "pageCount": Value::Null, "ruleContent": Value::Null,
             "finishTime": common("finishTime"), "patValue": Value::Null,
-            "pageAnalyzeVOS": json!([]), "existPage": Value::Null,
+            "pageAnalyzeVOS": common("pageAnalyzeVOS"), "existPage": Value::Null,
             "content": Value::Null
         }),
     }
@@ -664,14 +664,14 @@ async fn list(state: AppState, user: AuthUser, body: Value, domain: Domain) -> R
         let total: i64 = sqlx::query_scalar(&count).bind(&user.id).fetch_one(&mut *connection).await?;
         let filter = format!("{filter} ORDER BY create_time DESC,id DESC LIMIT {size} OFFSET {}", (page - 1).saturating_mul(size));
         let mut data = rows(&mut connection, table(domain), train_fields(domain), &filter, &[&user.id]).await?;
-        if !matches!(domain, Domain::Telex) {
+        {
             // Java findAll: every item carries its member list (list.js runs `userInfoList.forEach`),
             // booleans for codeSort/isRandom, and the real page count for fixed (cable) reports.
             // The electronic-key list leaves the total alone and hides the frozen rule.
             let mut items = Vec::with_capacity(data.len());
             for mut train in data {
                 let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
-                if matches!(domain, Domain::Key) {
+                if matches!(domain, Domain::Key | Domain::Telex) {
                     train["ruleContent"] = Value::Null;
                 }
                 if matches!(domain, Domain::Ticker) && train["isCable"] == 1 {
@@ -686,7 +686,16 @@ async fn list(state: AppState, user: AuthUser, body: Value, domain: Domain) -> R
                     // Java's findAll member DTO (`find_general_key_pat_user_dto`) has no active time.
                     for member in &mut members { member["activeMillis"] = Value::Null; }
                 }
-                let infos = members.iter().map(|member| detail_member(member, domain)).collect::<Vec<_>>();
+                let infos = members.iter().map(|member| {
+                    if matches!(domain, Domain::Telex) {
+                        // Java's findAll member DTO (`find_general_telex_pat_user_simple_dto`)
+                        // carries only the user, profile and role.
+                        let mut info = detail_member(&Value::Null, domain);
+                        for field in ["userId", "userName", "userImg", "role"] { info[field] = member[field].clone(); }
+                        info["pageAnalyzeVOS"] = Value::Null;
+                        info
+                    } else { detail_member(member, domain) }
+                }).collect::<Vec<_>>();
                 let mut item = train_response(train, domain);
                 item["userInfoList"] = json!(infos);
                 items.push(item);
@@ -805,6 +814,12 @@ async fn detail(state: AppState, user: AuthUser, body: Value, domain: Domain) ->
                 }
                 if matches!(domain, Domain::Key) {
                     member["pageAnalyzeVOS"] = page_analyze(&mut connection, &train, member).await?;
+                }
+                if matches!(domain, Domain::Telex) {
+                    // Java's detail member DTO (`find_general_telex_pat_user_dto`) has no
+                    // valid_time/speed_log columns; the statistics are computed per page.
+                    for field in ["validTime", "speedLog"] { member[field] = Value::Null; }
+                    member["pageAnalyzeVOS"] = telex_page_analyze(&mut connection, &train, &target).await?;
                 }
                 member["userStatus"] =
                     json!(super::ws::general_connection_status(kind, &id, &target)
@@ -1290,6 +1305,129 @@ async fn page_analyze(
     Ok(json!(analysis))
 }
 
+/// Java `generatePageAnalyze` (telex): one `{pageNumber, patNumber, totalTime}` per page that has
+/// stored value rows; only the raw row (`sort = -1`) contributes its character count and the
+/// duration of its capture intervals.
+async fn telex_page_analyze(
+    connection: &mut MySqlConnection,
+    train: &Value,
+    user_id: &str,
+) -> Outcome<Value> {
+    let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
+    let values = rows(
+        connection,
+        value_table(Domain::Telex),
+        value_fields(Domain::Telex),
+        "WHERE train_id=? AND user_id=? ORDER BY page_number,sort",
+        &[&id, user_id],
+    )
+    .await?;
+    let mut by_page: std::collections::BTreeMap<i64, (i64, i64)> =
+        std::collections::BTreeMap::new();
+    for value in &values {
+        let page = value["pageNumber"]
+            .as_i64()
+            .ok_or_else(|| invalid("拍发页码缺失"))?;
+        let entry = by_page.entry(page).or_default();
+        if value["sort"] == -1 {
+            entry.0 += super::telex_capture::character_count(
+                value["value"].as_str().unwrap_or_default(),
+                train["trainType"].as_i64(),
+            ) as i64;
+            if let Some(intervals) = value["captureIntervals"]
+                .as_str()
+                .filter(|text| !text.trim().is_empty())
+            {
+                entry.1 +=
+                    interval_duration(&capture_intervals(&stored_json(intervals)?)?, i64::MAX)?;
+            }
+        }
+    }
+    Ok(json!(by_page
+        .into_iter()
+        .map(|(page, (count, time))| json!({"pageNumber": page, "patNumber": count, "totalTime": time}))
+        .collect::<Vec<_>>()))
+}
+
+/// Java `GeneralTelexPatService.patDetail`: the reader is checked like `requireReadableTarget`
+/// (no membership needed to read oneself), then the *requested* user's member row is looked up
+/// (a missing `userId` finds nothing, 202). The reply is the typed user VO.
+async fn telex_pat_detail(
+    connection: &mut MySqlConnection,
+    train: &Value,
+    user: &AuthUser,
+    body: &Value,
+) -> Outcome<Value> {
+    let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
+    let requested = body["userId"].as_str().filter(|value| !value.is_empty());
+    let target = requested
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(&user.id);
+    if target != user.id && !manages(connection, train, user, Domain::Telex).await? {
+        return Err(denied());
+    }
+    let member = match requested {
+        Some(requested) => load_member(connection, &id, requested, Domain::Telex).await?,
+        None => None,
+    }
+    .ok_or_else(|| invalid("未查询到该用户的参训记录"))?;
+    let user_id = text(&member["userId"]).unwrap_or_default();
+    let pages: Vec<i64> = sqlx::query_scalar(&format!(
+        "SELECT DISTINCT page_number FROM {} WHERE train_id=? ORDER BY page_number",
+        page_table(Domain::Telex)
+    ))
+    .bind(&id)
+    .fetch_all(&mut *connection)
+    .await?;
+    let content = if member["isFinish"] == 1 {
+        rows(
+            connection,
+            value_table(Domain::Telex),
+            value_fields(Domain::Telex),
+            "WHERE train_id=? AND user_id=? AND page_number<=2 AND page_number>=1 ORDER BY page_number,sort,id",
+            &[&id, &user_id],
+        )
+        .await?
+    } else {
+        rows(
+            connection,
+            page_table(Domain::Telex),
+            page_fields(Domain::Telex),
+            "WHERE train_id=? AND page_number<=2 AND page_number>=1 ORDER BY page_number,sort,id",
+            &[&id],
+        )
+        .await?
+    };
+    let content = content
+        .iter()
+        .map(|row| {
+            json!({"id": row["id"], "trainId": row["trainId"], "pageNumber": row["pageNumber"],
+                "key": row["key"], "value": row["value"], "time": Value::Null, "sort": row["sort"]})
+        })
+        .collect::<Vec<_>>();
+    let mut result = detail_member(&member, Domain::Telex);
+    result["duration"] = json!(member["validTime"].as_i64().unwrap_or(0));
+    result["pageAnalyzeVOS"] = telex_page_analyze(connection, train, &user_id).await?;
+    result["existPage"] = json!(pages);
+    result["content"] = json!(content);
+    result["ruleContent"] = train["ruleContent"].clone();
+    result["totalNumber"] = train["totalNumber"].clone();
+    result["isCable"] = train["isCable"].clone();
+    if train["isCable"] == 1 {
+        result["totalNumber"] = json!(
+            sqlx::query_scalar::<_, i64>(&format!(
+                "SELECT COUNT(*) FROM {} WHERE train_id=?",
+                page_table(Domain::Telex)
+            ))
+            .bind(&id)
+            .fetch_one(&mut *connection)
+            .await?
+        );
+        result["pageCount"] = json!(pages.last());
+    }
+    Ok(result)
+}
+
 async fn members(state: AppState, user: AuthUser, body: Value, domain: Domain) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -1298,6 +1436,9 @@ async fn members(state: AppState, user: AuthUser, body: Value, domain: Domain) -
         let id = train_id(&body)?;
         let mut connection = pool.acquire().await?;
         let train = load_train(&mut connection, &id, domain, false).await?;
+        if matches!(domain, Domain::Telex) {
+            return telex_pat_detail(&mut connection, &train, &user, &body).await;
+        }
         let key = matches!(domain, Domain::Key);
         // Java `requireReadableTarget` (key) never asks for membership of the caller itself: an
         // outsider reading their own record gets 202 "no such participant", not 207.
@@ -1381,6 +1522,7 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
                 .bind(text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?)
                 .fetch_one(&mut *transaction).await?;
         }
+        if matches!(domain, Domain::Telex) && train["protocolVersion"] != 1 { return Err(terminal("旧训练缺少原始采集协议，请重新创建训练；历史成绩保持不变")); }
         if train["protocolVersion"] != 1 || (matches!(domain, Domain::Telex) && body["protocolVersion"] != 1) { return Err(invalid("客户端采集协议版本不匹配，请刷新后重新进入训练")); }
         if body["attempt"].as_i64().is_none() || body["attempt"] != member["attempt"] { return Err(terminal("训练轮次已变化，请重新读取训练")); }
         let total = train[if matches!(domain, Domain::Ticker) { "messageNumber" } else { "totalNumber" }].as_i64().ok_or_else(|| invalid("训练总组数缺失"))?;
@@ -1453,7 +1595,7 @@ async fn upload(state: AppState, actor: AuthUser, body: Value, domain: Domain) -
             Domain::Telex => {
                 sqlx::query("INSERT INTO general_telex_pat_user_value (id,train_id,user_id,page_number,sort,value,attempt,capture_intervals,received_at) VALUES (?,?,?,?,-1,?,?,?,NOW(6))")
                     .bind(uuid::Uuid::new_v4().to_string()).bind(&id).bind(&actor.id).bind(page).bind(body["patValue"].as_str()).bind(member["attempt"].as_i64()).bind(body["captureIntervals"].to_string()).execute(&mut *transaction).await?;
-                derive_telex_capture(&mut transaction,&id,&actor.id,train["trainType"].as_i64()).await?;
+                derive_telex_capture(&mut transaction,&text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?,&id,&actor.id,train["trainType"].as_i64()).await?;
             }
             Domain::Ticker => {
                 sqlx::query("INSERT INTO general_ticker_pat_train_user_value (train_id,user_id,floor_number,message_body,standard,finish_info,attempt,capture_intervals,received_at) VALUES (?,?,?,?,?,?,?,?,NOW(6))")
@@ -1883,8 +2025,8 @@ async fn page_response(
         let mut messages = rows(&mut transaction, page_table(domain), page_fields(domain), &filter, &[&id, &number_text]).await?;
         if !personal {
             transaction.commit().await?;
-            if matches!(domain, Domain::Key) {
-                // Java `GeneralKeyPatPageDetailDto`: no trainId.
+            if matches!(domain, Domain::Key | Domain::Telex) {
+                // Java `GeneralKeyPatPageDetailDto` / `GeneralTelexPatPageDetailDto`: no trainId.
                 for message in &mut messages { message.as_object_mut().map(|row| row.remove("trainId")); }
             }
             return Ok(json!({"messageContent":messages}));
@@ -1925,12 +2067,7 @@ async fn page_response(
                 let more = rows(&mut transaction,"general_key_pat_train_more",KEY_MORE,"WHERE train_id=? AND user_id=? AND page_number=?",&[&id,&target,&number_text]).await?;
                 for key in ["moreGroup", "moreLine"] { result[key] = match more.first().and_then(|row| row[key].as_str()) { Some(text) => stored_json(text)?, None => json!([]) }; }
             }
-            Domain::Telex => {
-                let raw = values.iter().find(|row| row["sort"] == -1);
-                result["submitted"] = json!(raw.is_some());
-                if let Some(intervals) = raw.and_then(|row| row["captureIntervals"].as_str()) { result["savedCaptureIntervals"] = stored_json(intervals)?; }
-                result["messageVO"] = json!(if values.is_empty() { messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>() } else { values.iter().map(|row| page_dto(row, domain, false)).collect::<Vec<_>>() });
-            }
+            Domain::Telex => unreachable!("telex getPage has its own handler"),
             Domain::Ticker => {
                 let saved = values.first();
                 result["submitted"] = json!(saved.is_some());
@@ -1954,16 +2091,18 @@ async fn pat_value(state: AppState, actor: AuthUser, body: Value, domain: Domain
     response(
         async {
             let id = train_id(&body)?;
-            let page = body["pageNumber"]
-                .as_i64()
-                .filter(|page| *page > 0)
-                .ok_or_else(|| invalid("页码不正确"))?
-                .to_string();
+            let telex = matches!(domain, Domain::Telex);
+            // Java telex getPatValue does not validate the page: nothing stored for it is `[]`.
+            let page = match body["pageNumber"].as_i64().filter(|page| *page > 0) {
+                Some(page) => page.to_string(),
+                None if telex => "0".to_owned(),
+                None => return Err(invalid("页码不正确")),
+            };
             let mut connection = pool.acquire().await?;
             let train = load_train(&mut connection, &id, domain, false).await?;
             // Java key `requireReadableTarget`: no membership check for reading oneself, so an
             // outsider gets an empty list; the VO has no `id`.
-            let target = if matches!(domain, Domain::Key) {
+            let target = if matches!(domain, Domain::Key | Domain::Telex) {
                 let target = body["userId"]
                     .as_str()
                     .filter(|id| !id.trim().is_empty())
@@ -1988,6 +2127,16 @@ async fn pat_value(state: AppState, actor: AuthUser, body: Value, domain: Domain
                     value.as_object_mut().map(|row| row.remove("id"));
                 }
             }
+            if telex {
+                // Java `GeneralTelexPatTrainUserValueVO`.
+                for value in &mut values {
+                    if let Some(row) = value.as_object_mut() {
+                        for field in ["id", "attempt", "captureIntervals", "receivedAt"] {
+                            row.remove(field);
+                        }
+                    }
+                }
+            }
             Ok(json!(values))
         }
         .await,
@@ -2000,12 +2149,71 @@ pub(crate) async fn key_get_page(
 ) -> Response {
     page_response(state, actor, body, Domain::Key, true).await
 }
+/// Java `GeneralTelexPatService.getPage`: the reader is checked like `requireReadableTarget`
+/// (no membership needed to read oneself). A missing source page of a random report is generated
+/// on first read; only then is the training row locked (plain reads otherwise).
 pub(crate) async fn telex_get_page(
     State(state): State<AppState>,
     Extension(actor): Extension<AuthUser>,
     Json(body): Json<Value>,
 ) -> Response {
-    page_response(state, actor, body, Domain::Telex, true).await
+    let Some(pool) = state.pool.as_ref() else {
+        return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
+    };
+    response(async {
+        let domain = Domain::Telex;
+        let id = train_id(&body)?;
+        let mut connection = pool.acquire().await?;
+        let train = load_train(&mut connection, &id, domain, false).await?;
+        let target = body["userId"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(&actor.id)
+            .to_owned();
+        if target != actor.id && !manages(&mut connection, &train, &actor, domain).await? {
+            return Err(denied());
+        }
+        let number = body["pageNumber"].as_i64().ok_or_else(|| invalid("页码不能为空"))?;
+        let mut generate_count = 100_i64;
+        if train["isCable"] == 0 {
+            let total = train["totalNumber"].as_i64().ok_or_else(|| invalid("训练总组数缺失，无法取页"))?;
+            let total_page = total / 100 + i64::from(total % 100 > 0);
+            if number > total_page || number < 1 { return Err(invalid("页码不正确")); }
+            if number == total_page { generate_count = total - (number - 1) * 100; }
+        } else if number < 1 {
+            return Err(invalid("页码不正确"));
+        }
+        let number_text = number.to_string();
+        let page_filter = "WHERE train_id=? AND page_number=? ORDER BY sort";
+        let mut messages = rows(&mut connection, page_table(domain), page_fields(domain), page_filter, &[&id, &number_text]).await?;
+        if messages.is_empty() {
+            if train["isCable"] == 1 { return Err(invalid("固定报底页不存在")); }
+            let mut transaction = pool.begin().await?;
+            load_train(&mut transaction, &id, domain, true).await?;
+            messages = rows(&mut transaction, page_table(domain), page_fields(domain), page_filter, &[&id, &number_text]).await?;
+            if messages.is_empty() {
+                let groups = generate_groups(&train, domain, generate_count.max(0) as usize)?;
+                for (sort, group) in groups.into_iter().enumerate() {
+                    let row = json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":train["id"],"pageNumber":number,"sort":sort,"key":group,"value":Value::Null});
+                    insert_fields(&mut transaction, page_table(domain), page_fields(domain), &row).await?;
+                    messages.push(row);
+                }
+            }
+            transaction.commit().await?;
+        }
+        let values = rows(&mut connection, value_table(domain), value_fields(domain), "WHERE train_id=? AND user_id=? AND page_number=? ORDER BY sort,id", &[&id, &target, &number_text]).await?;
+        let member = load_member(&mut connection, &id, &target, domain).await?;
+        let raw = values.iter().find(|row| row["sort"] == -1);
+        let mut result = json!({
+            "protocolVersion": train["protocolVersion"],
+            "attempt": member.as_ref().map_or(Value::Null, |member| member["attempt"].clone()),
+            "serverElapsedMs": if member.is_some() { elapsed(&mut connection, &id, &target, domain).await? } else { 0 },
+            "submitted": raw.is_some(), "savedCaptureIntervals": [],
+        });
+        if let Some(intervals) = raw.and_then(|row| row["captureIntervals"].as_str()) { result["savedCaptureIntervals"] = stored_json(intervals)?; }
+        result["messageVO"] = json!(if values.is_empty() { messages.iter().map(|row| page_dto(row, domain, true)).collect::<Vec<_>>() } else { values.iter().map(|row| page_dto(row, domain, false)).collect::<Vec<_>>() });
+        Ok(result)
+    }.await)
 }
 pub(crate) async fn key_pat_value(
     State(state): State<AppState>,
@@ -2179,7 +2387,9 @@ async fn participant_action(
             Ok(())
         };
         let protocol = || -> Outcome<()> {
-            if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
+            if train["protocolVersion"] != 1 {
+                return Err(if matches!(domain, Domain::Telex) { terminal("旧训练缺少原始采集协议，请重新创建训练；历史成绩保持不变") } else { invalid("旧训练缺少原始采集协议，请重新创建训练") });
+            }
             Ok(())
         };
         let underway = || -> Outcome<()> {
@@ -2440,17 +2650,21 @@ async fn save_generated_group(
     let row = if matches!(domain, Domain::Ticker) {
         json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":id,"floorNumber":page,"sort":sort,"moresKey":key,"moresValue":"[]","moresTime":"[]","patKeys":"[]"})
     } else {
-        json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":"[]","time":"[]"})
+        // Java stores no `value` on a source page of the telex training.
+        json!({"id":uuid::Uuid::new_v4().to_string(),"trainId":id,"pageNumber":page,"sort":sort,"key":key,"value":if matches!(domain, Domain::Telex) { Value::Null } else { json!("[]") },"time":"[]"})
     };
     insert_fields(connection, page_table(domain), page_fields(domain), &row).await?;
     Ok(())
 }
+/// Java `deriveCapture`: per-page and total rate from the raw rows' capture intervals, written to
+/// the member row by primary key. Returns the member's total rate (Java `member.speed`).
 async fn derive_telex_capture(
     connection: &mut MySqlConnection,
+    member_id: &str,
     train_id: &str,
     user_id: &str,
     train_type: Option<i64>,
-) -> Outcome<()> {
+) -> Outcome<rust_decimal::Decimal> {
     let rows = rows(
         connection,
         value_table(Domain::Telex),
@@ -2489,31 +2703,23 @@ async fn derive_telex_capture(
             page_rates.push(Value::Null);
             page_times.push(Value::Null);
         }
-        page_rates[page as usize - 1] = json!(if duration > 0 {
-            ((characters as f64 * 60_000.0 / duration as f64).round() as i64).to_string()
-        } else {
-            "0".to_owned()
-        });
+        page_rates[page as usize - 1] =
+            json!(super::scoring::rate_per_minute(characters as i64, duration).to_string());
         page_times[page as usize - 1] = json!(duration / 1000);
     }
-    let speed = if total_duration > 0 {
-        (total_characters as f64 * 60_000.0 / total_duration as f64).round() as i64
-    } else {
-        0
-    };
+    let speed = super::scoring::rate_per_minute(total_characters as i64, total_duration);
     sqlx::query(
-        "UPDATE general_telex_pat_user SET active_millis=?,valid_time=?,speed=?,speed_log=?,valid_time_log=? WHERE train_id=? AND user_id=?",
+        "UPDATE general_telex_pat_user SET active_millis=?,valid_time=?,speed=?,speed_log=?,valid_time_log=? WHERE id=?",
     )
     .bind(total_duration)
     .bind(i32::try_from(total_duration / 1000).map_err(|_| invalid("采集时长超出范围"))?)
     .bind(speed.to_string())
     .bind(Value::Array(page_rates).to_string())
     .bind(Value::Array(page_times).to_string())
-    .bind(train_id)
-    .bind(user_id)
+    .bind(member_id)
     .execute(connection)
     .await?;
-    Ok(())
+    Ok(speed)
 }
 
 /// `/api/socket/generalTickerPatTrain/updateTrainStatus` (teacher.js:299): the same Java
@@ -2888,338 +3094,6 @@ fn other_rate_scale(rule: &Value, field: &str) -> usize {
     }
 }
 
-#[derive(Default)]
-struct TelexSettlementStatistics {
-    pat_group: i64,
-    error_code: i64,
-    correct_mistakes: i64,
-    non_standard: i64,
-    much_less_line: i64,
-    much_less_groups: i64,
-    much_less_code: i64,
-    less_return_line: i64,
-    less_page: i64,
-    error_page: i64,
-}
-
-#[derive(Clone)]
-struct TelexLine {
-    groups: Vec<String>,
-}
-
-fn telex_token_lines(text: &str, statistics: &mut TelexSettlementStatistics) -> Vec<TelexLine> {
-    let mut result = Vec::new();
-    let mut current = Vec::new();
-    let mut token = String::new();
-    let flush_token = |token: &mut String,
-                       current: &mut Vec<String>,
-                       statistics: &mut TelexSettlementStatistics| {
-        if token.is_empty() {
-            return;
-        }
-        if token.chars().count() >= 8 && !token.contains('/') && !token.contains('-') {
-            let chunks = token
-                .chars()
-                .collect::<Vec<_>>()
-                .chunks(4)
-                .map(|chunk| chunk.iter().collect::<String>())
-                .collect::<Vec<_>>();
-            statistics.non_standard += chunks.len().saturating_sub(1) as i64;
-            statistics.pat_group += chunks.len() as i64;
-            current.extend(chunks);
-        } else {
-            current.push(std::mem::take(token));
-            statistics.pat_group += 1;
-        }
-    };
-    let mut previous_cr = false;
-    for character in text.chars() {
-        if character == '\n' && previous_cr {
-            previous_cr = false;
-            continue;
-        }
-        previous_cr = character == '\r';
-        if character == ' ' || character == '\t' {
-            flush_token(&mut token, &mut current, statistics);
-        } else if character == '\n' || character == '\r' {
-            flush_token(&mut token, &mut current, statistics);
-            if !current.is_empty() {
-                result.push(TelexLine {
-                    groups: std::mem::take(&mut current),
-                });
-                statistics.pat_group += 1;
-            }
-        } else {
-            token.push(character);
-        }
-    }
-    flush_token(&mut token, &mut current, statistics);
-    if !current.is_empty() {
-        result.push(TelexLine { groups: current });
-    }
-    result
-}
-
-fn telex_is_number(value: &str, maximum: i64) -> bool {
-    !value.is_empty()
-        && !(value.len() > 1 && value.starts_with('0'))
-        && value
-            .parse::<i64>()
-            .is_ok_and(|number| (1..=maximum).contains(&number))
-}
-
-fn neaten_telex_lines(
-    lines: &mut [TelexLine],
-    statistics: &mut TelexSettlementStatistics,
-) -> Outcome<()> {
-    for line in lines {
-        let mut corrected = Vec::new();
-        let mut index = 0_usize;
-        while index < line.groups.len() {
-            let group = &line.groups[index];
-            if group == "QTA" {
-                if line
-                    .groups
-                    .get(index + 1)
-                    .is_some_and(|value| telex_is_number(value, 10))
-                {
-                    let position = line.groups[index + 1].parse::<usize>().unwrap_or(0);
-                    if position > 0 && position <= corrected.len() {
-                        corrected.remove(position - 1);
-                        statistics.correct_mistakes += 1;
-                    } else {
-                        statistics.non_standard += 1;
-                    }
-                    index += 2;
-                    continue;
-                }
-                statistics.non_standard += 1;
-                corrected.push(group.clone());
-                index += 1;
-                continue;
-            }
-            if group == "ADD" {
-                if index + 2 < line.groups.len() && telex_is_number(&line.groups[index + 1], 10) {
-                    let position = line.groups[index + 1].parse::<usize>().unwrap_or(0);
-                    let slot = position.saturating_sub(1).min(corrected.len());
-                    corrected.insert(slot, line.groups[index + 2].clone());
-                    statistics.correct_mistakes += 1;
-                    index += 3;
-                    continue;
-                }
-                statistics.non_standard += 1;
-                corrected.push(group.clone());
-                index += 1;
-                continue;
-            }
-            if group.ends_with('P') || group.ends_with('p') {
-                if index + 2 < line.groups.len() {
-                    statistics.correct_mistakes += 1;
-                    index += 3;
-                    continue;
-                }
-                statistics.non_standard += 1;
-                corrected.push(group.clone());
-                index += 1;
-                continue;
-            }
-            if group.contains('/') {
-                if group.chars().all(|character| character == '/') && !corrected.is_empty() {
-                    if group.chars().count() != 4 {
-                        statistics.non_standard += 1;
-                    }
-                    if let Some(replacement) = line.groups.get(index + 1) {
-                        *corrected
-                            .last_mut()
-                            .ok_or_else(|| invalid("改错记录无效"))? = replacement.clone();
-                        statistics.correct_mistakes += 1;
-                        index += 2;
-                        continue;
-                    }
-                } else if group
-                    .chars()
-                    .next()
-                    .is_some_and(|character| character.is_ascii_alphanumeric())
-                    && group.ends_with('/')
-                {
-                    if group.chars().count() != 4 {
-                        statistics.non_standard += 1;
-                    }
-                    if let Some(replacement) = line.groups.get(index + 1) {
-                        corrected.push(replacement.clone());
-                        statistics.correct_mistakes += 1;
-                        index += 2;
-                        continue;
-                    }
-                } else if let Some((_, replacement)) = group.rsplit_once('/') {
-                    if !replacement.is_empty() {
-                        corrected.push(replacement.to_owned());
-                        statistics.correct_mistakes += 1;
-                        index += 1;
-                        continue;
-                    }
-                }
-                statistics.non_standard += 1;
-            } else if telex_is_number(group, 10) && index + 1 < line.groups.len() {
-                let position = group
-                    .parse::<usize>()
-                    .map_err(|_| invalid("改组编号无效"))?;
-                if corrected.len() < 10 {
-                    statistics.non_standard += 1;
-                }
-                if let Some(target) = corrected.get_mut(position - 1) {
-                    *target = line.groups[index + 1].clone();
-                }
-                statistics.correct_mistakes += 1;
-                index += 2;
-                continue;
-            }
-            corrected.push(group.clone());
-            index += 1;
-        }
-        line.groups = corrected;
-    }
-    Ok(())
-}
-
-fn align_telex_lines(
-    sources: &[Value],
-    submitted: &str,
-    page_number: i64,
-    statistics: &mut TelexSettlementStatistics,
-) -> Outcome<()> {
-    let mut lines = telex_token_lines(submitted, statistics);
-    neaten_telex_lines(&mut lines, statistics)?;
-    let mut normalized = Vec::new();
-    for (line_index, line) in lines.iter().enumerate() {
-        let split_at = if line.groups.len() > 10 && line_index * 10 + 10 < sources.len() {
-            let expected = source_group_text(&sources[line_index * 10 + 10], Domain::Telex)?;
-            line.groups
-                .iter()
-                .enumerate()
-                .skip(10)
-                .find_map(|(index, group)| (group == &expected).then_some(index))
-        } else {
-            None
-        };
-        if let Some(split_at) = split_at {
-            normalized.push(TelexLine {
-                groups: line.groups[..split_at].to_vec(),
-            });
-            normalized.push(TelexLine {
-                groups: line.groups[split_at..].to_vec(),
-            });
-            statistics.less_return_line += 1;
-        } else {
-            normalized.push(line.clone());
-        }
-    }
-    lines = normalized;
-    let mut source_index = 0_usize;
-    let mut row = 0_usize;
-    let mut column = 0_usize;
-    while source_index < sources.len() {
-        let expected = source_group_text(&sources[source_index], Domain::Telex)?;
-        let Some(line) = lines.get(row) else {
-            if source_index % 10 == 0 {
-                statistics.much_less_line += 1;
-            }
-            source_index += 1;
-            continue;
-        };
-        let Some(actual) = line.groups.get(column) else {
-            statistics.much_less_groups += 1;
-            if column == 0 {
-                statistics.much_less_line += 1;
-            }
-            source_index += 1;
-            if source_index % 10 == 0 {
-                row += 1;
-                column = 0;
-            }
-            continue;
-        };
-        if actual != &expected {
-            let mut handled = false;
-            for ahead in 1..=4 {
-                if line
-                    .groups
-                    .get(column + ahead)
-                    .is_some_and(|next| next == &expected)
-                {
-                    statistics.much_less_groups += 1;
-                    column += ahead;
-                    handled = true;
-                    break;
-                }
-            }
-            if !handled {
-                for next in source_index + 1..sources.len().min((source_index / 10 + 1) * 10) {
-                    if source_group_text(&sources[next], Domain::Telex)? == *actual {
-                        statistics.much_less_groups += (next - source_index) as i64;
-                        source_index = next;
-                        handled = true;
-                        break;
-                    }
-                }
-            }
-            if !handled
-                && actual.contains('-')
-                && actual
-                    .split('-')
-                    .next()
-                    .is_some_and(|prefix| prefix.contains(expected.as_str()))
-            {
-                handled = true;
-            }
-            if !handled && actual.chars().count() > 4 && actual.contains(expected.as_str()) {
-                statistics.much_less_code += 1;
-                handled = true;
-            }
-            if !handled && actual.chars().count() < 4 && expected.contains(actual.as_str()) {
-                statistics.much_less_code += 1;
-                handled = true;
-            }
-            if !handled {
-                statistics.error_code += 1;
-            }
-        }
-        source_index += 1;
-        column += 1;
-        if source_index % 10 == 0 {
-            if column < line.groups.len() {
-                statistics.much_less_groups += (line.groups.len() - column) as i64;
-            }
-            row += 1;
-            column = 0;
-        }
-    }
-    if row < lines.len() && column < lines[row].groups.len() {
-        statistics.much_less_groups += (lines[row].groups.len() - column) as i64;
-    }
-    if lines.len() > sources.len().div_ceil(10) {
-        statistics.much_less_line += (lines.len() - sources.len().div_ceil(10)) as i64;
-    }
-    if statistics.pat_group >= 100 {
-        let marker = submitted
-            .rsplit('-')
-            .next()
-            .map(|value| {
-                value
-                    .chars()
-                    .take_while(|character| character.is_ascii_digit())
-                    .collect::<String>()
-            })
-            .unwrap_or_default();
-        if marker.is_empty() {
-            statistics.less_page += 1;
-        } else if marker != page_number.to_string() {
-            statistics.error_page += 1;
-        }
-    }
-    Ok(())
-}
-
 fn score_key_categories(
     train: &Value,
     rule: &Value,
@@ -3261,11 +3135,18 @@ fn score_key_categories(
 fn score_telex_categories(
     train: &Value,
     rule: &Value,
-    stats: &TelexSettlementStatistics,
-    speed: f64,
+    stats: &super::telex_handle::Stats,
+    speed: i64,
 ) -> Outcome<(f64, Value)> {
     let mut score = frozen_full_score(train, Domain::Telex)?;
     let mut deduct = serde_json::Map::new();
+    // Java reads `alterError`; a rule without it (the UI never writes one) is a Java NPE.
+    // Rust deliberately falls back to `correctMistakes` like the personal telex service does.
+    let correct_field = if rule["other"]["alterError"].is_null() {
+        "correctMistakes"
+    } else {
+        "alterError"
+    };
     for (name, field, count) in [
         ("errorCode", "errorCode", stats.error_code),
         ("muchLessLine", "muchLessLine", stats.much_less_line),
@@ -3275,7 +3156,7 @@ fn score_telex_categories(
         ("lessPage", "lessPage", stats.less_page),
         ("errorPage", "errorPage", stats.error_page),
         ("nonStandart", "nonStandart", stats.non_standard),
-        ("correctMistakes", "alterError", stats.correct_mistakes),
+        ("correctMistakes", correct_field, stats.correct_mistakes),
     ] {
         let deduction = other_rate(rule, field) * count as f64;
         score -= deduction;
@@ -3285,14 +3166,29 @@ fn score_telex_categories(
             json!(deduction_text(deduction, other_rate_scale(rule, field))),
         );
     }
-    let speed_score = speed_adjustment(rule, speed);
-    score += speed_score;
-    if speed_score != 0.0 {
+    // Java ScoreMath.wpmScore on the stored integer speed; the text follows the direction (not the
+    // sign of the result) so a zero coefficient still prints "+0"/"-0". Equal speed adds no key.
+    let base = settlement_number(&rule["wpm"]["base"]).unwrap_or(0.0) as i64;
+    let speed_score = if speed > base {
+        let rate = settlement_number(&rule["wpm"]["r"]).unwrap_or(0.0);
+        let value = rate * (speed - base) as f64;
         deduct.insert(
             "speedScore".into(),
-            json!(speed_score_text(rule, speed, speed_score)),
+            json!(format!("+{:.*}", decimal_scale(&rule["wpm"]["r"]), value)),
         );
-    }
+        value
+    } else if speed < base {
+        let rate = settlement_number(&rule["wpm"]["l"]).unwrap_or(0.0);
+        let value = rate * (base - speed) as f64;
+        deduct.insert(
+            "speedScore".into(),
+            json!(format!("-{:.*}", decimal_scale(&rule["wpm"]["l"]), value)),
+        );
+        -value
+    } else {
+        0.0
+    };
+    score += speed_score;
     Ok((score, Value::Object(deduct)))
 }
 
@@ -3306,9 +3202,10 @@ async fn locked_member(
     target: &str,
     domain: Domain,
 ) -> Outcome<Value> {
+    // Java telex `student()`/`lockedStudent()`: a user without a member row is 207, not 202.
     let missing = || {
         if matches!(domain, Domain::Telex) {
-            invalid("未查询到参训记录")
+            denied()
         } else {
             invalid(STUDENT_MISSING)
         }
@@ -3332,65 +3229,6 @@ async fn locked_member(
     .await?
     .pop()
     .ok_or_else(missing)
-}
-
-async fn ensure_settlement_pages(
-    connection: &mut MySqlConnection,
-    train: &Value,
-    domain: Domain,
-) -> Outcome<()> {
-    let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
-    let field = if matches!(domain, Domain::Ticker) {
-        "messageNumber"
-    } else {
-        "totalNumber"
-    };
-    let total = train[field]
-        .as_i64()
-        .ok_or_else(|| invalid("训练总组数缺失，无法结算"))?;
-    if total <= 0 {
-        return Err(invalid("训练总组数不合法"));
-    }
-    let pages = (total + 99) / 100;
-    for page in 1..=pages {
-        let page_field = if matches!(domain, Domain::Ticker) {
-            "floor_number"
-        } else {
-            "page_number"
-        };
-        let page_text = page.to_string();
-        let filter = format!("WHERE train_id=? AND {page_field}=? ORDER BY sort");
-        let existing = rows(
-            connection,
-            page_table(domain),
-            page_fields(domain),
-            &filter,
-            &[&id, &page_text],
-        )
-        .await?;
-        if !existing.is_empty() {
-            continue;
-        }
-        if train["isCable"] == 1 {
-            return Err(invalid("固定报底页不存在"));
-        }
-        let count = (total - (page - 1) * 100).min(100) as usize;
-        let groups = if matches!(domain, Domain::Telex) && train["type"] == 0 {
-            match train["patType"].as_i64() {
-                Some(0) => numeric_pairs(count, false),
-                Some(1) => numeric_pairs(count, true),
-                Some(2) => generate_groups(train, domain, count)?,
-                _ => return Err(invalid("拍发类型不合法")),
-            }
-        } else {
-            generate_groups(train, domain, count)?
-        };
-        for (sort, group) in groups.into_iter().enumerate() {
-            save_generated_group(connection, &train["id"], domain, page as usize, sort, group)
-                .await?;
-        }
-    }
-    Ok(())
 }
 
 fn validate_capture_timelines(timelines: &[Vec<(i64, i64)>]) -> Outcome<()> {
@@ -3616,15 +3454,35 @@ async fn settle_key(
     Ok(())
 }
 
+/// Result of settling one telex member as Java returns it from memory: the response carries the
+/// freshly computed BigDecimals ("92.00" / "0" accuracy, integer speed), not the stored columns.
+struct TelexSettled {
+    accuracy: String,
+    speed: String,
+}
+
+/// Java `countScore` + `settleMember` for the group telex training. Per page that has a raw
+/// submission the Java comparison (`telex_handle::handle`) yields counters and the analysis
+/// rows (`sort >= 0`); the old analysis rows of the member are replaced, the raw rows
+/// (`sort = -1`) stay. Every write is by primary key (the child tables have no other index).
 async fn settle_telex(
     connection: &mut MySqlConnection,
     train: &Value,
     member: &Value,
     user_id: &str,
-) -> Outcome<()> {
+) -> Outcome<TelexSettled> {
+    use super::telex_handle::{handle, PageKey, Stats, ValueRow};
     let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
+    let member_id = text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?;
     let rule = frozen_rule(train, Domain::Telex)?;
-    derive_telex_capture(connection, &id, user_id, train["trainType"].as_i64()).await?;
+    let speed = derive_telex_capture(
+        connection,
+        &member_id,
+        &id,
+        user_id,
+        train["trainType"].as_i64(),
+    )
+    .await?;
     let values = rows(
         connection,
         value_table(Domain::Telex),
@@ -3633,7 +3491,7 @@ async fn settle_telex(
         &[&id, user_id],
     )
     .await?;
-    let duration = member_capture_duration(member, Domain::Telex, &values)?;
+    member_capture_duration(member, Domain::Telex, &values)?;
     let sources = rows(
         connection,
         page_table(Domain::Telex),
@@ -3642,7 +3500,8 @@ async fn settle_telex(
         &[&id],
     )
     .await?;
-    let mut source_by_page: HashMap<i64, Vec<Value>> = HashMap::new();
+    let mut source_by_page: std::collections::BTreeMap<i64, Vec<PageKey>> =
+        std::collections::BTreeMap::new();
     for source in sources {
         source_by_page
             .entry(
@@ -3651,54 +3510,105 @@ async fn settle_telex(
                     .ok_or_else(|| invalid("报底页码缺失"))?,
             )
             .or_default()
-            .push(source);
+            .push(PageKey {
+                key: source["key"].as_str().unwrap_or_default().to_owned(),
+                sort: source["sort"].as_i64().unwrap_or_default(),
+            });
     }
     let mut submitted_by_page = HashMap::new();
-    let mut characters = 0_i64;
-    for value in values {
+    for value in &values {
         let page = value["pageNumber"]
             .as_i64()
             .ok_or_else(|| invalid("拍发页码缺失"))?;
-        let text = value["value"]
-            .as_str()
-            .ok_or_else(|| invalid("页面内容不能为空"))?;
-        characters +=
-            super::telex_capture::character_count(text, train["trainType"].as_i64()) as i64;
-        submitted_by_page.insert(page, text.to_owned());
+        // Java takes the first raw row of the page.
+        submitted_by_page
+            .entry(page)
+            .or_insert_with(|| value["value"].as_str().map(str::to_owned));
     }
-    let mut statistics = TelexSettlementStatistics::default();
-    let mut pages = source_by_page.keys().copied().collect::<Vec<_>>();
-    pages.sort_unstable();
-    for page in pages {
-        if let Some(submitted) = submitted_by_page.get(&page) {
-            align_telex_lines(&source_by_page[&page], submitted, page, &mut statistics)?;
+    let mut stats = Stats::default();
+    let mut analysis: Vec<ValueRow> = Vec::new();
+    for (page, keys) in &source_by_page {
+        if let Some(submitted) = submitted_by_page.get(page) {
+            // A raw row without text is a Java NullPointerException inside `handle`.
+            let submitted = submitted.as_deref().unwrap_or_default();
+            handle(*page, keys, submitted, &mut stats, &mut analysis)
+                .map_err(|_| java_exception())?;
         }
     }
-    let speed = if duration > 0 {
-        (characters as f64 * 60_000.0 / duration as f64).round()
+    // Replace the member's analysis rows: plain-read the ids, delete and insert by primary key.
+    let old: Vec<String> = sqlx::query_scalar(&format!(
+        "SELECT CAST(id AS CHAR) FROM {} WHERE train_id=? AND user_id=? AND sort>-1 ORDER BY id",
+        value_table(Domain::Telex)
+    ))
+    .bind(&id)
+    .bind(user_id)
+    .fetch_all(&mut *connection)
+    .await?;
+    for old_id in old {
+        sqlx::query(&format!(
+            "DELETE FROM {} WHERE id=?",
+            value_table(Domain::Telex)
+        ))
+        .bind(old_id)
+        .execute(&mut *connection)
+        .await?;
+    }
+    for row in &analysis {
+        sqlx::query(&format!(
+            "INSERT INTO {} (id,train_id,user_id,page_number,sort,`key`,value) VALUES (?,?,?,?,?,?,?)",
+            value_table(Domain::Telex)
+        ))
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&id)
+        .bind(user_id)
+        .bind(row.page_number)
+        .bind(row.sort)
+        .bind(&row.key)
+        .bind(&row.value)
+        .execute(&mut *connection)
+        .await?;
+    }
+    use rust_decimal::prelude::ToPrimitive;
+    let speed_value = speed.to_i64().unwrap_or(0);
+    let score = score_telex_categories(train, &rule, &stats, speed_value)?;
+    // Java: no accuracy when the correct total is zero ("0"), otherwise the two-decimal ratio
+    // times 100 ("92.00"); the correct total may be negative and is not clamped.
+    let correct_total = stats.pat_group - stats.error_code - stats.much_less_code;
+    let accuracy = if correct_total == 0 {
+        rust_decimal::Decimal::ZERO
+    } else if stats.pat_group == 0 {
+        return Err(java_exception());
     } else {
-        0.0
+        (rust_decimal::Decimal::from(correct_total) / rust_decimal::Decimal::from(stats.pat_group))
+            .round_dp_with_strategy(2, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
+            * rust_decimal::Decimal::from(100)
     };
-    let score = score_telex_categories(train, &rule, &statistics, speed)?;
-    let accuracy = if statistics.pat_group <= 0 {
-        0.0
+    let accuracy_text = if correct_total == 0 {
+        "0".to_owned()
     } else {
-        (statistics.pat_group - statistics.error_code - statistics.much_less_code) as f64
-            / statistics.pat_group as f64
-            * 100.0
+        format!("{accuracy:.2}")
     };
-    let sql = "UPDATE general_telex_pat_user SET valid_time=?,speed=?,accuracy=?,error_number=?,score=?,deduct_info=?,is_finish=1,finish_time=NOW(6) WHERE id=?";
+    // `error_number` is not written: Java leaves the column at its creation value.
+    let sql = "UPDATE general_telex_pat_user SET speed=?,accuracy=?,score=?,deduct_info=?,is_finish=1,finish_time=NOW(6) WHERE id=?";
     sqlx::query(sql)
-        .bind(i32::try_from(duration / 1000).map_err(|_| invalid("采集时长超出范围"))?)
-        .bind(score_text(speed))
+        .bind(speed.to_string())
         .bind(format!("{accuracy:.2}"))
-        .bind(i32::try_from(statistics.error_code).map_err(|_| invalid("错误数量超出范围"))?)
         .bind(format!("{:.2}", score.0))
         .bind(score.1.to_string())
-        .bind(text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?)
-        .execute(connection)
+        .bind(&member_id)
+        .execute(&mut *connection)
         .await?;
-    Ok(())
+    Ok(TelexSettled {
+        accuracy: accuracy_text,
+        speed: speed.to_string(),
+    })
+}
+
+/// A Java runtime exception on the settlement path: HTTP 500 and a rolled-back transaction.
+fn java_exception() -> Failure {
+    Failure::Database(sqlx::Error::Protocol(
+        "java-equivalent runtime exception while settling a telex training".into(),
+    ))
 }
 
 /// Hand-key settlement. Java scores it with the same MessageComparisonService / handkey rule
@@ -3877,14 +3787,14 @@ async fn finish_participant(
             transaction.commit().await?;
             return Ok(if matches!(domain, Domain::Ticker) { train_response(train, domain) } else { json!([result]) });
         }
-        if train["protocolVersion"] != 1 { return Err(invalid("旧训练缺少原始采集协议，请重新创建训练")); }
+        if train["protocolVersion"] != 1 {
+            return Err(if matches!(domain, Domain::Telex) { terminal("旧训练缺少原始采集协议，请重新创建训练；历史成绩保持不变") } else { invalid("旧训练缺少原始采集协议，请重新创建训练") });
+        }
         let status = train["status"].as_i64().unwrap_or(-1);
         frozen_rule(&train, domain)?;
         // Java settles with whatever pages exist: a missing page is counted as lacking groups,
-        // never generated at finish. Only the telex service still relies on generated pages.
-        if matches!(domain, Domain::Telex) {
-            ensure_settlement_pages(&mut transaction, &train, domain).await?;
-        }
+        // never generated at finish.
+        let mut telex_settled = None;
         let mut settled_all = false;
         let mut settled_users = vec![actor.id.clone()];
         if !matches!(domain, Domain::Telex) {
@@ -3927,7 +3837,7 @@ async fn finish_participant(
         if !settled_all {
             match domain {
                 Domain::Key => settle_key(&mut transaction, &train, &member, &actor.id).await?,
-                Domain::Telex => settle_telex(&mut transaction, &train, &member, &actor.id).await?,
+                Domain::Telex => telex_settled = Some(settle_telex(&mut transaction, &train, &member, &actor.id).await?),
                 Domain::Ticker => settle_ticker(&mut transaction, &train, &member, &actor.id).await?,
             }
         }
@@ -3948,7 +3858,13 @@ async fn finish_participant(
             let member = load_member(&mut transaction, &id, &actor.id, domain)
                 .await?
                 .ok_or_else(|| invalid("未查询到参训记录"))?;
-            json!([finish_member(&member, domain)])
+            let mut result = finish_member(&member, domain);
+            if let Some(settled) = telex_settled {
+                // Java answers with the in-memory entity, not the stored decimal columns.
+                result["accuracy"] = json!(settled.accuracy);
+                result["speed"] = json!(settled.speed);
+            }
+            json!([result])
         };
         transaction.commit().await?;
         for user_id in settled_users {
@@ -3993,9 +3909,6 @@ async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<()> 
         return Ok(());
     }
     frozen_rule(&train, domain)?;
-    if matches!(domain, Domain::Telex) {
-        ensure_settlement_pages(&mut transaction, &train, domain).await?;
-    }
     // Plain read: each member is then locked by primary key (locked_member), in id order.
     let member_ids: Vec<String> = sqlx::query_scalar(&format!(
         "SELECT user_id FROM {} WHERE train_id=? AND role=0 AND COALESCE(is_finish,0)<>1 ORDER BY id",
@@ -4019,7 +3932,9 @@ async fn recover_one(pool: &MySqlPool, domain: Domain, id: &str) -> Outcome<()> 
         }
         match domain {
             Domain::Key => settle_key(&mut transaction, &train, &member, &user_id).await?,
-            Domain::Telex => settle_telex(&mut transaction, &train, &member, &user_id).await?,
+            Domain::Telex => {
+                settle_telex(&mut transaction, &train, &member, &user_id).await?;
+            }
             Domain::Ticker => settle_ticker(&mut transaction, &train, &member, &user_id).await?,
         }
         settled.push(user_id);
@@ -4078,3 +3993,7 @@ mod ticker_writer_tests;
 #[cfg(test)]
 #[path = "general_key_writer_tests.rs"]
 mod key_writer_tests;
+
+#[cfg(test)]
+#[path = "general_telex_writer_tests.rs"]
+mod telex_writer_tests;

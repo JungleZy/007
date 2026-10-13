@@ -74,6 +74,7 @@ mod telegram_write;
 mod telegraph_key;
 mod telex;
 mod telex_capture;
+mod telex_handle;
 mod test_paper;
 mod theory;
 mod theory_detail;

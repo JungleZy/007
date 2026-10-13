@@ -1014,8 +1014,8 @@ fn general_users_for_key(manager: &WsManager, key: &GeneralRoomKey) -> Vec<Value
         .flat_map(|session_ids| session_ids.iter())
         .filter_map(|session_id| manager.sessions.get(session_id))
         .collect();
-    if key.kind == GeneralKind::Key {
-        // Java `getOneline` (electronic key): students in join order, the organizer last.
+    if matches!(key.kind, GeneralKind::Key | GeneralKind::Telex) {
+        // Java `getOneline` (electronic key and telex): students in join order, the organizer last.
         connections.sort_by_key(|connection| connection.role == Some(1));
     }
     connections
