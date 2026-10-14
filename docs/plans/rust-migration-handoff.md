@@ -1,11 +1,11 @@
 # Rust 迁移交接（每次接手先读本文件）
 
-最后更新：2026-10-13，基线提交见 `git log -1`。本文件只记"现状与下一步"；历史证据在 `docs/reviews/rust-migration/` 与各提交正文，不要在这里追加长段落。
+最后更新：2026-10-14 UTC，基线提交见 `git log -1`。本文件只记"现状与下一步"；历史证据在 `docs/reviews/rust-migration/` 与各提交正文，不要在这里追加长段落。
 
 ## 现状
 - 接口层双栈对账：B4 用户/角色/菜单、WS 逐帧设施、B5 组训三域、B6 仿真、B7 报话/军语、B8 理论题库余项与杂项 **已完成**。全部旅程 2454 请求；最终全量扫描 3903 请求，0 FAIL/OPEN。
-- 最后一批 B8 已合入 11 条旅程 / 202 步；下一步是单域真实切换与回滚演练，不是下线 Java。
-- 未做：单域真实切换与回滚演练、浏览器/Electron 实测、Windows/arm64 构建、生产切换。Phase10（下线 Java）仍阻断。
+- 单域真实网关演练 **已完成**：`/api/postTrainGlobalRule/**` 在同一隔离库上 Java→Rust→Java→Rust，最终 108 个网关请求、三次真实阻塞写排空及七次 Java WS 回退验证通过。不是生产切换，不是下线 Java。
+- 未做：完整浏览器/Electron 实测、Windows/arm64 构建验收、生产备份/切换。Phase10（下线 Java）仍阻断。
 - 所有提交均未 push。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
@@ -33,6 +33,14 @@ python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'
 JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅程格式见 `dual-stack-sweep.py` 顶部；支持 `headers` 会话步骤、`ws` 步骤、`presence`、`parse_data`。harness 的 POST 一律带 JSON 体，无体请求需 curl 另验。
 `local-dual-stack.sh up` 已修正 Java PID：后台子 shell 用 `exec` 替换为 Java，`java.pid` 与监听 PID 一致；`down` 实测关闭两端口。此前旧 shell PID 会留下 Java 孤儿进程，最终门禁已在修复后的全新进程上重跑通过。
 
+单域演练使用本机原生 Nginx（同 Java/Rust 网络命名空间），不再使用旧 Rust-only 起停脚本。现有缓存二进制可直接复跑：
+```bash
+MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
+  --nginx-binary "$HOME/.cache/rust-cutover/native-nginx/root/usr/sbin/nginx" \
+  --out "$HOME/.cache/rust-cutover/global-rule-gateway-native.json"
+```
+默认回环端口 18140/18141/18142；每次只克隆 schema，创建唯一 `rust_cutover_global_rule_*` 合成库，完成或失败均清理本次进程和库。脚本不 build、不下载、不改生产；新机器需先准备已验证的 JDK21 fast-jar、Rust binary 和原生 Nginx。
+
 ## 已拍板口径（后续批次默认沿用）
 - 业务码：状态类错误按 Java 202（不用 208）；非成员/非学员按 Java；Java 的 500 一般不照搬，Rust 返回定义好的 202 并登记——例外：报文页组数非 10 倍数且末行错码时照 Java 500（用户 3b）。
 - 计分/取整/时长：一律按 Java（ScoreMath 取整、向上取整时长等）；Java 计分缺陷照抄并登记为已知 Java 缺陷（如缺页重复扣分）。
@@ -50,8 +58,15 @@ JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅�
 - 已修：完整成绩统计、创建人、课程筛选/时间、LIKE、全部错题/分档、返回形态、202、保留学习数据、主键锁及 WS 404/REST 405。题目读取按 Java `createTime` 而非 `sort`，夹具用反序固定时间验证；平均分实测保留 DECIMAL（`100/80/70` → `83.3333`）。
 - 验证：JDK21 `clean verify` 513；Rust 常规 79、B8 隔离库 11、相关 WS 隔离库 2；8 处锁变异全部捕获并恢复；Python 68。B8 专项 202 / 全量 3903 请求，均 0 FAIL/OPEN；已 `$S down`。Python 有既存未关闭 socket 的 ResourceWarning，无测试失败。
 
-## 下一步（B8 之后）
+## 单域网关演练完成记录
+- 证据：`docs/reviews/rust-migration/phase9-cutover-rehearsal.json`；脚本及 13 项安全/状态/证据回归在 `backend-rust/scripts/`。本轮 JDK21 `clean verify` 513、Python 全套 81 通过；`/bin/false` 启动失败清理实测通过。
+- 选择岗位全局评分规则单表域。`deviceType` 被排除，因为删除会跨写设备及说明表。四阶段均验证主键/业务字段/持久创建时间不丢失、无关哨兵不变、203/204/206/207 无写入；回滚 Java 可读写 Rust 已提交的数据，再切 Rust 可读 Java 回退写入。
+- 必须先用共享停写标记拦住所有 worker，再 reload、排空旧请求与旧 worker，最后开放新后端。仅观察到一次新 generation 响应不够：已实测旧 worker 在 reload 交接时短暂仍能接受连接。三次切换均以真实 MySQL 主键锁阻塞旧写入，释放后只提交一次；逐请求核对 Nginx upstream，禁止自动重试。
+- Nginx 原生二进制解决容器与后端回环地址的命名空间隔离问题，不把后端改绑 `0.0.0.0`。成功/失败后 18140/18141/18142 均无监听，临时库剩余 0。
+- 此处是共享数据库上的**路由回滚**，不是业务数据回滚或生产备份恢复。旧 worker 整体排空可能被未迁移域长连接阻塞；超时维持停写并失败，不能宣称活跃 WS 无损生产切换。
+
+## 下一步
 1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
-2. 单域真实切换与回滚演练：选一个已对齐、低风险的域，在网关上 Java→Rust 切流量、写入、回滚、再切（`backend-rust/scripts/phase9-cutover-rehearsal.sh` 目前只验证 Rust 单独起停）。
-3. 浏览器/Electron 实测（Rust 作为 Electron 子进程：登录、上传、训练、WS、退出）；Windows（mingw）与 arm64 交叉编译 CI。
-4. 以上完成后再评估 Phase10 前置条件（`docs/reviews/rust-migration/phase10-preconditions.json`）。
+2. 完整浏览器/Electron 实测：Rust 作为 Electron 子进程，验证登录、上传、训练、WS、退出；不要把本轮 HTTP 网关证明当作 UI 验收。
+3. Windows（mingw）与 arm64 交叉编译及对应平台 smoke；本轮只在 Linux 本机演练。
+4. 生产备份、切换窗口和恢复验收完成后再评估 Phase10 前置条件（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
