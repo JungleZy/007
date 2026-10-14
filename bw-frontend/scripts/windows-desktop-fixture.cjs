@@ -57,7 +57,7 @@ function createFixture({repo, mysql, port, schema, output}) {
     sql(content);
     migrations.push({name, sha256: sha256(content)});
   }
-  const names = sql('SHOW TABLES;').split('\n');
+  const names = sql('SHOW TABLES;').split(/\r?\n/);
   for (const name of names) {
     assert.match(name, /^[A-Za-z0-9_]+$/);
     assert.equal(sql(`SELECT COUNT(*) FROM \`${name}\`;`), '0', `Unexpected pre-fixture DATA in ${name}`);

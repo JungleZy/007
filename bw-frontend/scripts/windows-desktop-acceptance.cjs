@@ -508,8 +508,8 @@ async function cleanup() {
     const existingValidation = ps("$found=@(); foreach($root in @('HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall')) { if(Test-Path $root) {$found+=@(Get-ChildItem $root | Get-ItemProperty | Where-Object {$_.DisplayName -eq 'NIP UNSIGNED VALIDATION ONLY'})}}; $found.Count");
     assert.equal(existingValidation, '0', 'Existing validation installation detected; refusing to replace another run\'s data');
     assertNoListeners([18001, 8000]);
-    await buildInstallers();
     const databaseUrl = await startMysql();
+    await buildInstallers();
     const account = 'uiwin' + crypto.randomBytes(4).toString('hex');
     const password = crypto.randomBytes(18).toString('hex');
     const exe = await installVersion(0);
