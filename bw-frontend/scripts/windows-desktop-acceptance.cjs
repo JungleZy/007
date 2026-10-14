@@ -60,7 +60,9 @@ async function until(description, condition, timeout = 60000) {
   throw new Error(`Timed out: ${description}${last ? `: ${last.message}` : ''}`);
 }
 function ps(script) {
-  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand',
+  const host = process.env.DESKTOP_ACCEPTANCE_POWERSHELL;
+  assert(host && path.isAbsolute(host), 'Invoke through the PowerShell acceptance wrapper');
+  const result = spawnSync(host, ['-NoProfile', '-NonInteractive', '-EncodedCommand',
     Buffer.from("$ErrorActionPreference='Stop'; " + script, 'utf16le').toString('base64')],
   {encoding: 'utf8', windowsHide: true, timeout: 30000, maxBuffer: 16 * 1024 * 1024});
   assert.equal(result.status, 0, result.stderr || String(result.error));

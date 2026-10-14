@@ -28,6 +28,7 @@ try {
     }
     & $mysqld --version
     if ($LASTEXITCODE -ne 0) { throw 'MySQL executable failed' }
+    $env:DESKTOP_ACCEPTANCE_POWERSHELL = Join-Path $PSHOME 'pwsh.exe'
     & node (Join-Path $PSScriptRoot 'windows-desktop-acceptance.cjs') $artifact $output $mysqld $playwright
     if ($LASTEXITCODE -ne 0) { throw "Native desktop acceptance exited $LASTEXITCODE" }
 } finally {
