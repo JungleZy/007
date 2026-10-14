@@ -65,7 +65,7 @@ function sanitizeCurrentPath(currentPath) {
     .filter((seg) => seg !== '' && !INVALID_SEGMENT.test(seg))
   const relative = segments.join(path.sep)
   const absolute = path.resolve(getRoot(), relative)
-  return isWithin(getRoot(), absolute) ? { relative, absolute } : null
+  return isWithin(getRoot(), absolute) ? { relative } : null
 }
 
 function file(req, res, next) {
@@ -133,9 +133,18 @@ function fileUpload(req, res, next) {
       return res.status(400).json({ data: [], message: '上传目录非法' })
     }
     currentPath = target.relative
-    const filePath = target.absolute
+    let filePath = getRealRoot()
     try {
-      fs.mkdirSync(filePath, { recursive: true })
+      // Resolve each existing component before creating the next one. A legacy
+      // symlink/junction must not let mkdir or formidable write outside the root.
+      for (const segment of currentPath.split(path.sep).filter(Boolean)) {
+        const next = path.join(filePath, segment)
+        if (!fs.existsSync(next)) fs.mkdirSync(next)
+        filePath = fs.realpathSync(next)
+        if (!isWithin(getRealRoot(), filePath)) {
+          return res.status(400).json({ data: [], message: '上传目录非法' })
+        }
+      }
     } catch (e) {
       // 建目录失败必须报错：此前异常被吞掉后仍返回成功，前端会拿到一个不存在的路径
       process.send(`- [upload file error] ${e}`)

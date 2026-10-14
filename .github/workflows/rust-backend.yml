@@ -158,6 +158,10 @@ jobs:
           # Tool-only dependency is outside the checkout; no package version/lock edits.
           npm install --prefix $env:DESKTOP_TOOLS --no-save --no-package-lock --ignore-scripts playwright-core@1.51.1 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-cdp-tool.log"
           if ($LASTEXITCODE -ne 0) { throw "CDP tool installation exited $LASTEXITCODE" }
+      - name: Verify resource upload confinement including Windows junctions
+        run: |
+          node --test bw-frontend/scripts/test/file-storage.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Resource confinement regression exited $LASTEXITCODE" }
       - name: Accept unsigned installed Windows desktop and installer upgrade
         run: |
           $ErrorActionPreference = 'Stop'
