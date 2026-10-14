@@ -167,11 +167,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & ./bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact "${{ runner.temp }}\native-desktop-rust\rust-backend.exe" -OutputDirectory $env:DESKTOP_EVIDENCE -PlaywrightDirectory "$env:DESKTOP_TOOLS\node_modules\playwright-core"
           if ($LASTEXITCODE -ne 0) { throw "Windows desktop acceptance exited $LASTEXITCODE" }
-      - name: Always retain native evidence and unsigned validation installers
+      - name: Always retain native acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-desktop-UNSIGNED-VALIDATION-ONLY
+          name: windows-desktop-acceptance-evidence
           retention-days: 14
           if-no-files-found: warn
           path: |
@@ -180,5 +180,12 @@ jobs:
             ${{ runner.temp }}/native-desktop-evidence/*.png
             ${{ runner.temp }}/native-desktop-evidence/*.download
             ${{ runner.temp }}/native-desktop-evidence/*.sql
-            ${{ runner.temp }}/native-desktop-evidence/build-*/*.exe
             ${{ runner.temp }}/native-desktop-evidence/build-*/builder-*.yaml
+      - name: Retain unsigned validation installers separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-UNSIGNED-VALIDATION-ONLY
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/native-desktop-evidence/build-*/*.exe

@@ -82,9 +82,9 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 ## Windows Electron 安装升级验收（进行中）
 - `.github/workflows/rust-backend.yml` 已新增原生 Windows desktop 作业：消费同一轮 Windows GNU 后端产物，生成两个不发布的 `UNSIGNED VALIDATION ONLY` NSIS 测试版本；实际渲染器验证开发激活、登录、课件导入、文件字节下载、网络配置及升级保留。不是历史客户版升级或可信签名证明。
 - 入口：`pwsh -File bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact <exe> -OutputDirectory <证据目录> -PlaywrightDirectory <playwright-core目录>`。数据库使用 runner 的 MySQL 二进制另起私有 datadir；仅导入快照 CREATE TABLE 与 22 个迁移，禁止复制源业务数据。
-- 本地 fixture：106 表、22 迁移、合成前全表为空；8 个合成菜单、`is_admin=0` 管理角色。JDK21 `clean verify` 513、产物契约5、真实文件服务回归1通过。Actions `38540857867` 已通过 Node24 依赖安装、三平台后端及 Windows junction 回归，并完成首个 NSIS 构建；验收随后因 PowerShell 子进程 `Get-AuthenticodeSignature` 模块加载失败而中止。改为复用调用方 PowerShell7 的绝对路径，保留签名断言，整包安装/运行尚未通过。
+- Actions `38542586938` 已构建两个 NSIS 测试版本 `3.1.2-validation.1` / `3.1.3-validation.2`，包内 Rust 与同轮 artifact 一致；已下载并核对两个安装器 SHA256，真实 Authenticode 均 `NotSigned`。本轮停在 MySQL PID 判定：Windows mysqld 实际由父6356派生子3556监听62652，而脚本误要求监听者必须为父进程；已按实录改为核对自有进程树、相同mysqld二进制、私有datadir与loopback监听，未放宽为任意端口就绪。安装/运行尚未通过。
 - 已发现待复现的升级风险：NSIS 旧卸载器删除整个安装根，现有 `bin/nip.db`/`bin/file` 可能先于首次启动迁移而丢失。验收在 B 安装后、首次启动前逐字节核对；不能仅测新安装成功。
-- 已修 harness 前置：`38538460900` 的 job-level `runner.temp` 解析错误（改 step 内 `RUNNER_TEMP`），`38539332814` 的 Node22/npm 锁解析错误（对齐已有 Node24，不改锁）。这些运行不计为 desktop 验收。
+- 已修 harness 前置：job-level `runner.temp` 解析、Node22/npm 锁解析（对齐已有 Node24，不改锁）、PowerShell5/7 混用的签名模块加载；日志与未签名安装器分开 artifact，便于独立取证。已执行本地 MySQL fixture106表/22迁移/8菜单、JDK21 verify513、产物契约5；文件服务回归在本地与原生 Windows junction 均通过。这些不替代整包运行验收。
 - GitHub 仓库 signing secrets/environments 均为空；已有 releases 只有 Java 后端 runner，没有历史 Electron 安装包。完整客户文件库、可信签名证书、普通设备绑定授权及现场硬件仍缺验收条件；Phase10 不解除。
 
 ## 下一步

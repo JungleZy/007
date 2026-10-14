@@ -21,7 +21,7 @@ const mysqld = path.resolve(mysqlArg);
 const mysql = path.join(path.dirname(mysqld), 'mysql.exe');
 const {chromium} = require(path.resolve(playwrightArg));
 fs.mkdirSync(output, {recursive: true});
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'nip-rust-desktop-'));
+const work = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'nip-rust-desktop-')));
 const install = path.join(work, 'installed');
 const profile = path.join(work, 'profile');
 const machine = path.join(work, 'program-data');
@@ -209,11 +209,18 @@ async function startMysql() {
     return result.status === 0 && path.resolve(result.stdout.trim()).toLowerCase() === path.resolve(datadir).toLowerCase();
   });
   const ownership = captureOwnership(database.pid);
-  assert(ownership.listeners.some(item => item.LocalPort === port && item.OwningProcess === database.pid), 'Private MySQL does not own its port');
+  // Windows mysqld starts a same-executable supervised child. The observed
+  // listener must belong to our captured tree, not a pre-existing MySQL service.
+  const listeners = ownership.listeners.filter(item => item.LocalPort === port);
+  assert.equal(listeners.length, 1, `Expected one private MySQL listener: ${JSON.stringify(listeners)}`);
+  const listenerOwner = ownership.children.find(item => item.ProcessId === listeners[0].OwningProcess);
+  assert(listenerOwner && listenerOwner.ExecutablePath?.toLowerCase() === mysqld.toLowerCase() &&
+    listeners[0].LocalAddress === '127.0.0.1', `Private MySQL listener is not our owned server: ${JSON.stringify(listeners)}`);
   fixture = createFixture({repo, mysql, port, schema: `rust_desktop_${crypto.randomBytes(8).toString('hex')}`, output});
   const password = crypto.randomBytes(24).toString('hex');
   fixture.sql(`CREATE USER 'desktop_fixture'@'127.0.0.1' IDENTIFIED BY '${password}'; GRANT ALL PRIVILEGES ON \`${fixture.report.schema}\`.* TO 'desktop_fixture'@'127.0.0.1';`);
-  report.database = {...fixture.report, pid: database.pid, datadir, tool: mysqld,
+  report.database = {...fixture.report, supervisorPid: database.pid, pid: listenerOwner.ProcessId,
+    processTree: ownership.children, listeners, datadir, tool: mysqld,
     version: ps(`& ${psQuote(mysqld)} --version; if($LASTEXITCODE -ne 0){throw 'mysqld version failed'}`),
     runnerDocumentation: 'https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#database-tools'};
   return `mysql://desktop_fixture:${password}@127.0.0.1:${port}/${fixture.report.schema}`;
