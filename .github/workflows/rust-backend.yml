@@ -42,3 +42,75 @@ jobs:
           name: rust-backend-linux-amd64
           path: backend-rust/target/release/rust-backend
           if-no-files-found: error
+
+  rust-backend-linux-arm64:
+    name: Rust backend (native Linux arm64 build, smoke)
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        working-directory: backend-rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-unknown-linux-gnu
+      - name: Require native arm64 runner
+        run: test "$(uname -m)" = aarch64
+      - name: Build Linux arm64 release
+        run: cargo build --locked --release --target aarch64-unknown-linux-gnu
+      - name: Smoke actual Linux arm64 release artifact
+        run: python3 scripts/platform-smoke.py target/aarch64-unknown-linux-gnu/release/rust-backend
+      - name: Upload Linux arm64 release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backend-linux-arm64
+          path: backend-rust/target/aarch64-unknown-linux-gnu/release/rust-backend
+          if-no-files-found: error
+
+  rust-backend-windows-gnu:
+    name: Rust backend (native Windows GNU build, smoke)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: backend-rust
+    env:
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: 'C:\mingw64\bin\gcc.exe'
+      CC_x86_64_pc_windows_gnu: 'C:\mingw64\bin\gcc.exe'
+      AR_x86_64_pc_windows_gnu: 'C:\mingw64\bin\ar.exe'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Windows GNU Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
+          targets: x86_64-pc-windows-gnu
+      - name: Require native Windows x64 and preinstalled MinGW
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Expected native Windows x64' }
+          # runner-images Install-Mingw64.ps1 installs the x64 toolchain here.
+          $mingw = 'C:\mingw64\bin'
+          foreach ($tool in @('gcc.exe', 'ar.exe', 'ld.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $mingw $tool))) { throw "Missing MinGW tool: $tool" }
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $mingw
+          $triple = & $env:CC_x86_64_pc_windows_gnu -dumpmachine
+          if ($LASTEXITCODE -ne 0 -or $triple.Trim() -ne 'x86_64-w64-mingw32') { throw 'Expected x64 MinGW GCC' }
+          & $env:CC_x86_64_pc_windows_gnu --version
+          & $env:AR_x86_64_pc_windows_gnu --version
+          if ($LASTEXITCODE -ne 0) { throw 'Missing MinGW archiver' }
+      - name: Build Windows GNU release
+        run: cargo build --locked --release --target x86_64-pc-windows-gnu
+      - name: Smoke actual Windows GNU release artifact
+        # Private console + CTRL_C_EVENT; taskkill/TerminateProcess cannot pass.
+        run: python scripts/platform-smoke.py target/x86_64-pc-windows-gnu/release/rust-backend.exe
+      - name: Upload Windows GNU release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backend-windows-x86_64-gnu
+          path: backend-rust/target/x86_64-pc-windows-gnu/release/rust-backend.exe
+          if-no-files-found: error

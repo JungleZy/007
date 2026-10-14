@@ -1,8 +1,147 @@
 {
-  "schema":"rust-migration-phase9-build-gate/v1",
-  "verified_at_utc":"2026-09-28T00:40:14+08:00",
-  "status":"BLOCKED_FULL_GATE",
-  "evidence":{"java":"clean verify: 512 tests, 0 failures/errors/skipped","java_targeted":"PersonalTrainingScoringContractTest: 8 passed; ComprehensiveAuthorityTest: 4 passed","frontend":"npm test: 39 passed; npm run build: passed","rust":"cargo check --locked: passed with warnings; cargo test --locked: 16 passed, 2 ignored; cargo build --locked --release: passed; smoke.sh release binary passed","keysim":"cargo test --locked: 85 passed, 7 suites (prior evidence)","electron_manifest":"artifact-manifest.test.mjs: 5 passed (prior evidence)","rust_smoke":"isolated REST/WS smoke: HTTP200 comprehensive/mtd/term/settings, missing-token 203, status WS heartbeat pong, invalid WS credential error frame; release smoke health/live/ready/OpenAPI/auth/SIGTERM passed","platform_probe":"Windows GNU target failed because x86_64-w64-mingw32-gcc/dlltool are unavailable; arm64 target is not installed","backup_restore":"mysqldump isolated row count 2/2; current/base migration rehearsal 2026-09-27-current passed, 106 tables, 0 MyISAM, schema diff empty, repeat migrations green","cutover_rehearsal":"release binary on isolated port 18106: health/readiness/SIGTERM passed"},
-  "blocking_gates":["three-platform native artifact and release CI proof","authenticated Electron full workflow and real serial device","all 359 REST rows Rust-equivalent rather than Java-only/partial","Java/Rust complete business fixture diff","production gateway switch, write freeze, rollback window, monitoring and backup rehearsal"],
-  "decision":"Keep Java production writer and rollback entry; do not claim full plan completion."
+  "schema": "rust-migration-phase9-build-gate/v2",
+  "verified_at_utc": "2026-10-14T05:35:32+00:00",
+  "status": "BLOCKED_NATIVE_PLATFORM_AND_FIELD_ACCEPTANCE",
+  "application_base_commit": "487c9908eaaacc4e97d087406dfdefe6f5c57316",
+  "completed": {
+    "rust_targets": "x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu, aarch64-unknown-linux-gnu release artifacts actually compiled with --locked",
+    "runtime_smokes": "Native Linux, Wine Windows and QEMU arm64 each ran its actual artifact, checked HTTP contracts and graceful shutdown. Emulation is not native OS acceptance.",
+    "client": "Actual browser and packaged Linux Electron login/upload/keyboard-training/WS/exit passed with Rust as Electron child; see phase9-frontend-smoke.json.",
+    "ci": "Native Windows GNU and native Linux arm64 jobs added beside existing Linux x64 CI; actual artifact startup/auth/shutdown smoke required before upload. Remote Actions not executed; no push."
+  },
+  "toolchain": {
+    "rustc": "1.99.0 (b940084d7 2026-09-28), LLVM23.1.1",
+    "windows_gcc": "GCC13-win32; Ubuntu gcc-mingw-w64-x86-64-win32 package13.2.0-6ubuntu1+26.1",
+    "arm64_gcc": "aarch64-linux-gnu-gcc13.3.0-6ubuntu2~24.04.1",
+    "host_sysroot": "/home/zhang/.cache/rust-client-acceptance/sysroot",
+    "installation": "64 required Ubuntu package archives verified against apt SHA256 metadata and unpacked into a private cache; optional Xvfb was not downloaded and was unnecessary with the existing WSLg display. No system package installation.",
+    "dependency_metadata_sha256": "eb464fb0b263eb81160eff0f05aed02e0579191d11ee1bb12a48acc54e591d91",
+    "rust_std_checksums": {
+      "x86_64-pc-windows-gnu": "a2382bf189d5621e09db647da419a8e1d4c604d60941cb116da00ce34042b1dd",
+      "aarch64-unknown-linux-gnu": "1cf7e2ef58ed1cfa6f1adea18e155cbf254c1951f39e5f5e3376879f55fd64a4"
+    },
+    "rust_std_boundary": "Exact installed stable-channel manifest hashes used; interrupted unregistered Windows target files preserved before completing installation. arm64 mirror bytes matched the official manifest hash."
+  },
+  "artifacts": {
+    "linux_x86_64": {
+      "path": "backend-rust/target/release/rust-backend",
+      "format": "ELF Linux x86_64",
+      "execution": "native Linux x86_64",
+      "sha256": "55cfc3f66bfca52ccec0f40e32dbcb8e8f40c6494d211177b5fed7f1ca7cceda",
+      "bytes": 20299904
+    },
+    "windows_x86_64_gnu": {
+      "path": "backend-rust/target/x86_64-pc-windows-gnu/release/rust-backend.exe",
+      "format": "PE32+ x86-64 console executable",
+      "execution": "Wine9.0, emulated Windows",
+      "sha256": "63b5319f08cc05e971ca9ebd961bbef978f6d5f97a0e1b91b5699811404ba854",
+      "bytes": 25297531
+    },
+    "linux_arm64": {
+      "path": "backend-rust/target/aarch64-unknown-linux-gnu/release/rust-backend",
+      "format": "ELF64 AArch64, dynamic loader /lib/ld-linux-aarch64.so.1",
+      "execution": "QEMU user-mode8.2.2, emulated Linux arm64",
+      "sha256": "2ad0a45ab3808cdb424d09a338fa83506d009a854f69f5ae775c8031118e7569",
+      "bytes": 18949712
+    }
+  },
+  "cross_build": {
+    "cwd": "backend-rust",
+    "command": "cargo build --locked --release -p rust-backend --target x86_64-pc-windows-gnu --target aarch64-unknown-linux-gnu",
+    "environment": {
+      "TOOLS": "$HOME/.cache/rust-client-acceptance/sysroot",
+      "PATH": "$TOOLS/usr/bin:$PATH",
+      "LD_LIBRARY_PATH": "$TOOLS/usr/lib/x86_64-linux-gnu",
+      "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER": "$TOOLS/usr/bin/x86_64-w64-mingw32-gcc-win32",
+      "CC_x86_64_pc_windows_gnu": "$TOOLS/usr/bin/x86_64-w64-mingw32-gcc-win32",
+      "AR_x86_64_pc_windows_gnu": "$TOOLS/usr/bin/x86_64-w64-mingw32-ar",
+      "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER": "$TOOLS/usr/bin/aarch64-linux-gnu-gcc",
+      "CC_aarch64_unknown_linux_gnu": "$TOOLS/usr/bin/aarch64-linux-gnu-gcc",
+      "AR_aarch64_unknown_linux_gnu": "$TOOLS/usr/bin/aarch64-linux-gnu-ar",
+      "CFLAGS_aarch64_unknown_linux_gnu": "--sysroot=$TOOLS",
+      "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS": "-C link-arg=--sysroot=$TOOLS"
+    }
+  },
+  "smoke_script": {
+    "path": "backend-rust/scripts/platform-smoke.py",
+    "sha256": "a988bd32cf00fbb83a5effe5dec0914d6ac7f686dba9c869f2b123599b304a2e",
+    "assertions": [
+      "health/live exact status ok",
+      "ready process-only with dependencies=false",
+      "OpenAPI3.1.0 plus actual auth route",
+      "HTTP200 business203/204/206 with preserved messages",
+      "query credentials not accepted",
+      "request ID propagated",
+      "/api returns404",
+      "actual signal handler runs",
+      "exit0 and graceful lifecycle logs",
+      "listener closed"
+    ],
+    "no_database_claim": "These platform artifact smokes explicitly remove DB/feature env; they do not prove successful login or platform-specific database readiness."
+  },
+  "observed_runs": [
+    {
+      "platform": "native Linux x86_64",
+      "command": "python3 scripts/platform-smoke.py target/release/rust-backend",
+      "status": "PASS",
+      "shutdown": "SIGTERM",
+      "exit_code": 0,
+      "listener_closed": true
+    },
+    {
+      "platform": "Linux arm64 under QEMU",
+      "command": "LD_LIBRARY_PATH=$TOOLS/usr/lib/x86_64-linux-gnu python3 scripts/platform-smoke.py --qemu $TOOLS/usr/bin/qemu-aarch64 --sysroot $TOOLS/usr/aarch64-linux-gnu target/aarch64-unknown-linux-gnu/release/rust-backend",
+      "status": "PASS_EMULATED",
+      "shutdown": "SIGTERM",
+      "exit_code": 0,
+      "listener_closed": true
+    },
+    {
+      "platform": "Windows x86_64 GNU under Wine9.0",
+      "command": "WINEARCH=win64 WINEPREFIX=<private-prefix> WINESERVER=<cached-wineserver64> WINELOADER=<cached-wine64> WINEDLLPATH=<cached-x86_64-windows>:<cached-x86_64-unix> <cached-wine64> <Windows-Python3.11.9>/python.exe scripts/platform-smoke.py target/x86_64-pc-windows-gnu/release/rust-backend.exe",
+      "status": "PASS_EMULATED",
+      "shutdown": "Private console plus real CTRL_C_EVENT, not CTRL_BREAK_EVENT or TerminateProcess",
+      "exit_code": 0,
+      "listener_closed": true,
+      "environment_details": "Relocated only the cached Ubuntu wineserver shell dispatcher; installed checksum-verified libz-mingw zlib1.dll in the private Wine system32 so Windows Python ctypes could load. No application binary or smoke checks bypassed.",
+      "windows_python_zip_sha256": "009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf83cfd3b",
+      "source": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+    }
+  ],
+  "native_windows_probe": {
+    "status": "NOT_REACHABLE_FROM_THIS_SESSION",
+    "attempts": [
+      "Absolute Windows PowerShell -NoProfile -NonInteractive version query",
+      "Absolute cmd.exe /c ver",
+      "cmd.exe using discovered WSL_INTEROP=/run/WSL/1_interop"
+    ],
+    "observed_error": "WSL UtilAcceptVsock: accept4 failed110; all exited1. Windows files being mounted does not prove native program execution."
+  },
+  "ci": {
+    "path": ".github/workflows/rust-backend.yml",
+    "sha256": "a0c6de44f816cf4f0c5579a837de81e4af1013426e11d0c80514dced0ed068c3",
+    "windows_runner": "windows-2022, stable-x86_64-pc-windows-gnu, explicit C:\\mingw64\\bin linker/CC/AR and machine triple check",
+    "arm64_runner": "ubuntu-24.04-arm, require uname -m=aarch64, build target aarch64-unknown-linux-gnu",
+    "status": "CONFIGURED_NOT_EXECUTED",
+    "native_artifacts_only_after_smoke": true
+  },
+  "current_gates": {
+    "java": "JDK21 ./mvnw -B clean verify:513 passed,0 failures/errors/skips",
+    "rust": "cargo fmt --check and cargo test --locked:79 passed,154 ignored not counted as executed",
+    "frontend": "npm test39 passed; production build and actual Linux --dir packaging passed; rebuilt package exercised after editor fix",
+    "desktop_manifest": "5 passed",
+    "python_harness": "81 passed"
+  },
+  "prior_completed_gates": {
+    "rest_ws_contract": "B4-B8 synthetic full sweep3903 requests,0 FAIL/OPEN; historical accepted differences retained in registry",
+    "single_domain_gateway": "Real Nginx Java->Rust->Java->Rust shared-schema rehearsal passed; phase9-cutover-rehearsal.json",
+    "backup_restore": "Earlier isolated migration/backup restoration evidence is in phase9-backup-restore.json; not repeated or promoted to production in this round."
+  },
+  "blocking_gates": [
+    "Native Windows and native arm64 CI/runtime acceptance (local Wine/QEMU success is not a substitute).",
+    "Native platform Electron installers/signing/full workflows and all-domain UI/real serial-keying/audio/device acceptance.",
+    "Ordinary device-bound authorization, complete customer file assets/downloads, deployment/upgrade acceptance.",
+    "Production backup/restore, cutover/rollback window and stable observation period."
+  ],
+  "decision": "Keep Java runtime/CI and production rollback entry. Local client and cross-artifact evidence advanced; Phase10 is still blocked."
 }

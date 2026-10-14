@@ -5,7 +5,7 @@
 ## 现状
 - 接口层双栈对账：B4 用户/角色/菜单、WS 逐帧设施、B5 组训三域、B6 仿真、B7 报话/军语、B8 理论题库余项与杂项 **已完成**。全部旅程 2454 请求；最终全量扫描 3903 请求，0 FAIL/OPEN。
 - 单域真实网关演练 **已完成**：`/api/postTrainGlobalRule/**` 在同一隔离库上 Java→Rust→Java→Rust，最终 108 个网关请求、三次真实阻塞写排空及七次 Java WS 回退验证通过。不是生产切换，不是下线 Java。
-- 未做：完整浏览器/Electron 实测、Windows/arm64 构建验收、生产备份/切换。Phase10（下线 Java）仍阻断。
+- Linux 浏览器及真实打包 Electron 的 Rust 主链（登录、上传、英语键盘训练、WS、退出）**已实跑通过**；Windows GNU / arm64 release 已交叉构建并分别通过 Wine / QEMU smoke。原生平台 CI、现场硬件及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
 - 所有提交均未 push。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
@@ -65,8 +65,16 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 - Nginx 原生二进制解决容器与后端回环地址的命名空间隔离问题，不把后端改绑 `0.0.0.0`。成功/失败后 18140/18141/18142 均无监听，临时库剩余 0。
 - 此处是共享数据库上的**路由回滚**，不是业务数据回滚或生产备份恢复。旧 worker 整体排空可能被未迁移域长连接阻塞；超时维持停写并失败，不能宣称活跃 WS 无损生产切换。
 
+## 客户端与平台验收完成记录
+- 证据：`docs/reviews/rust-migration/phase9-frontend-smoke.json`、`docs/reviews/rust-migration/phase9-build-gate.json`。两名合成用户经真实 Rust 注册/登录，菜单来自隔离库；Electron 实际启动 `bin/server/server`，不是外部预启动后端。
+- 真 multipart 文本上传在浏览器及 Electron 返回完整内容并显示在编辑器；英文键盘训练结果已与持久数据核对，finish 只提交 id/content。实测 UI 心跳、页面重连、退出登录关闭 WS，以及两次 Electron 菜单退出后 Rust exit0 / 端口释放。
+- 发现并修复理论编辑器空分类列表访问 `[0].id` 的异常；重建后的 Electron 与独立原生 Chrome 均对空分类完成上传且无 JS 错误。开发激活走历史已批准的表单测试码，机器级 `/var/lib` 和用户 profile 均隔离；这不等于普通设备绑定授权验收。
+- Rust1.99.0 已构建 Windows `x86_64-pc-windows-gnu` 与 `aarch64-unknown-linux-gnu` 产物。`backend-rust/scripts/platform-smoke.py` 对实际二进制验证 health/ready、203/204/206、请求头边界、退出及端口回收；Linux 原生、Windows Wine9.0（真实 CTRL_C_EVENT）、arm64 QEMU 均通过，模拟环境不冒充原生 OS。
+- CI 已新增 `windows-2022` GNU 与 `ubuntu-24.04-arm` 原生构建/运行门禁，未 push、未运行远端 Actions。Windows 宿主 PowerShell/cmd 及显式 WSL_INTEROP 启动均报 `UtilAcceptVsock accept4 failed110`，故原生 Windows 结果仍缺。
+- 本轮门禁：JDK21 clean verify513、Rust79、前端39、桌面产物5、Python81 全通过；前端生产构建及 Linux unpacked 打包通过。合成库已删除，浏览器/文件服务/Rust/Electron 测试进程已退出。
+
 ## 下一步
 1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
-2. 完整浏览器/Electron 实测：Rust 作为 Electron 子进程，验证登录、上传、训练、WS、退出；不要把本轮 HTTP 网关证明当作 UI 验收。
-3. Windows（mingw）与 arm64 交叉编译及对应平台 smoke；本轮只在 Linux 本机演练。
-4. 生产备份、切换窗口和恢复验收完成后再评估 Phase10 前置条件（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
+2. 在原生 Windows、arm64 runner 实际执行已配置的 CI / smoke；不要把 Wine/QEMU 结果作为原生通过证据。
+3. 原生 Windows/Electron 整包、签名/安装/升级、全训练域 UI、真实串口/按键/听感、普通绑定授权及客户完整资源/下载链仍待验收。
+4. 生产备份恢复、切换窗口及观察期完成后再评估 Phase10（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
