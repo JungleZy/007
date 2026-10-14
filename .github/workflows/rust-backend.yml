@@ -114,3 +114,65 @@ jobs:
           name: rust-backend-windows-x86_64-gnu
           path: backend-rust/target/x86_64-pc-windows-gnu/release/rust-backend.exe
           if-no-files-found: error
+
+  windows-desktop-acceptance:
+    name: Windows desktop (unsigned NSIS, real renderer, same-source upgrade)
+    needs: rust-backend-windows-gnu
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      DESKTOP_EVIDENCE: '${{ runner.temp }}\native-desktop-evidence'
+      DESKTOP_TOOLS: '${{ runner.temp }}\native-desktop-tools'
+    steps:
+      - name: Checkout exact acceptance source
+        uses: actions/checkout@v4
+      - name: Set up Node for Electron packaging and CDP
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            bw-frontend/package-lock.json
+            bw-frontend/frontend/package-lock.json
+      - name: Download the successful native Windows GNU job artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-backend-windows-x86_64-gnu
+          path: '${{ runner.temp }}/native-desktop-rust'
+      - name: Install locked desktop and renderer dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path $env:DESKTOP_EVIDENCE | Out-Null
+          npm ci --prefix bw-frontend 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-desktop.log"
+          if ($LASTEXITCODE -ne 0) { throw "Desktop npm ci exited $LASTEXITCODE" }
+          npm ci --prefix bw-frontend/frontend 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-renderer.log"
+          if ($LASTEXITCODE -ne 0) { throw "Renderer npm ci exited $LASTEXITCODE" }
+          # Tool-only dependency is outside the checkout; no package version/lock edits.
+          npm install --prefix $env:DESKTOP_TOOLS --no-save --no-package-lock --ignore-scripts playwright-core@1.51.1 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-cdp-tool.log"
+          if ($LASTEXITCODE -ne 0) { throw "CDP tool installation exited $LASTEXITCODE" }
+      - name: Accept unsigned installed Windows desktop and installer upgrade
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact "${{ runner.temp }}\native-desktop-rust\rust-backend.exe" -OutputDirectory $env:DESKTOP_EVIDENCE -PlaywrightDirectory "$env:DESKTOP_TOOLS\node_modules\playwright-core"
+          if ($LASTEXITCODE -ne 0) { throw "Windows desktop acceptance exited $LASTEXITCODE" }
+      - name: Always retain native evidence and unsigned validation installers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-UNSIGNED-VALIDATION-ONLY
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/native-desktop-evidence/*.json
+            ${{ runner.temp }}/native-desktop-evidence/*.log
+            ${{ runner.temp }}/native-desktop-evidence/*.png
+            ${{ runner.temp }}/native-desktop-evidence/*.download
+            ${{ runner.temp }}/native-desktop-evidence/*.sql
+            ${{ runner.temp }}/native-desktop-evidence/build-*/*.exe
+            ${{ runner.temp }}/native-desktop-evidence/build-*/builder-*.yaml

@@ -79,6 +79,13 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 - 伴随 [Build Quarkus Native 38522432738](https://github.com/JungleZy/007/actions/runs/38522432738) 全绿：JVM513、前端39、产物校验5、keysim85，以及 Java 三平台 native build/smoke。Rust CI 常规79，Python comparator4 + cutover13；tag 专属 Desktop/Release 作业跳过。
 - 原生后端 smoke 只证明无数据库启动、健康/OpenAPI、203/204/206 请求头边界及正常退出；不等于原生 Electron 整包、业务库、客户设备或生产切换验收。
 
+## Windows Electron 安装升级验收（进行中）
+- `.github/workflows/rust-backend.yml` 已新增原生 Windows desktop 作业：消费同一轮 Windows GNU 后端产物，生成两个不发布的 `UNSIGNED VALIDATION ONLY` NSIS 测试版本；实际渲染器验证开发激活、登录、课件导入、文件字节下载、网络配置及升级保留。不是历史客户版升级或可信签名证明。
+- 入口：`pwsh -File bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact <exe> -OutputDirectory <证据目录> -PlaywrightDirectory <playwright-core目录>`。数据库使用 runner 的 MySQL 二进制另起私有 datadir；仅导入快照 CREATE TABLE 与 22 个迁移，禁止复制源业务数据。
+- 本地已执行 fixture：106 表、22 迁移、合成前全表为空；8 个合成菜单、`is_admin=0` 管理角色。PowerShell 语法、实际 builder 配置及 5 项产物契约通过；JDK21 `clean verify` 513 通过。原生 desktop 首跑尚未执行，不计通过。
+- 已发现待复现的升级风险：NSIS 旧卸载器删除整个安装根，现有 `bin/nip.db`/`bin/file` 可能先于首次启动迁移而丢失。验收在 B 安装后、首次启动前逐字节核对；不能仅测新安装成功。
+- GitHub 仓库 signing secrets/environments 均为空；已有 releases 只有 Java 后端 runner，没有历史 Electron 安装包。完整客户文件库、可信签名证书、普通设备绑定授权及现场硬件仍缺验收条件；Phase10 不解除。
+
 ## 下一步
 1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
 2. 验收原生 Windows/Electron 整包、签名/安装/升级及完整客户资源/下载链；后端原生 CI 已完成，不再列为待做。
