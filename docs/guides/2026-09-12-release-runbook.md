@@ -145,7 +145,7 @@ token 从「AES(账号-明文口令-deviceId)」改为 `SecureRandom` 不透明�
 - 随包 `bin/nip.db` 已归一为发布态默认（`localhost:18001` / `127.0.0.1:8000`），`_id:3`（串口）不预置 —— 首次启动由用户在网络设置/串口页选择。该文件**运行时可写**，用户改设置即写回，因此不纳入 CI 脏检查。
 - 渲染进程启用 `contextIsolation` + preload 白名单桥、移除 `--ignore-certificate-errors`：**错误证书不再被静默接受**，若现场用自签名 HTTPS 资源服务会直接失败（G4 可信证书门禁仍是外部前置）。
 - 内嵌文件服务默认只监听 `127.0.0.1:8000`。跨机访问「资源服务地址」能力保留，但需显式配置监听地址。
-- 资源根下的符号链接/Windows junction 不能指向根外：下载返回404，上传返回400且不创建根外目录或文件。2026-10-14 实际文件服务复现并修复了「下载已挡、上传仍沿链接写出根外」的不一致；正常上传/下载的相对路径与 `{data:[path]}` 不变。回归入口：`node --test bw-frontend/scripts/test/file-storage.test.mjs`，使用真实HTTP与私有临时目录。
+- 资源根下的符号链接/Windows junction 不能指向根外：下载返回404，上传返回400且不创建根外目录或文件。2026-10-14 实际文件服务复现并修复了「下载已挡、上传仍沿链接写出根外」的不一致；正常上传/下载的相对路径与 `{data:[path]}` 不变。回归入口：安装桌面依赖后运行 `node --test bw-frontend/scripts/runtime-test/file-storage.test.mjs`，使用真实HTTP与私有临时目录；不混入免依赖的发布清单契约测试。
 - 发布校验会断言 git tag 与三个版本号（`backend/pom.xml`、`bw-frontend/frontend/package.json`、`bw-frontend/package.json`）一致，打 tag 前先对齐。
 
 ### 4.5 Native 构建：会话随机数必须运行期初始化

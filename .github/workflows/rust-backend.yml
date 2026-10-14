@@ -133,7 +133,7 @@ jobs:
       - name: Set up Node for Electron packaging and CDP
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: |
             bw-frontend/package-lock.json
@@ -160,7 +160,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "CDP tool installation exited $LASTEXITCODE" }
       - name: Verify resource upload confinement including Windows junctions
         run: |
-          node --test bw-frontend/scripts/test/file-storage.test.mjs
+          node --test bw-frontend/scripts/runtime-test/file-storage.test.mjs
           if ($LASTEXITCODE -ne 0) { throw "Resource confinement regression exited $LASTEXITCODE" }
       - name: Accept unsigned installed Windows desktop and installer upgrade
         run: |
