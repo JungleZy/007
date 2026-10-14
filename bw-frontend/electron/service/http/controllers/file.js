@@ -6,10 +6,9 @@ const context = require('../core/node_core_ctx')
 
 // 文件服务的根目录。
 // 注意：这里的 context 是 service/http/core/node_core_ctx.js —— fork 出来的文件服务
-// **子进程自己**的上下文模块，其 appPath 由 service/http/index.js:9 设为
-// `<安装目录>/bin/file`，比 Electron 主进程的 appPath（main.js:12 的 dirname(exe)）
-// 窄一层。绝不可改用主进程的 appPath：那会把可读写范围扩大到包含 bin/server（后端
-// 原生二进制）、bin/nip.db（授权与地址库）和 resources/app.asar。
+// **子进程自己**的上下文模块，appPath 仅指向 `<runtimePath>/bin/file`。
+// Windows runtimePath 是 userData/runtime；其他平台仍是安装根。
+// 不能扩大为主进程 appPath 或 runtimePath，否则会暴露后端、配置库或 app.asar。
 // appPath 在本模块被 require 之后才赋值，因此只能惰性求值。
 let rootPath = null
 let realRootPath = null

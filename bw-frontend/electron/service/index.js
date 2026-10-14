@@ -7,7 +7,7 @@ const {BACKEND_PORT} = require("../shared/ports");
 function onHttpService() {
 	context.httpService = fork(
 		require.resolve('./http/index.js'),
-		[context.appPath],
+		[context.runtimePath],
 		{}
 	)
 	context.httpService.on('message', (m) => {

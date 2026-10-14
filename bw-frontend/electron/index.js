@@ -8,12 +8,10 @@ require('./controller/index')
 
 class Index {
 	constructor() {
-		loadConfig()
-		onBackendService()
-		onHttpService()
     const gotTheLock = app.requestSingleInstanceLock()
     if(!gotTheLock){
       app.quit()
+      return
     }else {
       app.on("second-instance",(event,commandLine,workingDirectory)=>{
         if(context.mainWindow){
@@ -22,12 +20,19 @@ class Index {
         }
       })
     }
-		app.whenReady().then(() => {
+		app.whenReady().then(async () => {
+			await loadConfig()
+			onBackendService()
+			onHttpService()
 			this.createWindow()
 
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
       })
+		}).catch((error) => {
+			console.error('用户数据初始化失败:', error)
+			dialog.showErrorBox('应用启动失败', `无法安全加载用户数据，未启动训练服务。\n${error.message}`)
+			app.exit(1)
 		})
 		app.on('will-quit', () => {
 			// 关闭所有子进程

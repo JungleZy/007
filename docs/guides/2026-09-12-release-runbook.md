@@ -142,7 +142,8 @@ token 从「AES(账号-明文口令-deviceId)」改为 `SecureRandom` 不透明�
 
 ### 4.4 桌面包
 
-- 随包 `bin/nip.db` 已归一为发布态默认（`localhost:18001` / `127.0.0.1:8000`），`_id:3`（串口）不预置 —— 首次启动由用户在网络设置/串口页选择。该文件**运行时可写**，用户改设置即写回，因此不纳入 CI 脏检查。
+- 随包 `bin/nip.db` 默认是 `localhost:18001` / `127.0.0.1:8000`，不预置串口行。Windows 首次启动将旧 `bin/{nip.db,nip.db~,config.json,file}` 整批迁至 `<app.getPath('userData')>/runtime/bin`，之后只写新位置；旧数据不与已有 runtime 合并或覆盖。授权副本与 Chromium profile 不移动，后端仍从安装目录 `bin/server/server.exe` 启动。Linux 路径保持不变。
+- Windows NSIS 升级前必须正常退出客户端及其服务。安装器先在 `<旧安装目录>.nip-data-backups/<GUID>` 保存逐文件 SHA256 验证的持久快照，旧卸载前再次检查进程与数据；安装后恢复旧 bin，供首次启动原子迁移。快照保留，不自动删除；备份/迁移失败、数据中存在链接、旧卸载失败均中止，不把失败当作全新安装。默认 per-user 安装器检测到 machine-wide 旧安装会在卸载前拒绝，须管理员制定共享数据迁移，不能猜归属。
 - 渲染进程启用 `contextIsolation` + preload 白名单桥、移除 `--ignore-certificate-errors`：**错误证书不再被静默接受**，若现场用自签名 HTTPS 资源服务会直接失败（G4 可信证书门禁仍是外部前置）。
 - 内嵌文件服务默认只监听 `127.0.0.1:8000`。跨机访问「资源服务地址」能力保留，但需显式配置监听地址。
 - 资源根下的符号链接/Windows junction 不能指向根外：下载返回404，上传返回400且不创建根外目录或文件。2026-10-14 实际文件服务复现并修复了「下载已挡、上传仍沿链接写出根外」的不一致；正常上传/下载的相对路径与 `{data:[path]}` 不变。回归入口：安装桌面依赖后运行 `node --test bw-frontend/scripts/runtime-test/file-storage.test.mjs`，使用真实HTTP与私有临时目录；不混入免依赖的发布清单契约测试。

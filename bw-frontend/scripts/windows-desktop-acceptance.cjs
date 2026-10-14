@@ -528,6 +528,16 @@ async function cleanup() {
     writeJson('acceptance.json', report);
     const upgraded = await installVersion(1);
     assertLegacyBeforeLaunch(legacy);
+    const backupParent = `${install}.nip-data-backups`;
+    const backups = fs.readdirSync(backupParent).filter(name => fs.existsSync(path.join(backupParent, name, 'complete.json')));
+    assert.equal(backups.length, 1, 'Expected one durable pre-uninstall snapshot in this private fresh-install fixture');
+    const backup = path.join(backupParent, backups[0]);
+    for (const [relative, bytes] of Object.entries(legacy)) {
+      assert.deepEqual(fs.readFileSync(path.join(backup, 'bin', relative)), bytes, `Recovery snapshot lost ${relative}`);
+    }
+    report.legacy.recoverySnapshot = {path: backup, manifestSha256: hash(path.join(backup, 'complete.json')),
+      verifiedFiles: Object.keys(legacy), retainedOutsideInstallDirectory: true};
+    fs.copyFileSync(path.join(backup, 'complete.json'), path.join(output, 'legacy-backup-manifest.json'));
     assert.deepEqual(licenseProof(), licenses, 'Installer changed private activation');
     assert.deepEqual(readDb(path.join(install, 'bin/nip.db')).get(2).text, expectedConfig, 'Installer changed legacy network config');
     assert.equal(hash(path.join(install, 'bin/file', resource.relative)), sha256(resource.png));
