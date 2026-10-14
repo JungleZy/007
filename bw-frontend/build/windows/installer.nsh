@@ -46,7 +46,7 @@ Var NipDataReceipt
   ${EndIf}
   InitPluginsDir
   SetOutPath $PLUGINSDIR
-  File /oname=nip-preserve-data.ps1 "${BUILD_RESOURCES_DIR}/windows/preserve-data.ps1"
+  File /oname=nip-preserve-data.ps1 "${BUILD_RESOURCES_DIR}\windows\preserve-data.ps1"
   StrCpy $NipDataReceipt "$PLUGINSDIR\nip-data-receipt.json"
   !insertmacro NipProtectData Backup
 !macroend
