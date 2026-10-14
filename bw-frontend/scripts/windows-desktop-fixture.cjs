@@ -2,6 +2,7 @@
 // Private native-MySQL fixture only. Never pipe the source snapshot into mysql.
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const {spawnSync} = require('node:child_process');
 const assert = require('node:assert/strict');
@@ -10,14 +11,27 @@ const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
 function createFixture({repo, mysql, port, schema, output}) {
   assert.match(schema, /^rust_desktop_[a-f0-9]+$/);
   function sql(statement, database = schema) {
-    const result = spawnSync(mysql, ['--no-defaults', '--protocol=TCP', '--host=127.0.0.1',
-      `--port=${port}`, '--user=root', '--default-character-set=utf8mb4', '--batch', '--skip-column-names',
-      ...(database ? [database] : [])], {
-      input: statement, encoding: 'utf8', timeout: 180000, maxBuffer: 32 * 1024 * 1024,
-      env: {...process.env, MYSQL_PWD: ''}, windowsHide: true
-    });
-    assert.equal(result.status, 0, `Private MySQL command failed: ${result.error || result.stderr}`);
-    return result.stdout.trim();
+    // A real batch-file handle avoids Windows mysql's short stdin-pipe/EOF
+    // ambiguity. Keep each UTF-8 command newline-terminated; never accept empty
+    // COUNT results as zero. The private SQL file is not an evidence artifact.
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nip-desktop-sql-'));
+    const filename = path.join(directory, 'statement.sql');
+    let descriptor;
+    try {
+      fs.writeFileSync(filename, `${statement}\n`, {encoding: 'utf8', mode: 0o600});
+      descriptor = fs.openSync(filename, 'r');
+      const result = spawnSync(mysql, ['--no-defaults', '--protocol=TCP', '--host=127.0.0.1',
+        `--port=${port}`, '--user=root', '--default-character-set=utf8mb4', '--batch', '--skip-column-names',
+        ...(database ? [database] : [])], {
+        stdio: [descriptor, 'pipe', 'pipe'], encoding: 'utf8', timeout: 180000, maxBuffer: 32 * 1024 * 1024,
+        env: {...process.env, MYSQL_PWD: ''}, windowsHide: true
+      });
+      assert.equal(result.status, 0, `Private MySQL command failed: ${result.error || result.stderr}`);
+      return result.stdout.trim();
+    } finally {
+      if (descriptor !== undefined) fs.closeSync(descriptor);
+      fs.rmSync(directory, {recursive: true, force: true});
+    }
   }
   sql(`CREATE DATABASE \`${schema}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`, null);
   const snapshot = fs.readFileSync(path.join(repo, 'backend/database/project006.sql'), 'utf8');
