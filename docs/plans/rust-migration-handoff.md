@@ -5,8 +5,8 @@
 ## 现状
 - 接口层双栈对账：B4 用户/角色/菜单、WS 逐帧设施、B5 组训三域、B6 仿真、B7 报话/军语、B8 理论题库余项与杂项 **已完成**。全部旅程 2454 请求；最终全量扫描 3903 请求，0 FAIL/OPEN。
 - 单域真实网关演练 **已完成**：`/api/postTrainGlobalRule/**` 在同一隔离库上 Java→Rust→Java→Rust，最终 108 个网关请求、三次真实阻塞写排空及七次 Java WS 回退验证通过。不是生产切换，不是下线 Java。
-- Linux 浏览器及真实打包 Electron 的 Rust 主链（登录、上传、英语键盘训练、WS、退出）**已实跑通过**；Windows GNU / arm64 release 已交叉构建并分别通过 Wine / QEMU smoke。原生平台 CI、现场硬件及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
-- 所有提交均未 push。
+- Linux 浏览器及打包 Electron 的 Rust 主链已实跑；Windows GNU、Linux arm64、Linux x64 **原生后端 CI 构建与产物 smoke 均已通过**。现场硬件、原生客户端发布包及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
+- 经用户明确批准，此前 44 个迁移提交已推送至公开仓库的独立分支 `ci/rust-native-acceptance`，草稿 PR：[JungleZy/007#1](https://github.com/JungleZy/007/pull/1)。远端 main 保持 `49341d99`；不得擅自合并、创建 tag 或发 release。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
 - 主会话（Opus）只调度与拍板；执行交给子代理：改代码/跑对账用 Sonnet，检索用 Haiku。子代理回报 ≤300 字。
@@ -70,11 +70,17 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 - 真 multipart 文本上传在浏览器及 Electron 返回完整内容并显示在编辑器；英文键盘训练结果已与持久数据核对，finish 只提交 id/content。实测 UI 心跳、页面重连、退出登录关闭 WS，以及两次 Electron 菜单退出后 Rust exit0 / 端口释放。
 - 发现并修复理论编辑器空分类列表访问 `[0].id` 的异常；重建后的 Electron 与独立原生 Chrome 均对空分类完成上传且无 JS 错误。开发激活走历史已批准的表单测试码，机器级 `/var/lib` 和用户 profile 均隔离；这不等于普通设备绑定授权验收。
 - Rust1.99.0 已构建 Windows `x86_64-pc-windows-gnu` 与 `aarch64-unknown-linux-gnu` 产物。`backend-rust/scripts/platform-smoke.py` 对实际二进制验证 health/ready、203/204/206、请求头边界、退出及端口回收；Linux 原生、Windows Wine9.0（真实 CTRL_C_EVENT）、arm64 QEMU 均通过，模拟环境不冒充原生 OS。
-- CI 已新增 `windows-2022` GNU 与 `ubuntu-24.04-arm` 原生构建/运行门禁，未 push、未运行远端 Actions。Windows 宿主 PowerShell/cmd 及显式 WSL_INTEROP 启动均报 `UtilAcceptVsock accept4 failed110`，故原生 Windows 结果仍缺。
-- 本轮门禁：JDK21 clean verify513、Rust79、前端39、桌面产物5、Python81 全通过；前端生产构建及 Linux unpacked 打包通过。合成库已删除，浏览器/文件服务/Rust/Electron 测试进程已退出。
+- 原生 CI 已实际执行：[Rust Backend 38522432743](https://github.com/JungleZy/007/actions/runs/38522432743) 三平台全绿。Windows 原生 `CTRL_C_EVENT`、Linux arm64 原生 `SIGTERM` 均 exit0 且监听关闭。此前 WSL 宿主互操作失败只是本地限制，不再作为原生后端验证缺口。
+- 本地客户端轮次门禁（不是远端计数）：JDK21 clean verify513、Rust79、前端39、桌面产物5、Python81 通过；生产构建及 Linux unpacked 打包通过。合成库与测试进程已清理。
+
+## 原生 CI 验收完成记录
+- 已验源码 head=`4f6489e1`；GitHub 检出临时 `refs/pull/1/merge`=`c94dd4f3`，树 SHA 与批准 head 完全一致，**不是合并 PR 到 main**。具体 run/job、日志摘录和哈希见 `docs/reviews/rust-migration/phase9-build-gate.json` 的 `native_ci`。
+- Windows GNU / Linux arm64 / Linux x64 三份 artifact 已下载，逐一验证 GitHub archive SHA256；二进制 SHA256、PE/ELF 架构也已记录。证明的是原生 runner 上真实后端二进制，不再借用 Wine/QEMU 结果。
+- 伴随 [Build Quarkus Native 38522432738](https://github.com/JungleZy/007/actions/runs/38522432738) 全绿：JVM513、前端39、产物校验5、keysim85，以及 Java 三平台 native build/smoke。Rust CI 常规79，Python comparator4 + cutover13；tag 专属 Desktop/Release 作业跳过。
+- 原生后端 smoke 只证明无数据库启动、健康/OpenAPI、203/204/206 请求头边界及正常退出；不等于原生 Electron 整包、业务库、客户设备或生产切换验收。
 
 ## 下一步
 1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
-2. 在原生 Windows、arm64 runner 实际执行已配置的 CI / smoke；不要把 Wine/QEMU 结果作为原生通过证据。
-3. 原生 Windows/Electron 整包、签名/安装/升级、全训练域 UI、真实串口/按键/听感、普通绑定授权及客户完整资源/下载链仍待验收。
+2. 验收原生 Windows/Electron 整包、签名/安装/升级及完整客户资源/下载链；后端原生 CI 已完成，不再列为待做。
+3. 补全全训练域 UI、真实串口/按键/听感、普通绑定授权和现场设备验收。
 4. 生产备份恢复、切换窗口及观察期完成后再评估 Phase10（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
