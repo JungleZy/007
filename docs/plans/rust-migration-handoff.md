@@ -79,16 +79,17 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 - 伴随 [Build Quarkus Native 38522432738](https://github.com/JungleZy/007/actions/runs/38522432738) 全绿：JVM513、前端39、产物校验5、keysim85，以及 Java 三平台 native build/smoke。Rust CI 常规79，Python comparator4 + cutover13；tag 专属 Desktop/Release 作业跳过。
 - 原生后端 smoke 只证明无数据库启动、健康/OpenAPI、203/204/206 请求头边界及正常退出；不等于原生 Electron 整包、业务库、客户设备或生产切换验收。
 
-## Windows Electron 安装升级验收（进行中）
+## Windows Electron 安装升级验收（已完成；发布与现场门禁仍阻断）
 - `.github/workflows/rust-backend.yml` 已新增原生 Windows desktop 作业：消费同一轮 Windows GNU 后端产物，生成两个不发布的 `UNSIGNED VALIDATION ONLY` NSIS 测试版本；实际渲染器验证开发激活、登录、课件导入、文件字节下载、网络配置及升级保留。不是历史客户版升级或可信签名证明。
 - 入口：`pwsh -File bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact <exe> -OutputDirectory <证据目录> -PlaywrightDirectory <playwright-core目录>`。数据库使用 runner 的 MySQL 二进制另起私有 datadir；仅导入快照 CREATE TABLE 与 22 个迁移，禁止复制源业务数据。
-- Actions `38549576118` 已完成原生安装、真实开发激活/登录/网络设置、83字节Rust课件导入、68字节Node资源上传下载、UI退出及全部子进程/端口回收，页面无JS错误。Windows子进程是终止退出，不冒充Rust graceful。双NSIS与内嵌Rust哈希/未签名状态已验证。
-- 同轮在 B 安装后、首次启动前实证升级缺陷：`nip.db` 从325字节用户配置变回109字节默认值。现修为 NSIS 卸载前逐字节快照、安装后恢复，首次启动原子迁入 userData/runtime；既有 runtime 始终权威。保留原失败断言并增加持久快照核对，待原生复跑，不先计通过。
-- 本地9项存储/迁移/产物回归、真实PowerShell文件快照及篡改拒绝smoke已通过；JDK21 verify513、隔离MySQL106表/22迁移/8菜单已通过。此前工作流上下文、Node版本、PowerShell主机及MySQL输入/CRLF问题已修；日志与未签名安装器分开artifact。
+- 原生 Windows desktop 验收已通过：Actions `38555347478`，三平台后端与 Windows junction 回归均通过；两个 NSIS 版本 `3.1.2-validation.1` / `3.1.3-validation.2` 均实际安装并启动真实 Electron renderer。开发激活、真实注册/登录、网络配置、83字节Rust课件上传、68字节Node资源上传下载、路径穿越404、UI退出及子进程/18001/8000监听回收均通过；页面JS错误0。Windows子进程是终止退出，不冒充Rust graceful。
+- 升级数据保护已实证通过：B安装完成且首次启动前逐文件SHA256快照保留325字节用户`nip.db`、`config.json`和文件资源；安装后首次启动迁入`userData/runtime/bin`，授权双副本和Chromium profile保留；第三次启动用stale `install/bin`覆盖尝试仍以已有runtime为权威。持久快照目录及manifest留在安装目录外；详见`docs/reviews/rust-migration/phase9-desktop-acceptance.json`和run artifact。
+- 本轮代码 head=`2b8cd570`；伴随 `Build Quarkus Native 38555347286` 全绿。JDK21 verify513、Node runtime-test/产物契约9、PowerShell parser、actionlint、隔离MySQL106表/22迁移/8菜单均通过。Windows安装器、应用和Rust均为`NotSigned`验证产物，不是发布门禁；未提供客户资源库/iconfont，普通设备绑定授权、串口/按键/听感硬件及生产备份/切换仍不验收。
+- 之前 `38549576118` 已保留真实失败证据（NSIS升级会把`nip.db`从325字节用户配置变回109字节默认值）；修复后`38555347478`通过，失败回归断言未删除。
 - GitHub 仓库 signing secrets/environments 均为空；已有 releases 只有 Java 后端 runner，没有历史 Electron 安装包。完整客户文件库、可信签名证书、普通设备绑定授权及现场硬件仍缺验收条件；Phase10 不解除。
 
 ## 下一步
 1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
-2. 验收原生 Windows/Electron 整包、签名/安装/升级及完整客户资源/下载链；后端原生 CI 已完成，不再列为待做。
+2. 原生后端与未签名 Windows Electron 验证包已完成；待可信签名/发布包、完整客户资源下载链及现场安装升级验收，不把验证包发布。
 3. 补全全训练域 UI、真实串口/按键/听感、普通绑定授权和现场设备验收。
 4. 生产备份恢复、切换窗口及观察期完成后再评估 Phase10（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。

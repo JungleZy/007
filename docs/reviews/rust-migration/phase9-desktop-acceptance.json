@@ -1,0 +1,71 @@
+{
+  "schema": "rust-migration-native-windows-desktop/v1",
+  "verified_at_utc": "2026-10-14T11:30:16Z",
+  "status": "PASS_NATIVE_UNSIGNED_SAME_SOURCE_DESKTOP_ACCEPTANCE",
+  "run": {
+    "workflow": ".github/workflows/rust-backend.yml",
+    "run_id": 38555347478,
+    "url": "https://github.com/JungleZy/007/actions/runs/38555347478",
+    "branch": "ci/rust-native-acceptance",
+    "head_sha": "2b8cd570ca90075c95dd84814a4c901b4706acbf",
+    "companion_run_id": 38555347286,
+    "companion_url": "https://github.com/JungleZy/007/actions/runs/38555347286"
+  },
+  "scope": {
+    "platform": "windows-2022 native x86_64",
+    "installer": "NSIS one-click, two monotonically increasing validation-only versions from the same source",
+    "production": false,
+    "publishing": false,
+    "trusted_signing": false,
+    "historical_customer_upgrade": false,
+    "license": "Existing development activation form only; ordinary device-bound licensing is not proven"
+  },
+  "backend": {
+    "artifact": "rust-backend-windows-x86_64-gnu",
+    "sha256": "2dd3d38e0923112b9f041da548956032888aa5ab193dfb5517d4f19c1915ff8a",
+    "packaged_and_installed_sha256": "2dd3d38e0923112b9f041da548956032888aa5ab193dfb5517d4f19c1915ff8a",
+    "authenticode": "NotSigned"
+  },
+  "installers": [
+    {"version":"3.1.2-validation.1","sha256":"a9e402188e1f9e73418598cc18d0d600d51b3a7e993f29299f46f75b4476042b","authenticode":"NotSigned"},
+    {"version":"3.1.3-validation.2","sha256":"775c6519b16cf0a3cf31b2851132dc0b9da8c69b33c3f0c78e1612b30334eeec","authenticode":"NotSigned"}
+  ],
+  "database": {
+    "source_data_imported": false,
+    "schema_tables": 106,
+    "migrations": 22,
+    "synthetic_role": {"is_admin": 0, "is_default": 0},
+    "database_process_and_datadir_isolation": true
+  },
+  "journey": {
+    "real_renderer_login": true,
+    "development_activation_machine_and_user_copies_preserved": true,
+    "network_config_preserved": true,
+    "rust_document_upload_bytes": 83,
+    "node_resource_roundtrip_bytes": 68,
+    "resource_download_after_upgrade": true,
+    "resource_download_after_stale_legacy_restart": true,
+    "path_traversal_responses": [404, 404, 404],
+    "legacy_snapshot_before_uninstall": {
+      "verified_before_first_launch": true,
+      "sha256_manifest_verified": true,
+      "retained_outside_install_directory": true,
+      "migrated_to_user_data_runtime_bin": true,
+      "existing_runtime_wins_over_stale_install_bin": true
+    },
+    "runs": 3,
+    "renderer_page_errors": 0,
+    "ui_exit_code": 0,
+    "application_children_and_ports_released": true,
+    "rust_shutdown": "Windows child termination observed; no graceful Rust shutdown claim"
+  },
+  "artifact_names": [
+    "windows-desktop-acceptance-evidence",
+    "windows-desktop-UNSIGNED-VALIDATION-ONLY"
+  ],
+  "limitations": [
+    "No trusted signing certificate or repository signing secret is configured.",
+    "The two installers are same-source validation versions, not a historical customer installer upgrade.",
+    "Customer resource library/iconfont, ordinary device-bound licensing, serial/keying/audio hardware and production backup/cutover/observation remain unverified."
+  ]
+}
