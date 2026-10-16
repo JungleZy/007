@@ -89,7 +89,7 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 - GitHub 仓库 signing secrets/environments 均为空；已有 releases 只有 Java 后端 runner，没有历史 Electron 安装包。完整客户文件库、可信签名证书、普通设备绑定授权及现场硬件仍缺验收条件；Phase10 不解除。
 
 ## 下一步
-1. 遗留观察：`personal-ticker-tape` 偶发 FAIL 未复现。
+1. `personal-ticker-tape` 偶发 FAIL 已完成隔离复跑：`$HOME/.cache/rust-ticker-investigation` 中的 `personal-ticker-tape` + `personal-ticker-base-session` 共31请求，30 identical、1个已登记 `TEXT_ONLY/ACCEPTED`（`finish-again` 的 description 表达差异），0 FAIL/OPEN。命令为 `$S schema && $S up && $S journeys <filtered-journeys.json> && $S down`；未修改 Rust/Java/旅程，当前不复现。
 2. 原生后端与未签名 Windows Electron 验证包已完成；待可信签名/发布包、完整客户资源下载链及现场安装升级验收，不把验证包发布。
 3. 补全全训练域 UI、真实串口/按键/听感、普通绑定授权和现场设备验收。
 4. 生产备份恢复、切换窗口及观察期完成后再评估 Phase10（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
