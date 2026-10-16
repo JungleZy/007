@@ -11,7 +11,11 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{MySqlPool, Row};
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 /// Query parameters used by both year reports.  The Java controller does not
 /// validate or parse this value; it passes the string directly to SQL.

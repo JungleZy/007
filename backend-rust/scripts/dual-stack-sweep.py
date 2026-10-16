@@ -32,7 +32,7 @@ Setup (all synthetic, nothing touches production):
   3. Rust service with every migration route flag on:
        RUST_BACKEND_ADDR=127.0.0.1:18122 \
        RUST_BACKEND_DATABASE_URL=mysql://USER:PASSWORD@127.0.0.1:3306/rust_parity_rust_<id> \
-       RUST_PHASE*_ENABLED=true (every flag listed in crates/app/src/main.rs) \
+       RUST_PHASE*_ENABLED=true (every flag listed in crates/app/src/platform/flags.rs) \
        backend-rust/target/debug/rust-backend
   4. MYSQL_PWD=... python3 backend-rust/scripts/dual-stack-sweep.py \
        --java-db rust_parity_java_<id> --rust-db rust_parity_rust_<id> --out report.json

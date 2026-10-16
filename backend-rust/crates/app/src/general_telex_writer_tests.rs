@@ -8,7 +8,7 @@
 //! with them after a 2 s lock wait timeout) while the operation works on the later training.
 //! Reads (getPage of an existing page, findPage) must take no row lock at all.
 use super::*;
-use crate::AppConfig;
+use crate::platform::config::AppConfig;
 use sqlx::{MySql, MySqlPool, Transaction};
 use std::sync::Arc;
 use std::time::Duration;

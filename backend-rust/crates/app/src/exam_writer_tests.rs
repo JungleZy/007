@@ -70,7 +70,7 @@ impl Fixture {
         sqlx::query("INSERT INTO t_theory_knowledge_exam_test_paper (id,exam_id,single_choice_list,multiple_choice_list,judge_list,completion_list,short_answer) VALUES (?,?,'[]','[]','[]','[]','[]')")
             .bind(uuid::Uuid::new_v4().to_string()).bind(&exam_id).execute(&pool).await.unwrap();
         let state = AppState {
-            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool),
             database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
         };

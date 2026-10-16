@@ -9,7 +9,11 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use std::collections::HashMap;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 pub(crate) async fn list_devices(
     State(state): State<AppState>,

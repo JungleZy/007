@@ -8,7 +8,11 @@ use serde_json::{json, Value};
 use sqlx::{MySql, Row, Transaction};
 use uuid::Uuid;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 fn database_error(error: sqlx::Error, operation: &'static str) -> Response {
     tracing::warn!(error = %error, operation, "masthead database operation failed");

@@ -87,7 +87,7 @@ impl Fixture {
         }
         Self {
             state: AppState {
-                config: Arc::new(crate::AppConfig::from_env().unwrap()),
+                config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
                 pool: Some(pool),
                 database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             },

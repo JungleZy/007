@@ -7,8 +7,7 @@
 //! must not lock. Each test keeps an earlier, unrelated user's rows X-locked (so a scan from the
 //! start of the clustered index collides with them, after a 2 s lock wait timeout) while the
 //! endpoint works on the later user's rows.
-use super::*;
-use crate::AppConfig;
+use crate::platform::{auth::AuthUser, config::AppConfig, state::AppState};
 use axum::extract::{Extension, Query, State};
 use axum::response::Response;
 use axum::Json;

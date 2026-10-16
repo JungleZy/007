@@ -1,5 +1,5 @@
 use super::*;
-use crate::AppConfig;
+use crate::platform::config::AppConfig;
 use sqlx::{MySql, MySqlPool, Transaction};
 use std::{sync::Arc, time::Duration};
 

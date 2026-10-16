@@ -1,5 +1,9 @@
 use super::{aggregate_time_text, error, lock_user, train};
-use crate::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -564,7 +568,7 @@ mod tests {
                 .await
                 .unwrap();
             let state = AppState {
-                config: Arc::new(crate::AppConfig::from_env().unwrap()),
+                config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
                 pool: Some(pool.clone()),
                 database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             };

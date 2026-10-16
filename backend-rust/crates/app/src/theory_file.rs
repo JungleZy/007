@@ -1,7 +1,7 @@
 use axum::{extract::Multipart, http::StatusCode, response::Response};
 use serde_json::json;
 
-use super::{envelope_json, envelope_response};
+use crate::platform::envelope::{envelope_json, envelope_response};
 
 const MAX_FILE_BYTES: usize = 10 * 1024 * 1024;
 

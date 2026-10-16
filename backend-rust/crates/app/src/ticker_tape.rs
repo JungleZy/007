@@ -9,7 +9,11 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{mysql::MySqlRow, pool::PoolConnection, Acquire, MySql, Row, Transaction};
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 use crate::statistical::lock_user;
 
 #[derive(Debug, Deserialize)]
@@ -1019,7 +1023,7 @@ mod tests {
         sqlx::query("INSERT INTO t_ticker_tape_train (id,type,status,user_id,code_message_body,create_time) VALUES (?,1,0,?,'[]',NOW(6))")
             .bind(&id).bind(&user.id).execute(&pool).await?;
         let state = AppState {
-            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool.clone()),
             database_ready: Arc::new(AtomicBool::new(true)),
         };

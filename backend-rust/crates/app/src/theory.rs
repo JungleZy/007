@@ -8,7 +8,11 @@ use chrono::{Duration, Utc};
 use serde_json::{json, Value};
 use sqlx::Row;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 pub(crate) async fn list_classify(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {
@@ -293,7 +297,7 @@ pub(crate) async fn save_knowledge(
                 .and_then(Value::as_str)
                 .map(str::to_owned)
         })
-        .unwrap_or_else(|| crate::now_time_millis().to_string());
+        .unwrap_or_else(|| crate::platform::clock::now_time_millis().to_string());
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
         Err(_) => {
@@ -1003,7 +1007,7 @@ mod grade_statistics_tests {
 
 pub(crate) async fn save_classify(
     State(state): State<AppState>,
-    Extension(user): Extension<super::AuthUser>,
+    Extension(user): Extension<crate::platform::auth::AuthUser>,
     Json(body): Json<serde_json::Value>,
 ) -> Response {
     let Some(name) = body

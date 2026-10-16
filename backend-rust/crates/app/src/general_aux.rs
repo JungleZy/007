@@ -9,7 +9,14 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use std::collections::HashSet;
 
-use super::{envelope_json, envelope_response, ws, AppState, AuthUser};
+use crate::{
+    platform::{
+        auth::AuthUser,
+        envelope::{envelope_json, envelope_response},
+        state::AppState,
+    },
+    ws,
+};
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TrainQuery {

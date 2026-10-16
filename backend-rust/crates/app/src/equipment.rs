@@ -3,7 +3,10 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use uuid::Uuid;
 
-use super::{envelope_json, envelope_response, AppState};
+use crate::platform::{
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 pub(crate) async fn list_devices(State(state): State<AppState>) -> Response {
     let Some(pool) = state.pool.as_ref() else {

@@ -32,7 +32,7 @@
 | 前端 Worker/WASM 可行性 | [`plans/2026-09-09-frontend-wasm-feasibility-report.md`](plans/2026-09-09-frontend-wasm-feasibility-report.md) |
 | 承接历史联合整改（已闭环部分） | [`specs/2026-09-08-joint-fix-spec.md`](specs/2026-09-08-joint-fix-spec.md) + [`plans/2026-09-08-joint-fix-plan.md`](plans/2026-09-08-joint-fix-plan.md) |
 | 全量 Rust 后端重写计划 | [`plans/2026-09-10-rust-full-rewrite-plan.md`](plans/2026-09-10-rust-full-rewrite-plan.md) |
-| backend-rust 目录结构重构（规格与计划，未开工） | [`specs/2026-10-15-backend-rust-structure-refactor-spec.md`](specs/2026-10-15-backend-rust-structure-refactor-spec.md) + [`plans/2026-10-15-backend-rust-structure-refactor-plan.md`](plans/2026-10-15-backend-rust-structure-refactor-plan.md) |
+| backend-rust 目录结构重构（实施中，第 1 步完成） | [`specs/2026-10-15-backend-rust-structure-refactor-spec.md`](specs/2026-10-15-backend-rust-structure-refactor-spec.md) + [`plans/2026-10-15-backend-rust-structure-refactor-plan.md`](plans/2026-10-15-backend-rust-structure-refactor-plan.md) |
 | Rust认证双栈扫描与脚本旅程证据（Phase 10仍阻断） | [`reviews/rust-migration/phase9-dual-stack-sweep.json`](reviews/rust-migration/phase9-dual-stack-sweep.json) |
 | Rust 后端重构可行性评估 | [`specs/2026-09-10-rust-backend-feasibility.md`](specs/2026-09-10-rust-backend-feasibility.md) |
 | 查询历史分片证据 | [`reviews/archive/`](reviews/archive/) |

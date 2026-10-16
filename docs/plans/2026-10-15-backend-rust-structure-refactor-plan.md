@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：方案（已按评审补齐执行约束），未开工。基线：`d1ccee6f`（2026-10-15）。行号与计数均为该基线实测，执行时以仓库现状为准。
+> 状态：实施中，第 1 步代码与门禁已完成，第 2 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -44,6 +44,8 @@
 ## 3. 目标结构
 
 **划分原则：一个功能开关 = 一个域目录 = 一个路由入口。** 开关是部署、灰度和回滚的单位，`build_router` 也已按开关分块；按开关切能让第 2 步成为机械搬运。注意开关边界与“岗位/基础”命名不完全一致（`post_entering` 在 entering 开关下，`post_military`/`post_radiotelephone` 在 radiotelephone 开关下），以开关为准，不另加 `basic/`、`post/` 层级。
+
+基线实跑前核查补充：`postTrainGlobalRule` 三条路由由 general、radiotelephone、entering 任一开关开启时挂载（原 `main.rs:815–831`），是上述原则的现有复合开关例外。业务实现仍归 general 域；总路由保留 OR 判断，单独合并其规则子模块入口一次，不收窄可达性、不重复注册。
 
 ```text
 crates/app/src/
@@ -128,7 +130,7 @@ crates/app/src/
 | `ticker_tape` → `entering::request_integer` | 下沉 `platform/extract.rs` |
 | `post_ticker` → `ticker_tape::{SettingRequest, settings_connection}` | 保留为显式跨域 `pub(crate)` 依赖（同属纸带设置语义）；若第 5 步发现仅为数据结构，下沉 `shared/` |
 | `exam`/`general_train`/`simulation`/`telegram`/`telegram_write` → `ws::*`（`send_classic*`、`notify_*`、`close_*`、`general_*`、`simulation_*`） | 收口为 `ws/notify.rs` 的公开出口，业务域只依赖该文件 |
-| `train_rule.rs` 横跨 radiotelephone（`term_*`）与 general（`find_by_type`/`add_rule`/`delete_by_id`） | 按开关拆为两个文件，分属两域 |
+| `train_rule.rs` 横跨 radiotelephone（`term_*`）与 general（`find_by_type`/`add_rule`/`delete_by_id`） | 按语义拆为两个文件，分属两域；general 规则路由仍由 general/radiotelephone/entering 三开关 OR 挂载，不能按文件归属收窄开关 |
 
 第 1–4 步允许临时使用 `crate::domain::x::y` 跨域引用以保持纯移动；第 5 步清零业务域之间的直接引用（`ws/notify.rs` 与 §4 已列保留项除外）。
 
@@ -185,8 +187,9 @@ cd backend-rust
 cargo fmt --all -- --check
 cargo build --locked --release && ./scripts/smoke.sh target/release/rust-backend   # 同 CI
 cargo test --locked
-# ignored 隔离库测试（需 docker start mysql-project006）
-cargo test --locked -- --ignored
+# ignored 测试共用隔离库与故障注入夹具，需 Docker、已建好的 rust_scratch_lockdemo 与显式 URL
+: "${RUST_PHASE2_DATABASE_URL:?须指向隔离库 rust_scratch_lockdemo}"
+cargo test --locked -- --ignored --test-threads=1
 python3 -m unittest discover -s scripts -p 'test_*.py'
 S=scripts/local-dual-stack.sh
 $S build && $S up && $S journeys && $S full   # 两者 0 FAIL / 0 OPEN
@@ -219,3 +222,42 @@ $S down
 | 搬运与业务修复并行冲突 | 重构期间冻结 `backend-rust` 业务改动（B8 修复排在重构前或后，不交错） |
 | 搬启动代码时遗漏、重复启动或未清理恢复任务 | `runtime.rs` 唯一持有恢复任务句柄；按 §6 核验运行生命周期，禁止构建 Router 时启动任务 |
 | 撤销中间步骤破坏后续路径/模块依赖 | 当前步失败回退当前步；整体按已完成步骤逆序回滚，不承诺任意单步 revert |
+
+## 9. 执行记录（2026-10-16）
+
+### 9.1 执行基线与校准
+
+- 从干净提交 `5c1200dd244d30470ada5a94ed2e75834ce6e675` 开始；用该提交的独立归档源码及其编译期码表构建原始 release 二进制，补采行为基线，不把重构后代码当成基线。
+- Rust AST 解析得到 **386 条实际注册路由、22 个开关、360 条带 authenticate 的路由**。原 `main.rs` 中 388 次 `.route(` 含两个测试内注册，不等于生产路由数；Java 的 359 条清单不足以代替 Rust 注册表。
+- 已确认并保留 `postTrainGlobalRule` 的三开关 OR 条件，见 §3。无凭据请求的错误方法会先被既有鉴权中间件拒绝，不能一律断言 405；中文静态路径按原始 UTF-8 request-target 验证。
+- 既有诊断缺陷单列：`/api/phase1/contract/admin` 只挂 `require_admin`、未挂 `authenticate`；原始与第 1 步二进制的匿名请求均为 HTTP 500/code 500。该行为原样保留，不作为业务管理员授权成功证据，本轮不夹带修复。
+- 项目未配置 LSP；已实际查询状态。符号定位与机械搬迁使用精确搜索和 Rust AST，未声称完成语言服务器 references 验证。
+- 隔离库测试须显式传 `RUST_PHASE2_DATABASE_URL` 并串行执行。缺少 URL 的首次命令与并行执行失败均不计通过；按 §6 补齐环境、改为串行后全部通过，不修改测试或业务逻辑。
+
+### 9.2 第 1 步：平台抽取（完成）
+
+- `main.rs` 为 4 行入口；新增 lib/runtime/router/platform，system/tools 业务实现暂留平铺文件，待第 3 步迁入对应域。原 build_router 与恢复循环保持原逻辑，业务调用已切到平台明确路径，无根平台符号兼容 re-export。
+- 同步 local-dual-stack 开关扫描、manifest 来源与 sweep 说明；开关集合仍为原 22 项。
+
+| 已执行项目 | 本轮结果 |
+|---|---|
+| Cargo 格式检查 | 通过 |
+| locked release 构建与 release smoke | 通过；health/live/ready、OpenAPI、203/204/206、request ID、/api=404、SIGTERM |
+| 普通 Cargo 测试 | 79 通过，154 ignored；与执行前普通测试计数一致 |
+| 串行 ignored 隔离库测试 | 154 通过 |
+| Python 脚本测试 | 81 通过 |
+| V01 与无 DB WS 握手矩阵 | 原始提交与第 1 步各 24 组、18,912 条观察，差异为 0 |
+| V04 实际服务恢复 | 关闭开关不恢复；启用后首次立即恢复，后续约 5 秒恢复；退出后不再恢复，前后状态一致 |
+| 稳定时钟隔离环境的 journeys | 2,454 请求，0 FAIL / 0 OPEN；169 项既有 ACCEPTED 差异 |
+| 稳定时钟隔离环境的 full | 3,903 请求，0 FAIL / 0 OPEN；678 项既有 ACCEPTED 差异 |
+| V02/V03 完整有身份对照 | 2,771 条流程观察（含 394 条 WS），1,080 条三身份路由观察，69 条普通用户管理操作拒绝且无写入；0 行为差异、0 漏覆盖 |
+| 管理员业务契约 | 68 条接口成功调用；`POST /api/mtd/saveAll` 保持既有 202 能力拒绝，另以 3 种载荷 × 3 种身份验证，106 张表均无改动 |
+
+首次双栈 journeys 在 `b5-telex-rule-and-status-edges/student-finish-E-rule-without-alterError` 失败，后续定位为宿主机 wall clock 在约 +9 秒/-9 秒间跳变：已记录的训练开始时间比随后 MySQL NOW 晚约 8 秒，两栈均按原规则拒绝采集。实测 CLOCK_MONOTONIC 连续。未更改宿主机 NTP、业务代码、测试夹具或差异 registry；采用临时 LD_PRELOAD 验证时钟（共享 UTC 锚点 + CLOCK_MONOTONIC）和新建的 MySQL 演练容器，确认 Java/Rust/MySQL 同一时钟后重跑，得到上表全量通过结果。临时 dual-stack 副本只重定向仓库根、容器、MySQL 端口和已有 --mysql-container 参数；仓库脚本未因时钟隔离再改动，请求集合不变。V02/V03 专项矩阵使用独立库，恢复任务探针另用独立库，避免互相重置或后台恢复干扰。
+
+V02 临时校验器最初将已有 `missing-*` 负例误判为新增成功用例，并错误要求所有管理接口都存在 code 200 成功路径。完整观测已有 0 行为差异；按原用例重新核对四条 202/208 负例，并补验 `mtd/saveAll` 的真实能力边界后，独立契约审计通过。该接口原 Java/Rust 实现把 String 再序列化，始终返回 `Not a JSON Object:` 的 202，不能为重构验收虚构导入成功。原始报告与校验修正、补验结果均保留，不掩盖最初的校验器失败。
+
+第 1 步的函数体/SQL/错误映射/中间件顺序另经独立只读复核：63 个业务模块仅路径改写，主程序抽取项仅移动、必要可见性和格式调整，无新增行为逻辑或兼容 re-export。
+
+本轮原始验证产物暂存 `/tmp/007-structure-refactor-oj245o40/`；完成交付时归档可追溯证据并更新此记录。第 2 步候选仅在临时目录完成，不计为仓库已实施；第 2–5 步仍须依次集成、验证与提交。
+

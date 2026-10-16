@@ -1,4 +1,8 @@
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -46,7 +50,7 @@ pub(crate) async fn save_level(
             .execute(&mut *tx)
             .await
     } else {
-        sqlx::query("INSERT INTO t_theory_question_level (id,parent_id,name,create_user_id,create_time) VALUES (?,?,?,?,?)").bind(&id).bind(parent_id).bind(name).bind(&user.id).bind(crate::now_time_millis().to_string()).execute(&mut *tx).await
+        sqlx::query("INSERT INTO t_theory_question_level (id,parent_id,name,create_user_id,create_time) VALUES (?,?,?,?,?)").bind(&id).bind(parent_id).bind(name).bind(&user.id).bind(crate::platform::clock::now_time_millis().to_string()).execute(&mut *tx).await
     };
     if let Err(error) = result {
         tracing::warn!(%error, "save question level failed");

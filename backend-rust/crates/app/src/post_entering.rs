@@ -8,7 +8,11 @@ use serde_json::{json, Value};
 use sqlx::{MySqlPool, Row};
 use std::collections::HashMap;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 const EXERCISE_COLS: &str = "id,type,create_user_id,DATE_FORMAT(start_time,'%Y-%m-%d %H:%i:%s') start_time_text,DATE_FORMAT(end_time,'%Y-%m-%d %H:%i:%s') end_time_text,DATE_FORMAT(create_time,'%Y-%m-%d %H:%i:%s') create_time_text,accuracy,speed,content,duration,status,name,error_num,correct_num";
 const STOCK_COLS: &str = "id,type,name,content,create_user_id,word_size,create_time";

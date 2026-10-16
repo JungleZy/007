@@ -1,5 +1,5 @@
 use super::*;
-use crate::{post_entering, AppConfig};
+use crate::{platform::config::AppConfig, post_entering};
 use axum::extract::Query;
 use std::{future::Future, sync::Arc, time::Duration};
 
@@ -854,7 +854,7 @@ async fn authenticated_preview_accepts_ten_mib_and_rejects_larger_files() {
         let token = Uuid::new_v4().to_string();
         let device = "input-preview-boundary";
         sqlx::query("UPDATE t_user SET token=?,device_id=? WHERE id=?")
-            .bind(crate::token_digest(&token))
+            .bind(crate::platform::auth::token_digest(&token))
             .bind(device)
             .bind(&fixture.owner.id)
             .execute(&fixture.pool)
@@ -865,7 +865,7 @@ async fn authenticated_preview_accepts_ten_mib_and_rejects_larger_files() {
         config.body_limit = 11 * 1024 * 1024;
         let mut state = fixture.state.clone();
         state.config = Arc::new(config);
-        let app = crate::build_router(state);
+        let app = crate::router::build_router(state);
         for (file_size, expected_code) in [
             (2 * 1024 * 1024 + 1, 200),
             (10 * 1024 * 1024, 200),

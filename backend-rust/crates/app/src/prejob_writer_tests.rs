@@ -1,6 +1,16 @@
 //! Isolated-DB regressions for daily pre-job writers (no production database URLs).
-use super::*;
+use crate::{
+    platform::{auth::AuthUser, config::AppConfig, state::AppState},
+    synthetical, telegram_write, telegraph_key, telex,
+};
+use axum::{
+    extract::{Extension, State},
+    response::Response,
+    Json,
+};
+use serde_json::{json, Value};
 use sqlx::{MySql, MySqlPool, Row, Transaction};
+use std::sync::Arc;
 use std::time::Duration;
 
 struct Fixture {

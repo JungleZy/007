@@ -11,10 +11,15 @@ use sqlx::{pool::PoolConnection, Connection, MySql, MySqlPool, Row, Transaction}
 use std::fmt::Display;
 use uuid::Uuid;
 
-use super::{
-    envelope_json, envelope_response, password, registration_birthday, valid_account, AppState,
-};
 use crate::statistical::lock_user;
+use crate::{
+    password,
+    platform::{
+        envelope::{envelope_json, envelope_response},
+        state::AppState,
+    },
+    system::{registration_birthday, valid_account},
+};
 
 fn string_field(body: &Value, name: &str) -> Option<String> {
     body.get(name)
@@ -923,7 +928,7 @@ pub(crate) async fn role_menu_values(
 
 fn all_menu_tree_nodes(
     parent_id: &str,
-    by_parent: &HashMap<String, Vec<super::MenuRow>>,
+    by_parent: &HashMap<String, Vec<crate::system::MenuRow>>,
     permissions: &HashMap<String, Vec<Value>>,
 ) -> Vec<Value> {
     by_parent
@@ -967,9 +972,9 @@ async fn all_menu_tree(pool: &MySqlPool) -> Result<Value, sqlx::Error> {
         sqlx::query("SELECT id, menus_id, title, `key` FROM t_menus_button ORDER BY menus_id, id")
             .fetch_all(pool)
             .await?;
-    let mut by_parent: HashMap<String, Vec<super::MenuRow>> = HashMap::new();
+    let mut by_parent: HashMap<String, Vec<crate::system::MenuRow>> = HashMap::new();
     for row in menu_rows {
-        let menu = super::MenuRow {
+        let menu = crate::system::MenuRow {
             id: row.get("id"),
             parent_id: row
                 .get::<Option<String>, _>("parent_id")
@@ -997,7 +1002,7 @@ async fn all_menu_tree(pool: &MySqlPool) -> Result<Value, sqlx::Error> {
 
 pub(crate) async fn get_user_directory(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
 ) -> Response {
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -1113,7 +1118,7 @@ pub(crate) async fn get_users_by_ids(
 
 pub(crate) async fn get_user_by_id(
     State(state): State<AppState>,
-    user: Extension<super::AuthUser>,
+    user: Extension<crate::platform::auth::AuthUser>,
     Json(body): Json<HashMap<String, Option<String>>>,
 ) -> Response {
     if !user.0.is_admin {
@@ -1139,7 +1144,7 @@ pub(crate) async fn get_user_by_id(
 
 pub(crate) async fn get_user_info_all_by_status_desc(
     State(state): State<AppState>,
-    user: Extension<super::AuthUser>,
+    user: Extension<crate::platform::auth::AuthUser>,
 ) -> Response {
     if !user.0.is_admin {
         return envelope_response(StatusCode::OK, 207, "无权限", "");
@@ -1169,7 +1174,7 @@ pub(crate) async fn get_user_info_all_by_status_desc(
 
 pub(crate) async fn get_user_and_role_by_id(
     State(state): State<AppState>,
-    user: Extension<super::AuthUser>,
+    user: Extension<crate::platform::auth::AuthUser>,
     body: Option<Json<Value>>,
 ) -> Response {
     if !user.0.is_admin {
@@ -1250,14 +1255,14 @@ async fn find_users_by_role(pool: &MySqlPool, role_id: &str) -> Result<Vec<Value
 
 pub(crate) async fn find_all_teacher(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
 ) -> Response {
     find_all_by_role(State(state), "1").await
 }
 
 pub(crate) async fn find_all_stu(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
 ) -> Response {
     find_all_by_role(State(state), "2").await
 }
@@ -1277,7 +1282,7 @@ async fn find_all_by_role(State(state): State<AppState>, role_id: &str) -> Respo
 
 pub(crate) async fn get_menu_by_id(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response {
     let Some(id) = query.get("id").filter(|value| !value.is_empty()) else {
@@ -1324,7 +1329,7 @@ pub(crate) async fn get_menu_by_id(
 
 pub(crate) async fn get_role_by_id(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response {
     get_role_view(state, query, false).await
@@ -1332,7 +1337,7 @@ pub(crate) async fn get_role_by_id(
 
 pub(crate) async fn get_role_menus_info(
     State(state): State<AppState>,
-    _user: Extension<super::AuthUser>,
+    _user: Extension<crate::platform::auth::AuthUser>,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response {
     get_role_view(state, query, true).await

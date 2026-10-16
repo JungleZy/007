@@ -1,6 +1,9 @@
 //! Isolated-DB regressions for the user/role/menu writers (no production database URLs).
 use super::*;
-use crate::{AppConfig, LoginRequest, RegistrationRequest};
+use crate::platform::{
+    auth::{LoginRequest, RegistrationRequest},
+    config::AppConfig,
+};
 use sqlx::{MySql, MySqlPool, Transaction};
 use std::sync::Arc;
 use std::time::Duration;
@@ -180,8 +183,8 @@ async fn invoke(state: AppState, op: &str, fixture: (String, String)) -> Respons
         "user-update" => save_user(State(state), Json(json!({"id": id("u"), "userAccount": account, "userName": "b4 renamed", "idCard": "110101199001011234", "userSex": 1, "eday": "2030-01-01"}))).await,
         "menu-edit" => add_menu(State(state), Json(json!({"menus": {"id": id("m"), "parentId": "-1", "key": "edited", "title": "edited", "sort": 2}, "permissions": [{"title": "new", "key": "new"}]}))).await,
         "role-edit" => add_role(State(state), Json(json!({"role": {"id": id("role"), "title": "edited", "remark": "", "isAdmin": 1, "isDefault": 1}, "menus": [format!("{{\"menusId\":\"{}\",\"per\":[]}}", id("m"))]}))).await,
-        "login" => crate::user_login(State(state), json_body::<LoginRequest>(json!({"userAccount": account, "password": "Lock-pass-1", "deviceId": "b4-lock"}))).await,
-        "signin" => crate::user_signin(State(state), json_body::<RegistrationRequest>(json!({"userAccount": format!("b4new{tag}"), "userName": "b4 signin", "idCard": "110101199001011234", "password": "Lock-pass-2", "userSex": 1}))).await,
+        "login" => crate::system::user_login(State(state), json_body::<LoginRequest>(json!({"userAccount": account, "password": "Lock-pass-1", "deviceId": "b4-lock"}))).await,
+        "signin" => crate::system::user_signin(State(state), json_body::<RegistrationRequest>(json!({"userAccount": format!("b4new{tag}"), "userName": "b4 signin", "idCard": "110101199001011234", "password": "Lock-pass-2", "userSex": 1}))).await,
         _ => panic!("unknown operation {op}"),
     }
 }

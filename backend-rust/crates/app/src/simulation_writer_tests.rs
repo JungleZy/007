@@ -8,7 +8,7 @@
 //! lock wait timeout) while the endpoint works on the later room, using the same user ids in
 //! both rooms.
 use super::*;
-use crate::AppConfig;
+use crate::platform::config::AppConfig;
 use sqlx::MySql;
 use std::sync::Arc;
 use std::time::Duration;

@@ -1,4 +1,8 @@
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -505,7 +509,7 @@ pub(crate) async fn self_test(
         let exam_id = existing.as_ref().map(|exam| exam.get::<String, _>("id")).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let creator = existing.as_ref().and_then(|exam| exam.get::<Option<String>, _>("create_user_id")).unwrap_or_else(|| user.id.clone());
         let create_time = existing.as_ref().map(|exam| exam.get::<Option<String>, _>("create_time"))
-            .unwrap_or_else(|| Some(crate::now_time_millis().to_string()));
+            .unwrap_or_else(|| Some(crate::platform::clock::now_time_millis().to_string()));
         let start_time = exam_time(chrono::Utc::now());
         let title = request_text(body.get("title"))?;
         let duration = request_text(body.get("duration"))?;
@@ -1142,7 +1146,7 @@ pub(crate) async fn save_formal(
             locked_exam(&mut transaction, &exam_id).await?;
         } else {
             sqlx::query("INSERT INTO t_theory_knowledge_exam (id,title,start_time,duration,create_user_id,create_time,teacher,state) VALUES (?,?,?,?,?,?,?,1)")
-                .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
+                .bind(&exam_id).bind(request_text(body.get("title"))?.as_deref()).bind(request_text(body.get("startTime"))?.as_deref()).bind(request_text(body.get("duration"))?.as_deref()).bind(&user.id).bind(crate::platform::clock::now_time_millis().to_string()).bind(request_text(body.get("teacher"))?.as_deref()).execute(&mut *transaction).await?;
         }
         let touched = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM t_theory_knowledge_exam_user WHERE exam_id=? AND (state<>1 OR score>0 OR (content IS NOT NULL AND TRIM(content)<>''))")
             .bind(&exam_id).fetch_one(&mut *transaction).await?;

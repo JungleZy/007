@@ -8,7 +8,7 @@
 //! clustered index collides with them, after a 2 s lock wait timeout) while the operation works
 //! on the later training. Read-only endpoints (export, findPage) must take no row lock at all.
 use super::*;
-use crate::AppConfig;
+use crate::platform::config::AppConfig;
 use sqlx::{MySql, MySqlPool, Transaction};
 use std::sync::Arc;
 use std::time::Duration;

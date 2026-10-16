@@ -49,7 +49,7 @@ impl Fixture {
                 .bind(format!("{id}-raw-0")).bind(id).execute(&pool).await.unwrap();
         }
         let state = AppState {
-            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool.clone()),
             database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
         };

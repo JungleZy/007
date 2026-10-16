@@ -9,7 +9,11 @@ use serde_json::{json, Value};
 use sqlx::{MySqlPool, Row};
 use std::collections::HashSet;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct TrainIdRequest {

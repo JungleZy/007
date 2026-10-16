@@ -8,7 +8,11 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use std::collections::HashSet;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 fn question_value(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({"id":row.get::<String,_>("id"),"type":row.get::<Option<i32>,_>("type"),"topic":row.get::<Option<String>,_>("topic"),"options":row.get::<Option<String>,_>("options"),"answer":row.get::<Option<String>,_>("answer"),"analysis":row.get::<Option<String>,_>("analysis"),"createUserId":row.get::<Option<String>,_>("create_user_id"),"createTime":row.get::<Option<String>,_>("create_time"),"levelId":row.get::<Option<String>,_>("level_id")})
 }
@@ -50,7 +54,7 @@ pub(crate) async fn save_question(
             .execute(&mut *tx).await
     } else {
         sqlx::query("INSERT INTO t_theory_question (id,type,topic,options,answer,analysis,create_user_id,create_time,level_id) VALUES (?,?,?,?,?,?,?,?,?)")
-            .bind(&question_id).bind(question_type).bind(topic).bind(options).bind(answer).bind(analysis).bind(&user.id).bind(crate::now_time_millis().to_string()).bind(level_id)
+            .bind(&question_id).bind(question_type).bind(topic).bind(options).bind(answer).bind(analysis).bind(&user.id).bind(crate::platform::clock::now_time_millis().to_string()).bind(level_id)
             .execute(&mut *tx).await
     };
     if result.is_err() {
@@ -273,7 +277,7 @@ pub(crate) async fn save_batch(
             return envelope_response(StatusCode::OK, 202, &format!("第 {row} 行格式不完整"), "");
         }
         let id = uuid::Uuid::new_v4().to_string();
-        let create_time = crate::now_time_millis().to_string();
+        let create_time = crate::platform::clock::now_time_millis().to_string();
         if sqlx::query("INSERT INTO t_theory_question (id,type,topic,options,answer,analysis,create_user_id,create_time,level_id) VALUES (?,?,?,?,?,?,?,?,?)").bind(&id).bind(qtype).bind(topic).bind(item.get("options").and_then(Value::as_str)).bind(item.get("answer").and_then(Value::as_str)).bind(item.get("analysis").and_then(Value::as_str)).bind(&user.id).bind(&create_time).bind(level).execute(&mut *tx).await.is_err() { let _=tx.rollback().await; return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
         saved.push(json!({"id":id,"type":qtype,"topic":topic,"options":item.get("options"),"answer":item.get("answer"),"analysis":item.get("analysis"),"createUserId":user.id,"createTime":create_time,"levelId":level}));
     }

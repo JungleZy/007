@@ -2,7 +2,10 @@ use axum::{extract::State, http::StatusCode, response::Response, Json};
 use serde_json::{json, Value};
 use sqlx::{pool::PoolConnection, Connection, MySql, Row, Transaction};
 
-use super::{envelope_json, envelope_response, AppState};
+use crate::platform::{
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 fn rule_json(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({
@@ -389,7 +392,7 @@ mod tests {
             .await
             .unwrap();
         let state = AppState {
-            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool.clone()),
             database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
         };
@@ -755,7 +758,7 @@ mod tests {
             .await
             .unwrap();
         let state = AppState {
-            config: Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool.clone()),
             database_ready: Arc::new(std::sync::atomic::AtomicBool::new(true)),
         };

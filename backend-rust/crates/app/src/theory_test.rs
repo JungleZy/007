@@ -8,7 +8,11 @@ use serde_json::{json, Value};
 use sqlx::Row;
 use uuid::Uuid;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 pub(super) fn content_json(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({"id": row.get::<String,_>("id"), "knowledgeId": row.get::<Option<String>,_>("knowledge_id"), "knowledgeSwfId": row.get::<Option<String>,_>("knowledge_swf_id"), "knowledgeTestId": row.get::<Option<String>,_>("knowledge_test_id"), "type": row.get::<Option<i32>,_>("type"), "topic": row.get::<Option<String>,_>("topic"), "options": row.get::<Option<String>,_>("options"), "answer": row.get::<Option<String>,_>("answer"), "analysis": row.get::<Option<String>,_>("analysis"), "sort": row.get::<Option<i32>,_>("sort"), "createUserId": row.get::<Option<String>,_>("create_user_id"), "createTime": row.get::<Option<String>,_>("create_time")})
@@ -101,7 +105,7 @@ pub(crate) async fn save(
     let create_time = existing
         .as_ref()
         .and_then(|row| row.get::<Option<String>, _>("create_time"))
-        .unwrap_or_else(|| crate::now_time_millis().to_string());
+        .unwrap_or_else(|| crate::platform::clock::now_time_millis().to_string());
     let mut version = test.get("versions").and_then(Value::as_i64).unwrap_or(1);
     let siblings = match sqlx::query(
         "SELECT id,versions FROM t_theory_knowledge_test WHERE knowledge_swf_id=?",
@@ -176,7 +180,7 @@ pub(crate) async fn save(
                 .filter(|value| !value.is_empty())
                 .map(str::to_owned)
                 .unwrap_or_else(|| Uuid::new_v4().to_string());
-            if sqlx::query("INSERT INTO t_theory_knowledge_test_content (id,knowledge_id,knowledge_swf_id,knowledge_test_id,type,topic,options,answer,analysis,sort,create_user_id,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(&content_id).bind(&knowledge_id).bind(swf_id).bind(&id).bind(content.get("type").and_then(Value::as_i64)).bind(content.get("topic").and_then(Value::as_str)).bind(content.get("options").and_then(Value::as_str)).bind(content.get("answer").and_then(Value::as_str)).bind(content.get("analysis").and_then(Value::as_str)).bind(sort as i64).bind(&user.id).bind(crate::now_time_millis().to_string()).execute(&mut *tx).await.is_err() { return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
+            if sqlx::query("INSERT INTO t_theory_knowledge_test_content (id,knowledge_id,knowledge_swf_id,knowledge_test_id,type,topic,options,answer,analysis,sort,create_user_id,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").bind(&content_id).bind(&knowledge_id).bind(swf_id).bind(&id).bind(content.get("type").and_then(Value::as_i64)).bind(content.get("topic").and_then(Value::as_str)).bind(content.get("options").and_then(Value::as_str)).bind(content.get("answer").and_then(Value::as_str)).bind(content.get("analysis").and_then(Value::as_str)).bind(sort as i64).bind(&user.id).bind(crate::platform::clock::now_time_millis().to_string()).execute(&mut *tx).await.is_err() { return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
         }
     }
     let contents = if body
@@ -228,7 +232,7 @@ pub(crate) async fn save_user(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     let id = Uuid::new_v4().to_string();
-    let now = crate::now_time_millis().to_string();
+    let now = crate::platform::clock::now_time_millis().to_string();
     if sqlx::query("INSERT INTO t_theory_knowledge_test_user (id,knowledge_id,knowledge_swf_id,user_id,content,score,create_time) VALUES (?,?,?,?,?,?,?)").bind(&id).bind(knowledge_id).bind(swf_id).bind(&user.id).bind(body.get("content").and_then(Value::as_str)).bind(body.get("score").and_then(Value::as_i64)).bind(&now).execute(pool).await.is_err() { return envelope_response(StatusCode::INTERNAL_SERVER_ERROR,500,"服务器错误",""); }
     envelope_json(
         StatusCode::OK,

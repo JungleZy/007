@@ -7,7 +7,11 @@ use axum::{
 use serde_json::{json, Value};
 use sqlx::Row;
 
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 
 fn train_json(row: &sqlx::mysql::MySqlRow) -> Value {
     json!({"id": row.get::<String,_>("id"), "userId": row.get::<Option<String>,_>("user_id"), "content": row.get::<Option<String>,_>("content"), "trainTime": null, "deviceId": row.get::<Option<String>,_>("device_id"), "trainName": row.get::<Option<String>,_>("train_name"), "trainStatus": row.get::<Option<i32>,_>("train_status"), "trainType": row.get::<Option<i32>,_>("train_type"), "deviceName": row.get::<Option<String>,_>("device_name")})

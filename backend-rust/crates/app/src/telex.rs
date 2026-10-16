@@ -1,5 +1,12 @@
-use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
 use crate::statistical::lock_user;
+use crate::{
+    platform::{
+        auth::AuthUser,
+        envelope::{envelope_json, envelope_response},
+        state::AppState,
+    },
+    scoring,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -808,7 +815,7 @@ async fn create_train(
         .bind(&user.id)
         .bind(active_since)
         .bind(match &body.create_time {
-            Field::Absent => Some(crate::now_time_millis().to_string()),
+            Field::Absent => Some(crate::platform::clock::now_time_millis().to_string()),
             other => other.text(),
         })
         .execute(&mut **tx)

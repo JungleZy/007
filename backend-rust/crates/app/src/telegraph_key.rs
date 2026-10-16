@@ -1,5 +1,12 @@
-use super::{envelope_json, envelope_response, scoring, AppState, AuthUser};
 use crate::statistical::lock_user;
+use crate::{
+    platform::{
+        auth::AuthUser,
+        envelope::{envelope_json, envelope_response},
+        state::AppState,
+    },
+    scoring,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,

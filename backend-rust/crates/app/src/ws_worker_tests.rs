@@ -1,7 +1,10 @@
 //! Isolated-DB regression: a business message waiting on a row lock must not stall the
 //! connection's heartbeats (no production database URLs).
 use super::*;
-use crate::{build_router, token_digest, AppConfig};
+use crate::{
+    platform::{auth::token_digest, config::AppConfig},
+    router::build_router,
+};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};

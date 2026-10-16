@@ -1,4 +1,8 @@
-use super::{envelope_json, envelope_response, AppState, AuthUser};
+use crate::platform::{
+    auth::AuthUser,
+    envelope::{envelope_json, envelope_response},
+    state::AppState,
+};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -1161,7 +1165,7 @@ mod tests {
         .execute(&pool)
         .await?;
         let state = AppState {
-            config: std::sync::Arc::new(crate::AppConfig::from_env().unwrap()),
+            config: std::sync::Arc::new(crate::platform::config::AppConfig::from_env().unwrap()),
             pool: Some(pool.clone()),
             database_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
         };

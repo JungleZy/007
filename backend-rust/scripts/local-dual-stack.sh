@@ -60,7 +60,7 @@ up)
     nohup "$HOME/.local/opt/jdk21/bin/java" -Duser.timezone=UTC -jar "$ROOT/backend/target/quarkus-app/quarkus-run.jar" \
     > "$WORK/java.log" 2>&1) & echo $! > "$WORK/java.pid"
   env RUST_BACKEND_ADDR=127.0.0.1:18122 RUST_BACKEND_DATABASE_URL="mysql://root:root@127.0.0.1:3306/$RDB" \
-    $(grep -oE '"RUST_[A-Z0-9_]+_ENABLED"' "$ROOT/backend-rust/crates/app/src/main.rs" | sort -u | tr -d '"' | sed 's/$/=true/') \
+    $(grep -oE '"RUST_[A-Z0-9_]+_ENABLED"' "$ROOT/backend-rust/crates/app/src/platform/flags.rs" | sort -u | tr -d '"' | sed 's/$/=true/') \
     nohup "$ROOT/backend-rust/target/debug/rust-backend" > "$WORK/rust.log" 2>&1 & echo $! > "$WORK/rust.pid"
   wait_http 18121 && wait_http 18122 && echo "java :18121 and rust :18122 up" ;;
 down)
