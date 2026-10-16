@@ -3196,3 +3196,50 @@ fn union_or_classic_close(family: Family) -> String {
 #[cfg(test)]
 #[path = "ws_worker_tests.rs"]
 mod worker_tests;
+
+pub(crate) fn routes(
+    _state: &crate::platform::state::AppState,
+) -> axum::Router<crate::platform::state::AppState> {
+    use crate::platform::http::not_found;
+    use axum::{routing::get, Router};
+
+    Router::new()
+        .route("/status", get(status_open))
+        .route("/websocket/{sid}", get(open).fallback(not_found))
+        .route("/websocketUnion/{sid}", get(open).fallback(not_found))
+        .route("/startWebsocket/{sid}", get(open).fallback(not_found))
+        .route("/simulation/{id}/{roomId}", get(open).fallback(not_found))
+        .route(
+            "/generalKeyPatTrain/{uid}/{trainId}",
+            get(open).fallback(not_found),
+        )
+        .route(
+            "/generalTelexPatTrain/{uid}/{trainId}",
+            get(open).fallback(not_found),
+        )
+        .route(
+            "/generalTickerPat/{uid}/{trainId}/{role}",
+            get(open).fallback(not_found),
+        )
+        .route("/api/ws/status", get(status))
+        .route("/api/status", get(status_open))
+        .route("/api/websocket/{sid}", get(open).fallback(not_found))
+        .route("/api/websocketUnion/{sid}", get(open).fallback(not_found))
+        .route("/api/startWebsocket/{sid}", get(open).fallback(not_found))
+        .route(
+            "/api/simulation/{id}/{roomId}",
+            get(open).fallback(not_found),
+        )
+        .route(
+            "/api/generalKeyPatTrain/{uid}/{trainId}",
+            get(open).fallback(not_found),
+        )
+        .route(
+            "/api/generalTelexPatTrain/{uid}/{trainId}",
+            get(open).fallback(not_found),
+        )
+        .route(
+            "/api/generalTickerPat/{uid}/{trainId}/{role}",
+            get(open).fallback(not_found),
+        )
+}

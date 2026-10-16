@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：实施中，第 1 步代码与门禁已完成，第 2 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
+> 状态：实施中，第 2 步代码与门禁已完成，第 3 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -260,4 +260,25 @@ V02 临时校验器最初将已有 `missing-*` 负例误判为新增成功用例
 第 1 步的函数体/SQL/错误映射/中间件顺序另经独立只读复核：63 个业务模块仅路径改写，主程序抽取项仅移动、必要可见性和格式调整，无新增行为逻辑或兼容 re-export。
 
 本轮原始验证产物暂存 `/tmp/007-structure-refactor-oj245o40/`；完成交付时归档可追溯证据并更新此记录。第 2 步候选仅在临时目录完成，不计为仓库已实施；第 2–5 步仍须依次集成、验证与提交。
+
+### 9.3 第 2 步：按开关拆路由（完成）
+
+- `router.rs` 仅保留常驻诊断、开关条件聚合与全局层；23 个路由工厂分别归对应平铺业务模块，`postTrainGlobalRule` 保留 general/radiotelephone/entering 三开关 OR。
+- WS 根路径与 `/api` 别名静态展开，所有动态 GET 保留 `fallback(not_found)`；未引入 `format!` 路由构造或隐藏分配。域工厂不再重复判断开关，总路由负责唯一挂载。
+- 原处理函数、SQL、错误映射、admin/auth layer 顺序、局部 body limit 和全局层顺序未改。第 1 步的 386 路由基线与第 2 步的 24 组、18,912 条观察逐项差异为 0。
+
+| 已执行项目 | 本轮结果 |
+|---|---|
+| `cargo fmt --all -- --check` | 通过 |
+| `cargo test --locked` | 79 通过，154 ignored |
+| locked release 构建与 smoke | 通过 |
+| Python 脚本测试 | 81 通过 |
+| 路由/WS 开关矩阵 | 24 组、386 路由、18,912 观察，0 差异 |
+| V02/V03 完整有身份对照 | 2,771 流程观察、394 WS、1,080 三身份路由、69 管理拒绝无写入、0 差异、0 漏覆盖 |
+| 稳定时钟 dual-stack journeys/full | journeys 2,454、full 3,903，均 0 FAIL/0 OPEN；既有 ACCEPTED 差异未改 registry |
+| 受影响生命周期夹具 | 64 请求；配对时钟环境下 0 FAIL/0 OPEN，未修改仓库 fixture 规则 |
+
+Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差异；采用临时共享取样时钟适配器重跑，结果全为既有 ACCEPTED/0 FAIL。仓库 `dual-stack-journeys.json` 保留原始夹具与请求集合；时钟适配器、隔离容器和报告留在 `/tmp/007-structure-refactor-oj245o40/`。
+
+第 3 步候选已在临时目录生成，未计入本提交，未改真实仓库；第 3–5 步仍须依次集成、验证与提交。
 

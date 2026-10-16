@@ -302,3 +302,24 @@ pub(crate) async fn term_delete(
         Err(error) => database_error(error),
     }
 }
+
+pub(crate) fn routes(
+    state: &crate::platform::state::AppState,
+) -> axum::Router<crate::platform::state::AppState> {
+    use crate::platform::auth::{authenticate, require_admin};
+    use axum::{middleware, routing::post, Router};
+
+    Router::new().nest(
+        "/api/postTrainGlobalRule",
+        Router::new()
+            .route("/findByType", post(find_by_type))
+            .route_layer(middleware::from_fn_with_state(state.clone(), authenticate))
+            .merge(
+                Router::new()
+                    .route("/addRule", post(add_rule))
+                    .route("/deleteById", post(delete_by_id))
+                    .route_layer(middleware::from_fn(require_admin))
+                    .route_layer(middleware::from_fn_with_state(state.clone(), authenticate)),
+            ),
+    )
+}
