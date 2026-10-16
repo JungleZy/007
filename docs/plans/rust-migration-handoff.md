@@ -1,12 +1,13 @@
 # Rust 迁移交接（每次接手先读本文件）
 
-最后更新：2026-10-14 UTC，基线提交见 `git log -1`。本文件只记"现状与下一步"；历史证据在 `docs/reviews/rust-migration/` 与各提交正文，不要在这里追加长段落。
+最后更新：2026-10-16 UTC；结构重构代码基线 `e99be2f6`。本文件只记“现状与下一步”；历史运行、CI 与现场证据各保留自己的版本，不把旧结果当作新代码验收。
 
 ## 现状
 - 接口层双栈对账：B4 用户/角色/菜单、WS 逐帧设施、B5 组训三域、B6 仿真、B7 报话/军语、B8 理论题库余项与杂项 **已完成**。全部旅程 2454 请求；最终全量扫描 3903 请求，0 FAIL/OPEN。
 - 单域真实网关演练 **已完成**：`/api/postTrainGlobalRule/**` 在同一隔离库上 Java→Rust→Java→Rust，最终 108 个网关请求、三次真实阻塞写排空及七次 Java WS 回退验证通过。不是生产切换，不是下线 Java。
 - Linux 浏览器及打包 Electron 的 Rust 主链已实跑；Windows GNU、Linux arm64、Linux x64 **原生后端 CI 构建与产物 smoke 均已通过**。现场硬件、原生客户端发布包及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
 - 经用户明确批准，此前 44 个迁移提交已推送至公开仓库的独立分支 `ci/rust-native-acceptance`，草稿 PR：[JungleZy/007#1](https://github.com/JungleZy/007/pull/1)。远端 main 保持 `49341d99`；不得擅自合并、创建 tag 或发 release。
+- backend-rust 五步结构重构及最终审计 **已完成**：21 个业务域、main 4 行、生产文件最大 1414 行；API/DB/22 开关不变。本轮普通 Rust 79、串行隔离库 154、Python 81、release smoke 及 JDK21 `clean verify` 513 测试通过，各步 journeys/full 0 FAIL/OPEN。日志诊断复原代码为 `e99be2f6`；验收版本边界、脱敏证据与回滚顺序见 [结构重构计划 §9.8](2026-10-15-backend-rust-structure-refactor-plan.md#98-最终验收完成)。本轮提交未 push，未重跑 native CI，不改变 Phase10 阻断条件。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
 - 主会话（Opus）只调度与拍板；执行交给子代理：改代码/跑对账用 Sonnet，检索用 Haiku。子代理回报 ≤300 字。
@@ -32,6 +33,7 @@ python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'
 ```
 JDK：`~/.local/opt/jdk21`。git 作者已在仓库本地配置为 Jungle。旅程格式见 `dual-stack-sweep.py` 顶部；支持 `headers` 会话步骤、`ws` 步骤、`presence`、`parse_data`。harness 的 POST 一律带 JSON 体，无体请求需 curl 另验。
 `local-dual-stack.sh up` 已修正 Java PID：后台子 shell 用 `exec` 替换为 Java，`java.pid` 与监听 PID 一致；`down` 实测关闭两端口。此前旧 shell PID 会留下 Java 孤儿进程，最终门禁已在修复后的全新进程上重跑通过。
+结构重构后，`local-dual-stack.sh` 从 `backend-rust/crates/app/src/platform/flags.rs` 扫描 22 个开关；不要改回扫描 `main.rs`。本轮曾观测宿主 wall clock 跳变，使用独占的临时单调时钟/配对时钟与独立 MySQL 验证，未修改应用时钟或 registry；临时容器、库和脚本已清理。
 
 单域演练使用本机原生 Nginx（同 Java/Rust 网络命名空间），不再使用旧 Rust-only 起停脚本。现有缓存二进制可直接复跑：
 ```bash

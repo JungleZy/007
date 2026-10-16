@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：实施中，第 5 步代码与门禁已完成，进入最终审计。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
+> 状态：已完成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`；最终代码：`e99be2f6`。五步重构、最终诊断复原、SR/I/V 审计、证据归档与自建验证环境清理均已完成，实际范围见 §9.8。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -267,7 +267,7 @@ V02 临时校验器最初将已有 `missing-*` 负例误判为新增成功用例
 
 第 1 步的函数体/SQL/错误映射/中间件顺序另经独立只读复核：63 个业务模块仅路径改写，主程序抽取项仅移动、必要可见性和格式调整，无新增行为逻辑或兼容 re-export。
 
-本轮原始验证产物暂存 `/tmp/007-structure-refactor-oj245o40/`；完成交付时归档可追溯证据并更新此记录。第 2 步候选仅在临时目录完成，不计为仓库已实施；第 2–5 步仍须依次集成、验证与提交。
+第 1 步提交：`51d10aba`。本轮临时验证产物已脱敏归档，入口见 §9.8；临时源码、脚本与服务已清理。后续步骤的独立实施证据见下文。
 
 ### 9.3 第 2 步：按开关拆路由（完成）
 
@@ -286,16 +286,16 @@ V02 临时校验器最初将已有 `missing-*` 负例误判为新增成功用例
 | 稳定时钟 dual-stack journeys/full | journeys 2,454、full 3,903，均 0 FAIL/0 OPEN；既有 ACCEPTED 差异未改 registry |
 | 受影响生命周期夹具 | 64 请求；配对时钟环境下 0 FAIL/0 OPEN，未修改仓库 fixture 规则 |
 
-Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差异；采用临时共享取样时钟适配器重跑，结果全为既有 ACCEPTED/0 FAIL。仓库 `dual-stack-journeys.json` 保留原始夹具与请求集合；时钟适配器、隔离容器和报告留在 `/tmp/007-structure-refactor-oj245o40/`。
+Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差异；采用临时共享取样时钟适配器重跑，结果全为既有 ACCEPTED/0 FAIL。仓库 `dual-stack-journeys.json` 保留原始夹具与请求集合；诊断与成功报告已归档至 §9.8，临时时钟适配器和隔离容器已清理。
 
-第 3 步候选已在临时目录生成，未计入本提交，未改真实仓库；第 3–5 步仍须依次集成、验证与提交。
+第 2 步提交：`8af60e68`；依赖第 1 步，候选目录未混入提交。后续第 3–5 步分别集成、验证与提交。
 
 ### 9.4 第 3 步：按域搬目录与测试（完成）
 
 - `crates/app/src/` 从平铺模块迁为 21 个 domain、shared、ws、router/tests、platform/tests；根目录仅 `lib.rs`、`main.rs`、`router.rs`、`runtime.rs`。
 - 162 个 Rust 文件；旧平铺模块清除；`#[path]`、`pub use`、`include!` 均为 0。路由工厂、所有调用路径和测试宿主均切到真实模块树，不留兼容 shim。
 - 测试迁移保持 229 个测试、152 个 ignored；prejob 混合测试保留单一实现及 test_support；资源路径已按新深度更新并确认资源存在。
-- `train_rule` 按当前计划暂留 general_train，三开关 OR 仍由总 router 控制；WS 业务入口仍保持原会话锁、generation guard 和通知调用路径，Step5 再收口跨域出口。
+- 本步的 `train_rule` 暂留 general_train，三开关 OR 由总 router 控制；随后第 4 步按语义拆域，第 5 步收口 WS 业务出口，全程保留原会话锁、generation guard 和通知时序。
 
 | 已执行项目 | 本轮结果 |
 |---|---|
@@ -307,7 +307,7 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 | V02/V03 完整有身份对照 | 2,771 流程、394 WS、1,080 三身份、69 管理拒绝无写入，0 差异/漏覆盖 |
 | paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
 
-第 4 步候选只在临时目录生成，未计入本提交；第 4–5 步仍须依次集成、验证与提交。
+第 3 步提交：`060cad33`；第 4 步候选未混入该提交。
 
 ### 9.5 第 4 步：拆分超大文件（完成）
 
@@ -323,9 +323,9 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 | 路由/开关/WS矩阵 | 18,912 观察，0 差异 |
 | V02/V03 完整有身份对照 | 2,771 流程、394 WS、1,080 三身份、69 管理拒绝无写入，0 差异/漏覆盖 |
 | paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
-| Step4 静态语义复核 | 1,645 函数、282 命名类型/常量、67 impl 头、1,927 注释/属性关联、17,490 字符串多重集闭合；测试229/ignored152集合一致 |
+| 第 4 步初次拆分静态复核（归属补齐前） | 1,645 函数、282 命名类型/常量、67 impl 头、1,927 注释/属性关联、17,490 字符串的当时快照已核对；最终跨步复核及域内适配增量见 §9.7–9.8，不把这组中间计数当最终源码计数 |
 
-第 5 步仍须收口共享内核、清除生产跨域直接引用并完成最终审计。
+第 4 步提交：`d75778a5`；随后第 5 步完成共享内核与生产跨域依赖收口。
 
 ### 9.6 第 5 步：共享内核与跨域收口（完成）
 
@@ -344,7 +344,7 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 | paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
 | 生产跨域审计 | 仅 2 个 post_ticker settings 生产引用属于允许例外；shared 无 domain/WS 反向依赖 |
 
-第 5 步完成；下一阶段仅为最终逐项审计、证据归档和清理自有临时服务。
+第 5 步提交：`790dd710`。最终逐项审计、诊断复原与证据归档见 §9.7–9.8。
 
 ### 9.7 最终语义审计与诊断复原
 
@@ -352,4 +352,28 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 - 发现 `radiotelephone/train_rule.rs::database_error` 在第 4 步拆分时误改了一条 tracing 日志；已恢复基线原文 `training rule or radio term database operation failed`。HTTP 状态、业务码及响应文案始终未改。
 - 用独立缺表夹具启动原始、修补前和修补后 release 二进制，实际调用管理员 `save/update/delete`：三者均返回原 HTTP 500/code 500 信封；修补后三个日志与原始二进制一致，服务正常退出。
 - 修补后重新执行 Cargo fmt、普通测试 79、串行隔离库测试 154、locked release 构建与 smoke、Python 测试 81，全部通过。Python 仍有既有未关闭 socket 的 ResourceWarning，不计作新增失败，也未在本轮压制。
+
+### 9.8 最终验收（完成）
+
+- **SR01–SR08、I01–I06、V01–V05 已逐项闭合**。机器可读判定与范围：[验收摘要](../reviews/rust-migration/structure-refactor-2026-10-16.json)；56 个原始报告、静态映射、命令/退出码与日志条目：[压缩证据包](../reviews/rust-migration/structure-refactor-2026-10-16.tar.gz)。包内 `manifest.json` 保存版本、二进制/源码摘要、每个文件的 SHA-256 及脱敏记录；保留首轮失败和校验器修正，不覆盖为成功结果。
+- 模块闭合：193 个 Rust 文件全部从真实模块树可达（127 生产、66 测试），21 个业务域；`main.rs` 4 行，生产文件最大 1,414 行；无孤儿、`#[path]`、`include!`、兼容 re-export。229 个 app 测试逐项保留，152 个 ignored 属性无翻转，不仅比较计数。
+- 依赖闭合：仅保留 post_ticker settings 的两个生产跨域调用；domain→WS 调用只经 notify，shared/platform 无业务或 WS 反向依赖。WS→telegram 的既有采集持久化调用不属于禁止的反向方向。同名但规则不同的 post_telegraph/simulation 生成器仍私有，不误合并。
+- 配置闭合：22 个开关的完整名称集合与基线相同，脚本扫描和 manifest 全部来源有效；三开关 OR 规则与全部 WS 根路径/API 别名保留。SQL、响应映射、锁/事务、generation guard 与通知顺序经静态复核及行为门禁验证。
+- 最终普通测试 79、串行隔离库测试 154、Python 测试 81、fmt、locked release 与实际二进制 smoke 均通过。五步各有 24 配置/18,912 路由观察、完整三身份与真实 WS 对照；每步 journeys 2,454/full 3,903，均 0 FAIL/OPEN。既有 ACCEPTED 差异分别为 169/678，不声称两栈历史差异为零。
+- 仓库 Java 提交门禁也已补跑：在 `backend/` 显式使用 JDK 21 执行 `./mvnw -B clean verify`，513 个测试、0 失败/错误/跳过，BUILD SUCCESS；Testcontainers 容器已自动删除。默认 Failsafe/native 阶段未运行，不将 JVM 结果冒充 native 验收。
+- 恢复行为已补齐第 1/3/4/5 步实际服务证据；最终首次恢复 0.102 秒、后续恢复 4.858 秒，关闭开关和退出后均不恢复。配置非法与监听 bind 失败的退出码 1 已与原始二进制实跑对照。`serve` 返回错误时先 abort 再传播错误的分支按未变控制流核验，未伪称做过该分支故障注入。
+- **版本边界**：最终代码为 `e99be2f6`。V01–V03 与全量双栈的最后报告对应第 5 步 `790dd710`；唯一后续源码差异是 §9.7 的日志原文复原，已单独实跑三个错误路径并重跑完整构建/测试/smoke。未把旧二进制报告重标为新提交执行。
+- 临时配对时钟仅用于本机验证，未更改宿主机 NTP、应用时钟、旅程夹具或 registry。自建 MySQL 演练容器已删除，18121/18122/40187 无监听；原容器只删除本任务的两个唯一命名隔离库，保留 `mysql-project006`。一次性脚本与候选源码目录已删除，证据留在仓库。
+- 本轮为 WSL/Linux 本地结构重构验收，**不是新的 native CI、可信签名、实机/听感或生产切换验收**；未 push，Phase10 仍按原前置条件阻断。
+
+| 提交 | 交付单元 |
+|---|---|
+| `51d10aba` | 第 1 步：库入口、平台与运行生命周期 |
+| `8af60e68` | 第 2 步：按开关拆路由 |
+| `060cad33` | 第 3 步：业务域与测试搬迁 |
+| `d75778a5` | 第 4 步：超大文件与语义归属拆分 |
+| `790dd710` | 第 5 步：共享内核与跨域出口 |
+| `e99be2f6` | 最终审计：恢复拆分前诊断原文 |
+
+整体代码回滚先撤销最终诊断复原，再按 5 → 4 → 3 → 2 → 1 逆序执行并重跑对应门禁；验收归档提交仅记录证据。不承诺任意撤销中间一步。
 
