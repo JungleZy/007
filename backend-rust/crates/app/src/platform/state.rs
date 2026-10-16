@@ -2,7 +2,9 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 
-use super::{config::AppConfig, error::AppError, health::refresh_database_readiness};
+use crate::platform::config::AppConfig;
+use crate::platform::error::AppError;
+use crate::platform::health::refresh_database_readiness;
 
 #[derive(Clone)]
 pub(crate) struct AppState {

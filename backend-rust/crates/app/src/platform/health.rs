@@ -10,7 +10,9 @@ use serde::Serialize;
 use serde_json::json;
 use tokio::time::timeout;
 
-use super::{auth::AuthUser, envelope::envelope_json, state::AppState};
+use crate::platform::auth::AuthUser;
+use crate::platform::envelope::envelope_json;
+use crate::platform::state::AppState;
 
 #[derive(Serialize)]
 pub(crate) struct HealthResponse {

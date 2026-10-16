@@ -2,7 +2,7 @@ use std::{env, net::SocketAddr};
 
 use axum::extract::Request;
 
-use super::error::AppError;
+use crate::platform::error::AppError;
 
 pub(crate) fn parse_bool(name: &str, default: bool) -> Result<bool, AppError> {
     match env::var(name) {

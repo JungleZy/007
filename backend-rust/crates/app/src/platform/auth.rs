@@ -4,53 +4,19 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use serde::Deserialize;
+
 use sha2::{Digest, Sha256};
 use sqlx::Row;
 use tracing::warn;
 
-use super::{envelope::envelope_response, extract::header_text, state::AppState};
+use crate::platform::envelope::envelope_response;
+use crate::platform::extract::header_text;
+use crate::platform::state::AppState;
 
 #[derive(Clone, Debug)]
 pub(crate) struct AuthUser {
     pub(crate) id: String,
     pub(crate) is_admin: bool,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct LoginRequest {
-    #[serde(rename = "userAccount")]
-    pub(crate) user_account: Option<String>,
-    pub(crate) password: Option<String>,
-    #[serde(rename = "deviceId")]
-    pub(crate) device_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct PasswordChangeRequest {
-    #[serde(rename = "oldPassword")]
-    pub(crate) old_password: Option<String>,
-    #[serde(rename = "newPassword")]
-    pub(crate) new_password: Option<String>,
-    #[serde(rename = "newPasswordV")]
-    pub(crate) new_password_verification: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(crate) struct RegistrationRequest {
-    pub(crate) id: Option<String>,
-    #[serde(rename = "userAccount")]
-    pub(crate) user_account: Option<String>,
-    #[serde(rename = "userName")]
-    pub(crate) user_name: Option<String>,
-    #[serde(rename = "idCard")]
-    pub(crate) id_card: Option<String>,
-    #[serde(rename = "userSex")]
-    pub(crate) user_sex: Option<i32>,
-    pub(crate) password: Option<String>,
-    #[serde(rename = "userImg")]
-    pub(crate) user_img: Option<String>,
-    pub(crate) eday: Option<String>,
 }
 
 pub(crate) async fn authenticate(

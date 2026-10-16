@@ -7,7 +7,7 @@ use axum::{
 use tracing::{error, info};
 use uuid::Uuid;
 
-use super::envelope::envelope_response;
+use crate::platform::envelope::envelope_response;
 
 pub(crate) async fn not_found() -> StatusCode {
     StatusCode::NOT_FOUND

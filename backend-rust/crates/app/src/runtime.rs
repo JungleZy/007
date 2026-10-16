@@ -3,11 +3,11 @@ use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, signal};
 use tracing::info;
 
-use crate::{
-    general_train,
-    platform::{config::AppConfig, error::AppError, state::build_state},
-    router::build_router,
-};
+use crate::domain::general_train::general_train;
+use crate::platform::config::AppConfig;
+use crate::platform::error::AppError;
+use crate::platform::state::build_state;
+use crate::router::build_router;
 
 pub(crate) async fn run() -> Result<(), AppError> {
     let config = Arc::new(AppConfig::from_env()?);

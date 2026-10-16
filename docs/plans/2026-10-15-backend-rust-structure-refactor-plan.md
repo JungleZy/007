@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：实施中，第 2 步代码与门禁已完成，第 3 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
+> 状态：实施中，第 3 步代码与门禁已完成，第 4 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -281,4 +281,23 @@ V02 临时校验器最初将已有 `missing-*` 负例误判为新增成功用例
 Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差异；采用临时共享取样时钟适配器重跑，结果全为既有 ACCEPTED/0 FAIL。仓库 `dual-stack-journeys.json` 保留原始夹具与请求集合；时钟适配器、隔离容器和报告留在 `/tmp/007-structure-refactor-oj245o40/`。
 
 第 3 步候选已在临时目录生成，未计入本提交，未改真实仓库；第 3–5 步仍须依次集成、验证与提交。
+
+### 9.4 第 3 步：按域搬目录与测试（完成）
+
+- `crates/app/src/` 从平铺模块迁为 21 个 domain、shared、ws、router/tests、platform/tests；根目录仅 `lib.rs`、`main.rs`、`router.rs`、`runtime.rs`。
+- 162 个 Rust 文件；旧平铺模块清除；`#[path]`、`pub use`、`include!` 均为 0。路由工厂、所有调用路径和测试宿主均切到真实模块树，不留兼容 shim。
+- 测试迁移保持 229 个测试、152 个 ignored；prejob 混合测试保留单一实现及 test_support；资源路径已按新深度更新并确认资源存在。
+- `train_rule` 按当前计划暂留 general_train，三开关 OR 仍由总 router 控制；WS 业务入口仍保持原会话锁、generation guard 和通知调用路径，Step5 再收口跨域出口。
+
+| 已执行项目 | 本轮结果 |
+|---|---|
+| Cargo fmt、普通 Cargo 测试 | 79 通过，154 ignored |
+| 串行 ignored 隔离库测试 | 154 通过 |
+| locked release 构建与 smoke | 通过且无生产 warning |
+| Python 脚本测试 | 81 通过 |
+| 386 路由/24 组开关/WS 观察 | 18,912 观察，0 差异 |
+| V02/V03 完整有身份对照 | 2,771 流程、394 WS、1,080 三身份、69 管理拒绝无写入，0 差异/漏覆盖 |
+| paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
+
+第 4 步候选只在临时目录生成，未计入本提交；第 4–5 步仍须依次集成、验证与提交。
 

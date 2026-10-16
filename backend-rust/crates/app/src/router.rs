@@ -1,18 +1,41 @@
 use axum::{http::HeaderValue, middleware, routing::get, Router};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, limit::RequestBodyLimitLayer};
 
-use crate::{
-    cable, device, entering, equipment, general_train, grading, group_net,
-    platform::{
-        auth::{authenticate, require_admin},
-        envelope::openapi,
-        health::{admin_probe, auth_probe, health, live, ready},
-        http::{not_found, panic_response, request_id},
-        state::AppState,
-    },
-    post_telegram, post_telegraph, post_telex, post_ticker, radiotelephone, receive_keypoints,
-    simulation, system, telegram, telegraph_key, telex, theory, ticker_tape, tools, train_rule, ws,
-};
+use crate::domain::cable;
+use crate::domain::device;
+use crate::domain::entering;
+use crate::domain::equipment;
+use crate::domain::general_train;
+use crate::domain::general_train::train_rule;
+use crate::domain::grading;
+use crate::domain::group_net;
+use crate::domain::post_telegram;
+use crate::domain::post_telegraph;
+use crate::domain::post_telex;
+use crate::domain::post_ticker;
+use crate::domain::radiotelephone;
+use crate::domain::receive_keypoints;
+use crate::domain::simulation;
+use crate::domain::system;
+use crate::domain::telegram;
+use crate::domain::telegraph_key;
+use crate::domain::telex;
+use crate::domain::theory;
+use crate::domain::ticker_tape;
+use crate::domain::tools;
+use crate::platform::auth::authenticate;
+use crate::platform::auth::require_admin;
+use crate::platform::envelope::openapi;
+use crate::platform::health::admin_probe;
+use crate::platform::health::auth_probe;
+use crate::platform::health::health;
+use crate::platform::health::live;
+use crate::platform::health::ready;
+use crate::platform::http::not_found;
+use crate::platform::http::panic_response;
+use crate::platform::http::request_id;
+use crate::platform::state::AppState;
+use crate::ws;
 
 pub(crate) fn build_router(state: AppState) -> Router {
     let protected = Router::new()
@@ -122,3 +145,6 @@ pub(crate) fn build_router(state: AppState) -> Router {
         .layer(middleware::from_fn(request_id))
         .with_state(state)
 }
+
+#[cfg(test)]
+mod tests;

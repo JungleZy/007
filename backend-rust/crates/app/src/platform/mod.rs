@@ -8,3 +8,6 @@ pub(crate) mod flags;
 pub(crate) mod health;
 pub(crate) mod http;
 pub(crate) mod state;
+
+#[cfg(test)]
+mod tests;
