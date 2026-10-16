@@ -82,10 +82,10 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 ## Windows Electron 安装升级验收（已完成；发布与现场门禁仍阻断）
 - `.github/workflows/rust-backend.yml` 已新增原生 Windows desktop 作业：消费同一轮 Windows GNU 后端产物，生成两个不发布的 `UNSIGNED VALIDATION ONLY` NSIS 测试版本；实际渲染器验证开发激活、登录、课件导入、文件字节下载、网络配置及升级保留。不是历史客户版升级或可信签名证明。
 - 入口：`pwsh -File bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact <exe> -OutputDirectory <证据目录> -PlaywrightDirectory <playwright-core目录>`。数据库使用 runner 的 MySQL 二进制另起私有 datadir；仅导入快照 CREATE TABLE 与 22 个迁移，禁止复制源业务数据。
-- 原生 Windows desktop 验收已通过：Actions `38555347478`，三平台后端与 Windows junction 回归均通过；两个 NSIS 版本 `3.1.2-validation.1` / `3.1.3-validation.2` 均实际安装并启动真实 Electron renderer。开发激活、真实注册/登录、网络配置、83字节Rust课件上传、68字节Node资源上传下载、路径穿越404、UI退出及子进程/18001/8000监听回收均通过；页面JS错误0。Windows子进程是终止退出，不冒充Rust graceful。
+- 原生 Windows desktop 验收已通过：最终 Actions `38841479376`，三平台后端与 Windows junction 回归均通过；两个 NSIS 版本 `3.1.2-validation.1` / `3.1.3-validation.2` 均实际安装并启动真实 Electron renderer。开发激活、真实注册/登录、网络配置、83字节Rust课件上传、68字节Node资源上传下载、路径穿越404、UI退出及子进程/18001/8000监听回收均通过；页面JS错误0。Windows子进程是终止退出，不冒充Rust graceful。
 - 升级数据保护已实证通过：B安装完成且首次启动前逐文件SHA256快照保留325字节用户`nip.db`、`config.json`和文件资源；安装后首次启动迁入`userData/runtime/bin`，授权双副本和Chromium profile保留；第三次启动用stale `install/bin`覆盖尝试仍以已有runtime为权威。持久快照目录及manifest留在安装目录外；详见`docs/reviews/rust-migration/phase9-desktop-acceptance.json`和run artifact。
-- 本轮代码 head=`2b8cd570`；伴随 `Build Quarkus Native 38555347286` 全绿。JDK21 verify513、Node runtime-test/产物契约9、PowerShell parser、actionlint、隔离MySQL106表/22迁移/8菜单均通过。Windows安装器、应用和Rust均为`NotSigned`验证产物，不是发布门禁；未提供客户资源库/iconfont，普通设备绑定授权、串口/按键/听感硬件及生产备份/切换仍不验收。
-- 之前 `38549576118` 已保留真实失败证据（NSIS升级会把`nip.db`从325字节用户配置变回109字节默认值）；修复后`38555347478`通过，失败回归断言未删除。
+- 最终代码 head=`f855d6f9`；伴随 `Build Quarkus Native 38841479379` 全绿。JDK21 verify513、Node runtime-test/产物契约9、PowerShell parser、actionlint、隔离MySQL106表/22迁移/8菜单均通过。上一次 `38564724665` 仅因30秒子进程回收观测窗口超时失败；本轮延长至60秒并保留超时诊断后通过。Windows安装器、应用和Rust均为`NotSigned`验证产物，不是发布门禁；未提供客户资源库/iconfont，普通设备绑定授权、串口/按键/听感硬件及生产备份/切换仍不验收。
+- 之前 `38549576118` 已保留真实失败证据（NSIS升级会把`nip.db`从325字节用户配置变回109字节默认值）；修复后 `38841479376` 通过，失败回归断言未删除。
 - GitHub 仓库 signing secrets/environments 均为空；已有 releases 只有 Java 后端 runner，没有历史 Electron 安装包。完整客户文件库、可信签名证书、普通设备绑定授权及现场硬件仍缺验收条件；Phase10 不解除。
 
 ## 下一步

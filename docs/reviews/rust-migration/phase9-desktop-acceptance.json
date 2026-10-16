@@ -1,15 +1,15 @@
 {
   "schema": "rust-migration-native-windows-desktop/v1",
-  "verified_at_utc": "2026-10-14T11:30:16Z",
+  "verified_at_utc": "2026-10-16T02:52:17Z",
   "status": "PASS_NATIVE_UNSIGNED_SAME_SOURCE_DESKTOP_ACCEPTANCE",
   "run": {
     "workflow": ".github/workflows/rust-backend.yml",
-    "run_id": 38555347478,
-    "url": "https://github.com/JungleZy/007/actions/runs/38555347478",
+    "run_id": 38841479376,
+    "url": "https://github.com/JungleZy/007/actions/runs/38841479376",
     "branch": "ci/rust-native-acceptance",
-    "head_sha": "2b8cd570ca90075c95dd84814a4c901b4706acbf",
-    "companion_run_id": 38555347286,
-    "companion_url": "https://github.com/JungleZy/007/actions/runs/38555347286"
+    "head_sha": "f855d6f94685d78f5ba1961ab914e47cf4d7937b",
+    "companion_run_id": 38841479379,
+    "companion_url": "https://github.com/JungleZy/007/actions/runs/38841479379"
   },
   "scope": {
     "platform": "windows-2022 native x86_64",
@@ -22,13 +22,13 @@
   },
   "backend": {
     "artifact": "rust-backend-windows-x86_64-gnu",
-    "sha256": "2dd3d38e0923112b9f041da548956032888aa5ab193dfb5517d4f19c1915ff8a",
-    "packaged_and_installed_sha256": "2dd3d38e0923112b9f041da548956032888aa5ab193dfb5517d4f19c1915ff8a",
+    "sha256": "f42d1ad911b5d905ba718b6902992180ce972e865577955debb6b4ba0014e1cf",
+    "packaged_and_installed_sha256": "f42d1ad911b5d905ba718b6902992180ce972e865577955debb6b4ba0014e1cf",
     "authenticode": "NotSigned"
   },
   "installers": [
-    {"version":"3.1.2-validation.1","sha256":"a9e402188e1f9e73418598cc18d0d600d51b3a7e993f29299f46f75b4476042b","authenticode":"NotSigned"},
-    {"version":"3.1.3-validation.2","sha256":"775c6519b16cf0a3cf31b2851132dc0b9da8c69b33c3f0c78e1612b30334eeec","authenticode":"NotSigned"}
+    {"version":"3.1.2-validation.1","sha256":"4ab08fe4c1cb3d0f2fe4c423bff4c8a13bd15b066072e1623cf194339946fe72","authenticode":"NotSigned"},
+    {"version":"3.1.3-validation.2","sha256":"ef610c91c616bb1df1227e57fcc0eb983c962356ae3216676a088f07bdb617da","authenticode":"NotSigned"}
   ],
   "database": {
     "source_data_imported": false,
