@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：方案，未开工。基线：`d1ccee6f`（2026-10-15）。行号与计数均为该基线实测，执行时以仓库现状为准。
+> 状态：方案（已按评审补齐执行约束），未开工。基线：`d1ccee6f`（2026-10-15）。行号与计数均为该基线实测，执行时以仓库现状为准。
 
 ## 1. 目标与边界
 
@@ -20,15 +20,16 @@
 | 二进制名 `rust-backend`、目录 `backend-rust/` | `.github/workflows/rust-backend.yml` 三平台产物路径 |
 | 不换 ORM、不删 `persistence` crate | 既有决定；见 §7 待决项 |
 | `scripts/` 目录与文件名 | 与迁移证据路径绑定 |
+| 后台任务的启动条件、周期与退出清理 | general 训练恢复任务属于运行行为，不能只迁移 HTTP 路由而漏迁生命周期 |
 
-本计划只做移动、拆分和可见性调整，不夹带行为修复；搬运中发现的缺陷另行登记。
+本计划只做移动、拆分和必要接线、可见性调整，不夹带行为修复；错误类型与转信封逻辑原样保留，不引入统一错误 trait。搬运中发现的缺陷另行登记。
 
 ## 2. 现状问题（实测证据）
 
 | # | 问题 | 证据 |
 |---|---|---|
 | P1 | 业务文件全平铺 | `crates/app/src/` 70 个 `.rs`，以 `post_*`/`telex*`/`theory*` 前缀模拟分组 |
-| P2 | `main.rs` 职责过载 | 2808 行：`AppConfig`/`AppState`/`AppError`/`Envelope`、`authenticate`/`require_admin`/`token_digest`、用户/登录/菜单/角色/tools handler、`parse_*` 工具、`build_router`（388 处 `.route(`、22 个开关块）、`init_tracing`/`shutdown_signal`、180 行测试 |
+| P2 | `main.rs` 职责过载 | 2808 行：`AppConfig`/`AppState`/`AppError`/`Envelope`、`authenticate`/`require_admin`/`token_digest`、用户/登录/菜单/角色/tools handler、`parse_*` 工具、`build_router`（388 处 `.route(`、22 个开关块）、`init_tracing`/`shutdown_signal`、general 训练恢复任务的启动与退出清理、180 行测试 |
 | P3 | 业务模块依赖二进制根 | 如 `cable.rs:12 use super::{envelope_json, envelope_response, AppState}`；`crate::now_time_millis` 11 处引用 |
 | P4 | 超大文件 | `general_train.rs` 4009（key 21 / telex 16 / ticker 12 个函数）、`ws.rs` 3198、`post_telegram_write.rs` 2276、`post_telegraph_write.rs` 1587、`exam.rs` 1549 |
 | P5 | 拆分轴不一致 | 按读写拆（`post_telex.rs`+`post_telex_write.rs`）、按功能拆（`telex.rs`+`telex_capture.rs`+`telex_handle.rs`）、`#[path]` 嵌套（`telegram_write.rs:12` 挂 `telegram_lifecycle.rs`）并存 |
@@ -36,23 +37,24 @@
 | P7 | 跨域共享逻辑寄居在业务文件 | 见 §4 |
 | P8 | `persistence` crate 运行时未被使用 | `crates/app/Cargo.toml` 无该依赖，业务全部裸 `sqlx`；约 100 个 SeaORM 实体仅服务其自身 2 个测试 |
 | P9 | 外部硬编码 `main.rs` | `scripts/local-dual-stack.sh:63` 扫描 `main.rs` 收集开关；`phase9-contract-manifest.json` sources 列 `main.rs`；`dual-stack-sweep.py:35` 注释 |
-| P10 | 错误类型分散 | 11 个独立 `enum *Error`（`main.rs`、`comprehensive.rs`、`entering.rs`、`exam.rs` 等），各自转信封 |
+| P10 | 错误类型分散 | 11 个独立 `enum *Error`（`main.rs`、`comprehensive.rs`、`entering.rs`、`exam.rs` 等），平台启动错误与域业务错误并存；本轮仅原样搬迁，归一另行评估 |
 
 ## 3. 目标结构
 
-**划分原则：一个功能开关 = 一个域目录 = 一个 `routes()`。** 开关是部署、灰度和回滚的单位，`build_router` 也已按开关分块；按开关切能让第 2 步成为机械搬运。注意开关边界与“岗位/基础”命名不完全一致（`post_entering` 在 entering 开关下，`post_military`/`post_radiotelephone` 在 radiotelephone 开关下），以开关为准，不另加 `basic/`、`post/` 层级。
+**划分原则：一个功能开关 = 一个域目录 = 一个路由入口。** 开关是部署、灰度和回滚的单位，`build_router` 也已按开关分块；按开关切能让第 2 步成为机械搬运。注意开关边界与“岗位/基础”命名不完全一致（`post_entering` 在 entering 开关下，`post_military`/`post_radiotelephone` 在 radiotelephone 开关下），以开关为准，不另加 `basic/`、`post/` 层级。
 
 ```text
 crates/app/src/
-├── main.rs              # ≤60 行：init_tracing、AppConfig::from_env、serve、shutdown_signal
-├── lib.rs               # 模块树根；pub fn build_app(config) 供 main 与测试复用
-├── router.rs            # 仅组装：if flags.x { api = api.merge(domain::x::routes()) }
+├── main.rs              # ≤60 行：#[tokio::main] + rust_backend::run().await
+├── lib.rs               # 模块树根；唯一对 bin 的 pub async fn run()，保留启动错误日志与 exit(1)
+├── runtime.rs           # init_tracing / 配置与状态装配 / serve / 恢复任务 JoinHandle / shutdown_signal
+├── router.rs            # build_router(state)；if flags.x { api = api.merge(domain::x::routes(&state)) }
 ├── platform/
 │   ├── config.rs        # AppConfig
 │   ├── flags.rs         # 22 个 RUST_*_ENABLED 常量表（脚本扫描的唯一来源）
-│   ├── state.rs         # AppState
+│   ├── state.rs         # AppState / build_state
 │   ├── envelope.rs      # Envelope / envelope_json / envelope_response / openapi 兜底
-│   ├── error.rs         # AppError + 域错误转信封的统一 trait
+│   ├── error.rs         # 原有 AppError；不归一域错误类型或转信封逻辑
 │   ├── auth.rs          # authenticate / require_admin / lookup_user / AuthUser / token_digest
 │   ├── extract.rs       # parse_bool/u32/u64/usize / header_text / parse_socket_addr
 │   ├── clock.rs         # now_time_millis
@@ -63,11 +65,11 @@ crates/app/src/
 │   └── …                # 第 5 步从业务域下沉的函数，见 §4
 ├── domain/
 │   └── <域>/
-│       ├── mod.rs       # pub(crate) fn routes() -> Router<AppState>（含 admin 子路由）
+│       ├── mod.rs       # pub(crate) fn routes(state: &AppState) -> Router<AppState>（含 admin 子路由）
 │       ├── *.rs         # handler / service / SQL，按子资源分文件
 │       └── tests/       # mod.rs + writer.rs 等；取代 #[path]
 └── ws/
-    ├── mod.rs           # routes()、open/serve/dispatch
+    ├── mod.rs           # routes(&state)（根路径及 /api 别名）、open/serve/dispatch
     ├── manager.rs       # 连接/房间/generation guard、lock_room_lifecycle
     ├── status.rs  classic.rs  union.rs  simulation.rs  general.rs
     ├── notify.rs        # 供业务域调用的 notify_*/close_*/send_classic* 出口
@@ -101,8 +103,16 @@ crates/app/src/
 | `RUST_PHASE7_SIMULATION_ENABLED` | `domain/simulation/` | `simulation.rs`、`simulation_writer_tests.rs` |
 | `RUST_PHASE8_WS_ENABLED` | `ws/` | `ws.rs`、`ws_worker_tests.rs` |
 | — | `shared/` | `scoring.rs`、`statistical.rs`、`bean_conversion.rs`、`telex_capture.rs` |
+| — | `runtime.rs` | `main.rs` 的 `run`、`init_tracing`、`shutdown_signal` 与 general 训练恢复任务的生命周期管理；恢复业务函数仍属 general 域 |
 | — | 按被测域拆分 | `prejob_writer_tests.rs`（调用 `synthetical`/`telegraph_key`→telegraph_key，`telegram_write`→telegram，`telex`→telex） |
 | — | 各模块 `tests/` | `main.rs` 的 `mod tests` |
+
+### 3.2 运行入口与可见性
+
+- lib 与 bin 是两个 crate。bin 只调用库根的 `pub async fn run()`；将现有 `main` 的初始化、启动错误日志与 `exit(1)` 处理移入该入口，内部调用 `runtime::run() -> Result<(), AppError>`。不向 bin 暴露 `AppConfig`、`AppState`、`AppError` 或业务模块。
+- 其余模块默认私有，确需库内跨模块访问时使用 `pub(crate)`；不通过 `pub mod domain`、`pub mod platform` 或兼容 re-export 扩大公开面。
+- 域路由使用 `routes(state: &AppState) -> Router<AppState>`：保留 `from_fn_with_state(state.clone(), authenticate)` 与局部 body limit 对配置的读取；域内不提前绑定 Router 状态，最终仍由 `router::build_router(state: AppState) -> Router` 统一 `.with_state(state)`。
+- `build_state` 与 `build_router` 作为库内构建入口供测试复用，不另设公开 `build_app(config)`；构建 Router 本身不得启动恢复任务。后台任务只由 `runtime::run` 随服务生命周期创建和清理。
 
 ## 4. 跨域依赖处理
 
@@ -122,21 +132,30 @@ crates/app/src/
 
 ## 5. 分步实施
 
-每步一个提交、可单独 revert；每步只移动/拆分，不改函数体（可见性与 `use` 路径除外）。同一时刻只有一个写代码的执行者。
+每步一个提交，提交后均须可构建并通过门禁；后一步依赖前一步，**不承诺任意撤销中间步骤**。当前步失败可撤销当前步；整体回滚按已完成步骤的依赖逆序执行（全部完成时为 5 → 4 → 3 → 2 → 1），每次回滚后重跑对应门禁。
+
+业务函数体与 SQL 逻辑保持不变；仅允许模块/调用路径、可见性及本计划明确的路由参数、启动入口接线调整。同一时刻只有一个写代码的执行者。
 
 ### 第 1 步：lib/bin 拆分与 `platform/` 抽取
 
-- 新建 `lib.rs`，`main.rs` 只保留启动；P2 列出的平台项按 §3 搬入 `platform/`。
+- 开工前先按第 2 步的校验口径保存当前 Rust 路由、开关归属及请求结果基线，避免第 1 步已改行为后才采样。
+- 新建 `lib.rs`、`runtime.rs`，按 §3.2 闭合 lib/bin 边界；`main.rs` 只保留 Tokio 入口与库调用，P2 列出的平台项按 §3 搬入 `platform/`。
+- 将现有 `run` 的启动/退出顺序整体搬入 `runtime.rs`：保留 `RUST_PHASE7_GENERAL_ENABLED` 控制的唯一恢复任务、`interval(Duration::from_secs(5))` 的首次立即 tick 与后续周期，以及 `axum::serve` 返回后、传播服务错误前的 `JoinHandle::abort()`。不把任务启动藏进 `build_state`、`build_router` 或域 `routes`，不改变恢复函数业务逻辑。
 - 22 个开关名集中到 `platform/flags.rs` 常量表，`AppConfig::from_env` 改为读表。
 - 业务模块 `use super::{…}` 改为 `use crate::platform::…`；此时业务文件仍平铺在 `src/`。
-- **同提交同步外部引用**：`scripts/local-dual-stack.sh:63` 扫描路径改为 `platform/flags.rs`；`phase9-contract-manifest.json` sources 增加 `flags.rs`/`router.rs`（`main.rs` 保留，内容已变）；`dual-stack-sweep.py:35` 注释。
-- 校验：`grep -oE '"RUST_[A-Z0-9_]+_ENABLED"' platform/flags.rs | sort -u | wc -l` = 22，且集合与基线一致。
+- **同提交同步外部引用**：`scripts/local-dual-stack.sh:63` 扫描路径改为 `platform/flags.rs`；`phase9-contract-manifest.json` sources 增加 `lib.rs`、`runtime.rs`、`platform/flags.rs`、`router.rs` 的完整仓库路径（`main.rs` 保留，内容已变）；`dual-stack-sweep.py:35` 注释。
+- 校验（在 `backend-rust/` 下）：`grep -oE '"RUST_[A-Z0-9_]+_ENABLED"' crates/app/src/platform/flags.rs | sort -u | wc -l` = 22，且集合与基线一致。
 
 ### 第 2 步：拆 `build_router`
 
-- 每个开关块整体搬到对应域的 `routes()`（此时可先放在平铺文件里，如 `cable.rs` 内的 `pub(crate) fn routes()`）；`router.rs` 只剩组装与全局层（CORS、body limit、catch-panic、request_id、fallback）。
+- 每个开关下的所有路由块整体搬到对应域的 `pub(crate) fn routes(state: &AppState) -> Router<AppState>`（此时可先放在平铺文件里，如 `cable.rs`）；`router.rs` 只剩组装与全局层（CORS、body limit、catch-panic、request_id、fallback）。
 - 中间件顺序与 `nest`/`merge` 层级必须逐块保持，admin 子路由仍套 `require_admin`。
-- **路由等价校验（一次性脚本，不入库）**：以全部开关打开、无 DB 构建 Router，对 `docs/reviews/rust-migration/rest-endpoints.tsv` 全部行与 `ws-contracts.tsv` 路径，用无凭据请求记录 `(method, path, HTTP 状态, 信封 code)`；拆分前后输出逐行 diff 必须为空；再对“全部开关关闭”跑一次同样 diff。
+- **路由等价校验（一次性脚本，不入库）**：以下矩阵在第 1 步前采集基线，每步修改后重复执行；记录源码版本、实际开关配置、用例与差异结果，凭据脱敏。无凭据 diff 只证明部分路由可达性，不能替代 `journeys/full` 或证明管理员授权不变。
+  - **清单**：以当前 Rust 实际注册的路由为主，记录方法、路径模板、具体参数样例、所属开关及鉴权/admin 要求；Java 的 `rest-endpoints.tsv` 与 `ws-contracts.tsv` 仅作补充核对。必须包含 `/health`、`/live`、`/ready`、`/q/openapi`、`/api/phase1/contract/*`、`/api/ws/status`，以及所有 WS 根路径和 `/api` 别名，特别是 `/startWebsocket/{sid}`、`/api/startWebsocket/{sid}`。
+  - **开关矩阵**：全关、全开、22 个开关分别单独开启，共 24 组；每组显式设置全部开关，避免继承环境变量。无 DB、无凭据验证每条路由的出现/消失及错误方法响应，保证开关归属不变，不能只测全开/全关。
+  - **鉴权矩阵**：全开、隔离库场景使用相同业务夹具和有效参数，覆盖无凭据、普通用户、管理员；逐条验证受保护路由的鉴权边界，管理员接口须覆盖普通用户拒绝与管理员合法调用。前后运行独立重置夹具，核对拒绝请求未写库；普通查询与管理员写接口同为 `200/203` 不算授权等价证据。
+  - **WS**：对每条路径及别名执行真实 Upgrade，比较握手结果，并按连接类型用合法/非法凭据核对首帧及错误/关闭行为；需要房间/训练身份的用例使用隔离库夹具。普通 GET 可作补充，但不得用其 404 代替握手结果或判定未挂载。
+  - **判定**：逐用例记录 `(开关配置, 身份, method, path, HTTP 状态, 信封 code)` 与鉴权错误文案，WS 另记帧及关闭结果；与基线差异必须为空，并核对预期路由/权限结果。漏跑、执行异常、两个非预期的 404/500 均不能算通过；业务响应内容与写入语义仍由现有 `journeys/full` 对账覆盖。
 
 ### 第 3 步：按域搬目录
 
@@ -155,7 +174,7 @@ crates/app/src/
 
 - 按 §4 下沉共享函数，清零业务域之间的直接引用。
 - 只合并语义相同的工具函数；同名不同义的保持私有（如 `post_telegraph_write.rs:158` 与 `synthetical.rs:221` 两个 `parse_array` 签名与错误类型不同，不合并）。
-- 11 个域错误类型统一实现 `platform/error.rs` 的转信封 trait；**业务码、文案、HTTP 状态逐一不变**，以第 2 步脚本 + 全量对账确认。
+- 错误类型及其转信封实现随所属模块原样搬迁；`platform/error.rs` 仅容纳原有 `AppError`，不引入统一 trait、不合并错误分支。**业务码、文案、HTTP 状态逐一不变**；错误体系归一移出本轮，见 §7。
 
 ## 6. 门禁（每步提交前）
 
@@ -174,8 +193,9 @@ $S down
 
 附加：
 
-- 测试数量与基线一致（只搬不删）；第 2 步路由 diff 为空。
-- 提交信息：`refactor(backend-rust): …`，正文写本步范围、门禁结果，以及“未改 API/DB/开关名”声明。
+- 测试数量与基线一致（只搬不删）；每步通过第 2 步定义的路由/开关/身份/WS 校验矩阵，不能只检查匿名请求 diff。
+- 第 1 步及任何触及 `runtime.rs`、general 恢复逻辑归属的步骤，使用隔离库运行场景核验恢复任务开/关、恢复状态变化及服务退出清理；对照首次 tick、周期和句柄归属，确认仅构建 Router 不启动任务。HTTP 上线不等于恢复任务已验证。
+- 提交信息：`refactor(backend-rust): …`，正文写本步范围、依赖的前置提交、门禁结果，以及“未改 API/DB/开关名”声明。
 
 ## 7. 待决项
 
@@ -184,13 +204,16 @@ $S down
 | `persistence` crate（P8） | A. 维持现状；B. app 依赖它，作为各域 SQL 的落点；C. 删除 | 本计划不处理；结构重构完成后单独评估 |
 | 开关名（`RUST_PHASE*` → 按域命名） | 改名需同步脚本、manifest、证据文档 | 不改；目录已按域，开关名只作为外部标识 |
 | 域内统一 `handlers/service/repo` 三层 | 现有代码 handler 与 SQL 交织 | 本计划只按子资源拆文件；分层另立计划，避免移动与改写混在同一提交 |
+| 错误类型与转信封 trait（P10） | 保留现有实现；或另行设计归一 | 本轮原样搬迁；归一需单独评估错误映射与行为回归，不混入目录重构 |
 
 ## 8. 风险
 
 | 风险 | 缓解 |
 |---|---|
-| 第 2 步漏挂或错挂路由、中间件顺序变化 | 一次性路由 diff（开关全开/全关两次）+ `full` 对账 |
+| 漏挂/错挂路由、挂错开关、中间件顺序变化 | 第 2 步的实际路由清单、24 组开关配置、身份矩阵及真实 WS 握手校验 + `journeys/full` 对账 |
 | 第 1 步漏改脚本，导致 `$S up` 少开开关、对账假绿 | 同提交改脚本，并校验开关计数 = 22 |
-| 可见性放宽成 `pub` 扩大耦合 | 统一 `pub(crate)`，第 5 步清理跨域引用 |
-| 大文件拆分时混入逻辑改动 | 每步只移动，评审按 `git diff -M --stat` 与移动检测确认 |
+| 可见性放宽成 `pub` 扩大耦合，或 lib/bin 边界无法编译 | 按 §3.2 仅公开库启动入口；内部默认私有，必要时 `pub(crate)`，第 5 步清理跨域引用 |
+| 大文件拆分时混入逻辑改动 | 按 §5 限定接线调整范围，错误映射不归一；评审按 `git diff -M --stat` 与移动检测确认 |
 | 搬运与业务修复并行冲突 | 重构期间冻结 `backend-rust` 业务改动（B8 修复排在重构前或后，不交错） |
+| 搬启动代码时遗漏、重复启动或未清理恢复任务 | `runtime.rs` 唯一持有恢复任务句柄；按 §6 核验运行生命周期，禁止构建 Router 时启动任务 |
+| 撤销中间步骤破坏后续路径/模块依赖 | 当前步失败回退当前步；整体按已完成步骤逆序回滚，不承诺任意单步 revert |
