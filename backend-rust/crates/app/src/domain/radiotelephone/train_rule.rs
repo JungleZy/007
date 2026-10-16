@@ -36,7 +36,7 @@ fn system_error() -> Response {
 }
 
 fn database_error(error: sqlx::Error) -> Response {
-    tracing::warn!(error = %error, "radiotelephone term database operation failed");
+    tracing::warn!(error = %error, "training rule or radio term database operation failed");
     system_error()
 }
 

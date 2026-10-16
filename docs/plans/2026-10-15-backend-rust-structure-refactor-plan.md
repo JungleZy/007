@@ -346,3 +346,10 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 
 第 5 步完成；下一阶段仅为最终逐项审计、证据归档和清理自有临时服务。
 
+### 9.7 最终语义审计与诊断复原
+
+- 独立 AST/item/token 复核已核对函数、SQL、错误映射、测试集合与中间件顺序；未发现业务逻辑差异。term 规则拆域所需的 `IdInput` 和三个域内私有错误适配属于已确认切点，不是统一错误体系。
+- 发现 `radiotelephone/train_rule.rs::database_error` 在第 4 步拆分时误改了一条 tracing 日志；已恢复基线原文 `training rule or radio term database operation failed`。HTTP 状态、业务码及响应文案始终未改。
+- 用独立缺表夹具启动原始、修补前和修补后 release 二进制，实际调用管理员 `save/update/delete`：三者均返回原 HTTP 500/code 500 信封；修补后三个日志与原始二进制一致，服务正常退出。
+- 修补后重新执行 Cargo fmt、普通测试 79、串行隔离库测试 154、locked release 构建与 smoke、Python 测试 81，全部通过。Python 仍有既有未关闭 socket 的 ResourceWarning，不计作新增失败，也未在本轮压制。
+
