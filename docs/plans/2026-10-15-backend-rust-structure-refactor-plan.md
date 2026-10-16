@@ -2,6 +2,8 @@
 
 > 状态：方案（已按评审补齐执行约束），未开工。基线：`d1ccee6f`（2026-10-15）。行号与计数均为该基线实测，执行时以仓库现状为准。
 
+规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
+
 ## 1. 目标与边界
 
 把 `backend-rust/crates/app` 从“70 个平铺文件 + 巨型 `main.rs`”重排为“平台层 + 按功能开关划分的业务域”，使：
