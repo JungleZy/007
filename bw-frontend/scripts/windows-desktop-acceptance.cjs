@@ -423,11 +423,22 @@ async function shutdown(run, index) {
   await modal.getByRole('button', {name: /^退\s*出$/}).click();
   await until('UI-requested Electron exit', () => activeApp.exitCode !== null || activeApp.signalCode !== null);
   const result = await activeApp.done;
-  await until('all application descendants and listeners gone without harness kill', () => {
+  try {
+    await until('all application descendants and listeners gone without harness kill', () => {
+      const snapshot = processes();
+      return !snapshot.processes.some(item => before.ids.has(item.ProcessId)) &&
+        !snapshot.listeners.some(item => [18001, 8000, run.cdpPort].includes(item.LocalPort));
+    }, 60000);
+  } catch (error) {
     const snapshot = processes();
-    return !snapshot.processes.some(item => before.ids.has(item.ProcessId)) &&
-      !snapshot.listeners.some(item => [18001, 8000, run.cdpPort].includes(item.LocalPort));
-  }, 30000);
+    writeJson(`shutdown-timeout-${index}.json`, {
+      beforeChildren: before.children,
+      remainingOwnedProcesses: snapshot.processes.filter(item => before.ids.has(item.ProcessId)),
+      remainingApplicationListeners: snapshot.listeners.filter(item => [18001, 8000, run.cdpPort].includes(item.LocalPort)),
+      note: 'Diagnostic only; cleanup may force-stop owned processes after this acceptance failure.'
+    });
+    throw error;
+  }
   const log = fs.readFileSync(path.join(output, `electron-${index}.stdout.log`), 'utf8') + fs.readFileSync(path.join(output, `electron-${index}.stderr.log`), 'utf8');
   run.shutdown = {trigger: 'Real close-software control and confirmation -> controller.system.closeApp',
     electronExitCode: result.code, electronSignal: result.signal, childPidsGone: before.children.map(item => item.ProcessId),
