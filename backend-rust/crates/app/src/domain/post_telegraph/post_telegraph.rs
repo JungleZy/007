@@ -313,7 +313,7 @@ pub(super) async fn detail(
     if row.get::<Option<i32>, _>("protocol_version") == Some(1) {
         let mut analyses = Vec::with_capacity(raw_rows.len());
         for raw in &raw_rows {
-            match crate::domain::post_telegraph::post_telegraph_write::raw_page_analysis(raw) {
+            match crate::domain::post_telegraph::align::raw_page_analysis(raw) {
                 Ok(analysis) => analyses.push(analysis),
                 Err(error) => return err(error, "detail-capture-analysis"),
             }

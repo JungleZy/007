@@ -1,8 +1,14 @@
+mod capture;
+mod common;
+mod export;
 mod general_aux;
-pub(crate) mod general_train;
+mod generate;
+mod key;
+mod lifecycle;
+pub(crate) mod recovery;
+mod telex;
+mod ticker;
 pub(crate) mod train_rule;
-
-use self::general_train::*;
 
 pub(crate) fn routes(
     state: &crate::platform::state::AppState,
@@ -17,55 +23,55 @@ pub(crate) fn routes(
 
     let mut router = Router::new();
     let key = Router::new()
-        .route("/add", post(key_add))
-        .route("/findAll", post(key_list))
-        .route("/findPage", post(key_page))
-        .route("/getPage", post(key_get_page))
-        .route("/detail", post(key_detail))
-        .route("/patDetail", post(key_members))
-        .route("/getPatValue", post(key_pat_value))
-        .route("/getTrainInfo", get(key_export))
-        .route("/getTrainInfoBatch", get(key_export_batch))
-        .route("/importTrainInfo", post(key_import))
-        .route("/importTrainInfoBatch", post(key_import_batch))
-        .route("/uploadResult", post(key_upload))
-        .route("/updateTrainStatus", post(key_update))
-        .route("/finish", post(key_finish))
-        .route("/statistics", post(key_statistics))
-        .route("/getOnline", get(key_online))
-        .route("/startTrain", get(key_start))
-        .route("/reset", post(key_reset))
-        .route("/delete", get(key_delete))
+        .route("/add", post(key::key_add))
+        .route("/findAll", post(key::key_list))
+        .route("/findPage", post(capture::key_page))
+        .route("/getPage", post(capture::key_get_page))
+        .route("/detail", post(key::key_detail))
+        .route("/patDetail", post(capture::key_members))
+        .route("/getPatValue", post(capture::key_pat_value))
+        .route("/getTrainInfo", get(export::key_export))
+        .route("/getTrainInfoBatch", get(export::key_export_batch))
+        .route("/importTrainInfo", post(export::key_import))
+        .route("/importTrainInfoBatch", post(export::key_import_batch))
+        .route("/uploadResult", post(capture::key_upload))
+        .route("/updateTrainStatus", post(key::key_update))
+        .route("/finish", post(key::key_finish))
+        .route("/statistics", post(key::key_statistics))
+        .route("/getOnline", get(capture::key_online))
+        .route("/startTrain", get(key::key_start))
+        .route("/reset", post(key::key_reset))
+        .route("/delete", get(key::key_delete))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let telex = Router::new()
-        .route("/add", post(telex_add))
-        .route("/findAll", post(telex_list))
-        .route("/findPage", post(telex_page))
-        .route("/getPage", post(telex_get_page))
-        .route("/detail", post(telex_detail))
-        .route("/patDetail", post(telex_members))
-        .route("/getPatValue", post(telex_pat_value))
-        .route("/uploadResult", post(telex_upload))
-        .route("/updateTrainStatus", post(telex_update))
-        .route("/finish", post(telex_finish))
-        .route("/statistics", post(telex_statistics))
-        .route("/getOnline", get(telex_online))
-        .route("/startTrain", get(telex_start))
-        .route("/delete", get(telex_delete))
+        .route("/add", post(telex::telex_add))
+        .route("/findAll", post(telex::telex_list))
+        .route("/findPage", post(capture::telex_page))
+        .route("/getPage", post(capture::telex_get_page))
+        .route("/detail", post(telex::telex_detail))
+        .route("/patDetail", post(capture::telex_members))
+        .route("/getPatValue", post(capture::telex_pat_value))
+        .route("/uploadResult", post(capture::telex_upload))
+        .route("/updateTrainStatus", post(telex::telex_update))
+        .route("/finish", post(telex::telex_finish))
+        .route("/statistics", post(telex::telex_statistics))
+        .route("/getOnline", get(capture::telex_online))
+        .route("/startTrain", get(telex::telex_start))
+        .route("/delete", get(telex::telex_delete))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let ticker = Router::new()
-        .route("/add", post(ticker_add))
-        .route("/findAll", post(ticker_list))
-        .route("/findPage", post(ticker_page))
-        .route("/getPage", post(ticker_page))
-        .route("/detail", post(ticker_detail))
-        .route("/uploadResult", post(ticker_upload))
-        .route("/updateTrainStatus", post(ticker_update))
-        .route("/finish", post(ticker_finish))
-        .route("/reset", post(ticker_reset))
-        .route("/statistics", post(ticker_statistics))
-        .route("/startTrain", get(ticker_start))
-        .route("/delete", get(ticker_delete))
+        .route("/add", post(ticker::ticker_add))
+        .route("/findAll", post(ticker::ticker_list))
+        .route("/findPage", post(capture::ticker_page))
+        .route("/getPage", post(capture::ticker_page))
+        .route("/detail", post(ticker::ticker_detail))
+        .route("/uploadResult", post(capture::ticker_upload))
+        .route("/updateTrainStatus", post(ticker::ticker_update))
+        .route("/finish", post(ticker::ticker_finish))
+        .route("/reset", post(ticker::ticker_reset))
+        .route("/statistics", post(ticker::ticker_statistics))
+        .route("/startTrain", get(ticker::ticker_start))
+        .route("/delete", get(ticker::ticker_delete))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let key_online = Router::new()
         .route("/getOneline/{trainId}", get(general_aux::key_online))

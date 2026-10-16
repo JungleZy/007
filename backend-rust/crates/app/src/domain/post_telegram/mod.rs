@@ -1,5 +1,12 @@
+mod dto;
+pub(crate) mod generated_groups;
+mod handlers;
+mod parse;
 mod post_telegram;
-pub(crate) mod post_telegram_write;
+mod report;
+pub(crate) mod rules;
+pub(crate) mod scoring;
+mod settle;
 
 use self::post_telegram::*;
 
@@ -19,39 +26,33 @@ pub(crate) fn routes(
         .route("/detail", post(detail))
         .route(
             "/findMessageBody",
-            post(crate::domain::post_telegram::post_telegram_write::content),
+            post(crate::domain::post_telegram::handlers::content),
         )
         .route(
             "/printBottomReport",
-            post(crate::domain::post_telegram::post_telegram_write::print_bottom_report),
+            post(crate::domain::post_telegram::report::print_bottom_report),
         )
         .route(
             "/saveContentValue",
-            post(crate::domain::post_telegram::post_telegram_write::save_content),
+            post(crate::domain::post_telegram::handlers::save_content),
         )
         .route(
             "/addContentValue",
-            post(crate::domain::post_telegram::post_telegram_write::add_content_value),
+            post(crate::domain::post_telegram::report::add_content_value),
         )
-        .route(
-            "/save",
-            post(crate::domain::post_telegram::post_telegram_write::add),
-        )
+        .route("/save", post(crate::domain::post_telegram::handlers::add))
         .route(
             "/begin",
-            post(crate::domain::post_telegram::post_telegram_write::begin),
+            post(crate::domain::post_telegram::handlers::begin),
         )
         .route(
             "/finish",
-            post(crate::domain::post_telegram::post_telegram_write::finish),
+            post(crate::domain::post_telegram::handlers::finish),
         )
-        .route(
-            "/stop",
-            post(crate::domain::post_telegram::post_telegram_write::stop),
-        )
+        .route("/stop", post(crate::domain::post_telegram::handlers::stop))
         .route(
             "/delete",
-            get(crate::domain::post_telegram::post_telegram_write::delete),
+            get(crate::domain::post_telegram::handlers::delete),
         )
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     router = router.nest("/api/postTelegramTrain", routes);

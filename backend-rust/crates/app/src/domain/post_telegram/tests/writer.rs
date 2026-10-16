@@ -1,4 +1,9 @@
-use crate::domain::post_telegram::post_telegram_write::*;
+use crate::domain::post_telegram::dto::{
+    count_characters, ActionRequest, ContentQuery, DeleteQuery,
+};
+use crate::domain::post_telegram::handlers::{
+    add, begin, content, delete, finish, save_content, stop,
+};
 use crate::platform::auth::AuthUser;
 use crate::platform::state::AppState;
 use axum::extract::Extension;

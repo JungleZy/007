@@ -669,7 +669,7 @@ pub(super) fn checked_content(
         return Ok(submitted.to_owned());
     }
     // Append to the submitted text so the original rows keep their submitted form.
-    let appended = crate::domain::post_telegram::post_telegram_write::generated_groups(
+    let appended = crate::domain::post_telegram::generated_groups::generated_groups(
         extension as usize,
         kind,
         true,

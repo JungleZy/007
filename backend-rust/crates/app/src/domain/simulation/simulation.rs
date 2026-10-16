@@ -349,7 +349,7 @@ async fn users_json(tx: &mut Transaction<'_, MySql>, room: i32) -> Result<Value,
         let mut item = user_json(&row);
         item["channel"] = json!(row.get::<Option<i32>, _>("channel"));
         item["status"] = json!(row.get::<Option<i32>, _>("user_status"));
-        item["socketStatus"] = json!(crate::ws::simulation_connection_status(
+        item["socketStatus"] = json!(crate::ws::notify::simulation_connection_status(
             room,
             row.get::<String, _>("user_id").as_str()
         )
@@ -445,7 +445,7 @@ async fn detail_json(
                 }
                 let uid: String = row.get("user_id");
                 let mut item = user_json(&row);
-                item["status"] = json!(crate::ws::simulation_connection_status(id, &uid)
+                item["status"] = json!(crate::ws::notify::simulation_connection_status(id, &uid)
                     .await
                     .or_else(|| row.get::<Option<i32>, _>("account_status")));
                 item["userStatus"] = json!(row.get::<Option<i32>, _>("user_status"));
@@ -874,7 +874,7 @@ pub(super) async fn change_channel(
             }
             .await;
             let result = complete(tx, result).await?;
-            crate::ws::set_simulation_channel(id, uid, channel).await;
+            crate::ws::notify::set_simulation_channel(id, uid, channel).await;
             Ok(result)
         }
         .await,
@@ -931,7 +931,7 @@ pub(super) async fn delete(
             }
             .await;
             let result = complete(tx, result).await?;
-            crate::ws::close_simulation_room(id).await;
+            crate::ws::notify::close_simulation_room(id).await;
             Ok(result)
         }
         .await,
@@ -1018,7 +1018,7 @@ pub(super) async fn upload_result(
             Ok(Some(detail_json(&mut tx,&room,&user,true).await?))
         }.await;
         let result = complete(tx,result).await?;
-        crate::ws::notify_simulation_result(id,&user.id,&recipients).await;
+        crate::ws::notify::notify_simulation_result(id,&user.id,&recipients).await;
         Ok(result)
     }.await)
 }

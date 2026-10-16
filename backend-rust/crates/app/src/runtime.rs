@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, signal};
 use tracing::info;
 
-use crate::domain::general_train::general_train;
+use crate::domain::general_train::recovery;
 use crate::platform::config::AppConfig;
 use crate::platform::error::AppError;
 use crate::platform::state::build_state;
@@ -22,7 +22,7 @@ pub(crate) async fn run() -> Result<(), AppError> {
             let mut interval = tokio::time::interval(Duration::from_secs(5));
             loop {
                 interval.tick().await;
-                general_train::recover_general_trainings(&recovery_state).await;
+                recovery::recover_general_trainings(&recovery_state).await;
             }
         }))
     } else {

@@ -113,7 +113,9 @@ async fn online_users(
         Ok(true) => envelope_json(
             StatusCode::OK,
             200,
-            Some(Value::Array(ws::general_online_users(kind, train_id).await)),
+            Some(Value::Array(
+                ws::notify::general_online_users(kind, train_id).await,
+            )),
             "ok",
             "",
         ),
@@ -187,7 +189,7 @@ pub(super) async fn ticker_train_info(
             Err(error) => return db_error(error, "authorize ticker train info"),
         }
     };
-    let mut rooms = ws::general_online_rooms("ticker").await;
+    let mut rooms = ws::notify::general_online_rooms("ticker").await;
     if let Some(allowed) = allowed {
         rooms.retain(|train_id, _| allowed.contains(train_id));
     }
@@ -248,7 +250,7 @@ pub(super) async fn ticker_user(
             "userName": row.get::<Option<String>, _>("user_name"),
             "userImg": row.get::<Option<String>, _>("user_img"),
             "role": row.get::<Option<i32>, _>("role"),
-            "status": ws::general_ticker_connection_status(train_number, &user_id).await
+            "status": ws::notify::general_ticker_connection_status(train_number, &user_id).await
         })),
         "ok",
         "",
@@ -263,7 +265,7 @@ pub(super) async fn ticker_update_status(
     let Some(train_id) = body.get("trainId").and_then(Value::as_i64) else {
         return envelope_response(StatusCode::OK, 202, "训练ID不能为空", "");
     };
-    crate::domain::general_train::general_train::ticker_socket_update(
+    crate::domain::general_train::ticker::ticker_socket_update(
         state,
         user,
         train_id,

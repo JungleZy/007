@@ -614,7 +614,7 @@ pub(super) async fn teacher_start(
             Ok(()) => {
                 if let Some((recipients, map)) = notification {
                     for recipient in recipients.into_iter().flatten() {
-                        crate::ws::send_classic_map(&recipient, 18001, map.clone()).await;
+                        crate::ws::notify::send_classic_map(&recipient, 18001, map.clone()).await;
                     }
                 }
                 exam_response(Ok(data))
@@ -738,7 +738,7 @@ async fn save_candidate(state: AppState, user: AuthUser, body: Value, realtime: 
         Ok(data) => match transaction.commit().await {
             Ok(()) => {
                 if let Some((teacher, code, map)) = teacher_notification {
-                    crate::ws::send_classic_map(&teacher, code, map).await;
+                    crate::ws::notify::send_classic_map(&teacher, code, map).await;
                 }
                 exam_response(Ok(data))
             }

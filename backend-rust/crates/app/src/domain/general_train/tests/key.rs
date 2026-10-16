@@ -7,7 +7,14 @@
 //! test keeps a second, earlier training's rows X-locked (so any scan from the start of the
 //! clustered index collides with them, after a 2 s lock wait timeout) while the operation works
 //! on the later training. Read-only endpoints (export, findPage) must take no row lock at all.
-use crate::domain::general_train::general_train::*;
+use crate::domain::general_train::capture::page_response;
+use crate::domain::general_train::capture::upload;
+use crate::domain::general_train::common::Domain;
+use crate::domain::general_train::export::{export, import};
+use crate::domain::general_train::generate::participant_action;
+use crate::domain::general_train::lifecycle::finish_participant;
+use crate::domain::general_train::lifecycle::{delete, set_status};
+use crate::domain::general_train::recovery::recover_one;
 use crate::platform::auth::AuthUser;
 use crate::platform::config::AppConfig;
 use crate::platform::state::AppState;
@@ -671,7 +678,7 @@ async fn delete_waits_for_a_room_that_is_being_opened() {
     // Java RoomLifecycleLocks: while a socket holds the room's lifecycle lock (role lookup up to
     // registration), the delete may not run, so the room cannot be left open after the delete.
     let fixture = Fixture::new(Phase::Running, false, 100).await;
-    let guard = crate::ws::general_room_lifecycle("key", &fixture.target.to_string())
+    let guard = crate::ws::manager::general_room_lifecycle("key", &fixture.target.to_string())
         .await
         .expect("key is a general kind");
     let (state, user, train) = (

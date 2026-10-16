@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：实施中，第 3 步代码与门禁已完成，第 4 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
+> 状态：实施中，第 4 步代码与门禁已完成，第 5 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -174,6 +174,14 @@ crates/app/src/
 - `post_telegram_write.rs`、`post_telegraph_write.rs`、`exam.rs` 等超过 1500 行的，按子资源（生命周期 / 分页提交 / 结算 / 报底生成）拆；具体切点在执行该步前列清单拍板。
 - `train_rule.rs` 按 §4 拆入两个域。
 
+第 4 步实施切点确认：
+
+- general 的 `key`/`telex`/`ticker` 收对应前缀入口与对应结算；`common` 合并共享类型、SQL 字段、数据库和锁辅助，避免分散成多个薄模块。通用采集/分页读取归 `capture`，通用状态与完成归 `lifecycle`；生成、导入导出和恢复循环可按完整函数边界保留独立模块，所有生产文件须 ≤1500 行。
+- WS 的 `status`、`classic`、`general` 按连接族独立归位，`manager` 保持管理器及锁的完整实现，`notify` 仅承接业务域出口。连接建立/serve/prepare 可放 `session`；通用 dispatch/响应构造保留路由入口模块或内聚辅助，不用转发 re-export。
+- `train_rule` 的 term 写入函数及专属请求类型迁入 radiotelephone；global rule 保留 general 归属及三开关 OR。必要的域内请求/响应适配保持原语义，不引入统一错误 trait。
+- `exam.rs` 在第 3 步迁出测试后为 1414 行，已满足规模目标；不为凑拆分数量改写其生产逻辑。
+
+
 ### 第 5 步：收共享内核
 
 - 按 §4 下沉共享函数，清零业务域之间的直接引用。
@@ -300,4 +308,22 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 | paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
 
 第 4 步候选只在临时目录生成，未计入本提交；第 4–5 步仍须依次集成、验证与提交。
+
+### 9.5 第 4 步：拆分超大文件（完成）
+
+- 按已确认切点拆分 general_train、WS、post_telegram_write、post_telegraph_write；general 具备 common/capture/key/telex/ticker/lifecycle 等内聚模块，WS 具备 manager/status/classic/general/notify 等命名模块，term 规则已从 general 临时归属拆到 radiotelephone。
+- 生产 Rust 文件最大 1,414 行（`domain/theory/exam.rs`）；没有将生产逻辑移入测试文件规避目标。锁、事务、恢复 worker、WS generation/close 顺序静态复核无差异。
+
+| 已执行项目 | 本轮结果 |
+|---|---|
+| Cargo fmt、普通 Cargo 测试 | 79 通过，154 ignored |
+| 串行 ignored 隔离库测试 | 154 通过 |
+| locked release 构建与 smoke | 通过 |
+| Python 脚本测试 | 81 通过 |
+| 路由/开关/WS矩阵 | 18,912 观察，0 差异 |
+| V02/V03 完整有身份对照 | 2,771 流程、394 WS、1,080 三身份、69 管理拒绝无写入，0 差异/漏覆盖 |
+| paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
+| Step4 静态语义复核 | 1,645 函数、282 命名类型/常量、67 impl 头、1,927 注释/属性关联、17,490 字符串多重集闭合；测试229/ignored152集合一致 |
+
+第 5 步仍须收口共享内核、清除生产跨域直接引用并完成最终审计。
 

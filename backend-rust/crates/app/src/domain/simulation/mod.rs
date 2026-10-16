@@ -49,7 +49,7 @@ pub(crate) fn routes(
         .route("/delete", get(delete))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     let socket = Router::new()
-        .route("/getAllRoomInfo", get(ws::simulation_all_room_info))
+        .route("/getAllRoomInfo", get(ws::notify::simulation_all_room_info))
         .route_layer(middleware::from_fn(require_admin))
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     router = router

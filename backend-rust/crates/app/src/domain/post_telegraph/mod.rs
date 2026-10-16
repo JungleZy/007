@@ -1,5 +1,10 @@
+mod align;
+mod delete;
+mod dto;
+mod handlers;
+mod parse;
 mod post_telegraph;
-mod post_telegraph_write;
+mod settle;
 
 use self::post_telegraph::*;
 
@@ -17,30 +22,27 @@ pub(crate) fn routes(
     let routes = Router::new()
         .route("/listPage", post(list))
         .route("/details", post(detail))
-        .route(
-            "/add",
-            post(crate::domain::post_telegraph::post_telegraph_write::add),
-        )
+        .route("/add", post(crate::domain::post_telegraph::handlers::add))
         .route(
             "/begin",
-            post(crate::domain::post_telegraph::post_telegraph_write::begin),
+            post(crate::domain::post_telegraph::handlers::begin),
         )
         .route(
             "/finish",
-            post(crate::domain::post_telegraph::post_telegraph_write::finish),
+            post(crate::domain::post_telegraph::handlers::finish),
         )
         .route("/getPage", get(get_page))
         .route(
             "/finishPage",
-            post(crate::domain::post_telegraph::post_telegraph_write::finish_page),
+            post(crate::domain::post_telegraph::handlers::finish_page),
         )
         .route(
             "/reset",
-            post(crate::domain::post_telegraph::post_telegraph_write::reset),
+            post(crate::domain::post_telegraph::handlers::reset),
         )
         .route(
             "/delete",
-            get(crate::domain::post_telegraph::post_telegraph_write::delete),
+            get(crate::domain::post_telegraph::delete::delete),
         )
         .route_layer(middleware::from_fn_with_state(state.clone(), authenticate));
     router = router.nest("/api/PostTelegraphKeyPatTrain", routes);

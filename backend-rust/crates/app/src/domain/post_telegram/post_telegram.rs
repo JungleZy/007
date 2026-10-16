@@ -77,8 +77,7 @@ pub(super) async fn detail(
     let analyses = if row.get::<Option<i32>, _>("protocol_version") == Some(1) {
         let mut analyses = Vec::with_capacity(values.len());
         for saved in &values {
-            match crate::domain::post_telegram::post_telegram_write::saved_page_analysis(saved, &id)
-            {
+            match crate::domain::post_telegram::settle::saved_page_analysis(saved, &id) {
                 Ok(analysis) => analyses.push(analysis),
                 Err(response) => return response,
             }

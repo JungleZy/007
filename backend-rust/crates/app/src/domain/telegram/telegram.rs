@@ -328,7 +328,7 @@ pub(super) async fn floor_content_by_floor(
     let contents = rows.iter().map(floor_content_ws_json).collect::<Vec<_>>();
     let mut page = serde_json::Map::new();
     page.insert(floor_id, Value::Array(contents));
-    crate::ws::send_classic(&user.id, 1000, Some(Value::Object(page).to_string())).await;
+    crate::ws::notify::send_classic(&user.id, 1000, Some(Value::Object(page).to_string())).await;
     envelope_response(StatusCode::OK, 200, "ok", "")
 }
 
@@ -401,9 +401,10 @@ pub(super) async fn floor_content_by_floor_id_async(
                 .expect("floor contents are an array")
                 .push(floor_content_ws_json(row));
         }
-        crate::ws::send_classic(&user.id, 1000, Some(Value::Object(contents).to_string())).await;
+        crate::ws::notify::send_classic(&user.id, 1000, Some(Value::Object(contents).to_string()))
+            .await;
     }
-    crate::ws::send_classic(&user.id, 1001, None).await;
+    crate::ws::notify::send_classic(&user.id, 1001, None).await;
     envelope_response(StatusCode::OK, 200, "ok", "")
 }
 

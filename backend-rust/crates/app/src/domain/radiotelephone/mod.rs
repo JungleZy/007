@@ -4,18 +4,19 @@ mod post_military;
 mod post_radiotelephone;
 mod radio_term;
 mod radiotelephone;
+mod train_rule;
 
 use self::radiotelephone::*;
 
 pub(crate) fn routes(
     state: &crate::platform::state::AppState,
 ) -> axum::Router<crate::platform::state::AppState> {
-    use crate::domain::general_train::train_rule;
     use crate::domain::radiotelephone::military;
     use crate::domain::radiotelephone::military_term_data;
     use crate::domain::radiotelephone::post_military;
     use crate::domain::radiotelephone::post_radiotelephone;
     use crate::domain::radiotelephone::radio_term;
+    use crate::domain::radiotelephone::train_rule;
     use crate::platform::auth::authenticate;
     use crate::platform::auth::require_admin;
     use axum::{
