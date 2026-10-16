@@ -1,11 +1,8 @@
 mod dto;
-pub(crate) mod generated_groups;
 mod handlers;
-mod parse;
 mod post_telegram;
 mod report;
 pub(crate) mod rules;
-pub(crate) mod scoring;
 mod settle;
 
 use self::post_telegram::*;

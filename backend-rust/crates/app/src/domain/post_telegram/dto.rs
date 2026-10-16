@@ -1,4 +1,5 @@
 use crate::platform::envelope::envelope_response;
+use crate::shared::handkey_parse::{field_string, PatLog};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::Deserialize;
@@ -47,14 +48,6 @@ pub(super) struct CaptureInterval {
     pub(super) ended_ms: i64,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-pub(super) struct PatLog {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) name: Option<String>,
-    pub(super) key: i32,
-    pub(super) value: f64,
-}
-
 #[derive(Deserialize)]
 pub(super) struct ContentQuery {
     pub(super) id: Option<String>,
@@ -93,16 +86,6 @@ pub(super) fn err(e: sqlx::Error, op: &'static str) -> Response {
 
 pub(super) fn invalid(message: &'static str) -> Response {
     envelope_response(StatusCode::OK, 202, message, message)
-}
-
-pub(super) fn field_string<'a>(
-    object: &'a serde_json::Map<String, Value>,
-    name: &str,
-) -> Result<&'a str, &'static str> {
-    object
-        .get(name)
-        .and_then(Value::as_str)
-        .ok_or("拍发内容字段无效")
 }
 
 pub(super) fn content_item_json(

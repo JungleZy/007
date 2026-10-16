@@ -1,9 +1,9 @@
 use super::dto::{content_item_json, err, invalid, AddContentRequest, ContentQuery};
-use super::generated_groups::generated_groups;
 use crate::platform::auth::AuthUser;
 use crate::platform::envelope::envelope_json;
 use crate::platform::envelope::envelope_response;
 use crate::platform::state::AppState;
+use crate::shared::generated_groups::generated_groups;
 use axum::extract::Extension;
 use axum::extract::State;
 use axum::http::StatusCode;

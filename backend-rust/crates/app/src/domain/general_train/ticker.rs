@@ -84,10 +84,10 @@ pub(super) async fn settle_ticker(
     member: &Value,
     user_id: &str,
 ) -> Outcome<()> {
-    use crate::domain::post_telegram::rules::handkey_rule;
-    use crate::domain::post_telegram::rules::HandkeyScore;
-    use crate::domain::post_telegram::scoring::compare_page;
-    use crate::domain::post_telegram::scoring::scoring_result;
+    use crate::shared::handkey_rules::handkey_rule;
+    use crate::shared::handkey_rules::HandkeyScore;
+    use crate::shared::handkey_scoring::compare_page;
+    use crate::shared::handkey_scoring::scoring_result;
     use rust_decimal::prelude::ToPrimitive;
     let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
     let rule = frozen_rule(train, Domain::Ticker)?;

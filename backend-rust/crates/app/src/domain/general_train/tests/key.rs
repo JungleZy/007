@@ -678,7 +678,7 @@ async fn delete_waits_for_a_room_that_is_being_opened() {
     // Java RoomLifecycleLocks: while a socket holds the room's lifecycle lock (role lookup up to
     // registration), the delete may not run, so the room cannot be left open after the delete.
     let fixture = Fixture::new(Phase::Running, false, 100).await;
-    let guard = crate::ws::manager::general_room_lifecycle("key", &fixture.target.to_string())
+    let guard = crate::ws::notify::general_room_lifecycle("key", &fixture.target.to_string())
         .await
         .expect("key is a general kind");
     let (state, user, train) = (

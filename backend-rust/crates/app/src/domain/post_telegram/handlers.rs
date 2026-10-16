@@ -2,8 +2,7 @@ use super::dto::{
     count_characters, err, invalid, ActionRequest, AddRequest, CaptureInterval, ContentQuery,
     ContentUpdate, DeleteQuery,
 };
-use super::generated_groups::generated_groups;
-use super::rules::{capture_duration, handkey_rule, require_no_overlap, validate_standard};
+use super::rules::{capture_duration, require_no_overlap};
 use super::settle::{
     clear_content, corrupt_saved, generate_source_page, settle_train, training_view, TRAIN_VIEW_SQL,
 };
@@ -11,6 +10,9 @@ use crate::platform::auth::AuthUser;
 use crate::platform::envelope::envelope_json;
 use crate::platform::envelope::envelope_response;
 use crate::platform::state::AppState;
+use crate::shared::generated_groups::generated_groups;
+use crate::shared::handkey_rules::handkey_rule;
+use crate::shared::handkey_rules::validate_standard;
 use axum::extract::Extension;
 use axum::extract::Query;
 use axum::extract::State;

@@ -1000,7 +1000,7 @@ pub(super) fn score_key_categories(
 pub(super) fn score_telex_categories(
     train: &Value,
     rule: &Value,
-    stats: &crate::domain::telex::telex_handle::Stats,
+    stats: &crate::shared::telex_handle::Stats,
     speed: i64,
 ) -> Outcome<(f64, Value)> {
     let mut score = frozen_full_score(train, Domain::Telex)?;

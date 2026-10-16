@@ -1,6 +1,7 @@
 use crate::platform::auth::AuthUser;
 use crate::platform::envelope::envelope_json;
 use crate::platform::envelope::envelope_response;
+use crate::platform::extract::request_integer;
 use crate::platform::state::AppState;
 use axum::{
     extract::{Extension, State},
@@ -891,38 +892,6 @@ pub(super) async fn telex_clear(
         Ok(Some(value)) => envelope_json(StatusCode::OK, 200, Some(value), "ok", ""),
         Ok(None) => envelope_response(StatusCode::OK, 206, "账号登录凭证异常", ""),
         Err(error) => telex_database_error(error),
-    }
-}
-
-pub(crate) fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
-    match value {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Number(value)) => {
-            let integer = value
-                .as_i64()
-                .and_then(|value| i32::try_from(value).ok())
-                .or_else(|| {
-                    value
-                        .as_f64()
-                        .filter(|value| *value >= i32::MIN as f64 && *value <= i32::MAX as f64)
-                        .map(|value| value as i32)
-                });
-            integer
-                .map(Some)
-                .ok_or_else(|| StatusCode::BAD_REQUEST.into_response())
-        }
-        Some(Value::String(value)) => {
-            let value = value.trim_matches(|character| character <= '\u{20}');
-            if value.is_empty() || value == "null" {
-                Ok(None)
-            } else {
-                value
-                    .parse()
-                    .map(Some)
-                    .map_err(|_| StatusCode::BAD_REQUEST.into_response())
-            }
-        }
-        Some(_) => Err(StatusCode::BAD_REQUEST.into_response()),
     }
 }
 

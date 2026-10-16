@@ -366,7 +366,7 @@ pub(super) async fn delete(
     response(
         async {
             // Excludes a socket opening this room until the room is closed (Java RoomLifecycleLocks).
-            let _room = crate::ws::manager::general_room_lifecycle(ws_kind(domain), &id).await;
+            let _room = crate::ws::notify::general_room_lifecycle(ws_kind(domain), &id).await;
             let mut transaction = pool.begin().await?;
             let train = load_train(&mut transaction, &id, domain, true).await?;
             if !manages(&mut transaction, &train, &user, domain).await? {

@@ -1,5 +1,4 @@
 pub(crate) mod telex;
-pub(crate) mod telex_handle;
 
 use self::telex::*;
 

@@ -1,4 +1,4 @@
-use crate::domain::post_telegram::generated_groups::generated_groups;
+use crate::shared::generated_groups::generated_groups;
 
 #[test]
 fn unfilled_pages_keep_the_same_source_rules() {

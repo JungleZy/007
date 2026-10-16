@@ -1,7 +1,25 @@
-use super::dto::{field_string, PatLog};
-use super::rules::{HandkeyRule, HandkeyScore};
+use super::handkey_rules::{HandkeyRule, HandkeyScore};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_json::Value;
+
+#[derive(Deserialize, Serialize, Clone)]
+pub(crate) struct PatLog {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) name: Option<String>,
+    pub(crate) key: i32,
+    pub(crate) value: f64,
+}
+
+pub(crate) fn field_string<'a>(
+    object: &'a serde_json::Map<String, Value>,
+    name: &str,
+) -> Result<&'a str, &'static str> {
+    object
+        .get(name)
+        .and_then(Value::as_str)
+        .ok_or("拍发内容字段无效")
+}
 
 #[derive(Default)]
 struct RawGroup {
@@ -12,11 +30,11 @@ struct RawGroup {
 }
 
 #[derive(Default)]
-pub(super) struct ResolvedGroup {
-    pub(super) key: String,
-    pub(super) logs: Vec<Vec<PatLog>>,
-    pub(super) times: Vec<Value>,
-    pub(super) values: Vec<Value>,
+pub(crate) struct ResolvedGroup {
+    pub(crate) key: String,
+    pub(crate) logs: Vec<Vec<PatLog>>,
+    pub(crate) times: Vec<Value>,
+    pub(crate) values: Vec<Value>,
 }
 
 fn parse_groups(body: &[Value]) -> Result<Vec<RawGroup>, &'static str> {
@@ -105,7 +123,7 @@ fn group_slice(group: &ResolvedGroup, key: String, start: usize, length: usize) 
     }
 }
 
-pub(super) fn resolve_groups(
+pub(crate) fn resolve_groups(
     body: &[Value],
     rule: &HandkeyRule,
     score: &mut HandkeyScore,
@@ -190,7 +208,7 @@ pub(super) fn resolve_groups(
     Ok(result)
 }
 
-pub(super) fn score_timing(
+pub(crate) fn score_timing(
     group: &ResolvedGroup,
     index: usize,
     standards: &[Value],

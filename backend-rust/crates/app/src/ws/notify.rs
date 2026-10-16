@@ -1,4 +1,4 @@
-use super::manager::{WsManager, MANAGER};
+use super::manager::{lock_room_lifecycle, WsManager, MANAGER};
 use super::{
     general_notification_response, sim_response, Connection, Family, GeneralKind, GeneralRoomKey,
     Outbound,
@@ -75,6 +75,19 @@ pub(super) fn parse_general_kind(value: &str) -> Option<GeneralKind> {
         "ticker" => Some(GeneralKind::Ticker),
         _ => None,
     }
+}
+pub(crate) async fn general_room_lifecycle(
+    kind: &str,
+    train_id: &str,
+) -> Option<tokio::sync::OwnedMutexGuard<()>> {
+    let kind = parse_general_kind(kind)?;
+    let train_id = match kind {
+        GeneralKind::Telex => train_id.to_owned(),
+        _ => train_id
+            .parse::<i32>()
+            .map_or_else(|_| train_id.to_owned(), |id| id.to_string()),
+    };
+    Some(lock_room_lifecycle(kind, &train_id).await)
 }
 
 /// Returns the current protocol status for a connected general-training user.

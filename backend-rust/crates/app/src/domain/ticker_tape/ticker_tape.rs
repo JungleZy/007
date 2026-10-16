@@ -12,6 +12,7 @@ use sqlx::{mysql::MySqlRow, pool::PoolConnection, Acquire, MySql, Row, Transacti
 use crate::platform::auth::AuthUser;
 use crate::platform::envelope::envelope_json;
 use crate::platform::envelope::envelope_response;
+use crate::platform::extract::request_integer;
 use crate::platform::state::AppState;
 use crate::shared::statistical::lock_user;
 
@@ -322,8 +323,7 @@ where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<Value>::deserialize(deserializer)?;
-    crate::domain::entering::entering::request_integer(value.as_ref())
-        .map_err(|_| serde::de::Error::custom("invalid setting rate"))
+    request_integer(value.as_ref()).map_err(|_| serde::de::Error::custom("invalid setting rate"))
 }
 
 #[derive(Debug, Deserialize, serde::Serialize)]

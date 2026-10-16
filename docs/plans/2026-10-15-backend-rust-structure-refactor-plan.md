@@ -1,6 +1,6 @@
 # backend-rust 目录结构重构计划
 
-> 状态：实施中，第 4 步代码与门禁已完成，第 5 步候选待集成。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
+> 状态：实施中，第 5 步代码与门禁已完成，进入最终审计。设计计数基线：`d1ccee6f`（2026-10-15）；执行起点：`5c1200dd`。当前进度与实际证据见 §9，不以历史计数代替验收。
 
 规格与验收：[docs/specs/2026-10-15-backend-rust-structure-refactor-spec.md](../specs/2026-10-15-backend-rust-structure-refactor-spec.md)。本文负责文件搬迁、实施顺序与执行记录；SR01–SR08、V01–V05 的需求和验收口径以配套规格为准，调整时同步两份文档。
 
@@ -326,4 +326,23 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 | Step4 静态语义复核 | 1,645 函数、282 命名类型/常量、67 impl 头、1,927 注释/属性关联、17,490 字符串多重集闭合；测试229/ignored152集合一致 |
 
 第 5 步仍须收口共享内核、清除生产跨域直接引用并完成最终审计。
+
+### 9.6 第 5 步：共享内核与跨域收口（完成）
+
+- 生成组、telex 分析、handkey 解析/规则/计分内核迁入 `shared/`；`entering::request_integer` 已迁入 platform extract；general room lifecycle 的业务出口归 `ws/notify`。
+- `post_ticker → ticker_tape::{SettingRequest, settings_connection}` 是唯一保留的生产跨域例外；其余生产 domain→domain 直接引用为 0，domain→WS 仅经 `ws::notify`。测试支持模块和跨域测试夹具不计为生产依赖。
+- 错误类型及转信封逻辑原样保留；未新增错误 trait、别名、re-export、`#[path]` 或 `include!`。
+
+| 已执行项目 | 本轮结果 |
+|---|---|
+| Cargo fmt、普通 Cargo 测试 | 79 通过，154 ignored |
+| 串行 ignored 隔离库测试 | 154 通过 |
+| locked release 构建与 smoke | 通过 |
+| Python 脚本测试 | 81 通过 |
+| 386 路由/24 组开关/WS 观察 | 18,912 观察，0 差异 |
+| V02/V03 完整有身份对照 | 2,771 流程、394 WS、1,080 三身份、69 管理拒绝无写入，0 差异/漏覆盖 |
+| paired-clock dual-stack | journeys 2,454、full 3,903，0 FAIL/OPEN；差异均为既有 ACCEPTED |
+| 生产跨域审计 | 仅 2 个 post_ticker settings 生产引用属于允许例外；shared 无 domain/WS 反向依赖 |
+
+第 5 步完成；下一阶段仅为最终逐项审计、证据归档和清理自有临时服务。
 

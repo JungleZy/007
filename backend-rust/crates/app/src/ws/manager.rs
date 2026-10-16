@@ -1,4 +1,3 @@
-use super::notify::parse_general_kind;
 use super::{general_kind_for_family, sim_response, socket_response, union_response};
 use super::{
     Connection, Family, GeneralKind, GeneralRoomKey, Outbound, Prepared, RouteSpec, SimMember,
@@ -541,7 +540,7 @@ impl WsManager {
 static ROOM_LIFECYCLE: LazyLock<Vec<Arc<Mutex<()>>>> =
     LazyLock::new(|| (0..64).map(|_| Arc::new(Mutex::new(()))).collect());
 
-async fn lock_room_lifecycle(
+pub(super) async fn lock_room_lifecycle(
     kind: GeneralKind,
     train_id: &str,
 ) -> tokio::sync::OwnedMutexGuard<()> {
@@ -553,20 +552,6 @@ async fn lock_room_lifecycle(
         .clone()
         .lock_owned()
         .await
-}
-
-pub(crate) async fn general_room_lifecycle(
-    kind: &str,
-    train_id: &str,
-) -> Option<tokio::sync::OwnedMutexGuard<()>> {
-    let kind = parse_general_kind(kind)?;
-    let train_id = match kind {
-        GeneralKind::Telex => train_id.to_owned(),
-        _ => train_id
-            .parse::<i32>()
-            .map_or_else(|_| train_id.to_owned(), |id| id.to_string()),
-    };
-    Some(lock_room_lifecycle(kind, &train_id).await)
 }
 
 /// The room a connection is about to open, as the registration will name it.

@@ -102,10 +102,10 @@ pub(super) async fn settle_telex(
     member: &Value,
     user_id: &str,
 ) -> Outcome<TelexSettled> {
-    use crate::domain::telex::telex_handle::handle;
-    use crate::domain::telex::telex_handle::PageKey;
-    use crate::domain::telex::telex_handle::Stats;
-    use crate::domain::telex::telex_handle::ValueRow;
+    use crate::shared::telex_handle::handle;
+    use crate::shared::telex_handle::PageKey;
+    use crate::shared::telex_handle::Stats;
+    use crate::shared::telex_handle::ValueRow;
     let id = text(&train["id"]).ok_or_else(|| invalid("训练ID不能为空"))?;
     let member_id = text(&member["id"]).ok_or_else(|| invalid("参训记录主键缺失"))?;
     let rule = frozen_rule(train, Domain::Telex)?;

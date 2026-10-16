@@ -1,6 +1,9 @@
 use std::{env, net::SocketAddr};
 
 use axum::extract::Request;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use serde_json::Value;
 
 use crate::platform::error::AppError;
 
@@ -49,4 +52,35 @@ pub(crate) fn parse_usize(name: &str, default: usize) -> Result<usize, AppError>
             .parse()
             .map_err(|_| AppError::Config(format!("{name} must be an integer")))
     })
+}
+pub(crate) fn request_integer(value: Option<&Value>) -> Result<Option<i32>, Response> {
+    match value {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Number(value)) => {
+            let integer = value
+                .as_i64()
+                .and_then(|value| i32::try_from(value).ok())
+                .or_else(|| {
+                    value
+                        .as_f64()
+                        .filter(|value| *value >= i32::MIN as f64 && *value <= i32::MAX as f64)
+                        .map(|value| value as i32)
+                });
+            integer
+                .map(Some)
+                .ok_or_else(|| StatusCode::BAD_REQUEST.into_response())
+        }
+        Some(Value::String(value)) => {
+            let value = value.trim_matches(|character| character <= '\u{20}');
+            if value.is_empty() || value == "null" {
+                Ok(None)
+            } else {
+                value
+                    .parse()
+                    .map(Some)
+                    .map_err(|_| StatusCode::BAD_REQUEST.into_response())
+            }
+        }
+        Some(_) => Err(StatusCode::BAD_REQUEST.into_response()),
+    }
 }

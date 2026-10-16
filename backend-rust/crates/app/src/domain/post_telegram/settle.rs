@@ -1,10 +1,9 @@
 use super::dto::{count_characters, err, invalid, CaptureInterval};
-use super::generated_groups::generated_groups;
-use super::rules::{
-    capture_duration, require_no_overlap, validate_standard, HandkeyRule, HandkeyScore,
-};
-use super::scoring::{compare_page, scoring_result};
+use super::rules::{capture_duration, require_no_overlap};
 use crate::platform::envelope::envelope_response;
+use crate::shared::generated_groups::generated_groups;
+use crate::shared::handkey_rules::{validate_standard, HandkeyRule, HandkeyScore};
+use crate::shared::handkey_scoring::{compare_page, scoring_result};
 use axum::http::StatusCode;
 use axum::response::Response;
 use rust_decimal::prelude::ToPrimitive;

@@ -187,13 +187,11 @@ pub(super) async fn add(
     Json(body): Json<Value>,
 ) -> Response {
     request_field!(request_body(&body));
-    let kind = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("type")
-    ));
+    let kind = request_field!(crate::platform::extract::request_integer(body.get("type")));
     let name = request_field!(crate::domain::entering::entering::request_string(
         body.get("name")
     ));
-    let word_id = request_field!(crate::domain::entering::entering::request_integer(
+    let word_id = request_field!(crate::platform::extract::request_integer(
         body.get("wordId")
     ));
     let Some(pool) = state.pool.as_ref() else {
@@ -270,9 +268,7 @@ pub(super) async fn list_page(
     Json(body): Json<Value>,
 ) -> Response {
     request_field!(request_body(&body));
-    let kind = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("type")
-    ));
+    let kind = request_field!(crate::platform::extract::request_integer(body.get("type")));
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
@@ -361,10 +357,8 @@ pub(super) async fn finish(
     ));
     let mut has_metrics = accuracy.is_some();
     for field in ["speed", "duration", "correctNum", "errorNum"] {
-        has_metrics |= request_field!(crate::domain::entering::entering::request_integer(
-            body.get(field)
-        ))
-        .is_some();
+        has_metrics |=
+            request_field!(crate::platform::extract::request_integer(body.get(field))).is_some();
     }
     let Some(pool) = state.pool.as_ref() else {
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
@@ -554,9 +548,8 @@ pub(super) async fn get_word_stock(
     Json(body): Json<Value>,
 ) -> Response {
     request_field!(request_body(&body));
-    let Some(kind) = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("type")
-    )) else {
+    let Some(kind) = request_field!(crate::platform::extract::request_integer(body.get("type")))
+    else {
         return envelope_response(StatusCode::OK, 202, "请求参数错误", "");
     };
     let Some(pool) = state.pool.as_ref() else {
@@ -671,16 +664,12 @@ pub(super) async fn word_stock_add(
     Json(body): Json<Value>,
 ) -> Response {
     request_field!(request_body(&body));
-    let kind = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("type")
-    ));
+    let kind = request_field!(crate::platform::extract::request_integer(body.get("type")));
     let name = request_field!(crate::domain::entering::entering::request_string(
         body.get("name")
     ));
-    let id = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("id")
-    ));
-    request_field!(crate::domain::entering::entering::request_integer(
+    let id = request_field!(crate::platform::extract::request_integer(body.get("id")));
+    request_field!(crate::platform::extract::request_integer(
         body.get("wordSize")
     ));
     let raw_content = request_field!(crate::domain::entering::entering::request_string(
@@ -871,9 +860,7 @@ pub(super) async fn word_stock_list_page(
         return envelope_response(StatusCode::INTERNAL_SERVER_ERROR, 500, "服务器错误", "");
     };
     request_field!(request_body(&body));
-    let kind = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("type")
-    ));
+    let kind = request_field!(crate::platform::extract::request_integer(body.get("type")));
     let (sql, bind_kind) = if kind.is_some() {
         (format!("SELECT {STOCK_COLS} FROM t_post_entering_exercise_word_stock WHERE type=? ORDER BY create_time DESC"), true)
     } else {
@@ -906,9 +893,7 @@ pub(super) async fn word_stock_delete(
     Json(body): Json<Value>,
 ) -> Response {
     request_field!(request_body(&body));
-    let Some(id) = request_field!(crate::domain::entering::entering::request_integer(
-        body.get("id")
-    )) else {
+    let Some(id) = request_field!(crate::platform::extract::request_integer(body.get("id"))) else {
         return envelope_response(StatusCode::OK, 202, "词库ID不能为空", "");
     };
     let Some(pool) = state.pool.as_ref() else {

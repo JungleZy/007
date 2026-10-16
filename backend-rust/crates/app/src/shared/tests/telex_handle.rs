@@ -1,4 +1,4 @@
-use crate::domain::telex::telex_handle::*;
+use crate::shared::telex_handle::*;
 
 fn pages(keys: &[&str]) -> Vec<PageKey> {
     keys.iter()

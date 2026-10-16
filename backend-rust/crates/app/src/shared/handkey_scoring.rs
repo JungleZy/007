@@ -1,5 +1,5 @@
-use super::parse::{resolve_groups, score_timing, ResolvedGroup};
-use super::rules::{HandkeyRule, HandkeyScore};
+use super::handkey_parse::{resolve_groups, score_timing, ResolvedGroup};
+use super::handkey_rules::{HandkeyRule, HandkeyScore};
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;

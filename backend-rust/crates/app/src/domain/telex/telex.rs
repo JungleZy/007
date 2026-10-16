@@ -669,16 +669,12 @@ pub(super) fn checked_content(
         return Ok(submitted.to_owned());
     }
     // Append to the submitted text so the original rows keep their submitted form.
-    let appended = crate::domain::post_telegram::generated_groups::generated_groups(
-        extension as usize,
-        kind,
-        true,
-        true,
-    )
-    .into_iter()
-    .map(|text| json!({"text": text, "value": ""}).to_string())
-    .collect::<Vec<_>>()
-    .join(",");
+    let appended =
+        crate::shared::generated_groups::generated_groups(extension as usize, kind, true, true)
+            .into_iter()
+            .map(|text| json!({"text": text, "value": ""}).to_string())
+            .collect::<Vec<_>>()
+            .join(",");
     let body = submitted.trim_end();
     let body = body.strip_suffix(']').unwrap_or(body);
     Ok(if actual.is_empty() {
