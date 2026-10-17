@@ -128,20 +128,37 @@ async function rejectMissingDatabase(exe) {
   for (const key of Object.keys(env)) if (/^RUST_BACKEND_DATABASE_URL$|^RUST_BACKEND_ADDR$|^RUST_PHASE.*_ENABLED$/i.test(key)) delete env[key];
   const rejectedProfile = path.join(work, 'missing-db-profile');
   for (const dir of [rejectedProfile, machine, env.APPDATA, env.LOCALAPPDATA]) fs.mkdirSync(dir, {recursive: true});
-  activeApp = begin(exe, [`--user-data-dir=${rejectedProfile}`], 'missing-db', {env});
+  activeApp = begin(exe, [`--user-data-dir=${rejectedProfile}`], 'missing-db', {env, windowsHide: false});
   const dialogScript = `Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes;
     $root=[System.Windows.Automation.AutomationElement]::RootElement;
     $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty,${activeApp.pid});
     $windows=$root.FindAll([System.Windows.Automation.TreeScope]::Children,$condition);
     $texts=@(); $button=$null; foreach($window in $windows) {
       $elements=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition);
-      foreach($element in $elements) {$texts+=$element.Current.Name; if($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button){$button=$element}}
+      foreach($element in $elements) {
+        $texts+=$element.Current.Name;
+        $textPattern=$null;
+        if($element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern,[ref]$textPattern)) {
+          $texts+=$textPattern.DocumentRange.GetText(-1);
+        }
+        if($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button){$button=$element}
+      }
     };`;
-  const texts = await until('actionable native missing-database dialog', () => {
-    assert(activeApp.exitCode === null, 'App exited before the startup dialog was observed');
-    const names = JSON.parse(ps(dialogScript + ' ConvertTo-Json -InputObject @($texts) -Compress'));
-    return names.some(text => text.includes('RUST_BACKEND_DATABASE_URL')) && names;
-  });
+  let texts;
+  try {
+    texts = await until('actionable native missing-database dialog', () => {
+      assert(activeApp.exitCode === null, 'App exited before the startup dialog was observed');
+      const names = JSON.parse(ps(dialogScript + ' ConvertTo-Json -InputObject @($texts) -Compress'));
+      return names.some(text => text.includes('RUST_BACKEND_DATABASE_URL')) && names;
+    });
+  } catch (error) {
+    try {
+      desktopScreenshot('00-missing-database-failed');
+      writeJson('missing-db-ui-tree.json', JSON.parse(ps(dialogScript + `
+        @{windows=@($windows | ForEach-Object { @{name=$_.Current.Name;processId=$_.Current.ProcessId;offscreen=$_.Current.IsOffscreen} });texts=@($texts)} | ConvertTo-Json -Depth 5 -Compress`)));
+    } catch (diagnosticError) { report.missingDatabaseDiagnosticError = diagnosticError.message; }
+    throw error;
+  }
   const snapshot = captureOwnership(activeApp.pid);
   assert(!snapshot.children.some(item => item.ExecutablePath?.toLowerCase() === path.join(install, 'bin/server/server.exe').toLowerCase()), 'Missing secret spawned Rust');
   assert(!snapshot.children.some(item => /service[\\/]http[\\/]index\.js|--type=renderer/.test(item.CommandLine || '')), 'Missing secret spawned file service or renderer');
