@@ -1,10 +1,151 @@
 {
   "schema": "rust-migration-phase9-dual-stack-sweep/v1",
-  "generated_at_utc": "2026-10-10T04:43:54Z",
-  "git_commit": "e94a07b5",
+  "generated_at_utc": "2026-10-11T12:15:28Z",
+  "git_commit": "be64fb15",
   "status": "SWEEP_RESOLVED_PHASE10_BLOCKED",
-  "execution_provenance": "The original top-level counters retain the historical H1 identity checkpoint and repeats. previous_verified_batch preserves B2 evidence; latest_verified_batch records B3 final code, live HTTP, database regressions, precommit corrections and Java gate. Full-sweep live results and post-registry reclassification are explicitly distinct.",
+  "execution_provenance": "The original top-level counters retain the historical H1 identity checkpoint and repeats. previous_verified_batch preserves B3 evidence (B2 remains in git history and plan section 13); latest_verified_batch records B4 final code, live HTTP, database regressions, mutation results and the Java gate.",
   "latest_verified_batch": {
+    "name": "B4 user, role and menu administration and session",
+    "code_commits": [
+      "ab7e13b0"
+    ],
+    "source_and_registry_commit": "be64fb15",
+    "scope_change": "mtd (military-term data, 7 routes) moved from B4 to the radiotelephone/military-term batch; B4 covers user (23), role (4) and menus (3).",
+    "coverage": {
+      "added_journeys": 4,
+      "added_http_steps": 95,
+      "routes_with_journeys": "all 30 user/role/menus routes"
+    },
+    "environment": "Rebuilt WSL environment: Temurin JDK 21.0.12.1+1 (sha256 verified), Docker mysql:8.0 loaded from backend/database/project006.sql plus every migration listed in backend/scripts/rehearse-migrations.sh. The existing 1216 journey requests reproduced the B3 result (93 accepted, 0 FAIL/OPEN) before any B4 change.",
+    "rust": {
+      "workspace_passed": 61,
+      "ignored": 85,
+      "fmt": "passed",
+      "debug_build": "passed",
+      "command": "cd backend-rust && cargo fmt --all -- --check && cargo test --locked"
+    },
+    "isolated_mysql": {
+      "database": "rust_scratch_lockdemo",
+      "admin_writer_passed": 8,
+      "command": "RUST_PHASE2_DATABASE_URL=mysql://...@127.0.0.1:3306/rust_scratch_lockdemo cargo test --locked -p rust-backend admin::writer_tests -- --ignored --test-threads=1",
+      "scope": "addUserRole/delete/saveUser-update, addMenu edit, addRole edit and login park on their own target row while every unrelated parent/child row stays writable and gap inserts succeed (lock wait timeout 1 s); two same-user role replacements both wait on the user row and one complete set wins; two same-account signins wait on the account named lock and exactly one row is created; addRole waits on the role-catalogue named lock; every writer completes on a one-connection pool; a rejected import rolls back rows inserted earlier in the batch.",
+      "leftover_rows_after_run": 0
+    },
+    "mutation_checks": {
+      "result": "5 mutations, 6 test runs, all rejected; sources restored and the 8 regressions re-run green",
+      "mutations": [
+        "delete_children restored to DELETE ... WHERE parent_column=? -> user_role_writers_lock_only_their_user and menu_and_role_writers_lock_only_their_parent fail",
+        "addUserRole without the user PK lock -> same_user_role_replacements_serialize_on_the_user fails",
+        "login lock restored to WHERE user_account=? LIMIT 1 FOR UPDATE -> login_locks_only_the_matched_user_after_verification fails",
+        "account creators without the user-account named lock -> account_creators_serialize_duplicate_check_and_insert fails",
+        "addRole without the role-catalogue named lock -> role_writes_wait_on_the_role_catalogue_lock fails"
+      ]
+    },
+    "python_harness": {
+      "passed": 62,
+      "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'",
+      "note": "jq installed; the 6 phase9 contract-diff tests that need jq now run"
+    },
+    "java": {
+      "jdk": 21,
+      "command": "JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify",
+      "cwd": "backend",
+      "passed": 513,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "note": "Run on 49341d99 in the rebuilt environment; B4 changes no Java source."
+    },
+    "b4_journeys": {
+      "requests": 95,
+      "identical": 90,
+      "different": 5,
+      "by_disposition": {
+        "ACCEPTED": 5
+      },
+      "by_category": {
+        "DATA": 5
+      },
+      "fail": 0,
+      "open": 0,
+      "exit_code": 0
+    },
+    "all_journeys": {
+      "requests": 1311,
+      "identical": 1213,
+      "different": 98,
+      "by_disposition": {
+        "ACCEPTED": 98
+      },
+      "by_category": {
+        "JAVA_UNHANDLED_500": 6,
+        "RUST_STRICTER": 5,
+        "TEXT_ONLY": 70,
+        "RUST_PERMISSIVE": 1,
+        "DATA": 14,
+        "RUST_OTHER_CODE": 1,
+        "RUST_FAILS_WHERE_JAVA_OK": 1
+      },
+      "fail": 0,
+      "open": 0,
+      "exit_code": 0
+    },
+    "full_sweep_live": {
+      "requests": 2760,
+      "identical": 2139,
+      "different": 621,
+      "by_disposition": {
+        "ACCEPTED": 621
+      },
+      "by_category": {
+        "JAVA_UNHANDLED_500": 53,
+        "RUST_STRICTER": 66,
+        "TEXT_ONLY": 344,
+        "RUST_PERMISSIVE": 9,
+        "DATA": 35,
+        "RUST_OTHER_CODE": 1,
+        "RUST_FAILS_WHERE_JAVA_OK": 2,
+        "JAVA_RAW_HTTP_4XX": 60,
+        "RUST_RAW_HTTP_4XX": 51
+      },
+      "fail": 0,
+      "open": 0,
+      "exit_code": 0
+    },
+    "first_run_findings": {
+      "initial_b4_run": "91 requests, 48 identical, 43 FAIL before any Rust change",
+      "rust_defects_fixed": [
+        "saveUser create skipped the duplicate-account check (a second b4teacher row made the real account's login hit the wrong row) and dropped phone/wkno/email/updateFlag/dday",
+        "saveUser edit of a missing id committed nothing and returned HTTP500; Java returns 202 未查询到该用户",
+        "importUser returned created rows instead of the skipped duplicates, silently skipped invalid rows, forced status=0 and computed bday; Java stores posted rows and rejects the whole batch (202) when a password is missing",
+        "addUserRole wrote role rows for userId '' (the structure page sends it after creating a user), dropped numeric role ids (leaving the user without a role), and treated a missing roleIds as success; Java no-ops '' , stringifies ids and returns 500 数据异常 for a non-list",
+        "addMenu accepted permissions:null and created a row for a missing edit id; it stored NULL isBread/keepAlive (menu tree meta.isBread flipped), updated fields Java does not copy and returned only {id}",
+        "addRole ignored errors from the default-role demotion (let _ =) and cleared role menus when menus was missing",
+        "getRoleAll omitted each menu's permissions; getRoleMenusInfo.menusChecked lacked MenusTwoDto.keepAlive",
+        "login/signin rejection envelopes and the id-card message differed from Java (Java: message 服务器错误, reason in description; 身份证号码格式错误); missing default role was HTTP500 instead of 202"
+      ],
+      "lock_changes": [
+        "login no longer holds FOR UPDATE on the unindexed user_account scan during PBKDF2; plain read, verification on the blocking pool, then PK lock with account/hash re-check (3 attempts)",
+        "addUserRole/delete lock the user PK, discover t_user_role ids with a plain read and delete by PK; addMenu locks the edited menu PK before replacing buttons by PK; addRole replaces role menus by PK and demotes defaults by PK",
+        "signin, saveUser create and importUser hold one database-scoped user-account GET_LOCK across duplicate check and insert; addRole holds a role-catalogue GET_LOCK; PBKDF2 runs on spawn_blocking before the lock"
+      ],
+      "hidden_by_default_acceptance": "The first full sweep after the fix still default-accepted addUserRole probe-str/num as JAVA_UNHANDLED_500 (Java 500 数据异常, Rust 200). Java's objToList returns null for a non-list; Rust now returns 500 数据异常 too and the journey asserts both the missing and the explicit [] case."
+    },
+    "comparison": "Journey masks: only the opaque login token. unordered only where Java has no ORDER BY: getRoleAll, user lists ordered by status alone or not at all, and MenusButtonDao button lists. Five DATA rules accept only the exact role-menu per leaves (Java [add, details] vs Rust JSON); 117 dev-snapshot per values are [] and identical on both stacks.",
+    "java_behaviour_kept": [
+      "getUsersByUserNameStartingWith binds the posted value to a bare LIKE (callers supply %)",
+      "importUser stores a posted row without status as NULL, which then fails login with 数据异常",
+      "saveUser edit does not re-check the account for duplicates",
+      "addRole with isAdmin=0,isDefault=0 is stored as-is (an administrator signin default); not changed in this batch",
+      "logout clears the session by user id, so it also ends a newer session of the same user on another device"
+    ],
+    "boundaries": [
+      "No browser/Electron run of the structure, role, menu, login or personal pages; payloads are taken from the Vue sources.",
+      "Physical devices, native multi-platform builds and production cutover were not exercised. Phase10 remains blocked.",
+      "The 85 ignored Rust tests were not all run; the 8 new admin writer regressions were run explicitly."
+    ]
+  },
+  "previous_verified_batch": {
     "name": "B3 pre/post-job receiver and entering input",
     "code_commits": [
       "71e39172",
@@ -87,23 +228,6 @@
       "The 77 normally ignored Rust tests were not all run: 17 affected database regressions were explicitly executed.",
       "Actual browser/Electron, physical-device, native multi-platform and production cutover acceptance were not exercised. Phase10 remains blocked."
     ]
-  },
-  "previous_verified_batch": {
-    "name": "B2 post-job handkey, electronic-key and telex",
-    "code_commits": ["ea24b2f1", "740dc367", "04d2d400"],
-    "source_and_registry_commit": "171db7ef",
-    "coverage": {"routes": 31, "active_frontend_routes": 27, "added_journeys": 6, "added_http_steps": 288, "planned_lock_sites_addressed": 26},
-    "rust": {"passed": 56, "ignored": 60, "fmt": "passed", "debug_build": "passed", "artifact": "artifact://1207"},
-    "isolated_mysql": {"database": "rust_scratch_lockdemo", "handkey_passed": 8, "electronic_key_passed": 8, "telex_passed": 9, "total_passed": 25, "artifact": "artifact://1207", "scope": "All affected tables verified InnoDB; includes queued current-attempt reads, old Java UUID aliases and exact replay, frozen scoring, lazy-generation atomicity, rollback injections and unrelated-row writability."},
-    "python_harness": {"passed": 54, "command": "python3 -m unittest discover -s backend-rust/scripts -p 'test_*.py'"},
-    "java": {"jdk": 21, "command": "JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify", "cwd": "backend", "passed": 513, "failures": 0, "errors": 0, "skipped": 0, "artifact": "artifact://1215"},
-    "raw_outcome_smoke": {"artifact": "/tmp/b2_validated_raw_assertions.json", "requests": 288, "assertion_failures": 0, "identical": 280, "accepted": 8, "scope": "Both-stack raw outcomes checked before optional comparison transforms; Java-undefined page-set order compared as a complete multiset."},
-    "journeys": {"artifact": "/tmp/b2_all_integrated_journeys.json", "requests": 857, "identical": 830, "accepted": 27, "fail": 0, "open": 0, "exit_code": 0, "chronology": "Verified final working-tree content before the four B2 code/contract commits."},
-    "full_sweep": {"artifact": "/tmp/b2_postcommit_full.json", "requests": 2306, "identical": 1750, "accepted": 556, "fail": 0, "open": 0, "exit_code": 0, "chronology": "Executed after 171db7ef against the rebuilt Java verification artifact and unchanged verified Rust binary."},
-    "mutations": {"artifact": "/tmp/b2_lock_mutations.json", "runtime_rejections": 3, "restored": true, "scope": "One original broad locking read restored per domain. Each corresponding regression failed on unrelated-training-row writability, not compilation; all 25 regressions passed again after restoration. This is not a mutation claim for every SQL site."},
-    "comparison": "No score/content/id masks were added. Server elapsed clocks alone are masked. Java codeAll and existPage queries lack ORDER BY, so only these declared arrays use complete duplicate-preserving multiset comparisons. Receipt-validity fixtures move only a synthetic running parent's clock anchor; they do not seed answers or scores.",
-    "new_accepted_java_defects": ["Valid foreign handkey finish wraps ForbiddenException in RuntimeException and returns Java HTTP500 rather than207; Rust retains207.", "Valid stale-attempt handkey finish wraps TerminalStateException in RuntimeException and returns Java HTTP500 rather than208; Rust retains208."],
-    "boundaries": ["Fixed cable copying is a single first MVCC floor snapshot, without mixing current cable-parent metadata; unrelated cable writer debt is unchanged.", "Java's trainType4 telex special scoring branch versus the frontend's trainType1 remains a shared behavior, not redefined by migration.", "HTTP payload replay and isolated SQL regressions do not replace actual browser, Electron, physical-device, multi-platform or production-cutover acceptance."]
   },
   "commands": {
     "rust": {

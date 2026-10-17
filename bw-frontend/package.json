@@ -42,6 +42,9 @@
         }
       ]
     },
+    "nsis": {
+      "include": "build/windows/installer.nsh"
+    },
     "linux": {
       "icon": "build/icons/icon.icns",
       "artifactName": "${productName}-${os}-${version}-${arch}.${ext}",

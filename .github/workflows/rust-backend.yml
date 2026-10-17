@@ -27,6 +27,8 @@ jobs:
         run: cargo test --locked
       - name: Test shared contract comparator
         run: python3 scripts/test_phase9_contract_diff.py
+      - name: Test domain cutover safety boundaries
+        run: python3 scripts/test_phase9_cutover_rehearsal.py
 
       - name: Build Rust backend (debug)
         run: cargo build --locked
@@ -40,3 +42,150 @@ jobs:
           name: rust-backend-linux-amd64
           path: backend-rust/target/release/rust-backend
           if-no-files-found: error
+
+  rust-backend-linux-arm64:
+    name: Rust backend (native Linux arm64 build, smoke)
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        working-directory: backend-rust
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-unknown-linux-gnu
+      - name: Require native arm64 runner
+        run: test "$(uname -m)" = aarch64
+      - name: Build Linux arm64 release
+        run: cargo build --locked --release --target aarch64-unknown-linux-gnu
+      - name: Smoke actual Linux arm64 release artifact
+        run: python3 scripts/platform-smoke.py target/aarch64-unknown-linux-gnu/release/rust-backend
+      - name: Upload Linux arm64 release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backend-linux-arm64
+          path: backend-rust/target/aarch64-unknown-linux-gnu/release/rust-backend
+          if-no-files-found: error
+
+  rust-backend-windows-gnu:
+    name: Rust backend (native Windows GNU build, smoke)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: backend-rust
+    env:
+      CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: 'C:\mingw64\bin\gcc.exe'
+      CC_x86_64_pc_windows_gnu: 'C:\mingw64\bin\gcc.exe'
+      AR_x86_64_pc_windows_gnu: 'C:\mingw64\bin\ar.exe'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Windows GNU Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
+          targets: x86_64-pc-windows-gnu
+      - name: Require native Windows x64 and preinstalled MinGW
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Expected native Windows x64' }
+          # runner-images Install-Mingw64.ps1 installs the x64 toolchain here.
+          $mingw = 'C:\mingw64\bin'
+          foreach ($tool in @('gcc.exe', 'ar.exe', 'ld.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $mingw $tool))) { throw "Missing MinGW tool: $tool" }
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $mingw
+          $triple = & $env:CC_x86_64_pc_windows_gnu -dumpmachine
+          if ($LASTEXITCODE -ne 0 -or $triple.Trim() -ne 'x86_64-w64-mingw32') { throw 'Expected x64 MinGW GCC' }
+          & $env:CC_x86_64_pc_windows_gnu --version
+          & $env:AR_x86_64_pc_windows_gnu --version
+          if ($LASTEXITCODE -ne 0) { throw 'Missing MinGW archiver' }
+      - name: Build Windows GNU release
+        run: cargo build --locked --release --target x86_64-pc-windows-gnu
+      - name: Smoke actual Windows GNU release artifact
+        # Private console + CTRL_C_EVENT; taskkill/TerminateProcess cannot pass.
+        run: python scripts/platform-smoke.py target/x86_64-pc-windows-gnu/release/rust-backend.exe
+      - name: Upload Windows GNU release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backend-windows-x86_64-gnu
+          path: backend-rust/target/x86_64-pc-windows-gnu/release/rust-backend.exe
+          if-no-files-found: error
+
+  windows-desktop-acceptance:
+    name: Windows desktop (unsigned NSIS, real renderer, same-source upgrade)
+    needs: rust-backend-windows-gnu
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Checkout exact acceptance source
+        uses: actions/checkout@v4
+      - name: Set up Node for Electron packaging and CDP
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            bw-frontend/package-lock.json
+            bw-frontend/frontend/package-lock.json
+      - name: Download the successful native Windows GNU job artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-backend-windows-x86_64-gnu
+          path: '${{ runner.temp }}/native-desktop-rust'
+      - name: Install locked desktop and renderer dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:DESKTOP_EVIDENCE = Join-Path $env:RUNNER_TEMP 'native-desktop-evidence'
+          $env:DESKTOP_TOOLS = Join-Path $env:RUNNER_TEMP 'native-desktop-tools'
+          "DESKTOP_EVIDENCE=$env:DESKTOP_EVIDENCE" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DESKTOP_TOOLS=$env:DESKTOP_TOOLS" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          New-Item -ItemType Directory -Force -Path $env:DESKTOP_EVIDENCE | Out-Null
+          npm ci --prefix bw-frontend 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-desktop.log"
+          if ($LASTEXITCODE -ne 0) { throw "Desktop npm ci exited $LASTEXITCODE" }
+          npm ci --prefix bw-frontend/frontend 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-renderer.log"
+          if ($LASTEXITCODE -ne 0) { throw "Renderer npm ci exited $LASTEXITCODE" }
+          # Tool-only dependency is outside the checkout; no package version/lock edits.
+          npm install --prefix $env:DESKTOP_TOOLS --no-save --no-package-lock --ignore-scripts playwright-core@1.51.1 2>&1 | Tee-Object -FilePath "$env:DESKTOP_EVIDENCE\npm-cdp-tool.log"
+          if ($LASTEXITCODE -ne 0) { throw "CDP tool installation exited $LASTEXITCODE" }
+      - name: Verify mutable-state migration and resource confinement
+        run: |
+          node --test 'bw-frontend/scripts/runtime-test/*.test.mjs'
+          if ($LASTEXITCODE -ne 0) { throw "Desktop storage regressions exited $LASTEXITCODE" }
+      - name: Accept unsigned installed Windows desktop and installer upgrade
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./bw-frontend/scripts/windows-desktop-acceptance.ps1 -RustArtifact "${{ runner.temp }}\native-desktop-rust\rust-backend.exe" -OutputDirectory $env:DESKTOP_EVIDENCE -PlaywrightDirectory "$env:DESKTOP_TOOLS\node_modules\playwright-core"
+          if ($LASTEXITCODE -ne 0) { throw "Windows desktop acceptance exited $LASTEXITCODE" }
+      - name: Always retain native acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-acceptance-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/native-desktop-evidence/*.json
+            ${{ runner.temp }}/native-desktop-evidence/*.log
+            ${{ runner.temp }}/native-desktop-evidence/*.png
+            ${{ runner.temp }}/native-desktop-evidence/*.download
+            ${{ runner.temp }}/native-desktop-evidence/*.sql
+            ${{ runner.temp }}/native-desktop-evidence/build-*/builder-*.yaml
+      - name: Retain unsigned validation installers separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-UNSIGNED-VALIDATION-ONLY
+          retention-days: 14
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/native-desktop-evidence/build-*/*.exe

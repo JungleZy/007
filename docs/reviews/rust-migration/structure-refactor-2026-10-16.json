@@ -1,0 +1,579 @@
+{
+  "schema": "backend-rust-structure-refactor-acceptance/v1",
+  "status": "COMPLETE",
+  "baseline_revision": "5c1200dd244d30470ada5a94ed2e75834ce6e675",
+  "source_revision": "e99be2f6872c8e06213b582844aa023959361c1b",
+  "source_sha256": "d815c34520dbd214e6cbc648e24d814d149a0c86c1dc31f78512518e9e7adf59",
+  "release_sha256": "6dbd9feb2cc6a6bd736be2b0a5dc4b088bf060bcb3af18d2e488282a1c705d16",
+  "scope": "Structure-only backend-rust refactor; no API, schema, SQL semantics, ORM, external flag names or Java rollback cutover.",
+  "structure": {
+    "rust_files": 193,
+    "production_files": 127,
+    "test_files": 66,
+    "reachable_files": 193,
+    "orphan_files": 0,
+    "domain_count": 21,
+    "main_lines": 4,
+    "max_production_file": {
+      "path": "backend-rust/crates/app/src/domain/theory/exam.rs",
+      "lines": 1414
+    },
+    "flag_count": 22,
+    "flag_set_unchanged": true,
+    "path_attributes": 0,
+    "compatibility_reexports": 0,
+    "include_macros": 0,
+    "production_cross_domain_exceptions": [
+      {
+        "file": "backend-rust/crates/app/src/domain/post_ticker/post_ticker.rs",
+        "line": 625,
+        "module": [
+          "domain",
+          "post_ticker",
+          "post_ticker"
+        ],
+        "test": false,
+        "target": [
+          "domain",
+          "ticker_tape",
+          "ticker_tape",
+          "settings_connection"
+        ]
+      },
+      {
+        "file": "backend-rust/crates/app/src/domain/post_ticker/post_ticker.rs",
+        "line": 596,
+        "module": [
+          "domain",
+          "post_ticker",
+          "post_ticker"
+        ],
+        "test": false,
+        "target": [
+          "domain",
+          "ticker_tape",
+          "ticker_tape",
+          "SettingRequest"
+        ]
+      }
+    ],
+    "domain_ws_entry": "ws::notify",
+    "shared_platform_reverse_dependencies": 0,
+    "app_tests": {
+      "total": 229,
+      "ignored": 152,
+      "original_test_identity_and_ignore_multiset_preserved": true
+    }
+  },
+  "final_gates": {
+    "source_revision": "e99be2f6872c8e06213b582844aa023959361c1b",
+    "cargo_fmt": "PASS",
+    "cargo_test_passed": 79,
+    "isolated_ignored_passed": 154,
+    "python_tests_passed": 81,
+    "locked_release": "PASS",
+    "release_smoke": "PASS",
+    "three_endpoint_sql_error_smoke": "PASS",
+    "startup_config_and_bind_failure_smoke": "PASS",
+    "output": "logs/final-diagnostic-restoration-gates.log",
+    "java": {
+      "command": "env JAVA_HOME=/home/zhang/.local/opt/jdk21 ./mvnw -B clean verify",
+      "cwd": "backend",
+      "exit_code": 0,
+      "tests": 513,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "output": "logs/java-clean-verify.log",
+      "scope": "Default JVM/Surefire verification; default Failsafe/native phases were skipped, not claimed as native acceptance."
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "revision": "51d10aba8bb6f198952fd9ec42321bad00940ddc",
+      "routes": {
+        "registered": 386,
+        "profiles": 24,
+        "observations": 18912,
+        "differences": 0,
+        "report": "reports/step1-routes.json"
+      },
+      "auth_ws": {
+        "report": "reports/step1-auth-ws.json",
+        "effective_summary": {
+          "journey_observations": 2771,
+          "websocket_observations": 394,
+          "identity_observations": 1080,
+          "admin_rejections_without_writes": 69,
+          "successful_admin_routes": 68,
+          "defined_capability_rejections": 1,
+          "verified_admin_routes": 69,
+          "uncovered_routes": 0,
+          "differences": 0,
+          "failures": 0
+        },
+        "checker_correction": "reports/step1-auth-ws-verified.json"
+      },
+      "journeys": {
+        "requests": 2454,
+        "identical": 2285,
+        "different": 169,
+        "by_disposition": {
+          "ACCEPTED": 169
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 12,
+          "RUST_STRICTER": 11,
+          "TEXT_ONLY": 115,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 25,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        }
+      },
+      "full": {
+        "requests": 3903,
+        "identical": 3225,
+        "different": 678,
+        "by_disposition": {
+          "ACCEPTED": 678
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 59,
+          "RUST_STRICTER": 72,
+          "TEXT_ONLY": 378,
+          "RUST_PERMISSIVE": 7,
+          "DATA": 46,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        }
+      }
+    },
+    {
+      "step": 2,
+      "revision": "8af60e681a3d6d8833669bcc5127b68f43be8ecc",
+      "routes": {
+        "registered": 386,
+        "profiles": 24,
+        "observations": 18912,
+        "differences": 0,
+        "report": "reports/step2-routes.json"
+      },
+      "auth_ws": {
+        "report": "reports/step2-auth-ws.json",
+        "effective_summary": {
+          "journey_observations": 2771,
+          "ws_observations": 394,
+          "special_probes": 6,
+          "route_matrix_observations": 1080,
+          "admin_rejection_evidence": 69,
+          "valid_admin_routes": 68,
+          "admin_contract_routes": 69,
+          "defined_capability_rejections": 1,
+          "uncovered_routes": 0,
+          "differences": 0,
+          "failures": 0
+        },
+        "checker_correction": null
+      },
+      "journeys": {
+        "requests": 2454,
+        "identical": 2285,
+        "different": 169,
+        "by_disposition": {
+          "ACCEPTED": 169
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 12,
+          "RUST_STRICTER": 11,
+          "TEXT_ONLY": 115,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 25,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        }
+      },
+      "full": {
+        "requests": 3903,
+        "identical": 3225,
+        "different": 678,
+        "by_disposition": {
+          "ACCEPTED": 678
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 59,
+          "RUST_STRICTER": 72,
+          "TEXT_ONLY": 378,
+          "RUST_PERMISSIVE": 7,
+          "DATA": 46,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        }
+      }
+    },
+    {
+      "step": 3,
+      "revision": "060cad33a3fba24b143ad3851d16b0b917a223e9",
+      "routes": {
+        "registered": 386,
+        "profiles": 24,
+        "observations": 18912,
+        "differences": 0,
+        "report": "reports/step3-routes.json"
+      },
+      "auth_ws": {
+        "report": "reports/step3-auth-ws.json",
+        "effective_summary": {
+          "journey_observations": 2771,
+          "ws_observations": 394,
+          "special_probes": 6,
+          "route_matrix_observations": 1080,
+          "admin_rejection_evidence": 69,
+          "valid_admin_routes": 68,
+          "admin_contract_routes": 69,
+          "defined_capability_rejections": 1,
+          "uncovered_routes": 0,
+          "differences": 0,
+          "failures": 0
+        },
+        "checker_correction": null
+      },
+      "journeys": {
+        "requests": 2454,
+        "identical": 2285,
+        "different": 169,
+        "by_disposition": {
+          "ACCEPTED": 169
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 12,
+          "RUST_STRICTER": 11,
+          "TEXT_ONLY": 115,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 25,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        }
+      },
+      "full": {
+        "requests": 3903,
+        "identical": 3225,
+        "different": 678,
+        "by_disposition": {
+          "ACCEPTED": 678
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 59,
+          "RUST_STRICTER": 72,
+          "TEXT_ONLY": 378,
+          "RUST_PERMISSIVE": 7,
+          "DATA": 46,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        }
+      }
+    },
+    {
+      "step": 4,
+      "revision": "d75778a5bcc35484412ed42fd80278bdbd8499ac",
+      "routes": {
+        "registered": 386,
+        "profiles": 24,
+        "observations": 18912,
+        "differences": 0,
+        "report": "reports/step4-aligned-routes.json"
+      },
+      "auth_ws": {
+        "report": "reports/step4-auth-ws.json",
+        "effective_summary": {
+          "journey_observations": 2771,
+          "ws_observations": 394,
+          "special_probes": 6,
+          "route_matrix_observations": 1080,
+          "admin_rejection_evidence": 69,
+          "valid_admin_routes": 68,
+          "admin_contract_routes": 69,
+          "defined_capability_rejections": 1,
+          "uncovered_routes": 0,
+          "differences": 0,
+          "failures": 0
+        },
+        "checker_correction": null
+      },
+      "journeys": {
+        "requests": 2454,
+        "identical": 2285,
+        "different": 169,
+        "by_disposition": {
+          "ACCEPTED": 169
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 12,
+          "RUST_STRICTER": 11,
+          "TEXT_ONLY": 115,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 25,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        }
+      },
+      "full": {
+        "requests": 3903,
+        "identical": 3225,
+        "different": 678,
+        "by_disposition": {
+          "ACCEPTED": 678
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 59,
+          "RUST_STRICTER": 72,
+          "TEXT_ONLY": 378,
+          "RUST_PERMISSIVE": 7,
+          "DATA": 46,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        }
+      }
+    },
+    {
+      "step": 5,
+      "revision": "790dd7107ba49720a4cf2957e6a2df15e623ea0b",
+      "routes": {
+        "registered": 386,
+        "profiles": 24,
+        "observations": 18912,
+        "differences": 0,
+        "report": "reports/step5-routes.json"
+      },
+      "auth_ws": {
+        "report": "reports/step5-auth-ws.json",
+        "effective_summary": {
+          "journey_observations": 2771,
+          "ws_observations": 394,
+          "special_probes": 6,
+          "route_matrix_observations": 1080,
+          "admin_rejection_evidence": 69,
+          "valid_admin_routes": 68,
+          "admin_contract_routes": 69,
+          "defined_capability_rejections": 1,
+          "uncovered_routes": 0,
+          "differences": 0,
+          "failures": 0
+        },
+        "checker_correction": null
+      },
+      "journeys": {
+        "requests": 2454,
+        "identical": 2285,
+        "different": 169,
+        "by_disposition": {
+          "ACCEPTED": 169
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 12,
+          "RUST_STRICTER": 11,
+          "TEXT_ONLY": 115,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 25,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        }
+      },
+      "full": {
+        "requests": 3903,
+        "identical": 3225,
+        "different": 678,
+        "by_disposition": {
+          "ACCEPTED": 678
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 59,
+          "RUST_STRICTER": 72,
+          "TEXT_ONLY": 378,
+          "RUST_PERMISSIVE": 7,
+          "DATA": 46,
+          "RUST_OTHER_CODE": 4,
+          "RUST_FAILS_WHERE_JAVA_OK": 1,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        }
+      }
+    }
+  ],
+  "final_recovery": {
+    "disabled": [
+      "3",
+      "0",
+      "0.00",
+      "0.00"
+    ],
+    "first": [
+      "2",
+      "1",
+      "-19.00",
+      "0"
+    ],
+    "first_tick_seconds": 0.102,
+    "periodic": [
+      "2",
+      "1",
+      "-19.00",
+      "0"
+    ],
+    "periodic_seconds": 4.858,
+    "after_exit": [
+      "3",
+      "0",
+      "0.00",
+      "0.00"
+    ],
+    "clean_exit": true,
+    "baseline": "reports/stable-baseline-recovery.json",
+    "result": "reports/final-recovery.json"
+  },
+  "requirements": [
+    {
+      "ids": [
+        "SR01",
+        "SR02",
+        "SR03"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "audit/module-closure.json",
+        "audit/startup-failures.json",
+        "reports/final-recovery.json",
+        "reports/step5-routes.json"
+      ],
+      "notes": "Private library module tree, sole public run entry, original runtime task ownership and route/middleware wiring."
+    },
+    {
+      "ids": [
+        "SR04",
+        "I04",
+        "I05"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "audit/configuration-sources.json",
+        "reports/route-inventory.json",
+        "reports/step5-routes.json"
+      ],
+      "notes": "Same 22 flags; scanner and manifest paths are live; binary/crate/script delivery names unchanged."
+    },
+    {
+      "ids": [
+        "SR05",
+        "SR06"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "audit/module-closure.json",
+        "audit/test-inventory.json",
+        "reports/step3-file-test-map.json",
+        "reports/step4-symbol-map.json"
+      ],
+      "notes": "All source modules reachable, test identities preserved, domain/WS required modules present, every production file <=1500 lines."
+    },
+    {
+      "ids": [
+        "SR07",
+        "SR08",
+        "I01",
+        "I02",
+        "I03"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "audit/semantic-review.json",
+        "audit/module-closure.json",
+        "audit/term-error-runtime.json",
+        "reports/step5-auth-ws.json",
+        "reports/paired-step5/journeys.json",
+        "reports/paired-step5/full.json"
+      ],
+      "notes": "Only two approved settings cross-domain references; domain-to-WS calls use notify; original error, SQL, transaction, guard and notification behavior retained."
+    },
+    {
+      "ids": [
+        "I06",
+        "V04"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "reports/stable-step1-recovery.json",
+        "reports/step3-recovery.json",
+        "reports/step4-final-recovery.json",
+        "reports/final-recovery.json",
+        "audit/startup-failures.json"
+      ],
+      "notes": "Actual disabled/immediate/periodic/after-exit recovery plus config/bind failures; unchanged source ordering verifies abort before propagating serve errors."
+    },
+    {
+      "ids": [
+        "V01",
+        "V02",
+        "V03",
+        "V05"
+      ],
+      "result": "PASS",
+      "evidence": [
+        "manifest.json",
+        "audit/commands.json",
+        "logs/final-diagnostic-restoration-gates.log"
+      ],
+      "notes": "All five steps have route/authorization/real-Upgrade observations and 0 FAIL/OPEN dual-stack reports; initial failed runs retained and resolved explicitly."
+    }
+  ],
+  "verification_boundary": "Per-step V01-V05 reports retain their original revision/binary metadata. The only post-Step5 code delta is restoration of one diagnostic string; final full build/test/smoke and real three-endpoint SQL-error probes cover that delta. No historical report is relabeled as a newly executed final binary.",
+  "known_limits": [
+    "Temporary monotonic-based shared and paired clocks were required because the host wall clock jumped; application clock code, fixtures and difference registry were not changed.",
+    "Existing Java/Rust ACCEPTED differences remain: 169 journeys and 678 full. This is not a claim of zero pre-existing behavioral differences.",
+    "The pre-existing /api/phase1/contract/admin anonymous HTTP500 and /api/mtd/saveAll admin 202 capability rejection are preserved, not counted as successful administration/import.",
+    "Normal service exit, config failure and bind failure were exercised. axum::serve return-error cleanup was verified by unchanged control flow, not fault-injected.",
+    "Python retains the previously documented unclosed-socket ResourceWarning.",
+    "Native CI for the final Rust source-equivalent tree passed in GitHub Actions run 38994407842; this does not prove trusted signing, field hardware or production cutover. Phase10 remains blocked."
+  ],
+  "cleanup": {
+    "owned_services_stopped": [
+      "refactor-mysql-clock-v2",
+      "paired-step5 Java/Rust"
+    ],
+    "owned_container_removed": "mysql-refactor2-oj245o40",
+    "autoremove_observed": true,
+    "listener_ports_checked": [
+      18121,
+      18122,
+      40187
+    ],
+    "remaining_listeners": 0,
+    "original_container_preserved": "mysql-project006",
+    "owned_original_schemas_removed": [
+      "rust_sweep_refactor_base_oj245o40",
+      "rust_sweep_refactor_target_oj245o40"
+    ],
+    "remaining_original_refactor_schemas": 0,
+    "temporary_directories_removed": [
+      "/tmp/007-structure-refactor-oj245o40",
+      "/tmp/astcmp"
+    ],
+    "production_database_touched": false,
+    "java_testcontainers_removed": true
+  },
+  "evidence": {
+    "archive": "docs/reviews/rust-migration/structure-refactor-2026-10-16.tar.gz",
+    "sha256": "d7d558a6b251aea804e222ad0bd7ebfe3ecb75f3e0edb72896c79f07d92268e1",
+    "members": 56,
+    "redacted_synthetic_values": 167,
+    "raw_initial_failures_preserved": true
+  }
+}

@@ -4,16 +4,15 @@ const context = require("./core/node_core_ctx");
 const {serialApiHandle} = require("./serial");
 const {loadConfig} = require("./core");
 const {onBackendService, onHttpService} = require("./service");
+const {startupMessage} = require('./service/backend-profile');
 require('./controller/index')
 
 class Index {
 	constructor() {
-		loadConfig()
-		onBackendService()
-		onHttpService()
     const gotTheLock = app.requestSingleInstanceLock()
     if(!gotTheLock){
       app.quit()
+      return
     }else {
       app.on("second-instance",(event,commandLine,workingDirectory)=>{
         if(context.mainWindow){
@@ -22,12 +21,23 @@ class Index {
         }
       })
     }
-		app.whenReady().then(() => {
+		app.whenReady().then(async () => {
+			await loadConfig()
+			await onBackendService()
+			onHttpService()
 			this.createWindow()
 
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
       })
+		}).catch((error) => {
+			const message = startupMessage(error)
+			for (const child of [context.backendService, context.httpService]) {
+				if (child && child.exitCode === null && child.signalCode === null) child.kill();
+			}
+			console.error('应用启动失败:', message)
+			dialog.showErrorBox('应用启动失败', `${message}\n应用未完成启动，请修正配置后重试。`)
+			app.exit(1)
 		})
 		app.on('will-quit', () => {
 			// 关闭所有子进程

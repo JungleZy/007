@@ -1,0 +1,2337 @@
+{
+ "journeys": [
+  {
+   "name": "b8-equipment-train-lifecycle",
+   "note": "Frontend equipmentList/trainScore payloads (equipment.js:31-45). Personal-train owner rules: non-owner 207, unknown id 202. listPage order: Java ORDER BY train_time DESC (EquipmentTrainDao.java:15) vs Rust ASC (equipment_train.rs:23); train_time is never written by either stack so a single row per user keeps the comparison deterministic.",
+   "steps": [
+    {
+     "name": "add-missing-train-type",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "student",
+     "body": {
+      "deviceId": "b8-dev",
+      "deviceName": "125W",
+      "trainName": "无类型"
+     }
+    },
+    {
+     "name": "add-create",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "student",
+     "body": {
+      "deviceId": "b8-dev",
+      "deviceName": "125W",
+      "trainName": "125W联络文件",
+      "trainType": 0,
+      "content": "{\"rows\":[]}"
+     },
+     "capture": {
+      "trainId": "$.data"
+     },
+     "mask": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "list-owner",
+     "method": "POST",
+     "path": "/api/equipmentTrain/listPage",
+     "who": "student",
+     "mask": [
+      "$.data[*].id"
+     ]
+    },
+    {
+     "name": "list-other-user-empty",
+     "method": "POST",
+     "path": "/api/equipmentTrain/listPage",
+     "who": "admin"
+    },
+    {
+     "name": "detail-owner",
+     "method": "POST",
+     "path": "/api/equipmentTrain/detail",
+     "who": "student",
+     "body": {
+      "id": "${trainId}"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "detail-missing-id",
+     "method": "POST",
+     "path": "/api/equipmentTrain/detail",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "detail-unknown",
+     "method": "POST",
+     "path": "/api/equipmentTrain/detail",
+     "who": "student",
+     "body": {
+      "id": "no-such-equipment-train"
+     }
+    },
+    {
+     "name": "detail-non-owner-207",
+     "method": "POST",
+     "path": "/api/equipmentTrain/detail",
+     "who": "admin",
+     "body": {
+      "id": "${trainId}"
+     }
+    },
+    {
+     "name": "update-non-owner-207",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "admin",
+     "body": {
+      "id": "${trainId}",
+      "trainStatus": 1,
+      "content": "{\"hijack\":true}"
+     }
+    },
+    {
+     "name": "update-unknown",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "student",
+     "body": {
+      "id": "no-such-equipment-train",
+      "trainStatus": 1
+     }
+    },
+    {
+     "name": "update-owner-finish",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "student",
+     "body": {
+      "id": "${trainId}",
+      "deviceId": "b8-dev",
+      "deviceName": "125W",
+      "trainName": "125W联络文件",
+      "trainType": 0,
+      "trainStatus": 1,
+      "content": "{\"rows\":[{\"score\":8}]}"
+     },
+     "mask": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "detail-after-finish",
+     "method": "POST",
+     "path": "/api/equipmentTrain/detail",
+     "who": "student",
+     "body": {
+      "id": "${trainId}"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "teacher-own-train",
+     "method": "POST",
+     "path": "/api/equipmentTrain/add",
+     "who": "admin",
+     "body": {
+      "deviceId": "b8-dev2",
+      "deviceName": "400W",
+      "trainName": "400W",
+      "trainType": 1,
+      "content": "{}"
+     },
+     "mask": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "list-teacher-own",
+     "method": "POST",
+     "path": "/api/equipmentTrain/listPage",
+     "who": "admin",
+     "mask": [
+      "$.data[*].id"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "b8-general-group-net-rule-crud",
+   "note": "trainList saveDeploy/deleteById payloads (equipmentList.js:246-276): id is an empty string for a new rule. Java entity createTime comes from BeanUtil.copyProperties of a VO without createTime; compare it unmasked (datetime shape is normalised by the sweep). Java findAll has no ORDER BY (GeneralGroupNetRuleService.findAll).",
+   "steps": [
+    {
+     "name": "save-student-207",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/save",
+     "who": "student",
+     "body": {
+      "id": "",
+      "code": "134A01",
+      "device": "134A",
+      "xyScore": "[{\"x\":0,\"y\":4,\"value\":\"收频(MHz)\",\"score\":2},{\"x\":0,\"y\":5,\"value\":\"发频(MHz)\",\"score\":3}]"
+     }
+    },
+    {
+     "name": "save-create",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/save",
+     "who": "admin",
+     "body": {
+      "id": "",
+      "code": "134A01",
+      "device": "134A",
+      "xyScore": "[{\"x\":0,\"y\":4,\"value\":\"收频(MHz)\",\"score\":2},{\"x\":0,\"y\":5,\"value\":\"发频(MHz)\",\"score\":3}]"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "find-all",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/findAll",
+     "who": "student",
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "save-update",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/save",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}",
+      "code": "134A01",
+      "device": "134A",
+      "xyScore": "[{\"x\":0,\"y\":4,\"value\":\"收频(MHz)\",\"score\":5}]"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "find-all-after-update",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/findAll",
+     "who": "student",
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "save-unknown-id",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/save",
+     "who": "admin",
+     "body": {
+      "id": 987654,
+      "code": "X",
+      "device": "X",
+      "xyScore": "[{\"x\":0,\"y\":4,\"value\":\"收频(MHz)\",\"score\":2},{\"x\":0,\"y\":5,\"value\":\"发频(MHz)\",\"score\":3}]"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "save-missing-xyScore",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/save",
+     "who": "admin",
+     "body": {
+      "id": "",
+      "code": "134A02",
+      "device": "134A"
+     }
+    },
+    {
+     "name": "delete-student-207",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/deleteById",
+     "who": "student",
+     "body": {
+      "id": "${ruleId}"
+     }
+    },
+    {
+     "name": "delete-admin",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/deleteById",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}"
+     }
+    },
+    {
+     "name": "delete-again",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/deleteById",
+     "who": "admin",
+     "body": {
+      "id": "${ruleId}"
+     }
+    },
+    {
+     "name": "delete-missing-id",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/deleteById",
+     "who": "admin",
+     "body": {}
+    },
+    {
+     "name": "find-all-after-delete",
+     "method": "POST",
+     "path": "/api/generalGroupNetRule/findAll",
+     "who": "student",
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "b8-group-net-train-details-submit-and-rule-delete",
+   "note": "Device, J210 device number and scoring rule are created through real endpoints (as training-list-pagination). Topic is the 157-cell backend/src/test/resources/group-net-j210-topic.json. Answer is the JSON string the trainingDetails page posts (Index.vue:122): only serialNumbers[0] is filled, so the score is a fixed partial result. deviceScoringRule/delete is NO_STATIC_CONSUMER but admin-only and cheap.",
+   "steps": [
+    {
+     "name": "type-create",
+     "method": "POST",
+     "path": "/api/deviceType/save",
+     "who": "admin",
+     "body": {
+      "typeName": "B8组网分类"
+     },
+     "capture": {
+      "gType": "$.data.id"
+     }
+    },
+    {
+     "name": "device-create",
+     "method": "POST",
+     "path": "/api/device/save",
+     "who": "admin",
+     "body": {
+      "deviceName": "B8组网设备",
+      "deviceNumber": "J210-742",
+      "deviceTypeId": "${gType}"
+     },
+     "capture": {
+      "gDevice": "$.data.id"
+     }
+    },
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/deviceScoringRule/save",
+     "who": "admin",
+     "body": {
+      "deviceId": "${gDevice}",
+      "name": "B8规则",
+      "ruleContent": "[{\"paramName\":\"网路地址\",\"weight\":2},{\"paramName\":\"单台地址\",\"weight\":3},{\"paramName\":\"信道\",\"weight\":0.25}]"
+     }
+    },
+    {
+     "name": "rule-find",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/findAllByDeviceId?deviceId=${gDevice}",
+     "who": "student",
+     "capture": {
+      "gRule": "$.data.id"
+     }
+    },
+    {
+     "name": "rule-find-unknown-device",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/findAllByDeviceId?deviceId=999999",
+     "who": "student"
+    },
+    {
+     "name": "rule-find-no-param",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/findAllByDeviceId",
+     "who": "student"
+    },
+    {
+     "name": "train-create",
+     "method": "POST",
+     "path": "/api/groupNetTrain/saveTrain",
+     "who": "student",
+     "body": {
+      "deviceId": "${gDevice}",
+      "deviceType": "${gType}",
+      "topic": "[{\"xy\":[4,1],\"value\":{\"isParameter\":\"序号\",\"value\":19}},{\"xy\":[4,2],\"value\":{\"isParameter\":\"网路地址\",\"value\":319}},{\"xy\":[4,3],\"value\":{\"isParameter\":\"单台地址\",\"value\":\"299\"}},{\"xy\":[4,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"00.00000\",\"xdValues\":1}},{\"xy\":[4,9],\"value\":{\"isParameter\":\"信道\",\"value\":\"29.00000\",\"xdValuef\":1}},{\"xy\":[4,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":11}},{\"xy\":[4,12],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":11}},{\"xy\":[4,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":21}},{\"xy\":[4,15],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":21}},{\"xy\":[4,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":31}},{\"xy\":[4,18],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":31}},{\"xy\":[4,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":41}},{\"xy\":[4,21],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":41}},{\"xy\":[4,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":51}},{\"xy\":[4,24],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":51}},{\"xy\":[4,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":61}},{\"xy\":[4,27],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":61}},{\"xy\":[5,1],\"value\":{\"isParameter\":\"序号\",\"value\":0}},{\"xy\":[5,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":0}},{\"xy\":[5,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":2}},{\"xy\":[5,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":2}},{\"xy\":[5,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":12}},{\"xy\":[5,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":12}},{\"xy\":[5,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":22}},{\"xy\":[5,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":22}},{\"xy\":[5,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":32}},{\"xy\":[5,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":32}},{\"xy\":[5,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":42}},{\"xy\":[5,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":42}},{\"xy\":[5,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":52}},{\"xy\":[5,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":52}},{\"xy\":[5,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":62}},{\"xy\":[5,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":62}},{\"xy\":[6,1],\"value\":{\"isParameter\":\"序号\",\"value\":1}},{\"xy\":[6,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":1}},{\"xy\":[6,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":3}},{\"xy\":[6,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":3}},{\"xy\":[6,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":13}},{\"xy\":[6,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":13}},{\"xy\":[6,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":23}},{\"xy\":[6,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":23}},{\"xy\":[6,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":33}},{\"xy\":[6,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":33}},{\"xy\":[6,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":43}},{\"xy\":[6,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":43}},{\"xy\":[6,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":53}},{\"xy\":[6,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":53}},{\"xy\":[6,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":63}},{\"xy\":[6,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":63}},{\"xy\":[7,1],\"value\":{\"isParameter\":\"序号\",\"value\":2}},{\"xy\":[7,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":2}},{\"xy\":[7,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":4}},{\"xy\":[7,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":4}},{\"xy\":[7,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":14}},{\"xy\":[7,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":14}},{\"xy\":[7,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":24}},{\"xy\":[7,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":24}},{\"xy\":[7,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":34}},{\"xy\":[7,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":34}},{\"xy\":[7,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":44}},{\"xy\":[7,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":44}},{\"xy\":[7,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":54}},{\"xy\":[7,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":54}},{\"xy\":[7,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":64}},{\"xy\":[7,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":64}},{\"xy\":[8,1],\"value\":{\"isParameter\":\"序号\",\"value\":3}},{\"xy\":[8,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":3}},{\"xy\":[8,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":5}},{\"xy\":[8,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":5}},{\"xy\":[8,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":15}},{\"xy\":[8,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":15}},{\"xy\":[8,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":25}},{\"xy\":[8,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":25}},{\"xy\":[8,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":35}},{\"xy\":[8,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":35}},{\"xy\":[8,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":45}},{\"xy\":[8,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":45}},{\"xy\":[8,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":55}},{\"xy\":[8,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":55}},{\"xy\":[8,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":65}},{\"xy\":[8,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":65}},{\"xy\":[9,1],\"value\":{\"isParameter\":\"序号\",\"value\":4}},{\"xy\":[9,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":4}},{\"xy\":[9,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":6}},{\"xy\":[9,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":6}},{\"xy\":[9,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":16}},{\"xy\":[9,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":16}},{\"xy\":[9,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":26}},{\"xy\":[9,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":26}},{\"xy\":[9,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":36}},{\"xy\":[9,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":36}},{\"xy\":[9,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":46}},{\"xy\":[9,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":46}},{\"xy\":[9,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":56}},{\"xy\":[9,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":56}},{\"xy\":[9,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":66}},{\"xy\":[9,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":66}},{\"xy\":[10,1],\"value\":{\"isParameter\":\"序号\",\"value\":5}},{\"xy\":[10,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":5}},{\"xy\":[10,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":7}},{\"xy\":[10,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":7}},{\"xy\":[10,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":17}},{\"xy\":[10,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":17}},{\"xy\":[10,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":27}},{\"xy\":[10,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":27}},{\"xy\":[10,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":37}},{\"xy\":[10,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":37}},{\"xy\":[10,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":47}},{\"xy\":[10,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":47}},{\"xy\":[10,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":57}},{\"xy\":[10,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":57}},{\"xy\":[10,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":67}},{\"xy\":[10,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":67}},{\"xy\":[11,1],\"value\":{\"isParameter\":\"序号\",\"value\":6}},{\"xy\":[11,2],\"value\":{\"isParameter\":\"单台地址\",\"value\":6}},{\"xy\":[11,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":8}},{\"xy\":[11,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":8}},{\"xy\":[11,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":18}},{\"xy\":[11,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":18}},{\"xy\":[11,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":28}},{\"xy\":[11,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":28}},{\"xy\":[11,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":38}},{\"xy\":[11,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":38}},{\"xy\":[11,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":48}},{\"xy\":[11,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":48}},{\"xy\":[11,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":58}},{\"xy\":[11,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":58}},{\"xy\":[11,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":68}},{\"xy\":[11,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":68}},{\"xy\":[12,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":9}},{\"xy\":[12,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":9}},{\"xy\":[12,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":19}},{\"xy\":[12,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":19}},{\"xy\":[12,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":29}},{\"xy\":[12,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":29}},{\"xy\":[12,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":39}},{\"xy\":[12,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":39}},{\"xy\":[12,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":49}},{\"xy\":[12,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":49}},{\"xy\":[12,22],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":59}},{\"xy\":[12,23],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":59}},{\"xy\":[12,25],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":69}},{\"xy\":[12,26],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":69}},{\"xy\":[13,1],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":10}},{\"xy\":[13,2],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":10}},{\"xy\":[13,4],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":20}},{\"xy\":[13,5],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":20}},{\"xy\":[13,7],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":30}},{\"xy\":[13,8],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":30}},{\"xy\":[13,10],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":40}},{\"xy\":[13,11],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":40}},{\"xy\":[13,13],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":50}},{\"xy\":[13,14],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":50}},{\"xy\":[13,16],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":60}},{\"xy\":[13,17],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":60}},{\"xy\":[13,19],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValues\":70}},{\"xy\":[13,20],\"value\":{\"isParameter\":\"信道\",\"value\":\"01.00000\",\"xdValuef\":70}}]"
+     },
+     "parse_json": [
+      "$.data.scoringRuleContent"
+     ],
+     "capture": {
+      "gTrain": "$.data.id"
+     }
+    },
+    {
+     "name": "details-owner",
+     "method": "GET",
+     "path": "/api/groupNetTrain/details?id=${gTrain}",
+     "who": "student",
+     "parse_json": [
+      "$.data.scoringRuleContent"
+     ]
+    },
+    {
+     "name": "details-non-owner-207",
+     "method": "GET",
+     "path": "/api/groupNetTrain/details?id=${gTrain}",
+     "who": "admin"
+    },
+    {
+     "name": "details-unknown",
+     "method": "GET",
+     "path": "/api/groupNetTrain/details?id=999999",
+     "who": "student"
+    },
+    {
+     "name": "details-no-id",
+     "method": "GET",
+     "path": "/api/groupNetTrain/details",
+     "who": "student"
+    },
+    {
+     "name": "submit-non-owner-207",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "admin",
+     "body": {
+      "id": "${gTrain}",
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"319\",\"dressname\":\"299\"}]}"
+     }
+    },
+    {
+     "name": "submit-client-score-202",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "student",
+     "body": {
+      "id": "${gTrain}",
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"319\",\"dressname\":\"299\"}]}",
+      "score": 100
+     }
+    },
+    {
+     "name": "submit-missing-id",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "student",
+     "body": {
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"319\",\"dressname\":\"299\"}]}"
+     }
+    },
+    {
+     "name": "submit-partial-answer",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "student",
+     "body": {
+      "id": "${gTrain}",
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"319\",\"dressname\":\"299\"}]}"
+     },
+     "parse_json": [
+      "$.data.scoringRuleContent",
+      "$.data.content"
+     ]
+    },
+    {
+     "name": "details-after-submit",
+     "method": "GET",
+     "path": "/api/groupNetTrain/details?id=${gTrain}",
+     "who": "student",
+     "parse_json": [
+      "$.data.scoringRuleContent",
+      "$.data.content"
+     ]
+    },
+    {
+     "name": "submit-same-answer-replay",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "student",
+     "body": {
+      "id": "${gTrain}",
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"319\",\"dressname\":\"299\"}]}"
+     },
+     "parse_json": [
+      "$.data.scoringRuleContent",
+      "$.data.content"
+     ]
+    },
+    {
+     "name": "submit-changed-answer-208",
+     "method": "POST",
+     "path": "/api/groupNetTrain/submitAnswer",
+     "who": "student",
+     "body": {
+      "id": "${gTrain}",
+      "answer": "{\"chananel1\":[],\"serialNumbers\":[{\"networkdress\":\"320\",\"dressname\":\"299\"}]}"
+     }
+    },
+    {
+     "name": "rule-delete-student-207",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/delete?id=${gRule}",
+     "who": "student"
+    },
+    {
+     "name": "rule-delete-admin",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/delete?id=${gRule}",
+     "who": "admin"
+    },
+    {
+     "name": "rule-find-after-delete",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/findAllByDeviceId?deviceId=${gDevice}",
+     "who": "student"
+    },
+    {
+     "name": "rule-delete-again",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/delete?id=${gRule}",
+     "who": "admin"
+    },
+    {
+     "name": "rule-delete-no-id",
+     "method": "GET",
+     "path": "/api/deviceScoringRule/delete",
+     "who": "admin"
+    }
+   ]
+  },
+  {
+   "name": "b8-explain-key-points-and-global-rules",
+   "note": "preJob explain pages send id empty-string on the initial save: Java fails that generated-id merge, while Rust creates successfully (retained as separate type-90/91 probes). Omit id for the valid create/update/read lifecycle so failed Java capture cannot hide writer coverage. Global-rule payloads follow GradeModal.vue:98-112; same-second create_time ties use unordered.",
+   "steps": [
+    {
+     "name": "kp-find-empty",
+     "method": "POST",
+     "path": "/api/keyPoints/findKeyPointsByType",
+     "who": "student",
+     "body": {
+      "type": 0
+     }
+    },
+    {
+     "name": "kp-find-missing-type",
+     "method": "POST",
+     "path": "/api/keyPoints/findKeyPointsByType",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "kp-save-student-207",
+     "method": "POST",
+     "path": "/api/keyPoints/saveKeyPoints",
+     "who": "student",
+     "body": {
+      "type": 0,
+      "id": "",
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
+     }
+    },
+    {"name":"kp-save-empty-id-java-defect","method":"POST","path":"/api/keyPoints/saveKeyPoints","who":"admin","body":{"type":90,"id":"","content":"B8 empty-id probe"}},
+    {
+     "name": "kp-save-create",
+     "method": "POST",
+     "path": "/api/keyPoints/saveKeyPoints",
+     "who": "admin",
+     "body": {
+      "type": 0,
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
+     },
+     "capture": {
+      "kpId": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "kp-find",
+     "method": "POST",
+     "path": "/api/keyPoints/findKeyPointsByType",
+     "who": "student",
+     "body": {
+      "type": 0
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "kp-save-update",
+     "method": "POST",
+     "path": "/api/keyPoints/saveKeyPoints",
+     "who": "admin",
+     "body": {
+      "type": 0,
+      "id": "${kpId}",
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"},{\"name\":\"要点二\",\"content\":\"说明二\",\"type\":\"0\"}]"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "kp-find-after-update",
+     "method": "POST",
+     "path": "/api/keyPoints/findKeyPointsByType",
+     "who": "student",
+     "body": {
+      "type": 0
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "kp-find-other-type",
+     "method": "POST",
+     "path": "/api/keyPoints/findKeyPointsByType",
+     "who": "student",
+     "body": {
+      "type": 7
+     }
+    },
+    {
+     "name": "rkp-find-empty",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/getByType",
+     "who": "student",
+     "body": {
+      "type": 1
+     }
+    },
+    {
+     "name": "rkp-find-missing-type",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/getByType",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "rkp-save-student-207",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/save",
+     "who": "student",
+     "body": {
+      "type": 1,
+      "id": "",
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
+     }
+    },
+    {"name":"rkp-save-empty-id-java-defect","method":"POST","path":"/api/receiveKeyPoints/save","who":"admin","body":{"type":91,"id":"","content":"B8 empty-id probe"}},
+    {
+     "name": "rkp-save-create",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/save",
+     "who": "admin",
+     "body": {
+      "type": 1,
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"}]"
+     },
+     "capture": {
+      "rkpId": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "rkp-save-no-content",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/save",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "id": ""
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "rkp-find",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/getByType",
+     "who": "student",
+     "body": {
+      "type": 1
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "rkp-save-update",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/save",
+     "who": "admin",
+     "body": {
+      "type": 1,
+      "id": "${rkpId}",
+      "content": "[{\"name\":\"要点一\",\"content\":\"说明一\",\"type\":\"0\"},{\"name\":\"要点二\",\"content\":\"说明二\",\"type\":\"0\"}]"
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "rkp-find-after-update",
+     "method": "POST",
+     "path": "/api/receiveKeyPoints/getByType",
+     "who": "student",
+     "body": {
+      "type": 1
+     },
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "rule-add-student-207",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/addRule",
+     "who": "student",
+     "body": [
+      {
+       "type": 2,
+       "level": "优秀",
+       "accuracy": "90~100",
+       "description": "优"
+      }
+     ]
+    },
+    {
+     "name": "rule-add-three",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/addRule",
+     "who": "admin",
+     "body": [
+      {
+       "type": 2,
+       "level": "不及格",
+       "accuracy": "0~59",
+       "description": "差"
+      },
+      {
+       "type": 2,
+       "level": "及格",
+       "accuracy": "60~89",
+       "description": "中"
+      },
+      {
+       "type": 2,
+       "level": "优秀",
+       "accuracy": "90~100",
+       "description": "优"
+      }
+     ],
+     "capture": {
+      "gr0": "$.data[0].id"
+     },
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "rule-find-type2",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/findByType",
+     "who": "student",
+     "body": {
+      "type": 2
+     },
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "rule-find-no-type",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/findByType",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "rule-find-other-type",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/findByType",
+     "who": "student",
+     "body": {
+      "type": 3
+     }
+    },
+    {
+     "name": "rule-update-first",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/addRule",
+     "who": "admin",
+     "body": [
+      {
+       "id": "${gr0}",
+       "type": 2,
+       "level": "不及格",
+       "accuracy": "0~49",
+       "description": "差"
+      }
+     ],
+     "mask": [
+      "$.data[*].id"
+     ]
+    },
+    {
+     "name": "rule-find-after-update",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/findByType",
+     "who": "student",
+     "body": {
+      "type": 2
+     },
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "rule-update-unknown-id",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/addRule",
+     "who": "admin",
+     "body": [
+      {
+       "id": 987654,
+       "type": 2,
+       "level": "x",
+       "accuracy": "0~1",
+       "description": "x"
+      }
+     ]
+    },
+    {
+     "name": "rule-delete-student-207",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/deleteById",
+     "who": "student",
+     "body": {
+      "id": "${gr0}",
+      "type": 2
+     }
+    },
+    {
+     "name": "rule-delete-admin",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/deleteById",
+     "who": "admin",
+     "body": {
+      "id": "${gr0}",
+      "type": 2
+     }
+    },
+    {
+     "name": "rule-delete-no-id",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/deleteById",
+     "who": "admin",
+     "body": {
+      "type": 2
+     }
+    },
+    {
+     "name": "rule-find-after-delete",
+     "method": "POST",
+     "path": "/api/postTrainGlobalRule/findByType",
+     "who": "student",
+     "body": {
+      "type": 2
+     },
+     "mask": [
+      "$.data[*].id"
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "b8-masthead-owner-flow",
+   "note": "broadcastTeaching.js:181 saves {trainId,content}; useBroadTeacher.js:281 reads ?trainId=. Trains are created through postTickerTapeTrain/add (as b3 journeys). Owner-only: non-owner 207.",
+   "steps": [
+    {
+     "name": "train-create",
+     "method": "POST",
+     "path": "/api/postTickerTapeTrain/add",
+     "who": "student",
+     "body": {
+      "name": "B8报头收报",
+      "isCable": 0,
+      "rate": 40,
+      "type": 0,
+      "codeShort": 0,
+      "codeMessageBody": [],
+      "isLowRate": 0,
+      "disturb": "",
+      "isAvg": 0,
+      "isRandom": 0,
+      "totalNumber": 1,
+      "ratio": 0,
+      "isStartSign": 1
+     },
+     "capture": {
+      "mTrain": "$.data.id"
+     },
+     "sleep": 1.1
+    },
+    {
+     "name": "train-create-second",
+     "method": "POST",
+     "path": "/api/postTickerTapeTrain/add",
+     "who": "student",
+     "body": {
+      "name": "B8报头收报二",
+      "isCable": 0,
+      "rate": 40,
+      "type": 0,
+      "codeShort": 0,
+      "codeMessageBody": [],
+      "isLowRate": 0,
+      "disturb": "",
+      "isAvg": 0,
+      "isRandom": 0,
+      "totalNumber": 1,
+      "ratio": 0,
+      "isStartSign": 1
+     },
+     "capture": {
+      "mTrain2": "$.data.id"
+     },
+     "sleep": 1.1
+    },
+    {
+     "name": "find-before-save",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=${mTrain}",
+     "who": "student"
+    },
+    {
+     "name": "save-create",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "trainId": "${mTrain}",
+      "content": "VZCZC 001 DE ABC"
+     },
+     "capture": {
+      "mhId": "$.data.id"
+     }
+    },
+    {
+     "name": "find-owner",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=${mTrain}",
+     "who": "student"
+    },
+    {
+     "name": "save-update-by-train",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "trainId": "${mTrain}",
+      "content": "VZCZC 002 DE ABC"
+     }
+    },
+    {
+     "name": "save-update-by-id",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "id": "${mhId}",
+      "trainId": "${mTrain}",
+      "content": "VZCZC 003 DE ABC"
+     }
+    },
+    {
+     "name": "find-after-update",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=${mTrain}",
+     "who": "student"
+    },
+    {
+     "name": "save-id-of-other-train",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "id": "${mhId}",
+      "trainId": "${mTrain2}",
+      "content": "x"
+     }
+    },
+    {
+     "name": "save-unknown-masthead-id",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "id": "no-such-masthead",
+      "trainId": "${mTrain}",
+      "content": "x"
+     }
+    },
+    {
+     "name": "save-non-owner-207",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "admin",
+     "body": {
+      "trainId": "${mTrain}",
+      "content": "hijack"
+     }
+    },
+    {
+     "name": "find-non-owner-207",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=${mTrain}",
+     "who": "admin"
+    },
+    {
+     "name": "save-missing-train-id",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "content": "x"
+     }
+    },
+    {
+     "name": "save-unknown-train",
+     "method": "POST",
+     "path": "/api/masthead/save",
+     "who": "student",
+     "body": {
+      "trainId": "no-such-train",
+      "content": "x"
+     }
+    },
+    {
+     "name": "find-unknown-train",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=no-such-train",
+     "who": "student"
+    },
+    {
+     "name": "find-second-train-empty",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId?trainId=${mTrain2}",
+     "who": "student"
+    },
+    {
+     "name": "find-no-param",
+     "method": "GET",
+     "path": "/api/masthead/findByTrainId",
+     "who": "student"
+    }
+   ]
+  },
+  {
+   "name": "b8-theory-catalog-lists-detail-test-answers-delete",
+   "note": "Frontend useList.js:70-82, useDetails.js:77-132 and edit/Index.vue:285. Classified/unclassified/draft/no-courseware fixtures verify Java-equivalent courseware/category filters, empty category-array semantics, fixed open status1, author names and millisecond clocks. User-confirmed deletion preserves child tests and student answers. Unrelated getTestContentById stays Rust207 versus Java200 and is narrowly registered; owner/admin reads are fully compared.",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b8-stu2','b8stu2','B8 Student2',0,'b8-dev',SHA2('b8-stu2-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b8-stu2-m','b8-stu2','sweep-student-role');",
+   "steps": [
+    {
+     "name": "classify-specialty",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/addClassify",
+     "who": "admin",
+     "body": {
+      "type": 0,
+      "name": "B8通信专业",
+      "id": ""
+     },
+     "capture": {
+      "specId": "$.data.id"
+     }
+    },
+    {
+     "name": "classify-difficulty",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/addClassify",
+     "who": "admin",
+     "body": {
+      "type": 1,
+      "name": "B8基础",
+      "id": ""
+     },
+     "capture": {
+      "diffId": "$.data.id"
+     }
+    },
+    {
+     "name": "k-classified",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 0,
+       "status": 1,
+       "cover": "b8.jpg",
+       "title": "B8分类课程",
+       "createUserId": "sweep-admin",
+       "credit": 3,
+       "difficultyId": "${diffId}",
+       "specialtyId": "${specId}"
+      },
+      "knowledgeSwfs": [
+       {
+        "title": "章节1",
+        "cover": "c.jpg",
+        "content": "<p>章节1</p>",
+        "sort": 0
+       },
+       {
+        "title": "章节2",
+        "cover": "c.jpg",
+        "content": "<p>章节2</p>",
+        "sort": 1
+       }
+      ]
+     },
+     "capture": {
+      "kId": "$.data.id"
+     }
+    },
+    {
+     "name": "k-unclassified",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 0,
+       "status": 1,
+       "cover": "b8.jpg",
+       "title": "B8未分类课程",
+       "createUserId": "sweep-admin",
+       "credit": 3
+      },
+      "knowledgeSwfs": [
+       {
+        "title": "章节1",
+        "cover": "c.jpg",
+        "content": "<p>章节1</p>",
+        "sort": 0
+       },
+       {
+        "title": "章节2",
+        "cover": "c.jpg",
+        "content": "<p>章节2</p>",
+        "sort": 1
+       }
+      ]
+     }
+    },
+    {
+     "name": "k-draft",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 0,
+       "status": 0,
+       "cover": "b8.jpg",
+       "title": "B8草稿课程",
+       "createUserId": "sweep-admin",
+       "credit": 3,
+       "difficultyId": "${diffId}",
+       "specialtyId": "${specId}"
+      },
+      "knowledgeSwfs": [
+       {
+        "title": "章节1",
+        "cover": "c.jpg",
+        "content": "<p>章节1</p>",
+        "sort": 0
+       },
+       {
+        "title": "章节2",
+        "cover": "c.jpg",
+        "content": "<p>章节2</p>",
+        "sort": 1
+       }
+      ]
+     }
+    },
+    {
+     "name": "k-no-courseware",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 0,
+       "status": 1,
+       "cover": "b8.jpg",
+       "title": "B8无课件课程",
+       "createUserId": "sweep-admin",
+       "credit": 3,
+       "difficultyId": "${diffId}",
+       "specialtyId": "${specId}"
+      },
+      "knowledgeSwfs": []
+     }
+    },
+    {
+     "name": "k-duty",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 1,
+       "status": 1,
+       "cover": "b8.jpg",
+       "title": "B8值勤业务",
+       "createUserId": "sweep-admin",
+       "credit": 3,
+       "difficultyId": "${diffId}",
+       "specialtyId": "${specId}"
+      },
+      "knowledgeSwfs": [
+       {
+        "title": "章节1",
+        "cover": "c.jpg",
+        "content": "<p>章节1</p>",
+        "sort": 0
+       },
+       {
+        "title": "章节2",
+        "cover": "c.jpg",
+        "content": "<p>章节2</p>",
+        "sort": 1
+       }
+      ]
+     }
+    },
+    {
+     "name": "k-equipment",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/saveTheoryKnowledge",
+     "who": "admin",
+     "body": {
+      "knowledge": {
+       "type": 2,
+       "status": 1,
+       "cover": "b8.jpg",
+       "title": "B8装备",
+       "createUserId": "sweep-admin",
+       "credit": 3,
+       "difficultyId": "${diffId}",
+       "specialtyId": "${specId}"
+      },
+      "knowledgeSwfs": [
+       {
+        "title": "章节1",
+        "cover": "c.jpg",
+        "content": "<p>章节1</p>",
+        "sort": 0
+       },
+       {
+        "title": "章节2",
+        "cover": "c.jpg",
+        "content": "<p>章节2</p>",
+        "sort": 1
+       }
+      ]
+     }
+    },
+    {
+     "name": "list-basic-no-filter",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheory",
+     "who": "admin",
+     "body": {
+      "type": "0"
+     }
+    },
+    {
+     "name": "list-basic-specialty",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheory",
+     "who": "admin",
+     "body": {
+      "type": "0",
+      "specialty": "[\"${specId}\"]"
+     }
+    },
+    {
+     "name": "list-basic-empty-difficulty-array",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheory",
+     "who": "admin",
+     "body": {
+      "type": "0",
+      "difficulty": "[]"
+     }
+    },
+    {
+     "name": "list-open-frontend-body",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheoryOpen",
+     "who": "student",
+     "body": {
+      "type": "0",
+      "status": "[1]"
+     }
+    },
+    {
+     "name": "list-open-status-draft-requested",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheoryOpen",
+     "who": "student",
+     "body": {
+      "type": "0",
+      "status": "[0]"
+     }
+    },
+    {
+     "name": "list-open-missing-type",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheoryOpen",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "list-duty-business",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getDutyBusiness",
+     "who": "student"
+    },
+    {
+     "name": "list-charge-equipment",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getChargeEquipment",
+     "who": "student"
+    },
+    {
+     "name": "detail-by-id",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getById",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     },
+     "capture": {
+      "swfOne": "$.data.knowledgeSwfs[0].id",
+      "swfTwo": "$.data.knowledgeSwfs[1].id"
+     }
+    },
+    {
+     "name": "detail-token-before",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getByIdAndToken",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "detail-token-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getByIdAndToken",
+     "who": "student",
+     "body": {
+      "id": "no-such-knowledge"
+     }
+    },
+    {
+     "name": "detail-token-missing-id",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getByIdAndToken",
+     "who": "student",
+     "body": {}
+    },
+    {
+     "name": "enable-before-test",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+     "who": "student",
+     "body": {
+      "id": "${swfOne}"
+     }
+    },
+    {
+     "name": "test-save",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/saveTheoryKnowledgeTest",
+     "who": "admin",
+     "body": {
+      "knowledgeTest": {
+       "title": "章节一测验",
+       "knowledgeId": "${kId}",
+       "knowledgeSwfId": "${swfOne}",
+       "versions": 1
+      },
+      "knowledgeTestContents": [
+       {
+        "type": 1,
+        "topic": "通信测验题一",
+        "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+        "answer": "\"0\"",
+        "analysis": "解析一"
+       },
+       {
+        "type": 1,
+        "topic": "通信测验题二",
+        "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+        "answer": "\"1\"",
+        "analysis": "解析二"
+       }
+      ]
+     },
+     "capture": {
+      "testId": "$.data.knowledgeTest.id"
+     }
+    },
+    {
+     "name": "test-list-by-swf",
+     "seed_sql": "UPDATE t_theory_knowledge_test_content SET create_time=CASE topic WHEN '通信测验题一' THEN '1773144001000' ELSE '1773144000000' END WHERE topic IN ('通信测验题一','通信测验题二');",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestBySwfId",
+     "who": "student",
+     "body": {
+      "id": "${swfOne}"
+     }
+    },
+    {
+     "name": "test-list-unknown-swf",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestBySwfId",
+     "who": "student",
+     "body": {
+      "id": "no-such-swf"
+     }
+    },
+    {
+     "name": "test-enabled",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+     "who": "student",
+     "body": {
+      "id": "${swfOne}"
+     }
+    },
+    {
+     "name": "test-enabled-none",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getByKnowledgeSwfIdAndEnable",
+     "who": "student",
+     "body": {
+      "id": "${swfTwo}"
+     }
+    },
+    {
+     "name": "answer-first",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/saveUserKnowledgeSwfTestContent",
+     "who": "student",
+     "body": {
+      "knowledgeId": "${kId}",
+      "knowledgeSwfId": "${swfOne}",
+      "content": "[]",
+      "score": 100,
+      "type": "0"
+     },
+     "capture": {
+      "answerId": "$.data.id"
+     }
+    },
+    {
+     "name": "answers-by-knowledge",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "answers-by-knowledge-other-user",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId",
+     "who": "admin",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "answer-by-swf",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId",
+     "who": "student",
+     "body": {
+      "id": "${swfOne}"
+     }
+    },
+    {
+     "name": "answer-by-swf-none",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeSwfId",
+     "who": "student",
+     "body": {
+      "id": "${swfTwo}"
+     }
+    },
+    {
+     "name": "answer-by-id-owner",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentById",
+     "who": "student",
+     "body": {
+      "id": "${answerId}"
+     }
+    },
+    {
+     "name": "answer-by-id-admin",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentById",
+     "who": "admin",
+     "body": {
+      "id": "${answerId}"
+     }
+    },
+    {
+     "name": "answer-by-id-unrelated-user",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentById",
+     "body": {
+      "id": "${answerId}"
+     },
+     "headers": {
+      "token": "b8-stu2-token",
+      "deviceId": "b8-dev"
+     }
+    },
+    {
+     "name": "answer-by-id-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentById",
+     "who": "student",
+     "body": {
+      "id": "no-such-answer"
+     }
+    },
+    {
+     "name": "detail-token-after-answer",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getByIdAndToken",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "list-open-after-answer",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheoryOpen",
+     "who": "student",
+     "body": {
+      "type": "0",
+      "status": "[1]"
+     }
+    },
+    {
+     "name": "delete-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/deleteThroyKnowledgeById",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "delete-missing-id",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/deleteThroyKnowledgeById",
+     "who": "admin",
+     "body": {}
+    },
+    {
+     "name": "delete-admin",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/deleteThroyKnowledgeById",
+     "who": "admin",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "detail-token-after-delete",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getByIdAndToken",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "answers-after-delete-orphan-or-cascade",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestContentByUserIdAndKnowledgeId",
+     "who": "student",
+     "body": {
+      "id": "${kId}"
+     }
+    },
+    {
+     "name": "tests-after-delete-orphan-or-cascade",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTest/getTestBySwfId",
+     "who": "student",
+     "body": {
+      "id": "${swfOne}"
+     }
+    },
+    {
+     "name": "list-basic-after-delete",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/getBasicTheory",
+     "who": "admin",
+     "body": {
+      "type": "0"
+     }
+    }
+   ]
+  },
+  {
+   "name": "b8-theory-question-bank-levels-search-batch-delete",
+   "note": "questionBank pages useQuestionBank.js:108-127 and knowledgeTabel.js:156-401. SQL LIKE keeps the database case-insensitive collation and %/_ wildcards; author names come from t_user. User-confirmed level deletion removes only the node and preserves questions, verified by admin export; a separate student export retains Rust207. Java lists without ORDER BY use unordered, preserving every row field.",
+   "steps": [
+    {
+     "name": "level-save-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+     "who": "student",
+     "body": {
+      "name": "学员题库",
+      "parentId": "0"
+     }
+    },
+    {
+     "name": "level-root",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+     "who": "admin",
+     "body": {
+      "name": "B8根题库",
+      "parentId": "0"
+     },
+     "capture": {
+      "lvRoot": "$.data.id"
+     },
+     "sleep": 0.05
+    },
+    {
+     "name": "level-child",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+     "who": "admin",
+     "body": {
+      "name": "B8子题库",
+      "parentId": "${lvRoot}"
+     },
+     "capture": {
+      "lvChild": "$.data.id"
+     }
+    },
+    {
+     "name": "level-rename",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+     "who": "admin",
+     "body": {
+      "id": "${lvChild}",
+      "name": "B8子题库改名",
+      "parentId": "${lvRoot}"
+     }
+    },
+    {
+     "name": "level-rename-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestionLevel",
+     "who": "admin",
+     "body": {
+      "id": "no-such-level",
+      "name": "x",
+      "parentId": "0"
+     }
+    },
+    {
+     "name": "level-list",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllTheoryKnowledgeQuestionLevel",
+     "who": "student"
+    },
+    {
+     "name": "question-save-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "student",
+     "body": {
+      "type": 1,
+      "topic": "学员题",
+      "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+      "answer": "\"0\"",
+      "analysis": "解析",
+      "levelId": "${lvRoot}"
+     }
+    },
+    {
+     "name": "question-root-single",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "type": 1,
+      "topic": "Short-Wave 通信_基础",
+      "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+      "answer": "\"0\"",
+      "analysis": "解析",
+      "levelId": "${lvRoot}"
+     },
+     "capture": {
+      "qOne": "$.data.id"
+     }
+    },
+    {
+     "name": "question-child-multi",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "topic": "超短波 100% 覆盖",
+      "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+      "answer": "[\"0\",\"1\"]",
+      "analysis": "解析",
+      "levelId": "${lvChild}"
+     }
+    },
+    {
+     "name": "question-child-short",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "type": 5,
+      "topic": "简答题目",
+      "options": "[]",
+      "answer": "\"答\"",
+      "analysis": "解析",
+      "levelId": "${lvChild}"
+     }
+    },
+    {
+     "name": "question-update",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "id": "${qOne}",
+      "type": 1,
+      "topic": "Short-Wave 通信_基础(修订)",
+      "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+      "answer": "\"1\"",
+      "analysis": "解析二",
+      "levelId": "${lvRoot}"
+     }
+    },
+    {
+     "name": "question-update-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "id": "no-such-question",
+      "topic": "x",
+      "type": 1,
+      "levelId": "${lvRoot}"
+     }
+    },
+    {
+     "name": "find-root-tree",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "",
+      "name": ""
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-root-type1",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "1",
+      "name": ""
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-name-lowercase",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "",
+      "name": "short-wave"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-name-underscore-wildcard",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "",
+      "name": "通_基"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-name-percent-wildcard",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "",
+      "name": "%"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-child-only",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvChild}",
+      "type": "",
+      "name": ""
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-no-level",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "type": "",
+      "name": ""
+     }
+    },
+    {"name":"export-child-student-207","method":"POST","path":"/api/theoryKnowledgeQuestion/exportQuestionByLevelId","who":"student","body":{"levelId":"${lvChild}"},"unordered":["$.data"]},
+    {
+     "name": "export-child",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/exportQuestionByLevelId",
+     "who": "admin",
+     "body": {
+      "levelId": "${lvChild}"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "export-template",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/exportTemplate",
+     "who": "student"
+    },
+    {
+     "name": "batch-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveBatch",
+     "who": "student",
+     "body": [
+      {
+       "type": 1,
+       "topic": "批量学员",
+       "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+       "answer": "\"0\"",
+       "analysis": "解析",
+       "levelId": "${lvRoot}"
+      }
+     ]
+    },
+    {
+     "name": "batch-empty",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveBatch",
+     "who": "admin",
+     "body": []
+    },
+    {
+     "name": "batch-row-missing-topic",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveBatch",
+     "who": "admin",
+     "body": [
+      {
+       "type": 1,
+       "topic": "批量一",
+       "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+       "answer": "\"0\"",
+       "analysis": "解析",
+       "levelId": "${lvRoot}"
+      },
+      {
+       "type": 1,
+       "levelId": "${lvRoot}"
+      }
+     ]
+    },
+    {
+     "name": "batch-two-rows",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/saveBatch",
+     "who": "admin",
+     "body": [
+      {
+       "type": 1,
+       "topic": "批量一",
+       "options": "[{\"value\":\"0\",\"label\":\"选项甲\"},{\"value\":\"1\",\"label\":\"选项乙\"}]",
+       "answer": "\"0\"",
+       "analysis": "解析",
+       "levelId": "${lvRoot}"
+      },
+      {
+       "type": 3,
+       "topic": "批量二",
+       "options": "[]",
+       "answer": "\"1\"",
+       "analysis": "解析",
+       "levelId": "${lvRoot}"
+      }
+     ],
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "find-root-after-batch",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/findAllQuestionByLevelId",
+     "who": "student",
+     "body": {
+      "levelId": "${lvRoot}",
+      "type": "",
+      "name": ""
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "question-delete-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion",
+     "who": "student",
+     "body": {
+      "id": "${qOne}"
+     }
+    },
+    {
+     "name": "question-delete",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestion",
+     "who": "admin",
+     "body": {
+      "id": "${qOne}"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "level-delete-student-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestionLevelById",
+     "who": "student",
+     "body": {
+      "id": "${lvChild}"
+     }
+    },
+    {
+     "name": "level-delete-with-questions",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/deleteTheoryKnowledgeQuestionLevelById",
+     "who": "admin",
+     "body": {
+      "id": "${lvChild}"
+     }
+    },
+    {
+     "name": "export-deleted-level-orphans",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeQuestion/exportQuestionByLevelId",
+     "who": "admin",
+     "body": {
+      "levelId": "${lvChild}"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "b8-test-paper-find-by-id",
+   "note": "theNewTest.js:312 reads one paper. Paper created through saveTestPaper with the same body shape as theory-scheduled-exam.",
+   "steps": [
+    {
+     "name": "paper-create",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTestPaper/saveTestPaper",
+     "who": "admin",
+     "body": {
+      "name": "B8按编号试卷",
+      "total": 20,
+      "passTheExamThan": "60",
+      "passMark": 12,
+      "singleChoice": [
+       {
+        "score": 10,
+        "sort": 0,
+        "type": 1,
+        "topic": "B8单选",
+        "options": "[\"A\",\"B\"]",
+        "answer": "\"A\"",
+        "analysis": "单选解析"
+       }
+      ],
+      "multipleChoice": [],
+      "judge": [
+       {
+        "score": 10,
+        "sort": 0,
+        "type": 3,
+        "topic": "B8判断",
+        "options": "[]",
+        "answer": "\"1\"",
+        "analysis": "判断解析"
+       }
+      ],
+      "completion": [],
+      "shortAnswer": []
+     }
+    },
+    {
+     "name": "paper-select",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTestPaper/findTestPaperByLevelIdAndName",
+     "who": "student",
+     "body": {
+      "name": "B8按编号试卷",
+      "levelId": ""
+     },
+     "capture": {
+      "bPaper": "$.data[0].id"
+     }
+    },
+    {
+     "name": "paper-by-id",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTestPaper/findTestPaperById",
+     "who": "student",
+     "body": {
+      "id": "${bPaper}"
+     }
+    },
+    {
+     "name": "paper-by-id-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTestPaper/findTestPaperById",
+     "who": "student",
+     "body": {
+      "id": "no-such-paper"
+     }
+    },
+    {
+     "name": "paper-by-id-missing",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeTestPaper/findTestPaperById",
+     "who": "student",
+     "body": {}
+    }
+   ]
+  },
+  {
+   "name": "b8-theory-score-analytics-fixed-exams",
+   "note": "Fixed INPUT exam rows, not expected output: pass_mark60/total100 gives good boundary80; grades95/70/55/85 in March-April2026 exercise all gradeCount modes and full examineAnalyse. Across the exam q1..q4 have distinct wrong counts4/3/2/1, so all four ranked errors are compared. Within only the admin's two submissions q1/q2/q3 tie; registry accepts only the exact tied permutation in comprehensive.errorTopic, never the entire ranking array. UserEntity credential omission is preserved. Course/test timestamps1773144000000 are mid-month/TZ-safe.",
+   "seed_sql": "DELETE FROM t_theory_knowledge_exam_user WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_exam WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_exam_test_paper WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_paper_question WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_user WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_swf_record WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_swf WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge WHERE id LIKE 'b8x-%';DELETE FROM t_theory_knowledge_test_fallible WHERE user_id IN ('sweep-student','sweep-admin');INSERT INTO t_theory_knowledge_exam(id,title,start_time,duration,create_user_id,create_time,teacher,state,end_time) VALUES ('b8x-exam','B8固定考试','2026-03-05 09:00:00','60','sweep-admin','1772700000000','sweep-admin',3,'2026-04-15 11:00:00');INSERT INTO t_theory_knowledge_exam_test_paper(id,name,total,pass_the_exam_than,exam_id,pass_mark,single_choice_list,multiple_choice_list,judge_list,completion_list,test_paper_id,short_answer) VALUES ('b8x-etp','B8固定试卷',100,'60','b8x-exam',60,'[{\"id\":\"b8x-q1\",\"type\":1,\"topic\":\"B8题1\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q2\",\"type\":1,\"topic\":\"B8题2\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q3\",\"type\":1,\"topic\":\"B8题3\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"type\":1,\"topic\":\"B8题4\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"type\":1,\"topic\":\"B8题5\",\"options\":\"[]\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"type\":1,\"topic\":\"B8题6\",\"options\":\"[]\",\"answer\":\"A\"}]','[]','[]','[]','b8x-paper','[]');INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu1','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"A\"},{\"id\":\"b8x-q3\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',95,'sweep-student','2026-03-05 10:00:00','b8x-exam','2026-03-05 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu2','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"A\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',70,'sweep-student','2026-03-20 10:00:00','b8x-exam','2026-03-20 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu3','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"B\"},{\"id\":\"b8x-q4\",\"answer\":\"A\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',55,'sweep-admin','2026-04-02 10:00:00','b8x-exam','2026-04-02 09:00:00',4,1);INSERT INTO t_theory_knowledge_exam_user(id,content,score,user_id,end_time,exam_id,start_time,state,is_self_testing) VALUES ('b8x-eu4','{\"singleChoice\":[{\"id\":\"b8x-q1\",\"answer\":\"B\"},{\"id\":\"b8x-q2\",\"answer\":\"B\"},{\"id\":\"b8x-q3\",\"answer\":\"B\"},{\"id\":\"b8x-q4\",\"answer\":\"B\"},{\"id\":\"b8x-q5\",\"answer\":\"A\"},{\"id\":\"b8x-q6\",\"answer\":\"A\"}]}',85,'sweep-admin','2026-04-15 10:00:00','b8x-exam','2026-04-15 09:00:00',4,1);INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q1','b8x-paper',10,1,1,'B8题1','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q2','b8x-paper',10,2,1,'B8题2','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q3','b8x-paper',10,3,1,'B8题3','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge_test_paper_question(id,test_paper_id,score,sort,type,topic,options,answer,analysis,parent_id) VALUES ('b8x-q4','b8x-paper',10,4,1,'B8题4','[]','A','解析','b8x-paper');INSERT INTO t_theory_knowledge(id,type,status,title,create_user_id,create_time,credit) VALUES ('b8x-k',0,1,'B8学分课程','sweep-admin','1773144000000',2);INSERT INTO t_theory_knowledge_swf(id,knowledge_id,title,sort,record) VALUES ('b8x-s1','b8x-k','B8章节',0,0);INSERT INTO t_theory_knowledge_test_user(id,user_id,knowledge_id,knowledge_swf_id,score,create_time) VALUES ('b8x-tu1','sweep-student','b8x-k','b8x-s1',100,'1773144000000');INSERT INTO t_theory_knowledge_swf_record(id,knowledge_id,knowledge_swf_id,user_id,join_time,exit_time,type) VALUES ('b8x-r1','b8x-k','b8x-s1','sweep-student','2026-03-10 10:00:00','2026-03-10 11:30:00',1);",
+   "steps": [
+    {
+     "name": "grade-count-distribution-year",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "student",
+     "body": {
+      "year": "2026",
+      "month": "",
+      "type": "0"
+     },
+     "normalize_keys": [
+      "$.data.down"
+     ]
+    },
+    {
+     "name": "grade-count-distribution-march",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "student",
+     "body": {
+      "year": "2026",
+      "month": "03",
+      "type": "0"
+     }
+    },
+    {
+     "name": "grade-count-times-year",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "admin",
+     "body": {
+      "year": "2026",
+      "month": "",
+      "type": "1"
+     }
+    },
+    {
+     "name": "grade-count-times-april",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "admin",
+     "body": {
+      "year": "2026",
+      "month": "4",
+      "type": "1"
+     }
+    },
+    {
+     "name": "grade-count-scores-year",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "admin",
+     "body": {
+      "year": "2026",
+      "month": "",
+      "type": "2"
+     }
+    },
+    {
+     "name": "grade-count-scores-april",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "admin",
+     "body": {
+      "year": "2026",
+      "month": "04",
+      "type": "2"
+     }
+    },
+    {
+     "name": "grade-count-empty-year",
+     "method": "POST",
+     "path": "/api/theoryKnowledge/gradeCount",
+     "who": "student",
+     "body": {
+      "year": "2025",
+      "month": "",
+      "type": "0"
+     }
+    },
+    {
+     "name": "overall-info-student",
+     "method": "GET",
+     "path": "/api/comprehensive/getUserOverallInfo",
+     "who": "student"
+    },
+    {
+     "name": "overall-info-student-cache-hit",
+     "method": "GET",
+     "path": "/api/comprehensive/getUserOverallInfo",
+     "who": "student"
+    },
+    {
+     "name": "overall-info-admin",
+     "method": "GET",
+     "path": "/api/comprehensive/getUserOverallInfo",
+     "who": "admin"
+    },
+    {
+     "name": "theory-year-student",
+     "method": "GET",
+     "path": "/api/comprehensive/getTheoryYear?year=2026",
+     "who": "student"
+    },
+    {
+     "name": "theory-year-empty",
+     "method": "GET",
+     "path": "/api/comprehensive/getTheoryYear?year=2025",
+     "who": "student"
+    },
+    {
+     "name": "theory-test-year-admin",
+     "method": "GET",
+     "path": "/api/comprehensive/getTheoryTestYear?year=2026",
+     "who": "admin",
+     "unordered": [
+      "$.data.avgScores"
+     ]
+    },
+    {
+     "name": "theory-test-year-student",
+     "method": "GET",
+     "path": "/api/comprehensive/getTheoryTestYear?year=2026",
+     "who": "student",
+     "unordered": [
+      "$.data.avgScores"
+     ]
+    },
+    {
+     "name": "analyse-teacher",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeExam/examineAnalyse",
+     "who": "admin",
+     "body": {
+      "examId": "b8x-exam"
+     }
+    },
+    {
+     "name": "analyse-non-controller-207",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeExam/examineAnalyse",
+     "who": "student",
+     "body": {
+      "examId": "b8x-exam"
+     }
+    },
+    {
+     "name": "analyse-unknown",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeExam/examineAnalyse",
+     "who": "admin",
+     "body": {
+      "examId": "no-such-exam"
+     }
+    },
+    {
+     "name": "analyse-missing-id",
+     "method": "POST",
+     "path": "/api/theoryKnowledgeExam/examineAnalyse",
+     "who": "admin",
+     "body": {}
+    }
+   ]
+  },
+  {
+   "name": "b8-tools-clock-endpoints",
+   "note": "Both endpoints are free (no auth) and wall-clock derived: getNowTime is epoch ms, getTwelvemonth lists the previous 12 months from now. Java uses YearMonth.now() (JVM zone, ToolsController.java:39-46) and Rust OffsetDateTime::now_utc (main.rs:2317): different only around month boundaries in a non-UTC server zone. Compare shape only: nowTime masked as clock, twelvemonth NOT masked (stable except in the first hours of a month).",
+   "steps": [
+    {
+     "name": "now-time",
+     "method": "GET",
+     "path": "/api/tools/getNowTime",
+     "who": "anon",
+     "mask": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "twelve-months",
+     "method": "GET",
+     "path": "/api/tools/getTwelvemonth",
+     "who": "anon"
+    }
+   ]
+  },
+  {
+   "name":"b8-duplicate-rules-and-routing-boundaries",
+   "note":"Two persisted scoring rules for one device must produce business 202, not Rust 500. Unknown REST paths matching WS wildcards remain 404 with or without GET; actual REST paths with the wrong method remain 405. Legitimate upgraded WS flows are covered by the existing full journey suite.",
+   "seed_sql":"INSERT INTO device_scoring_rule(id,device_id,name,rule_content) VALUES (987001,987123,'B8 duplicate-a','[]'),(987002,987123,'B8 duplicate-b','[]');",
+   "steps":[
+    {"name":"duplicate-rules-202","method":"GET","path":"/api/deviceScoringRule/findAllByDeviceId?deviceId=987123","who":"student"},
+    {"name":"unknown-ws-shaped-post-404","method":"POST","path":"/api/simulation/router/savePage","who":"admin","body":{}},
+    {"name":"unknown-ws-shaped-get-404","method":"GET","path":"/api/simulation/router/savePage","who":"admin"},
+    {"name":"unknown-generic-post-404","method":"POST","path":"/api/unknown-b8-route","who":"admin","body":{}},
+    {"name":"known-rest-wrong-method-405","method":"GET","path":"/api/theoryKnowledge/gradeCount","who":"admin"}
+   ]
+  }
+ ]
+}

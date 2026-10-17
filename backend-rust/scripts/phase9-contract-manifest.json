@@ -12,6 +12,10 @@
     "docs/reviews/rust-migration/ws-contracts.tsv",
     "docs/reviews/rust-migration/ws-protocol-samples.ndjson",
     "backend-rust/crates/app/src/main.rs",
+    "backend-rust/crates/app/src/lib.rs",
+    "backend-rust/crates/app/src/runtime.rs",
+    "backend-rust/crates/app/src/platform/flags.rs",
+    "backend-rust/crates/app/src/router.rs",
     "backend-rust/scripts/phase9-contract-diff.sh",
     "backend/src/main/java/com/nip/common/interceptor/JWTInterceptor.java",
     "backend/src/main/java/com/nip/common/constants/ResponseCode.java"
