@@ -26,8 +26,12 @@ export default function useEdit(roomtest, selectedKnowledgeSwfs, tData, content,
   const initPageClassify = () => {
     listPageClassify().then(res => {
       searchList.value = res.data
-      tData.value.knowledge.difficultyId = res.data.difficultyList[0].id
-      tData.value.knowledge.specialtyId = res.data.specialtyList[0].id
+      if (res.data.difficultyList.length) {
+        tData.value.knowledge.difficultyId = res.data.difficultyList[0].id
+      }
+      if (res.data.specialtyList.length) {
+        tData.value.knowledge.specialtyId = res.data.specialtyList[0].id
+      }
     })
   }
   const testIndex = ref(0)

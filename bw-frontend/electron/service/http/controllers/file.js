@@ -6,10 +6,9 @@ const context = require('../core/node_core_ctx')
 
 // 文件服务的根目录。
 // 注意：这里的 context 是 service/http/core/node_core_ctx.js —— fork 出来的文件服务
-// **子进程自己**的上下文模块，其 appPath 由 service/http/index.js:9 设为
-// `<安装目录>/bin/file`，比 Electron 主进程的 appPath（main.js:12 的 dirname(exe)）
-// 窄一层。绝不可改用主进程的 appPath：那会把可读写范围扩大到包含 bin/server（后端
-// 原生二进制）、bin/nip.db（授权与地址库）和 resources/app.asar。
+// **子进程自己**的上下文模块，appPath 仅指向 `<runtimePath>/bin/file`。
+// Windows runtimePath 是 userData/runtime；其他平台仍是安装根。
+// 不能扩大为主进程 appPath 或 runtimePath，否则会暴露后端、配置库或 app.asar。
 // appPath 在本模块被 require 之后才赋值，因此只能惰性求值。
 let rootPath = null
 let realRootPath = null
@@ -65,7 +64,7 @@ function sanitizeCurrentPath(currentPath) {
     .filter((seg) => seg !== '' && !INVALID_SEGMENT.test(seg))
   const relative = segments.join(path.sep)
   const absolute = path.resolve(getRoot(), relative)
-  return isWithin(getRoot(), absolute) ? { relative, absolute } : null
+  return isWithin(getRoot(), absolute) ? { relative } : null
 }
 
 function file(req, res, next) {
@@ -133,9 +132,18 @@ function fileUpload(req, res, next) {
       return res.status(400).json({ data: [], message: '上传目录非法' })
     }
     currentPath = target.relative
-    const filePath = target.absolute
+    let filePath = getRealRoot()
     try {
-      fs.mkdirSync(filePath, { recursive: true })
+      // Resolve each existing component before creating the next one. A legacy
+      // symlink/junction must not let mkdir or formidable write outside the root.
+      for (const segment of currentPath.split(path.sep).filter(Boolean)) {
+        const next = path.join(filePath, segment)
+        if (!fs.existsSync(next)) fs.mkdirSync(next)
+        filePath = fs.realpathSync(next)
+        if (!isWithin(getRealRoot(), filePath)) {
+          return res.status(400).json({ data: [], message: '上传目录非法' })
+        }
+      }
     } catch (e) {
       // 建目录失败必须报错：此前异常被吞掉后仍返回成功，前端会拿到一个不存在的路径
       process.send(`- [upload file error] ${e}`)

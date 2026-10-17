@@ -480,5 +480,113 @@
     "512f843",
     "6d12a5a",
     "e853b43"
-  ]
+  ],
+  "frame_journeys_2026_10_11": {
+    "verified_at_utc": "2026-10-11T12:52:38Z",
+    "status": "REPEATABLE_FRAME_JOURNEYS_IN_REPOSITORY",
+    "commits": {
+      "harness": "2dce464e",
+      "rust_fix": "d95f5843",
+      "journeys": "205f9477"
+    },
+    "harness": "backend-rust/scripts/dual-stack-sweep.py ws steps (open/send/recv/close) with a stdlib RFC 6455 client; query token+deviceId authentication like the frontend; observations are compared through the existing journey comparator (parsed JSON frames, handshake status, closed flag, close code).",
+    "journeys": {
+      "ws-handshake-heartbeat-replacement": "/status heartbeat and other-text reply; anonymous and invalid-credential rejection frames plus server close on classic, union, simulation and general key/telex/ticker; classic heartbeat, unknown code, missing code; same-user classic replacement (old told to close, still answers heartbeat, next business message rejected and closed, its close does not evict the replacement); union heartbeat, unknown code and replacement",
+      "ws-scheduled-exam-notifications": "teacher and candidate on the classic transport while REST start/enter/answer/submit/end runs; every 18001/18002/18003 frame, its recipient and payload (embedded paper/answer JSON parsed) and the absence of frames elsewhere"
+    },
+    "steps": 59,
+    "first_run_before_rust_fix": {
+      "requests": 53,
+      "identical": 29,
+      "different": 24,
+      "by_disposition": {
+        "FAIL": 24
+      },
+      "by_category": {
+        "DATA": 24
+      },
+      "note": "24 FAIL: these are the evidence that each fixed difference is detected; no separate source mutation was run"
+    },
+    "rust_differences_fixed": [
+      "server-initiated closes sent a close frame without status; now 1000 like Java",
+      "peer-initiated closes were not echoed (tungstenite refuses sends after the peer close and flushes the queued echo only on the next read); now read once more within 1 s",
+      "/status answered only the heartbeat; StatusWebSocket answers any other text with pong",
+      "union credential rejection text now 登录凭据无效，拒绝建立联合训练连接",
+      "union unknown codes produced code -1 未知指令; Java's dispatch ignores UNKNOWN",
+      "a replaced classic session was closed server-side; Java only sends code 1 关闭连接, keeps answering heartbeats and rejects the next business message with code 1 当前连接已失效 before closing. Server-side closing made the frontend reconnect and replace the newer session in turn"
+    ],
+    "after_fix": {
+      "ws_journeys_three_consecutive_runs": [
+        {
+          "requests": 59,
+          "identical": 59,
+          "different": 0,
+          "by_disposition": {},
+          "by_category": {}
+        },
+        {
+          "requests": 59,
+          "identical": 59,
+          "different": 0,
+          "by_disposition": {},
+          "by_category": {}
+        },
+        {
+          "requests": 59,
+          "identical": 59,
+          "different": 0,
+          "by_disposition": {},
+          "by_category": {}
+        }
+      ],
+      "all_journeys": {
+        "requests": 1370,
+        "identical": 1272,
+        "different": 98,
+        "by_disposition": {
+          "ACCEPTED": 98
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 6,
+          "RUST_STRICTER": 5,
+          "TEXT_ONLY": 70,
+          "RUST_PERMISSIVE": 1,
+          "DATA": 14,
+          "RUST_OTHER_CODE": 1,
+          "RUST_FAILS_WHERE_JAVA_OK": 1
+        },
+        "fail": 0,
+        "open": 0,
+        "exit_code": 0
+      },
+      "full_sweep_live": {
+        "requests": 2819,
+        "identical": 2198,
+        "different": 621,
+        "by_disposition": {
+          "ACCEPTED": 621
+        },
+        "by_category": {
+          "JAVA_UNHANDLED_500": 53,
+          "RUST_STRICTER": 66,
+          "TEXT_ONLY": 344,
+          "RUST_PERMISSIVE": 9,
+          "DATA": 35,
+          "RUST_OTHER_CODE": 1,
+          "RUST_FAILS_WHERE_JAVA_OK": 2,
+          "JAVA_RAW_HTTP_4XX": 60,
+          "RUST_RAW_HTTP_4XX": 51
+        },
+        "fail": 0,
+        "open": 0,
+        "exit_code": 0
+      },
+      "rust": "cargo fmt --check and cargo test --locked: 61 passed, 85 ignored; ws.rs has no unit tests, the frame journeys are its regression suite",
+      "python_harness": "66 passed"
+    },
+    "boundaries": [
+      "Union room/seat/state messages, simulation rooms, general key/telex/ticker topic flows and the classic 1000/1001 page-delivery flow are not yet in frame journeys (their earlier throwaway probes remain historical evidence).",
+      "No browser/Electron client, network fault injection, stress or reconnect storm test; close codes are compared on a stdlib client."
+    ]
+  }
 }

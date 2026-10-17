@@ -1,0 +1,2769 @@
+{
+ "journeys": [
+  {
+   "name": "b5-telex-main-flow",
+   "note": "generalTelexPat (数据报/电传组训) full lifecycle on a fixed 12-group digit cable floor with frontend payloads (telexZuXun list.js add, student.vue detail {trainId,userId}, datagramTrain.js getPage/startTrain/uploadResult{patValue,protocolVersion,attempt,captureIntervals}/finish, teacher.js updateTrainStatus + WS begin/end). Teacher sweep-admin (creator, role 1) connects to the room BEFORE the students so getOnline order exposes Java students-first/teacher-last. Student1 text has one wrong group and a missing last group, then an extension adds the missing group (patGroup 13, errorCode 1 -> Java accuracy 92.00 vs Rust 92.31). Covers 207/208/202 precedence incl. outsider startTrain/finish (Java 207), WS error frames, classic-socket 200/201 notices vs room-socket fan-out, statistics, patDetail/getPage/getPatValue after settlement, delete closing sockets. Determinism: cable content fixed; upload intervals fixed [0,400]/[450,700] with a 1.0 s sleep after start (bound = server elapsed); only serverElapsedMs, ids and the ended-training validTime (wall clock) are masked; userInfoList/userTendencyVO unordered because Java queries have no ORDER BY and member ids are random UUIDs. No telex reset endpoint exists in Java.",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b5tx-stu2','b5tx-stu2','B5 Telex Student2',0,'b5tx-dev',SHA2('b5tx-stu2-token',256)),('b5tx-out','b5tx-out','B5 Telex Outsider',0,'b5tx-dev',SHA2('b5tx-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b5tx-stu2-m','b5tx-stu2','sweep-student-role'),('b5tx-out-m','b5tx-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "title": "rule-create",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":1,\"l\":1},\"other\":{\"errorCode\":3,\"muchLessCode\":2,\"muchLessLine\":2,\"muchLessGroups\":2,\"correctMistakes\":2,\"lessPage\":7,\"lessReturnLine\":2,\"errorPage\":3,\"nonStandart\":1,\"alterError\":2}}"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     }
+    },
+    {
+     "name": "tx1-cable-type-create",
+     "method": "POST",
+     "path": "/api/cable/type/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 12-group floor type"
+     },
+     "capture": {
+      "typeId": "$.data[0].id"
+     }
+    },
+    {
+     "name": "tx1-cable-create",
+     "method": "POST",
+     "path": "/api/cable/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 12-group floor",
+      "typeId": "${typeId}",
+      "scope": 0,
+      "codeType": 1,
+      "codeSort": 0,
+      "floors": [
+       [
+        [
+         "1",
+         "2",
+         "3",
+         "4"
+        ],
+        [
+         "5",
+         "6",
+         "7",
+         "8"
+        ],
+        [
+         "9",
+         "0",
+         "1",
+         "2"
+        ],
+        [
+         "3",
+         "4",
+         "5",
+         "6"
+        ],
+        [
+         "7",
+         "8",
+         "9",
+         "0"
+        ],
+        [
+         "2",
+         "4",
+         "6",
+         "8"
+        ],
+        [
+         "1",
+         "3",
+         "5",
+         "7"
+        ],
+        [
+         "8",
+         "0",
+         "2",
+         "4"
+        ],
+        [
+         "6",
+         "9",
+         "1",
+         "3"
+        ],
+        [
+         "4",
+         "7",
+         "2",
+         "5"
+        ],
+        [
+         "3",
+         "8",
+         "1",
+         "6"
+        ],
+        [
+         "5",
+         "0",
+         "9",
+         "2"
+        ]
+       ]
+      ]
+     },
+     "capture": {
+      "cableId": "$.data.id"
+     }
+    },
+    {
+     "name": "student-classic-open",
+     "ws": "open",
+     "conn": "sc",
+     "path": "/websocket/sweep-student",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "add-missing-total-rejected",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex invalid",
+      "isCable": 1,
+      "cableId": "${cableId}",
+      "startPage": 1,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0
+     }
+    },
+    {
+     "name": "add-cable-train",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传组训-固定报",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 100,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student",
+       "b5tx-stu2"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainId": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-new-train-200",
+     "ws": "recv",
+     "conn": "sc",
+     "timeout": 1.5,
+     "mask": [
+      "$.data.frames[*].map.id"
+     ]
+    },
+    {
+     "name": "student-list",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findAll",
+     "who": "student",
+     "body": {
+      "page": 1,
+      "rows": 10
+     },
+     "mask": [
+      "$.data.data[*].id"
+     ],
+     "unordered": [
+      "$.data.data[*].userInfoList"
+     ]
+    },
+    {
+     "name": "teacher-list",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findAll",
+     "who": "admin",
+     "body": {
+      "page": 1,
+      "rows": 10
+     },
+     "mask": [
+      "$.data.data[*].id"
+     ],
+     "unordered": [
+      "$.data.data[*].userInfoList"
+     ]
+    },
+    {
+     "name": "detail-teacher-unstarted",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "detail-student-unstarted",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "detail-outsider-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "find-page-teacher",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.messageContent[*].id"
+     ]
+    },
+    {
+     "name": "find-page-outsider-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findPage",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     }
+    },
+    {
+     "name": "teacher-room-open",
+     "ws": "open",
+     "conn": "t",
+     "path": "/generalTelexPatTrain/sweep-admin/${trainId}",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "teacher-classic-open",
+     "ws": "open",
+     "conn": "tc",
+     "path": "/websocket/sweep-admin",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "student-room-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/generalTelexPatTrain/sweep-student/${trainId}",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "teacher-sees-student-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-room-open",
+     "ws": "open",
+     "conn": "s2",
+     "path": "/generalTelexPatTrain/b5tx-stu2/${trainId}",
+     "settle": 0.5,
+     "headers": {
+      "token": "b5tx-stu2-token",
+      "deviceId": "b5tx-dev"
+     }
+    },
+    {
+     "name": "teacher-sees-student2-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "outsider-room-rejected",
+     "ws": "open",
+     "conn": "o",
+     "path": "/generalTelexPatTrain/b5tx-out/${trainId}",
+     "settle": 1.5,
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     }
+    },
+    {
+     "name": "ws-malformed-text",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "text": "not-json"
+    },
+    {
+     "name": "ws-blank-topic",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "  "
+     }
+    },
+    {
+     "name": "ws-unknown-topic",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "dance"
+     }
+    },
+    {
+     "name": "ws-student-begin-forbidden",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "json": {
+      "topic": "begin"
+     }
+    },
+    {
+     "name": "ws-teacher-pat-forbidden",
+     "ws": "send",
+     "conn": "t",
+     "settle": 1,
+     "json": {
+      "topic": "pat",
+      "log": {
+       "key": "A",
+       "time": 1
+      }
+     }
+    },
+    {
+     "name": "ws-heartbeat",
+     "ws": "send",
+     "conn": "s",
+     "settle": 1,
+     "text": "__nip_heartbeat_ping__",
+     "count": 1
+    },
+    {
+     "name": "student-ready",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "ready",
+      "id": "sweep-student"
+     }
+    },
+    {
+     "name": "teacher-sees-ready",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "roster-teacher-connected-first",
+     "method": "GET",
+     "path": "/api/generalTelexPat/getOnline?trainId=${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "roster-outsider-forbidden",
+     "method": "GET",
+     "path": "/api/generalTelexPat/getOnline?trainId=${trainId}",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     }
+    },
+    {
+     "name": "student-start-before-begin",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-before-begin",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-status-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     }
+    },
+    {
+     "name": "teacher-start",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     },
+     "sleep": 1.0
+    },
+    {
+     "name": "teacher-ws-begin",
+     "ws": "send",
+     "conn": "t",
+     "settle": 0.3,
+     "json": {
+      "topic": "begin"
+     }
+    },
+    {
+     "name": "student-receives-begin",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student2-receives-begin",
+     "ws": "recv",
+     "conn": "s2",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "detail-running-teacher",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "student-start-stale-attempt",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=5",
+     "who": "student"
+    },
+    {
+     "name": "student-start",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-page-1",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "student2-reads-student1-page-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "headers": {
+      "token": "b5tx-stu2-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "outsider-reads-own-page",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "b5tx-out",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "outsider-pat-value-self",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPatValue",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     }
+    },
+    {
+     "name": "ws-student-pat",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "pat",
+      "id": "sweep-student",
+      "log": {
+       "key": "1",
+       "time": 0
+      }
+     }
+    },
+    {
+     "name": "teacher-sees-pat",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "teacher-upload-rejected",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-protocol-0",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 0,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-page-9",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 9,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-page-1",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-replay",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-conflict",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816 5092",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-shrink",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 300
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-extension",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816 5092",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       },
+       {
+        "startedMs": 450,
+        "endedMs": 700
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-page-1-after-upload",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "teacher-pat-value",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPatValue",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "userId": "sweep-student"
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "student-pat-detail-running",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "student-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-classic-result-201",
+     "ws": "recv",
+     "conn": "tc",
+     "timeout": 1.5,
+     "mask": [
+      "$.data.frames[*].map.trainId"
+     ]
+    },
+    {
+     "name": "teacher-room-after-result",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0
+    },
+    {
+     "name": "ws-student-finish",
+     "ws": "send",
+     "conn": "s",
+     "settle": 0.3,
+     "json": {
+      "topic": "finish",
+      "id": "sweep-student"
+     }
+    },
+    {
+     "name": "teacher-sees-finish",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "student-finish-replay",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "student-start-after-finish",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-after-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816 5092",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       },
+       {
+        "startedMs": 450,
+        "endedMs": 700
+       },
+       {
+        "startedMs": 720,
+        "endedMs": 760
+       }
+      ]
+     }
+    },
+    {
+     "name": "teacher-finish-rejected",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "outsider-finish-rejected",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "outsider-start-rejected",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=0",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     }
+    },
+    {
+     "name": "student2-finish-no-pages",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "headers": {
+      "token": "b5tx-stu2-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-end",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 2
+     },
+     "sleep": 0.3
+    },
+    {
+     "name": "teacher-ws-end",
+     "ws": "send",
+     "conn": "t",
+     "settle": 0.3,
+     "json": {
+      "topic": "end"
+     }
+    },
+    {
+     "name": "student-receives-end",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "detail-ended-teacher",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id",
+      "$.data.validTime"
+     ]
+    },
+    {
+     "name": "statistics-teacher",
+     "method": "POST",
+     "path": "/api/generalTelexPat/statistics",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "unordered": [
+      "$.data.userTendencyVO"
+     ]
+    },
+    {
+     "name": "statistics-student",
+     "method": "POST",
+     "path": "/api/generalTelexPat/statistics",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "unordered": [
+      "$.data.userTendencyVO"
+     ]
+    },
+    {
+     "name": "statistics-outsider-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/statistics",
+     "headers": {
+      "token": "b5tx-out-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}"
+     }
+    },
+    {
+     "name": "student-pat-detail-finished",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "teacher-pat-detail-student1",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "student2-reads-student1-pat-detail-forbidden",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "headers": {
+      "token": "b5tx-stu2-token",
+      "deviceId": "b5tx-dev"
+     },
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "student-page-1-after-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "student-pat-value-after-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPatValue",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "student-delete-forbidden",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainId}",
+     "who": "student"
+    },
+    {
+     "name": "teacher-delete",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainId}",
+     "who": "admin"
+    },
+    {
+     "name": "teacher-room-closed-after-delete",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.5
+    },
+    {
+     "name": "detail-after-delete",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "teacher-delete-again",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainId}",
+     "who": "admin"
+    }
+   ]
+  },
+  {
+   "name": "b5-telex-two-page-settlement-and-fanout",
+   "note": "Two-floor cable (100 groups + 3 groups, totalNumber 200) settled by the student; page 1 has >=100 groups and no '-' page mark, page 2 has 3 groups. Java checks the page mark per page (TelexPatUtils.java:130, groupNumber) and treats a missing dash as lessPage; Rust uses the cumulative patGroup (general_train.rs:2787) and a no-dash digit prefix as errorPage -> deductInfo lessPageNumber/errorPageNumber differ (rule lessPage 7 vs errorPage 3). After finish getPage page 1 / getPatValue / patDetail show whether analysis rows (sort>=0) exist (Java yes, Rust never writes them). A second non-cable random-content training (type 0 patType 2, total 250, content masked) is created while the student sits in the first room: Java sends the 200 notice only to the classic /websocket socket, Rust also pushes it to the room socket. findPage page 3 before/after finish and patDetail.existPage expose Rust ensure_settlement_pages generating missing pages. Determinism: fixed tokens 1000..1099 / 2000..2002, fixed intervals [0,400]/[450,800] after a 1.2 s sleep; random keys and ids masked; wall-clock serverElapsedMs masked. Speed is intentionally huge (few hundred ms); both stacks must still agree.",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b5tx-stu2','b5tx-stu2','B5 Telex Student2',0,'b5tx-dev',SHA2('b5tx-stu2-token',256)),('b5tx-out','b5tx-out','B5 Telex Outsider',0,'b5tx-dev',SHA2('b5tx-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b5tx-stu2-m','b5tx-stu2','sweep-student-role'),('b5tx-out-m','b5tx-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "rule-create",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "title": "B5 telex two-page rule",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":1,\"l\":1},\"other\":{\"errorCode\":3,\"muchLessCode\":2,\"muchLessLine\":2,\"muchLessGroups\":2,\"correctMistakes\":2,\"lessPage\":7,\"lessReturnLine\":2,\"errorPage\":3,\"nonStandart\":1,\"alterError\":2}}"
+     },
+     "capture": {
+      "ruleId": "$.data.id"
+     }
+    },
+    {
+     "name": "tx2-cable-type-create",
+     "method": "POST",
+     "path": "/api/cable/type/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 100+3 groups type"
+     },
+     "capture": {
+      "typeId": "$.data[0].id"
+     }
+    },
+    {
+     "name": "tx2-cable-create",
+     "method": "POST",
+     "path": "/api/cable/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 100+3 groups",
+      "typeId": "${typeId}",
+      "scope": 0,
+      "codeType": 1,
+      "codeSort": 0,
+      "floors": [
+       [
+        [
+         "1",
+         "0",
+         "0",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "0",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "1",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "2",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "3",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "4",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "5",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "6",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "7",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "8",
+         "9"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "0"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "1"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "2"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "3"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "4"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "5"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "6"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "7"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "8"
+        ],
+        [
+         "1",
+         "0",
+         "9",
+         "9"
+        ]
+       ],
+       [
+        [
+         "2",
+         "0",
+         "0",
+         "0"
+        ],
+        [
+         "2",
+         "0",
+         "0",
+         "1"
+        ],
+        [
+         "2",
+         "0",
+         "0",
+         "2"
+        ]
+       ]
+      ]
+     },
+     "capture": {
+      "cableId": "$.data.id"
+     }
+    },
+    {
+     "name": "student-classic-open",
+     "ws": "open",
+     "conn": "sc",
+     "path": "/websocket/sweep-student",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "add-two-page-cable-train",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传组训-两页",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 200,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainId": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-new-train-200",
+     "ws": "recv",
+     "conn": "sc",
+     "timeout": 1.5,
+     "mask": [
+      "$.data.frames[*].map.id"
+     ]
+    },
+    {
+     "name": "teacher-room-open",
+     "ws": "open",
+     "conn": "t",
+     "path": "/generalTelexPatTrain/sweep-admin/${trainId}",
+     "settle": 0.5,
+     "who": "admin"
+    },
+    {
+     "name": "student-room-open",
+     "ws": "open",
+     "conn": "s",
+     "path": "/generalTelexPatTrain/sweep-student/${trainId}",
+     "settle": 0.5,
+     "who": "student"
+    },
+    {
+     "name": "teacher-sees-student-online",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0,
+     "parse_json": [
+      "$.data.frames[*].data"
+     ]
+    },
+    {
+     "name": "add-second-random-train",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传组训-随机报250",
+      "isCable": 0,
+      "startPage": 1,
+      "totalNumber": 250,
+      "ruleId": "${ruleId}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 2,
+      "type": 0
+     },
+     "capture": {
+      "trainB": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "student-classic-second-train-200",
+     "ws": "recv",
+     "conn": "sc",
+     "timeout": 1.5,
+     "mask": [
+      "$.data.frames[*].map.id"
+     ]
+    },
+    {
+     "name": "student-room-socket-after-second-train",
+     "ws": "recv",
+     "conn": "s",
+     "timeout": 1.0
+    },
+    {
+     "name": "detail-random-train",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainB}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id"
+     ]
+    },
+    {
+     "name": "find-page-3-before-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainB}",
+      "pageNumber": 3
+     },
+     "mask": [
+      "$.data.messageContent[*].id"
+     ]
+    },
+    {
+     "name": "teacher-start",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 1
+     },
+     "sleep": 1.2
+    },
+    {
+     "name": "student-start",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainId}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-page-1",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 1,
+      "patValue": "1000 1001 1002 1003 1004 1005 1006 1007 1008 1009\n1010 1011 1012 1013 1014 1015 1016 1017 1018 1019\n1020 1021 1022 1023 1024 1025 1026 1027 1028 1029\n1030 1031 1032 1033 1034 1035 1036 1037 1038 1039\n1040 1041 1042 1043 1044 1045 1046 1047 1048 1049\n1050 1051 1052 1053 1054 1055 1056 1057 1058 1059\n1060 1061 1062 1063 1064 1065 1066 1067 1068 1069\n1070 1071 1072 1073 1074 1075 1076 1077 1078 1079\n1080 1081 1082 1083 1084 1085 1086 1087 1088 1089\n1090 1091 1092 1093 1094 1095 1096 1097 1098 1099",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-upload-page-2",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 2,
+      "patValue": "2000 2001 2002",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 450,
+        "endedMs": 800
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-page-2-after-upload",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 2
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "student-upload-page-3-out-of-range",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 3,
+      "patValue": "2000 2001 2002",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 810,
+        "endedMs": 900
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "teacher-room-after-result",
+     "ws": "recv",
+     "conn": "t",
+     "timeout": 1.0
+    },
+    {
+     "name": "student-pat-detail-finished",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "student-page-1-after-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPage",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "userId": "sweep-student",
+      "pageNumber": 1
+     },
+     "mask": [
+      "$.data.serverElapsedMs",
+      "$.data.messageVO[*].id"
+     ]
+    },
+    {
+     "name": "student-pat-value-page-2",
+     "method": "POST",
+     "path": "/api/generalTelexPat/getPatValue",
+     "who": "student",
+     "body": {
+      "trainId": "${trainId}",
+      "pageNumber": 2
+     },
+     "unordered": [
+      "$.data"
+     ]
+    },
+    {
+     "name": "teacher-end",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}",
+      "status": 2
+     },
+     "sleep": 0.3
+    },
+    {
+     "name": "statistics-teacher",
+     "method": "POST",
+     "path": "/api/generalTelexPat/statistics",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainId}"
+     },
+     "unordered": [
+      "$.data.userTendencyVO"
+     ]
+    },
+    {
+     "name": "student-finish-random-no-pages",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainB}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "find-page-3-after-finish",
+     "method": "POST",
+     "path": "/api/generalTelexPat/findPage",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainB}",
+      "pageNumber": 3
+     },
+     "mask": [
+      "$.data.messageContent[*].id",
+      "$.data.messageContent[*].key"
+     ]
+    },
+    {
+     "name": "teacher-pat-detail-random-student",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainB}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "delete-random-train",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainB}",
+     "who": "admin"
+    },
+    {
+     "name": "delete-two-page-train",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainId}",
+     "who": "admin"
+    }
+   ]
+  },
+  {
+   "name": "b5-telex-rule-and-status-edges",
+   "note": "Telex-only edges, each on its own training so a Java divergence does not cascade. D: zero-coefficient rule (wpm r=l=0): Java still emits speedScore '+0'/'-0' (GeneralTelexPatService.java:970-974), Rust omits the key when the adjustment is 0 (general_train.rs:2874); plus an extra trailing line (Java muchLessLine +size-rowNum=2, Rust +1, TelexPatUtils.java:438 vs general_train.rs:2784, suspected). H: cable totalNumber 150 (1 page): Java settles an empty submission, Rust ensure_settlement_pages wants 2 pages and returns 202 '固定报底页不存在'. E: rule created like the telex rule UI (TelexGradeRule.vue:258, no alterError): Java finish dereferences getOther().getAlterError() -> NPE -> HTTP 500 (GeneralTelexPatService.java:940), Rust returns 200 with correctMistakes deduction 0; this training stays unsettled in Java (status 1, so the recovery task does not touch it) and is deleted at the end. F: Java updateStatus has no state machine (accepts 2 before start, restart, status 5); Rust answers 208/202. Expected: several steps differ by design; use them as registry decisions, not as Rust-only regressions.",
+   "seed_sql": "INSERT IGNORE INTO t_user(id,user_account,user_name,status,device_id,token) VALUES ('b5tx-stu2','b5tx-stu2','B5 Telex Student2',0,'b5tx-dev',SHA2('b5tx-stu2-token',256)),('b5tx-out','b5tx-out','B5 Telex Outsider',0,'b5tx-dev',SHA2('b5tx-out-token',256));INSERT IGNORE INTO t_user_role(id,user_id,role_id) VALUES ('b5tx-stu2-m','b5tx-stu2','sweep-student-role'),('b5tx-out-m','b5tx-out','sweep-student-role');",
+   "steps": [
+    {
+     "name": "rule-zero-coefficients",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "title": "rule-zero-coefficients",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":0,\"l\":0},\"other\":{\"errorCode\":3,\"muchLessCode\":2,\"muchLessLine\":2,\"muchLessGroups\":2,\"correctMistakes\":1,\"lessPage\":7,\"lessReturnLine\":2,\"errorPage\":3,\"nonStandart\":1,\"alterError\":1}}"
+     },
+     "capture": {
+      "ruleB": "$.data.id"
+     }
+    },
+    {
+     "name": "rule-ui-default-no-alterError",
+     "method": "POST",
+     "path": "/api/gradingRule/saveGradingRule",
+     "who": "admin",
+     "body": {
+      "type": 2,
+      "title": "rule-ui-default-no-alterError",
+      "score": 100,
+      "status": 0,
+      "isDefault": 1,
+      "content": "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":100,\"r\":0,\"l\":1},\"other\":{\"errorCode\":3,\"muchLessCode\":2,\"muchLessLine\":2,\"muchLessGroups\":2,\"correctMistakes\":2,\"lessPage\":7,\"lessReturnLine\":2,\"errorPage\":3,\"nonStandart\":1}}"
+     },
+     "capture": {
+      "ruleC": "$.data.id"
+     }
+    },
+    {
+     "name": "tx3-cable-type-create",
+     "method": "POST",
+     "path": "/api/cable/type/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 12-group floor edges type"
+     },
+     "capture": {
+      "typeId": "$.data[0].id"
+     }
+    },
+    {
+     "name": "tx3-cable-create",
+     "method": "POST",
+     "path": "/api/cable/save",
+     "who": "admin",
+     "body": {
+      "title": "B5 telex 12-group floor edges",
+      "typeId": "${typeId}",
+      "scope": 0,
+      "codeType": 1,
+      "codeSort": 0,
+      "floors": [
+       [
+        [
+         "1",
+         "2",
+         "3",
+         "4"
+        ],
+        [
+         "5",
+         "6",
+         "7",
+         "8"
+        ],
+        [
+         "9",
+         "0",
+         "1",
+         "2"
+        ],
+        [
+         "3",
+         "4",
+         "5",
+         "6"
+        ],
+        [
+         "7",
+         "8",
+         "9",
+         "0"
+        ],
+        [
+         "2",
+         "4",
+         "6",
+         "8"
+        ],
+        [
+         "1",
+         "3",
+         "5",
+         "7"
+        ],
+        [
+         "8",
+         "0",
+         "2",
+         "4"
+        ],
+        [
+         "6",
+         "9",
+         "1",
+         "3"
+        ],
+        [
+         "4",
+         "7",
+         "2",
+         "5"
+        ],
+        [
+         "3",
+         "8",
+         "1",
+         "6"
+        ],
+        [
+         "5",
+         "0",
+         "9",
+         "2"
+        ]
+       ]
+      ]
+     },
+     "capture": {
+      "cableId": "$.data.id"
+     }
+    },
+    {
+     "name": "add-train-extra-line",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传-多行",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 100,
+      "ruleId": "${ruleB}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainD": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "start-D",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainD}",
+      "status": 1
+     },
+     "sleep": 1.0
+    },
+    {
+     "name": "student-start-D",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainD}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-D",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainD}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9012 3456 7890 2468 1357 8024 6913 4725\n3816 5092\n9999 8888",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-finish-D",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainD}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "student-pat-detail-D",
+     "method": "POST",
+     "path": "/api/generalTelexPat/patDetail",
+     "who": "student",
+     "body": {
+      "trainId": "${trainD}",
+      "userId": "sweep-student"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.deductInfo"
+     ],
+     "mask": [
+      "$.data.content[*].id"
+     ]
+    },
+    {
+     "name": "add-train-150-groups",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传-固定报150",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 150,
+      "ruleId": "${ruleB}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainH": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "start-H",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainH}",
+      "status": 1
+     },
+     "sleep": 0.3
+    },
+    {
+     "name": "student-finish-H-no-pages",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainH}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "add-train-ui-rule",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传-UI规则",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 100,
+      "ruleId": "${ruleC}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainE": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "start-E",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainE}",
+      "status": 1
+     },
+     "sleep": 1.0
+    },
+    {
+     "name": "student-start-E",
+     "method": "GET",
+     "path": "/api/generalTelexPat/startTrain?trainId=${trainE}&attempt=0",
+     "who": "student"
+    },
+    {
+     "name": "student-upload-E",
+     "method": "POST",
+     "path": "/api/generalTelexPat/uploadResult",
+     "who": "student",
+     "body": {
+      "trainId": "${trainE}",
+      "pageNumber": 1,
+      "patValue": "1234 5678 9013 3456 7890 2468 1357 8024 6913 4725\n3816",
+      "protocolVersion": 1,
+      "attempt": 0,
+      "captureIntervals": [
+       {
+        "startedMs": 0,
+        "endedMs": 400
+       }
+      ]
+     }
+    },
+    {
+     "name": "student-finish-E-rule-without-alterError",
+     "method": "POST",
+     "path": "/api/generalTelexPat/finish",
+     "who": "student",
+     "body": {
+      "trainId": "${trainE}",
+      "attempt": 0
+     },
+     "parse_json": [
+      "$.data[*].deductInfo"
+     ]
+    },
+    {
+     "name": "add-train-status-edges",
+     "method": "POST",
+     "path": "/api/generalTelexPat/add",
+     "who": "admin",
+     "body": {
+      "title": "B5电传-状态边界",
+      "isCable": 1,
+      "startPage": 1,
+      "totalNumber": 100,
+      "ruleId": "${ruleB}",
+      "userId": [
+       "sweep-student"
+      ],
+      "trainType": 0,
+      "patType": 0,
+      "type": 0,
+      "cableId": "${cableId}"
+     },
+     "capture": {
+      "trainF": "$.data.id"
+     },
+     "mask": [
+      "$.data.id"
+     ],
+     "parse_json": [
+      "$.data.ruleContent"
+     ]
+    },
+    {
+     "name": "end-before-start",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainF}",
+      "status": 2
+     }
+    },
+    {
+     "name": "start-F",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainF}",
+      "status": 1
+     }
+    },
+    {
+     "name": "start-F-again",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainF}",
+      "status": 1
+     }
+    },
+    {
+     "name": "status-invalid-5",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainF}",
+      "status": 5
+     }
+    },
+    {
+     "name": "status-missing-train",
+     "method": "POST",
+     "path": "/api/generalTelexPat/updateTrainStatus",
+     "who": "admin",
+     "body": {
+      "trainId": "no-such-train",
+      "status": 1
+     }
+    },
+    {
+     "name": "detail-F-after-status-edges",
+     "method": "POST",
+     "path": "/api/generalTelexPat/detail",
+     "who": "admin",
+     "body": {
+      "trainId": "${trainF}"
+     },
+     "parse_json": [
+      "$.data.ruleContent",
+      "$.data.userInfoList[*].deductInfo"
+     ],
+     "unordered": [
+      "$.data.userInfoList"
+     ],
+     "mask": [
+      "$.data.id",
+      "$.data.validTime"
+     ]
+    },
+    {
+     "name": "delete-F",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainF}",
+     "who": "admin"
+    },
+    {
+     "name": "delete-E-poisoned-in-java",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainE}",
+     "who": "admin"
+    },
+    {
+     "name": "delete-H",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainH}",
+     "who": "admin"
+    },
+    {
+     "name": "delete-D",
+     "method": "GET",
+     "path": "/api/generalTelexPat/delete?trainId=${trainD}",
+     "who": "admin"
+    }
+   ]
+  }
+ ]
+}

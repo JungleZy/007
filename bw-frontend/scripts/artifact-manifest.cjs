@@ -15,9 +15,8 @@ const requiredWebFiles = ['index.html', 'processor.js', 'runtime-config.js'];
 const desktopRoot = path.join(repoRoot, 'bw-frontend');
 const desktopUnpacked = path.join(desktopRoot, 'out/linux-unpacked');
 const desktopManifest = 'desktop-linux-manifest.json';
-// 桌面包的可运行性依赖这四个文件：后端二进制（service/index.js 按
-// `<appPath>/bin/server/server` 启动）、asar 主体，以及 extraFiles 带入的
-// bin/config.json（缺失会让 loadConfig 走 catch，全部 ipc 处理器失效）与 bin/nip.db。
+// Linux 制品保留后端、asar、默认 nip.db 以及历史 config.json 资产。
+// config.json 不再由 loadConfig 消费；Windows 安装升级仍须保全其旧内容。
 const requiredDesktopFiles = ['bin/config.json', 'bin/nip.db', 'bin/server/server', 'resources/app.asar'];
 const nativeTargets = {
   'linux-amd64': { platform: 'linux', architecture: 'x86_64', extension: '' },

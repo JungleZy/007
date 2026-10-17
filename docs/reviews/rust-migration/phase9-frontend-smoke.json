@@ -1,153 +1,499 @@
 {
-  "schema": "rust-migration-phase9-frontend-smoke/v1",
-  "status": "PARTIAL_NO_CUTOVER",
-  "known_boundary": "Real browser keyboard entering lifecycle completed with server-derived score; Electron WS/upload/download/exit, real serial/audio perception, release build/platform acceptance and production cutover remain unverified by this browser run. External file-service icon request was unavailable and is recorded rather than hidden.",
-  "historical_verification": {
-    "frontend_tests": "39 passed, 0 failed",
-    "frontend_production_build": "passed; Vite output and artifact manifest generated",
-    "browser_surface": "frontend dev server loaded at http://127.0.0.1:18097/; title rendered; authorization entry displayed; empty authorization submission showed expected local validation '授权失败,请输入授权码!'",
-    "electron": "Rust release binary manually loaded into out/linux-unpacked/bin/server/server; Java supplied real dynamic menus and login token; Electron automation loaded offline license, rendered the authenticated Hanzi Pinyin training list with 3 tiles, clicked a tile into practice, and observed HTTP200 enteringExercise statisticalPage/lastTrain/add/getById requests; real serial selection still reported missing KEYSIM-VIRTUAL"
+  "schema": "rust-migration-phase9-frontend-smoke/v2",
+  "verified_at_utc": "2026-10-14T05:32:08+00:00",
+  "status": "PASS_LOCAL_LINUX_RUST_CLIENT_WORKFLOWS",
+  "supersedes": "The previous PARTIAL_NO_CUTOVER browser/Electron report is historical in git; current claims below are from this actual run.",
+  "scope": {
+    "host": "Linux x86_64 / WSL2",
+    "browser": "Google Chrome155.0.8059.39; separate native process attached by CDP for final editor proof",
+    "electron": "Electron30.5.1, real electron-builder --linux --dir output, packaged file:// app.asar renderer",
+    "backend": "Actual Rust release copied into the isolated package bin/server/server and spawned by Electron, not a prestarted or mocked service",
+    "database": "rust_client_ui_2286d8d39d2311a4",
+    "synthetic_only": true,
+    "java_supplied_login_or_menus": false,
+    "production_changed": false
   },
-  "historical_verified_at_utc": "2026-09-24T10:05:04Z",
-  "verified_at_utc": "2026-09-27T19:54:07.225751+00:00",
-  "current_browser": {
-    "mode": "Real Chromium, Vue dev server18124, Rust HTTP18122; existing development license entry used without changing license or authentication code",
-    "user": "synthetic parity-ui",
-    "flow": [
-      "real login using repository menu configuration",
-      "create type1 words 中国 and ，",
-      "start through UI",
-      "type zhong through real keyboard",
-      "pause",
-      "resume",
-      "type guo,",
-      "finish through UI"
-    ],
-    "pause": {
-      "status": 3,
-      "value": "zhong",
-      "correctNum": 0,
-      "errorNum": 0,
-      "elapsedMillis": 136
-    },
-    "final_database_record": "2\t2\t0\t100.00\t3\t31\t[{\"font\":\"中国\",\"value\":\"zhongguo\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\"z\",\"trueOrfalse\":true},{\"py\":\"h\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true},{\"py\":\"n\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"g\",\"trueOrfalse\":true},{\"py\":\"u\",\"trueOrfalse\":true},{\"py\":\"o\",\"trueOrfalse\":true}]},{\"font\":\"，\",\"value\":\",\",\"isFocus\":true,\"trueOrfalse\":true,\"pys\":[{\"py\":\",\",\"trueOrfalse\":true}]}]",
-    "rendered_result": {
-      "status": "练习已结束",
-      "correctNum": 2,
-      "errorNum": 0,
-      "accuracy": "100%",
-      "speed": "3组/分",
-      "duration": "00 : 00 : 31"
-    },
-    "network": [
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/statisticalPage",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/lastTrain",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/add",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/getById",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/begin",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/pause",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/goTo",
-        "status": 200
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/enteringExercise/finish",
-        "status": 200
-      }
-    ],
-    "screenshot": "/tmp/omp-sshots-159066a16d18c934.webp",
-    "boundaries": [
-      "Browser only, not packaged Electron or physical hardware.",
-      "External icon-file service was not running in this lab; its iconfont request failed.",
-      "Old incomplete Rust fixture lacked active_started_at and was correctly rejected; it was not silently repaired or reused as the successful case."
-    ]
+  "provenance": {
+    "application_base_commit": "487c9908eaaacc4e97d087406dfdefe6f5c57316",
+    "frontend_source_dirty_at_build": true,
+    "frontend_manifest_sha256": "b38c1d68ce48bea2659851c80b2aca4f1405a2b909387026bc25141625e95ff6",
+    "editor_source_sha256": "5cd17d49e9a05e3a9d47213946a0183ce36561c8fd7c0699de730ba12722b0c5",
+    "packaged_asar_sha256": "be80dfb221ca71b3c3efd7d7efb35760ff13c56b31cd7434350758ed5d1710ef",
+    "rust_release_sha256": "55cfc3f66bfca52ccec0f40e32dbcb8e8f40c6494d211177b5fed7f1ca7cceda",
+    "package_command": "npx --no-install electron-builder --linux --dir --publish never --config.electronDist=node_modules/electron/dist --config.directories.output=<isolated cache stage>"
   },
-  "synthetical_browser": {
-    "route": "/preview/basicSkill/preJob/telegram/patExam",
-    "steps": [
-      "real Rust login",
-      "open comprehensive training configuration",
-      "create100-row training",
-      "navigate to examComplexTrain and fetch owned detail",
-      "enable browser audio context",
-      "exit unstarted exercise"
+  "fixture": {
+    "database_setup": "mysqldump --no-data --skip-triggers --set-gtid-purged=OFF --no-tablespaces project006; unique rust_client_ui_* schema, no source data copy",
+    "roles": "Only this isolated fixture has is_admin=0,is_default=0 admin role; actual /api/user/signin creates two synthetic users and password hashes.",
+    "menus": [
+      [
+        "ui-dashboard",
+        "-1",
+        "dashboard",
+        "UiDashboard",
+        "首页",
+        "/manage/dashboard/Index",
+        0
+      ],
+      [
+        "ui-basic",
+        "-1",
+        "basicSkill",
+        "UiBasic",
+        "基础技能",
+        "/manage/postJob/Index",
+        0
+      ],
+      [
+        "ui-post",
+        "ui-basic",
+        "postJob",
+        "UiPost",
+        "岗位训练",
+        "/manage/postJob/Index",
+        0
+      ],
+      [
+        "ui-hanzi",
+        "ui-post",
+        "hanzi",
+        "UiHanzi",
+        "文字训练",
+        "/manage/postJob/hanzi/Index",
+        0
+      ],
+      [
+        "ui-article",
+        "ui-hanzi",
+        "articleManage",
+        "UiArticle",
+        "文章管理",
+        "/manage/postJob/hanzi/articleManage/Index",
+        0
+      ],
+      [
+        "ui-english",
+        "ui-hanzi",
+        "postEnglish",
+        "UiEnglish",
+        "英文训练",
+        "/manage/postJob/hanzi/english/list/Index",
+        0
+      ],
+      [
+        "ui-practice",
+        "ui-hanzi",
+        "postEnglishPractice",
+        "UiPractice",
+        "英文练习",
+        "/manage/postJob/hanzi/english/practice/Index",
+        1
+      ],
+      [
+        "ui-upload",
+        "-1",
+        "acceptanceUpload",
+        "UiUpload",
+        "课件导入",
+        "/manage/basicTheory/study/basic/edit/Index",
+        0
+      ]
     ],
-    "network": [
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/statisticalPage",
-        "status": 200,
-        "resourceType": "xhr"
+    "credentials": "Ephemeral generated passwords, actual login forms; no token/localStorage session forgery. Passwords and tokens are intentionally absent from this evidence.",
+    "article": {
+      "created_via": "Electron article-management UI: select English, import UTF-8 txt, save",
+      "submitted": {
+        "name": "ui-english",
+        "content": "alpha beta gamma",
+        "type": 2
       },
-      {
-        "method": "OPTIONS",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/statisticalPage",
-        "status": 200,
-        "resourceType": "other"
-      },
-      {
-        "method": "OPTIONS",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/lastTrain",
-        "status": 200,
-        "resourceType": "other"
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/lastTrain",
-        "status": 200,
-        "resourceType": "xhr"
-      },
-      {
-        "method": "OPTIONS",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/save",
-        "status": 200,
-        "resourceType": "other"
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/save",
-        "status": 200,
-        "resourceType": "xhr"
-      },
-      {
-        "method": "OPTIONS",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/findById",
-        "status": 200,
-        "resourceType": "other"
-      },
-      {
-        "method": "POST",
-        "url": "http://127.0.0.1:18122/api/telegraphKeyPatTrainSynthetical/findById",
-        "status": 200,
-        "resourceType": "xhr"
+      "returned": {
+        "code": 200,
+        "data": {
+          "content": "[\"alpha beta gamma\"]",
+          "id": 116,
+          "name": "ui-english",
+          "type": 2,
+          "wordSize": 3
+        },
+        "message": "ok",
+        "description": ""
       }
+    },
+    "avatar": "Genuine tracked HJJ/pag-avatar-man.png copied into the private file-service fixture; no production assets modified."
+  },
+  "license": {
+    "path": "Existing owner-approved development activation code entered through the real authorization form; validation code unchanged.",
+    "evidence_anchor": "docs/reviews/2026-09-18-frontend-consistency-redundancy-review.md:196-201",
+    "isolation": "unshare user+mount namespace, mount propagation private, bind private machine-varlib onto /var/lib; dedicated --user-data-dir and HOME.",
+    "observed_paths": {
+      "paths": {
+        "machine": "/var/lib/nip-traffic-system/license.json",
+        "user": "/home/zhang/.cache/rust-client-acceptance/electron-profile/license.json"
+      },
+      "machinePresent": true,
+      "userPresent": true
+    },
+    "not_proven": "Ordinary encrypted device-bound licenses, cross-account production persistence and real device licensing are not proven by the development activation branch."
+  },
+  "login": {
+    "electron": {
+      "url": "file:///home/zhang/.cache/rust-client-acceptance/electron/linux-unpacked/resources/app.asar/public/dist/index.html#/preview/dashboard",
+      "http": [
+        {
+          "url": "http://localhost:18001/api/user/login",
+          "status": 200,
+          "method": "XHR"
+        }
+      ],
+      "websockets": [
+        {
+          "id": "53775.96",
+          "url": "ws://localhost:18001/websocket/f30f8472-802e-4a95-bb4d-7295e5244b64"
+        }
+      ],
+      "heartbeats": [
+        {
+          "direction": "sent",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_ping__"
+        },
+        {
+          "direction": "received",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_pong__"
+        },
+        {
+          "direction": "sent",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_ping__"
+        },
+        {
+          "direction": "received",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_pong__"
+        }
+      ]
+    },
+    "browser": {
+      "url": "http://127.0.0.1:18154/#/preview/dashboard",
+      "real_form": true,
+      "own_registered_account": "uibrowser5ba8"
+    }
+  },
+  "upload": {
+    "protocol": "Actual a-upload file control -> POST /api/theoryKnowledge/uploadFileToNip with multipart/form-data boundary and token/deviceId headers.",
+    "electron": {
+      "response": {
+        "code": 200,
+        "data": {
+          "imgUrls": [],
+          "type": 2,
+          "wordContent": "Rust multipart 上传验收\nalpha beta gamma\n<b>这行必须作为文本显示</b>\n"
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "surface": {
+        "text": "Rust multipart 上传验收\n\nalpha beta gamma\n\n<b>这行必须作为文本显示</b>\n\n\n",
+        "boldNodes": 0
+      }
+    },
+    "native_browser": {
+      "status": 200,
+      "response": {
+        "code": 200,
+        "data": {
+          "imgUrls": [],
+          "type": 2,
+          "wordContent": "Rust multipart 上传验收\nalpha beta gamma\n<b>这行必须作为文本显示</b>\n"
+        },
+        "message": "ok",
+        "description": ""
+      },
+      "surface": {
+        "text": "Rust multipart 上传验收\n\nalpha beta gamma\n\n<b>这行必须作为文本显示</b>\n\n\n",
+        "boldNodes": 0
+      }
+    },
+    "assertion": "Both return the complete UTF-8 content; the real TinyMCE body displays literal <b> text and contains zero b elements. This is Rust multipart, not the separate Node image upload service."
+  },
+  "training": {
+    "kind": "Post-job English keyboard practice, created and typed through real pages; not physical Morse/serial training.",
+    "electron": {
+      "id": "8297edec-35f8-4d07-a967-3f3eac026013",
+      "typed": "alpha beta gammb",
+      "stored": {
+        "id": "8297edec-35f8-4d07-a967-3f3eac026013",
+        "type": 2,
+        "speed": 3,
+        "status": 2,
+        "content": "[{\"font\":\"alpha beta gamma\",\"isFirst\":false,\"trueOrfalse\":false,\"value\":\"alpha beta gammb\"}]",
+        "accuracy": 66.67,
+        "duration": 49,
+        "errorNum": 1,
+        "correctNum": 2
+      },
+      "surface": "主 页\n使用说明\n验收教员\n文字训练\n文章管理\n英文训练\n当前训练时长\n正确\n2个\n错误\n1个\n正确率\n66%\n速度\n3词/分\n查看成绩\nalpha beta gamma\nalphabetagammb\n本次训练用时\n00 : 00 : 49\n正确率\n66%\n速度\n3\n词/分\n正确字数\n 2个\n错误字数\n  1个\n评分等级\n暂无匹配的数据\n离线授权状态"
+    },
+    "browser": {
+      "id": "f326f77e-9b6c-4e91-b21d-7d7b7812849b",
+      "typed": "alpha beta gamma ",
+      "wire": {
+        "submitted": {
+          "id": "f326f77e-9b6c-4e91-b21d-7d7b7812849b",
+          "content": "[{\"font\":\"alpha beta gamma\",\"value\":\"alpha beta gamma \",\"isFirst\":false}]"
+        },
+        "finish": {
+          "code": 200,
+          "data": null,
+          "message": "ok",
+          "description": ""
+        },
+        "result": {
+          "code": 200,
+          "data": {
+            "accuracy": 75,
+            "content": "[{\"font\":\"alpha beta gamma\",\"isFirst\":false,\"trueOrfalse\":false,\"value\":\"alpha beta gamma \"}]",
+            "correctNum": 3,
+            "createTime": "2026-10-14 04:35:23",
+            "duration": 0,
+            "endTime": "2026-10-14 04:35:23",
+            "errorNum": 1,
+            "id": "f326f77e-9b6c-4e91-b21d-7d7b7812849b",
+            "name": "英语文章-261013103522",
+            "speed": 180,
+            "startTime": "2026-10-14 04:35:22",
+            "status": 2,
+            "type": 2
+          },
+          "message": "ok",
+          "description": ""
+        }
+      },
+      "stored": {
+        "id": "f326f77e-9b6c-4e91-b21d-7d7b7812849b",
+        "type": 2,
+        "speed": 180,
+        "status": 2,
+        "content": "[{\"font\":\"alpha beta gamma\",\"isFirst\":false,\"trueOrfalse\":false,\"value\":\"alpha beta gamma \"}]",
+        "accuracy": 75.0,
+        "duration": 0,
+        "errorNum": 1,
+        "correctNum": 3
+      },
+      "surface": "主 页\n使用说明\n验收教员\n文字训练\n文章管理\n英文训练\n当前训练时长\n正确\n3个\n错误\n1个\n正确率\n75%\n速度\n180词/分\n查看成绩\nalpha beta gamma\nalphabetagamma\n本次训练用时\n00 : 00 : 00\n正确率\n75%\n速度\n180\n词/分\n正确字数\n 3个\n错误字数\n  1个\n评分等级\n暂无匹配的数据\n离线授权状态"
+    },
+    "authority": "Browser finish request contains only id and content; the UI reloads getById after finish. Both actual UI result panels match persisted correct/error/time/speed values; the existing UI displays integer percentages (66 for stored66.67).",
+    "trailing_space": "Browser input deliberately ended in a space. Java PostEnteringExerciseService:211-212 uses split(\" \", -1), preserving an extra empty word; Rust correctly returns3 correct/1 error/75%. No score semantics were changed."
+  },
+  "websocket": {
+    "electron": {
+      "connections": [
+        {
+          "id": "53775.96",
+          "url": "ws://localhost:18001/websocket/f30f8472-802e-4a95-bb4d-7295e5244b64"
+        }
+      ],
+      "heartbeat_sample": [
+        {
+          "direction": "sent",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_ping__"
+        },
+        {
+          "direction": "received",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_pong__"
+        },
+        {
+          "direction": "sent",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_ping__"
+        },
+        {
+          "direction": "received",
+          "id": "53775.96",
+          "payload": "__nip_heartbeat_pong__"
+        }
+      ]
+    },
+    "browser_reload": {
+      "created": [
+        {
+          "id": "61734.451",
+          "url": "ws://127.0.0.1:18001/websocket/74ab7c81-92cb-4b7d-bcfa-62b1b2585009"
+        }
+      ],
+      "frames": [
+        {
+          "id": "61734.451",
+          "direction": "sent",
+          "payload": "__nip_heartbeat_ping__"
+        },
+        {
+          "id": "61734.451",
+          "direction": "received",
+          "payload": "__nip_heartbeat_pong__"
+        }
+      ],
+      "closed": []
+    },
+    "browser_logout": {
+      "url": "http://127.0.0.1:18154/#/login",
+      "closed": [
+        {
+          "id": "61734.451"
+        }
+      ],
+      "hasToken": false
+    },
+    "assertion": "Actual UI Ws client authenticated, sent __nip_heartbeat_ping__, received __nip_heartbeat_pong__; browser reload reconnected and real logout closed its socket and removed the token.",
+    "not_proven": "Not all room/stateful group-training WS UI flows or hardware behaviors."
+  },
+  "exit": {
+    "action": "Rendered HJJ settings -> close software -> confirm",
+    "electron_pid": 53549,
+    "rust_pid": 53713,
+    "file_pid": 53708,
+    "electron_exit_code": 0,
+    "rust_exit_code": 0,
+    "rust_log": [
+      "shutdown signal received",
+      "rust backend stopped gracefully"
     ],
-    "boundary": "Starting keyed capture requires a real serial device. No fake device flags or synthetic PubSub input were injected; this is creation/detail/navigation evidence, not a complete device workflow."
-  }
+    "closed_ports": [
+      18001,
+      8000,
+      18153
+    ],
+    "owned_pids_absent": true
+  },
+  "rebuilt_package_exit": {
+    "parent_pid": 73570,
+    "rust_child_pid": 73735,
+    "file_child_pid": 73730,
+    "electron_exit_code": 0,
+    "rust_exit_code": 0,
+    "action": "Real settings dropdown -> close software -> confirm",
+    "rust_log": [
+      "shutdown signal received",
+      "rust backend stopped gracefully"
+    ],
+    "ports_closed": [
+      18001,
+      8000,
+      18153
+    ],
+    "owned_pids_absent": true
+  },
+  "regression": {
+    "file": "bw-frontend/frontend/src/views/manage/basicTheory/study/basic/edit/js/useEdit.js",
+    "before": "Empty difficultyList/specialtyList caused an observed uncaught TypeError while reading [0].id in real browser and Electron.",
+    "change": "Only assign the existing first-category default when its list is nonempty; no auth, API or nonempty-list behavior change.",
+    "after": "Rebuilt packaged Electron and separate native Chrome both opened the editor against zero category rows, completed real multipart upload and rendering, and reported zero JavaScript errors.",
+    "proof": {
+      "before": "real Electron/browser TypeError reading id from empty difficultyList/specialtyList",
+      "after_electron": {
+        "classification_response": {
+          "code": 200,
+          "data": {
+            "difficultyList": [],
+            "specialtyList": []
+          },
+          "message": "ok",
+          "description": ""
+        },
+        "upload": {
+          "response": {
+            "code": 200,
+            "data": {
+              "imgUrls": [],
+              "type": 2,
+              "wordContent": "Rust multipart 上传验收\nalpha beta gamma\n<b>这行必须作为文本显示</b>\n"
+            },
+            "message": "ok",
+            "description": ""
+          },
+          "surface": {
+            "text": "Rust multipart 上传验收\n\nalpha beta gamma\n\n<b>这行必须作为文本显示</b>\n\n\n",
+            "boldNodes": 0
+          }
+        },
+        "pageerrors": []
+      },
+      "after_native_browser": {
+        "upload": {
+          "status": 200,
+          "response": {
+            "code": 200,
+            "data": {
+              "imgUrls": [],
+              "type": 2,
+              "wordContent": "Rust multipart 上传验收\nalpha beta gamma\n<b>这行必须作为文本显示</b>\n"
+            },
+            "message": "ok",
+            "description": ""
+          },
+          "surface": {
+            "text": "Rust multipart 上传验收\n\nalpha beta gamma\n\n<b>这行必须作为文本显示</b>\n\n\n",
+            "boldNodes": 0
+          }
+        },
+        "errors": []
+      },
+      "fixed_stage": "/home/zhang/.cache/rust-client-acceptance/electron-fixed/linux-unpacked",
+      "asar_sha256": "be80dfb221ca71b3c3efd7d7efb35760ff13c56b31cd7434350758ed5d1710ef",
+      "source_sha256": "5cd17d49e9a05e3a9d47213946a0183ce36561c8fd7c0699de730ba12722b0c5",
+      "electron_rebuilt_parent_pid": 73570,
+      "rust_child_pid": 73735,
+      "file_child_pid": 73730
+    },
+    "test_boundary": "Real failing-before/passing-after UI smoke, not a source-text or mocked Vue wiring test."
+  },
+  "verification": {
+    "java": "JDK21 ./mvnw -B clean verify:513 passed",
+    "rust": "cargo fmt --check and cargo test --locked:79 passed; DB-free native Linux artifact smoke passed",
+    "frontend": "npm test:39 passed; production build and actual unpacked Electron packaging passed, then rebuilt after the fix",
+    "desktop_manifest": "node --test scripts/test/*.test.mjs:5 passed",
+    "python": "migration script unittest suite:81 passed"
+  },
+  "screenshots": {
+    "electron-server-score": {
+      "path": "/home/zhang/.cache/rust-client-acceptance/visual-evidence/electron-server-score.webp",
+      "sha256": "abe7437f336f2e2318d7f0f204544f36f358c3dd4173d74ccbbad1a20f31702b"
+    },
+    "browser-server-score": {
+      "path": "/home/zhang/.cache/rust-client-acceptance/visual-evidence/browser-server-score.webp",
+      "sha256": "da794640246b5bc1891a3729964849c47d591be5b52bf0d5d7087e52c252fa7d"
+    },
+    "electron-empty-classification-fixed": {
+      "path": "/home/zhang/.cache/rust-client-acceptance/visual-evidence/electron-empty-classification-fixed.webp",
+      "sha256": "622c29572acbfd684c6198a4eccbc8a427611d9d8f1b8167d4c7b2d26215adfe"
+    },
+    "native-browser-upload": {
+      "path": "/home/zhang/.cache/rust-client-acceptance/visual-evidence/native-browser-upload.webp",
+      "sha256": "8eeede16d090fa53f3dcfe4d88c811f05b097deda6da06462e40bdd46c99e2b5"
+    },
+    "electron-exit-confirmation": {
+      "path": "/home/zhang/.cache/rust-client-acceptance/visual-evidence/electron-exit-confirmation.webp",
+      "sha256": "61a4a426bc69a4c457176d836087419a9283ce7a51e6b708db02290764ee2cde"
+    }
+  },
+  "cleanup": {
+    "synthetic_database_dropped": "rust_client_ui_2286d8d39d2311a4",
+    "remaining_schema_count": 0,
+    "owned_desktop_processes_exited": true,
+    "frontend_http_service_stopped": true,
+    "native_browser_process_stopped": true,
+    "all_managed_tabs_released": true,
+    "host_license_stores_untouched": true
+  },
+  "limitations": [
+    "Local Linux client workflow proof only; no production cutover, installer/signing acceptance or remote GitHub Actions result.",
+    "No real serial/keying device, audio perception, physical customer workstation or all-training-domain UI acceptance.",
+    "Default cover/icon resources are absent from the synthetic file-service fixture; their404s were observed, not silently replaced. This round does not prove the complete customer file resource bundle or download workflows.",
+    "Managed viewport-emulated Chromium produced an iframe addEventListener Illegal invocation specific to that setup. It was reported to tool QA; the same built app passed in separately launched native Chrome over CDP, without changing TinyMCE.",
+    "Existing build warnings (large chunks/deep selectors/module-script notices), Node module/lifecycle warnings and Python socket ResourceWarning remain recorded, not suppressed."
+  ]
 }

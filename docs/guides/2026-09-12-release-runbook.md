@@ -142,9 +142,11 @@ token 从「AES(账号-明文口令-deviceId)」改为 `SecureRandom` 不透明�
 
 ### 4.4 桌面包
 
-- 随包 `bin/nip.db` 已归一为发布态默认（`localhost:18001` / `127.0.0.1:8000`），`_id:3`（串口）不预置 —— 首次启动由用户在网络设置/串口页选择。该文件**运行时可写**，用户改设置即写回，因此不纳入 CI 脏检查。
+- 随包 `bin/nip.db` 默认是 `localhost:18001` / `127.0.0.1:8000`，不预置串口行。Windows 首次启动将旧 `bin/{nip.db,nip.db~,config.json,file}` 整批迁至 `<app.getPath('userData')>/runtime/bin`，之后只写新位置；旧数据不与已有 runtime 合并或覆盖。授权副本与 Chromium profile 不移动，后端仍从安装目录 `bin/server/server.exe` 启动。Linux 路径保持不变。
+- Windows NSIS 升级前必须正常退出客户端及其服务。安装器先在 `<旧安装目录>.nip-data-backups/<GUID>` 保存逐文件 SHA256 验证的持久快照，旧卸载前再次检查进程与数据；安装后恢复旧 bin，供首次启动原子迁移。快照保留，不自动删除；备份/迁移失败、数据中存在链接、旧卸载失败均中止，不把失败当作全新安装。默认 per-user 安装器检测到 machine-wide 旧安装会在卸载前拒绝，须管理员制定共享数据迁移，不能猜归属。
 - 渲染进程启用 `contextIsolation` + preload 白名单桥、移除 `--ignore-certificate-errors`：**错误证书不再被静默接受**，若现场用自签名 HTTPS 资源服务会直接失败（G4 可信证书门禁仍是外部前置）。
 - 内嵌文件服务默认只监听 `127.0.0.1:8000`。跨机访问「资源服务地址」能力保留，但需显式配置监听地址。
+- 资源根下的符号链接/Windows junction 不能指向根外：下载返回404，上传返回400且不创建根外目录或文件。2026-10-14 实际文件服务复现并修复了「下载已挡、上传仍沿链接写出根外」的不一致；正常上传/下载的相对路径与 `{data:[path]}` 不变。回归入口：安装桌面依赖后运行 `node --test bw-frontend/scripts/runtime-test/file-storage.test.mjs`，使用真实HTTP与私有临时目录；不混入免依赖的发布清单契约测试。
 - 发布校验会断言 git tag 与三个版本号（`backend/pom.xml`、`bw-frontend/frontend/package.json`、`bw-frontend/package.json`）一致，打 tag 前先对齐。
 
 ### 4.5 Native 构建：会话随机数必须运行期初始化
@@ -168,6 +170,28 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
 2026-09-12 修复阶段的**历史/中间执行记录**：392 个 JVM 测试全绿、Mandrel 23.1.12.1 Native 构建成功，产物最高 glibc
 要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
 数据库业务可用。本轮本地最终基线为 **502 测试 / 115 suite**、前端 **37/37 + build**，22个迁移（20 schema + 2 data）的schema与电子统计专项双快照演练通过。最终三平台native Actions结果见`docs/reviews/2026-09-15-full-project-review.md`；native CI不等于目标桌面实机、可信证书、生产凭据或真实硬件验收。
+
+### 4.6 Windows 内置 Rust：个人未签名包
+
+用户已选择**个人使用、不签名、不分发**。此路径不发 GitHub Release、不改正式 Java tag 发布链，也不代表生产切换或 Phase10 放行。Windows 可能显示未知发布者提示；不要关闭系统安全策略来冒充可信签名。
+
+从完整仓库构建，输入须是已核对来源和 SHA256 的 Windows x64 Rust 制品；输出目录必须为空：
+
+```powershell
+npm ci --prefix bw-frontend
+npm ci --prefix bw-frontend/frontend
+node bw-frontend/scripts/build-personal-rust.cjs C:\verified\rust-backend.exe C:\personal-build
+```
+
+- 产出真正的 NSIS 安装器及 `personal-rust-package.json`，记录源码、安装器、Rust 二进制和启动 profile 摘要；不会把目录包或失败构建当安装器。脚本拒绝覆盖已有 `bw-frontend/bin/server`，也不创建或迁移数据库。
+- 个人程序为 `NipRustPersonal.exe`，appId、包名、产品名与 Java/验证版分开；默认用户数据命名空间也独立。验证脚本仍用隔离的 validation 标识，不作为个人包分发。
+- `bin/server/backend.json` 由 canonical `platform/flags.rs` 生成，只含非秘密启动描述与二进制摘要。普通启动自行绑定 `127.0.0.1:18001` 并开启包内功能开关，不依赖 CI 注入地址/开关，不接受损坏 profile 后静默回退 Java。
+- 启动前须配置 **`RUST_BACKEND_DATABASE_URL`**，指向已按实际迁移台账准备好的个人 MySQL 库。口令中的保留字符须按 URL 编码；不要把连接串写入安装目录、profile、提交或构建参数。可通过当前用户环境或私有启动环境传入，不需要设置 22 个开关。
+- 未提供数据库配置、配置/二进制校验失败、18001 被占用、数据库不可就绪时，启动中止并给出错误；不抢占或终止别人的进程。日志保留故障信息但脱敏数据库凭据。`/ready` 只证明连接可用，**不证明 schema、业务数据或迁移完整**。
+- 端口探测针对实际的 IPv4 回环地址：先拒绝已有 TCP 监听，再检查绑定权限；Windows 上不能用 IPv6 通配绑定代替 `127.0.0.1` 的占用判定。
+- Windows 验收以可见窗口启动缺数据库配置场景，读取真实原生对话框并截图，确认没有 Rust/文件服务/renderer 子进程；观察失败保留 UI 树与桌面截图，不以 stderr 文本代替界面证据。
+- 在维护窗口启动：先结束训练、排空 WS，停掉原 Java 写入和后台任务，再启动 Rust；资料尚未准备时不要把两个全开后端接到同一库。保留原 Java、数据库和个人资源备份。
+- 在 Windows 原生环境构建最直接。Linux 交叉构建需完整 Wine 工具链（包括 NSIS 卸载器使用的 32 位组件）；不能通过跳过资源编辑、卸载器生成或改成目录包消除依赖失败。
 
 ## 5. 发布后验证
 

@@ -1,8 +1,2667 @@
 {
-  "schema":"rust-migration-phase9-cutover-rehearsal/v1",
-  "verified_at_utc":"2026-09-27T19:30:00Z",
-  "status":"PASS_ISOLATED_RUST_ONLY",
-  "script":"backend-rust/scripts/phase9-cutover-rehearsal.sh",
-  "result":"Rust release binary built with --locked, started on isolated 127.0.0.1:18106, readiness returned process-only, SIGTERM exited cleanly",
-  "known_boundary":"Java-to-Rust gateway switch, production port 18001, write freeze, database rollback, and domain traffic drain were not exercised."
+  "schema": "rust-migration-phase9-cutover-rehearsal/v2",
+  "verified_at_utc": "2026-10-14T02:50:13+00:00",
+  "status": "PASS_REAL_LOCAL_GATEWAY",
+  "supersedes": "PASS_ISOLATED_RUST_ONLY; the old process-only rehearsal has been replaced, not retained as a fallback.",
+  "script": "backend-rust/scripts/phase9-cutover-rehearsal.sh",
+  "command": "MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh --nginx-binary \"$HOME/.cache/rust-cutover/native-nginx/root/usr/sbin/nginx\" --out \"$HOME/.cache/rust-cutover/global-rule-gateway-native.json\"",
+  "scope": {
+    "domain": "/api/postTrainGlobalRule",
+    "writer_table": "t_post_train_global_rule",
+    "gateway_url": "http://127.0.0.1:18140",
+    "backends": {
+      "java": {
+        "pid": 26237,
+        "port": 18141,
+        "bind": "127.0.0.1"
+      },
+      "rust": {
+        "pid": 26325,
+        "port": 18142,
+        "bind": "127.0.0.1"
+      },
+      "gateway": {
+        "pid": 26347,
+        "port": 18140,
+        "bind": "127.0.0.1"
+      }
+    },
+    "source_data_copied": false,
+    "production_changed": false,
+    "frontend_or_electron_changed": false,
+    "selection": "DeviceType was rejected because deletion also writes device/description tables; postTrainGlobalRule has one table, three HTTP endpoints, no room state, no entity cache and existing B8 parity."
+  },
+  "runtime_provenance": {
+    "application_source_revision": "3abd858698dbb591982e817032f1540b3ed18025",
+    "artifacts": {
+      "nginx": {
+        "path": "/home/zhang/.cache/rust-cutover/native-nginx/[REDACTED]/usr/sbin/nginx",
+        "sha256": "a24def283d640db0bcad3c81b0630a3444b3079f6c50c956c9bd39330eaca544"
+      },
+      "rust": {
+        "path": "/home/zhang/workspace/007/backend-rust/target/debug/rust-backend",
+        "sha256": "d33e88a9eb7d48c8f0f9ecc53dd1f7fbf6130634b05ce0767f883ffab7e51e50"
+      },
+      "java_fast_jar": {
+        "path": "/home/zhang/workspace/007/backend/target/quarkus-app",
+        "files": [
+          {
+            "path": "app/quarkus-template-3.1.1.jar",
+            "sha256": "8c50a8408c83ac77c1229b188aa3f2cf214fe5ba75b9c31e08ce72e07a059f8b"
+          },
+          {
+            "path": "lib/boot/io.github.crac.org-crac-0.1.3.jar",
+            "sha256": "d77a0c628d1399ee682738851dca13d060fef51601aedad6d1efcd3185f9af09"
+          },
+          {
+            "path": "lib/boot/io.quarkus.quarkus-bootstrap-runner-3.20.4.jar",
+            "sha256": "6edcf2429b556f8eef8b7dbe599b964368d6f9ac7d008fc4f585d257850b3f09"
+          },
+          {
+            "path": "lib/boot/io.quarkus.quarkus-classloader-commons-3.20.4.jar",
+            "sha256": "a03ce0eddae894b81057a8ee102d89aace8eb6a0c9f1722ce037b7bc78272187"
+          },
+          {
+            "path": "lib/boot/io.quarkus.quarkus-development-mode-spi-3.20.4.jar",
+            "sha256": "4105da99250845243938501fd0a76c5742b23fd4f9824caa3fd31186f922f5b1"
+          },
+          {
+            "path": "lib/boot/io.quarkus.quarkus-vertx-latebound-mdc-provider-3.20.4.jar",
+            "sha256": "7a69479e45d2f35c2a941c650b7e4e2671069807e10d1259015a1285682debee"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-constraint-2.12.0.jar",
+            "sha256": "9000921eabb4d1a6f76ccf2376d3524041af62038740df1d10cf0f75b5c93630"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-cpu-2.12.0.jar",
+            "sha256": "9d1dd7d4234c58d89198d777fa1c6b7ad553366f5f6354b81cdc23204ef77090"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-expression-2.12.0.jar",
+            "sha256": "12603cdf10b590147e399565f87247cfca90495bc5b53a5dab8623bd47511454"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-function-2.12.0.jar",
+            "sha256": "f67b7de9ae9d52e47577e392538b1ce57296fae2e20d6b60d093bcd04b045a2c"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-io-2.12.0.jar",
+            "sha256": "623917ec2826efe5867bc91bfa33e760ebf6f712d7a9c1d6bf1e1c8556109791"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-net-2.12.0.jar",
+            "sha256": "91abf905742c8927f8ccce7a609461b15a5bf8f7957cd5c8de0247723caf5dde"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-os-2.12.0.jar",
+            "sha256": "f20a620e75d63c8ac956bd1f69f633951c3fdf5dba53de3f8001ab888c14d701"
+          },
+          {
+            "path": "lib/boot/io.smallrye.common.smallrye-common-ref-2.12.0.jar",
+            "sha256": "ac74f91a1011bfc0cc836b75f1c68f748058158d86fa24cbf3fde100f4b64d22"
+          },
+          {
+            "path": "lib/boot/org.jboss.logging.jboss-logging-3.6.1.Final.jar",
+            "sha256": "5e08a4b092dc85b337f0910a740571d8720cfa565fabd880a8caf94a657ca416"
+          },
+          {
+            "path": "lib/boot/org.jboss.logmanager.jboss-logmanager-3.1.2.Final.jar",
+            "sha256": "c1e7de682a4871a8e4eefb26adaf0fcc63cd0913543c50aa6b7f46fa5ec151fe"
+          },
+          {
+            "path": "lib/main/cn.hutool.hutool-all-5.8.12.jar",
+            "sha256": "029136dbf3f3d6f8ea375591c1f741b93a0decfacebd706daed0112d914e2abf"
+          },
+          {
+            "path": "lib/main/com.aayushatharva.brotli4j.brotli4j-1.16.0.jar",
+            "sha256": "285a0b96150649db6fd9d8a0a22ea98fc2b8a558fc924b21836a59550975485e"
+          },
+          {
+            "path": "lib/main/com.aayushatharva.brotli4j.native-linux-x86_64-1.16.0.jar",
+            "sha256": "b6933c389857e1a7f400455096cec01ee76be73d51a9fb1164d2700d3d31054d"
+          },
+          {
+            "path": "lib/main/com.aayushatharva.brotli4j.service-1.16.0.jar",
+            "sha256": "8e233823936a60d00b9d4434e733bd60aeaaac1c149ae5d9c9e7a49caecafa2d"
+          },
+          {
+            "path": "lib/main/com.cronutils.cron-utils-9.2.1.jar",
+            "sha256": "02af0e8b2fe93c9fa6eecf97b53b39faae14c5b996356edb132e9fe620013744"
+          },
+          {
+            "path": "lib/main/com.fasterxml.classmate-1.7.0.jar",
+            "sha256": "cb868f231c5cceb89d795ea00e6e1b7a93b8f4ac1ce1d8be76dde322dff4a046"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.core.jackson-annotations-2.18.2.jar",
+            "sha256": "581bd61000ef7648943f781ca05689e56d03f6052748365a8e2b3a9b5d3fa32f"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.core.jackson-core-2.18.2.jar",
+            "sha256": "d8054ae7c0d1c2d2f55d28e46026ebe5892881f3fab5f439233184381c3b4a1f"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.core.jackson-databind-2.18.2.jar",
+            "sha256": "4b364e6850dc89172fcf1d4dd26b8ff5488eda44ff4657e22dd265203dd5ab3c"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.dataformat.jackson-dataformat-yaml-2.18.2.jar",
+            "sha256": "381a1c0711e4bb88561a6c0008b5a945465628ca07764ccd66a0d97ee07ad612"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.datatype.jackson-datatype-jdk8-2.18.2.jar",
+            "sha256": "f30d77f5826b9e9813342e84ab412095ed4ed5cf4fef6f93cebb848cb0fd0294"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.datatype.jackson-datatype-jsr310-2.18.2.jar",
+            "sha256": "e2d202d4606e23aeaf8a5a9632db06f5fefd5b63d251c3f503f9faaa78530e5c"
+          },
+          {
+            "path": "lib/main/com.fasterxml.jackson.module.jackson-module-parameter-names-2.18.2.jar",
+            "sha256": "67a6a4b6b91f3d450df21e77417f400be663be0cf528e48349ccc381cf74b3b0"
+          },
+          {
+            "path": "lib/main/com.github.ben-manes.caffeine.caffeine-3.2.0.jar",
+            "sha256": "ec411dfdf0c03f25218648ce89861630b71680e5858a9a7278ebac8e55cab3d7"
+          },
+          {
+            "path": "lib/main/com.google.code.gson.gson-2.12.1.jar",
+            "sha256": "ebee13d5fb7477cd7f1cc010e0c356df8ca80709715248da97f79e35ccb4fbec"
+          },
+          {
+            "path": "lib/main/com.google.errorprone.error_prone_annotations-2.36.0.jar",
+            "sha256": "77440e270b0bc9a249903c5a076c36a722c4886ca4f42675f2903a1c53ed61a5"
+          },
+          {
+            "path": "lib/main/com.mysql.mysql-connector-j-8.3.0.jar",
+            "sha256": "94e7fa815370cdcefed915db7f53f88445fac110f8c3818392b992ec9ee6d295"
+          },
+          {
+            "path": "lib/main/com.sun.istack.istack-commons-runtime-4.1.2.jar",
+            "sha256": "7fd6792361f4dd00f8c56af4a20cecc0066deea4a8f3dec38348af23fc2296ee"
+          },
+          {
+            "path": "lib/main/commons-codec.commons-codec-1.13.jar",
+            "sha256": "61f7a3079e92b9fdd605238d0295af5fd11ac411a0a0af48deace1f6c5ffa072"
+          },
+          {
+            "path": "lib/main/io.agroal.agroal-api-2.7.1.jar",
+            "sha256": "6b0260a60cd50fff2d15500a89096b729e4e1a7df57fa82050d4dcdec7ec7cff"
+          },
+          {
+            "path": "lib/main/io.agroal.agroal-narayana-2.7.1.jar",
+            "sha256": "e06f267b02fa8855a265b0fbf64cb497c69bfbc4815d00773d7c75794ac0cd61"
+          },
+          {
+            "path": "lib/main/io.agroal.agroal-pool-2.7.1.jar",
+            "sha256": "7e192880c583246bd70e350f07e18e57d6530dca3ec208081f08b5b0ffe24ab9"
+          },
+          {
+            "path": "lib/main/io.netty.netty-buffer-4.1.128.Final.jar",
+            "sha256": "25befb6b203b492ead32a50e7374a250504a4b8bcc62bbb89592efdf33fe3e9e"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-4.1.128.Final.jar",
+            "sha256": "d2aad8198820b1d0856fa93fe0ac6f1935bd950a48ab2b85e5b4adbdfc5fa7b4"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-dns-4.1.128.Final.jar",
+            "sha256": "bb9a96f2457e21a70a7edba2f0b88ebc5f06ca8851f62153ccc69c0e9dc8e208"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-haproxy-4.1.128.Final.jar",
+            "sha256": "f3648cea7cb027ef0a7d30ae5c4cdf5560954ca7e1564c23bd4d01e2e66ee2fc"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-http-4.1.128.Final.jar",
+            "sha256": "764c42966dcc9df85413e20e0a7f97d3cb682219772fb8dca326e0a2f0e5f5f3"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-http2-4.1.128.Final.jar",
+            "sha256": "4679b5de556ae5458733f844657d912de21fdb969724b6cbd5b1942aa094c9e6"
+          },
+          {
+            "path": "lib/main/io.netty.netty-codec-socks-4.1.128.Final.jar",
+            "sha256": "8316e8159354412aaff00f8ece68eac1f77a19707d1f59dabf50457cb752eceb"
+          },
+          {
+            "path": "lib/main/io.netty.netty-common-4.1.128.Final.jar",
+            "sha256": "575d810342b2400faf8085b8fc0bde09432daf6e8b927c4dcb246f0ee5b3e98f"
+          },
+          {
+            "path": "lib/main/io.netty.netty-handler-4.1.128.Final.jar",
+            "sha256": "d9e3fd9b839cb207030ffd385d5b3c087dbf746a643056db544f16318573975f"
+          },
+          {
+            "path": "lib/main/io.netty.netty-handler-proxy-4.1.128.Final.jar",
+            "sha256": "808434f2da993fb0f327663aa8ef30756c7ee94b164221388ec63fed4a9f6aa6"
+          },
+          {
+            "path": "lib/main/io.netty.netty-resolver-4.1.128.Final.jar",
+            "sha256": "3ac2b8f0a00fec785a0648172fbb8bac6a8e8f54e7d5aa958790e5de70504b6b"
+          },
+          {
+            "path": "lib/main/io.netty.netty-resolver-dns-4.1.128.Final.jar",
+            "sha256": "271c27748fcae5e68bee74af81a150d1c40b4c213d836dcb15843c090a452c4a"
+          },
+          {
+            "path": "lib/main/io.netty.netty-transport-4.1.128.Final.jar",
+            "sha256": "dc9107aae931cb5cf59471835358f68b4cb9548c9fb0a9fe06acf2a3d3d422f2"
+          },
+          {
+            "path": "lib/main/io.netty.netty-transport-native-unix-common-4.1.128.Final.jar",
+            "sha256": "8563e2229149d942988d4a7a0ec7c01b9a05def52ad2844633de25c5c0a6869f"
+          },
+          {
+            "path": "lib/main/io.opentelemetry.instrumentation.opentelemetry-instrumentation-api-2.10.0.jar",
+            "sha256": "ab1535c29f92fcfcb755fdf96904d317161c6ae27d5385ebea8c8e394d29e6f6"
+          },
+          {
+            "path": "lib/main/io.opentelemetry.opentelemetry-api-1.44.1.jar",
+            "sha256": "097e2e71c8b8c813f4a13176baafbbbb124b1253f5c9fffd110bc2add74ace93"
+          },
+          {
+            "path": "lib/main/io.opentelemetry.opentelemetry-api-incubator-1.44.1-alpha.jar",
+            "sha256": "8dbf451ce580fa0252ee9ca77331fd21710710ca9b735a1359241ead3be8ebe5"
+          },
+          {
+            "path": "lib/main/io.opentelemetry.opentelemetry-context-1.44.1.jar",
+            "sha256": "006b3f7c3880356a86f02c40eedeba124f226a2f145fe904cc1b7def0088bab0"
+          },
+          {
+            "path": "lib/main/io.opentelemetry.semconv.opentelemetry-semconv-1.28.0-alpha.jar",
+            "sha256": "e8ab86e93cef09e421a6213f4cf18421fcc6e1f9cf0ab94b9a31ed4460ddf553"
+          },
+          {
+            "path": "lib/main/io.quarkus.arc.arc-3.20.4.jar",
+            "sha256": "ba7430539ebbf340c20095dedf763512dc08bf19669aa90ba15d12cf2b441560"
+          },
+          {
+            "path": "lib/main/io.quarkus.http.quarkus-http-websocket-core-5.3.4.jar",
+            "sha256": "33a90c51fcb42880bd95bd087a3e7a3196bae6badafc70e51e93f16e63829e4d"
+          },
+          {
+            "path": "lib/main/io.quarkus.http.quarkus-http-websocket-vertx-5.3.4.jar",
+            "sha256": "9f4aca23bffd73662062f0d54c766daac08716a015561c072b2b1678de0137bb"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-agroal-3.20.4.jar",
+            "sha256": "96e7b3691994d872abde94e5b7a36c0d79e344fd3ba622ed9b3939d2c34a521b"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-arc-3.20.4.jar",
+            "sha256": "b4d033abad194bd29d018d03cd1b05a744d632b67fa73061ab1c7bdcb18bbc08"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-caffeine-3.20.4.jar",
+            "sha256": "a61c5bb6a199a0ed8bb30599a4b62ea82fb60a0132b87481ef0d0222bf54c1a4"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-config-yaml-3.20.4.jar",
+            "sha256": "8299cb7202b24b63ac5d87d7d06c27a096a871fbcd68e2928f159ee32ad00e42"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-core-3.20.4.jar",
+            "sha256": "da66a66311b4cdb6b3ff43064676fdc7b9a23ce56120ff5fa4024aff14a9caf8"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-credentials-3.20.4.jar",
+            "sha256": "6b4aa86607b90c346dead201654ce7e5e5f13aef94dfbe3dae97bc8d8060f104"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-datasource-3.20.4.jar",
+            "sha256": "4abd5062b17392d7c54f983bfe73dd8ab872e0b3e5cca896f7f00bf1c8ea09a3"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-datasource-common-3.20.4.jar",
+            "sha256": "e7f45d11472ef23c9d2f881f6228e772ab368170c37fcd88f8e93831416de700"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-fs-util-0.0.10.jar",
+            "sha256": "cd66340d85a2daa72dc1adedfe7ee4ac0d1d8ea2e4334922169114f687b54d08"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-hibernate-orm-3.20.4.jar",
+            "sha256": "0459ca694c91b93189428c3516342132d1ab1392f5fe1c72faab002cf37981e1"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-hibernate-orm-panache-3.20.4.jar",
+            "sha256": "fb24cb863078935a1fa86167e335f5d935e50ec5caaadc5151ea8b60236470c1"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-hibernate-orm-panache-common-3.20.4.jar",
+            "sha256": "a472aaa26b64ce4b730588a2585a05dd09d1a4f203809e323fce430b97a1cd5f"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-jackson-3.20.4.jar",
+            "sha256": "439c57b63006df758d50f821d89ca9ca50e4f7cd31abc4e8679ccd5b79bb4e06"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-jdbc-mysql-3.20.4.jar",
+            "sha256": "5d178d5d9ba6ac8484e31355403f10bf7fbfe4f23fae3797732e632b7af2d972"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-jsonp-3.20.4.jar",
+            "sha256": "993d8f54b6275265fa7bb2189e7938ffd5a9be487d2bae4197d33d08e41d1928"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-mutiny-3.20.4.jar",
+            "sha256": "3f18982e338e0fdc62aeb60e9d6c6bf83ac9f8c5458830c220b9721d023450a4"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-narayana-jta-3.20.4.jar",
+            "sha256": "c5c5e93b39ce31d6435e196d540a8d01d087cf653719c064f5df6ac19ec71bbf"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-netty-3.20.4.jar",
+            "sha256": "ba318ae94dd7acca128e705f1c77f6a91fe763b06be078eb0d1096650047cae1"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-panache-common-3.20.4.jar",
+            "sha256": "b180f9843bef25be812d96a0e9892c9307e691974b689ee5471ba72f013185c1"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-panache-hibernate-common-3.20.4.jar",
+            "sha256": "79ccc4dd97f96a971a012ae8bead1aaba40c04e6aca7fb86070802ccef385cb2"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-rest-3.20.4.jar",
+            "sha256": "4cda3c01acc9c8234cb82453c7967dca0df4091f7c744788d64974afb7ecd33e"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-rest-common-3.20.4.jar",
+            "sha256": "7b4cc7391544507211015f02ffde1bb395a1b8c5fc24d93ed0281a9620e970af"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-rest-jackson-3.20.4.jar",
+            "sha256": "bf0c6dd49a9ab905e2b1f0006be2ae32181c1c1c232f698db41393fe06daa740"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-rest-jackson-common-3.20.4.jar",
+            "sha256": "94bc55cce5efbaeb3ffbc30973f546e99858b6da7685594f587f29e24d494bf5"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-scheduler-3.20.4.jar",
+            "sha256": "37e24660a7f6837140ff57aed6e1e5659630ab5e753bf5ec11897e2ccfbd6622"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-scheduler-api-3.20.4.jar",
+            "sha256": "43f7e9e8bc053a4050f3c6d0c01a79b4bb7b0ab1c77f053ebae4e816a6090496"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-scheduler-common-3.20.4.jar",
+            "sha256": "f62539200fe4657b9861bc52e2ddd5f36734e8474e589650958a61294e8777ae"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-scheduler-kotlin-3.20.4.jar",
+            "sha256": "4c0cfa62b8d388f71b116c1948e173b3867986542a53dd85bad664287e413131"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-scheduler-spi-3.20.4.jar",
+            "sha256": "dadef0829282e0d000987685fc84697001e76386fcfb742db0e59078929b9c93"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-security-3.20.4.jar",
+            "sha256": "351f3411ad5c51627039638c05d02a301c9078c12c0edbf94c7a622b9cb40af6"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-security-runtime-spi-3.20.4.jar",
+            "sha256": "5f62d9e9336738f10b96247d6581dd32430e071df054d515c77d0a5543502481"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-smallrye-context-propagation-3.20.4.jar",
+            "sha256": "bc4b5ee2a22815be4530270185571f24e449840860646d1698a88f7f9e574e75"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-smallrye-jwt-3.20.4.jar",
+            "sha256": "f9470dc2f332af86bb865ee77681cc6130d9d0b1022636768eb1f70047b7fe49"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-smallrye-jwt-build-3.20.4.jar",
+            "sha256": "4a54e8c6a3e94387c822ba37936bf6e077493e7d394ad92a9bd83b7d1c6aab4e"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-smallrye-openapi-3.20.4.jar",
+            "sha256": "305885b48fc990c7186f872b807243e4f78b7f14e946ef37ca180ba279b63cf1"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-swagger-ui-3.20.4.jar",
+            "sha256": "b5d72f48a545a10e25958c730dff47013ad387b5a1bdfc60e352913355143d2b"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-tls-registry-3.20.4.jar",
+            "sha256": "2c35403e96f0ac504f0800e0e1efbb5466c023f67d7cabe016650b968cdbc36e"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-transaction-annotations-3.20.4.jar",
+            "sha256": "ad1fb49f7bfe277f9cc2e21a04abe144f5c07d2d3c7448785314297d0a1724c0"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-vertx-3.20.4.jar",
+            "sha256": "6f69745bfb035d2d1375899a77442ce2b5c3a07688df1881d3b7703ad0d5cc05"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-vertx-http-3.20.4.jar",
+            "sha256": "1c82a9b40d4aa1b29d31cfbbf0b5d18ea87f72bf10eb2bf36f5a1d1b9cb6e80f"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-virtual-threads-3.20.4.jar",
+            "sha256": "397ac727d0365b88bc207f8cfd5f1794123a2de47b78998d30b4ba15a78f28a6"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-websockets-3.20.4.jar",
+            "sha256": "4a6261113dd32fa65ebc8ba18401aab8cd45abcb9245e9996620db3d27d37d0c"
+          },
+          {
+            "path": "lib/main/io.quarkus.quarkus-websockets-client-3.20.4.jar",
+            "sha256": "9aa3f075b5de28e6aac745720144e32fb02fed79bbcd1a990d1357e98458ddd1"
+          },
+          {
+            "path": "lib/main/io.quarkus.resteasy.reactive.resteasy-reactive-3.20.4.jar",
+            "sha256": "b7d0f40e428390d185db226cedf99f8fd9c9b0077ea7d88dc4962f5e2dfc6aff"
+          },
+          {
+            "path": "lib/main/io.quarkus.resteasy.reactive.resteasy-reactive-common-3.20.4.jar",
+            "sha256": "f32616d367798736a12de13dd01ea3dc3976bc24d5082bc60073332c98bbd617"
+          },
+          {
+            "path": "lib/main/io.quarkus.resteasy.reactive.resteasy-reactive-common-types-3.20.4.jar",
+            "sha256": "6b6c7d5a0dc6e4c20b3374b7f7821709b8b949d695a3c8ab642ff7820f5e517a"
+          },
+          {
+            "path": "lib/main/io.quarkus.resteasy.reactive.resteasy-reactive-jackson-3.20.4.jar",
+            "sha256": "0b306b6762bdd957bd9bee5eba8e6906d6eba80302c371f5c03a351f0ecb3285"
+          },
+          {
+            "path": "lib/main/io.quarkus.resteasy.reactive.resteasy-reactive-vertx-3.20.4.jar",
+            "sha256": "17a7169c1edf84de3f1662efd066490069bc5431ed362fd0521084a725569ccf"
+          },
+          {
+            "path": "lib/main/io.quarkus.security.quarkus-security-2.2.1.jar",
+            "sha256": "b5020f6fcc506d2db71c17ac6854cc3a9078c0b73952918048d1f2cbb4a7d8f8"
+          },
+          {
+            "path": "lib/main/io.quarkus.vertx.utils.quarkus-vertx-utils-3.20.4.jar",
+            "sha256": "1c528ce31e63a56accba11784a36c7a6f4cd5e1cd15a8096f538fd600c73c15a"
+          },
+          {
+            "path": "lib/main/io.smallrye.certs.smallrye-private-key-pem-parser-0.9.2.jar",
+            "sha256": "4ba98e92ed203593d87e384a1e09fa96c18c90173a6170fea71cf23a1c9c5286"
+          },
+          {
+            "path": "lib/main/io.smallrye.common.smallrye-common-annotation-2.12.0.jar",
+            "sha256": "60d39b9b3c5bb986b0670f1062a47f3f48e2d3dd6b9532aeb0a497ee138543f5"
+          },
+          {
+            "path": "lib/main/io.smallrye.common.smallrye-common-classloader-2.12.0.jar",
+            "sha256": "4deffc5378e2d450753b95da4b18c3127f50dff9f277f070d0cb0c462042b0f6"
+          },
+          {
+            "path": "lib/main/io.smallrye.common.smallrye-common-vertx-context-2.12.0.jar",
+            "sha256": "898c1012bb9db51ec447089f8b39d8f1bffa07e0955d24b6f5a29bb3a1236173"
+          },
+          {
+            "path": "lib/main/io.smallrye.config.smallrye-config-3.11.4.jar",
+            "sha256": "e0fb5fa30aa6b7c7c58ea7411c67deb9c2572d633f7ac8f9eea85dd299844810"
+          },
+          {
+            "path": "lib/main/io.smallrye.config.smallrye-config-common-3.11.4.jar",
+            "sha256": "ab86755440d38006cdc3cc5dd6e3a46e309da6508cc838273aed6eb8bf4f4101"
+          },
+          {
+            "path": "lib/main/io.smallrye.config.smallrye-config-core-3.11.4.jar",
+            "sha256": "ccec457dd237801a8c8030ef8c0b5dfc7329ddb57709a94f22b274fac5598d56"
+          },
+          {
+            "path": "lib/main/io.smallrye.config.smallrye-config-source-yaml-3.11.4.jar",
+            "sha256": "61d4e14fe90c8668eb23a18ce4f90eba00d9d76a3b981f632188387ededb9624"
+          },
+          {
+            "path": "lib/main/io.smallrye.jandex-3.3.0.jar",
+            "sha256": "4a48ad61b7492a25381693106186f1b94acbff26181fdb2ed989286b683ac29e"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.mutiny-2.9.5.jar",
+            "sha256": "7e3d1ac6016cfb1526d8e49abf48bb72bf752305e6cd7f5609f9d3f75e04bd90"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.mutiny-smallrye-context-propagation-2.9.5.jar",
+            "sha256": "7311ef3f8f4f40efd1b8c2abfe879cc287a88cb6a1c33eba6c819eb432cb3fe9"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.mutiny-zero-flow-adapters-1.1.1.jar",
+            "sha256": "7e2576e235bcd277c52d67e11d70d1922040bc1b769883d985d68c60597a1ab2"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-auth-common-3.19.2.jar",
+            "sha256": "52255a42d165fe95c20edf1115905d4899d45c218340e1a9865ef184eacb45ee"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-bridge-common-3.19.2.jar",
+            "sha256": "66d5c887d86b92e1eb6fd9c25a0aca44309b4190d502ef56e5d3b587c77cda9e"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-core-3.19.2.jar",
+            "sha256": "a9c7ca81bd5bdb460da42cc493d256049dc15442aa281ef3fa967ae88ac5e439"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-runtime-3.19.2.jar",
+            "sha256": "b637b9b14d05436d2a361c7dbaffe52e0eed66805abc9921c1be538fcb975f95"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-uri-template-3.19.2.jar",
+            "sha256": "181cf58d0e80d7269d33306cc47417663687351a3d821853b01a8f38d3bf3f32"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-web-3.19.2.jar",
+            "sha256": "c3539c19e40ad25d38b3f870e07426030f3ef633e515eead6dd8ccb5642fc35c"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-mutiny-vertx-web-common-3.19.2.jar",
+            "sha256": "55fbfac81e53e3b582cbd4204b2554f8e1b956ec242be909fd1edac3fdfe4810"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-reactive-converter-api-3.0.3.jar",
+            "sha256": "8f47b3cbdef72c5875836011beb02f485918febbb73c15d51738c566eb669253"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.smallrye-reactive-converter-mutiny-3.0.3.jar",
+            "sha256": "5255e5e77d38b0bc166511c3ce7af3a97cf1edeaa19d2946102f929d99273111"
+          },
+          {
+            "path": "lib/main/io.smallrye.reactive.vertx-mutiny-generator-3.19.2.jar",
+            "sha256": "59572433c8a7c72ae6df51df47d02da68d42c849dff51319d8210e2fe81fd657"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-context-propagation-2.2.1.jar",
+            "sha256": "91fa253d8bd903672f30b9bcd03a97f03a73499f5a7ed1fd3d03d04f5348549a"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-context-propagation-api-2.2.1.jar",
+            "sha256": "a13147f305d4879074c073adfd861d07076278b18f1f8010acd81fd8a21f5cb9"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-context-propagation-jta-2.2.1.jar",
+            "sha256": "b4e2ec0db2911b83416cd5ade8dd3c77063eb8f6e7408927a32a4aa72fbeeb09"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-context-propagation-storage-2.2.1.jar",
+            "sha256": "3b347bb57c8ec93ed2375ae78f24908fa0b541a110de80afdb63f325a5c8a705"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-fault-tolerance-vertx-6.9.2.jar",
+            "sha256": "6f44037113208aa4ede869f25b09f3131b8766fc4304ee6fb567b3c16db5d597"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-jwt-4.6.2.jar",
+            "sha256": "37e7fedccd0b86b1347213d50f9f084f2060ddf1d939156771f95061c71cc115"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-jwt-build-4.6.2.jar",
+            "sha256": "310ce632b19ab52bf4c8e213f25987a134ac2396d078d1f546a3cf3c09db3e84"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-jwt-common-4.6.2.jar",
+            "sha256": "df1d4b6b4b8daf88ff9d2318c43b48a8876a2f0aa57fc578b5ee772df21296bf"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-open-api-core-4.0.12.jar",
+            "sha256": "2261cc22fe6b592a481032bb61c57080e30382841410cc40580e5ed75dac41e4"
+          },
+          {
+            "path": "lib/main/io.smallrye.smallrye-open-api-model-4.0.12.jar",
+            "sha256": "15a5b10f48fd79ef15535743965cfc17e090570f30480f0ac53d852ca2ea7c94"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-auth-common-4.5.22.jar",
+            "sha256": "f308dd9dd95385d142f61b09a737135268d34c7adb7f45670efc7570ecbdee9f"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-bridge-common-4.5.22.jar",
+            "sha256": "956cad30785054858ea3751f291c8d9df5c81511084e3bab6be037fcb2e91e1e"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-codegen-4.5.22.jar",
+            "sha256": "b5eb7aec0b5f3ce488b7cf338184479ac70b7b0572aa279c5dd307fe7f06440f"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-core-4.5.22.jar",
+            "sha256": "6c1f6f158ad214763b115eefeca152e6197c5097953796e3e06089a5fc66c776"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-uri-template-4.5.22.jar",
+            "sha256": "3236e8d269960f46c1360803a471045007d620ad8bcec09c95417bc37489d081"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-web-4.5.22.jar",
+            "sha256": "bb966157ade409b6a91317cd079170ed937507eba09f6531c6f9a56045f4fb6a"
+          },
+          {
+            "path": "lib/main/io.vertx.vertx-web-common-4.5.22.jar",
+            "sha256": "54eb7f2eb1e7de4aa71ca76e14eeefa91f752da9f56a9b7ee124d8fd8235270e"
+          },
+          {
+            "path": "lib/main/jakarta.activation.jakarta.activation-api-2.1.3.jar",
+            "sha256": "01b176d718a169263e78290691fc479977186bcc6b333487325084d6586f4627"
+          },
+          {
+            "path": "lib/main/jakarta.annotation.jakarta.annotation-api-3.0.0.jar",
+            "sha256": "b01f55552284cfb149411e64eabca75e942d26d2e1786b32914250e4330afaa2"
+          },
+          {
+            "path": "lib/main/jakarta.el.jakarta.el-api-5.0.1.jar",
+            "sha256": "90432d18281717b363b819978c6a172433a2654b77eb87c863c22fc19c20eced"
+          },
+          {
+            "path": "lib/main/jakarta.enterprise.jakarta.enterprise.cdi-api-4.1.0.jar",
+            "sha256": "c42c808f17925129a0800f618febe050d966e181a4c7384c8a5e7a0283d68699"
+          },
+          {
+            "path": "lib/main/jakarta.enterprise.jakarta.enterprise.lang-model-4.1.0.jar",
+            "sha256": "bb56f571f60d2862b2387d5468fe8f5540f8094727283ed991f89082708095ee"
+          },
+          {
+            "path": "lib/main/jakarta.inject.jakarta.inject-api-2.0.1.jar",
+            "sha256": "f7dc98062fccf14126abb751b64fab12c312566e8cbdc8483598bffcea93af7c"
+          },
+          {
+            "path": "lib/main/jakarta.interceptor.jakarta.interceptor-api-2.2.0.jar",
+            "sha256": "d240d72b4dd38a2e431c804079810010cb97903678fa5f987fb7434878b04398"
+          },
+          {
+            "path": "lib/main/jakarta.json.jakarta.json-api-2.1.3.jar",
+            "sha256": "bc934142805ea1d794f1440563965a3861a2a9fb7414ecd3fe44f26500734414"
+          },
+          {
+            "path": "lib/main/jakarta.persistence.jakarta.persistence-api-3.1.0.jar",
+            "sha256": "475389446d35c6f46c565728b756dc508c284644ea2690644e0d8e7e339d42fd"
+          },
+          {
+            "path": "lib/main/jakarta.resource.jakarta.resource-api-2.1.0.jar",
+            "sha256": "4d26ad86a5f72cd2f9c4a31cc4524f7bf3ec0ff74416f081f8642b7ce8041067"
+          },
+          {
+            "path": "lib/main/jakarta.transaction.jakarta.transaction-api-2.0.1.jar",
+            "sha256": "50c0a7c760c13ae6c042acf182b28f0047413db95b4636fb8879bcffab5ba875"
+          },
+          {
+            "path": "lib/main/jakarta.websocket.jakarta.websocket-api-2.1.1.jar",
+            "sha256": "beadb92c26d04da653f6d2db2532b549b7a0dbe59c6e22c23e55bd03617f0120"
+          },
+          {
+            "path": "lib/main/jakarta.websocket.jakarta.websocket-client-api-2.1.0.jar",
+            "sha256": "853b5b5c7544c5289c5db038873da9be5970eef8ec9445bf66c00a09693cda89"
+          },
+          {
+            "path": "lib/main/jakarta.ws.rs.jakarta.ws.rs-api-3.1.0.jar",
+            "sha256": "6b3b3628b8b4aedda0d24c3354335e985497d8ef3c510b8f3028e920d5b8663d"
+          },
+          {
+            "path": "lib/main/jakarta.xml.bind.jakarta.xml.bind-api-4.0.2.jar",
+            "sha256": "0d6bcfe47763e85047acf7c398336dc84ff85ebcad0a7cb6f3b9d3e981245406"
+          },
+          {
+            "path": "lib/main/net.bytebuddy.byte-buddy-1.15.11.jar",
+            "sha256": "fa08998aae1e7bdae83bde0712c50e8444d71c0e0c196bb2247ade8d4ad0eb90"
+          },
+          {
+            "path": "lib/main/org.antlr.antlr4-runtime-4.13.0.jar",
+            "sha256": "bd7f7b5d07bc0b047f10915b32ca4bb1de9e57d8049098882e4453c88c076a5d"
+          },
+          {
+            "path": "lib/main/org.apache.commons.commons-lang3-3.20.0.jar",
+            "sha256": "69e5c9fa35da7a51a5fd2099dfe56a2d8d32cf233e2f6d770e796146440263f4"
+          },
+          {
+            "path": "lib/main/org.bitbucket.b_c.jose4j-0.9.6.jar",
+            "sha256": "7314af50cde9c99e8eaf43eee617a23edcc6bb43036221064355094999d837ef"
+          },
+          {
+            "path": "lib/main/org.eclipse.angus.angus-activation-2.0.2.jar",
+            "sha256": "6dd3bcffc22bce83b07376a0e2e094e4964a3195d4118fb43e380ef35436cc1e"
+          },
+          {
+            "path": "lib/main/org.eclipse.microprofile.config.microprofile-config-api-3.1.jar",
+            "sha256": "dee277f81e1edfeafd5e43589441ecdf434500fe4a31d035e74b8e6d8e7bfd91"
+          },
+          {
+            "path": "lib/main/org.eclipse.microprofile.context-propagation.microprofile-context-propagation-api-1.3.jar",
+            "sha256": "69ccc04487e87779d4970aa50c673cc34a9df080c1c0e8d8eab2e8b46f825cf4"
+          },
+          {
+            "path": "lib/main/org.eclipse.microprofile.jwt.microprofile-jwt-auth-api-2.1.jar",
+            "sha256": "e81a237ecb81e4f360ed5e7928d42bf3eedd1d73fe3a343d65ed1578f5169bad"
+          },
+          {
+            "path": "lib/main/org.eclipse.microprofile.openapi.microprofile-openapi-api-4.0.2.jar",
+            "sha256": "c6fca9913d7ecbdeb801d5e6c935988219f64a0eb8b17e23437ea0e01e7a10a9"
+          },
+          {
+            "path": "lib/main/org.eclipse.microprofile.reactive-streams-operators.microprofile-reactive-streams-operators-api-3.0.1.jar",
+            "sha256": "2eb30081f2674e674c6587592747a81a4d92d2da1a735be5f645901de60f9f8d"
+          },
+          {
+            "path": "lib/main/org.eclipse.parsson.parsson-1.1.7.jar",
+            "sha256": "c21db018f8ac6cf79893f1af77f1cd337937bd12ae6fa3d4b10f5a00819ee56c"
+          },
+          {
+            "path": "lib/main/org.glassfish.expressly.expressly-5.0.0.jar",
+            "sha256": "b0c872737bb8381921b304d0952854666d1ba320b9b3c5bf4d70a09a86b61524"
+          },
+          {
+            "path": "lib/main/org.glassfish.jaxb.jaxb-core-4.0.5.jar",
+            "sha256": "ad3fd9bf00de3eda9859f70b6cfb011e2fe9904804e16a2665092888ece0fdca"
+          },
+          {
+            "path": "lib/main/org.glassfish.jaxb.jaxb-runtime-4.0.5.jar",
+            "sha256": "485d8940e76373a7f300815ea5504bf5b726c234425ad30971019d133124cca4"
+          },
+          {
+            "path": "lib/main/org.glassfish.jaxb.txw2-4.0.5.jar",
+            "sha256": "917355bc451481f30d043b24d123110517966af34383901773882810dca480e5"
+          },
+          {
+            "path": "lib/main/org.hibernate.common.hibernate-commons-annotations-7.0.3.Final.jar",
+            "sha256": "0db2fd57d5e43688ac6ed5cdf36deaf05d84340dcc24c2dd2a2114de38e5175d"
+          },
+          {
+            "path": "lib/main/org.hibernate.orm.hibernate-core-6.6.34.Final.jar",
+            "sha256": "4fe8eee6326df57d0ae661a4043aca433afb2241f8d633bfec37b273b82f2c9e"
+          },
+          {
+            "path": "lib/main/org.hibernate.orm.hibernate-graalvm-6.6.34.Final.jar",
+            "sha256": "03dd64275fa4ccea8e48d270b09c70c78d8cfbf1b5419a85ebf63b33540c9a4e"
+          },
+          {
+            "path": "lib/main/org.hibernate.quarkus-local-cache-0.3.1.jar",
+            "sha256": "a8feb703499dfaf129a364c84e1fb5f6c9738b96b6ac3e59dfc4697652a23d0b"
+          },
+          {
+            "path": "lib/main/org.jboss.invocation.jboss-invocation-2.0.0.Final.jar",
+            "sha256": "ef9beb3bff85930710b367b6f84d40bf72128898ca6ccdf3775537793b74b067"
+          },
+          {
+            "path": "lib/main/org.jboss.jboss-transaction-spi-8.0.0.Final.jar",
+            "sha256": "07e4e62ceae075a8c11a715d89b19992c879f505b48be6b2727f5be798562ae1"
+          },
+          {
+            "path": "lib/main/org.jboss.logging.commons-logging-jboss-logging-1.0.0.Final.jar",
+            "sha256": "f12176263ea25f4e78bb4fa4b36d335a29738dde6a8123e1b6da89a655d150ff"
+          },
+          {
+            "path": "lib/main/org.jboss.logging.jboss-logging-annotations-3.0.4.Final.jar",
+            "sha256": "16bb023044398307eb85c18271131c57ddebf7fb053f0490fdb253e5b84ddfb2"
+          },
+          {
+            "path": "lib/main/org.jboss.narayana.jta.narayana-jta-7.2.2.Final.jar",
+            "sha256": "f5bf0b0561b408908a23db614b084f57f355a16bcf89e1f5b928bfab01e33a0c"
+          },
+          {
+            "path": "lib/main/org.jboss.narayana.jts.narayana-jts-integration-7.2.2.Final.jar",
+            "sha256": "cba2351b5cf53ea21f40e70418b7c785f7c19171f2a4e2fc02ac5df6e728a164"
+          },
+          {
+            "path": "lib/main/org.jboss.slf4j.slf4j-jboss-logmanager-2.0.0.Final.jar",
+            "sha256": "277885104b727a213ef784bab31499d23221074ded28b04827e809d2f5489693"
+          },
+          {
+            "path": "lib/main/org.jboss.threads.jboss-threads-3.8.0.Final.jar",
+            "sha256": "436bcba7b602fce82317eafc7c054929e94434d752151d3a2c40333b8ad4250e"
+          },
+          {
+            "path": "lib/main/org.jctools.jctools-core-4.0.5.jar",
+            "sha256": "d65e5f38bcd0984e26f87187687f1f70dd52740c4d5e046f8d104e01ab5db95f"
+          },
+          {
+            "path": "lib/main/org.jspecify.jspecify-1.0.0.jar",
+            "sha256": "1fad6e6be7557781e4d33729d49ae1cdc8fdda6fe477bb0cc68ce351eafdfbab"
+          },
+          {
+            "path": "lib/main/org.projectlombok.lombok-1.18.36.jar",
+            "sha256": "73b6b05b6a2d365b700bab08d30f94de9d336490bc0acce5b6181fef48cbf18e"
+          },
+          {
+            "path": "lib/main/org.reactivestreams.reactive-streams-1.0.4.jar",
+            "sha256": "f75ca597789b3dac58f61857b9ac2e1034a68fa672db35055a8fb4509e325f28"
+          },
+          {
+            "path": "lib/main/org.slf4j.slf4j-api-2.0.6.jar",
+            "sha256": "2f2a92d410b268139d7d63b75ed25e21995cfe4100c19bf23577cfdbc8077bda"
+          },
+          {
+            "path": "lib/main/org.wildfly.common.wildfly-common-2.0.1.jar",
+            "sha256": "fa4a710db7ae3e598a5f41639eb54e9f7b09de5fd0f58f56bd6070f21d956374"
+          },
+          {
+            "path": "lib/main/org.yaml.snakeyaml-2.3.jar",
+            "sha256": "63a76fe66b652360bd4c2c107e6f0258daa7d4bb492008ba8c26fcd230ff9146"
+          },
+          {
+            "path": "quarkus/generated-bytecode.jar",
+            "sha256": "61baa9bdfc10e67bab899b894e8957b7e4f891537b52fab9259ab98c2a4e4a12"
+          },
+          {
+            "path": "quarkus/quarkus-application.dat",
+            "sha256": "b2e508f8553a61e8b392ebb48980c54e52fbc457d8492eeb5a7626b039cb0c6b"
+          },
+          {
+            "path": "quarkus/transformed-bytecode.jar",
+            "sha256": "7dcbd53ba6f8a952fcdd99d4de5bede29013a0e5319a4c7a93fa6abbceee29b9"
+          },
+          {
+            "path": "quarkus-app-dependencies.txt",
+            "sha256": "5f374802631ec3ab9cf396165e3985be51a7e1d44ec8ae75edb105e40a1929c6"
+          },
+          {
+            "path": "quarkus-run.jar",
+            "sha256": "904e8883e6415529c065567dd708bcc61cc8d3c2e6efc2d2b0d4ebf8a04ca8f9"
+          }
+        ],
+        "manifest_sha256": "9765752076f526d6f9b9ad182b832df9b268bd09f38fa3d3f360f90042b50460"
+      },
+      "java_launcher_sha256": "2a207f5e7d075afa01d97f8048389a64432a44c4a5af0f5e77d6e286ec5f401d",
+      "runner_sha256": "cfec68e4cc4ce52cfe4ae58081df62b02b4d59cb3c22c54da0f64c006f921860",
+      "wrapper_sha256": "538f573c3a6fc8d9418d88026cf22e4d8984c263a6166cdf40d7e4f40e98f7f1"
+    },
+    "nginx_version": "nginx version: nginx/1.24.0 (Ubuntu)",
+    "nginx_package": {
+      "name": "nginx",
+      "version": "1.24.0-2ubuntu7.18",
+      "architecture": "amd64",
+      "sha256": "6a169148442f2180cd9676f92e033ec8411d3a82d39c5613d380aaab06226f5b",
+      "installation": "Package checksum matched apt metadata; unpacked under local cache with dpkg-deb -x, no system service installed."
+    },
+    "report_sha256": "d15c6a18ed0aaaa7c0636662cc6896993c7c4e713030abc46a07d42f1b0abeb6"
+  },
+  "schema_evidence": {
+    "source": "project006",
+    "target": "rust_cutover_global_rule_169749660fd23abc",
+    "tables": 106,
+    "dump_sha256": "7ab3bc255561476c3bc7860359f1a7eb4d1af875cd67457cf5f9c8e7564927a2",
+    "copied_data_rows": 0,
+    "structure_sha256": "57e37ca81834d70cbe787d5e1bbe9dd6fe903b3b20099f6f7dda2ee1a245fdd8",
+    "structure_unchanged": true
+  },
+  "gateway_protocol": {
+    "ownership": "Whole /api/postTrainGlobalRule and its subpaths move together; every other HTTP/WS route remains Java.",
+    "admission": "Shared frozen file fences every worker before reload, including old workers briefly still accepting connections. Frozen domain calls receive HTTP503 without an upstream.",
+    "drain": "Wait for old owner worker PID+start-time identities to disappear; load next owner while admission stays frozen; drain the frozen worker generation before reopening.",
+    "retry": "proxy_next_upstream off; no write retry or automatic Java fallback.",
+    "proof": "Every switch holds a real database row lock, observes the blocked HTTP writer in performance_schema, rejects new writes, and releases the old writer before next-owner admission."
+  },
+  "counts": {
+    "gateway_requests": 108,
+    "validated_access_records": 108,
+    "by_owner": {
+      "java": 47,
+      "frozen": 20,
+      "rust": 41
+    },
+    "transitions": 3,
+    "java_ws_fallback_checks": 7
+  },
+  "stages": [
+    {
+      "label": "java-baseline",
+      "owner": "java",
+      "auth_codes": [
+        203,
+        204,
+        206,
+        207
+      ],
+      "ordinary_read": "allowed",
+      "rejected_writes": "unchanged SQL inventory",
+      "rows": [
+        {
+          "id": 57,
+          "type": 2,
+          "level": "合成主规则",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "java-baseline"
+        },
+        {
+          "id": 58,
+          "type": 3,
+          "level": "无关哨兵",
+          "accuracy": "80~89",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "must-remain-unchanged"
+        }
+      ]
+    },
+    {
+      "label": "rust-primary",
+      "owner": "rust",
+      "auth_codes": [
+        203,
+        204,
+        206,
+        207
+      ],
+      "ordinary_read": "allowed",
+      "rejected_writes": "unchanged SQL inventory",
+      "rows": [
+        {
+          "id": 57,
+          "type": 2,
+          "level": "Rust主规则",
+          "accuracy": "91~100",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "rust-primary"
+        },
+        {
+          "id": 58,
+          "type": 3,
+          "level": "无关哨兵",
+          "accuracy": "80~89",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "must-remain-unchanged"
+        },
+        {
+          "id": 59,
+          "type": 0,
+          "level": "排空-cutover",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "cutover-exactly-once"
+        },
+        {
+          "id": 60,
+          "type": 4,
+          "level": "Rust新增",
+          "accuracy": "70~79",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "created-by-rust"
+        }
+      ]
+    },
+    {
+      "label": "java-rollback",
+      "owner": "java",
+      "auth_codes": [
+        203,
+        204,
+        206,
+        207
+      ],
+      "ordinary_read": "allowed",
+      "rejected_writes": "unchanged SQL inventory",
+      "rows": [
+        {
+          "id": 57,
+          "type": 2,
+          "level": "Java回退规则",
+          "accuracy": "92~100",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "java-rollback"
+        },
+        {
+          "id": 58,
+          "type": 3,
+          "level": "无关哨兵",
+          "accuracy": "80~89",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "must-remain-unchanged"
+        },
+        {
+          "id": 59,
+          "type": 0,
+          "level": "排空-cutover",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "cutover-exactly-once"
+        },
+        {
+          "id": 60,
+          "type": 4,
+          "level": "Rust新增",
+          "accuracy": "70~79",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "created-by-rust"
+        },
+        {
+          "id": 61,
+          "type": 0,
+          "level": "排空-rollback",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:25",
+          "description": "rollback-exactly-once"
+        },
+        {
+          "id": 62,
+          "type": 1,
+          "level": "Java回退新增",
+          "accuracy": "60~69",
+          "createTime": "2026-10-14 02:47:26",
+          "description": "created-by-java-rollback"
+        }
+      ]
+    },
+    {
+      "label": "rust-recutover",
+      "owner": "rust",
+      "auth_codes": [
+        203,
+        204,
+        206,
+        207
+      ],
+      "ordinary_read": "allowed",
+      "rejected_writes": "unchanged SQL inventory",
+      "rows": [
+        {
+          "id": 57,
+          "type": 2,
+          "level": "Java回退规则",
+          "accuracy": "92~100",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "recutover-old-writer-committed"
+        },
+        {
+          "id": 58,
+          "type": 3,
+          "level": "无关哨兵",
+          "accuracy": "80~89",
+          "createTime": "2026-10-14 02:47:19",
+          "description": "must-remain-unchanged"
+        },
+        {
+          "id": 59,
+          "type": 0,
+          "level": "排空-cutover",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "cutover-exactly-once"
+        },
+        {
+          "id": 60,
+          "type": 4,
+          "level": "Rust新增",
+          "accuracy": "70~79",
+          "createTime": "2026-10-14 02:47:22",
+          "description": "created-by-rust"
+        },
+        {
+          "id": 61,
+          "type": 0,
+          "level": "排空-rollback",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:25",
+          "description": "rollback-exactly-once"
+        },
+        {
+          "id": 62,
+          "type": 1,
+          "level": "Java回退新增",
+          "accuracy": "60~69",
+          "createTime": "2026-10-14 02:47:26",
+          "description": "created-by-java-rollback"
+        },
+        {
+          "id": 63,
+          "type": 0,
+          "level": "排空-recutover",
+          "accuracy": "90~100",
+          "createTime": "2026-10-14 02:47:28",
+          "description": "recutover-exactly-once"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "java",
+      "to": "rust",
+      "label": "cutover",
+      "old_workers": [
+        "26348:252096"
+      ],
+      "status": "COMPLETED",
+      "freeze_observed_ns": 2523315247029,
+      "blocked_proof": {
+        "mysql_waits": [
+          {
+            "index": "PRIMARY",
+            "table": "t_post_train_global_rule",
+            "lock_data": "57",
+            "lock_mode": "X,REC_NOT_GAP",
+            "lock_type": "RECORD",
+            "waiting_thread": 491,
+            "waiting_connection": 450,
+            "blocking_connection": 484
+          }
+        ],
+        "inventory_unchanged": true,
+        "switch_incomplete_while_locked": true,
+        "old_request_incomplete": true,
+        "observed_ns": 2524195157434
+      },
+      "release_ns": 2524195158950,
+      "drained_ns": 2524278428377,
+      "admitted_ns": 2524421635502,
+      "new_workers": [
+        "27309:252429"
+      ],
+      "committed_marker": {
+        "id": 59,
+        "type": 0,
+        "level": "排空-cutover",
+        "accuracy": "90~100",
+        "createTime": "2026-10-14 02:47:22",
+        "description": "cutover-exactly-once"
+      },
+      "single_commit_evidence": "one upstream request, retries disabled, exactly one inserted batch marker"
+    },
+    {
+      "from": "rust",
+      "to": "java",
+      "label": "rollback",
+      "old_workers": [
+        "27309:252429"
+      ],
+      "status": "COMPLETED",
+      "freeze_observed_ns": 2526257874811,
+      "blocked_proof": {
+        "mysql_waits": [
+          {
+            "index": "PRIMARY",
+            "table": "t_post_train_global_rule",
+            "lock_data": "57",
+            "lock_mode": "X,REC_NOT_GAP",
+            "lock_type": "RECORD",
+            "waiting_thread": 520,
+            "waiting_connection": 479,
+            "blocking_connection": 516
+          }
+        ],
+        "inventory_unchanged": true,
+        "switch_incomplete_while_locked": true,
+        "old_request_incomplete": true,
+        "observed_ns": 2527139846302
+      },
+      "release_ns": 2527139847812,
+      "drained_ns": 2527219308129,
+      "admitted_ns": 2527365245928,
+      "new_workers": [
+        "28213:252723"
+      ],
+      "committed_marker": {
+        "id": 61,
+        "type": 0,
+        "level": "排空-rollback",
+        "accuracy": "90~100",
+        "createTime": "2026-10-14 02:47:25",
+        "description": "rollback-exactly-once"
+      },
+      "single_commit_evidence": "one upstream request, retries disabled, exactly one inserted batch marker"
+    },
+    {
+      "from": "java",
+      "to": "rust",
+      "label": "recutover",
+      "old_workers": [
+        "28213:252723"
+      ],
+      "status": "COMPLETED",
+      "freeze_observed_ns": 2529366724380,
+      "blocked_proof": {
+        "mysql_waits": [
+          {
+            "index": "PRIMARY",
+            "table": "t_post_train_global_rule",
+            "lock_data": "57",
+            "lock_mode": "X,REC_NOT_GAP",
+            "lock_type": "RECORD",
+            "waiting_thread": 491,
+            "waiting_connection": 450,
+            "blocking_connection": 546
+          }
+        ],
+        "inventory_unchanged": true,
+        "switch_incomplete_while_locked": true,
+        "old_request_incomplete": true,
+        "observed_ns": 2530255121767
+      },
+      "release_ns": 2530255123043,
+      "drained_ns": 2530317967459,
+      "admitted_ns": 2530484775688,
+      "new_workers": [
+        "29121:253032"
+      ],
+      "committed_marker": {
+        "id": 63,
+        "type": 0,
+        "level": "排空-recutover",
+        "accuracy": "90~100",
+        "createTime": "2026-10-14 02:47:28",
+        "description": "recutover-exactly-once"
+      },
+      "single_commit_evidence": "one upstream request, retries disabled, exactly one inserted batch marker"
+    }
+  ],
+  "shadow_read": {
+    "direct_loopback": "http://127.0.0.1:18142",
+    "writes": 0,
+    "rows": [
+      {
+        "id": 57,
+        "type": 2,
+        "level": "合成主规则",
+        "accuracy": "90~100",
+        "createTime": "2026-10-14 02:47:19",
+        "description": "java-baseline"
+      },
+      {
+        "id": 58,
+        "type": 3,
+        "level": "无关哨兵",
+        "accuracy": "80~89",
+        "createTime": "2026-10-14 02:47:19",
+        "description": "must-remain-unchanged"
+      }
+    ]
+  },
+  "sentinel": {
+    "id": 58,
+    "type": 3,
+    "level": "无关哨兵",
+    "accuracy": "80~89",
+    "createTime": "2026-10-14 02:47:19",
+    "description": "must-remain-unchanged"
+  },
+  "final_rows": [
+    {
+      "id": 58,
+      "type": 3,
+      "level": "无关哨兵",
+      "accuracy": "80~89",
+      "createTime": "2026-10-14 02:47:19",
+      "description": "must-remain-unchanged"
+    },
+    {
+      "id": 59,
+      "type": 0,
+      "level": "排空-cutover",
+      "accuracy": "90~100",
+      "createTime": "2026-10-14 02:47:22",
+      "description": "cutover-exactly-once"
+    },
+    {
+      "id": 60,
+      "type": 4,
+      "level": "Rust新增",
+      "accuracy": "70~79",
+      "createTime": "2026-10-14 02:47:22",
+      "description": "created-by-rust"
+    },
+    {
+      "id": 61,
+      "type": 0,
+      "level": "排空-rollback",
+      "accuracy": "90~100",
+      "createTime": "2026-10-14 02:47:25",
+      "description": "rollback-exactly-once"
+    },
+    {
+      "id": 62,
+      "type": 1,
+      "level": "Java回退新增",
+      "accuracy": "60~69",
+      "createTime": "2026-10-14 02:47:26",
+      "description": "created-by-java-rollback"
+    },
+    {
+      "id": 63,
+      "type": 0,
+      "level": "排空-recutover",
+      "accuracy": "90~100",
+      "createTime": "2026-10-14 02:47:28",
+      "description": "recutover-exactly-once"
+    }
+  ],
+  "creation_clocks": [
+    {
+      "id": 57,
+      "owner": "java",
+      "response": "2026-10-14 02:47:19",
+      "persisted": "2026-10-14 02:47:19",
+      "rounding_seconds": 0.0
+    },
+    {
+      "id": 58,
+      "owner": "java",
+      "response": "2026-10-14 02:47:19",
+      "persisted": "2026-10-14 02:47:19",
+      "rounding_seconds": 0.0
+    },
+    {
+      "id": 59,
+      "owner": "java",
+      "response": "2026-10-14 02:47:22",
+      "persisted": "2026-10-14 02:47:22",
+      "rounding_seconds": 0.0
+    },
+    {
+      "id": 60,
+      "owner": "rust",
+      "response": "2026-10-14 02:47:22",
+      "persisted": "2026-10-14 02:47:22",
+      "rounding_seconds": 0.0
+    },
+    {
+      "id": 61,
+      "owner": "rust",
+      "response": "2026-10-14 02:47:25",
+      "persisted": "2026-10-14 02:47:25",
+      "rounding_seconds": 0.0
+    },
+    {
+      "id": 62,
+      "owner": "java",
+      "response": "2026-10-14 02:47:25",
+      "persisted": "2026-10-14 02:47:26",
+      "rounding_seconds": 1.0
+    },
+    {
+      "id": 63,
+      "owner": "java",
+      "response": "2026-10-14 02:47:28",
+      "persisted": "2026-10-14 02:47:28",
+      "rounding_seconds": 0.0
+    }
+  ],
+  "timestamp_boundary": "Java response formats pre-flush LocalDateTime to seconds while DATETIME(0) may round it forward by one second. Only that observed creation boundary is accepted; persisted rows and every later update/read preserve the exact stored timestamp and all business fields.",
+  "access_evidence": [
+    {
+      "id": "169749660fd23abc-3bd80ed1f4da",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-0ff2eb9057fe",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-create"
+    },
+    {
+      "id": "169749660fd23abc-f0119ddb0bc5",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-sentinel-create"
+    },
+    {
+      "id": "169749660fd23abc-15ca65074250",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-addRule-203"
+    },
+    {
+      "id": "169749660fd23abc-a62908caf51b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-deleteById-203"
+    },
+    {
+      "id": "169749660fd23abc-57acc1b81919",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-addRule-204"
+    },
+    {
+      "id": "169749660fd23abc-ce0c226c9ad6",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-deleteById-204"
+    },
+    {
+      "id": "169749660fd23abc-98b2e7a1a27a",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-addRule-206"
+    },
+    {
+      "id": "169749660fd23abc-1b3735b96afb",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-deleteById-206"
+    },
+    {
+      "id": "169749660fd23abc-5abe9aec431a",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-addRule-207"
+    },
+    {
+      "id": "169749660fd23abc-ab789763ead9",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-deleteById-207"
+    },
+    {
+      "id": "169749660fd23abc-236a2e9f909d",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline"
+    },
+    {
+      "id": "169749660fd23abc-23be0d23e428",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline"
+    },
+    {
+      "id": "169749660fd23abc-97ec2d1483c2",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-97b589c5e8c1",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "java-baseline-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-00a9b03b2644",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-30dd4230688b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-addRule"
+    },
+    {
+      "id": "169749660fd23abc-1bc9a6c6b859",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-deleteById"
+    },
+    {
+      "id": "169749660fd23abc-67901d3daba9",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-findByType"
+    },
+    {
+      "id": "169749660fd23abc-590b7c1a7dda",
+      "method": "GET",
+      "uri": "/api/postTrainGlobalRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-[REDACTED]"
+    },
+    {
+      "id": "169749660fd23abc-ee37d7ff24de",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-c5568ce05cee",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "cutover-frozen",
+      "worker": "27127",
+      "label": "cutover-frozen-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-964d67cfa66c",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "baseline-java",
+      "worker": "26348",
+      "label": "cutover-in-flight-write"
+    },
+    {
+      "id": "169749660fd23abc-85c6f591d5b7",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-d01c59fe620d",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "cutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-d72fead9a168",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "cutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-e5cb8f1e6d30",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "cutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-25ef97c98c8f",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-update-and-create"
+    },
+    {
+      "id": "169749660fd23abc-8bed5289b36f",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-addRule-203"
+    },
+    {
+      "id": "169749660fd23abc-72cd17fa4d52",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-deleteById-203"
+    },
+    {
+      "id": "169749660fd23abc-d9e27fee448f",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-addRule-204"
+    },
+    {
+      "id": "169749660fd23abc-8ba19359ed1b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-deleteById-204"
+    },
+    {
+      "id": "169749660fd23abc-f7044687e233",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-addRule-206"
+    },
+    {
+      "id": "169749660fd23abc-cc9ab755d654",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-deleteById-206"
+    },
+    {
+      "id": "169749660fd23abc-f96c8423083b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-addRule-207"
+    },
+    {
+      "id": "169749660fd23abc-c904aae4d3c2",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-deleteById-207"
+    },
+    {
+      "id": "169749660fd23abc-e9fc63fea6af",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary"
+    },
+    {
+      "id": "169749660fd23abc-65e204685e41",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary"
+    },
+    {
+      "id": "169749660fd23abc-cd0da5bd3a3f",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary"
+    },
+    {
+      "id": "169749660fd23abc-d6e6727e94cc",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary"
+    },
+    {
+      "id": "169749660fd23abc-0666aa5a38a6",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-9b47f14afebc",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rust-primary-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-fe52de8d15f5",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-6359606b2860",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-addRule"
+    },
+    {
+      "id": "169749660fd23abc-053db9ff425b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-deleteById"
+    },
+    {
+      "id": "169749660fd23abc-18df12be2cef",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-findByType"
+    },
+    {
+      "id": "169749660fd23abc-f48609aa8a96",
+      "method": "GET",
+      "uri": "/api/postTrainGlobalRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-[REDACTED]"
+    },
+    {
+      "id": "169749660fd23abc-cefd79ac1b68",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-deb043ba5707",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "rollback-frozen",
+      "worker": "28033",
+      "label": "rollback-frozen-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-d7adb9261634",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "cutover-rust",
+      "worker": "27309",
+      "label": "rollback-in-flight-write"
+    },
+    {
+      "id": "169749660fd23abc-4db9a9d14d6c",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-5ea4e6ceccfd",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "rollback-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-8ad5399d8b0a",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "rollback-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-e2a675673a68",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "rollback-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-3f1dddcf9afb",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "rollback-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-60fd435dc26b",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-update-and-create"
+    },
+    {
+      "id": "169749660fd23abc-a2b9a9161fe9",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-addRule-203"
+    },
+    {
+      "id": "169749660fd23abc-ab2321cbf66a",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-deleteById-203"
+    },
+    {
+      "id": "169749660fd23abc-0013d16490b0",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-addRule-204"
+    },
+    {
+      "id": "169749660fd23abc-ca6339e4fd95",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-deleteById-204"
+    },
+    {
+      "id": "169749660fd23abc-9af44168a9ac",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-addRule-206"
+    },
+    {
+      "id": "169749660fd23abc-373c64684b90",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-deleteById-206"
+    },
+    {
+      "id": "169749660fd23abc-f85248365e1c",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-addRule-207"
+    },
+    {
+      "id": "169749660fd23abc-480c271ec4ae",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-deleteById-207"
+    },
+    {
+      "id": "169749660fd23abc-918db3a82053",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback"
+    },
+    {
+      "id": "169749660fd23abc-a96132311e04",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback"
+    },
+    {
+      "id": "169749660fd23abc-4c34a5c58bfe",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback"
+    },
+    {
+      "id": "169749660fd23abc-d69ae7d3d8d4",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback"
+    },
+    {
+      "id": "169749660fd23abc-2d5ca318a30f",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback"
+    },
+    {
+      "id": "169749660fd23abc-2b1ba0412cba",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-2b7af312a67c",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "java-rollback-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-b552a2d70a1e",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-5db01597dcd4",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "recutover-frozen-addRule"
+    },
+    {
+      "id": "169749660fd23abc-604ae69266c8",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "recutover-frozen-deleteById"
+    },
+    {
+      "id": "169749660fd23abc-acea264ba9d8",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "recutover-frozen-findByType"
+    },
+    {
+      "id": "169749660fd23abc-0cba7234eb1f",
+      "method": "GET",
+      "uri": "/api/postTrainGlobalRule",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "recutover-frozen-[REDACTED]"
+    },
+    {
+      "id": "169749660fd23abc-09ee45145c55",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "recutover-frozen-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-ad3f823022c2",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "recutover-frozen-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-b09303d48102",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "rollback-java",
+      "worker": "28213",
+      "label": "recutover-in-flight-write"
+    },
+    {
+      "id": "169749660fd23abc-022941aaecb6",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-61d04976bd65",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-frozen",
+      "worker": "28940",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-7aa8c76aed24",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 503,
+      "upstream": "",
+      "upstream_status": "",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "generation-observation"
+    },
+    {
+      "id": "169749660fd23abc-1f981777ee01",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "recutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-629c9b36ad23",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "recutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-00201f83c417",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "recutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-fa43f43beb92",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "recutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-25ddd3c49ac4",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "recutover-new-owner-reads-old-commit"
+    },
+    {
+      "id": "169749660fd23abc-8eeb631479d3",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-addRule-203"
+    },
+    {
+      "id": "169749660fd23abc-953421280536",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-deleteById-203"
+    },
+    {
+      "id": "169749660fd23abc-2ab1be59cfac",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-addRule-204"
+    },
+    {
+      "id": "169749660fd23abc-7d1035a11e01",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-deleteById-204"
+    },
+    {
+      "id": "169749660fd23abc-9de533cc7e4a",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-addRule-206"
+    },
+    {
+      "id": "169749660fd23abc-b2f8f9413448",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-deleteById-206"
+    },
+    {
+      "id": "169749660fd23abc-5f369ed33c1d",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/addRule",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-addRule-207"
+    },
+    {
+      "id": "169749660fd23abc-fe1e8dbb06ab",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-deleteById-207"
+    },
+    {
+      "id": "169749660fd23abc-53c4ba5a3d32",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover"
+    },
+    {
+      "id": "169749660fd23abc-5d92c4ff2295",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover"
+    },
+    {
+      "id": "169749660fd23abc-3f0ef53b24af",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover"
+    },
+    {
+      "id": "169749660fd23abc-fa5300247581",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover"
+    },
+    {
+      "id": "169749660fd23abc-ec788703fb05",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover"
+    },
+    {
+      "id": "169749660fd23abc-4d97b2b3c8c7",
+      "method": "POST",
+      "uri": "/api/user/getUsersByToken",
+      "status": 200,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-java-fallback"
+    },
+    {
+      "id": "169749660fd23abc-c834f6d7c126",
+      "method": "GET",
+      "uri": "/status",
+      "status": 101,
+      "upstream": "127.0.0.1:18141",
+      "upstream_status": "101",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-recutover-java-fallback-ws"
+    },
+    {
+      "id": "169749660fd23abc-87865db1a6a1",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/deleteById",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-delete"
+    },
+    {
+      "id": "169749660fd23abc-1de9ecf12888",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-deleted"
+    },
+    {
+      "id": "169749660fd23abc-68f393c7c294",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-deleted"
+    },
+    {
+      "id": "169749660fd23abc-92b12f82f5ba",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-deleted"
+    },
+    {
+      "id": "169749660fd23abc-a7637eedec35",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-deleted"
+    },
+    {
+      "id": "169749660fd23abc-443ce56b9f15",
+      "method": "POST",
+      "uri": "/api/postTrainGlobalRule/findByType",
+      "status": 200,
+      "upstream": "127.0.0.1:18142",
+      "upstream_status": "200",
+      "generation": "recutover-rust",
+      "worker": "29121",
+      "label": "rust-final-deleted"
+    }
+  ],
+  "cleanup": {
+    "gateway": {
+      "pid": 26347,
+      "returncode": 0,
+      "forced_cleanup": false
+    },
+    "java": {
+      "pid": 26237,
+      "returncode": 143,
+      "forced_cleanup": false
+    },
+    "rust": {
+      "pid": 26325,
+      "returncode": 0,
+      "forced_cleanup": false
+    },
+    "actions": "all operations stopped",
+    "access_evidence": "captured available run-owned access log",
+    "schema": "dropped run-created schema",
+    "log_handle_0": "closed",
+    "log_handle_1": "closed",
+    "log_handle_2": "closed",
+    "runtime_logs": "captured redacted run-owned logs",
+    "workspace": "removed run-created workspace"
+  },
+  "external_cleanup_checks": {
+    "listening_ports_remaining": [],
+    "checked_ports": [
+      18140,
+      18141,
+      18142
+    ],
+    "remaining_isolated_schemas": 0
+  },
+  "startup_failure_probe": {
+    "command": "MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh /bin/false --nginx-binary \"$HOME/.cache/rust-cutover/native-nginx/root/usr/sbin/nginx\" --out \"$HOME/.cache/rust-cutover/global-rule-startup-failure.json\"",
+    "expected_exit_code": 1,
+    "observed_error": "Failure: rust exited before readiness; see redacted runtime log",
+    "schema": {
+      "source": "project006",
+      "target": "rust_cutover_global_rule_bc0e0023ca5c1422",
+      "tables": 106,
+      "dump_sha256": "e73e9ae8b5baf9e705dedf2183b9a638ff8707aedb7ca508b7d5a7734e9b27cf",
+      "copied_data_rows": 0,
+      "structure_sha256": "57e37ca81834d70cbe787d5e1bbe9dd6fe903b3b20099f6f7dda2ee1a245fdd8"
+    },
+    "processes": {
+      "java": {
+        "pid": 25485,
+        "port": 18141,
+        "bind": "127.0.0.1"
+      },
+      "rust": {
+        "pid": 25559,
+        "port": 18142,
+        "bind": "127.0.0.1"
+      }
+    },
+    "cleanup": {
+      "gateway": "not created; untouched",
+      "java": {
+        "pid": 25485,
+        "returncode": 143,
+        "forced_cleanup": false
+      },
+      "rust": {
+        "pid": 25559,
+        "returncode": 1,
+        "forced_cleanup": false
+      },
+      "actions": "all operations stopped",
+      "access_evidence": "captured available run-owned access log",
+      "schema": "dropped run-created schema",
+      "log_handle_0": "closed",
+      "log_handle_1": "closed",
+      "runtime_logs": "captured redacted run-owned logs",
+      "workspace": "removed run-created workspace"
+    }
+  },
+  "verification": {
+    "java": "JDK21 ./mvnw -B clean verify: 513 passed, no failures/errors/skips; produced the fast-jar used above.",
+    "python": "python3 -m unittest discover -s backend-rust/scripts -p test_*.py: 81 passed, including 13 cutover safety/transition/evidence regressions. Existing socket ResourceWarning remains.",
+    "shell": "bash -n backend-rust/scripts/phase9-cutover-rehearsal.sh passed.",
+    "ci": ".github/workflows/rust-backend.yml now runs python3 scripts/test_phase9_cutover_rehearsal.py; that exact entrypoint passed 13 tests locally. GitHub Actions was not run; the live MySQL/Nginx rehearsal remains a separate explicit acceptance command.",
+    "runtime": "Successful full cutover run and intentional partial-startup failure both exercised; all run-owned processes/schema/workspace cleaned."
+  },
+  "environment_findings": [
+    "Containerized Nginx could not reach Java/Rust loopback in this execution namespace; native Nginx shares their namespace without exposing upstreams on 0.0.0.0.",
+    "A plain Nginx reload briefly admits connections on old workers; shared admission fencing plus both-generation drainage is required.",
+    "Port preflight uses SO_REUSEADDR plus listen so TIME_WAIT is not misreported as an active listener."
+  ],
+  "limitations": [
+    "Local synthetic HTTP through real Nginx, not browser/Electron/production proof.",
+    "No production traffic, service restart recovery, or cross-host network failure proof.",
+    "Draining whole Nginx generations is conservative: unrelated long-lived Java WS can block it; timeout stays frozen.",
+    "WS fallback is checked and closed separately, not seamless cutover with active production WS.",
+    "No automatic retry or fallback; timeouts abort before admitting a second owner.",
+    "This is route rollback on one shared synthetic database, not production database backup restoration or rollback of business data.",
+    "Only one low-risk domain is rehearsed. Browser/Electron, Windows/arm64, hardware, live rooms and production cutover are still required before Phase10."
+  ]
 }
