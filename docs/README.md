@@ -34,6 +34,7 @@
 | 全量 Rust 后端重写计划 | [`plans/2026-09-10-rust-full-rewrite-plan.md`](plans/2026-09-10-rust-full-rewrite-plan.md) |
 | backend-rust 目录结构重构（已完成；代码 `e99be2f6`） | [`specs/2026-10-15-backend-rust-structure-refactor-spec.md`](specs/2026-10-15-backend-rust-structure-refactor-spec.md) + [`plans/2026-10-15-backend-rust-structure-refactor-plan.md`](plans/2026-10-15-backend-rust-structure-refactor-plan.md) + [验收证据](reviews/rust-migration/structure-refactor-2026-10-16.json) |
 | Rust认证双栈扫描与脚本旅程证据（Phase 10仍阻断） | [`reviews/rust-migration/phase9-dual-stack-sweep.json`](reviews/rust-migration/phase9-dual-stack-sweep.json) |
+| backend-rust 移除 persistence crate 与 ORM 表述修正（待审阅，未实施） | [`specs/2026-10-16-backend-rust-persistence-removal-spec.md`](specs/2026-10-16-backend-rust-persistence-removal-spec.md) |
 | Rust 后端重构可行性评估 | [`specs/2026-09-10-rust-backend-feasibility.md`](specs/2026-09-10-rust-backend-feasibility.md) |
 | 查询历史分片证据 | [`reviews/archive/`](reviews/archive/) |
 | 查询数据库迁移证据 | `backend/database/rehearsal/` + `reviews/archive/*migration-rehearsal.md` |
