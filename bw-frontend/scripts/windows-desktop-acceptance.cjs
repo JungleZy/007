@@ -8,6 +8,8 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const {spawn, spawnSync} = require('node:child_process');
 const {createFixture} = require('./windows-desktop-fixture.cjs');
+const {buildRustInstaller} = require('./build-personal-rust.cjs');
+const {loadBackendProfile} = require('../electron/service/backend-profile');
 
 const [artifactArg, outputArg, mysqlArg, playwrightArg] = process.argv.slice(2);
 assert.equal(process.platform, 'win32', 'Native Windows is required');
@@ -119,8 +121,43 @@ function assertNoListeners(ports) {
 function signature(file) {
   return JSON.parse(ps(`$s=Get-AuthenticodeSignature -LiteralPath ${psQuote(file)}; @{status=[string]$s.Status;statusMessage=$s.StatusMessage;signer=if($s.SignerCertificate){$s.SignerCertificate.Subject}else{$null}} | ConvertTo-Json -Compress`));
 }
+async function rejectMissingDatabase(exe) {
+  assertNoListeners([18001, 8000]);
+  const env = {...process.env, ProgramData: machine, ALLUSERSPROFILE: machine,
+    APPDATA: path.join(work, 'appdata'), LOCALAPPDATA: path.join(work, 'localappdata')};
+  for (const key of Object.keys(env)) if (/^RUST_BACKEND_DATABASE_URL$|^RUST_BACKEND_ADDR$|^RUST_PHASE.*_ENABLED$/i.test(key)) delete env[key];
+  const rejectedProfile = path.join(work, 'missing-db-profile');
+  for (const dir of [rejectedProfile, machine, env.APPDATA, env.LOCALAPPDATA]) fs.mkdirSync(dir, {recursive: true});
+  activeApp = begin(exe, [`--user-data-dir=${rejectedProfile}`], 'missing-db', {env});
+  const dialogScript = `Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes;
+    $root=[System.Windows.Automation.AutomationElement]::RootElement;
+    $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty,${activeApp.pid});
+    $windows=$root.FindAll([System.Windows.Automation.TreeScope]::Children,$condition);
+    $texts=@(); $button=$null; foreach($window in $windows) {
+      $elements=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition);
+      foreach($element in $elements) {$texts+=$element.Current.Name; if($element.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button){$button=$element}}
+    };`;
+  const texts = await until('actionable native missing-database dialog', () => {
+    assert(activeApp.exitCode === null, 'App exited before the startup dialog was observed');
+    const names = JSON.parse(ps(dialogScript + ' ConvertTo-Json -InputObject @($texts) -Compress'));
+    return names.some(text => text.includes('RUST_BACKEND_DATABASE_URL')) && names;
+  });
+  const snapshot = captureOwnership(activeApp.pid);
+  assert(!snapshot.children.some(item => item.ExecutablePath?.toLowerCase() === path.join(install, 'bin/server/server.exe').toLowerCase()), 'Missing secret spawned Rust');
+  assert(!snapshot.children.some(item => /service[\\/]http[\\/]index\.js|--type=renderer/.test(item.CommandLine || '')), 'Missing secret spawned file service or renderer');
+  assertNoListeners([18001, 8000]);
+  desktopScreenshot('00-missing-database');
+  report.missingDatabase = {actionableDialog: texts, noBackendOrFileListener: true, noBackendFileOrRendererChild: true};
+  ps(dialogScript + ' if(!$button){throw "Missing startup dialog button"}; $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()');
+  await until('missing-database app exits after dialog dismissal', () => activeApp.exitCode !== null, 15000);
+  assert.equal(activeApp.exitCode, 1);
+  activeApp = null;
+}
 async function screenshot(label) {
   await page.screenshot({path: path.join(output, `${label}.png`), fullPage: true});
+  desktopScreenshot(label);
+}
+function desktopScreenshot(label) {
   // Capture the actual Windows desktop too, not only a viewport rendering.
   ps(`Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $r=[System.Windows.Forms.SystemInformation]::VirtualScreen; $b=New-Object System.Drawing.Bitmap($r.Width,$r.Height); $g=[System.Drawing.Graphics]::FromImage($b); try {$g.CopyFromScreen($r.Left,$r.Top,0,0,$b.Size);$b.Save(${psQuote(path.join(output, `${label}-windows.png`))})} finally {$g.Dispose();$b.Dispose()}`);
 }
@@ -147,36 +184,21 @@ function licenseProof() {
 async function buildInstallers() {
   const [major, minor, patch] = packageMetadata.version.split('.').map(Number);
   assert([major, minor, patch].every(Number.isInteger), 'Expected canonical three-part package version');
-  const serverDir = path.join(desktop, 'bin/server');
-  assert(!fs.existsSync(serverDir), 'Refusing to overwrite a developer backend directory');
-  fs.mkdirSync(serverDir);
-  fs.copyFileSync(artifact, path.join(serverDir, 'server.exe'));
-  assert.equal(hash(path.join(serverDir, 'server.exe')), report.backend.sha256);
-  try {
-    for (let index = 1; index <= 2; index++) {
-      const version = `${major}.${minor}.${patch + index}-validation.${index}`;
-      const buildDir = path.join(output, `build-${index}`);
-      await command(process.execPath, [path.join(desktop, 'node_modules/electron-builder/cli.js'), '--win', 'nsis', '--x64', '--publish', 'never',
-        `--config.extraMetadata.version=${version}`, '--config.appId=org.nip.rust-desktop-validation',
-        '--config.productName=NIP UNSIGNED VALIDATION ONLY', '--config.win.executableName=NipRustValidation',
-        '--config.win.artifactName=NIP-UNSIGNED-VALIDATION-${version}-${arch}.${ext}',
-        `--config.directories.output=${buildDir}`, '--config.nsis.runAfterFinish=false',
-        '--config.nsis.createDesktopShortcut=false', '--config.nsis.createStartMenuShortcut=false'], `build-${index}`,
-      {env: {...process.env, CSC_IDENTITY_AUTO_DISCOVERY: 'false'}});
-      assert.deepEqual(fs.readFileSync(path.join(desktop, 'package.json')), trackedPackage, 'Tracked version was modified');
-      const packagedServer = path.join(buildDir, 'win-unpacked/bin/server/server.exe');
-      assert.equal(hash(packagedServer), report.backend.sha256, 'Packaged Rust differs from needed job artifact');
-      const installers = fs.readdirSync(buildDir).filter(name => name.endsWith('.exe'));
-      assert.equal(installers.length, 1, 'Expected one NSIS installer');
-      const installer = path.join(buildDir, installers[0]);
-      const authenticode = signature(installer);
-      assert.equal(authenticode.status, 'NotSigned', 'Validation installer unexpectedly signed or corrupt');
-      report.installers.push({version, path: installer, sha256: hash(installer), bytes: fs.statSync(installer).size,
-        authenticode, packagedRustSha256: hash(packagedServer), asarSha256: hash(path.join(buildDir, 'win-unpacked/resources/app.asar'))});
-      writeJson('acceptance.json', report);
-    }
-  } finally {
-    fs.rmSync(serverDir, {recursive: true, force: true});
+  for (let index = 1; index <= 2; index++) {
+    const version = `${major}.${minor}.${patch + index}-validation.${index}`;
+    const built = await buildRustInstaller({artifact, output: path.join(output, `build-${index}`), validationVersion: version,
+      run: (file, args, options) => command(file, args, `build-${index}`, options)});
+    assert.deepEqual(fs.readFileSync(path.join(desktop, 'package.json')), trackedPackage, 'Tracked version was modified');
+    const packagedServer = path.join(built.unpacked, 'bin/server/server.exe');
+    assert.equal(hash(packagedServer), report.backend.sha256, 'Packaged Rust differs from needed job artifact');
+    const backendProfile = loadBackendProfile(packagedServer, true);
+    assert.equal(backendProfile.binarySha256, report.backend.sha256);
+    const authenticode = signature(built.installer);
+    assert.equal(authenticode.status, 'NotSigned', 'Validation installer unexpectedly signed or corrupt');
+    report.installers.push({version, path: built.installer, sha256: hash(built.installer), bytes: fs.statSync(built.installer).size,
+      authenticode, packagedRustSha256: hash(packagedServer), profileSha256: built.metadata.backend.profileSha256,
+      flags: backendProfile.featureFlags, asarSha256: built.metadata.asarSha256});
+    writeJson('acceptance.json', report);
   }
 }
 async function installVersion(index) {
@@ -184,6 +206,9 @@ async function installVersion(index) {
   await command(installer.path, ['/S', `/D=${install}`], `install-${index + 1}`, {windowsVerbatimArguments: true});
   const server = path.join(install, 'bin/server/server.exe');
   assert.equal(hash(server), report.backend.sha256, 'Installed backend is not the exact native artifact');
+  const backendProfile = loadBackendProfile(server, true);
+  assert.equal(backendProfile.binarySha256, report.backend.sha256);
+  assert.equal(hash(path.join(install, 'bin/server/backend.json')), installer.profileSha256);
   const exe = path.join(install, 'NipRustValidation.exe');
   assert(fs.existsSync(exe), 'NSIS did not install the application');
   assert.equal(hash(path.join(install, 'resources/app.asar')), installer.asarSha256, 'Installed app.asar is not the selected version');
@@ -230,7 +255,7 @@ async function launch(exe, index, databaseUrl) {
   const cdpPort = await freePort();
   const env = {...process.env, ProgramData: machine, ALLUSERSPROFILE: machine,
     APPDATA: path.join(work, 'appdata'), LOCALAPPDATA: path.join(work, 'localappdata'),
-    RUST_BACKEND_ADDR: '127.0.0.1:18001', RUST_BACKEND_DATABASE_URL: databaseUrl,
+    RUST_BACKEND_DATABASE_URL: databaseUrl,
     RUST_BACKEND_DB_TIMEOUT_SECS: '30', RUST_LOG: 'rust_backend=info', ELECTRON_ENABLE_LOGGING: '1'};
   // Prove the installed desktop does not borrow MinGW DLLs or Java from CI tools.
   for (const key of Object.keys(env)) if (/^path$/i.test(key)) delete env[key];
@@ -238,11 +263,10 @@ async function launch(exe, index, databaseUrl) {
   assert(windows && path.isAbsolute(windows), 'Missing native Windows SystemRoot');
   env.Path = [install, path.join(install, 'bin/server'), path.join(windows, 'System32'), windows,
     path.join(windows, 'System32/Wbem'), path.join(windows, 'System32/WindowsPowerShell/v1.0')].join(';');
-  for (const key of Object.keys(env)) if (/^RUST_PHASE.*_ENABLED$/.test(key)) delete env[key];
-  const source = fs.readFileSync(path.join(repo, 'backend-rust/crates/app/src/platform/flags.rs'), 'utf8');
-  const flags = [...new Set(source.match(/RUST_PHASE[A-Z0-9_]+_ENABLED/g))];
-  assert(flags.length >= 20, 'Full-domain feature list unexpectedly incomplete');
-  for (const key of flags) env[key] = 'true';
+  for (const key of Object.keys(env)) if (/^RUST_PHASE.*_ENABLED$|^RUST_BACKEND_ADDR$/i.test(key)) delete env[key];
+  const backendProfile = loadBackendProfile(path.join(install, 'bin/server/server.exe'), true);
+  assert.equal(backendProfile.binarySha256, report.backend.sha256);
+  const flags = backendProfile.featureFlags;
   for (const dir of [profile, machine, env.APPDATA, env.LOCALAPPDATA]) fs.mkdirSync(dir, {recursive: true});
   activeApp = begin(exe, [`--user-data-dir=${profile}`, `--remote-debugging-port=${cdpPort}`, '--remote-debugging-address=127.0.0.1', '--enable-logging=stderr'], `electron-${index}`, {env});
   await until('installed Electron CDP endpoint', async () => {
@@ -524,6 +548,7 @@ async function cleanup() {
     const account = 'uiwin' + crypto.randomBytes(4).toString('hex');
     const password = crypto.randomBytes(18).toString('hex');
     const exe = await installVersion(0);
+    await rejectMissingDatabase(exe);
     const first = await launch(exe, 1, databaseUrl);
     await activate();
     await networkSettings(true, '03-network-config');
