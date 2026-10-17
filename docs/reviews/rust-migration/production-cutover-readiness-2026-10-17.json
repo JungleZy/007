@@ -1,0 +1,635 @@
+{
+  "schema": "rust-production-cutover-readiness/v1",
+  "verified_at_utc": "2026-10-17T03:25:08.686Z",
+  "status": "BLOCKED_EXTERNAL_INPUTS_AND_RELEASE_WIRING",
+  "decision": "NO_GO",
+  "user_request": "Execute the recommended eight production-cutover stages in order; fail closed rather than substitute synthetic evidence for production acceptance.",
+  "candidate": {
+    "commit": "22ba43d8577cc7bfd4d42ee4762adcdbc5dc462b",
+    "git_tree": "9cf19368c0ef3ea2ec7d347478c85fdab8c72818",
+    "ci_checkout": "e139090d1f6d00481c0847ad38e2dd6111ed776c",
+    "ci_checkout_tree": "9cf19368c0ef3ea2ec7d347478c85fdab8c72818",
+    "checkout_tree_matches_candidate": true,
+    "source_archive": {
+      "sha256": "2c2517259b331b9a75e8db69d50a8945777ac7566090a9cc238ba967d346b69f",
+      "bytes": 167290880
+    },
+    "repository_versions": {
+      "java_backend": "3.1.1",
+      "rust_backend_crate": "0.1.0",
+      "frontend": "3.1.1",
+      "desktop": "3.1.1"
+    },
+    "release_version_approved": false,
+    "scope": "Repository source, default configuration, migration inputs and CI artifacts only. Production configuration, customer resources and actual deployed Java rollback version are not frozen.",
+    "local_cache": "/home/zhang/.cache/rust-production-candidate/22ba43d8577cc7bfd4d42ee4762adcdbc5dc462b",
+    "archive_files_write_protected": true
+  },
+  "ci_runs": [
+    {
+      "id": 38995589845,
+      "name": "Rust Backend",
+      "head_sha": "22ba43d8577cc7bfd4d42ee4762adcdbc5dc462b",
+      "head_branch": "ci/rust-native-acceptance",
+      "event": "pull_request",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "url": "https://github.com/JungleZy/007/actions/runs/38995589845"
+    },
+    {
+      "id": 38995589837,
+      "name": "Build Quarkus Native",
+      "head_sha": "22ba43d8577cc7bfd4d42ee4762adcdbc5dc462b",
+      "head_branch": "ci/rust-native-acceptance",
+      "event": "pull_request",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "url": "https://github.com/JungleZy/007/actions/runs/38995589837"
+    }
+  ],
+  "artifacts": [
+    {
+      "run_id": 38995589845,
+      "id": 12087636087,
+      "name": "windows-desktop-acceptance-evidence",
+      "bytes": 24182068,
+      "sha256": "ab34651b00e8cec7643bb8d8b943a14cde9dae8835120a2f101f7b1b84ffe13e",
+      "created_at": "2026-10-17T02:49:41Z",
+      "expires_at": "2026-10-31T02:49:39Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589845,
+      "id": 12087546366,
+      "name": "windows-desktop-UNSIGNED-VALIDATION-ONLY",
+      "bytes": 274164139,
+      "sha256": "5ad9dcfce905006e587609ef1c8e22ae6e410201515e278791dc2c1d2599e8a2",
+      "created_at": "2026-10-17T02:49:51Z",
+      "expires_at": "2026-10-31T02:49:41Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589845,
+      "id": 12087525365,
+      "name": "rust-backend-windows-x86_64-gnu",
+      "bytes": 8906798,
+      "sha256": "59d67d9927258092098fc3f132b3b1df9b33b66dc8edfce2040020c3d1cfb42a",
+      "created_at": "2026-10-17T02:41:29Z",
+      "expires_at": "2027-01-15T02:36:31Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589845,
+      "id": 12086962894,
+      "name": "rust-backend-linux-amd64",
+      "bytes": 7259301,
+      "sha256": "9fdcd1304dd514da740f96c87125e484e0cea4e722c5e7834e6898ad045e3262",
+      "created_at": "2026-10-17T02:39:42Z",
+      "expires_at": "2027-01-15T02:36:31Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589845,
+      "id": 12086504861,
+      "name": "rust-backend-linux-arm64",
+      "bytes": 7080086,
+      "sha256": "b179f4d9e25f73971206c4c496e0896845c8cd2f5419512db9ac6cd6c2de294a",
+      "created_at": "2026-10-17T02:38:46Z",
+      "expires_at": "2027-01-15T02:36:31Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589837,
+      "id": 12087206282,
+      "name": "backend-native-linux-amd64",
+      "bytes": 58439412,
+      "sha256": "f2587b7d1c893c57c2aa9525afe404dd510bad2a38cb867606bf253ac828744f",
+      "created_at": "2026-10-17T02:43:08Z",
+      "expires_at": "2027-01-15T02:36:32Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589837,
+      "id": 12087023061,
+      "name": "backend-native-windows-amd64",
+      "bytes": 78749925,
+      "sha256": "cbb8fec1e21673cf3fa898dc64502f69784101a270adde72fb672bcddcd4d679",
+      "created_at": "2026-10-17T02:43:59Z",
+      "expires_at": "2027-01-15T02:36:32Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589837,
+      "id": 12086923977,
+      "name": "backend-native-linux-arm64",
+      "bytes": 57036507,
+      "sha256": "90648421498a08d67e9e7e7ba7143de14d639e40110609a89f5f3a860471efee",
+      "created_at": "2026-10-17T02:42:11Z",
+      "expires_at": "2027-01-15T02:36:32Z",
+      "verified": true
+    },
+    {
+      "run_id": 38995589837,
+      "id": 12085979898,
+      "name": "frontend-web",
+      "bytes": 59660130,
+      "sha256": "f4dd28dd84d83bdb84563b6060e6ed2bf2d8f37048eb58cb164c4449033c4867",
+      "created_at": "2026-10-17T02:38:24Z",
+      "expires_at": "2027-01-15T02:36:32Z",
+      "verified": true
+    }
+  ],
+  "native_binaries": {
+    "rust": [
+      {
+        "artifact": "rust-backend-linux-amd64",
+        "binary": "rust-backend",
+        "bytes": 21969224,
+        "sha256": "8b9350e38e93ac8f65108e6435ebd2417fe588e72bc56578249c4468e4a99a05",
+        "format": "ELF64",
+        "architecture": "x86_64"
+      },
+      {
+        "artifact": "rust-backend-linux-arm64",
+        "binary": "rust-backend",
+        "bytes": 20295168,
+        "sha256": "fe95916d797a197b80623e36fa9eb15a12696b27c0389b45a177f0dd67547ac1",
+        "format": "ELF64",
+        "architecture": "aarch64"
+      },
+      {
+        "artifact": "rust-backend-windows-x86_64-gnu",
+        "binary": "rust-backend.exe",
+        "bytes": 27080025,
+        "sha256": "63d5810fadb3dd99035720576062d98c4951db853f4c50245902f3fb29b20168",
+        "format": "PE32+",
+        "architecture": "x86_64"
+      }
+    ],
+    "java_fallback": [
+      {
+        "component": "java-fallback",
+        "target": "linux-amd64",
+        "version": "3.1.1",
+        "source": "e139090d1f6d00481c0847ad38e2dd6111ed776c",
+        "sha256": "61aa26253a4dc817e3a52856e4c76866b7d6ebea7a0ac06f9170f04858c9598e",
+        "bytes": 192291760
+      },
+      {
+        "component": "java-fallback",
+        "target": "linux-arm64",
+        "version": "3.1.1",
+        "source": "e139090d1f6d00481c0847ad38e2dd6111ed776c",
+        "sha256": "390d162c132bf77ba9a1a6bd61499f6510a6dddaac0e0dceb309fab61a3eafbb",
+        "bytes": 186065792
+      },
+      {
+        "component": "java-fallback",
+        "target": "windows-amd64",
+        "version": "3.1.1",
+        "source": "e139090d1f6d00481c0847ad38e2dd6111ed776c",
+        "sha256": "e770ad1dd89747281d1792a39ad8c64f6d01f77266f516175c1cd597a227865d",
+        "bytes": 217247744
+      }
+    ],
+    "windows_installed_artifact_matches_ci": true
+  },
+  "source_inputs": [
+    {
+      "path": ".github/workflows/build-quarkus-native.yml",
+      "bytes": 15267,
+      "sha256": "1d79f84ff84de365d12490a593310de37f8b690d1499a4bb3e1a0693b285a915"
+    },
+    {
+      "path": ".github/workflows/rust-backend.yml",
+      "bytes": 8486,
+      "sha256": "96538f9de0be97d977bac557a648571876370ba701d5569096eda625f7be58a4"
+    },
+    {
+      "path": "backend-rust/Cargo.lock",
+      "bytes": 70894,
+      "sha256": "c127ee3001e6cde7b1b48e7e621c0f497d999db70bb6d1df6aeff5604dafdb1f"
+    },
+    {
+      "path": "backend-rust/Cargo.toml",
+      "bytes": 1131,
+      "sha256": "919eaf1ee0ca5c9d84ec4c93c0ea8e4375623a7f7979856122a1f1fdbef2dcfc"
+    },
+    {
+      "path": "backend-rust/crates/app/Cargo.toml",
+      "bytes": 804,
+      "sha256": "877035f4c5fc07aed1e0f69914261808e88e9434e5e66a6253bb5e1251170bee"
+    },
+    {
+      "path": "backend-rust/crates/app/src/platform/config.rs",
+      "bytes": 6295,
+      "sha256": "ef0819199e09b069335a92dc75435832a218969e05eb32ce42983ba0f8eb7ee0"
+    },
+    {
+      "path": "backend-rust/crates/app/src/platform/flags.rs",
+      "bytes": 1780,
+      "sha256": "e6c807048a9f4cd3d83b4e5cbc9b2d2dbe647117a77cfd6ea20d49bef38aae39"
+    },
+    {
+      "path": "backend-rust/crates/persistence/Cargo.toml",
+      "bytes": 266,
+      "sha256": "c5f627b880342edc4d02b25f62ba3505a4b1c281f3c4fcefdae87dd1e2ebe9e0"
+    },
+    {
+      "path": "backend/.mvn/wrapper/maven-wrapper.properties",
+      "bytes": 1062,
+      "sha256": "3a34bcf182eb7336effa8d5795c2db15aa98648cd5d4dd46704dd306a4db2af3"
+    },
+    {
+      "path": "backend/database/migrations/2026-08-26-01-schema-sync.sql",
+      "bytes": 6240,
+      "sha256": "6a4da93d898fdb8fc7cc3f2e12c71adb86d955e7dce388276d5cbe0981e50f37"
+    },
+    {
+      "path": "backend/database/migrations/2026-08-26-02-engine-innodb.sql",
+      "bytes": 2344,
+      "sha256": "7c12c188c6550be280def4a59d6183e3c136b8080c638a5009ace6146cf65cf1"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-08-01-unique-lazy-create.sql",
+      "bytes": 3549,
+      "sha256": "a255b66c84f44e17c0871caa05ab76f878bb9155990468588aac537b8b9c67d8"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-10-01-theory-json-capacity.sql",
+      "bytes": 3753,
+      "sha256": "f7845e5115b2bf4d150f2a1e64ba94ab06b1b200abd4cf74340ed442f69b7230"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-10-02-scoring-json-capacity.sql",
+      "bytes": 4262,
+      "sha256": "8b1221d2a8e9e11dfe55dbe5611bc0eb496c8954ec9f93030d9eb46bd88cbf7a"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-01-group-net-scoring.sql",
+      "bytes": 3569,
+      "sha256": "6c6c7cc6d488339653b48208d2cc1e13af6afe078af46283bca59eec5d804a96"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-01-simulation-page-uniqueness.sql",
+      "bytes": 9039,
+      "sha256": "12c91bf0060e9abc15b01dc72b8f75a2eaa3fb8de4d9592433c849dd8bc322b2"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-03-personal-electronic-capture.sql",
+      "bytes": 9681,
+      "sha256": "82e7fbfa29b03636096c91b1b7b26cd7b5c3c14d914dc5dc5c85ecbf9a57782d"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-03-post-telex-capture-clock.sql",
+      "bytes": 5044,
+      "sha256": "de654419172e8d6cfc223314d05a10b2f08648ed063cb1806b71425d9abd0ade"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-04-general-capture-clock.sql",
+      "bytes": 7338,
+      "sha256": "5bbc204d937813a5e7062038c856b10193710b17da8452db43e73921661d0803"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-11-04-personal-handkey-capture.sql",
+      "bytes": 6567,
+      "sha256": "22dc4640d222ae93b441424b5f6da542a0aebb409db8cb9c11ce8ef1b2831d67"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-01-general-telex-capture.sql",
+      "bytes": 6200,
+      "sha256": "cce4b5045318d9d1eaaafd67d180fca0417ea8247c664ee5084cf8e7a9d06ff0"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-02-post-telex-due-index.sql",
+      "bytes": 2558,
+      "sha256": "404d49b52fb9ce9cd76d299e472654ffe77accd70925dbd0f6030a27f44281bb"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-03-menu-telex-component-path.sql",
+      "bytes": 2095,
+      "sha256": "8c1cc9930b36f65ea7932dfcbdd649513c8b3903e36bffe776fc6c267a299c54"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-04-comprehensive-key-authority.sql",
+      "bytes": 1353,
+      "sha256": "7ee504d2b332da57769a2f92110837735ebb808d670b6b559e841840f5acf2cc"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-05-radio-study-clock.sql",
+      "bytes": 1960,
+      "sha256": "a7174a2773fe0e15aa752e768281ad3090bb52991fd1b343c4f7b24ddc5ed083"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-12-06-entering-accuracy-capacity.sql",
+      "bytes": 2414,
+      "sha256": "74a849b60372a27f6b681d94decdd42be2d5b0773f7d676620d3263ea9c7e18b"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-14-01-classic-telegram-clock.sql",
+      "bytes": 1133,
+      "sha256": "264c483f30af7cd555559995d02556f76f2a384e373f1ddfd6a58286373cf748"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-14-02-classic-telex-clock.sql",
+      "bytes": 1114,
+      "sha256": "ae691d9aaf608905513a33722581b8f0ae2411a508df40a3aa190408425b28a0"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-14-03-classic-receive-clock.sql",
+      "bytes": 1040,
+      "sha256": "70f9667508e0faa904046e5db28110d81358ddb47ae835eea2bc002d66e280fe"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-15-01-entering-exercise-clock.sql",
+      "bytes": 1855,
+      "sha256": "acf7c7ea04ab833765da909206f556137252ecdbf668104c520a87fd2ea99356"
+    },
+    {
+      "path": "backend/database/migrations/2026-09-15-02-electronic-statistics-time.sql",
+      "bytes": 1238,
+      "sha256": "c030d4a1c3613ad53226f464c23741a01f357c412555d137b0a1b565f3a1322b"
+    },
+    {
+      "path": "backend/pom.xml",
+      "bytes": 8616,
+      "sha256": "f0efb1e23ab6737d5340e217c9eed3d5b5d084a77ca32fc62d11893b5e8edc2f"
+    },
+    {
+      "path": "backend/src/main/resources/application.yml",
+      "bytes": 5046,
+      "sha256": "7d76182448e5e7073beb09690777fdffb7aef3d94e98fb4ae7b57cb0d99a0110"
+    },
+    {
+      "path": "bw-frontend/LICENSE",
+      "bytes": 11337,
+      "sha256": "7c60f1e60438d3fa389adf3834e74b60735538193d6aa6ef65eb2ab37ac75fdc"
+    },
+    {
+      "path": "bw-frontend/bin/config.json",
+      "bytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "bw-frontend/bin/nip.db",
+      "bytes": 108,
+      "sha256": "19741e26a1d38e73f8e78077f8f9084d95d7d8069795eed9cdcd0790dacddfe8"
+    },
+    {
+      "path": "bw-frontend/frontend/package-lock.json",
+      "bytes": 267042,
+      "sha256": "2ce2630beb80e2abb8e9ce4b956b4b58e0ef394616ab116c1e0844022749e224"
+    },
+    {
+      "path": "bw-frontend/frontend/package.json",
+      "bytes": 2086,
+      "sha256": "bec20b7fef23e7b5a3b703ccff7f1942b333abb116f677341e4b3ba7ba4ef1ac"
+    },
+    {
+      "path": "bw-frontend/frontend/public/runtime-config.js",
+      "bytes": 1179,
+      "sha256": "88f01a4042da1dbd40ca099a79539ccac919c5ee5480489cf5565e02a6ed2010"
+    },
+    {
+      "path": "bw-frontend/frontend/src/common/utils/entering-codebook.json",
+      "bytes": 128212,
+      "sha256": "0149e33cb1ba2df64a8754fb057ebe7231c421431a5787e2ec0e64dd97ca7f99"
+    },
+    {
+      "path": "bw-frontend/package-lock.json",
+      "bytes": 188540,
+      "sha256": "d517319468d5b887bf22c21e8d50df71f1a4168310183b64919786379c494448"
+    },
+    {
+      "path": "bw-frontend/package.json",
+      "bytes": 1878,
+      "sha256": "175e32e07c1bfc9c05974b5cee5f1c8d8703b1a4a562789053b65373afef02a1"
+    },
+    {
+      "path": "bw-frontend/scripts/artifact-manifest.cjs",
+      "bytes": 17726,
+      "sha256": "8bc880bf7a9edbee6e2388f81eb034c08eb3d293e7447fa77865dbdc55eaeef1"
+    },
+    {
+      "path": "bw-frontend/scripts/prepare-desktop.cjs",
+      "bytes": 2007,
+      "sha256": "c71b9188f4b23ae50254cf9f41b0028b12c936c69bdc059d9f514eedf510416d"
+    },
+    {
+      "path": "bw-frontend/scripts/windows-desktop-acceptance.cjs",
+      "bytes": 41333,
+      "sha256": "1c4397d4037f6ce07d3c7465ae192671e0e782d235ed817a6e050c42910948cc"
+    },
+    {
+      "path": "keysim/Cargo.lock",
+      "bytes": 4838,
+      "sha256": "b6d6c6501604250093b6791ab87fbe914e8cf5cea3e369c018552382dc3709c7"
+    },
+    {
+      "path": "keysim/Cargo.toml",
+      "bytes": 874,
+      "sha256": "edcf42bd04fe2bed9d8e40b5b974d94e17410db86b14882f6942273368b2317a"
+    }
+  ],
+  "verification": {
+    "github_artifact_digests": {
+      "verified": 9,
+      "failed": 0
+    },
+    "web": {
+      "version": "3.1.1",
+      "source": "e139090d1f6d00481c0847ad38e2dd6111ed776c",
+      "files": 1085,
+      "sidecar_match": true,
+      "all_files_hash_verified": true
+    },
+    "rust_linux": {
+      "status": "PASS",
+      "source": "Downloaded GitHub release artifact, not a local rebuild.",
+      "command": "python3 backend-rust/scripts/platform-smoke.py <preserved binary>",
+      "exit_code": 0,
+      "scope": "Process readiness/auth rejections/OpenAPI and SIGTERM; no business database acceptance."
+    },
+    "java_linux": {
+      "exit": 143,
+      "listener_closed": true,
+      "observations": [
+        {
+          "path": "/q/openapi",
+          "status": 200,
+          "openapi": "3.1.0"
+        },
+        {
+          "path": "/api/user/getUsersByToken",
+          "status": 200,
+          "code": 203,
+          "message": "token不能为空"
+        }
+      ],
+      "scope": "Actual downloaded native Linux Java fallback executable, isolated loopback HTTP port and unavailable synthetic database URL; no production DB or data migration tested.",
+      "shutdown_log": [
+        "2026-10-16 21:18:47,423 INFO  [Application] (Shutdown thread) The Application Is Stopping...",
+        "2026-10-16 21:18:47,424 INFO  [io.quarkus] (Shutdown thread) quarkus-template stopped in 0.002s"
+      ],
+      "validation_note": "The temporary checker initially required exit 0 and rejected Java exit 143. Actual SIGTERM exit143, shutdown hooks and closed listener are preserved as observations; no forced cleanup or production-ready claim.",
+      "status": "HTTP_STARTUP_AND_SHUTDOWN_OBSERVED"
+    },
+    "desktop": {
+      "status": "PASS_NATIVE_UNSIGNED_SAME_SOURCE_DESKTOP_ACCEPTANCE",
+      "version_labels": [
+        "3.1.2-validation.1",
+        "3.1.3-validation.2"
+      ],
+      "flag_counts": [
+        22,
+        22,
+        22
+      ],
+      "boundaries": {
+        "unsignedValidationOnly": true,
+        "publishing": false,
+        "productionGate": false,
+        "fieldGate": false,
+        "trustedSigningGate": false,
+        "historicalCustomerUpgradeProven": false,
+        "upgrade": "Two monotonically increasing validation-only metadata versions from the SAME SOURCE, with the real A state placed in the legacy layout before B. Not a historical customer installer upgrade.",
+        "license": "Existing development activation UI only. Not ordinary encrypted/device-bound license acceptance."
+      }
+    },
+    "download_recovery": "An interrupted acquisition and curl18 partial installer download were resumed. Final byte counts and GitHub SHA256 match for all nine ZIPs; partial downloads were not counted as verified."
+  },
+  "environment_checks": {
+    "github_repository_secrets": 0,
+    "github_environments": 0,
+    "github_recorded_deployments": 0,
+    "configured_ssh_tool_hosts": 0,
+    "signing_inputs_present": [],
+    "production_target_supplied": false,
+    "customer_snapshot_supplied": false,
+    "customer_resource_bundle_supplied": false
+  },
+  "engineering_gaps": [
+    {
+      "id": "release-backend-selection",
+      "evidence": [
+        ".github/workflows/build-quarkus-native.yml:258-283",
+        ".github/workflows/build-quarkus-native.yml:318-376",
+        ".github/workflows/rust-backend.yml:118-191"
+      ],
+      "finding": "The tag publish path and Linux desktop embed Java. Rust desktop artifacts are explicitly unsigned validation only; no production Rust release pipeline is proven."
+    },
+    {
+      "id": "rust-production-bootstrap",
+      "evidence": [
+        "bw-frontend/electron/service/index.js:21-33",
+        "backend-rust/crates/app/src/platform/config.rs:13-16",
+        "backend-rust/crates/app/src/platform/config.rs:80-101",
+        "bw-frontend/scripts/windows-desktop-acceptance.cjs:231-245"
+      ],
+      "finding": "The normal launcher inherits environment; Rust defaults to port18002 and disabled flags. Validation injects port18001, database URL and22 flags. A production configuration source must be defined and exercised; copying the Rust executable alone is not a production cutover."
+    },
+    {
+      "id": "whole-system-write-owner",
+      "evidence": [
+        "backend-rust/crates/app/src/runtime.rs:19-27",
+        "backend-rust/crates/app/src/domain/general_train/recovery.rs:22-87",
+        "backend-rust/scripts/phase9-cutover-rehearsal.py:259-264",
+        "backend-rust/scripts/phase9-cutover-rehearsal.py:487-488"
+      ],
+      "finding": "The general recovery worker performs database writes independently of incoming HTTP. Existing rehearsal covers one domain, not live WS/background-worker single-owner behavior. Do not put Java and all-enabled Rust on the same production DB merely by changing gateway traffic weights."
+    }
+  ],
+  "stages": [
+    {
+      "step": 1,
+      "task": "冻结发布候选版本、配置与资源清单，保留 Java 回滚制品",
+      "status": "PARTIAL_BLOCKED",
+      "reason": "已锁定22ba43d8源码和CI产物；现网Java版本、生产配置、客户资源与部署清单未提供，无法完成发布集冻结。"
+    },
+    {
+      "step": 2,
+      "task": "生成并验证正式签名交付产物与版本清单",
+      "status": "BLOCKED",
+      "reason": "仓库secrets/environments及本地签名变量均为空；现有正式release链仍是Java，Rust仅未签名验证链，须明确目标部署与签名方式。"
+    },
+    {
+      "step": 3,
+      "task": "执行生产等价备份恢复、迁移及回滚演练",
+      "status": "BLOCKED",
+      "reason": "没有生产快照、附件备份、已执行迁移台账及获批RTO/RPO；不以开发/合成库充当生产等价恢复。"
+    },
+    {
+      "step": 4,
+      "task": "完成真实客户端、全训练域、授权、资源和设备预生产验收",
+      "status": "BLOCKED",
+      "reason": "缺隔离预生产接入、客户资源、普通设备绑定授权、历史安装包与实机设备。"
+    },
+    {
+      "step": 5,
+      "task": "按单写入属主执行小流量生产切换",
+      "status": "BLOCKED",
+      "reason": "前置门禁未通过，生产目标/试点范围未给定；共享库后台恢复任务不受网关流量分配约束。"
+    },
+    {
+      "step": 6,
+      "task": "执行获批稳定观察窗口并核对指标",
+      "status": "BLOCKED",
+      "reason": "尚未切换，且观察时长、错误率/延迟/容量/数据阈值与责任人未批准。"
+    },
+    {
+      "step": 7,
+      "task": "按 Go/No-Go 门槛停止 Java 写入与流量，保留回滚入口",
+      "status": "BLOCKED",
+      "reason": "前置验收和观察门禁未通过，不能停止未知现网Java服务。"
+    },
+    {
+      "step": 8,
+      "task": "稳定期和备份复核通过后执行 Phase10 收口",
+      "status": "BLOCKED",
+      "reason": "稳定观察、备份和生产回滚证据缺失，Phase10保持阻断。"
+    }
+  ],
+  "completed_reachable_work": [
+    "Captured exact successful CI source tree and fixed archive identities.",
+    "Preserved source TAR,47 version/config/lock/migration input hashes and9 CI artifact archives.",
+    "Verified Java manifests and1085 Web files using existing verifier; matched Windows installed Rust hash with preserved artifact.",
+    "Executed preserved native Linux Rust and Java processes on private HTTP ports without production DB access.",
+    "Removed temporary acquisition script; no application source/workflow edits, main merge, tag, release, production mutation or Java removal."
+  ],
+  "required_inputs": [
+    {
+      "id": "deployment",
+      "need": "Production and isolated preproduction inventory: OS/architecture, client/backend/database/file-service topology, safe access alias or manifest path, deployed Java version and historical installer, runtime configuration and migration ledger."
+    },
+    {
+      "id": "signing",
+      "need": "Approved release version and trusted signer mechanism (secure PFX credentials or signing service/HSM identity), publisher and signing policy. Provide secure references, not private keys/passwords in chat."
+    },
+    {
+      "id": "data",
+      "need": "Consistent production-equivalent DB and resource backup, checkpoint and checksum inventory, approved isolated restore destination, sanitization/access policy, RTO/RPO and executed migration list."
+    },
+    {
+      "id": "field",
+      "need": "Customer resource library/iconfont, ordinary device-bound authorization, representative physical devices/operators, full training-domain acceptance scope."
+    },
+    {
+      "id": "operations",
+      "need": "Approved pilot/cohort, maintenance/drain strategy including WS and background workers, rollback authority, error/latency/data thresholds and observation period."
+    }
+  ],
+  "production_actions": {
+    "merged_main": false,
+    "created_tag": false,
+    "published_release": false,
+    "changed_production_traffic": false,
+    "modified_production_database": false,
+    "stopped_production_java": false,
+    "phase10_performed": false
+  },
+  "limitations": [
+    "CI Java fallback artifacts are not the unspecified currently deployed Java release; production rollback compatibility is unproven.",
+    "A source archive and lockfile inventory are not a signed distribution or a complete delivered-product SBOM.",
+    "Artifact smoke and synthetic installer acceptance do not satisfy production restore, full-domain UI, hardware or production observation gates."
+  ]
+}

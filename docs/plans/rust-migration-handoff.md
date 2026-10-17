@@ -1,6 +1,6 @@
 # Rust 迁移交接（每次接手先读本文件）
 
-最后更新：2026-10-16 UTC；结构重构代码基线 `e99be2f6`。本文件只记“现状与下一步”；历史运行、CI 与现场证据各保留自己的版本，不把旧结果当作新代码验收。
+最后更新：2026-10-17 UTC；结构重构代码基线 `e99be2f6`，生产准备候选 `22ba43d8`，当前生产判定 **NO-GO**。本文件只记“现状与下一步”；历史运行、CI 与现场证据各保留自己的版本，不把旧结果当作新代码验收。
 
 ## 现状
 - 接口层双栈对账：B4 用户/角色/菜单、WS 逐帧设施、B5 组训三域、B6 仿真、B7 报话/军语、B8 理论题库余项与杂项 **已完成**。全部旅程 2454 请求；最终全量扫描 3903 请求，0 FAIL/OPEN。
@@ -8,6 +8,8 @@
 - Linux 浏览器及打包 Electron 的 Rust 主链已实跑；Windows GNU、Linux arm64、Linux x64 **原生后端 CI 构建与产物 smoke 均已通过**。现场硬件、原生客户端发布包及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
 - 经用户明确批准，此前 44 个迁移提交已推送至公开仓库的独立分支 `ci/rust-native-acceptance`，草稿 PR：[JungleZy/007#1](https://github.com/JungleZy/007/pull/1)。远端 main 保持 `49341d99`；不得擅自合并、创建 tag 或发 release。
 - backend-rust 五步结构重构及最终审计 **已完成**：21 个业务域、main 4 行、生产文件最大 1414 行；API/DB/22 开关不变。本轮普通 Rust 79、串行隔离库 154、Python 81、release smoke 及 JDK21 `clean verify` 513 测试通过，各步 journeys/full 0 FAIL/OPEN。日志诊断复原代码为 `e99be2f6`；随后 native CI run [38994407842](https://github.com/JungleZy/007/actions/runs/38994407842) 针对同一 Rust 源码等价树完成 x64 Linux、原生 Linux arm64、原生 Windows GNU 和 unsigned desktop validation，四个 job 全绿。验收版本边界、脱敏证据与回滚顺序见 [结构重构计划 §9.8](2026-10-15-backend-rust-structure-refactor-plan.md#98-最终验收完成)。本轮提交已 push 到验证分支，未更新 main，不改变 Phase10 阻断条件。
+- 已按用户要求启动生产切换准备：封存 `22ba43d8` 源码、47 项版本/配置/锁文件/迁移输入和 9 份 CI 制品，逐份核对 GitHub SHA256；保留三平台 Java 备用制品，验证 Web 1085 文件并实跑 Linux Rust/Java 启动。详见 [生产准备执行记录](../reviews/rust-migration/production-cutover-readiness-2026-10-17.json)。这不是完整发布冻结：现网 Java 版本、配置、客户资源、生产等价备份、签名与部署目标未提供。
+- 生产工程缺口已定位：正式 tag 发布/Linux 桌面链仍装 Java；Rust 的生产端口、22 开关与数据库配置需要实际部署入口注入，不能只替换可执行文件。全开 Rust 会立即启动写库恢复任务，网关分流不能单独证明 Java/Rust 单写。当前未合并 main、打 tag、发布安装包、修改生产流量或停止现网 Java。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
 - 主会话（Opus）只调度与拍板；执行交给子代理：改代码/跑对账用 Sonnet，检索用 Haiku。子代理回报 ≤300 字。
