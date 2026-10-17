@@ -10,6 +10,7 @@
 - backend-rust 五步结构重构及最终审计 **已完成**：21 个业务域、main 4 行、生产文件最大 1414 行；API/DB/22 开关不变。本轮普通 Rust 79、串行隔离库 154、Python 81、release smoke 及 JDK21 `clean verify` 513 测试通过，各步 journeys/full 0 FAIL/OPEN。日志诊断复原代码为 `e99be2f6`；随后 native CI run [38994407842](https://github.com/JungleZy/007/actions/runs/38994407842) 针对同一 Rust 源码等价树完成 x64 Linux、原生 Linux arm64、原生 Windows GNU 和 unsigned desktop validation，四个 job 全绿。验收版本边界、脱敏证据与回滚顺序见 [结构重构计划 §9.8](2026-10-15-backend-rust-structure-refactor-plan.md#98-最终验收完成)。本轮提交已 push 到验证分支，未更新 main，不改变 Phase10 阻断条件。
 - 已按用户要求启动生产切换准备：封存 `22ba43d8` 源码、47 项版本/配置/锁文件/迁移输入和 9 份 CI 制品，逐份核对 GitHub SHA256；保留三平台 Java 备用制品，验证 Web 1085 文件并实跑 Linux Rust/Java 启动。详见 [生产准备执行记录](../reviews/rust-migration/production-cutover-readiness-2026-10-17.json)。这不是完整发布冻结：现网 Java 版本、配置、客户资源、生产等价备份、签名与部署目标未提供。
 - 生产工程缺口已定位：正式 tag 发布/Linux 桌面链仍装 Java；Rust 的生产端口、22 开关与数据库配置需要实际部署入口注入，不能只替换可执行文件。全开 Rust 会立即启动写库恢复任务，网关分流不能单独证明 Java/Rust 单写。当前未合并 main、打 tag、发布安装包、修改生产流量或停止现网 Java。
+- 个人 Windows Rust 桌面路径已完成：本地用固定 `electronuserland/builder@sha256:41ae540902461b6cbc988987db79547fcc10cda04d2a6c6367504f59d4b37c64` 完成未签名 NSIS，产物 SHA256 `0a6c5de13eb4bb2f0cd82c3da23af3528af94879a8880eac33a1b4417a046de2`；只留本机，不进入 Release/分发。PR2 native run [39010959140](https://github.com/JungleZy/007/actions/runs/39010959140) 的四个 job 全绿，真实 Windows 对话框、Rust profile、三次 renderer/升级和数据清理通过。机器可读记录：[个人桌面验收](../reviews/rust-migration/personal-rust-desktop-2026-10-17.json)。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
 - 主会话（Opus）只调度与拍板；执行交给子代理：改代码/跑对账用 Sonnet，检索用 Haiku。子代理回报 ≤300 字。
@@ -46,6 +47,10 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 默认回环端口 18140/18141/18142；每次只克隆 schema，创建唯一 `rust_cutover_global_rule_*` 合成库，完成或失败均清理本次进程和库。脚本不 build、不下载、不改生产；新机器需先准备已验证的 JDK21 fast-jar、Rust binary 和原生 Nginx。
 
 ## 已拍板口径（后续批次默认沿用）
+- 部署形态：用户选择 **Windows 桌面内置 Rust**；不改为集中式服务。
+- 签名与分发：用户明确 **“不用签名，个人使用，不分发”**。个人包不以缺少可信签名为阻断，但不发布 Release，不据此放行客户分发或生产 Phase10。
+- 资料与环境：用户确认尚未准备；生产等价备份恢复、实际数据迁移与现场验收继续阻断，不用仓库合成数据充数。
+- 切换方式：用户选择 **维护窗口停写切换**。先排空会话并停止原写入和后台任务，再启动 Rust 写入，保留 Java 回滚；不做共享库不停机按用户灰度。
 - 业务码：状态类错误按 Java 202（不用 208）；非成员/非学员按 Java；Java 的 500 一般不照搬，Rust 返回定义好的 202 并登记——例外：报文页组数非 10 倍数且末行错码时照 Java 500（用户 3b）。
 - 计分/取整/时长：一律按 Java（ScoreMath 取整、向上取整时长等）；Java 计分缺陷照抄并登记为已知 Java 缺陷（如缺页重复扣分）。
 - 锁：先锁父行/训练行主键、普通读出子行 id、按主键写；读接口不加 FOR UPDATE；不加索引、不改表结构。
@@ -94,6 +99,6 @@ MYSQL_PWD=root backend-rust/scripts/phase9-cutover-rehearsal.sh \
 
 ## 下一步
 1. `personal-ticker-tape` 偶发 FAIL 已完成隔离复跑：`$HOME/.cache/rust-ticker-investigation` 中的 `personal-ticker-tape` + `personal-ticker-base-session` 共31请求，30 identical、1个已登记 `TEXT_ONLY/ACCEPTED`（`finish-again` 的 description 表达差异），0 FAIL/OPEN。命令为 `$S schema && $S up && $S journeys <filtered-journeys.json> && $S down`；未修改 Rust/Java/旅程，当前不复现。
-2. 原生后端与未签名 Windows Electron 验证包已完成；待可信签名/发布包、完整客户资源下载链及现场安装升级验收，不把验证包发布。
+2. 原生后端、未签名验证包和个人未签名 Rust 包已完成；个人包仅供本机使用，不发 Release、不分发。仍待完整客户资源、真实设备/授权、生产备份恢复和维护窗口切换，不把验证包当生产包。
 3. 补全全训练域 UI、真实串口/按键/听感、普通绑定授权和现场设备验收。
 4. 生产备份恢复、切换窗口及观察期完成后再评估 Phase10（`docs/reviews/rust-migration/phase10-preconditions.json`），仍保留 Java 回滚入口。
