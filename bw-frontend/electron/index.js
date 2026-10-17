@@ -4,6 +4,7 @@ const context = require("./core/node_core_ctx");
 const {serialApiHandle} = require("./serial");
 const {loadConfig} = require("./core");
 const {onBackendService, onHttpService} = require("./service");
+const {startupMessage} = require('./service/backend-profile');
 require('./controller/index')
 
 class Index {
@@ -22,7 +23,7 @@ class Index {
     }
 		app.whenReady().then(async () => {
 			await loadConfig()
-			onBackendService()
+			await onBackendService()
 			onHttpService()
 			this.createWindow()
 
@@ -30,8 +31,12 @@ class Index {
         if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
       })
 		}).catch((error) => {
-			console.error('用户数据初始化失败:', error)
-			dialog.showErrorBox('应用启动失败', `无法安全加载用户数据，未启动训练服务。\n${error.message}`)
+			const message = startupMessage(error)
+			for (const child of [context.backendService, context.httpService]) {
+				if (child && child.exitCode === null && child.signalCode === null) child.kill();
+			}
+			console.error('应用启动失败:', message)
+			dialog.showErrorBox('应用启动失败', `${message}\n应用未完成启动，请修正配置后重试。`)
 			app.exit(1)
 		})
 		app.on('will-quit', () => {

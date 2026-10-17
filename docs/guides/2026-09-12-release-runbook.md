@@ -171,6 +171,26 @@ JAVA_HOME=$HOME/.local/opt/jdk21 ./mvnw -B clean verify -Pnative \
 要求为 2.17（门槛 ≤2.28）。按 CI 的无库冒烟参数启动后 `/q/openapi` 返回 200；该冒烟不代表
 数据库业务可用。本轮本地最终基线为 **502 测试 / 115 suite**、前端 **37/37 + build**，22个迁移（20 schema + 2 data）的schema与电子统计专项双快照演练通过。最终三平台native Actions结果见`docs/reviews/2026-09-15-full-project-review.md`；native CI不等于目标桌面实机、可信证书、生产凭据或真实硬件验收。
 
+### 4.6 Windows 内置 Rust：个人未签名包
+
+用户已选择**个人使用、不签名、不分发**。此路径不发 GitHub Release、不改正式 Java tag 发布链，也不代表生产切换或 Phase10 放行。Windows 可能显示未知发布者提示；不要关闭系统安全策略来冒充可信签名。
+
+从完整仓库构建，输入须是已核对来源和 SHA256 的 Windows x64 Rust 制品；输出目录必须为空：
+
+```powershell
+npm ci --prefix bw-frontend
+npm ci --prefix bw-frontend/frontend
+node bw-frontend/scripts/build-personal-rust.cjs C:\verified\rust-backend.exe C:\personal-build
+```
+
+- 产出真正的 NSIS 安装器及 `personal-rust-package.json`，记录源码、安装器、Rust 二进制和启动 profile 摘要；不会把目录包或失败构建当安装器。脚本拒绝覆盖已有 `bw-frontend/bin/server`，也不创建或迁移数据库。
+- 个人程序为 `NipRustPersonal.exe`，appId、包名、产品名与 Java/验证版分开；默认用户数据命名空间也独立。验证脚本仍用隔离的 validation 标识，不作为个人包分发。
+- `bin/server/backend.json` 由 canonical `platform/flags.rs` 生成，只含非秘密启动描述与二进制摘要。普通启动自行绑定 `127.0.0.1:18001` 并开启包内功能开关，不依赖 CI 注入地址/开关，不接受损坏 profile 后静默回退 Java。
+- 启动前须配置 **`RUST_BACKEND_DATABASE_URL`**，指向已按实际迁移台账准备好的个人 MySQL 库。口令中的保留字符须按 URL 编码；不要把连接串写入安装目录、profile、提交或构建参数。可通过当前用户环境或私有启动环境传入，不需要设置 22 个开关。
+- 未提供数据库配置、配置/二进制校验失败、18001 被占用、数据库不可就绪时，启动中止并给出错误；不抢占或终止别人的进程。日志保留故障信息但脱敏数据库凭据。`/ready` 只证明连接可用，**不证明 schema、业务数据或迁移完整**。
+- 在维护窗口启动：先结束训练、排空 WS，停掉原 Java 写入和后台任务，再启动 Rust；资料尚未准备时不要把两个全开后端接到同一库。保留原 Java、数据库和个人资源备份。
+- 在 Windows 原生环境构建最直接。Linux 交叉构建需完整 Wine 工具链（包括 NSIS 卸载器使用的 32 位组件）；不能通过跳过资源编辑、卸载器生成或改成目录包消除依赖失败。
+
 ## 5. 发布后验证
 
 ```bash
