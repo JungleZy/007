@@ -28,7 +28,7 @@ async function onBackendService() {
 	const profile = loadBackendProfile(serverPath, backendRuntime === 'rust');
 	const env = profile ? rustEnvironment(profile) : process.env;
 	let available;
-	try { available = await tryUsePort(BACKEND_PORT); } catch {
+	try { available = await tryUsePort(BACKEND_PORT, '127.0.0.1'); } catch {
 		throw new BackendStartupError('无法检查后端端口，请检查本机网络权限后重试。');
 	}
 	if (!available) {
