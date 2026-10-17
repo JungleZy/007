@@ -239,7 +239,7 @@ async function launch(exe, index, databaseUrl) {
   env.Path = [install, path.join(install, 'bin/server'), path.join(windows, 'System32'), windows,
     path.join(windows, 'System32/Wbem'), path.join(windows, 'System32/WindowsPowerShell/v1.0')].join(';');
   for (const key of Object.keys(env)) if (/^RUST_PHASE.*_ENABLED$/.test(key)) delete env[key];
-  const source = fs.readFileSync(path.join(repo, 'backend-rust/crates/app/src/main.rs'), 'utf8');
+  const source = fs.readFileSync(path.join(repo, 'backend-rust/crates/app/src/platform/flags.rs'), 'utf8');
   const flags = [...new Set(source.match(/RUST_PHASE[A-Z0-9_]+_ENABLED/g))];
   assert(flags.length >= 20, 'Full-domain feature list unexpectedly incomplete');
   for (const key of flags) env[key] = 'true';
