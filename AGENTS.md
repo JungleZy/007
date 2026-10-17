@@ -4,13 +4,13 @@
 
 ## 仓库布局与路径约定
 
-主工程为`backend/`（Quarkus服务）与`bw-frontend/`（Electron外壳，Vue在`bw-frontend/frontend/`）；`keysim/`为独立Rust拍发/串口模拟器。**本文以后端为主**；跨栈红线与提交约定适用于全仓。
+主工程为`backend/`（Quarkus服务，当前生产后端与回滚基线）与`bw-frontend/`（Electron外壳，Vue在`bw-frontend/frontend/`）；`backend-rust/`是Java后端的Rust迁移（Phase 1–9完成，Phase 10下线Java仍阻断），其命令、约定与红线见 [`backend-rust/AGENTS.md`](backend-rust/AGENTS.md)；`keysim/`为独立Rust拍发/串口模拟器。**本文以Java后端为主**；跨栈红线与提交约定适用于全仓。
 
 - 所有 Maven 命令在 **`backend/`** 下执行。
 - 本文的 Java 路径相对 `backend/src/main/java/com/nip/`（如 `common/MainApplication.java`）。
 - **全仓文档统一在仓库根 `docs/`**（2026-09-08 收口，`backend/docs/` 已不存在）：`docs/reviews/`（后端 + 前端 + 联合评审）、`docs/specs/`、`docs/plans/`、`docs/guides/`。文档路径一律相对仓库根写全（如 `docs/reviews/...`）；文档地图见 [`docs/README.md`](docs/README.md)。
 - **库资产不在 `docs/`**：快照 `backend/database/project006[-base].sql`、迁移 `backend/database/migrations/`、演练证据 `backend/database/rehearsal/` 属后端工程资产（`backend/scripts/rehearse-migrations.sh` 以 `backend/` 为根消费）。
-- 最新全项目与核心训练复核入口是`docs/reviews/2026-09-15-full-project-review.md`；09-12与09-14报告保留历史执行证据。当前完成状态、验证范围及Actions以最新报告为准，不能用旧“已闭合”代替本轮验收。新增同类代码沿用`@RequireAdmin`与属主判定、207授权、208终态、不透明token请求头及服务器权威结果。
+- 当前评审入口以 [`docs/README.md`](docs/README.md) 顶部为准：全项目与核心训练复核`docs/reviews/2026-09-15-full-project-review.md`，前后端一致性专项`docs/reviews/2026-09-19-multi-model-debate-cross-stack-review.md`；09-12与09-14报告保留历史执行证据。当前完成状态、验证范围及Actions以最新报告为准，不能用旧“已闭合”代替本轮验收。新增同类代码沿用`@RequireAdmin`与属主判定、207授权、208终态、不透明token请求头及服务器权威结果。
 
 ## 构建与测试
 
@@ -26,13 +26,14 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 - 测试期无需本地 MySQL：`%test` 用 DevServices 拉起 `mysql:8.0`（库 `project006_test`，`drop-and-create`），但**必须有 Docker**。
 - 只改一处时优先跑受影响的单测类，最后再 `verify` 全量；不要 `-DskipTests` 交付。
-- 2026-09-14历史基线为442测试/102 suite全绿；后续实际数量与验证结果以最新复核报告为准，不用历史计数替代当前运行。
+- 测试数量以本轮实际运行为准，不引用历史计数作为当前基线。
+- 其他工程：前端`cd bw-frontend/frontend && npm ci && npm run test && npm run build`；桌面发布与运行时契约`cd bw-frontend && node --test 'scripts/test/*.test.mjs' 'scripts/runtime-test/*.test.mjs'`；keysim`cd keysim && cargo test --locked && cargo build --locked`；backend-rust见其AGENTS.md。
 
 ## 运行时关键事实（易踩）
 
 - **端口 18001**，不是 8080。REST 前缀 **`/api`**（`common/MainApplication.java` 的 `@ApplicationPath`）。测试端口 18081。
 - **已定义业务结果为HTTP200信封**，业务状态在JSON `code`字段，禁止用HTTP状态表达业务拒绝。未处理系统故障按现有`GlobalExceptionMapper`保留HTTP500+code500；JAX-RS协议错误保留原404/405/415等状态，`ExceptionBoundaryTest`守此边界。
-- **鉴权头**：`token` + `deviceId`（`common/constants/BaseConstants`），**只从请求头读**（query 回退已移除）。类级 `@JWT` 拦截，`controller/free/**` 免鉴权。**授权**另由 `@RequireAdmin`（当前 45 个端点 / 17 个 controller）与服务层 `writableTrain`/属主判定承担。WebSocket 在 `@OnOpen` 校验 query `token`+`deviceId`，并以校验身份覆盖路径 `uid`。
+- **鉴权头**：`token` + `deviceId`（`common/constants/BaseConstants`），**只从请求头读**（query 回退已移除）。类级 `@JWT` 拦截，`controller/free/**` 免鉴权。**授权**另由 `@RequireAdmin`（覆盖面会随整改变化，用 `grep -rn '@RequireAdmin' backend/src/main/java/com/nip/controller` 现取）与服务层 `writableTrain`/属主判定承担。WebSocket 在 `@OnOpen` 校验 query `token`+`deviceId`，并以校验身份覆盖路径 `uid`。
 - 生产库 schema 策略 `validate`：改实体/表结构必须同步 `backend/database/migrations/` 迁移脚本，否则 `%prod` 启动失败。
 
 ## 代码约定
@@ -49,9 +50,9 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 1. **`@Transactional` 内 catch 吞异常 → 部分提交/数据丢失**。事务方法里捕获异常后若要中止，必须重抛或 `setRollbackOnly()`；不要「catch 后 `return error()`」让事务照常提交。
 2. **改结算路径前先确认目标表引擎**：MyISAM 不支持事务，`@Transactional` 回滚在其上是空操作，「先删后插」结算一旦中断即永久丢数据。当前快照 `backend/database/project006.sql` 已是 **105 张表全 InnoDB、0 张 MyISAM**（迁移 02 已回灌）；22 张 MyISAM 只存在于迁移前 base 快照 `backend/database/project006-base.sql`（78 InnoDB + 22 MyISAM，仅供迁移演练）。生产兜底是启动自检：`common/LifecycleApplication.checkStorageEngine` 扫 `information_schema`，`%prod` 发现 MyISAM 抛 `IllegalStateException` 阻断启动，dev/test 只告警。
 3. **WebSocket 端点是 `@ApplicationScoped` 单例**：实例字段跨连接共享，禁止把会话态存实例字段；用 `Session` 维度的容器。
-4. **token 查询有两条口径，别混用**：`UserService.getUserByToken` 查无即抛 `UnauthorizedException`（→ 200 + 203），是唯一对外口径；裸 DAO `UserDao.findUserEntityByToken` 用 `firstResult()`，**查无返回 null**。2026-09-12 已收敛：该 DAO 方法当前**只剩 2 个调用点，都在 `UserService` 内且都判空**（`userOut` 显式判 null、`getUserByToken` 抛异常），业务 service 里的 24 处裸解引用已全部改走 `getUserByToken`。**新代码一律走 `getUserByToken`，不要新增裸 DAO 解引用。** 同类裸 `firstResult()` 全仓仍有 **58 处 / 45 个 DAO 文件**（鉴权与结算写路径已收敛，其余为查询路径），改到时按调用点判空或换 `Optional`。行号会漂移，用 `grep -rn findUserEntityByToken backend/src/main/java` 现取。
-5. **跨栈契约不可单侧改**：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `bw-frontend/frontend/src/common/api/*.js`（28 个模块即完整契约清单）与实际调用点，并把结果贴进提交正文。历史上后端单侧整改曾一次改断 4 处跨栈契约（`roomgId` 改名、上传能力边界收窄、`saveBatch`/`exportTemplate` 成孤儿端点、`Page.getRows()` 钳制），取证见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；这 4 处**均已闭环**，作为历史教训保留，红线规则本身继续有效。
-6. **鉴权 ≠ 授权**：前端 `v-per` 只是可篡改的软门控，服务端必须自己判。2026-09-12 已落地：`user/role/menus` 的写端点（`saveUser`/`importUser`/`addUserRole`/`resetPassword`/`addRole`/`addMenu`）与评分规则、理论主数据、题库写端点均已加 `@RequireAdmin`，训练 `delete`/`updateStatus` 走 `writableTrain` 属主或管理员判定，拒绝统一 207。**但覆盖仍不完整：43 个非 free controller 全文无 `@RequireAdmin`**（多为学员自助与查询端点，按设计只需 `@JWT` + 服务层属主判定）。新增管理类端点必须自己做服务端授权判定，并在测试里断言非管理员拿到 207。
+4. **token 查询有两条口径，别混用**：`UserService.getUserByToken` 查无即抛 `UnauthorizedException`（→ 200 + 203），是唯一对外口径；裸 DAO `UserDao.findUserEntityByToken` 用 `firstResult()`，**查无返回 null**。2026-09-12 已收敛：该 DAO 方法当前**只剩 2 个调用点，都在 `UserService` 内且都判空**（`userOut` 显式判 null、`getUserByToken` 抛异常），业务 service 里的 24 处裸解引用已全部改走 `getUserByToken`。**新代码一律走 `getUserByToken`，不要新增裸 DAO 解引用。** 同类裸 `firstResult()` 仍大量存在（鉴权与结算写路径已收敛，其余多为查询路径；数量用 `grep -rn 'firstResult()' backend/src/main/java | wc -l` 现取），改到时按调用点判空或换 `Optional`。行号会漂移，用 `grep -rn findUserEntityByToken backend/src/main/java` 现取。
+5. **跨栈契约不可单侧改**：改 `@RestQuery`/`@RestForm` 参数名、返回形态（`Response<T>`↔字节流↔void）、业务码语义、上传/解析能力边界前，必须 grep 前端 `bw-frontend/frontend/src/common/api/*.js` **以及**不经这些模块的直接调用点（09-19 评审证实 api 模块不是完整契约清单），并把结果贴进提交正文。改 Java 端点返回、业务码或 `backend/database/migrations/` 还会影响 backend-rust 的双栈对账（旅程、差异 registry 与 `local-dual-stack.sh setup`），需同步评估。历史上后端单侧整改曾一次改断 4 处跨栈契约（`roomgId` 改名、上传能力边界收窄、`saveBatch`/`exportTemplate` 成孤儿端点、`Page.getRows()` 钳制），取证见 `docs/reviews/2026-09-08-joint-frontend-backend-review.md`；这 4 处**均已闭环**，作为历史教训保留，红线规则本身继续有效。
+6. **鉴权 ≠ 授权**：前端 `v-per` 只是可篡改的软门控，服务端必须自己判。2026-09-12 已落地：`user/role/menus` 的写端点（`saveUser`/`importUser`/`addUserRole`/`resetPassword`/`addRole`/`addMenu`）与评分规则、理论主数据、题库写端点均已加 `@RequireAdmin`，训练 `delete`/`updateStatus` 走 `writableTrain` 属主或管理员判定，拒绝统一 207。**但并非所有非 free controller 都有 `@RequireAdmin`**（多为学员自助与查询端点，按设计只需 `@JWT` + 服务层属主判定；具体名单用 grep 现取）。新增管理类端点必须自己做服务端授权判定，并在测试里断言非管理员拿到 207。
 7. **`t_role.is_admin` 的取值与列名相反：`is_admin = 0` 才是管理员**。判定单点是 `RoleDao.existsAdminRoleByUserId`（`where r.isAdmin = 0`），`RequireAdminInterceptor` 只调它。2026-09-12 运行实测（本地 `project006`）：`系统管理员` 行 `is_admin=0`、`普通人员` 行 `is_admin=1`，前者调 `POST /api/user/getAllUser` 得 200、后者得 207 —— 数据与判定自洽。**两个方向的坑都要防**：① 看到 `= 0` 以为是笔误、改成 `= 1` → 所有 `普通人员` 瞬间变管理员（`AdminAuthorizationTest.ordinaryUserCannotDeleteAnotherUser`/`superAdminRoleAllowsProtectedOperation` 会拦住这种改动，别绕过它们）；② 新建角色时按字面填 `is_admin=0` 表示「不是管理员」→ 实际授予了管理员（`RoleService.addRole` 原样存客户端传的值，不做归一）。新增角色数据务必对照上述实测语义。
 
 ## 测试约定
@@ -62,7 +63,8 @@ export JAVA_HOME=$HOME/.local/opt/jdk21
 
 ## 文档与权威来源
 
-- 当前状态入口为`docs/reviews/2026-09-15-full-project-review.md`；可信证书、真实设备/听感和客户现场不可被本地测试替代，native CI结果与实机验收单独陈述。
+- 当前状态入口以 [`docs/README.md`](docs/README.md) 为准（见「仓库布局」末条）；可信证书、真实设备/听感和客户现场不可被本地测试替代，native CI结果与实机验收单独陈述。
+- Rust 迁移的接手入口为 `docs/plans/rust-migration-handoff.md`，证据在 `docs/reviews/rust-migration/`。
 - 当前规格与计划：`docs/specs/2026-09-15-full-project-fix-spec.md`、`docs/plans/2026-09-15-full-project-fix-plan.md`。测试、迁移及GitHub Actions使用本轮实际命令/最终提交证据，不沿用历史计数。
 - `docs/reviews/2026-09-08-full-project-review.md` 已降为历史证据；**跨栈问题的详细取证仍以 `docs/reviews/2026-09-08-joint-frontend-backend-review.md` 为准**，汇总结论以当前全项目评审为准。更早的后端评审、审计和分片位于 `docs/reviews/archive/`，仅用于追溯。跨栈整改规格为 `docs/specs/2026-09-08-joint-fix-spec.md`，客户报障整改计划为 `docs/plans/2026-09-10-customer-issue-fix-plan.md`（T17 现场交付未完成）。
 - 整改规格/计划在 `docs/specs/`、`docs/plans/`；迁移演练在 `backend/database/rehearsal/`；后端专题说明在 `docs/guides/`。
