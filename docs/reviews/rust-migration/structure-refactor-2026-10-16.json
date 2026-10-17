@@ -541,7 +541,7 @@
     "The pre-existing /api/phase1/contract/admin anonymous HTTP500 and /api/mtd/saveAll admin 202 capability rejection are preserved, not counted as successful administration/import.",
     "Normal service exit, config failure and bind failure were exercised. axum::serve return-error cleanup was verified by unchanged control flow, not fault-injected.",
     "Python retains the previously documented unclosed-socket ResourceWarning.",
-    "This run is local WSL/Linux verification, not fresh native CI, signed release, desktop hardware or production cutover acceptance; Phase10 remains blocked."
+    "Native CI for the final Rust source-equivalent tree passed in GitHub Actions run 38994407842; this does not prove trusted signing, field hardware or production cutover. Phase10 remains blocked."
   ],
   "cleanup": {
     "owned_services_stopped": [

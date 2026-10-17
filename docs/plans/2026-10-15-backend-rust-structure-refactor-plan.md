@@ -364,7 +364,8 @@ Step2 双栈首轮在宿主机时钟跳变下出现 4 项 military duration 差�
 - 恢复行为已补齐第 1/3/4/5 步实际服务证据；最终首次恢复 0.102 秒、后续恢复 4.858 秒，关闭开关和退出后均不恢复。配置非法与监听 bind 失败的退出码 1 已与原始二进制实跑对照。`serve` 返回错误时先 abort 再传播错误的分支按未变控制流核验，未伪称做过该分支故障注入。
 - **版本边界**：最终代码为 `e99be2f6`。V01–V03 与全量双栈的最后报告对应第 5 步 `790dd710`；唯一后续源码差异是 §9.7 的日志原文复原，已单独实跑三个错误路径并重跑完整构建/测试/smoke。未把旧二进制报告重标为新提交执行。
 - 临时配对时钟仅用于本机验证，未更改宿主机 NTP、应用时钟、旅程夹具或 registry。自建 MySQL 演练容器已删除，18121/18122/40187 无监听；原容器只删除本任务的两个唯一命名隔离库，保留 `mysql-project006`。一次性脚本与候选源码目录已删除，证据留在仓库。
-- 本轮为 WSL/Linux 本地结构重构验收，**不是新的 native CI、可信签名、实机/听感或生产切换验收**；未 push，Phase10 仍按原前置条件阻断。
+- 本轮最终源码的 native CI 已通过：GitHub Actions run [38994407842](https://github.com/JungleZy/007/actions/runs/38994407842) 的 x64 Linux、原生 Linux arm64、原生 Windows GNU 及 Windows unsigned desktop validation 四个 job 全部成功。运行 head 为 `32d82779`；该提交仅修复 desktop acceptance 从已缩短的 `main.rs` 扫描开关的问题，`backend-rust/` 与 `.github/` 工作流内容均与最终 Rust 提交 `e99be2f6` 相同。详细证据：[native CI 记录](../reviews/rust-migration/structure-refactor-native-ci-2026-10-17.json)。
+- 本轮 native CI 仍不是可信签名发布、实机/听感或生产切换验收；Phase10 仍按原前置条件阻断。
 
 | 提交 | 交付单元 |
 |---|---|

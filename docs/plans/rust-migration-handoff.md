@@ -7,7 +7,7 @@
 - 单域真实网关演练 **已完成**：`/api/postTrainGlobalRule/**` 在同一隔离库上 Java→Rust→Java→Rust，最终 108 个网关请求、三次真实阻塞写排空及七次 Java WS 回退验证通过。不是生产切换，不是下线 Java。
 - Linux 浏览器及打包 Electron 的 Rust 主链已实跑；Windows GNU、Linux arm64、Linux x64 **原生后端 CI 构建与产物 smoke 均已通过**。现场硬件、原生客户端发布包及生产备份/切换仍未验收，Phase10（下线 Java）继续阻断。
 - 经用户明确批准，此前 44 个迁移提交已推送至公开仓库的独立分支 `ci/rust-native-acceptance`，草稿 PR：[JungleZy/007#1](https://github.com/JungleZy/007/pull/1)。远端 main 保持 `49341d99`；不得擅自合并、创建 tag 或发 release。
-- backend-rust 五步结构重构及最终审计 **已完成**：21 个业务域、main 4 行、生产文件最大 1414 行；API/DB/22 开关不变。本轮普通 Rust 79、串行隔离库 154、Python 81、release smoke 及 JDK21 `clean verify` 513 测试通过，各步 journeys/full 0 FAIL/OPEN。日志诊断复原代码为 `e99be2f6`；验收版本边界、脱敏证据与回滚顺序见 [结构重构计划 §9.8](2026-10-15-backend-rust-structure-refactor-plan.md#98-最终验收完成)。本轮提交未 push，未重跑 native CI，不改变 Phase10 阻断条件。
+- backend-rust 五步结构重构及最终审计 **已完成**：21 个业务域、main 4 行、生产文件最大 1414 行；API/DB/22 开关不变。本轮普通 Rust 79、串行隔离库 154、Python 81、release smoke 及 JDK21 `clean verify` 513 测试通过，各步 journeys/full 0 FAIL/OPEN。日志诊断复原代码为 `e99be2f6`；随后 native CI run [38994407842](https://github.com/JungleZy/007/actions/runs/38994407842) 针对同一 Rust 源码等价树完成 x64 Linux、原生 Linux arm64、原生 Windows GNU 和 unsigned desktop validation，四个 job 全绿。验收版本边界、脱敏证据与回滚顺序见 [结构重构计划 §9.8](2026-10-15-backend-rust-structure-refactor-plan.md#98-最终验收完成)。本轮提交已 push 到验证分支，未更新 main，不改变 Phase10 阻断条件。
 
 ## 工作方式（用户要求，全局 ~/.claude/CLAUDE.md 第 5 条）
 - 主会话（Opus）只调度与拍板；执行交给子代理：改代码/跑对账用 Sonnet，检索用 Haiku。子代理回报 ≤300 字。

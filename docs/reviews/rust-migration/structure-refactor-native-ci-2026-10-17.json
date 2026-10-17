@@ -1,0 +1,64 @@
+{
+  "schema": "backend-rust-structure-refactor-native-ci/v1",
+  "status": "PASS_NATIVE_BACKEND_AND_DESKTOP_VALIDATION",
+  "verified_at_utc": "2026-10-17T02:32:57Z",
+  "workflow": ".github/workflows/rust-backend.yml",
+  "run_id": 38994407842,
+  "run_url": "https://github.com/JungleZy/007/actions/runs/38994407842",
+  "event": "pull_request",
+  "pull_request": "https://github.com/JungleZy/007/pull/1",
+  "run_head_sha": "32d82779a4961d93f6c818eae79ddddf7ae24813",
+  "target_rust_commit": "e99be2f6872c8e06213b582844aa023959361c1b",
+  "source_equivalence": {
+    "backend_rust_diff_from_target": [],
+    "reason_head_is_newer": "32d82779 adds only the Windows desktop acceptance scanner fix; the Rust source and workflow are unchanged from e99be2f6.",
+    "scanner_fix": "bw-frontend/scripts/windows-desktop-acceptance.cjs now reads backend-rust/crates/app/src/platform/flags.rs instead of the four-line main.rs."
+  },
+  "jobs": [
+    {
+      "id": 117283646316,
+      "name": "Rust backend (test, build, smoke)",
+      "status": "success",
+      "checks": ["cargo fmt --all -- --check", "cargo test --locked", "contract comparator tests", "cutover safety tests", "debug build", "release build", "release smoke"]
+    },
+    {
+      "id": 117283646245,
+      "name": "Rust backend (native Windows GNU build, smoke)",
+      "status": "success",
+      "runner": "windows-2022",
+      "checks": ["native x64 machine and MinGW checks", "x86_64-pc-windows-gnu release build", "actual Windows GNU release smoke"]
+    },
+    {
+      "id": 117283646039,
+      "name": "Rust backend (native Linux arm64 build, smoke)",
+      "status": "success",
+      "runner": "ubuntu-24.04-arm",
+      "checks": ["native aarch64 runner check", "aarch64-unknown-linux-gnu release build", "actual Linux arm64 release smoke"]
+    },
+    {
+      "id": 117284752214,
+      "name": "Windows desktop (unsigned NSIS, real renderer, same-source upgrade)",
+      "status": "success",
+      "runner": "windows-2022",
+      "checks": ["real Electron renderer", "same-source validation installer upgrade", "resource and process cleanup"]
+    }
+  ],
+  "artifacts": [
+    "rust-backend-linux-amd64",
+    "rust-backend-linux-arm64",
+    "rust-backend-windows-x86_64-gnu",
+    "windows-desktop-acceptance-evidence",
+    "windows-desktop-UNSIGNED-VALIDATION-ONLY"
+  ],
+  "prior_failed_attempt": {
+    "run_id": 38993419367,
+    "head_sha": "0295972f2d1aebe8bcb2d73670becafb8fd5fa0d",
+    "failure": "Windows desktop acceptance asserted that the full-domain feature list was incomplete.",
+    "root_cause": "The acceptance script still scanned RUST_PHASE*_ENABLED from main.rs after the structure refactor moved the definitions to platform/flags.rs.",
+    "resolution_commit": "32d82779a4961d93f6c818eae79ddddf7ae24813"
+  },
+  "boundaries": [
+    "The Windows installers are unsigned validation artifacts, not a trusted release.",
+    "This run does not prove customer hardware, field serial/key/audio acceptance, production backup/cutover, or Java removal."
+  ]
+}
