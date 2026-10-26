@@ -27,7 +27,7 @@ export default function telegramList(showChart,selfId) {
     },
     telegraph: null,
   });
-  const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '四码组/分' : '码/分（历史）');
+  const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '码/分' : '码/分（历史）');
   const alter = ref(0);
   const userInfo = JSON.parse(localStorage.getItem('userInfo'))
   const resolve = ref([])
@@ -168,7 +168,7 @@ export default function telegramList(showChart,selfId) {
   const renderLineChart = () => {
     let data = [],speed = 0,xTxt = [];
     patTotal.value.map((item,i) => {
-      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime / 4).toFixed(0)) : 0;
+      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime).toFixed(0)) : 0;
       xTxt.push('第'+item.pageNumber+'页');
       data.push(speed)
     });

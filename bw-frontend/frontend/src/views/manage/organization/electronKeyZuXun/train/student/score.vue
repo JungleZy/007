@@ -57,7 +57,7 @@
                   <template v-if="scoreData.deductInfo">
                     <div class="row">
                       <div class="item lab full">码率</div>
-                      <div class="item">{{ Number(scoreData.deductInfo.speedNumber) }} {{ speedUnit }}</div>
+                      <div class="item">{{ Number(scoreData.deductInfo.speedNumber) * 4 }} {{ speedUnit }}</div>
                       <div class="item">{{ scoreData.deductInfo.speedScore*1 }} 分</div>
                     </div>
                     <div class="row">

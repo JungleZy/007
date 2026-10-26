@@ -117,7 +117,7 @@ export default function () {
             item.value = []
           })
           trainData.value.ruleContent = JSON.parse(res.data.ruleContent)
-          playSpeed.value = Number(trainData.value.ruleContent?.wpm?.base)
+          playSpeed.value = 70
           changePlaySpeed()
           if (res.data.isCable === 0) {
             trainData.value.content = res.data.content.slice(0, 100)
@@ -154,14 +154,14 @@ export default function () {
     if (code && trainData.value.status === 1) {
       handlePatKeyCodeLogs(code, receivedAt)
       if (Number(trainData.value.speed) > 0) {
-        playSpeed.value = Number(trainData.value.speed)
+        playSpeed.value = Number(trainData.value.speed) * 4
         changePlaySpeed()
       }
     }
   })
   //改变电子键播报码率
   const changePlaySpeed = ()=>{
-    changeCriterion(playSpeed.value, trainData.value.messageType == 1 ? 'letter' : trainData.value.messageType == 2 ? 'mix' : 'short')
+    changeCriterion(playSpeed.value / 4, trainData.value.messageType == 1 ? 'letter' : trainData.value.messageType == 2 ? 'mix' : 'short')
   }
   /**
    * 训练用时
@@ -425,7 +425,7 @@ export default function () {
     }
     if (capture.elapsed() > 0) {
       trainData.value.speed = Number((patNumber.value * 60000 / 4 / capture.elapsed()).toFixed(1))
-      playSpeed.value = trainData.value.speed
+      playSpeed.value = trainData.value.speed * 4
       changePlaySpeed()
     }
     lastKey.push(k_v);

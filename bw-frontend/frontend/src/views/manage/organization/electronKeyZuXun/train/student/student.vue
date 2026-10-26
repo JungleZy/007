@@ -47,8 +47,8 @@
                     <div class="item relative">
                       <img :src="labSpeed" class="ico" />
                       <div>
-                        <div class="title">本次采集码率（预估）</div>
-                        <div class="tags nobr">{{ parseFloat(trainData.speed) }}四码组/分</div>
+                        <div class="title">速率</div>
+                        <div class="tags nobr">{{ parseFloat(trainData.speed) * 4 }}码/分</div>
                       </div>
                     </div>
                   </div>
@@ -195,6 +195,7 @@
 <script setup>
   import {ref, onMounted, onUnmounted, defineEmits} from 'vue'
   import {useRoute} from 'vue-router'
+  import CountDown from '../../../../../../components/common/CountDown.vue'
   import {PubSub} from '../../../../../../common/utils/PubSub.js'
   import {getElectronKeyZuXunDetails} from "../../../../../../common/api/electronKeyZuXun.js"
   import useControl from './js/useControl.js'

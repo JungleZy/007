@@ -108,7 +108,7 @@ export default function telegramList(addDrillModal) {
       if (res.code === 200) {
         res.data.map(item => {
           item.speed = item.status !== 2 ? '--'
-            : item.speed + (item.protocolVersion === 1 ? '四码组/分' : '码/分（历史）')
+            : (item.protocolVersion === 1 ? Number(item.speed) * 4 + '码/分' : item.speed + '码/分（历史）')
         });
         tableList.value = res.data;
         tableData.value = res.data;

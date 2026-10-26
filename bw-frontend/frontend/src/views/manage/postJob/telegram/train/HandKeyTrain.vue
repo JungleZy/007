@@ -48,9 +48,9 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico" />
                   <div>
-                    <div class="title">本次采集码率（预估）</div>
+                    <div class="title">速率</div>
                     <div class="tags nobr">
-                      <span>{{ parseFloat(trainData.speed) }}字符/分</span>
+                      <span>{{ parseFloat(trainData.speed) }}码/分</span>
                     </div>
                   </div>
                 </div>

@@ -28,7 +28,7 @@ export default function telegramList(showChart) {
     telegraph: null,
   });
   const speedUnit = computed(() => scoreData.value.protocolVersion === 1
-    ? '字符/分' : (scoreData.value.ruleContent?.wpm?.type ? 'wpm' : '码/分') + '（历史）');
+    ? '码/分' : (scoreData.value.ruleContent?.wpm?.type ? 'wpm' : '码/分') + '（历史）');
   const alter = ref(0);
   let timeChartData = ref([]);
   let numberChartData = ref([]);

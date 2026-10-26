@@ -24,7 +24,7 @@
                 <div class="tipSymbol">
                   <div class="symItem" v-if="trainData.ruleContent">
                     <div>设定码率：</div>
-                    <div>{{ trainData.ruleContent.wpm.base }} 四码组/分</div>
+                    <div>{{ trainData.ruleContent.wpm.base }} 码/分</div>
                   </div>
                 </div>
                 <div class="item relative" v-if="trainData.messageType==2 || trainData.messageType==1">
@@ -72,14 +72,14 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico" />
                   <div>
-                    <div class="title">本次采集码率（预估）</div>
-                    <div class="tags nobr">{{ trainData.speed }}四码组/分</div>
+                    <div class="title">速率</div>
+                    <div class="tags nobr">{{ trainData.speed * 4 }}码/分</div>
                   </div>
                 </div>
                 <div class="item relative">
 <!--                  <img :src="labSpeed" class="ico" />-->
                   <div>
-                    <div class="title">播报速率（四码组/分）</div>
+                    <div class="title">播报速率（码/分）</div>
                     <a-input style="width: 100px" v-model:value="playSpeed"/>
                     <a-button @click="changePlaySpeed">修改</a-button>
                   </div>
@@ -192,6 +192,7 @@ export default {
 <script setup>
 import {QuestionCircleOutlined} from '@ant-design/icons-vue'
 import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
+import CountDown from '../../../../../components/common/CountDown.vue'
 import telexTrain from './js/examTrain.js'
 
 

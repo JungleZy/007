@@ -1,4 +1,5 @@
 const {fork, spawn} = require("child_process");
+const fs = require("node:fs");
 const context = require("../core/node_core_ctx");
 const path = require("node:path");
 const {tryUsePort} = require("../utils/utils");
@@ -21,11 +22,14 @@ function onHttpService() {
 function onBackendService() {
 	tryUsePort(BACKEND_PORT).then((port) => {
 		if (port) {
-			let serverPath
-			if (process.platform === 'win32') {
-				serverPath = path.join(context.appPath, 'bin', 'server', 'server.exe')
-			} else {
-				serverPath = path.join(context.appPath, 'bin', 'server', 'server')
+			const defaultServerPath = process.platform === 'win32'
+				? path.join(context.appPath, 'bin', 'server', 'server.exe')
+				: path.join(context.appPath, 'bin', 'server', 'server')
+			const serverPath = process.env.NIP_BACKEND_PATH || defaultServerPath
+			if (!fs.existsSync(serverPath)) {
+				console.warn(`[backend] Native backend not found: ${serverPath}`)
+				console.warn(`[backend] Start Quarkus externally on port ${BACKEND_PORT}, or set NIP_BACKEND_PATH to a native executable.`)
+				return
 			}
 			context.backendService = spawn(serverPath, [], {
 				windowsHide: true,

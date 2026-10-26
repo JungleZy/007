@@ -29,7 +29,7 @@ export default function telegramList(showChart) {
     content: [],
     nextContent: []
   })
-  const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '四码组/分' : '码/分（历史）')
+  const speedUnit = computed(() => scoreData.value.protocolVersion === 1 ? '码/分' : '码/分（历史）')
   const resolve = ref([])
   const moreLine = ref([])
 
@@ -246,7 +246,7 @@ export default function telegramList(showChart) {
         speed = 0,
         xTxt = []
     patTotal.value.map((item, i) => {
-      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime / 4).toFixed(0)) : 0
+      speed = item.totalTime > 0 ? Number((item.patNumber * 60000 / item.totalTime).toFixed(0)) : 0
       xTxt.push('第' + item.pageNumber + '页')
       data.push(speed)
     })
