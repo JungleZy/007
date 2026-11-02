@@ -110,7 +110,9 @@ export default function telegramList() {
           sec = Math.floor((item.totalTime / 1000) % 60)
           item.totalTime = (hour >= 10 ? hour : '0' + hour) + '：' + (min >= 10 ? min : '0' + min) + '：' + (sec >= 10 ? sec : '0' + sec)
         })
-        totalList.value = res.data
+        // 展示顺序：基础练习、单字练习、词组练习。
+        const practiceOrder = {2: 0, 0: 1, 1: 2}
+        totalList.value = [...res.data].sort((a, b) => (practiceOrder[a.type] ?? 3) - (practiceOrder[b.type] ?? 3))
       } else {
         message.error(res.message)
       }
