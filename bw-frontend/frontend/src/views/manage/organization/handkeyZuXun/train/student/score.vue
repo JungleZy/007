@@ -326,11 +326,11 @@
                       <div class="times" v-if="group.patKeys[w] != '/'">
                         <template v-for="(code, c) in word" :key="c">
                           <div :class="{time: true,
-                                      dot: code.key!=2&&group.moresValue[w][c/2]==0,
-                                      line: code.key!=2&&group.moresValue[w][c/2]==1,
+                                       dot: code.key!=2&&group.moresValue[w][Math.floor(c / 2)]==0,
+                                       line: code.key!=2&&group.moresValue[w][Math.floor(c / 2)]==1,
                                       gap: code.key==2}"
                                :style="{width: parseInt(code.value/2)+'px',minWidth: '15px'}"
-                               v-if="c < (word.length - 1)">
+                               >
                             <div class="num">{{ Math.round(code.value) }}</div>
                           </div>
                         </template>
@@ -342,15 +342,15 @@
                         {{group.patKeys[w]}}
                       </div>
                     </div>
-                    <div class="sep" v-if="w < (group.patLog.length - 1)">
+                    <div class="sep" v-if="w < (group.patLog.length - 1) && group.wordGap[w] && group.wordGap[w].length > 0">
                       <div class="times">
-                        <div class="time gap"
-                             v-if="word[word.length-1]"
-                             :style="{width:parseInt(word[word.length-1].value/2)+'px'}">
-                          <div class="num">{{ Math.round(word[word.length - 1].value) }}</div>
-                          <div class="abno" v-if="word[word.length-1].value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"
-                               :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"></div>
-                        </div>
+                        <template v-for="(gap, gapIndex) in group.wordGap[w]" :key="gapIndex">
+                          <div class="time gap" :style="{width:parseInt(gap.value/2)+'px'}">
+                            <div class="num">{{ Math.round(gap.value) }}</div>
+                            <div class="abno" v-if="gap.value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"
+                                 :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"></div>
+                          </div>
+                        </template>
                       </div>
                       <div class="keyGap"></div>
                     </div>
@@ -368,18 +368,19 @@
                 </div>
                 <div class="name" v-if="group.patLog.length>0 || group.moresKey != '#'">{{group.moresKey=='#'?'#':group.moresKey.join('')}}</div>
               </div>
-              <div class="sep" v-if="g < (trendLogKeyData[scoreData.currPage-1].length - 1)">
-                <div class="times" v-if="group.patLog.length > 0 && group.patLog[group.patLog.length-1] && group.patLog[group.patLog.length-1].length > 0">
-                  <div class="time gap"
-                       :style="{maxWidth: (scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2>800?800:
-                                scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2)+'px',
-                                width:parseInt(group.patLog[group.patLog.length-1][group.patLog[group.patLog.length-1].length-1].value/2)+'px'}">
-                    <div class="num">{{ Math.round(group.patLog[group.patLog.length - 1][group.patLog[group.patLog.length - 1].length - 1].value) }}</div>
-                    <div class="abno"
-                         v-if="group.patLog[group.patLog.length-1][group.patLog[group.patLog.length-1].length-1].value >
-                               scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"
-                         :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"></div>
-                  </div>
+              <div class="sep" v-if="g < (trendLogKeyData[scoreData.currPage-1].length - 1) && group.groupGap && group.groupGap.length > 0">
+                <div class="times">
+                  <template v-for="(gap, gapIndex) in group.groupGap" :key="gapIndex">
+                    <div class="time gap"
+                         :style="{maxWidth: (scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2>800?800:
+                                  scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2)+'px',
+                                  width:parseInt(gap.value/2)+'px'}">
+                      <div class="num">{{ Math.round(gap.value) }}</div>
+                      <div class="abno"
+                           v-if="gap.value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"
+                           :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"></div>
+                    </div>
+                  </template>
                 </div>
               </div>
             </template>

@@ -2,6 +2,7 @@ import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
 import {getHandKeyZuXunPageNumber, getHandKeyZuXunDetails} from "../../../../../../../common/api/handkeyZuXun.js"
+import {normalizeTelegramTrendGroups} from "../../../../../../../common/utils/telegramTrend.js"
 import * as echarts from "echarts"
 
 export default function telegramList(showChart,selfId) {
@@ -151,7 +152,7 @@ export default function telegramList(showChart,selfId) {
         })
         successResolver.value.push(obj)
       }
-      let result = resDataHandle(res.data.messageBody, JSON.parse(res.data.finishInfo))
+      let result = resDataHandle(res.data.messageBody)
       scoreData.value.messageBody.push(result)
       scoreData.value.standards.push(JSON.parse(res.data.standard))
       if (page == 1 && scoreData.value.messageBody.length == 1 && scoreData.value.pag > 1) {
@@ -160,32 +161,17 @@ export default function telegramList(showChart,selfId) {
     }
   };
 
-  const resDataHandle = (leaf,finishInfo) => {
-    let leafLogs = finishInfo&&finishInfo.patLogs?finishInfo.patLogs:[],
-        pushNumber=0,cacheArr = [];
-
-    if (leafLogs.length > 0) {
-      leafLogs = leafLogs.filter((a,b) => b>0)
-    }
+  const resDataHandle = leaf => {
     leaf = JSON.parse(leaf).map(item => {
-      item['patLog'] = [];
       item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
       item.patKeys = JSON.parse(item.patKeys);
       item.moresValue = JSON.parse(item.moresValue);
       item.moresTime = JSON.parse(item.moresTime);
       item.patLogs = JSON.parse(item.patLogs);
-      if (leafLogs.length > 0) {
-        item.moresTime.map(cod => {
-          cacheArr = leafLogs.filter((log,lo) => lo>=pushNumber&&lo<(pushNumber+cod.length*2));
-          item['patLog'].push(cacheArr);
-          pushNumber += cod.length * 2
-          if (pushNumber > leafLogs.length) {
-            item['patLog'][item['patLog'].length-1].push({key: 2, name: "间隔"+pushNumber, value: 1000})
-          }
-        })
-      }
+      item.patLog = item.patLogs;
       return item
     });
+    leaf = normalizeTelegramTrendGroups(leaf);
     trendLogKeyData.value.push(leaf);
     return leaf
   }

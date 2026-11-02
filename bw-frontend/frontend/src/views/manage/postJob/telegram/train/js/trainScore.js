@@ -2,6 +2,7 @@ import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import {partTimeFormatInfo} from "../../../../../../common/utils/Utils.js"
 import {getPostTelegramTrainById, getPostTelegramMsgBody} from "../../../../../../common/api/TelegramApi.js"
+import {normalizeTelegramTrendGroups} from "../../../../../../common/utils/telegramTrend.js"
 import * as echarts from "echarts"
 
 export default function telegramList(showChart) {
@@ -65,10 +66,7 @@ export default function telegramList(showChart) {
           scoreData.value.validTime = scoreData.value.validTime.replace(/：/g, ':');
           short.value = (scoreData.value.type===1?'letter':scoreData.value.type===2?'mix':scoreData.value.codeSort?'long':'short');
           trendLogKeyData.value = [];
-          scoreData.value.messageBody = scoreData.value.messageBody.map((leaf,l) => {
-            leaf = resDataHandle(leaf,scoreData.value.finishInfo[l])
-            return leaf
-          });
+          scoreData.value.messageBody = scoreData.value.messageBody.map(leaf => resDataHandle(leaf));
           successResolver.value = scoreData.value.resolver.map(leaf => {
             leaf = leaf ? JSON.parse(leaf) : null;
             if (!leaf) return null;
@@ -137,7 +135,7 @@ export default function telegramList(showChart) {
   const getPostTrainKeyInfo = (res) => {
     if (res.code === 200) {
       const finishInfo = JSON.parse(res.data.finishInfo);
-      let result = resDataHandle(res.data.messageBody, finishInfo)
+      let result = resDataHandle(res.data.messageBody)
       scoreData.value.messageBody.push(result)
       scoreData.value.finishInfo.push(finishInfo)
       scoreData.value.standards.push(JSON.parse(res.data.standard))
@@ -157,32 +155,17 @@ export default function telegramList(showChart) {
     }
   };
 
-  const resDataHandle = (leaf,finishInfo) => {
-    let leafLogs = finishInfo&&finishInfo.patLogs?finishInfo.patLogs:[],
-        pushNumber=0,cacheArr = [];
-
-    if (leafLogs.length > 0) {
-      leafLogs = leafLogs.filter((a,b) => b>0)
-    }
+  const resDataHandle = leaf => {
     leaf = JSON.parse(leaf).map(item => {
-      item['patLog'] = [];
       item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
       item.patKeys = JSON.parse(item.patKeys);
       item.moresValue = JSON.parse(item.moresValue);
       item.moresTime = JSON.parse(item.moresTime);
       item.patLogs = JSON.parse(item.patLogs);
-      if (leafLogs.length > 0) {
-        item.moresTime.map(cod => {
-          cacheArr = leafLogs.filter((log,lo) => lo>=pushNumber&&lo<(pushNumber+cod.length*2));
-          item['patLog'].push(cacheArr);
-          pushNumber += cod.length * 2
-          if (pushNumber > leafLogs.length) {
-            item['patLog'][item['patLog'].length-1].push({key: 2, name: "间隔"+pushNumber, value: 1000})
-          }
-        })
-      }
+      item.patLog = item.patLogs;
       return item
     });
+    leaf = normalizeTelegramTrendGroups(leaf);
     trendLogKeyData.value.push(leaf);
     return leaf
   }
