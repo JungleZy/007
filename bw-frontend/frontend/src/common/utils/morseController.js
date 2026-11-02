@@ -5,14 +5,16 @@ export function createMorseController({operation}) {
   let playing = false
   let messageType = 'short'
   let rate = 15
+  let rateUnit = 'groups'
   let timingType = messageType
-  const changeCriterion = (speed, type = messageType) => {
+  const changeCriterion = (speed, type = messageType, unit = 'groups') => {
     // A measured speed may still be zero before the first complete character.
     if (!Number.isFinite(Number(speed)) || Number(speed) <= 0) return
-    if (Number(speed) === rate && type === messageType) return
+    if (Number(speed) === rate && type === messageType && type === timingType && unit === rateUnit) return
     messageType = type
-    operation({type: 'configure', data: {...calculateTiming({rate: speed, unit: 'groups', type}), frequency: 1000, volume: 1, model: true}})
+    operation({type: 'configure', data: {...calculateTiming({rate: speed, unit, type}), frequency: 1000, volume: 1, model: true}})
     rate = Number(speed)
+    rateUnit = unit
     timingType = type
   }
   const clear = () => {
@@ -24,7 +26,7 @@ export function createMorseController({operation}) {
     if (!code?.length) return false
     const type = messageType === 'letter' ? 'letter' : numType === 'short' ? 'short' : messageType === 'mix' ? 'mix' : 'long'
     if (type !== timingType) {
-      operation({type: 'configure', data: calculateTiming({rate, unit: 'groups', type})})
+      operation({type: 'configure', data: calculateTiming({rate, unit: rateUnit, type})})
       timingType = type
     }
     const accepted = operation({type: playing ? 'addCode' : 'message', data: {numType, data: code}})

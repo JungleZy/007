@@ -29,9 +29,7 @@
           </div>
           <div class="lineBox">
             <div class="box"><img :src="speed" alt="" /> <span>码率</span></div>
-            <div class="box">{{ ((patTotal.currSuccess + patTotal.currError) / (dataTime / 60)).toFixed(2) }}次</div>
-            <!-- totalTime: patTotal.value.totalTime,
-    totalNum: patTotal.value.totalCount, -->
+            <div class="box">{{ currentRate.toFixed(2) }}码/分</div>
           </div>
           <div class="linebtns">
             <div class="layout-center btn" @click="clearTrainHistory">
@@ -110,9 +108,7 @@
                 </div>
               </div>
               <div class="keyBox" v-for="(key, k) in row" :key="k">
-                <div :class="{keys: true, activeKey: letter[letterIndex]&&letter[letterIndex].code==key.key,
-                              successKey: patKey==key.code&&letter[letterIndex]&&letter[letterIndex].code==key.key,
-                              errorKey: patKey==key.code&&letter[letterIndex]&&letter[letterIndex].code!=key.key}">
+                <div :class="{keys: true, activeKey: letter[letterIndex]&&letter[letterIndex].code==key.key}">
                   <div class="key" v-if="key.key=='enter'" style="width: 140px">
                     <img :src="keyEnter" style="width: 50%;">
                   </div>
@@ -138,7 +134,7 @@
   }
 </script>
 <script setup>
-  import {onMounted, ref, onBeforeUnmount} from 'vue'
+  import {computed, onMounted, ref, onBeforeUnmount} from 'vue'
   import {createFromIconfontCN} from '@ant-design/icons-vue'
   import {message} from 'ant-design-vue'
   import {useRouter, useRoute} from 'vue-router'
@@ -180,6 +176,7 @@
   const { onKey, changeCriterion, voiceCode } = useControl()
   const timer = ref(null)
   const dataTime = ref(0)
+  let startedAt = 0
   const fileUrl = ref(window.fileUrl + '/006/code/big/gradient/')
   const tab = ref([{ text: '1和6' }, { text: '2和7' }, { text: '3和8' }, { text: '4和9' }, { text: '5和0' }, { text: '特殊键' }])
   const numberArr = ref(['1', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'])
@@ -199,6 +196,13 @@
     currSuccess: 0,
     currError: 0
   })
+  const currentRate = computed(() => dataTime.value > 0
+    ? (patTotal.value.currSuccess + patTotal.value.currError) * 60 / dataTime.value
+    : 0)
+  const syncPlaybackRate = () => {
+    const type = queryType.value === 1 && tabIndex.value === 1 ? 'letter' : 'short'
+    changeCriterion(currentRate.value, type, 'characters')
+  }
 
   onMounted(() => {
     queryType.value = Number(route.query.type)
@@ -210,24 +214,28 @@
   onKey(({code}) => {
     const expected = letter.value[letterIndex.value]
     if (!expected) return
-    if (!audioOperation({type: 'ready'})) audioOperation({type: 'message', data: {data: [], numType: 'short'}})
-    const decoded = numberKey.find(item => item.coding === code)?.key
-    if (decoded && !(queryType.value === 1 && tabIndex.value === 1)) voiceCode({numType: 'short', code: decoded})
+    // 先计入本次拍发并按当前时刻测速，再配置音频，当前码即使用当前码率。
+    dataTime.value = Math.max(0, performance.now() - startedAt) / 1000
     patTotal.value.totalCount++
-    if (code === String(expected.coding)) {
-      letterIndex.value++
+    const correct = code === String(expected.coding)
+    if (correct) {
       patTotal.value.currSuccess++
-      if (letterIndex.value >= letter.value.length) {
-        if (queryType.value === 1 && tabIndex.value === 1) voiceCode({numType: 'long', code: letterText.value})
-        letterIndex.value = 0
-        assembliesCode()
-      }
     } else {
       patTotal.value.currError++
       patTotal.value.totalError++
     }
-    const speed = (patTotal.value.currSuccess + patTotal.value.currError) / 4 / (dataTime.value / 60)
-    if (Number.isFinite(speed) && speed > 0) changeCriterion(speed)
+    syncPlaybackRate()
+    if (!audioOperation({type: 'ready'})) audioOperation({type: 'message', data: {data: [], numType: 'short'}})
+    const decoded = numberKey.find(item => item.coding === code)?.key
+    if (decoded && !(queryType.value === 1 && tabIndex.value === 1)) voiceCode({numType: 'short', code: decoded})
+    if (correct) {
+      letterIndex.value++
+      if (letterIndex.value >= letter.value.length) {
+        if (queryType.value === 1 && tabIndex.value === 1) voiceCode({numType: 'letter', code: letterText.value})
+        letterIndex.value = 0
+        assembliesCode()
+      }
+    }
   })
 
   onBeforeUnmount(() => {
@@ -285,13 +293,16 @@
       clearInterval(timer.value)
       timer.value = null
     }
-    const startedAt = performance.now()
+    startedAt = performance.now()
+    dataTime.value = 0
+    computationTime(0)
     const baseTime = patTotal.value.totalTime
     timer.value = setInterval(() => {
       const elapsed = Math.floor(performance.now() - startedAt)
       patTotal.value.totalTime = baseTime + elapsed
       dataTime.value = elapsed / 1000
       computationTime(Math.floor(dataTime.value))
+      syncPlaybackRate()
     }, 1000)
   }
 
@@ -338,6 +349,7 @@
     tabIndex.value = index
     letterIndex.value = 0
     assembliesCode()
+    syncPlaybackRate()
   }
 
   /**

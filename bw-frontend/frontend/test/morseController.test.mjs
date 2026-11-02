@@ -46,6 +46,19 @@ test('changePattern 把外部报文类型编码映射为播报类型，未知值
   }
 })
 
+test('码/分直接配置音频，切换报文类型仍保留单位，旧调用继续按组/分处理', () => {
+  const {controller, drain} = newController()
+  drain()
+  controller.changeCriterion(120, 'short', 'characters')
+  assert.equal(drain()[0].data.criterion, calculateTiming({rate: 120, unit: 'characters', type: 'short'}).criterion)
+  controller.changeCriterion(120, 'short', 'characters')
+  assert.deepEqual(drain(), [])
+  controller.voiceCode({numType: 'long', code: '1'})
+  assert.equal(drain()[0].data.criterion, calculateTiming({rate: 120, unit: 'characters', type: 'long'}).criterion)
+  controller.changeCriterion(120, 'short')
+  assert.equal(drain()[0].data.criterion, calculateTiming({rate: 120, unit: 'groups', type: 'short'}).criterion)
+})
+
 test('voiceCode 的类型决议链决定重配的时值，且时值未变时不重复配置', () => {
   const {controller, drain} = newController()
   drain()
