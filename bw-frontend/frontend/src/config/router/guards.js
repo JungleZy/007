@@ -2,6 +2,7 @@ import router from './index';
 import ExcessPage from '../../components/ExcessPage.vue';
 import TransitionPage from '../../components/TransitionPage.vue';
 import skipGuards from "./skipGuards.js";
+import { filterMenusByInterface } from '../menuStyle.js';
 
 const modules = import.meta.glob('../../views/**/*.vue');
 let getRouter = undefined;
@@ -57,7 +58,11 @@ function handleSkip(next, replace, to, from) {
  */
 function handleRouter() {
   if (router.options.routes[0].children[0].children.length === 0) {
-    const routerData = JSON.parse(window.localStorage.getItem("userRouter"));
+    const routerData = filterMenusByInterface(
+      JSON.parse(window.localStorage.getItem("userRouter")),
+      window.interfaceStyle
+    );
+    window.localStorage.setItem("userRouter", JSON.stringify(routerData));
     routerData.forEach(r => {
       let child = [];
       r.children.forEach(c => {

@@ -6,6 +6,7 @@ import { readLoginDeviceId } from '../../../common/utils/machineCode'
 import { explainAuthFailure } from '../../../common/http/index.js'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { fontSizeDispose } from '../../../common/utils/Utils'
+import { filterMenusByInterface } from '../../../config/menuStyle.js'
 import moment from 'moment'
 
 export default function (formState) {
@@ -92,6 +93,7 @@ export default function (formState) {
 
   const createRouter = async (data) => {
     const interfaceStyle = window.interfaceStyle
+    data.menus = filterMenusByInterface(data.menus, interfaceStyle)
     if(interfaceStyle=="HJ"){
       //过滤火报务路由
       data.menus = data.menus.filter(item=>item.path.indexOf("HJJ")<0)
