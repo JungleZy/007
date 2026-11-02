@@ -162,7 +162,11 @@ pub fn open(url: &str, inject_script: &str) -> Result<Browser, String> {
 
 /// 指定浏览器可执行文件的版本：测试与显式指定场景用，不碰进程环境变量
 pub fn launch(executable: &str, url: &str, inject_script: &str) -> Result<Browser, String> {
-    let headless = std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
+    // Windows has no DISPLAY/WAYLAND_DISPLAY variables even when the user is
+    // running a normal desktop session.  Treating that as headless made the
+    // injected training page invisible on Windows, so the user kept looking
+    // at a different, non-injected browser window.
+    let headless = !cfg!(windows) && std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err();
     let profile = profile_dir();
     let _ = std::fs::create_dir_all(&profile);
 
@@ -206,6 +210,16 @@ pub fn launch(executable: &str, url: &str, inject_script: &str) -> Result<Browse
             Some(&session),
         )?;
         cdp.call("Page.navigate", json!({"url": url}), Some(&session))?;
+        // Chromium may keep the existing document while the navigation is
+        // being committed (especially for SPA/dev-server redirects).  The
+        // new-document hook covers subsequent documents, while evaluating the
+        // same script once in the current main world guarantees that the page
+        // we just opened gets navigator.serial immediately as well.  Wait for
+        // the navigation to create its execution context first; evaluating
+        // immediately after Page.navigate can otherwise hit the old
+        // about:blank document and then get replaced by the real page.
+        std::thread::sleep(Duration::from_millis(800));
+        let _ = cdp.call("Runtime.evaluate", json!({"expression": inject_script}), Some(&session));
         Ok(())
     })();
 

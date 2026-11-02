@@ -421,14 +421,6 @@
     </a-modal>
     <Instructions v-if="noOff"></Instructions>
 <!--    <shortcut-menu/>-->
-    <div v-if="serialShow" style="" class="serialBox">
-      <div style="width: 100%;height: 100%">
-        <div style="height: 30px" class="layout-side-n"><div>{{localSerial?'当前串口：'+localSerial:''}}</div><CloseOutlined @click="serialShow=false"/></div>
-        <div style="width: 100%;height: calc(100% - 30px);overflow: auto">
-          <div class="listItem" v-for="(v,index) of serialProtList" :key="index" @click="linkPort(v)">{{v}}</div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -454,11 +446,10 @@
   import address from '../../../../assets/HJ/home/addres.png'
   import {useRoute, useRouter} from 'vue-router'
   import getBackByRouter from '../js/getBackByRouter.js'
-  import {createVNode, ref, provide, watch, onMounted, onUnmounted, nextTick, inject} from 'vue'
+  import {createVNode, ref, provide, watch, onMounted, nextTick, inject} from 'vue'
   import {Modal, message} from 'ant-design-vue'
-  import {ExclamationCircleOutlined, CloseOutlined} from '@ant-design/icons-vue'
+  import {ExclamationCircleOutlined} from '@ant-design/icons-vue'
   import {Ws} from '../../../../common/ws/Ws'
-  import webSerialChannel, {shutdownWebSerialChannel} from '../../../../common/ws/WebSerialChannel.js'
   import {fontSizeDispose} from '../../../../common/utils/Utils'
   import routeConfig from '../js/routeConfig.js'
   import Instructions from '../../../../components/instructions/instructions.vue'
@@ -478,16 +469,12 @@
   const fileUrl = ref('')
   const tUrl = ref('')
   useTraffic()
-  const ipc = ref(ipcRenderer.isEE)
   let {isShowBackground} = getBackByRouter()
   const openSettingWindow = inject('openSettingWindow')
   const isShow = ref(false)
   const fontSizeText = ref({0: '标准', 1: '较大', 2: '大', 3: '特大'})
   const linkWsIndex = ref(0)
   const noOff = ref(false)
-  const serialProtList = ref([])//桌面端串口列表
-  const serialShow = ref(false)
-  const localSerial = ref(localStorage.getItem('serial'))
   const openSetting = () => {
     isShow.value = false
     openSettingWindow()
@@ -501,22 +488,7 @@
   const cancelEditPasswordModel = ()=>{
     editPasswordModel.value = false
   }
-  // 串口通道清理必须在 setup 同步期注册（webSerialChannel 已不再自注册，
-  // 因为 linkPort 走 ipc.invoke 后会在 await 之后重置通道，那时钩子会被 Vue 丢弃）。
-  onUnmounted(() => {
-    shutdownWebSerialChannel()
-  })
-
   onMounted(() => {
-    if(localSerial.value!==null){
-      linkPort(localSerial.value)
-      // ipcRenderer.ipc.sendSync(ipcApi.ipcApiRoute.linkPort,localSerial.value)
-    }
-    if(localStorage.getItem('serialChrome')){
-      webSerialChannel('reset', 'reset')
-    }else {
-      webSerialChannel()
-    }
     userRole.value = JSON.parse(localStorage.getItem('userRole'))
     userInfo.value = JSON.parse(window.localStorage.getItem('userInfo'))
     let routerData = JSON.parse(window.localStorage.getItem('userRouter'))
@@ -551,25 +523,6 @@
   const setting = () => {
     isShow.value = true
   }
-  //连接串口
-  const linkPort = async (portName)=>{
-    if (!ipc.value) return
-    try {
-      // linkPort 走 invoke/handle：主进程写入 nip.db 后回传选中的串口名，失败回 ''。
-      const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.linkPort, portName)
-      if (data) {
-        localStorage.setItem('serial',data)
-        webSerialChannel('reset')
-        serialShow.value = false
-      } else {
-        message.error('串口连接失败')
-      }
-    } catch (error) {
-      console.error('连接串口失败:', error)
-      message.error('串口连接失败')
-    }
-  }
-
   const jumpSystemManage = () => {
     router.push(
         `/preview/${systemPath.value.path}/${systemPath.value.children[0].path}`

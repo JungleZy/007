@@ -12,43 +12,76 @@
     ? new URL(document.currentScript.src).origin
     : (window.__keysimOrigin || '__KEYSIM_ORIGIN__')
   const wsUrl = origin.replace(/^http/, 'ws') + '/ws/serial'
+  const notifyReady = () => {
+    // 只标记此标签页；普通浏览器的真实设备连接不会开启模拟模式。
+    try { sessionStorage.setItem('keysimSerialOrigin', origin) } catch {}
+    window.dispatchEvent(new Event('keysim-serial-ready'))
+  }
 
   if (window.__keysimSerial) {
     console.info('[keysim] 虚拟串口已注入，重连中')
     window.__keysimSerial.reconnect()
+    notifyReady()
     return '[keysim] 已重连'
   }
 
+  // 保留原生接口，页面可以随时从模拟器切回真实设备。
+  const nativeSerial = navigator.serial
   let controller = null
   let stream = null
   const pending = []
+  let opened = false
 
   const port = {
     open: async () => {
+      opened = true
       stream = new ReadableStream({start(target) {
         controller = target
         while (pending.length) target.enqueue(pending.shift())
-      }})
+      }, cancel() { controller = null }})
     },
-    close: async () => { controller = null; stream = null },
+    close: async () => { controller = null; stream = null; pending.length = 0 },
     get readable() { return stream },
     writable: null,
     getInfo: () => ({usbVendorId: 0x4b53, usbProductId: 0x494d}),
     addEventListener() {}, removeEventListener() {}
   }
 
-  Object.defineProperty(navigator, 'serial', {
-    configurable: true,
-    value: {
-      getPorts: async () => [port],
-      requestPort: async () => port,
-      addEventListener() {}, removeEventListener() {}
+  const serial = {
+    getPorts: async () => [port],
+    requestPort: async () => port,
+    addEventListener() {}, removeEventListener() {}
+  }
+
+  // Chromium normally allows an own-property override here.  Keep a
+  // prototype fallback for versions/pages where navigator.serial is exposed
+  // as a non-writable inherited property.  A failed defineProperty used to
+  // abort this IIFE before __keysimSerial and the WebSocket were installed,
+  // leaving the training page with the real requestPort() path.
+  let installed = false
+  for (const target of [navigator, typeof Navigator !== 'undefined' ? Navigator.prototype : null]) {
+    if (!target || installed) continue
+    try {
+      Object.defineProperty(target, 'serial', {
+        configurable: true,
+        enumerable: true,
+        get: () => serial
+      })
+      installed = navigator.serial === serial
+    } catch (error) {
+      console.warn('[keysim] 无法覆盖 navigator.serial', error)
     }
-  })
+  }
+  if (!installed) {
+    console.error('[keysim] 虚拟串口注入失败：navigator.serial 仍是浏览器原生对象')
+    return '[keysim] 注入失败'
+  }
 
   let socket = null
   let closed = false
+  let reconnectTimer = null
   const connect = () => {
+    if (closed || (socket && socket.readyState <= WebSocket.OPEN)) return
     socket = new WebSocket(wsUrl)
     socket.binaryType = 'arraybuffer'
     socket.onopen = () => console.info('[keysim] 虚拟串口已连上', wsUrl)
@@ -56,12 +89,12 @@
       if (typeof event.data === 'string') return
       const bytes = new Uint8Array(event.data)
       if (controller) controller.enqueue(bytes)
-      else pending.push(bytes)
+      else if (!opened) pending.push(bytes)
     }
     socket.onclose = () => {
       if (closed) return
       console.warn('[keysim] 虚拟串口断开，2s 后重连')
-      setTimeout(connect, 2000)
+      reconnectTimer = setTimeout(connect, 2000)
     }
     socket.onerror = () => {}
   }
@@ -69,10 +102,13 @@
 
   window.__keysimSerial = {
     port,
-    bytes: bytes => { const data = new Uint8Array(bytes); controller ? controller.enqueue(data) : pending.push(data) },
-    reconnect: () => { try { socket && socket.close() } catch {} connect() },
-    detach: () => { closed = true; try { socket && socket.close() } catch {} }
+    serial,
+    nativeSerial,
+    bytes: bytes => { const data = new Uint8Array(bytes); if (controller) controller.enqueue(data); else if (!opened) pending.push(data) },
+    reconnect: () => { closed = false; clearTimeout(reconnectTimer); connect() },
+    detach: () => { closed = true; clearTimeout(reconnectTimer); try { socket && socket.close() } catch {} }
   }
-  console.info('[keysim] navigator.serial 已替换为虚拟串口；页面若已初始化串口，请在串口页重新连接一次')
+  notifyReady()
+  console.info('[keysim] 虚拟串口已就绪，已通知页面连接')
   return '[keysim] 虚拟串口已注入'
 })()

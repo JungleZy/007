@@ -11,23 +11,28 @@
 		</a-tooltip>
 		<a-tooltip>
 			<template #title>
-				<div style="font-size: 12px">{{ devOnline ? '拍发设备已连接' : '拍发设备未连接' }}</div>
+        <div style="font-size: 12px">{{ devOnline ? '拍发设备已连接（' + (serialSource === 'virtual' ? '虚拟设备' : '真实设备') + '）' : '拍发设备未连接' }}，点击切换</div>
 			</template>
-			<img class="equipment4 equActive" :src="ico_state_dev_on" v-if="devOnline" alt=""/>
-			<img class="equipment3" :src="ico_state_dev" v-else alt=""/>
+      <img class="equipment4 equActive" :src="ico_state_dev_on" v-if="devOnline" alt="切换拍发设备" @click="linkWsOnInfo"/>
+      <img class="equipment3" :src="ico_state_dev" v-else alt="连接拍发设备" @click="linkWsOnInfo"/>
 		</a-tooltip>
 		<div v-if="serialShow" class="serialBox">
-			<div class="w-full h-full layout-center" v-if="loading">
-				搜索串口中...
-			</div>
-			<div class="w-full h-full" v-else>
+      <div class="w-full h-full">
 				<div style="height: 30px" class="layout-side-n">
-					<div>{{ localSerial ? '当前串口：' + localSerial : '' }}</div>
+          <div>{{ devOnline ? '当前：' + (serialSource === 'virtual' ? '虚拟设备' : '真实设备') : '选择拍发设备' }}</div>
 					<CloseOutlined @click="serialShow=false"/>
 				</div>
-				<div style="width: 100%;height: calc(100% - 30px);overflow: auto">
+        <div style="width: 100%;height: calc(100% - 30px);overflow: auto">
+          <button class="sourceButton" :disabled="serialConnecting" @click="selectRealDevice">{{ ipc ? '刷新真实串口列表' : '选择真实设备' }}</button>
+          <button class="sourceButton" :disabled="serialConnecting || !virtualAvailable" @click="selectVirtualDevice">切换到虚拟设备</button>
+          <div class="grantNotice" v-if="!virtualAvailable">虚拟设备需先连接模拟器</div>
+          <div class="grantNotice" v-if="serialConnecting">正在连接设备...</div>
+          <div class="grantNotice" v-if="serialNotice">{{ serialNotice }}</div>
+          <div class="grantNotice" v-if="loading">搜索串口中...</div>
+          <div class="grantNotice" v-else-if="ipc && !serialProtList.length">未发现真实串口，请检查设备连接后刷新</div>
+          <div v-if="ipc && localSerial">已选串口：{{ localSerial }}</div>
 					<div class="listItem" v-for="(v,index) of serialProtList" :key="index">
-						<div class="listItemName" @click="linkPort(v)">{{ v.path ? v.path : v }}</div>
+						<div class="listItemName" @click="linkPort(v, true)">{{ v.path ? v.path : v }}</div>
 						<div class="listItemGrant" v-if="v && v.accessible === false">
 							<span class="grantTag">需要授权</span>
 							<span class="grantBtn" :class="{grantBtnBusy: granting}" @click.stop="grantAccess(v)">授权</span>
@@ -47,7 +52,7 @@ import ico_state_dev from '../../assets/LJ/ico/ico-state-dev.png'
 import ico_state_dev_on from '../../assets/LJ/ico/ico-state-dev-on.png'
 import {ref, onMounted, onUnmounted} from "vue";
 import {ipcApi, ipcRenderer} from "../../electron";
-import webSerialChannel, {shutdownWebSerialChannel} from "../../common/ws/WebSerialChannel";
+import webSerialChannel, {shutdownWebSerialChannel, serialSource, serialConnecting, serialNotice} from "../../common/ws/WebSerialChannel";
 import useTraffic from "../../common/mixin/useTraffic";
 
 let ico_state_wsLJ = ico_state_ws, ico_state_ws_onLJ = ico_state_ws_on,
@@ -61,8 +66,16 @@ const {wsOnline, devOnline} = useTraffic()
 const loading = ref(false)
 const granting = ref(false)
 const grantNotice = ref('')
+const virtualAvailable = ref(false)
+const updateVirtualAvailable = () => {
+  virtualAvailable.value = !!(window.__keysimSerial || sessionStorage.getItem('keysimSerialOrigin'))
+}
+let mounted = false
 
 onMounted(() => {
+  mounted = true
+  updateVirtualAvailable()
+  window.addEventListener('keysim-serial-ready', updateVirtualAvailable)
 	if (ipc.value) {
 		ipcRenderer.ipc.on(ipcApi.ipcApiRoute.getSerialPorts, (event, data) => {
 			serialProtList.value = data
@@ -81,40 +94,55 @@ onMounted(() => {
 			}
 		})
 	}
-  if(wsOnline.value===false){
-    if (localSerial.value !== null) {
-      linkPort(localSerial.value)
-    }
-    if (localStorage.getItem('serialChrome')) {
-      webSerialChannel('reset', 'reset')
-    }
+  if (ipc.value && localSerial.value !== null) {
+    linkPort(localSerial.value)
+  } else {
+    // 首次使用桌面端也需要监听模拟器就绪事件。
+    webSerialChannel()
   }
 })
 
 const linkWsOnInfo = () => {
+  serialShow.value = !serialShow.value
+  if (!serialShow.value) return
+  updateVirtualAvailable()
+  if (ipc.value) selectRealDevice()
+}
+
+const selectRealDevice = () => {
+  if (serialConnecting.value) return
 	//桌面端
 	if (ipc.value) {
-		serialShow.value = true
 		loading.value = true
 		ipcRenderer.ipc.send(ipcApi.ipcApiRoute.getSerialPorts)
 
 	} else {
 		localStorage.setItem('serialChrome', true)
-		webSerialChannel('reset', 'reset')
-	}
+		// This branch is reached by the user's device click.  Mark it as the
+		// explicit permission path; refresh/reconnect paths must never call
+		// navigator.serial.requestPort() without a user gesture.
+    webSerialChannel('reset', 'resetLine', 'real')
+  }
+}
+const selectVirtualDevice = () => {
+  if (serialConnecting.value) return
+  webSerialChannel('reset', undefined, 'virtual')
 }
 //连接串口
-const linkPort = async (portName) => {
-  let arr =[]
-  if(portName.path){
-    arr = portName.path.split('/')
+const linkPort = async (portName, select = false) => {
+  if (!ipc.value || serialConnecting.value) return
+  try {
+    const name = portName.path ? portName.path.split(/[\\/]/).pop() : portName
+    const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.linkPort, name)
+    if (!mounted) return
+    if (data) {
+      localStorage.setItem('serial', data)
+      localSerial.value = data
+      await webSerialChannel('reset', select ? 'resetLine' : undefined, select ? 'real' : undefined)
+    } else serialNotice.value = '串口选择失败，请重试'
+  } catch (error) {
+    serialNotice.value = `串口连接失败：${error.message}`
   }
-	const data = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.linkPort, portName.path?arr[2]:portName)
-	if (data) {
-		localStorage.setItem('serial', data)
-		webSerialChannel('reset')
-		serialShow.value = false
-	}
 }
 //串口无读写权限时由用户点击显式提权
 const grantAccess = (port) => {
@@ -127,6 +155,8 @@ const grantAccess = (port) => {
 // 串口通道的清理必须在 setup 同步期注册：linkPort 走 ipc.invoke，重置通道发生在 await 之后，
 // 那时注册 onUnmounted 会被 Vue 丢弃（组件卸载后串口不关）。
 onUnmounted(() => {
+  mounted = false
+  window.removeEventListener('keysim-serial-ready', updateVirtualAvailable)
 	shutdownWebSerialChannel()
 	if (ipc.value) {
 		ipcRenderer.ipc.off(ipcApi.ipcApiRoute.getSerialPorts)
@@ -150,6 +180,19 @@ onUnmounted(() => {
 		bottom: -5px;
 		left: -22px;
 	}
+}
+
+.sourceButton {
+  display: block;
+  width: 100%;
+  padding: 8px 5px;
+  margin-bottom: 4px;
+  border: 1px solid #667b96;
+  border-radius: 3px;
+  color: #fff;
+  background: #142547;
+  cursor: pointer;
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 // 串口列表项的授权信号：各主题皮肤共用，不随 .HJJ/.KJ/.HJ 重复定义
@@ -214,8 +257,8 @@ onUnmounted(() => {
 
     .serialBox {
       position: fixed;
-      width: 200px;
-      height: 160px;
+      width: 240px;
+      height: 280px;
       background: #2e2f31;
       z-index: 9999;
       top: 47px;
@@ -286,8 +329,8 @@ onUnmounted(() => {
 
     .serialBox {
       position: fixed;
-      width: 150px;
-      height: 160px;
+      width: 240px;
+      height: 280px;
       background: #2e2f31;
       z-index: 9999;
       top: 47px;
@@ -356,8 +399,8 @@ onUnmounted(() => {
 
       .serialBox {
         position: fixed;
-        width: 150px;
-        height: 160px;
+        width: 240px;
+        height: 280px;
         background: #2e2f31;
         z-index: 9999;
         top: 47px;
