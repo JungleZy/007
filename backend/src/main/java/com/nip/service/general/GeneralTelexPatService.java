@@ -100,6 +100,11 @@ public class GeneralTelexPatService {
   private static final int CAPTURE_PROTOCOL = 1;
   /** 教员结束训练后仍接收在途提交的宽限窗口，与 general 手键/电子键一致。 */
   private static final int GRACE_SECONDS = 60;
+  /**
+   * 冻结满分字段上线前，组训数据报结算路径固定使用 100 分。
+   * 存量协议 1 训练如果没有回填该字段，按旧口径兼容一次并持久化，避免恢复任务永远重试。
+   */
+  private static final int LEGACY_DEFAULT_FULL_SCORE = 100;
 
   @Inject
   public GeneralTelexPatService(GeneralTelexPatDao trainDao, GeneralTelexPatPageDao trainPageDao,
@@ -578,10 +583,20 @@ public class GeneralTelexPatService {
   public List<String> closingTrainIds() {
     // 只投影主键：该查询每 5 秒执行一次，取整行会把 ruleContent 等 longtext 一并载入后立刻丢弃。
     return trainDao.getEntityManager().createQuery(
-            "select t.id from general_telex_pat t where t.protocolVersion = " + CAPTURE_PROTOCOL
-                + " and t.status = " + PostTelegramTrainEnum.FINISH.getStatus() + " and t.endTime <= :deadline"
-                + " and exists (select 1 from general_telex_pat_user u where u.trainId = t.id and u.role = 0"
-                + " and (u.isFinish is null or u.isFinish <> 1))", String.class)
+        "select t.id from general_telex_pat t where t.protocolVersion = " + CAPTURE_PROTOCOL
+            + " and t.status = " + PostTelegramTrainEnum.FINISH.getStatus() + " and t.endTime <= :deadline"
+            + " and exists (select 1 from general_telex_pat_user u where u.trainId = t.id and u.role = 0"
+            + " and (u.isFinish is null or u.isFinish <> 1))"
+            // 有明确旧轮次的原始行不能拿当前成员轮次重算；排除后交给数据修复，避免每 5 秒重复报终态错误。
+            + " and not exists (select 1 from general_telex_pat_user_value v"
+            + " where v.trainId = t.id and v.sort = -1 and v.attempt is not null"
+            + " and not exists (select 1 from general_telex_pat_user u2"
+            + " where u2.trainId = t.id and u2.role = 0 and u2.userId = v.userId"
+            + " and u2.attempt = v.attempt))"
+            // 没有原始采集时间轴就无法按服务端口径重算码率/用时，交给数据修复而不是循环重试。
+            + " and not exists (select 1 from general_telex_pat_user_value v2"
+            + " where v2.trainId = t.id and v2.sort = -1"
+            + " and (v2.captureIntervals is null or v2.captureIntervals = ''))", String.class)
         .setParameter("deadline", LocalDateTime.now().minusSeconds(GRACE_SECONDS))
         .getResultList();
   }
@@ -890,10 +905,7 @@ public class GeneralTelexPatService {
         GeneralTelexPatUserValueEntity.class);
     trainUserValueDao.deleteAnalysisByTrainIdAndUserId(entity.getId(), userId);
     trainUserValueDao.saveAndFlush(convert);
-    PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(entity.getRuleContent(), PostTelexPatTrainRuleDto.class);
-    if (rule == null) {
-      throw new IllegalArgumentException("评分规则未设定");
-    }
+    PostTelexPatTrainRuleDto rule = normalizedRule(entity.getRuleContent());
     // 创建扣分信息Map
     String minus = "-";
     Map<String, Object> deductMap = new HashMap<>();
@@ -1175,7 +1187,10 @@ public class GeneralTelexPatService {
     List<List<CaptureInterval>> timelines = new ArrayList<>();
     for (GeneralTelexPatUserValueEntity page : trainUserValueDao.findRawByTrainIdAndUserId(train.getId(),
         member.getUserId())) {
-      requireAttempt(page.getAttempt(), member);
+      // 采集列上线前的存量原始行没有 attempt；按初始轮次兼容读取，真实非当前轮次仍拒绝重算。
+      if (page.getAttempt() != null) {
+        requireAttempt(page.getAttempt(), member);
+      }
       List<CaptureInterval> captured = intervals(page.getCaptureIntervals());
       long duration = CaptureTimeline.durationMillis(captured, captureBound(train, member, page.getReceivedAt()));
       long characters = PostTelexPatTrainService.characterCount(page.getValue(), train.getTrainType());
@@ -1201,12 +1216,59 @@ public class GeneralTelexPatService {
     member.setValidTimeLog(JSONUtils.toJson(times));
   }
 
+  /**
+   * 读取冻结规则时把旧规则缺失的扣分项归一为 0。
+   *
+   * <p>旧规则 JSON 中部分扣分字段没有写入，Gson 会保留为 null；结算时直接调用
+   * {@code BigDecimal.multiply(null)} 会让启动恢复任务反复失败。缺失项的业务含义是没有该项扣分，
+   * 因此这里统一按 0 处理。新建训练的规则仍由创建入口校验，完整字段不会被改变。
+   */
+  private PostTelexPatTrainRuleDto normalizedRule(String content) {
+    PostTelexPatTrainRuleDto rule = JSONUtils.fromJson(content, PostTelexPatTrainRuleDto.class);
+    if (rule == null) {
+      throw new IllegalArgumentException("评分规则未设定");
+    }
+    if (rule.getWpm() == null) {
+      rule.setWpm(new PostTelexPatTrainRuleDto.Wpm());
+    }
+    rule.getWpm().setBase(Optional.ofNullable(rule.getWpm().getBase()).orElse(0));
+    rule.getWpm().setR(zeroIfNull(rule.getWpm().getR()));
+    rule.getWpm().setL(zeroIfNull(rule.getWpm().getL()));
+
+    if (rule.getOther() == null) {
+      rule.setOther(new PostTelexPatTrainRuleDto.Other());
+    }
+    PostTelexPatTrainRuleDto.Other other = rule.getOther();
+    other.setErrorCode(zeroIfNull(other.getErrorCode()));
+    other.setMuchLessGroups(zeroIfNull(other.getMuchLessGroups()));
+    other.setCorrectMistakes(zeroIfNull(other.getCorrectMistakes()));
+    other.setLessPage(zeroIfNull(other.getLessPage()));
+    other.setLessReturnLine(zeroIfNull(other.getLessReturnLine()));
+    other.setMuchLessLine(zeroIfNull(other.getMuchLessLine()));
+    other.setMuchLessCode(zeroIfNull(other.getMuchLessCode()));
+    other.setErrorPage(zeroIfNull(other.getErrorPage()));
+    other.setNonStandart(zeroIfNull(other.getNonStandart()));
+    other.setAlterError(zeroIfNull(other.getAlterError()));
+    other.setBunchGroup(zeroIfNull(other.getBunchGroup()));
+    other.setLessGap(zeroIfNull(other.getLessGap()));
+    return rule;
+  }
+
+  private BigDecimal zeroIfNull(BigDecimal value) {
+    return value == null ? BigDecimal.ZERO : value;
+  }
+
   /** 冻结满分：建训时从评分规则复制到训练行，规则事后被改也不影响已建训练。 */
   private int frozenFullScore(GeneralTelexPatEntity train) {
-    if (train.getRuleScore() == null || train.getRuleScore() <= 0) {
-      throw new IllegalStateException("训练缺少有效的冻结规则满分");
+    if (train.getRuleScore() != null && train.getRuleScore() > 0) {
+      return train.getRuleScore();
     }
-    return train.getRuleScore();
+    // 冻结满分字段加入前，旧实现的结算基准就是 100。不能读取当前评分规则补值，
+    // 因为规则可能已经被修改；这里仅兼容缺列回填的存量训练，并把结果写回训练行。
+    log.warn("训练缺少冻结规则满分，按历史结算口径 100 分回填，训练ID: {}", train.getId());
+    train.setRuleScore(LEGACY_DEFAULT_FULL_SCORE);
+    trainDao.saveAndFlush(train);
+    return LEGACY_DEFAULT_FULL_SCORE;
   }
 
 }

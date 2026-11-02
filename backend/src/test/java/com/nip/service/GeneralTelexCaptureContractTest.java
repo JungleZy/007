@@ -72,9 +72,12 @@ class GeneralTelexCaptureContractTest {
   private static final String RATE_RULE = """
       {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":60,"r":0.5,"l":1},
        "other":{"errorCode":0,"muchLessGroups":0,"correctMistakes":0,"lessPage":0,"lessReturnLine":0,
-                "muchLessLine":0,"muchLessCode":0,"errorPage":0,"nonStandart":0,"alterError":0,
-                "bunchGroup":0,"lessGap":0}}
+                 "muchLessLine":0,"muchLessCode":0,"errorPage":0,"nonStandart":0,"alterError":0,
+                 "bunchGroup":0,"lessGap":0}}
       """;
+
+  /** 历史规则缺少不规则项时，结算应把该缺失项按零分处理。 */
+  private static final String LEGACY_RULE_WITHOUT_NON_STANDARD = FLAT_RULE.replace("\"nonStandart\":0,", "");
 
   private record Room(String id, String ruleId) {}
 
@@ -155,6 +158,44 @@ class GeneralTelexCaptureContractTest {
 
     decimal("150", member(hundredFifty, alice).getScore());
     decimal("88", member(eightyEight, alice).getScore());
+  }
+
+  /**
+   * 兼容冻结满分字段上线前的存量训练：旧组训数据报结算固定以 100 分为基准。
+   * 缺失字段时必须按旧口径完成一次结算，并把回填值持久化，避免启动恢复每 5 秒重复失败。
+   */
+  @Test
+  void missingFrozenScoreUsesLegacyBaselineAndPersistsTheBackfill() throws Exception {
+    Room room = create(FLAT_RULE, 150, 100);
+    QuarkusTransaction.requiringNew().run(() -> trains.findById(room.id).setRuleScore(null));
+
+    ok(post("uploadResult", alice, upload(room, 1, 0, PAGE, List.of(interval(0, 4000)))));
+    ok(post("finish", alice, control(room, 0)));
+
+    decimal("100", member(room, alice).getScore());
+    assertEquals(100, QuarkusTransaction.requiringNew().call(() -> trains.findById(room.id).getRuleScore()));
+  }
+
+  @Test
+  void missingLegacyDeductionCoefficientIsTreatedAsZero() throws Exception {
+    Room room = create(LEGACY_RULE_WITHOUT_NON_STANDARD, 150, 100);
+
+    ok(post("uploadResult", alice, upload(room, 1, 0, PAGE, List.of(interval(0, 4000)))));
+    ok(post("finish", alice, control(room, 0)));
+
+    decimal("150", member(room, alice).getScore());
+  }
+
+  @Test
+  void legacyRawCaptureWithoutAttemptUsesTheCurrentInitialRound() throws Exception {
+    Room room = create(FLAT_RULE, 150, 100);
+    ok(post("uploadResult", alice, upload(room, 1, 0, PAGE, List.of(interval(0, 4000)))));
+    QuarkusTransaction.requiringNew().run(() -> values
+        .findRawByTrainIdAndUserId(room.id, alice.getId()).getFirst().setAttempt(null));
+
+    ok(post("finish", alice, control(room, 0)));
+
+    decimal("150", member(room, alice).getScore());
   }
 
   /**

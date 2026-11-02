@@ -1,5 +1,6 @@
 package com.nip.service.general;
 
+import com.nip.common.exception.TerminalStateException;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,6 +47,9 @@ public class GeneralSettlementRecovery {
     for (I trainId : trainIds) {
       try {
         settleExpired.accept(trainId);
+      } catch (TerminalStateException terminal) {
+        log.warn("{}训练收尾跳过，训练轮次或状态已不可重算，训练ID: {}，原因: {}",
+            domain, trainId, terminal.getMessage());
       } catch (RuntimeException failure) {
         log.error("{}训练收尾失败，保留待重试状态，训练ID: {}", domain, trainId, failure);
       }
