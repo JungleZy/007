@@ -59,6 +59,11 @@ export default function addTest(modelSelf) {
         res.data.paper.judge = JSON.parse(res.data.paper.judgeList)
         res.data.paper.multipleChoice = JSON.parse(res.data.paper.multipleChoiceList)
         res.data.paper.singleChoice = JSON.parse(res.data.paper.singleChoiceList)
+        // 快照中的简答题字段名是 shortAnswer，保存时必须还原成数组。
+        // 旧数据可能没有该字段或字段值为空，统一按空数组处理。
+        res.data.paper.shortAnswer = res.data.paper.shortAnswer
+          ? JSON.parse(res.data.paper.shortAnswer)
+          : []
         selectedPaper.value = res.data.paper.testPaperId
         params.value.title = res.data.exam.title
         params.value.startTime = moment(res.data.exam['start_time'])
