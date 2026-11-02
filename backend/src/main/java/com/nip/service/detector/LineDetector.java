@@ -103,7 +103,12 @@ public class LineDetector {
     int sourceIndex = context.getSourceIndex();
 
     int previousLineIndex = sourceIndex - GROUPS_PER_LINE;
-    if (previousLineIndex < 0 || !Objects.equals(patKey, sources.get(previousLineIndex))) {
+    // 拍发内容可能多于标准报文。源索引已经越过标准列表时，不能再把
+    // 「当前组」当成上一行的参照组，否则结算会以数组越界结束。
+    if (!context.isValidSourceIndex(sourceIndex)
+        || previousLineIndex < 0
+        || previousLineIndex >= sources.size()
+        || !Objects.equals(patKey, sources.get(previousLineIndex))) {
       return FAILED;
     }
 
