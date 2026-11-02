@@ -193,7 +193,7 @@ export default function (trainData) {
     } else {
       trainLogData.value[currTrainTab.value].min = val<trainLogData.value[currTrainTab.value].min?val:trainLogData.value[currTrainTab.value].min;
       trainLogData.value[currTrainTab.value].max = val>trainLogData.value[currTrainTab.value].max?val:trainLogData.value[currTrainTab.value].max;
-      trainLogData.value[currTrainTab.value].average = parseInt(sum(averArr.value[currTrainTab.value])/averArr.value[currTrainTab.value].length);
+      trainLogData.value[currTrainTab.value].average = sum(averArr.value[currTrainTab.value])/averArr.value[currTrainTab.value].length;
     }
     if (barrageTimer.value) {
       clearTimeout(barrageTimer.value)
@@ -275,7 +275,7 @@ export default function (trainData) {
           formatter: (res) => {
             if (res.value && chartData[res.dataIndex] && chartData[res.dataIndex].text) {
               return '<div class="tooltipItem"><div>评定：</div><div>'+chartData[res.dataIndex].text+'</div></div>'+
-                     '<div class="tooltipItem"><div>用时：</div><div>'+res.value+' ms</div></div>'
+                      '<div class="tooltipItem"><div>用时：</div><div>'+Number(res.value).toFixed(2)+' ms</div></div>'
             } else {
               return ''
             }

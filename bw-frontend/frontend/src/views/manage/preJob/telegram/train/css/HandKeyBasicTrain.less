@@ -1,3 +1,20 @@
+// left 的百分比基于整个弹幕区域；结束时再移出自身宽度，完整经过右、左边缘。
+.barrageBox .barrage {
+  left: 100%;
+  animation: hand-key-basic-barrage 12s linear forwards;
+}
+
+@keyframes hand-key-basic-barrage {
+  from {
+    left: 100%;
+    transform: translateX(0);
+  }
+  to {
+    left: 0;
+    transform: translateX(-100%);
+  }
+}
+
 .HJ{
   .statisticsBox {
     position: absolute;
@@ -165,9 +182,6 @@
     height: 80px;
     background: url("../../../../../../assets/HJ/train/barrage.png") no-repeat left center;
     position: absolute;
-    left: -400px;
-    animation: barrage-move 12s linear;
-    -webkit-animation: barrage-move 12s linear;
   }
 
   .barrageBox .barrage.perfect {
@@ -427,21 +441,6 @@
     top: -30px;
   }
 
-  @keyframes barrage-move {
-    0% {
-      left: 100%;
-      opacity: 1;
-    }
-    50% {
-      left: calc(50% - 170px);
-      opacity: 1
-    }
-    100% {
-      left: -340px;
-      opacity: .1
-    }
-  }
-
   @media (max-width: 1440px) {
     .trainCenter .handKeyImg .handKey {
       transform: scale(.7);
@@ -573,9 +572,6 @@
     height: 80px;
     background: url("../../../../../../assets/HJJ/train/barrage.png") no-repeat left center;
     position: absolute;
-    left: -400px;
-    animation: barrage-move 12s linear;
-    -webkit-animation: barrage-move 12s linear;
   }
   .barrageBox .barrage.perfect {
     background: url("../../../../../../assets/HJJ/train/perfect-barrage.png") no-repeat left center;
@@ -797,11 +793,6 @@
     left: 8px;
     top: -30px;
   }
-  @keyframes barrage-move {
-    0% {left: 100%;opacity: 1;}
-    50% {left: calc(50% - 170px);opacity: 1}
-    100% {left: -340px;opacity: .1}
-  }
   @media (max-width: 1440px) {
     .trainCenter .handKeyImg .handKey {
       transform: scale(.7);
@@ -933,9 +924,6 @@
     height: 80px;
     background: url("../../../../../../assets/LJ/train/barrage.png") no-repeat left center;
     position: absolute;
-    transform: translateX(-400px);
-    animation: barrage-move 12s linear;
-    -webkit-animation: barrage-move 12s linear;
   }
   .barrageBox .barrage.perfect {
     background: url("../../../../../../assets/LJ/train/perfect-barrage.png") no-repeat left center;
@@ -1167,12 +1155,6 @@
     left: 8px;
     top: -30px;
   }
-  @keyframes barrage-move {
-    0% {transform: translateX(300%);}
-    50% {transform: translateX(calc(100% - 170px));}
-    100% {transform: translateX(-340px);}
-  }
-
   @media (max-width: 1440px) {
     .trainCenter .handKeyImg .handKey {
       transform: scale(.7);
@@ -1304,9 +1286,6 @@
     height: 80px;
     background: url("../../../../../../assets/KJ/train/barrage.png") no-repeat left center;
     position: absolute;
-    transform: translateX(-400px);
-    animation: barrage-move 12s linear;
-    -webkit-animation: barrage-move 12s linear;
   }
   .barrageBox .barrage.perfect {
     background: url("../../../../../../assets/KJ/train/perfect-barrage.png") no-repeat left center;
@@ -1538,12 +1517,6 @@
     left: 8px;
     top: -30px;
   }
-  @keyframes barrage-move {
-    0% {transform: translateX(300%);}
-    50% {transform: translateX(calc(100% - 170px));}
-    100% {transform: translateX(-340px);}
-  }
-
   @media (max-width: 1440px) {
     .trainCenter .handKeyImg .handKey {
       transform: scale(.7);

@@ -60,7 +60,7 @@
           <div :class="{barrage:true, perfect: log.type==2,abnormal: log.type==0}"
                :style="{top: (log.top+'px'),zIndex: (i+1)}">
             <strong class="lab">{{ log.name }}</strong>
-            <strong class="mark">{{ log.value }} ms</strong>
+            <strong class="mark">{{ log.value.toFixed(2) }} ms</strong>
             <div class="msg">{{ log.msg }}</div>
           </div>
         </template>
@@ -77,7 +77,7 @@
                           abnormal: item.type==0,
                           perfect: item.type==2}">
               <div class="val" :style="{fontSize: (fs * 1 + 20) + 'px'}">
-                <strong>{{ item.value }}</strong>
+                <strong>{{ item.value.toFixed(2) }}</strong>
                 <span style="font-size: 14px;margin-left: 6px;" :style="{fontSize: (fs * 1 + 14) + 'px'}">ms</span>
               </div>
               <div class="status" :style="{fontSize: (fs * 1 + 15) + 'px'}">{{ item.name }}</div>
@@ -90,15 +90,15 @@
           <div class="flex">
             <div class="item">
               <div class="lab" :style="{fontSize: (fs * 1 + 12) + 'px'}">平均值</div>
-              <strong class="num">{{ trainLogData[currTrainTab].average }}ms</strong>
+              <strong class="num">{{ trainLogData[currTrainTab].average.toFixed(2) }}ms</strong>
             </div>
             <div class="item">
               <div class="lab" :style="{fontSize: (fs * 1 + 12) + 'px'}">最小值</div>
-              <strong class="num">{{ trainLogData[currTrainTab].min }}ms</strong>
+              <strong class="num">{{ trainLogData[currTrainTab].min.toFixed(2) }}ms</strong>
             </div>
             <div class="item">
               <div class="lab" :style="{fontSize: (fs * 1 + 12) + 'px'}">最大值</div>
-              <strong class="num">{{ trainLogData[currTrainTab].max }}ms</strong>
+              <strong class="num">{{ trainLogData[currTrainTab].max.toFixed(2) }}ms</strong>
             </div>
           </div>
         </div>
