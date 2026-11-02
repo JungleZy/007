@@ -1,0 +1,107 @@
+.enteringPractice {
+  --result-bg: #14283e;
+  --result-border: #536b83;
+  --result-text: #e2f2ff;
+  --result-muted: #a8b9cc;
+  --result-accent: #f3cf82;
+
+  .statisticalBox .linebtns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+
+    .btn {
+      min-height: 34px;
+      margin: 0;
+      padding: 5px;
+      border-radius: 3px;
+      text-align: center;
+      &:disabled { opacity: .5; cursor: not-allowed; }
+      &:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+    }
+
+    .exerciseBtn, .resultButton, [role='status'], [role='alert'] { grid-column: 1 / -1; }
+    [role='status'], [role='alert'] {
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      .btn { width: 100%; margin-top: 8px; }
+    }
+  }
+
+  // 拼音与五笔练习共用完整的成绩弹层样式。
+  .achievementMasking {
+    position: absolute;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: auto;
+    background: rgba(3, 12, 25, .88);
+  }
+
+  .achievement {
+    width: 900px;
+    max-width: 100%;
+    max-height: 100%;
+    min-width: 0;
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid var(--result-border);
+    border-radius: 8px;
+    background: var(--result-bg);
+    color: var(--result-text);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
+
+    .resTitle { display: flex; justify-content: center; margin-bottom: 24px; }
+    .resTitle img { max-width: 100%; max-height: 80px; object-fit: contain; }
+    .dataBox {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) 1px minmax(0, 2fr);
+      align-items: center;
+      gap: 24px;
+    }
+    .resLeft, .resRight { min-width: 0; }
+    .resLeft .top { height: auto; text-align: center; background: none; }
+    .resLeft .top img { display: block; width: 180px; max-width: 100%; margin: 0 auto 12px; }
+    .desc { color: var(--result-muted); font-size: 14px; line-height: 1.6; }
+    .time { font-size: 32px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+    .bottom { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 16px; margin-top: 24px; }
+    .resGroup { display: flex; align-items: center; gap: 12px; }
+    .resGroup img { width: 40px; height: 40px; object-fit: contain; }
+    .num { color: var(--result-accent); font-size: 28px; font-weight: bold; overflow-wrap: anywhere; }
+    .splitLine { width: 1px; height: 100%; min-height: 180px; background: var(--result-border); }
+    .resRight { display: flex; flex-direction: column; gap: 24px; }
+    .resTextItem { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .resClose { display: flex; justify-content: center; margin-top: 24px; }
+    .close {
+      min-height: 36px;
+      padding: 6px 28px;
+      border: 1px solid var(--result-border);
+      border-radius: 4px;
+      color: var(--result-text);
+      background: rgba(255, 255, 255, .08);
+      cursor: pointer;
+      &:hover { background: rgba(255, 255, 255, .16); }
+      &:focus-visible { outline: 2px solid var(--result-accent); outline-offset: 2px; }
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .achievementMasking { padding: 12px; }
+    .achievement {
+      padding: 16px;
+      .dataBox { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .splitLine { width: 100%; height: 1px; min-height: 1px; }
+      .resRight { flex-direction: row; flex-wrap: wrap; justify-content: space-around; }
+    }
+  }
+}
+
+.LJ .enteringPractice {
+  --result-bg: #25332b;
+  --result-border: #706d51;
+  --result-text: #e9deb2;
+  --result-muted: #c0b69a;
+}

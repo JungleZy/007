@@ -1,5 +1,5 @@
 <template>
-  <div ref="practiceArea" tabindex="0" aria-label="五笔练习录入区" class="telexTrainBox h-full w-full overflow-auto layout-side-n relative content-mask-bg">
+  <div ref="practiceArea" tabindex="0" aria-label="五笔练习录入区" class="enteringPractice telexTrainBox h-full w-full overflow-auto layout-side-n relative content-mask-bg">
     <div class="" >
       <div class="statisticsBox statisticalBox" >
         <div class="lineBox">
@@ -24,22 +24,21 @@
           <div class="box"> {{ trainData.speed}}组/分</div>
         </div>
         <div class="linebtns">
-          <div class="exerciseBtn btn">
-            <div class="layout-center" @click="router.back()">
+          <button type="button" class="exerciseBtn btn layout-center" @click="router.back()">
               <IconFont type="icon-rollback" style="margin-right: 5px"></IconFont> 退出
-            </div>
-          </div>
-          <button v-if="ready && trainData.status !== 2" :disabled="busy || uncertain" @click="trainData.status === 1 ? stopTest() : resumeTest()">{{ trainData.status === 1 ? '暂停' : trainData.status === 3 ? '继续' : '开始' }}</button>
-          <button v-if="ready && trainData.status !== 2" :disabled="busy || uncertain || trainData.status === 0" @click="saveTest">结束练习</button>
+          </button>
+          <button type="button" class="btn" v-if="ready && trainData.status !== 2" :disabled="busy || uncertain" @click="trainData.status === 1 ? stopTest() : resumeTest()">{{ trainData.status === 1 ? '暂停' : trainData.status === 3 ? '继续' : '开始' }}</button>
+          <button type="button" class="btn" v-if="ready && trainData.status !== 2" :disabled="busy || uncertain || trainData.status === 0" @click="saveTest">结束练习</button>
+          <button type="button" class="btn resultButton" v-if="trainData.status === 2" @click="showResultModal = true">查看成绩</button>
           <span v-if="pendingKey !== null" role="status">开始尚未确认，已保留首键；请等待或点击开始重试。</span>
-          <div v-if="uncertain" role="status">
+          <div v-if="uncertain && !busy" role="status">
             保存结果待确认，输入已冻结并保留。
-            <button :disabled="busy" @click="confirmWrite">重新确认状态</button>
-            <button :disabled="busy" @click="retryWrite">原样重试保存</button>
+            <button type="button" class="btn" :disabled="busy" @click="confirmWrite">重新确认状态</button>
+            <button type="button" class="btn" :disabled="busy" @click="retryWrite">原样重试保存</button>
           </div>
           <div v-if="terminalConflict" role="alert">
             服务端已完成且答案与本地草稿不同；本地草稿已保留，不能覆盖最终成绩。
-            <button @click="router.back()">保留草稿并退出</button>
+            <button type="button" class="btn" @click="router.back()">保留草稿并退出</button>
           </div>
         </div>
       </div>
@@ -103,13 +102,13 @@
       <CutDown :nowTime="nowTime"></CutDown>
     </div>
     <div class="achievementMasking" v-show="showResultModal && trainData.status == 2">
-      <div class="achievement">
+      <div class="achievement" role="dialog" aria-modal="true" aria-label="五笔训练成绩">
         <div class="resTitle">
           <img v-if="parseFloat(trainData.accuracy)>80" :src="restext1">
           <img v-else-if="parseFloat(trainData.accuracy)>60" :src="restext2">
           <img v-else :src="restext3">
         </div>
-        <div class="cont" style="display: flex;align-items: center;height: 400px">
+        <div class="cont">
           <div class="dataBox">
             <div class="resLeft w-full">
               <div class="top">
@@ -118,7 +117,7 @@
                 <img v-else-if="parseFloat(trainData.accuracy)>30" :src="tagscrapwarning"
                      alt="">
                 <img v-else :src="tagscraperror" alt="">
-                <div class="desc" style="color: #7b90af;">本次训练用时</div>
+                <div class="desc">本次训练用时</div>
                 <div class="time">{{ computationTime(trainData.duration) }}</div>
               </div>
               <div class="bottom">
@@ -153,7 +152,7 @@
         </div>
         <div class="resClose">
           <div class="closeInfo">
-            <div class="close" @click="showResultModal=false"></div>
+            <button type="button" class="close" @click="showResultModal=false">关闭成绩</button>
           </div>
         </div>
       </div>
@@ -230,5 +229,6 @@
 </script>
 
 <style scoped lang="less">
+ @import "../../css/enteringPractice";
  @import "./css/indes";
 </style>
