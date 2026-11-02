@@ -133,11 +133,14 @@ export default function startGrade() {
       }
     })
 
-    getExamineAnalyse({ examId: route.query.id }).then(res => {
-      if (res.code === 200) {
-        analyseData.value = res.data
-      }
-    })
+    // 整场考核分析仅供教员使用；学员复盘所需的本人答卷已由考试详情返回。
+    if (userRole.value.id != 2) {
+      getExamineAnalyse({ examId: route.query.id }).then(res => {
+        if (res.code === 200) {
+          analyseData.value = res.data
+        }
+      })
+    }
   }
   const selelctStu = item => {
     activeUser.value = item
