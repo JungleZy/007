@@ -219,6 +219,6 @@ export default function startTest(countDown) {
   })
   provide('realTimeAnwser', { realTimeAnwser })
   provide('changeShortAnswerScore', '')
-  return { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow,
+  return { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, activeUser, isShow,
     clearAnswer, paperLoding, commitTest, getStudentInfo, answerLocked, terminal, terminalMessage, paperVersion }
 }

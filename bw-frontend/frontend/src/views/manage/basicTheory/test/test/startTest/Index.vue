@@ -63,9 +63,9 @@
         </div>
       </div>
     </div>
-    <div class="right grouping layout-center">
+    <div class="right grouping">
       <div class="w-full grouping_halving_line"></div>
-      <previewTest v-if="questions && isShow" :key="paperVersion" :inert="answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="true"></previewTest>
+      <previewTest v-if="questions && isShow" :key="userRole.id == 2 ? paperVersion : (activeUser || 'teacher-preview')" :inert="userRole.id == 2 && answerLocked ? '' : null" :time="testTime" :paperData="questions" :height="'100%'" :clearAnswer="userRole.id == 2" :isAnswer="userRole.id == 2 || activeUser !== null"></previewTest>
     </div>
   </div>
   <div class="w-full h-full layout-center" style="position: absolute;z-index: 9;top: 0;background: rgba(255,255,255,0.1)" v-if="paperLoding">
@@ -85,10 +85,16 @@ import {ref} from 'vue'
 import startTest from './js/startTest'
 const countDownRef = ref(null)
 const interfaceStyle = window.interfaceStyle
-const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, isShow, commitTest, getStudentInfo, paperLoding, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDownRef)
+const { userInfo, fileUrl, questions, bankList, userList, userRole, testTime, active, activeUser, isShow, commitTest, getStudentInfo, paperLoding, answerLocked, terminal, terminalMessage, paperVersion } = startTest(countDownRef)
 </script>
 
 <style lang="less" scoped>
+  .right {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .HJ{
     .left{
       width: 280px;
