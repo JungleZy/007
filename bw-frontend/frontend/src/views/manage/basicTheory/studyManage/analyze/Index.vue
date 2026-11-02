@@ -69,7 +69,7 @@
           <div style="width: 295px;height: 68px;margin-top: 16px;" class="xiaoBian xiaoBian2">
             <img :src="xueXiShiChang" alt="" class="img">
             <div class="text1 fs_dispose_min">学习时长</div>
-            <div class="text2">{{totalData.studyTime}}小时</div>
+            <div class="text2">{{ formatHours(totalData.studyTime) }}</div>
           </div>
         </div>
         <!--左中E-->
@@ -136,7 +136,7 @@
                       </div>
                     </div>
                     <span style="margin-left: 10px;">学习总时长：</span>
-                    <span>{{totalData.theoryTime}}小时</span>
+                    <span>{{ formatHours(totalData.theoryTime) }}</span>
                     <span style="margin-left: 30px;">已得总学分：</span>
                     <span>{{totalData.totalCredit}}分</span>
                   </div>
@@ -335,7 +335,7 @@
           <div style="width: 100%; height: 82px; margin-top: 5px" class="xiaoBian xiaoBian2">
             <img :src="xueXiShiChang" alt="" class="img" />
             <div class="text1">学习时长</div>
-            <div class="text2">{{ totalData.studyTime }}小时</div>
+            <div class="text2">{{ formatHours(totalData.studyTime) }}</div>
           </div>
         </div>
         <!--左中E-->
@@ -374,8 +374,7 @@
                   <div style="height: 100%" class="layout-left-center">
                     <div class="itemBox">
                       <span style="margin-left: 10px">学习总时长：</span>
-                      <span style="color: #e9deb2; font-size: 16px; font-weight: bold; padding: 0 10px">{{ totalData.theoryTime }}</span>
-                      <span>小时</span>
+                      <span style="color: #e9deb2; font-size: 16px; font-weight: bold; padding: 0 10px">{{ formatHours(totalData.theoryTime) }}</span>
                     </div>
                     <div class="itemBox">
                       <span style="margin-left: 30px">已得总学分：</span>
@@ -520,6 +519,7 @@
   import useChart2 from './js/useChart2.js'
   import pointUseChart from './js/pointUseChart'
   import totalApi from './js/totalApi.js'
+  import {formatHours} from '../duration.js'
   import useYearChange from './js/yearChange.js'
   const avatarBg = ref(avatarBgHJ)
   const kaoshi = ref(kaoshiHJ)

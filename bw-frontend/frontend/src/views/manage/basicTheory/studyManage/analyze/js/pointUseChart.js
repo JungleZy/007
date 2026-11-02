@@ -1,6 +1,7 @@
 import {reactive, onMounted} from 'vue'
 import {analyzeDown} from '../../../../../../common/api/StudyManage_classHours'
 import * as echarts from 'echarts'
+import {formatHours} from '../../duration.js'
 export default function pointUseChart(currentYear2) {
   let data = reactive({
     theChartPoint: '',
@@ -65,7 +66,7 @@ export default function pointUseChart(currentYear2) {
                 data.sourceData.push({
                   月份: qq.month + '月',
                   平均分: qq.avgScore,
-                  学习时长: obj[0].studyTime.toString() + '分钟',
+                  学习时长: formatHours(obj[0].studyTime),
                   m: qq.month
                 })
               }
@@ -116,13 +117,14 @@ export default function pointUseChart(currentYear2) {
       xAxis: {
         type: 'category',
         data: x,
-        name: '学习时长/月',
+        name: '学习时长/月（时:分:秒）',
         nameTextStyle: {
           color: color.color1,
           lineHeight: 50
         },
         nameLocation: 'middle',
         axisLabel: {
+          formatter: formatHours,
           color: color.color2
         },
         position: {

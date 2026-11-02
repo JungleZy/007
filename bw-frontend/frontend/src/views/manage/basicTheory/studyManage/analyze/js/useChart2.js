@@ -1,6 +1,7 @@
 import {reactive, ref, onMounted} from 'vue'
 import * as echarts from 'echarts'
 import {analyzeUp} from '../../../../../../common/api/StudyManage_classHours.js'
+import {formatHours} from '../../duration.js'
 
 export default function useChart2(currentYear1) {
   let data = reactive({
@@ -149,8 +150,10 @@ export default function useChart2(currentYear1) {
           color: color.color1
         }
       },
-      yAxis: {
+      yAxis: [{
         type: 'value',
+        name: '课件数量',
+        minInterval: 1,
         splitLine: {
           lineStyle: {
             color:color.color2,
@@ -160,20 +163,29 @@ export default function useChart2(currentYear1) {
         axisLabel: {
           color: color.color1
         }
-      },
+      }, {
+        type: 'value',
+        name: '时:分:秒',
+        position: 'right',
+        splitLine: {show: false},
+        axisLabel: {
+          color: color.color1,
+          formatter: formatHours
+        }
+      }],
       color: color.color3,
       barWidth: 20,
       series: [
         {
           name: '课件数量',
           type: 'bar',
-          stack: 'one',
           data: []
         },
         {
           name: '学习时长',
           type: 'bar',
-          stack: 'one',
+          yAxisIndex: 1,
+          tooltip: {valueFormatter: formatHours},
           data: []
         }
       ]
@@ -186,6 +198,8 @@ export default function useChart2(currentYear1) {
         upData.value.three = res.data.workCredit
 
         data.sourceData.forEach(item => {
+          item.value = 0
+          item.value1 = 0
           res.data.yearInfoVO.forEach(ele => {
             if (item.mounth.substring(0, item.mounth.length - 1) == ele.moth) {
               item.value = ele.swfNum ?? 0
@@ -200,6 +214,7 @@ export default function useChart2(currentYear1) {
           return item.value1
         })
         chart.setOption(option)
+        resolve()
       })
     })
     // data.theChart2.render()

@@ -79,78 +79,13 @@ let columns = ref([
     width: '30%'
   },
   {
-    title: '用时(小时)',
-    dataIndex: 'useHour',
+    title: '用时（时:分:秒）',
+    dataIndex: 'duration',
     align: 'center',
     width: '30%'
   }
 ])
-let tableData = ref([
-  {
-    key: 1,
-    knowledgeName: '父级1',
-    classHour: 100,
-    useHour: 56,
-    children: [
-      {
-        key: 2,
-        knowledgeName: '默认课件名称1',
-        classHour: 100,
-        useHour: 8
-      },
-      {
-        key: 2,
-        knowledgeName: '默认课件名称2',
-        classHour: 100,
-        useHour: 12
-      },
-      {
-        key: 2,
-        knowledgeName: '默认课件名称3',
-        classHour: 100,
-        useHour: 26
-      },
-      {
-        key: 2,
-        knowledgeName: '默认课件名称4',
-        classHour: 100,
-        useHour: 10
-      }
-    ]
-  },
-  {
-    key: 11,
-    knowledgeName: '父级2',
-    classHour: 100,
-    useHour: 56,
-    children: [
-      {
-        key: 22,
-        knowledgeName: '默认课件名称1',
-        classHour: 100,
-        useHour: 8
-      },
-      {
-        key: 33,
-        knowledgeName: '默认课件名称2',
-        classHour: 100,
-        useHour: 12
-      },
-      {
-        key: 44,
-        knowledgeName: '默认课件名称3',
-        classHour: 100,
-        useHour: 26
-      },
-      {
-        key: 55,
-        knowledgeName: '默认课件名称4',
-        classHour: 100,
-        useHour: 10
-      }
-    ]
-  }
-])
+let tableData = ref([])
 
 // 处理图表 根据接口改变页面渲染需要用到的数据
 let { getChartDataSource } = useChart(currentTimeTag, currentTypeTag, theDate, tableData)

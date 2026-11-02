@@ -3,18 +3,7 @@ import * as echarts from 'echarts'
 import {getClassChartsDataByTypeAndTime} from '../../../../../../common/api/StudyManage_classHours.js'
 import moment from 'moment'
 import {v1} from 'uuid-umd'
-
-function formatDecimal(num, decimal) {
-  decimal = 3
-  // num = num.toString()
-  // let index = num.indexOf('.')
-  // if (index !== -1) {
-  //   num = num.substring(0, decimal + index + 1)
-  // } else {
-  //   num = num.substring(0)
-  // }
-  return parseFloat(num).toFixed(decimal)
-}
+import {formatDuration} from '../../duration.js'
 
 // 三个参数都是外面传进来 会随外面改变而改变
 export default function useChart(currentTimeTag, currentTypeTag, theDate, tableData) {
@@ -29,22 +18,22 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
     sourceData: [],
     // 横坐标为月的数据
     sourceData1: [
-      { studyTime: '1月', hours: 68.25 },
-      { studyTime: '2月', hours: 57 },
-      { studyTime: '3月', hours: 90 },
-      { studyTime: '4月', hours: 23 },
-      { studyTime: '5月', hours: 44.25 },
-      { studyTime: '6月', hours: 68.25 },
-      { studyTime: '7月', hours: 88 },
-      { studyTime: '8月', hours: 10 },
-      { studyTime: '9月', hours: 100 },
-      { studyTime: '10月', hours: 32 },
-      { studyTime: '11月', hours: 42 },
-      { studyTime: '12月', hours: 54.35 }
+      { studyTime: '1月', seconds: 0 },
+      { studyTime: '2月', seconds: 0 },
+      { studyTime: '3月', seconds: 0 },
+      { studyTime: '4月', seconds: 0 },
+      { studyTime: '5月', seconds: 0 },
+      { studyTime: '6月', seconds: 0 },
+      { studyTime: '7月', seconds: 0 },
+      { studyTime: '8月', seconds: 0 },
+      { studyTime: '9月', seconds: 0 },
+      { studyTime: '10月', seconds: 0 },
+      { studyTime: '11月', seconds: 0 },
+      { studyTime: '12月', seconds: 0 }
     ],
     // 柱子粗细
     columnWidth: 20,
-    sourceData2: [{ studyTime: '1号', hours: 68.25 }],
+    sourceData2: [{ studyTime: '1号', seconds: 0 }],
     sourceData3: []
   })
 
@@ -56,21 +45,21 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
         key: keyArr[6],
         knowledgeName: keyArr[4].split('=')[1],
         classHour: keyArr[7].split('=')[1].substring(0, keyArr[7].split('=')[1].length),
-        useHour: 'grade',
+        duration: '00:00:00',
         children: []
       }
-      let itemUseHour = 0
+      let totalSeconds = 0
       for (let childKey in sourceData[key]) {
         let childTarObj = {
           key: v1(),
           knowledgeName: childKey,
           classHour: '—',
-          useHour: formatDecimal(sourceData[key][childKey] / 3600, 1)
+          duration: formatDuration(sourceData[key][childKey])
         }
         tarObj.children.push(childTarObj)
-        itemUseHour = formatDecimal(Number(itemUseHour) + Number(childTarObj.useHour), 1)
+        totalSeconds += Number(sourceData[key][childKey]) || 0
       }
-      tarObj.useHour = itemUseHour
+      tarObj.duration = formatDuration(totalSeconds)
       needTableData.push(tarObj)
     }
     tableData.value = needTableData
@@ -115,7 +104,7 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
     for (let i = 2011; i <= 2022; i++) {
       let obj = {
         studyTime: i + '年',
-        hours: parseInt(Math.random() * 100)
+        seconds: 0
       }
       data.sourceData3.push(obj)
     }
@@ -130,12 +119,12 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
         let flag = false
         for (let ele in requestData) {
           if (ele == item.studyTime.substring(0, item.studyTime.length - 1)) {
-            item.hours = formatDecimal(requestData[ele] / 3600, 1)
+            item.seconds = Number(requestData[ele])
             flag = true
           }
         }
         if (flag === false) {
-          item.hours = 0
+          item.seconds = 0
         }
       }
       data.sourceData = data.sourceData1
@@ -150,7 +139,7 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
       for (let i = 1; i <= monthDays.getDate(); i++) {
         let obj = {
           studyTime: i + '号',
-          hours: parseInt(Math.random() * 100)
+          seconds: 0
         }
         data.sourceData2.push(obj)
       }
@@ -159,12 +148,12 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
         let flag = false
         for (let ele in requestData) {
           if (ele == item.studyTime.substring(0, item.studyTime.length - 1)) {
-            item.hours = formatDecimal(requestData[ele] / 3600, 1)
+            item.seconds = Number(requestData[ele])
             flag = true
           }
         }
         if (flag === false) {
-          item.hours = 0
+          item.seconds = 0
         }
       }
       data.sourceData = data.sourceData2
@@ -180,7 +169,7 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
     const label = []
     data.sourceData.forEach(item => {
       x.push(item.studyTime)
-      source.push(item.hours)
+      source.push(item.seconds)
       label.push(0)
     })
     const interfaceStyle = window.interfaceStyle
@@ -209,7 +198,7 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
     }
     const option = {
       tooltip: {
-        formatter: '{b}&nbsp;&nbsp;&nbsp;&nbsp;{c}小时'
+        formatter: params => `${params.name}&nbsp;&nbsp;&nbsp;&nbsp;${formatDuration(params.value)}`
       },
       grid: {
         containLabel: true,
@@ -223,6 +212,7 @@ export default function useChart(currentTimeTag, currentTypeTag, theDate, tableD
         type: 'value',
         splitLine: { show: false },
         axisLabel: {
+          formatter: formatDuration,
           color: color.color1
         }
       },
