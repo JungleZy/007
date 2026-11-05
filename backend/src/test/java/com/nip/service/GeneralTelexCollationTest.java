@@ -8,7 +8,8 @@ import com.nip.testsupport.Fixtures;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -24,21 +25,19 @@ class GeneralTelexCollationTest {
   @Inject UserDao users;
   @Inject GeneralTelexPatUserDao members;
 
-  @Test
-  void rosterProjectionsJoinLegacyUserIdsWithDifferentCollations() throws Exception {
+  @ParameterizedTest
+  @ValueSource(strings = {"utf8mb3_general_ci", "utf8mb4_general_ci", "utf8mb4_0900_ai_ci"})
+  void rosterProjectionsJoinLegacyUserIdsWithDifferentCollations(String memberCollation) throws Exception {
     String trainId = UUID.randomUUID().toString();
     UserEntity owner = Fixtures.user(users, "collation-" + UUID.randomUUID());
     owner.setUserName("Collation User");
     users.save(owner);
     try (Connection connection = dataSource.getConnection()) {
       String original = collation(connection, "general_telex_pat_user", "user_id");
-      String userCollation = collation(connection, "t_user", "id");
-      String different = userCollation.equals("utf8mb4_general_ci")
-          ? "utf8mb4_0900_ai_ci" : "utf8mb4_general_ci";
       try (var statement = connection.createStatement()) {
         try {
           statement.execute("ALTER TABLE general_telex_pat_user MODIFY user_id VARCHAR(255) "
-              + "CHARACTER SET utf8mb4 COLLATE " + different + " NULL");
+              + "CHARACTER SET " + memberCollation.split("_")[0] + " COLLATE " + memberCollation + " NULL");
           members.save(new GeneralTelexPatUserEntity()
               .setTrainId(trainId).setUserId(owner.getId()).setRole(0));
           QuarkusTransaction.requiringNew().run(() -> {
@@ -56,7 +55,7 @@ class GeneralTelexCollationTest {
             QuarkusTransaction.requiringNew().run(() -> members.delete("trainId", trainId));
           } finally {
             statement.execute("ALTER TABLE general_telex_pat_user MODIFY user_id VARCHAR(255) "
-                + "CHARACTER SET utf8mb4 COLLATE " + original + " NULL");
+                + "CHARACTER SET " + original.split("_")[0] + " COLLATE " + original + " NULL");
           }
         }
       }
