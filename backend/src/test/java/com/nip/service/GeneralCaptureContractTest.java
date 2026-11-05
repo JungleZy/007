@@ -228,6 +228,33 @@ class GeneralCaptureContractTest {
   }
 
   @Test
+  void electronicSubmittedEmptySecondPageStillReturnsReferenceBeforeAndAfterFinish() throws Exception {
+    Room room = create(Mode.KEY, 101);
+    JsonNode reference = ok(page(room, 2, alice, alice)).path("data").path("messageVO");
+    assertEquals(1, reference.size(), "The final page contains one reference group");
+    assertFalse(reference.get(0).path("key").asText().isBlank());
+
+    ok(post(room, "uploadResult", alice, upload(room, 1, 0, List.of(interval(0, 4000)))));
+    Map<String, Object> emptyPage = upload(room, 2, 0, List.of(interval(5000, 8000)));
+    emptyPage.put("pageValue", List.of());
+    ok(post(room, "uploadResult", alice, emptyPage));
+    List<String> raw = result(room, alice).raw;
+
+    JsonNode before = ok(page(room, 2, alice, alice)).path("data");
+    assertTrue(before.path("submitted").asBoolean());
+    assertEquals(mapper.valueToTree(List.of(interval(5000, 8000))), before.path("savedCaptureIntervals"));
+    assertEquals(reference, before.path("messageVO"), "An empty submitted page must still display its reference");
+    assertTrue(before.path("messageVO").get(0).path("value").isNull());
+
+    ok(post(room, "finish", alice, control(room, 0)));
+    JsonNode after = ok(page(room, 2, alice, alice)).path("data");
+    assertTrue(after.path("submitted").asBoolean());
+    assertEquals(reference, after.path("messageVO"));
+    assertEquals(before.path("savedCaptureIntervals"), after.path("savedCaptureIntervals"));
+    assertEquals(raw, result(room, alice).raw, "Reading the reference must not fabricate raw answers");
+  }
+
+  @Test
   void electronicRateCountsActualValueIncludingUnknownButNotCorrectionAndPreservesFractionalScore() throws Exception {
     Room room = create(Mode.KEY, 1);
     Map<String, Object> upload = upload(room, 1, 0, List.of(interval(0, 15000)));

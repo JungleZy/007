@@ -731,8 +731,8 @@ public class GeneralKeyPatService {
         messageVO = generateAndSavePatKey(generateNumber, pageNumber, entity.getId(), entity.getMessageType(),
             entity.getIsAverage(), entity.getIsRandom());
       }
-      // 用户未拍发本页内容，则获取生成的内容
-      if (!ret.isSubmitted()) {
+      // 已提交采集区间也可能没有拍发字码；此时仍需显示报底，submitted 保留真实提交状态。
+      if (!ret.isSubmitted() || userPage.isEmpty()) {
         ret.setMessageVO(PojoUtils.convert(messageVO, PostTelegraphKeyPatTrainPageMessageVO.class));
       } else {
         ret.setMessageVO(PojoUtils.convert(userPage, PostTelegraphKeyPatTrainPageMessageVO.class));

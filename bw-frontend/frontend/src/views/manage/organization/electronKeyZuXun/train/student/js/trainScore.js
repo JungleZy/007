@@ -3,7 +3,7 @@ import {useRoute} from "vue-router"
 import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
 import {getElectronKeyZuXunPageNumber, updateElectronKeyPatTrainDetails} from "../../../../../../../common/api/electronKeyZuXun.js"
 import * as echarts from "echarts"
-import {deepClone} from '../../../../../../../common/utils/Utils'
+import {message} from 'ant-design-vue'
 
 export default function telegramList(showChart,selfId) {
   const loading = ref(true);
@@ -66,7 +66,6 @@ export default function telegramList(showChart,selfId) {
           // scoreData.value.content = res.data.content.slice(0,100)
           // scoreData.value.nextContent = res.data.content.slice(100,200)
           scoreData.value.content = arr.filter(item=>item.pageNumber===1)
-          scoreData.value.nextContent = arr.filter(item=>item.pageNumber===2)
           scoreData.value.deductInfo = JSON.parse(scoreData.value.deductInfo);
           scoreData.value.ruleContent = JSON.parse(scoreData.value.ruleContent);
           if(res.data.isCable===1){
@@ -103,35 +102,32 @@ export default function telegramList(showChart,selfId) {
    * @param num
    */
   const switchTelegram =async (num) => {
-    if ((scoreData.value.currPage <= 1 && num < 0) || (num > 0 && scoreData.value.currPage >= scoreData.value.pag)) return false;
-    scoreData.value.currPage+=num
-    if (num ==1) {
-      scoreData.value.preContent=deepClone(scoreData.value.content)
-      scoreData.value.content=deepClone(scoreData.value.nextContent)
-    }else{
-      scoreData.value.nextContent=deepClone(scoreData.value.content)
-      scoreData.value.content=deepClone(scoreData.value.preContent)
+    const page = scoreData.value.currPage + num
+    if (loading.value || page < 1 || page > scoreData.value.pag) return false
+    loading.value = true
+    const previousMoreLine = moreLine.value
+    try {
+      const res = await getElectronKeyZuXunPageNumber({
+        trainId: route.query.id,
+        userId: selfId,
+        pageNumber: page
+      })
+      if (res.code !== 200) throw new Error(res.message || '获取报底失败')
+      moreLine.value = []
+      const content = formatData(res.data.messageVO)
+      scoreData.value.content = content
+      scoreData.value.currPage = page
+      trendLogKeyData.value = content
+      totalTelegraghMsg()
+      // v-debounce 用返回值作为点击锁，完成后必须返回 false 才能继续翻页。
+      return false
+    } catch (error) {
+      moreLine.value = previousMoreLine
+      message.error(error.message || '获取报底失败，请重试')
+      return false
+    } finally {
+      loading.value = false
     }
-    trendLogKeyData.value = scoreData.value.content;
-
-    let page =scoreData.value.currPage+num
-    if(page>scoreData.value.pag || page < 1)return false
-    const res = await getElectronKeyZuXunPageNumber({
-      trainId: route.query.id,
-      userId: selfId,
-      pageNumber: page
-    })
-    if (res.code === 200) {
-      let arr = formatData(res.data.messageVO)
-      if(num==1){
-        scoreData.value.nextContent = arr
-      }else{
-        scoreData.value.preContent = arr
-      }
-    }
-    // getPostTrainKeyInfo(num)
-    totalTelegraghMsg();
-    return false
   };
 
   /**
@@ -240,7 +236,7 @@ export default function telegramList(showChart,selfId) {
     let arr = []
     data.forEach(item => {
       item.key = JSON.parse(item.key)
-      item.time = JSON.parse(item.time)
+       item.time = JSON.parse(item.time || '[]')
       item.value = item.value==''?[]:JSON.parse(item.value)
       if(item.value!==null){
         if(item.value.join().indexOf("?")>-1){
