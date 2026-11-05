@@ -203,6 +203,31 @@ class GeneralCaptureContractTest {
   }
 
   @Test
+  void tickerTeacherRosterIncludesSubmissionCountsForEveryStudent() throws Exception {
+    Room room = create(Mode.TICKER, 1);
+    ok(post(room, "uploadResult", alice, upload(room, 1, 0, List.of(interval(0, 4000)))));
+    JsonNode roster = ok(post(room, "detail", owner, Map.of("id", room.id)))
+        .path("data").path("userInfoList");
+    boolean foundAlice = false;
+    boolean foundBob = false;
+    for (JsonNode member : roster) {
+      if (alice.getId().equals(member.path("userId").asText())) {
+        foundAlice = true;
+        assertEquals(1, member.path("existPageNumber").asInt());
+        assertEquals(mapper.valueToTree(List.of(1)), member.path("existNumber"));
+      }
+      if (bob.getId().equals(member.path("userId").asText())) {
+        foundBob = true;
+        assertTrue(member.path("existPageNumber").isNumber());
+        assertEquals(0, member.path("existPageNumber").asInt());
+        assertEquals(mapper.createArrayNode(), member.path("existNumber"));
+      }
+    }
+    assertTrue(foundAlice);
+    assertTrue(foundBob, "The teacher roster must retain students without submissions");
+  }
+
+  @Test
   void electronicRateCountsActualValueIncludingUnknownButNotCorrectionAndPreservesFractionalScore() throws Exception {
     Room room = create(Mode.KEY, 1);
     Map<String, Object> upload = upload(room, 1, 0, List.of(interval(0, 15000)));

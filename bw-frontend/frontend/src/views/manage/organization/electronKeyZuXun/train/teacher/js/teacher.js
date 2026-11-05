@@ -1,4 +1,5 @@
-import {onMounted, ref, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
 import {message} from "ant-design-vue";
 import {
   getElectronKeyZuXunDetails,resetElectronKeyZuXunStatistics,updateElectronKeyTrainStatus
@@ -25,7 +26,9 @@ export default function () {
   })
   const userPatData = ref([])
   const activeUserId = ref(null)
-  const isFinish = ref(null)
+  const selectedUser = computed(() => trainData.value.userInfoList?.find(user => user.userId === activeUserId.value))
+  const selectedHasSubmission = computed(() => hasTrainingSubmission(selectedUser.value))
+  const isFinish = computed(() => selectedUser.value?.isFinish)
   const chartTabIndex = ref(1)
   const {ws_connect,sendMessage,closeWebSocket} = PublicSocket();
   const chartData = ref({
@@ -331,7 +334,6 @@ export default function () {
   const seeStudentScore = (user) => {
     if (trainData.value.status < 2) return false;
     activeUserId.value = (user.userId==activeUserId.value?null:user.userId)
-    isFinish.value = user.isFinish
     if (activeUserId.value == null) {
       getChartDataSource(1);
     }
@@ -585,7 +587,7 @@ export default function () {
   };
 
   return {
-    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,
+    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails
   }
 }

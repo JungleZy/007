@@ -1,4 +1,5 @@
-import {onMounted, ref, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
 import {message} from "ant-design-vue";
 import {
   getDatagramDetail,getDatagramStatistics,updateTrainStatus
@@ -22,7 +23,9 @@ export default function () {
     status: 0
   })
   const activeUserId = ref(null)
-  const isFinish = ref(null)
+  const selectedUser = computed(() => trainData.value.userInfoList?.find(user => user.userId === activeUserId.value))
+  const selectedHasSubmission = computed(() => hasTrainingSubmission(selectedUser.value))
+  const isFinish = computed(() => selectedUser.value?.isFinish)
   const chartTabIndex = ref(1)
   const userPatData = ref([])
   const scoreloading = ref(false)//结算加载
@@ -334,7 +337,6 @@ export default function () {
   const seeStudentScore = (user) => {
     if (trainData.value.status < 2) return false;
     activeUserId.value = (user.userId==activeUserId.value?null:user.userId)
-    isFinish.value = user.isFinish
     if (activeUserId.value == null) {
       getChartDataSource(1);
     }
@@ -587,7 +589,7 @@ export default function () {
   };
 
   return {
-    trainTimeRef,loading,trainData,fileUrl,activeUserId,chartTabIndex,isFinish,userPatData,scoreloading,
+    trainTimeRef,loading,trainData,fileUrl,activeUserId,chartTabIndex,isFinish,userPatData,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     startTrain,endTrain,seeStudentScore,getChartDataSource
   }
 }

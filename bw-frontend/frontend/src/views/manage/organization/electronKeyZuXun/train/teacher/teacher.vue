@@ -16,9 +16,9 @@
       </template>
       <template v-slot:bottom>
         <div class="userListBox">
-          <div class="title">参训人员 ({{trainData.userInfoList?trainData.userInfoList.length:0}}人)</div>
+          <div class="title">参训人员 ({{trainData.userInfoList?.length || 0}}人)</div>
           <div class="userList overflow-auto" :style="{height: 'calc(100% - '+(trainData.status==2?40:100)+'px)'}">
-            <template v-for="(user,u) in trainData.userInfoList" :key="u">
+            <template v-for="user in trainData.userInfoList" :key="user.userId">
               <div class="user" :class="[activeUserId==user.userId?'active':'']" @click="seeStudentScore(user)">
                 <div class="use">
                   <img :src="fileUrl+user.userImg" class="avatar">
@@ -33,7 +33,8 @@
                     <div class="ready" v-else-if="trainData.status == 0">已准备</div>
                   </template>
                   <template v-else>
-                    <div class="finish" v-if="user.isFinish === 0">未参训</div><!--未参训-->
+                    <div class="finish" v-if="!hasTrainingSubmission(user)">未参训</div>
+                    <div class="finish" v-else-if="user.isFinish != 1">待结算</div>
                     <div class="finish" v-else><strong>{{user.score}}</strong> 分</div>
                   </template>
                 </div>
@@ -92,8 +93,11 @@
           </div>
         </div>
       </template>
-      <div class="w-full h-full layout-center" v-else-if="isFinish == 0">
-        <div style="font-size: 36px">该学员未参加训练！</div>
+      <div class="w-full h-full layout-center" v-else-if="!selectedHasSubmission">
+        <div style="font-size: 36px">该人员未参训</div>
+      </div>
+      <div class="w-full h-full layout-center" v-else-if="isFinish != 1">
+        <div style="font-size: 36px">该人员成绩待结算</div>
       </div>
       <div class="w-full h-full" v-else>
         <StudentScore :selfId="activeUserId" :key="activeUserId"></StudentScore>
@@ -114,7 +118,7 @@
   import teacher from './js/teacher.js'
 
   const {
-    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,
+    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement
   } = teacher()
 

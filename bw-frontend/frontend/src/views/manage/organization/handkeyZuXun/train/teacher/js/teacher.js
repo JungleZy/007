@@ -1,4 +1,5 @@
-import {onMounted, ref, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
+import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
 import {message} from "ant-design-vue";
 import {
   getHandKeyZuXunDetails,resetHandKeyZuXunStatistics,updateHandKeyTrainStatus
@@ -16,6 +17,9 @@ export default function () {
   const trainTimeRef = ref(null);
   const trainTimer = ref(null);
   const loading = ref(true)
+  const statisticsLoading = ref(false)
+  const statisticsError = ref('')
+  const hasStatistics = ref(false)
   const trainId = ref(0)
   const trainData = ref({
     trainId: 0,
@@ -23,7 +27,9 @@ export default function () {
   })
   const userPatData = ref([])
   const activeUserId = ref(null)
-  const isFinish = ref(null)
+  const selectedUser = computed(() => trainData.value.userInfoList?.find(user => user.userId === activeUserId.value))
+  const selectedHasSubmission = computed(() => hasTrainingSubmission(selectedUser.value))
+  const isFinish = computed(() => selectedUser.value?.isFinish)
   const chartTabIndex = ref(1)
   const scoreloading = ref(false)//结算加载
   let updateUserStatus = []
@@ -72,7 +78,7 @@ export default function () {
 
   /** 获取训练详情 */
   const getZuXunTrainDetails = () => {
-    getHandKeyZuXunDetails({
+    return getHandKeyZuXunDetails({
       id: trainId.value
     }).then(res => {
       loading.value = false;
@@ -104,7 +110,7 @@ export default function () {
         } else {
           trainData.value.userInfoList = trainData.value.userInfoList.sort((x,y)=>y.isFinish-x.isFinish);
           timeAreaShow(trainData.value.validTime * 1000);
-          if (trainData.value.status === 2) trainStatistics()
+          return trainStatistics()
         }
       }
     })
@@ -165,15 +171,21 @@ export default function () {
   }
 
   /** 获取训练统计信息 */
-  const trainStatistics = () => {
+  const trainStatistics = async () => {
+    statisticsLoading.value = true
+    statisticsError.value = ''
+    try {
     let obj = {};
-    resetHandKeyZuXunStatistics({id:trainId.value}).then(res => {
+    const res = await resetHandKeyZuXunStatistics({id:trainId.value})
+    if (res.code !== 200) throw new Error(res.message || '成绩统计加载失败')
       if (res.code === 200) {
         chartData.value.pie = [
           {name: "70分以下", value:res.data.schoolReport.belowStandard.peopleNumber},
           {name: "70分-90分", value: res.data.schoolReport.nice.peopleNumber},
           {name: "90分以上", value: res.data.schoolReport.good.peopleNumber}
         ]
+        hasStatistics.value = chartData.value.pie.some(item => item.value > 0)
+        chartData.value.line = {xAxis: [], prevPrev: [], prev: [], curr: []}
         chartData.value.column.min = [
           res.data.errorInfoVO.dotMin,
           res.data.errorInfoVO.lineMin,
@@ -196,11 +208,15 @@ export default function () {
           obj[item.userId] = item.thisScore
         })
         trainData.value.userInfoList.map(user => {
-          user.score = obj[user.userId]
+          if (Object.hasOwn(obj, user.userId)) user.score = obj[user.userId]
         })
-        getChartDataSource(1);
+        if (hasStatistics.value && activeUserId.value == null) getChartDataSource(chartTabIndex.value);
       }
-    })
+    } catch (error) {
+      statisticsError.value = error.message || '成绩统计加载失败，请重试'
+    } finally {
+      statisticsLoading.value = false
+    }
   }
 
   const userSubmitStatus = (data)=>{
@@ -320,7 +336,6 @@ export default function () {
   const seeStudentScore = (user) => {
     if (trainData.value.status < 2) return false;
     activeUserId.value = (user.userId==activeUserId.value?null:user.userId)
-    isFinish.value = user.isFinish
     if (activeUserId.value == null) {
       getChartDataSource(1);
     }
@@ -329,6 +344,7 @@ export default function () {
   /** 统计图表切换显示 */
   const getChartDataSource = (type) => {
     chartTabIndex.value = type
+    if (!hasStatistics.value || statisticsError.value) return
     if (type === 1) {
       applyPieChart()
     } else if (type == 2) {
@@ -612,7 +628,8 @@ export default function () {
   };
 
   return {
-    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,
+    trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
+    statisticsLoading,statisticsError,hasStatistics,refreshStatistics: trainStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails
   }
 }

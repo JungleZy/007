@@ -479,15 +479,10 @@ public class GeneralTickerPatService {
             } else {
               item.setUserStatus(0);
             }
-            if (param.getUid() != null) {
-              // log.info("统计填报页数:{}", LocalDateTime.now());
-              int size = userValueDao.countByTrainIdAndUserId(e.getId(), item.getUserId());
-              // log.info("完成统计填报页数:{}", LocalDateTime.now());
-              item.setExistPageNumber(size);
-              // log.info("统计页码信息:{}", LocalDateTime.now());
-              item.setExistNumber(userValueDao.countByTrainIdAndUserIdGroupByPageNumber(e.getId(), item.getUserId()));
-              // log.info("完成统计页码信息:{}", LocalDateTime.now());
-            }
+            // 教员查询全体人员时也需要提交记录，才能区分未参训与已统一结算的人员。
+            int size = userValueDao.countByTrainIdAndUserId(e.getId(), item.getUserId());
+            item.setExistPageNumber(size);
+            item.setExistNumber(userValueDao.countByTrainIdAndUserIdGroupByPageNumber(e.getId(), item.getUserId()));
             if (Objects.equals(trainEntity.getProtocolVersion(), 1)) {
               item.setValidTime(item.getActiveMillis() == null ? 0 : item.getActiveMillis() / 1000);
             } else if (item.getFinishTime() != null && Objects.equals(item.getIsFinish(), 1)) {
