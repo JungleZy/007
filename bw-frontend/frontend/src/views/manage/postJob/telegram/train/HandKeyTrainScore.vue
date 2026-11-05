@@ -154,7 +154,7 @@
                     <div class="row" >
                       <div class="item lab full">多少组</div>
                       <div class="item">{{ scoreData.ruleContent.other.quantoGroup.max }} 分</div>
-                      <div class="item">{{ formatData(scoreData.deductInfo.quantoGroupNumber) }} 个</div>
+                      <div class="item">{{ handKeyGroupCount(scoreData.deductInfo, scoreData.ruleContent, successResolver, scoreData.pag) }} 组</div>
                       <div class="item">-{{ scoreData.deductInfo.quantoGroup }} 分</div>
                     </div>
                     <div class="row">
@@ -173,6 +173,7 @@
           <div class="totalBox">
             <div class="layout-left-center w-full">
               <div class="total">报底数：<span class="num">{{ scoreData.pag }}</span></div>
+              <HandKeyDeductionDetails :page="scoreData.currPage" :resolver="successResolver[scoreData.currPage - 1]" :summary="scoreData.deductInfo" />
               <div class="total">错误数：<span class="num">{{ scoreData.errorNumber }}</span></div>
             </div>
             <div class="page" v-if="scoreData.pag > 1">
@@ -212,13 +213,16 @@
                                 warning: key.patKeys.indexOf('?') > -1 || key.patKeys.indexOf('/') > -1}"
                        @click="seeCurrKeysHairTrend(key,index)">
                     <div class="keyErr"
-                         v-if="(successResolver[scoreData.currPage-1]&&key.moresKey.join('')!=successResolver[scoreData.currPage-1].resolverMessage[index]&&
+                          v-if="key.patKeys.includes('?') || key.patKeys.includes('/') || (successResolver[scoreData.currPage-1]&&key.moresKey.join('')!=successResolver[scoreData.currPage-1].resolverMessage[index]&&
                                 successResolver[scoreData.currPage-1].resolverMessage[index]&&successResolver[scoreData.currPage-1].resolverMessage[index]!='') ||
                                 (successResolver[scoreData.currPage-1]&&successResolver[scoreData.currPage-1].moreObj[index+1])">
                       <div class="box">
                         <div class="text" :style="{fontSize: key.patKeys.join('')==''?'15px':'16px'}">
-                          {{ successResolver[scoreData.currPage-1].resolverMessage[index]?successResolver[scoreData.currPage-1].resolverMessage[index].replace(/I/g,'#'):'' }}
-                          {{successResolver[scoreData.currPage-1].moreObj[index+1]?','+successResolver[scoreData.currPage-1].moreObj[index+1].replace(/I/g,'#'):''}}
+                          <template v-if="key.patKeys.includes('?') || key.patKeys.includes('/')">{{ key.patKeys.join('') }}</template>
+                          <template v-else>
+                            {{ successResolver[scoreData.currPage-1].resolverMessage[index]?successResolver[scoreData.currPage-1].resolverMessage[index].replace(/I/g,'#'):'' }}
+                            {{successResolver[scoreData.currPage-1].moreObj[index+1]?','+successResolver[scoreData.currPage-1].moreObj[index+1].replace(/I/g,'#'):''}}
+                          </template>
                         </div>
                       </div>
                     </div>
@@ -400,6 +404,8 @@
   }
 </script>
 <script setup>
+  import {handKeyGroupCount} from '../../../../../common/utils/handKeyGroupCount.js'
+  import HandKeyDeductionDetails from '../../../../../components/common/HandKeyDeductionDetails.vue'
   import {ref} from "vue"
   import trainScore from "./js/trainScore.js";
   import scoreSuperb from "../../../../../assets/HJ/postTrain/score-superb.png";
@@ -417,7 +423,7 @@
   const interfaceStyle = window.interfaceStyle
   const showChart = ref('total');
   const formatData = data=>{
-    return data?data:'--'
+    return data ?? '--'
   }
 
   const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, successResolver, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart);

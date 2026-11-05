@@ -131,16 +131,31 @@ public class ErrorCodeDetector {
       String source,
       MessageResultBuilder resultBuilder) {
 
-    List<String> resolverPatKeys = context.getResolverVO().getResolverMessage();
-
     // 检查是否为字间隔过大情况
     ErrorCodeResult wordGapResult = checkWordGapLarge(context, currentIndex, patKey, source, resultBuilder);
     if (wordGapResult.getResult() == DetectionResult.SUCCESS) {
       return wordGapResult;
     }
 
-    // 其他情况归类为多少码
-    return handleMoreOrLackWord(context, currentIndex, patKey, resultBuilder);
+    // 任意位置缺字/多字均可；跳过缺失或多余位置后，保留下来的字符必须与报底一致。
+    if (source != null && !source.isEmpty() && !patKey.isEmpty()
+        && patKey.length() != source.length()
+        && (patKey.length() < source.length() ? isSubsequence(patKey, source) : isSubsequence(source, patKey))) {
+      return handleMoreOrLackWord(context, currentIndex, patKey, resultBuilder);
+    }
+    addResultToBuilder(resultBuilder, patKey,
+        context.getResolverVO().getResolverMoresValue().get(currentIndex),
+        context.getResolverVO().getResolverMoresTime().get(currentIndex),
+        context.getResolverVO().getResolverPatLogs().get(currentIndex));
+    return new ErrorCodeResult(DetectionType.ERROR_CODE, DetectionResult.SUCCESS, "长度异常且包含错字或错序，按错码处理");
+  }
+
+  private boolean isSubsequence(String shorter, String longer) {
+    int matched = 0;
+    for (int index = 0; index < longer.length() && matched < shorter.length(); index++) {
+      if (shorter.charAt(matched) == longer.charAt(index)) matched++;
+    }
+    return matched == shorter.length();
   }
 
   /**

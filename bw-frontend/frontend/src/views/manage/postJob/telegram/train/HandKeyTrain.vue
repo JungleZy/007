@@ -190,6 +190,7 @@
               <div class="total">
                 总数：<span class="num">{{ trainData.pag }}</span>
               </div>
+              <CopyReferenceButton class="ml-4" :groups="(trainData.telegraph.curr || []).map(item => item.moresKey)" :disabled="loading || submissionBusy" />
             </div>
           </div>
         </div>
@@ -225,6 +226,7 @@
   import {ref, onMounted, onUnmounted} from 'vue'
   import {useRoute} from 'vue-router'
   import CountDown from '../../../../../components/common/CountDown.vue'
+  import CopyReferenceButton from '../../../../../components/common/CopyReferenceButton.vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 
   import useControl from './js/useControl.js'

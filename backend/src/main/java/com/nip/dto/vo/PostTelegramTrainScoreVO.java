@@ -3,6 +3,8 @@ package com.nip.dto.vo;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import lombok.Data;
+import java.util.HashMap;
+import java.util.Map;
 
 @Data
 //@ApiModel(value = "扣分详情")
@@ -12,6 +14,11 @@ public class PostTelegramTrainScoreVO {
     int lack = 0;
     int correct = 0;
     int errorNumber = 0;
+    // 仅标准错码参与错码扣分；errorNumber 仍是所有不匹配的总计。
+    int errorCodeNumber = 0;
+    // 当前页解析组对应的改错扣分，用于结算时按同组去重，不写入结果 JSON。
+    private transient Map<Integer, Integer> correctionDeductions = new HashMap<>();
+    private transient java.util.List<HandKeyTimingEvidence> timingEvidence = new java.util.ArrayList<>();
 
     //多组
     int moreGroup = 0;

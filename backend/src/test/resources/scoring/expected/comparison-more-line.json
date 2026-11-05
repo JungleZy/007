@@ -113,6 +113,7 @@
     "lack": 0,
     "correct": 20,
     "errorNumber": 1,
+    "errorCodeNumber": 0,
     "moreGroup": 0,
     "lackGroup": 0,
     "bunchGroup": 0,

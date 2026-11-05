@@ -473,6 +473,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * 电码信号转码成字符
    */
   let controlCandidates = []
+  let correctionResume = null
       // 多截控制符的每一截都必须独立成组（组间隔分隔，句号=三截'00'的协议语义）；
       // 两截变体（如 H='0000' 与 I='00'、F='0010' 与 M='11'）与字母报正文必然碰撞，
       // 2026-09-16 keysim e2e 实测：字码报 H→I 跨组被误判翻页符导致训练提前 autoEnd。
@@ -505,6 +506,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
         cachePatLogs.value = []
         if (action === 'start') {
           if (!startStatus.value || currPatKeyIndex.value < 0) {
+            correctionResume = null
             startStatus.value = true
             currPatKeyIndex.value = 0
             cacheKey.value = []
@@ -519,12 +521,17 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
         }
         // Corrections operate on existing groups, including the first group.
         const occupied = cacheKey.value.length > 0
+        if (action === 'next' && !correctionResume) {
+          correctionResume = {index: currPatKeyIndex.value, keys: [...cacheKey.value]}
+        }
         currPatKeyIndex.value = Math.max(0, currPatKeyIndex.value - (action === 'next' ? (occupied ? 1 : 2) : (occupied ? 0 : 1)))
         cacheKey.value = []
         cachePatCode.value = correctionSignal
         cachePatLogs.value = correctionLogs
         updateMoresKeyInfo('?')
-        trainData.value.patKeyVal.push([action === 'next' ? '/' : '?'], [])
+        let displayRow = trainData.value.patKeyVal.at(-1)
+        if (!displayRow) { displayRow = []; trainData.value.patKeyVal.push(displayRow) }
+        displayRow.push(action === 'next' ? '/' : '?')
         return
       }
       if (!startStatus.value) { cachePatCode.value = []; cachePatLogs.value = []; return }
@@ -560,8 +567,14 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
       // 该组最后一个字码的候选标记为"独立成组"：多截控制符（句号 00,00,00）只允许
       // 由这样的候选拼出，正文里的字母（I='00' 出现在组中间）不会被误判成控制符
       if (controlCandidates.length) controlCandidates[controlCandidates.length - 1].groupEnd = true
-      currPatKeyIndex.value++
-      cacheKey.value = []
+      if (correctionResume) {
+        currPatKeyIndex.value = correctionResume.index
+        cacheKey.value = correctionResume.keys
+        correctionResume = null
+      } else {
+        currPatKeyIndex.value++
+        cacheKey.value = []
+      }
     }
     if (patKeyBoxRef.value) patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight
   }
@@ -670,6 +683,7 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
         cachePatLogs.value = []
         controlCandidates = []
         trainData.value.patKeyVal.push(['句号'], [])
+        correctionResume = null
         trainData.value.floorNow = pageNumber + 1
         trainData.value.process = 2
         pagePatStandard.value = []

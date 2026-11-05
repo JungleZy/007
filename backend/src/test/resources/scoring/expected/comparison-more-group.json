@@ -69,6 +69,7 @@
     "lack": 0,
     "correct": 11,
     "errorNumber": 1,
+    "errorCodeNumber": 0,
     "moreGroup": 2,
     "lackGroup": 0,
     "bunchGroup": 0,

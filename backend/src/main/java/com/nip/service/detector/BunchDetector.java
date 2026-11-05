@@ -2,161 +2,30 @@ package com.nip.service.detector;
 
 import com.nip.service.context.ComparisonContext;
 import com.nip.service.enums.DetectionResult;
-import com.nip.service.enums.DetectionType;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.List;
 import java.util.Objects;
 
-import static com.nip.service.constants.MessageComparisonConstants.GROUPS_PER_LINE;
-
-/**
- * 串组检测器
- * 专门处理报文对比中的串组检测逻辑
- * 串组是指拍发报文与上下行报文相同的错误
- * 
- * @author system
- * @date 2024-12-19
- */
-@Slf4j
+/** 成对串组：两组互换只扣一次，配对状态归当前页所有，不跨请求共享。 */
 public class BunchDetector {
-
-  /**
-   * 检测串组
-   * 与源报文上下行报文检查是否相等，如果相等则是串组
-   * 
-   * @param context 对比上下文
-   * @param patKey  当前拍发报文
-   * @return 检测结果
-   */
-  public DetectionResult detectBunch(ComparisonContext context, String patKey) {
-
-    // 检查是否应该跳过串组检测
-    if (shouldSkipBunchDetection(context)) {
-      return DetectionResult.FAILED;
-    }
-
-    List<String> sources = context.getSources();
+  public DetectionResult detectPair(ComparisonContext context, int capturedIndex, String patKey) {
     int sourceIndex = context.getSourceIndex();
-
-    // 检查上一行串组
-    if (detectUpperLineBunch(sources, sourceIndex, patKey)) {
-      handleBunchDetected(context, DetectionType.BUNCH_GROUP, "上一行串组");
-      return DetectionResult.SUCCESS;
-    }
-
-    // 检查下一行串组
-    if (detectLowerLineBunch(sources, sourceIndex, patKey)) {
-      handleBunchDetected(context, DetectionType.BUNCH_GROUP, "下一行串组");
-      return DetectionResult.SUCCESS;
-    }
-
-    return DetectionResult.FAILED;
-  }
-
-  /**
-   * 检测上一行串组
-   * 检查当前拍发报文是否与上一行对应位置的报文相同
-   * 
-   * @param sources     源报文列表
-   * @param sourceIndex 当前源报文索引
-   * @param patKey      当前拍发报文
-   * @return 如果检测到上一行串组返回true
-   */
-  private boolean detectUpperLineBunch(List<String> sources, int sourceIndex, String patKey) {
-    // 计算上一行对应位置的索引
-    int upperLineIndex = sourceIndex - GROUPS_PER_LINE;
-
-    // 检查索引是否有效
-    if (!isValidIndex(sources, upperLineIndex)) {
-      return false;
-    }
-
-    String upperLineGroup = sources.get(upperLineIndex);
-    boolean isMatch = Objects.equals(patKey, upperLineGroup);
-
-    if (isMatch) {
-      log.debug("检测到上一行串组，当前索引: {}, 上一行索引: {}, 报文: {}",
-          sourceIndex, upperLineIndex, patKey);
-    }
-
-    return isMatch;
-  }
-
-  /**
-   * 检测下一行串组
-   * 检查当前拍发报文是否与下一行对应位置的报文相同
-   * 
-   * @param sources     源报文列表
-   * @param sourceIndex 当前源报文索引
-   * @param patKey      当前拍发报文
-   * @return 如果检测到下一行串组返回true
-   */
-  private boolean detectLowerLineBunch(List<String> sources, int sourceIndex, String patKey) {
-    // 计算下一行对应位置的索引
-    int lowerLineIndex = sourceIndex + GROUPS_PER_LINE;
-
-    // 检查索引是否有效
-    if (!isValidIndex(sources, lowerLineIndex)) {
-      return false;
-    }
-
-    String lowerLineGroup = sources.get(lowerLineIndex);
-    boolean isMatch = Objects.equals(patKey, lowerLineGroup);
-
-    if (isMatch) {
-      log.debug("检测到下一行串组，当前索引: {}, 下一行索引: {}, 报文: {}",
-          sourceIndex, lowerLineIndex, patKey);
-    }
-
-    return isMatch;
-  }
-
-  /**
-   * 处理检测到串组的情况
-   * 
-   * @param context       对比上下文
-   * @param detectionType 检测类型
-   * @param description   描述信息
-   */
-  private void handleBunchDetected(ComparisonContext context, DetectionType detectionType, String description) {
-
-    // 更新串组计数
-    context.getScoreVO().setBunchGroup(context.getScoreVO().getBunchGroup() + 1);
-
-    log.info("检测到串组错误: {}, 位置: {}, 描述: {}",
-        detectionType.getDisplayName(), context.getSourceIndex(), description);
-  }
-
-  /**
-   * 检查索引是否有效
-   * 
-   * @param sources 源报文列表
-   * @param index   要检查的索引
-   * @return 如果索引有效返回true
-   */
-  private boolean isValidIndex(List<String> sources, int index) {
-    return sources != null && index >= 0 && index < sources.size();
-  }
-
-  /**
-   * 检查是否应该跳过串组检测
-   * 
-   * @param context 对比上下文
-   * @return 如果应该跳过返回true
-   */
-  public boolean shouldSkipBunchDetection(ComparisonContext context) {
-    // 如果源报文列表为空或只有一行，跳过串组检测
+    if (!context.isValidSourceIndex(sourceIndex)) return DetectionResult.FAILED;
     List<String> sources = context.getSources();
-    if (sources == null || sources.size() <= GROUPS_PER_LINE) {
-      return true;
+    List<String> captured = context.getResolverVO().getResolverMessage();
+    Integer partner = context.getBunchPartners().get(capturedIndex);
+    if (partner != null && Objects.equals(patKey, sources.get(partner))) return DetectionResult.SUCCESS;
+    String expected = sources.get(sourceIndex);
+    for (int offset = 1; sourceIndex + offset < sources.size() && capturedIndex + offset < captured.size(); offset++) {
+      int next = capturedIndex + offset;
+      if (context.getBunchPartners().containsKey(next)) continue;
+      if (!Objects.equals(expected, patKey) && Objects.equals(sources.get(sourceIndex + offset), patKey)
+          && Objects.equals(captured.get(next), expected)) {
+        context.getBunchPartners().put(capturedIndex, sourceIndex + offset);
+        context.getBunchPartners().put(next, sourceIndex);
+        context.getScoreVO().setBunchGroup(context.getScoreVO().getBunchGroup() + 1);
+        return DetectionResult.SUCCESS;
+      }
     }
-
-    // 如果当前位置无效，跳过检测（P2-13：接入 ComparisonContext.isValidSourceIndex）
-    if (!context.isValidSourceIndex(context.getSourceIndex())) {
-      return true;
-    }
-
-    return false;
+    return DetectionResult.FAILED;
   }
 }

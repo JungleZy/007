@@ -53,6 +53,8 @@ public class ComparisonContext {
 
   /** 当前源报文索引 */
   private int sourceIndex;
+  /** 当前页已确认的互换配对：拍发索引 -> 对应另一组的报底索引。 */
+  private final java.util.Map<Integer, Integer> bunchPartners = new java.util.HashMap<>();
 
   /** 当前处理状态 */
   private ProcessingState processingState;

@@ -143,15 +143,15 @@ export default function telegramList(showChart,selfId) {
     })
     if (res.code === 200) {
       let obj = JSON.parse(res.data.resolver);
-      if (obj.moreGroups) {
+      if (obj?.moreGroups) {
         obj['moreObj'] = {}
         obj.moreGroups.map(item => {
           if(item.message){
             obj['moreObj'][item.point+''] = item.message.join(',')
           }
         })
-        successResolver.value.push(obj)
       }
+      successResolver.value[page - 1] = obj
       let result = resDataHandle(res.data.messageBody)
       scoreData.value.messageBody.push(result)
       scoreData.value.standards.push(JSON.parse(res.data.standard))

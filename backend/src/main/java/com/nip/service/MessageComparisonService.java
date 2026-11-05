@@ -1,6 +1,8 @@
 package com.nip.service;
 
 import com.nip.dto.PostTelegramTrainFinishInfoDto;
+import com.nip.dto.vo.HandKeyDeductionEvidence;
+import com.nip.common.utils.HandKeyDeductionEvidenceUtils;
 import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.vo.PostTelegramTrainResolverVO;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
@@ -13,6 +15,7 @@ import com.nip.service.detector.ErrorCodeDetector;
 import com.nip.service.detector.GroupDetector;
 import com.nip.service.detector.LineDetector;
 import com.nip.service.enums.DetectionResult;
+import com.nip.service.enums.DetectionType;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.extern.slf4j.Slf4j;
 
@@ -86,6 +89,8 @@ public class MessageComparisonService {
     }
 
     // 将用户的原始报文进行解析
+    scoreVO.getTimingEvidence().clear();
+    var beforeParsing = HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule);
     PostTelegramTrainResolverVO resolverVO = resolverMessage(patKeys, scoreVO, rule, userContents);
 
     // 创建对比上下文，封装所有状态数据
@@ -95,6 +100,13 @@ public class MessageComparisonService {
 
     // 创建结果构建器，统一处理结果添加
     MessageResultBuilder resultBuilder = new MessageResultBuilder();
+    List<HandKeyDeductionEvidence> evidence = new ArrayList<>();
+    var parsingDeductions = HandKeyDeductionEvidenceUtils.changes(beforeParsing,
+        HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule));
+    if (!parsingDeductions.isEmpty()) {
+      evidence.add(new HandKeyDeductionEvidence(0, 0, 0, "本页分组规则",
+          "连续拍发组经解析拆分，触发组间隔扣分", parsingDeductions, null));
+    }
 
     // 获取解析后的报文数据
     List<String> resolverPatKeys = resolverVO.getResolverMessage();
@@ -112,6 +124,10 @@ public class MessageComparisonService {
       }
 
       String source = getSourceMessage(context);
+      int referenceGroup = context.getSourceIndex() + 1;
+      int capturedGroup = i + 1;
+      var before = HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule);
+      int correctionBefore = scoreVO.getAlterErrorScore();
 
       // 获取当前组的附加信息 - 添加边界检查
       String patLog = "";
@@ -137,6 +153,19 @@ public class MessageComparisonService {
         i = handleMismatchedMessage(context, i, patKey, source, patLog, moresTime, moresValue, resultBuilder);
       }
 
+      var deductions = HandKeyDeductionEvidenceUtils.changes(before, HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule));
+      int correction = 0;
+      for (int index = capturedGroup - 1; index <= i; index++) {
+        correction += scoreVO.getCorrectionDeductions().getOrDefault(index, 0);
+      }
+      correction -= correctionBefore - scoreVO.getAlterErrorScore();
+      if (correction > 0) deductions.put("alterErrorScore", correction);
+      Integer partnerIndex = context.getBunchPartners().get(capturedGroup - 1);
+      if (!deductions.isEmpty() || partnerIndex != null) {
+        evidence.add(new HandKeyDeductionEvidence(referenceGroup, capturedGroup, i + 1, source,
+            String.join(" / ", resolverPatKeys.subList(capturedGroup - 1, i + 1)), deductions,
+            partnerIndex == null ? null : partnerIndex + 1));
+      }
       context.incrementSourceIndex();
     }
 
@@ -151,7 +180,15 @@ public class MessageComparisonService {
     scoreVO.setPatTotalNum(scoreVO.getPatTotalNum() + resolverPatKeys.size());
 
     // 计算本页的少行
-    calculateMissingLines(sources, resolverPatKeys, scoreVO);
+    var beforeMissing = HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule);
+    calculateMissingLines(sources, context.getSourceIndex(), scoreVO);
+    var missingDeductions = HandKeyDeductionEvidenceUtils.changes(beforeMissing, HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule));
+    if (!missingDeductions.isEmpty()) {
+      evidence.add(new HandKeyDeductionEvidence(0, 0, 0, "本页报底 " + sources.size() + " 组",
+          "本页拍发 " + resolverPatKeys.size() + " 组", missingDeductions, null));
+    }
+    resolverVO.setDeductionEvidence(evidence);
+    resolverVO.setTimingEvidence(new ArrayList<>(scoreVO.getTimingEvidence()));
 
     log.info("报文对比完成，正确: {}, 错误: {}", scoreVO.getCorrect(), scoreVO.getErrorNumber());
     return resolverVO;
@@ -191,6 +228,15 @@ public class MessageComparisonService {
 
     int skipCount = 0;
 
+    // 成对串组先于多/少组判断，避免把互换的一端误判成插入或删除。
+    if (bunchDetector.detectPair(context, currentIndex, patKey) == DetectionResult.SUCCESS) {
+      resultBuilder.addCorrectMessage(patKey, moresValue, moresTime, patLog);
+      checkDotLineGap(patKey, currentIndex, patLog, context.getStandards(),
+          context.getRule(), false, context.getStatisticsVO(), context.getScoreVO());
+      context.getScoreVO().setErrorNumber(context.getScoreVO().getErrorNumber() + 1);
+      return currentIndex;
+    }
+
     // 1. 检测多行少行
     LineDetector.LineResult lineResult = lineDetector.detectMoreOrLessLine(context, currentIndex, patKey,
         resultBuilder);
@@ -215,23 +261,18 @@ public class MessageComparisonService {
       return currentIndex + (context.getScoreVO().getMoreGroup() - moreGroupBefore);
     }
 
-    // 3. 检测串组
-    DetectionResult bunchResult = bunchDetector.detectBunch(context, patKey);
-    if (bunchResult == DetectionResult.SUCCESS) {
-      // 串组检测成功，添加结果并返回
-      resultBuilder.addCorrectMessage(patKey, moresValue, moresTime, patLog);
-      checkDotLineGap(patKey, currentIndex, patLog, context.getStandards(),
-          context.getRule(), false, context.getStatisticsVO(), context.getScoreVO());
-      context.getScoreVO().setErrorNumber(context.getScoreVO().getErrorNumber() + 1);
-      return currentIndex;
-    }
-
     // 4. 检测错码
     ErrorCodeDetector.ErrorCodeResult errorResult = errorCodeDetector.detectErrorCode(
         context, currentIndex, patKey, source, resultBuilder);
 
     if (errorResult.getResult() == DetectionResult.SUCCESS) {
       skipCount = errorResult.getSkipCount();
+      if (errorResult.getDetectionType() == DetectionType.ERROR_CODE) {
+        context.getScoreVO().setErrorCodeNumber(context.getScoreVO().getErrorCodeNumber() + 1);
+        // 改错后仍为错码，只扣该组错码；其他组成功改错的扣分保留。
+        int correctionDeduction = context.getScoreVO().getCorrectionDeductions().getOrDefault(currentIndex, 0);
+        context.getScoreVO().setAlterErrorScore(context.getScoreVO().getAlterErrorScore() - correctionDeduction);
+      }
     }
 
     // 计算拍发是否有点粗、点虚等
@@ -246,9 +287,9 @@ public class MessageComparisonService {
   /**
    * 计算缺少的行数
    */
-  private void calculateMissingLines(List<String> sources, List<String> resolverPatKeys,
+  private void calculateMissingLines(List<String> sources, int comparedSourceGroups,
       PostTelegramTrainScoreVO scoreVO) {
-    if (sources == null || resolverPatKeys == null || scoreVO == null) {
+    if (sources == null || scoreVO == null) {
       return;
     }
 
@@ -257,8 +298,10 @@ public class MessageComparisonService {
       sourcesLineNum += 1;
     }
 
-    int patKeyLineNum = resolverPatKeys.size() / GROUPS_PER_LINE;
-    if (resolverPatKeys.size() % GROUPS_PER_LINE > 0) {
+    // 已对齐游标包含中间缺行所跳过的报底；不能再用拍发总数补计这些缺行。
+    int coveredGroups = Math.max(0, Math.min(comparedSourceGroups, sources.size()));
+    int patKeyLineNum = coveredGroups / GROUPS_PER_LINE;
+    if (coveredGroups % GROUPS_PER_LINE > 0) {
       patKeyLineNum += 1;
     }
 

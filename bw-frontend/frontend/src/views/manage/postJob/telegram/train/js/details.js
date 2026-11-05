@@ -1,4 +1,4 @@
-import {onMounted, onUnmounted, ref, nextTick, createVNode} from 'vue'
+import {onMounted, onUnmounted, ref, shallowRef, nextTick, createVNode} from 'vue'
 import {sum, deepClone} from '../../../../../../common/utils/Utils.js'
 import useMorse from '../../../../../../common/mixin/useMorse.js'
 import {message, Modal} from 'ant-design-vue'
@@ -10,6 +10,8 @@ import {getPostTelegramMsgBody, beginPostTelegramTrain, savePostTelegramContent,
 import countPatStandard from './patStandard.js'
 import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'
+import {handKeyThresholds} from '../../../../../../common/utils/handKeyTiming.js'
+import {HAND_KEY_CONTROL_PATTERNS} from '../../../../../../common/utils/handKeyControlCodes.js'
 
 export default function (trainData, patStandard, initFloat, wsOnline, devOnline, loading,messageBodyList) {
   const submission = useConfirmedSubmission()
@@ -19,14 +21,34 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   const patValBoxRef = ref(null) // 拍发电码展示区域的容器
   const trainTimeRef = ref(null) // 训练时间展示区域的容器
   const trainTimer = ref(null) // 记录训练时长的计时器
-  const cachePatCode = ref([]) // 缓存电码 - 还未转换成字码的电码集合
-  const cachePatLogs = ref([]) // 缓存拍发记录 - 还未转换成字码的电码集合
+  const cachePatCode = shallowRef([]) // 原始采集缓存不参与界面渲染
+  const cachePatLogs = shallowRef([])
   const cacheKey = ref([]) // 缓存字码 - 还未转换成词组的字码集合
   const cacheKeyCode = ref([]) // 缓存电码 - 还未转换成词组的电码码集合
-  const logsPatStandardCode = ref([]) // 待转换拍发基准值的数据集合
+  const logsPatStandardCode = shallowRef([]) // 待转换拍发基准值的数据集合
   const cachePatKey = ref([]) // 缓存字码 - 还未翻页提交的字码集合
   const currPatKeyIndex = ref(-1) // 正在拍发的电报纸字码的下标
-  const showPatCodeLog = ref([])//展示出来的拍发记录
+  const showPatCodeLog = shallowRef([])//按显示帧更新，采集与解码仍逐事件执行
+  let viewFrame = null
+  let viewDisposed = false
+  const scheduleView = () => {
+    if (viewDisposed || viewFrame !== null) return
+    viewFrame = requestAnimationFrame(() => {
+      viewFrame = null
+      if (viewDisposed) return
+      showPatCodeLog.value = trainData.value.patCodeLog.map(item => ({...item}))
+      nextTick(() => {
+        if (viewDisposed) return
+        const wave = patValBoxRef.value
+        const text = patKeyBoxRef.value
+        // 先读取布局，再写滚动位置；一帧内合并所有点划触发的滚动。
+        const width = wave?.scrollWidth
+        const height = text?.scrollHeight
+        if (wave) wave.scrollLeft = width
+        if (text) text.scrollTop = height
+      })
+    })
+  }
   const { codeKey } = useMorse()
   const { countPatStandardInfo, countAverageStandard } = countPatStandard()
   const router = useRouter()
@@ -49,9 +71,9 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     w_gap: 0,
     g_gap: 0
   });
-  const pagePatStandard = ref([]);
+  const pagePatStandard = shallowRef([]);
   const pageHandleIndex = ref(0);
-  const finishPatLogs = ref([]);
+  const finishPatLogs = shallowRef([]);
   const wordTimer = ref(null);
   const groupTimer = ref(null);
   const textTimer = ref(null);
@@ -110,6 +132,8 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
   });
 
   onUnmounted(() => {
+    viewDisposed = true
+    if (viewFrame !== null) cancelAnimationFrame(viewFrame)
     clearTimeout(wordTimer.value)
     clearTimeout(groupTimer.value)
     clearTimeout(textTimer.value)
@@ -153,7 +177,8 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
           if (!saved) capture.open()
         }
       }
-      messageBodyList.value.push(response.data.messageKey.map(item => item.moresKey === '#' ? ['#'] : JSON.parse(item.moresKey)))
+      while (messageBodyList.value.length < index) messageBodyList.value.push([])
+      messageBodyList.value[index - 1] = response.data.messageKey.map(item => item.moresKey === '#' ? ['#'] : JSON.parse(item.moresKey))
       if (saved) submission.defer(() => savePatTelegraphBody(saved.type), true)
     })
   }
@@ -195,28 +220,12 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * @param type
    */
   const switchTelegram = type => {
-    if ([1, 3].includes(trainData.value.status)) return
-    if ((type === 'prev' && trainData.value.floorNow <= 1) || (type === 'next' && trainData.value.floorNow >= trainData.value.pag)) return false
-    if (type === 'prev') {
-      trainData.value.floorNow--
-      trainData.value.telegraph.next = deepClone(trainData.value.telegraph.curr)
-      trainData.value.telegraph.curr = deepClone(trainData.value.telegraph.prev)
-      if (trainData.value.floorNow === 1) {
-        trainData.value.telegraph.prev = null
-      } else {
-        getPostTrainKeyInfo(trainData.value.floorNow - 1, 'prev')
-      }
-    }
-    if (type === 'next') {
-      trainData.value.floorNow++
-      trainData.value.telegraph.prev = deepClone(trainData.value.telegraph.curr)
-      trainData.value.telegraph.curr = deepClone(trainData.value.telegraph.next)
-      if (trainData.value.floorNow === trainData.value.pag) {
-        trainData.value.telegraph.next = null
-      } else {
-        getPostTrainKeyInfo(trainData.value.floorNow + 1, 'next')
-      }
-    }
+    if ([1, 3].includes(trainData.value.status) || submission.pending()) return false
+    if (type !== 'prev' && type !== 'next') return false
+    const targetPage = trainData.value.floorNow + (type === 'next' ? 1 : -1)
+    if (targetPage < 1 || targetPage > trainData.value.pag) return false
+    // 初始化只读取当前页；目标页必须获得服务端确认后再更新页码与报底。
+    return getPostTrainKeyInfo(targetPage, 'curr')
   }
 
   /**
@@ -235,8 +244,8 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     } else capture.open(event.startedAt ?? event.receivedAt)
     if (val === -1) {
       const gap = gapTime[1] - gapTime[0]
-      if (gap > patStandard.value.codeGap * (1 + initFloat.value / 100)) codeCompileKeyInfo('word')
-      if (gap > patStandard.value.codeGap * (3 + initFloat.value / 100)) codeCompileKeyInfo('group')
+      if (gap > handKeyThresholds(patStandard.value, initFloat.value).characterGap) codeCompileKeyInfo('word')
+      if (gap > handKeyThresholds(patStandard.value, initFloat.value).groupGap) codeCompileKeyInfo('group')
       if (submission.pending()) return
     }
     if (loading.value || trainData.value.status == 2) return false;
@@ -292,7 +301,6 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       if(trainData.value.patCodeLog.length>70){
          trainData.value.patCodeLog.shift()
       }
-      showPatCodeLog.value = trainData.value.patCodeLog
       // 记录还没编译成字码的电码数据
       cachePatCode.value.push({
         code: val,
@@ -340,7 +348,7 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
             codeCompileKeyInfo('word')
             clearTimeout(wordTimer.value)
             wordTimer.value = null
-          }, (patStandard.value.codeGap * (1 + initFloat.value / 100)))
+          }, handKeyThresholds(patStandard.value, initFloat.value).characterGap)
         }
 
         // 编译成当个词组
@@ -349,13 +357,11 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
             codeCompileKeyInfo('group');
             clearTimeout(groupTimer.value);
             groupTimer.value = null;
-          },(patStandard.value.codeGap*(3 + initFloat.value/100)));
+          }, handKeyThresholds(patStandard.value, initFloat.value).groupGap);
         }
       }
     }
-    nextTick(() => {
-      patValBoxRef.value.scrollLeft = patValBoxRef.value.scrollWidth
-    })
+    scheduleView()
   }
 
   /**
@@ -555,7 +561,7 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * 电报纸正文内拍发基准值校准
    */
   const pageResetPatStandard = turn => {
-    let arr = logsPatStandardCode.value.filter((item, i) => i >= pageHandleIndex.value)
+    let arr = logsPatStandardCode.value.slice(pageHandleIndex.value)
     pageHandleIndex.value = logsPatStandardCode.value.length
 
     patStandard.value = countPatStandardInfo(arr, patStandard, initFloat)
@@ -578,14 +584,11 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * 电码信号转码成字符
    */
   let controlCandidates = []
+  let correctionResume = null
       // 多截控制符的每一截都必须独立成组（组间隔分隔，句号=三截'00'的协议语义）；
       // 两截变体（如 H='0000' 与 I='00'、F='0010' 与 M='11'）与字母报正文必然碰撞，
       // 2026-09-16 keysim e2e 实测：字码报 H→I 跨组被误判翻页符导致训练提前 autoEnd。
-      const patterns = [
-        ['start', ['10001']], ['end', ['01010']], ['alter', ['001100']],
-        ['next', ['001011']],
-        ['turn', ['000000']], ['turn', ['00', '00', '00']]
-      ]
+       const patterns = HAND_KEY_CONTROL_PATTERNS
   const codeCompileKeyInfo = type => {
     if (submission.busy.value || submission.error.value) return
     const code = cachePatCode.value.map(item => item.code).join('')
@@ -610,6 +613,7 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
         cachePatLogs.value = []
         if (action === 'start') {
           if (!startStatus.value || currPatKeyIndex.value < 0) {
+            correctionResume = null
             startStatus.value = true
             currPatKeyIndex.value = 0
             cacheKey.value = []
@@ -624,12 +628,18 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
         }
         // Corrections operate on existing groups, including the first group.
         const occupied = cacheKey.value.length > 0
+        if (action === 'next' && !correctionResume) {
+          correctionResume = {index: currPatKeyIndex.value, keys: [...cacheKey.value]}
+        }
         currPatKeyIndex.value = Math.max(0, currPatKeyIndex.value - (action === 'next' ? (occupied ? 1 : 2) : (occupied ? 0 : 1)))
         cacheKey.value = []
         cachePatCode.value = correctionSignal
         cachePatLogs.value = correctionLogs
         updateMoresKeyInfo('?')
-        trainData.value.patKeyVal.push([action === 'next' ? '/' : '?'], [])
+        let displayRow = trainData.value.patKeyVal.at(-1)
+        if (!displayRow) { displayRow = []; trainData.value.patKeyVal.push(displayRow) }
+        displayRow.push(action === 'next' ? '/' : '?')
+        scheduleView()
         return
       }
       if (!startStatus.value) { cachePatCode.value = []; cachePatLogs.value = []; return }
@@ -665,10 +675,16 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       // 该组最后一个字码的候选标记为"独立成组"：多截控制符只允许由这样的候选拼出，
       // 正文里的字母（I='00' 出现在组中间）不会被误判成控制符
       if (controlCandidates.length) controlCandidates[controlCandidates.length - 1].groupEnd = true
-      currPatKeyIndex.value++
-      cacheKey.value = []
+      if (correctionResume) {
+        currPatKeyIndex.value = correctionResume.index
+        cacheKey.value = correctionResume.keys
+        correctionResume = null
+      } else {
+        currPatKeyIndex.value++
+        cacheKey.value = []
+      }
     }
-    if (patKeyBoxRef.value) patKeyBoxRef.value.scrollTop = patKeyBoxRef.value.scrollHeight
+    scheduleView()
   }
 
   /**
@@ -714,7 +730,7 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
     if(!wsOnline.value) {message.error('报训软件未连接!'); return false;}
     if(!devOnline.value) {message.error('电子键设备未连接！'); return false;}
     trainData.value.process = 2;
-    beginTrainInfo();
+    return beginTrainInfo();
   };
 
   /**
@@ -730,13 +746,17 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    * 开始训练
    */
   const beginTrainInfo = () => submission.run(async request => {
-    const current = await request(config => getPostTelegramMsgBody({id: trainData.value.trainId, floorNumber: trainData.value.floorNow}, config))
+    const saved = submission.loadSnapshot(snapshotKey())
+    const firstPage = saved?.payload.floorNumber ?? 1
+    const current = await request(config => getPostTelegramMsgBody({id: trainData.value.trainId, floorNumber: firstPage}, config))
     const response = await request(config => beginPostTelegramTrain({id: trainData.value.trainId, attempt: current.data.attempt}, config))
     capture.bind({...current.data, serverElapsedMs: response.data.serverElapsedMs, attempt: response.data.attempt, protocolVersion: response.data.protocolVersion})
     capture.open()
+    trainData.value.floorNow = firstPage
+    trainData.value.telegraph.curr = saved?.payload.attempt === current.data.attempt
+      ? deepClone(saved.payload.messageBody) : current.data.messageKey
     trainData.value.startTime = response.data.startTime
     trainData.value.status = response.data.status
-    const saved = submission.loadSnapshot(snapshotKey())
     if (saved) {
       message.warning('存在尚未确认的提交，请使用结束/重试提交，不会重新覆盖原始记录')
     }
@@ -810,8 +830,11 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
         cachePatLogs.value = []
         controlCandidates = []
         trainData.value.patKeyVal.push(['句号'], [])
+        correctionResume = null
         trainData.value.floorNow = pageNumber + 1
         pagePatStandard.value = []
+        logsPatStandardCode.value = []
+        pageHandleIndex.value = 0
         finishPatLogs.value[pageNumber] = {...patStandard.value, offSize: initFloat.value, patLogs: []}
       } else {
         await finishTrainInfo(request)

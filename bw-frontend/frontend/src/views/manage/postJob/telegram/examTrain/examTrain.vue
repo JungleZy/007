@@ -176,6 +176,7 @@
               <div class="total">
                 总数：<span class="num">{{ allPage }}</span>
               </div>
+              <CopyReferenceButton class="ml-4" :groups="(trainData.content || []).filter(item => item.pageNumber === currPage).map(item => item.key)" :disabled="loading || submissionBusy" />
             </div>
           </div>
         </div>
@@ -193,6 +194,7 @@ export default {
 import {QuestionCircleOutlined} from '@ant-design/icons-vue'
 import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
 import CountDown from '../../../../../components/common/CountDown.vue'
+import CopyReferenceButton from '../../../../../components/common/CopyReferenceButton.vue'
 import telexTrain from './js/examTrain.js'
 
 

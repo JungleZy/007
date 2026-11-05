@@ -158,7 +158,7 @@ class TickerPatUtilsCharacterizationTest {
 
   private static void assertSnapshot(String name, Object actualPayload) {
     String actual = JSONUtils.gson.newBuilder().setPrettyPrinting().create().toJson(actualPayload);
-    assertEquals(resource("expected/" + name + ".json").stripTrailing(), actual, name);
+    assertEquals(resource("expected/" + name + ".json").replace("\r\n", "\n").stripTrailing(), actual, name);
   }
 
   private static Map<String, Object> runResolver(String caseFile) {
@@ -216,9 +216,9 @@ class TickerPatUtilsCharacterizationTest {
   void resolverMessageQuestionMarkCorrections() {
     ResolverResult result = resolve("resolver-case-question-marks.json");
     PostTelegramTrainResolverVO vo = result.resolver;
-    assertIterableEquals(List.of("3729", "?", "7201", "201"), vo.getResolverMessage());
+    assertIterableEquals(List.of("3729", "?", "7201", "372?", "201"), vo.getResolverMessage());
     assertEquals(3, result.score.getAlterErrorScore());
-    assertEquals(List.of(List.of(10d), List.of(91d), List.of(20d), List.of(42d), List.of(43d), List.of(44d)),
+    assertEquals(List.of(List.of(10d), List.of(91d), List.of(20d), List.of(30d), List.of(42d), List.of(43d), List.of(44d)),
         vo.getResolverMoresTime().stream().flatMap(row -> numericRows(row).stream()).toList());
     assertAligned(result);
   }

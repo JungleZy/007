@@ -11,6 +11,9 @@ import java.util.List;
 @RegisterForReflection
 //@ApiModel
 public class PostTelegramTrainResolverVO {
+    // null 表示历史结算未保存定位依据；空列表表示该页没有逐组扣分。
+    private List<HandKeyDeductionEvidence> deductionEvidence;
+    private List<HandKeyTimingEvidence> timingEvidence;
 
     //@ApiModelProperty(value = "解析后的正确报文")
     private List<String> resolverMessage;

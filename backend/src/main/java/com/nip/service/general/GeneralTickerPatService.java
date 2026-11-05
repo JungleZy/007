@@ -836,7 +836,10 @@ public class GeneralTickerPatService {
   private PageMeasure measurePage(List<GeneralTickerPatTrainContentAddParam> groups) {
     long count = 0;
     double symbolMillis = 0;
+    boolean previousGroupCorrection = false;
     for (GeneralTickerPatTrainContentAddParam group : groups) {
+      boolean replayBoundaryAllowed = previousGroupCorrection;
+      previousGroupCorrection = false;
       if (group == null) throw new IllegalArgumentException("拍发组不能为空");
       List<String> characters = JSONUtils.fromJson(group.getPatKeys(), new TypeToken<>() {});
       List<List<String>> signals = JSONUtils.fromJson(group.getMoresValue(), new TypeToken<>() {});
@@ -852,9 +855,16 @@ public class GeneralTickerPatService {
         if (character == null || character.codePointCount(0, character.length()) != 1) {
           throw new IllegalArgumentException("每个拍发事件必须是一个正文字符");
         }
+        if ("?".equals(character) && signal != null && signal.isEmpty()
+            && durations != null && durations.isEmpty() && replayBoundaryAllowed && index > 0) {
+          // 前一组真实的回退符允许下一组插入一次无时长续写边界，不计拍发字符或时长。
+          replayBoundaryAllowed = false;
+          continue;
+        }
         if (signal == null || signal.isEmpty() || durations == null || durations.size() != signal.size()) {
           throw new IllegalArgumentException("原始点划与时长数量不一致");
         }
+        if ("?".equals(character) && String.join("", signal).equals("001011")) previousGroupCorrection = true;
         for (int symbol = 0; symbol < signal.size(); symbol++) {
           if (!"0".equals(signal.get(symbol)) && !"1".equals(signal.get(symbol))) {
             throw new IllegalArgumentException("原始拍发码只能包含点和划");
@@ -1123,10 +1133,10 @@ public class GeneralTickerPatService {
     deductMap.put("alterErrorScore", alterErrorScore);
     deductMap.put("alterErrorNumber", scoreVO.getAlterErrorScore());
 
-    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(), rule.getErrorCode().getMax());
+    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorCodeNumber() * rule.getErrorCode().getL(), rule.getErrorCode().getMax());
     score -= errorCode;
     deductMap.put("errorWord", errorCode);
-    deductMap.put("errorWordNumber", scoreVO.getErrorNumber());
+    deductMap.put("errorWordNumber", scoreVO.getErrorCodeNumber());
 
     int moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(), scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
     score -= moreOrLackWord;
@@ -1136,7 +1146,7 @@ public class GeneralTickerPatService {
     int moreOrLackGroup = calculateScore(rule.getQuantoGroup().getMax(), (scoreVO.getMoreGroup() + scoreVO.getLackGroup()) * rule.getQuantoGroup().getL(), rule.getQuantoGroup().getMax());
     score -= moreOrLackGroup;
     deductMap.put("quantoGroup", moreOrLackGroup);
-    deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup());
+    deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup() + scoreVO.getLackGroup());
 
     int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(), scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());
     score -= moreOrLackLine;

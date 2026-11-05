@@ -855,11 +855,11 @@ public class PostTelegramTrainService {
     deductMap.put("alterErrorScore", alterErrorScore);
     deductMap.put("alterErrorNumber", scoreVO.getAlterErrorScore());
 
-    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorNumber() * rule.getErrorCode().getL(),
+    int errorCode = calculateScore(rule.getErrorCode().getMax(), scoreVO.getErrorCodeNumber() * rule.getErrorCode().getL(),
         rule.getErrorCode().getMax());
     score -= errorCode;
     deductMap.put("errorWord", errorCode);
-    deductMap.put("errorWordNumber", scoreVO.getErrorNumber());
+    deductMap.put("errorWordNumber", scoreVO.getErrorCodeNumber());
 
     int moreOrLackWord = calculateScore(rule.getQuantoCode().getMax(),
         scoreVO.getMoreOrLackWord() * rule.getQuantoCode().getL(), rule.getQuantoCode().getMax());
@@ -872,7 +872,7 @@ public class PostTelegramTrainService {
         rule.getQuantoGroup().getMax());
     score -= moreOrLackGroup;
     deductMap.put("quantoGroup", moreOrLackGroup);
-    deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup());
+    deductMap.put("quantoGroupNumber", scoreVO.getMoreGroup() + scoreVO.getLackGroup());
 
     int moreOrLackLine = calculateScore(rule.getQuantoRow().getMax(),
         scoreVO.getMoreOrLackLine() * rule.getQuantoRow().getL(), rule.getQuantoRow().getMax());

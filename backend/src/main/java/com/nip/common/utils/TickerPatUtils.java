@@ -7,6 +7,7 @@ import com.nip.dto.score.PostTelegramTrainRule;
 import com.nip.dto.score.SpeedDeduct;
 import com.nip.dto.score.TrainingRateUnit;
 import com.nip.dto.vo.PostTelegramTrainResolverVO;
+import com.nip.dto.vo.HandKeyTimingEvidence;
 import com.nip.dto.vo.PostTelegramTrainScoreVO;
 import com.nip.dto.vo.PostTelegramTrainStatisticsVO;
 import com.nip.dto.vo.param.PostTelegramTrainContentAddParam;
@@ -30,6 +31,7 @@ public class TickerPatUtils {
       PostTelegramTrainRule rule,
       List<PostTelegramTrainContentAddParam> userContents) {
     PostTelegramTrainResolverVO resolverVO = new PostTelegramTrainResolverVO();
+    scoreVO.getCorrectionDeductions().clear();
     List<String> ret = new ArrayList<>();
     // 拍发日志
     List<String> resolverPatLogs = new ArrayList<>();
@@ -67,6 +69,7 @@ public class TickerPatUtils {
 
     for (int i = 0; i < patKeys.size(); i++) {
       PostTelegramTrainContentAddParam contentAddParam = userContents.get(i);
+      int correctionBefore = scoreVO.getAlterErrorScore();
 
       // 安全解析JSON，添加空值检查
       List<List<Map<String, Object>>> patLogs = null;
@@ -159,7 +162,7 @@ public class TickerPatUtils {
         int index = patKey.lastIndexOf("?") + 1;
         // 判断 ？在前还是在后
         if (patKey.startsWith("?") && i - 1 >= 0) {
-          // 获取前一组
+          // 前端已将改错记录定位到目标组，不能再次覆盖上一组。
           String substring = patKey.substring(index);
           List<List<Map<String, Object>>> newPatLogs = new ArrayList<>();
           List<String> newTimes = new ArrayList<>();
@@ -181,10 +184,10 @@ public class TickerPatUtils {
             }
             newValues.add(JSONUtils.toJson(value));
           }
-          ret.set(ret.size() - 1, substring);
-          resolverPatLogs.set(resolverPatLogs.size() - 1, JSONUtils.toJson(newPatLogs));
-          resolverMoresTime.set(resolverMoresTime.size() - 1, JSONUtils.toJson(newTimes));
-          resolverMoresValue.set(resolverMoresValue.size() - 1, JSONUtils.toJson(newValues));
+          ret.add(substring);
+          resolverPatLogs.add(JSONUtils.toJson(newPatLogs));
+          resolverMoresTime.add(JSONUtils.toJson(newTimes));
+          resolverMoresValue.add(JSONUtils.toJson(newValues));
 
         } else if (patKey.endsWith("?") && patKeys.size() > i + 1) {
           scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
@@ -257,7 +260,12 @@ public class TickerPatUtils {
             resolverMoresValue.add(contentAddParam.getMoresValue());
           }
         }
-        scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
+        // 前一组改错后的续写边界使用空点划的 ? 分隔历史，不是再次拍发改错符。
+        boolean replayBoundary = moresValue != null && moresValue.size() == patKey.length()
+            && moresValue.get(index - 1) != null && moresValue.get(index - 1).isEmpty();
+        if (!replayBoundary) {
+          scoreVO.setAlterErrorScore(scoreVO.getAlterErrorScore() + rule.getAlterError().getL());
+        }
       } else if (!patKey.isEmpty()) {
         ret.add(patKey);
         resolverPatLogs.add(contentAddParam.getPatLogs() != null ? contentAddParam.getPatLogs() : "[]");
@@ -269,6 +277,10 @@ public class TickerPatUtils {
         resolverPatLogs.add("[]");
         resolverMoresValue.add("[]");
         resolverMoresTime.add("[]");
+      }
+      int correctionDeduction = scoreVO.getAlterErrorScore() - correctionBefore;
+      if (correctionDeduction > 0 && !ret.isEmpty()) {
+        scoreVO.getCorrectionDeductions().merge(ret.size() - 1, correctionDeduction, Integer::sum);
       }
     }
     resolverVO.setResolverMessage(ret);
@@ -554,10 +566,12 @@ public class TickerPatUtils {
       if (p != null && z < p.size() && p.get(z) != null) {
         logs = p.get(z);
       }
+      int skippedLogs = 0;
       // 每页第一个间隔移除掉
       if (i == 0 && z == 0) {
         if (logs != null && !logs.isEmpty()) {
           logs.removeFirst();
+          skippedLogs = 1;
         }
       }
 
@@ -604,6 +618,7 @@ public class TickerPatUtils {
         int pkey = log.getKey();
         // 扣分阈值与统计都是整毫秒口径，这里就地取整，不改下游语义
         int value = (int) Math.round(log.getValue());
+        var beforeTiming = HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule);
         // 点
         if (pkey == 0) {
           if (value < dotMin) {
@@ -686,6 +701,15 @@ public class TickerPatUtils {
             scoreVO.setCodeTotalTime(scoreVO.getCodeTotalTime() + value);
           }
         }
+        var timingChanges = HandKeyDeductionEvidenceUtils.changes(beforeTiming,
+            HandKeyDeductionEvidenceUtils.amounts(scoreVO, rule));
+        int minimum = pkey == 0 ? dotMin : pkey == 1 ? linMin
+            : z == 0 && k == 0 ? groupGapMin : z != 0 && k == 0 ? wordGapMin : codeGapMin;
+        int maximum = pkey == 0 ? dotMax : pkey == 1 ? linMax
+            : z == 0 && k == 0 ? groupGapMax : z != 0 && k == 0 ? wordGapMax : codeGapMax;
+        final int groupPosition = i + 1, characterPosition = z + 1, signalPosition = k + 1 + skippedLogs;
+        timingChanges.forEach((item, amount) -> scoreVO.getTimingEvidence().add(new HandKeyTimingEvidence(
+            groupPosition, characterPosition, signalPosition, item, value, minimum, maximum, amount)));
       }
     }
   }
