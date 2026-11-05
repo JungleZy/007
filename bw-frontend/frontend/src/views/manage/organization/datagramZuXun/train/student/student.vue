@@ -156,7 +156,6 @@
   import {useRoute} from 'vue-router'
   import {PubSub} from '../../../../../../common/utils/PubSub.js'
   import details from './js/datagramTrain.js'
-  import Number from '../../../../../../components/number/Number.vue'
 
   import {getDatagramDetail} from "../../../../../../common/api/datagramZuXun"
   import iconImage from "../../../../postJob/js/iconImage";

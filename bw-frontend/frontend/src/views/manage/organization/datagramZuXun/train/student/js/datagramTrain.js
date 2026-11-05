@@ -19,6 +19,7 @@ export default function (trainData,loading,emits) {
   const readyPat = ref(false);
   let isFirstKey = true
   let enterTimer = 0
+  let captureEpoch = 0
 
   const scorePath = ref('');
   const trainTimer = ref(null); // 记录训练时长的计时器
@@ -47,21 +48,24 @@ export default function (trainData,loading,emits) {
     }else if (data.topic == 'offline') {
       message.error('教员已离开！')
     }else if (data.topic == 'begin') {
+      captureEpoch++
+      capture.reset()
+      clearInterval(cutTimer.value)
+      cutTime.value = 5
       message.success("教员已开始训练，准备开始训练！")
       cutTimer.value = setInterval(()=>{
         cutTime.value--
         if(cutTime.value==0){
           clearInterval(cutTimer.value)
-          cutTimer.value = "begin"
           if (trainTimer.value) {
             clearInterval(trainTimer.value);
           }
-          initTrainTimeInfo()
-          startTrain()
           trainData.value.floorNow = 1;
+          currPatKeyIndex.value = 0;
           trainData.value.status = 1;
           trainData.value.process = 1;
           trainData.value.validTime = 0;
+          synchronizeCapture()
         }
       },1000)
     }else if (data.topic == 'end') {
@@ -84,6 +88,7 @@ export default function (trainData,loading,emits) {
   }
   let lastTime = null
   const keyCodeup = v => {
+    if (trainData.value.status !== 1 || cutTimer.value !== 'begin' || !capture.metadata.value) return
     const time = Date.now()
     patWsData.value.log.key = v.key
     patWsData.value.log.time = lastTime===null?0:time-lastTime
@@ -166,24 +171,44 @@ export default function (trainData,loading,emits) {
    * @param page
    */
   const getPostTrainKeyInfo = (page) => {
+    const epoch = captureEpoch
+    const underway = trainData.value.status === 1
     return getDatagramZuXunPageNumber({
       trainId: trainData.value.trainId,
       userId: userInfo.id,
       pageNumber: page
     }).then(res => {
+      if (res.code !== 200) throw new Error(res.message || '获取本页报文失败')
       if (res.code === 200) {
         res.data.messageVO.forEach((item)=>{
           item.value=[]
         })
         trainData.value.telegraph[page-1] = res.data.messageVO.filter(item=>item.sort>-1);
         // 历史训练（protocolVersion=0）没有采集时间轴，不绑定；真正开始拍发时才明确报错
-        if (page === trainData.value.floorNow && res.data.protocolVersion === 1) {
+        if (underway && epoch === captureEpoch && page === trainData.value.floorNow && res.data.protocolVersion === 1) {
           capture.bind(res.data)
         }
       }
       return res
     })
   };
+
+  const synchronizeCapture = async () => {
+    try {
+      await getPostTrainKeyInfo(trainData.value.floorNow)
+      capture.open()
+      cutTimer.value = 'begin'
+      initTrainTimeInfo()
+      startTrain()
+      return true
+    } catch (error) {
+      capture.reset()
+      cutTimer.value = null
+      readyPat.value = false
+      message.error(error.message || '采集时间轴同步失败，请重新进入训练')
+      return false
+    }
+  }
 
   /**
    * 提交当前页面拍发的数据
@@ -262,18 +287,11 @@ export default function (trainData,loading,emits) {
       trainData.value.speed = 0;
       if (trainData.value.status == 1) {
         trainData.value.process = 1;
-        cutTimer.value = "begin"
       }
     }
-    startTrain()
-    // 先与服务端对齐采集时间轴，再开始接收键盘输入
-    getPostTrainKeyInfo(trainData.value.floorNow)
-      .then(() => capture.open())
-      .catch(error => message.error(error.message || '采集时间轴同步失败，请重新进入训练'))
-    nextTick(() => {
-      document.getElementsByTagName('textarea')[0].focus()
-    })
     sendMessage({topic: 'ready', id: userInfo.id})
+    // 准备阶段没有服务端采集起点；开训或续训时再同步并开放输入。
+    if (trainData.value.status === 1) return synchronizeCapture()
   }
 
 
@@ -296,6 +314,7 @@ export default function (trainData,loading,emits) {
    * 训练时间转换显示
    */
   const initTrainTimeInfo = () => {
+    clearInterval(trainTimer.value)
     if (!trainData.value.validTime) {
       trainData.value.validTime = 0;
     }
@@ -316,6 +335,7 @@ export default function (trainData,loading,emits) {
     window.removeEventListener('keydown', keyCodeup)
     capture.close();
     clearInterval(trainTimer.value);
+    clearInterval(cutTimer.value);
     closeWebSocket();
   });
   return {
