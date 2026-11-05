@@ -7,7 +7,7 @@ import useMorse from '../../../common/mixin/useMorse'
 // import {partTimeFormatInfo} from "../../../common/utils/Utils";
 import operationMorseVoice from "../../../common/utils/voice/operationMorseVoice";
 import {PubSub} from "../../../common/utils/PubSub"
-import {findHeader} from "../../../common/api/ReceiveApi"
+import {findRoomHeader} from "../../../common/api/broadcastTeachingApi"
 import {calculateTiming} from '../../../common/utils/voice/MorseVoiceHighPerformance'
 import SocketConnection from '../../../common/ws/SocketConnection'
 import useSimulationRecovery from './useSimulationRecovery'
@@ -293,7 +293,7 @@ export default function useBroadStudent() {
     }).then(async res => {
       if (res.code !== 200) throw new Error(res.message || '读取训练详情失败')
       if (res.code === 200) {
-        const headerResponse = await findHeader(route.query.id)
+        const headerResponse = await findRoomHeader(route.query.id)
         if (headerResponse.code !== 200) throw new Error(headerResponse.message || '读取报头失败')
         isheader.value = headerResponse.data != null && !(storage.value.codeIndex > 0)
         header.value = headerResponse.data?.content || ''

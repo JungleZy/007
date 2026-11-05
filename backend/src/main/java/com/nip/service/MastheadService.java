@@ -5,6 +5,9 @@ import com.nip.dao.MastheadDao;
 import com.nip.dao.PostTickerTapeTrainDao;
 import com.nip.entity.MastheadEntity;
 import com.nip.entity.PostTickerTapeTrainEntity;
+import com.nip.dao.simulation.SimulationRouterRoomDao;
+import com.nip.service.simulation.SimulationRoomAccess;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.LockModeType;
@@ -18,6 +21,8 @@ public class MastheadService {
   private final PostTickerTapeTrainDao trainDao;
   private final UserService userService;
   private final TrainWriteAccess trainWriteAccess;
+  @Inject SimulationRoomAccess roomAccess;
+  @Inject SimulationRouterRoomDao roomDao;
 
   @Inject
   public MastheadService(MastheadDao mastheadDao, PostTickerTapeTrainDao trainDao,
@@ -60,5 +65,30 @@ public class MastheadService {
     String actor = userService.getUserByToken(token).getId();
     trainWriteAccess.requireTrainOwner(actor, train.getUserId(), "收报训练报头 " + trainId);
     return mastheadDao.findByTrainId(trainId);
+  }
+
+  public MastheadEntity findByRoomId(HttpServerRequest request, Integer roomId) {
+    requireRoomId(roomId);
+    roomAccess.requireMember(request, roomId);
+    return mastheadDao.findByTrainId(roomId.toString());
+  }
+
+  @Transactional
+  public MastheadEntity saveRoom(HttpServerRequest request, Integer roomId, String content) {
+    requireRoomId(roomId);
+    roomDao.lockRoom(roomId);
+    roomAccess.requireControl(request, roomId);
+    // 房间历史报头以十进制房间编号存储；岗位收报训练使用 UUID。
+    String trainId = roomId.toString();
+    MastheadEntity target = mastheadDao.find("trainId", trainId)
+        .withLock(LockModeType.PESSIMISTIC_WRITE).firstResult();
+    if (target == null) target = new MastheadEntity();
+    target.setTrainId(trainId);
+    target.setContent(content);
+    return mastheadDao.save(target);
+  }
+
+  private static void requireRoomId(Integer roomId) {
+    if (roomId == null || roomId <= 0) throw new IllegalArgumentException("房间编号不正确");
   }
 }

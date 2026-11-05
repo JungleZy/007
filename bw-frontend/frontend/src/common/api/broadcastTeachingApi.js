@@ -41,6 +41,16 @@ export const getRoomDetail = (data) => {
     data
   })
 }
+export const findRoomHeader = (roomId) => {
+  return axios({method: "get", url: "/api/masthead/findByRoomId", data: {roomId}})
+}
+export const saveRoomHeader = (roomId, content) => {
+  return axios({
+    method: "post",
+    url: `/api/masthead/saveRoom?roomId=${encodeURIComponent(roomId)}`,
+    data: {content}
+  })
+}
 export const deleteTrain = (data) => {
   return axios({
     method: "get",

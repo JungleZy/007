@@ -4,7 +4,7 @@ import {getUserDirectory, addRoom, findRoom, addRoomZuXun, findRoomZuXun, delete
 
 import {message, Modal} from 'ant-design-vue'
 import {useRoute} from 'vue-router'
-import {saveHeader} from "../../../../../common/api/ReceiveApi"
+import {saveRoomHeader} from "../../../../../common/api/broadcastTeachingApi"
 import {ExclamationCircleOutlined} from "@ant-design/icons-vue"
 
 export default function broaddcastTeacheing(selectCable) {
@@ -178,7 +178,7 @@ export default function broaddcastTeacheing(selectCable) {
     if (res.code == 200) {
       if(isHeader.value){
         const header = generateMessageHeader(res.data)
-        saveHeader({trainId:res.data.id,content:header}).then(res=>{
+        saveRoomHeader(res.data.id, header).then(res=>{
           if(res.code!==200){
             message.error('报头生成失败！')
           }

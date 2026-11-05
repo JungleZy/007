@@ -6,16 +6,25 @@ import {findUserPageBaoWenInfo} from '../../../common/api/UnionApi'
 import useMorse from '../../../common/mixin/useMorse'
 import operationMorseVoice from "../../../common/utils/voice/operationMorseVoice";
 import {PubSub} from "../../../common/utils/PubSub"
-import {findHeader} from "../../../common/api/ReceiveApi"
+import {findRoomHeader} from "../../../common/api/broadcastTeachingApi"
 import {calculateTiming} from '../../../common/utils/voice/MorseVoiceHighPerformance'
 import SocketConnection from '../../../common/ws/SocketConnection'
 import useSimulationRecovery from './useSimulationRecovery'
 
 export default function useBroadTeacher(countDown) {
+  const elapsedSeconds = (...values) => {
+    for (const value of values) {
+      if (value == null || value === '') continue
+      const seconds = Number(value)
+      if (Number.isFinite(seconds) && seconds >= 0 && seconds <= 2147483647) return Math.floor(seconds)
+    }
+    return 0
+  }
   const trainTimeRef = ref(null)
   const route = useRoute()
   const trainData = ref({
-    status: 0
+    status: 0,
+    totalTime: 0
   })
   const allBaoWen = ref({})
   const { morseCode } = useMorse()
@@ -95,7 +104,13 @@ export default function useBroadTeacher(countDown) {
       trainData.value.status = data.stats
       trainData.value.stats = data.stats
       trainData.value.pag = data.isCable == 1 ? Number(data.pageCount) : Math.ceil(data.bwCount / 100)
-      if (data.stats == 2) trainData.value.totalTime = data.totalTime
+      if (data.stats == 2) {
+        trainData.value.totalTime = elapsedSeconds(data.totalTime)
+        clearInterval(autoTime.value)
+        operation({type: 'stop'})
+        window.localStorage.removeItem('broad' + roomId)
+        countDown.value?.autoSetTimeAdd(trainData.value.totalTime)
+      }
     }
     if (check.value !== null && result.value.user) {
       const user = trainData.value.receiveUser.find(item => item.id === result.value.user.id)
@@ -278,7 +293,7 @@ export default function useBroadTeacher(countDown) {
     }).then(async res => {
       if (res.code !== 200) throw new Error(res.message || '读取训练详情失败')
       if (res.code === 200) {
-        const headerResponse = await findHeader(route.query.id)
+        const headerResponse = await findRoomHeader(route.query.id)
         if (headerResponse.code !== 200) throw new Error(headerResponse.message || '读取报头失败')
         isheader.value = headerResponse.data != null && !(storage.value.codeIndex > 0)
         header.value = headerResponse.data?.content || ''
@@ -290,9 +305,9 @@ export default function useBroadTeacher(countDown) {
         isStop.value = true
         //回显时间
         if (trainData.value.stats == 2) {
-          trainData.value.totalTime = trainData.value.totalTime != null ? trainData.value.totalTime : 0
+          trainData.value.totalTime = elapsedSeconds(trainData.value.totalTime)
         } else {
-          trainData.value.totalTime = window.localStorage.getItem('broad' + roomId) ? storage.value.totalTime : 0
+          trainData.value.totalTime = elapsedSeconds(storage.value.totalTime, trainData.value.totalTime)
         }
         trainData.value['currIndex'] = window.localStorage.getItem('broad' + roomId) ? storage.value.playKeyIndex : 0
         trainData.value['playCodeIndex'] = window.localStorage.getItem('broad' + roomId) ? storage.value.playCodeIndex : 0
@@ -356,8 +371,9 @@ export default function useBroadTeacher(countDown) {
   }
   const autoTime = ref(null)
   const trainTime = () => {
+    clearInterval(autoTime.value)
     autoTime.value = setInterval(() => {
-      trainData.value.totalTime++
+      trainData.value.totalTime = elapsedSeconds(trainData.value.totalTime) + 1
       if (countDown.value) {
         countDown.value.autoSetTimeAdd(trainData.value.totalTime)
       }
@@ -408,15 +424,27 @@ export default function useBroadTeacher(countDown) {
    * 关闭训练
    */
   const closeTrainInfo = () => {
+    if (!initialized || trainData.value.status == 2) return
+    if (!socket?.isOpen) {
+      recoveryError.value = '连接已断开，请恢复连接后重试结束训练'
+      return
+    }
     let data = {
       type: 4,
-      count: trainData.value.totalTime
+      count: elapsedSeconds(trainData.value.totalTime, storage.value.totalTime)
     }
-    socket.send(JSON.stringify(data))
-    trainData.value.status = 2
+    try {
+      socket.send(JSON.stringify(data))
+    } catch (error) {
+      recoveryError.value = error.message || '结束训练发送失败，请重试'
+      return
+    }
+    trainData.value.totalTime = data.count
+    isStop.value = true
     clearInterval(autoTime.value)
     operation({type:'stop'})
-    window.localStorage.removeItem('broad' + roomId)
+    // 由服务器回读确认终态；拒绝或断线时保留恢复缓存和重试入口。
+    refresh()
   }
   return {
     recoveryError,
