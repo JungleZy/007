@@ -151,7 +151,7 @@ export default function telegramList(patHairTrendBoxRef) {
           borderColor: '#0d4c93',
           padding: [5, 10],
           textStyle: { color: '#6ebdff', fontSize: 12 },
-          formatter: '<div class="tooltipItem"><div>码率：</div><div>{c0} ' + (scoreData.value.protocolVersion === 1 ? '字符/分' : '（历史原口径）') + '</div></div>'
+          formatter: '<div class="tooltipItem"><div>码率：</div><div>{c0} ' + (scoreData.value.protocolVersion === 1 ? '码/分' : '（历史原口径）') + '</div></div>'
         },
         xAxis: {
           type: 'category',

@@ -44,8 +44,6 @@ export default function (countDown, loading) {
     events.push({ text: key.length === 1 ? key.toUpperCase() : key, time: Math.max(0, now - lastKeyTime) / 100 })
     lastKeyTime = now
     render(page.value.current)
-    const count = code.value.reduce((sum, events) => sum + events.filter(event => event.text.length === 1 && !/\s|\//.test(event.text)).length, 0)
-    trainData.value.speed = flow.elapsed() > 0 ? Number((count * 60 / flow.elapsed()).toFixed(1)) : 0
     if (key === 'Enter' && events[events.length - 2]?.text === 'Enter') flow.next()
   }
   const keyDownStart = event => {

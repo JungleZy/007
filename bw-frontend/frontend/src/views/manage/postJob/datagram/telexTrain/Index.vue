@@ -17,12 +17,12 @@
             <a-button v-if="expired || failure || trainData.status === 3" :disabled="busy || authBlocked" @click="checkResult">核对结果</a-button>
           </div>
     <div class="w-full trainBoxs content-mask-bg" style="flex: 1; min-height: 0">
-      <TrainLeft @startTest="startTest" @endTest="endTest" :trainData="trainData">
+      <TrainLeft class="telexSidebar" @startTest="startTest" @endTest="endTest" :trainData="trainData">
         <template v-slot:top>
           <div class="desc">
             {{ trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行' : trainData.status == 2 ? '训练已显式暂停，恢复后继续采集' : '本次练习已结束' }}
           </div>
-          <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 55px" />
+          <CountDown class="width-100-per layout-center" color="#70c9ff" ref="countDownRef" style="height: 55px" />
         </template>
         <template v-slot:bottom>
           <div class="stateBox" style="display: flex; align-items: center">
@@ -31,9 +31,9 @@
             <div :class="{ tipText: true, active: isTips }">【改错方法】</div>
             <div :class="{ tipBtn: true, active: isfocus }" @click="isfocus = !isfocus"></div>
           </div>
-          <div :class="{ flipContainer: true }" style="height: calc(100% - 102px)">
-            <div :class="{ 'h-full overflow-auto totalBoxs': true }" style="padding: 0 8px">
-              <div class="basicInit" style="height: 100%">
+          <div class="flipContainer sidebarBody">
+            <div class="totalBoxs sidebarScroll">
+              <div class="basicInit">
                 <div style="padding: 8px">
                   <span>倒计时：</span><a-switch v-model:checked="isCountdown" :disabled="trainData.status !== 0 || busy" />
                   <a-input-number v-if="isCountdown" v-model:value="duration" :min="1" :max="1440" :precision="0" :disabled="trainData.status !== 0 || busy" />
@@ -68,12 +68,12 @@
                   <div class="item relative">
                     <img :src="labSpeed" class="ico" />
                     <div>
-                      <div class="title">预估速度</div>
-                      <div class="tags nobr">{{ trainData.speed }}字符/分</div>
+                      <div class="title">速率</div>
+                      <div class="tags nobr">{{ trainData.speed }}码/分</div>
                     </div>
                   </div>
                 </template>
-                <div v-if="isfocus" class="overflow-auto" :style="{ height: isfocus ? 'calc(100% - 126px)' : '100%' }">
+                <div v-if="isfocus" class="correctionGuide">
                   <div class="gardtitle" style="margin-top: 0">改错：</div>
                   <div class="indentCont">
                     <div>1、剩余字码 替换成 / + 空格 + 正确内容 <br /></div>
@@ -221,6 +221,7 @@
 <script setup>
   import {ref} from 'vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
+  import CountDown from '../../../../../components/common/CountDown.vue'
   import telexTrain from './js/telexTrain.js'
   import NipMagicSpace from "../../../../../components/common/NipMagicSpace.vue";
 
@@ -230,14 +231,63 @@
   const prevIMG= imgs.prev
   const nextIMG= imgs.next
   const loading = ref(true)
-  const countDown = ref(null)
+  const countDownRef = ref(null)
   const isfocus = ref(true)
   const isTips = ref(false)
-  const { trainData, code, compileCode, activeIndex, page, compileCodePage, next, prev, startTest, endTest, failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult, isCountdown, duration } = telexTrain(countDown, loading)
+  const { trainData, code, compileCode, activeIndex, page, compileCodePage, next, prev, startTest, endTest, failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult, isCountdown, duration } = telexTrain(countDownRef, loading)
 </script>
 
 <style scoped>
   @import "./css/index.less";
+  .trainLeft.telexSidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .telexSidebar :deep(.trainTime) {
+    flex-shrink: 0;
+  }
+  .telexSidebar :deep(.basicExercise) {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .telexSidebar :deep(.basicExercise > .grouping_content) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+  .telexSidebar .stateBox {
+    flex-shrink: 0;
+  }
+  .sidebarBody {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .sidebarScroll {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 12px;
+    scrollbar-gutter: stable;
+    overflow-wrap: anywhere;
+  }
+  .correctionGuide {
+    line-height: 1.65;
+    padding-bottom: 8px;
+  }
+  .telexSidebar :deep(.exerciseBtn) {
+    flex-shrink: 0;
+    position: static;
+    transform: none;
+    margin: 8px auto;
+  }
   .activeLight{
     transition: all 1.5s;
     height: 26px;

@@ -29,7 +29,7 @@
               <img :src="resspeed" class="ico">
               <div class="cont">
                 <div class="desc">速度</div>
-                <div class="num">{{ scoreData.speed }}<strong style="font-size: 16px;">组/分</strong></div>
+                <div class="num">{{ scoreData.speed }}<strong style="font-size: 16px;">码/分</strong></div>
               </div>
             </div>-->
             <div class="resGroup">
@@ -58,7 +58,7 @@
                 <template v-if="scoreData.deductInfo">
                   <div class="row">
                     <div class="item lab full">码率</div>
-                    <div class="item">{{ scoreData.speed || 0 }} {{ scoreData.protocolVersion === 1 ? '字符/分' : '（历史原口径）' }}</div>
+                    <div class="item">{{ scoreData.speed || 0 }} {{ scoreData.protocolVersion === 1 ? '码/分' : '（历史原口径）' }}</div>
                     <div class="item">{{ scoreData.deductInfo.speedScore?scoreData.deductInfo.speedScore*1:'--' }} 分</div>
                   </div>
                   <div class="row">

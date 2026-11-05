@@ -41,6 +41,23 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
   const captureEnd = () => Math.max(0, deadlineOffset === null ? serverNow() : Math.min(serverNow(), deadlineOffset))
   const elapsedMilliseconds = () => collectedMs + (captureStart === null ? 0 : Math.max(0, captureEnd() - captureStart))
   const elapsed = () => Math.floor(elapsedMilliseconds() / 1000)
+  // 正文变化时才重新计数；计时刷新复用计数，避免每250ms遍历全部报文。
+  const characterCount = computed(() => {
+    let count = 0
+    for (let number = 1; number <= page.value.pageAll; number++) {
+      for (const character of getText(number) || '') {
+        if (!/\s|\//.test(character)) count++
+      }
+    }
+    return count
+  })
+  const updateMetrics = () => {
+    const milliseconds = elapsedMilliseconds()
+    trainData.value.duration = Math.floor(milliseconds / 1000)
+    if (ready.value && !disposed) {
+      trainData.value.speed = milliseconds > 0 ? Number((characterCount.value * 60000 / milliseconds).toFixed(1)) : 0
+    }
+  }
   const closeCapture = () => {
     if (captureStart !== null) {
       const end = captureEnd()
@@ -52,7 +69,7 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
       }
       captureStart = null
     }
-    trainData.value.duration = elapsed()
+    updateMetrics()
   }
   const canCapture = () => {
     if (trainData.value.status === 1 && deadlineOffset !== null && serverNow() >= deadlineOffset) {
@@ -63,6 +80,7 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
   }
   const resumeCapture = () => {
     if (!disposed && !inputLocked.value && captureStart === null && (deadlineOffset === null || serverNow() < deadlineOffset)) captureStart = serverNow()
+    updateMetrics()
   }
   const assertSession = () => {
     if (sessionError) throw sessionError
@@ -170,9 +188,11 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
     confirmed.clear()
     captures.clear()
     collectedMs = 0
+    const pages = new Map()
     for (let number = 1; number <= page.value.pageAll; number++) {
       restoreText(number, '')
       const remote = await readPage(number)
+      pages.set(number, remote)
       if (!remote.submitted) continue
       if (remote.attempt !== attempt || !Array.isArray(remote.captureIntervals)) throw new Error(`第${number}页原始时间轴或轮次缺失`)
       restoreText(number, remote.codeAll)
@@ -187,7 +207,8 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
     })
     page.value.current = 1
     while (confirmed.has(page.value.current) && page.value.current < page.value.pageAll) page.value.current++
-    const remote = await readPage(page.value.current)
+    // 当前页已在本轮恢复时读取，直接复用报底；末尾仍重取服务端时钟，排除加载耗时。
+    const remote = pages.get(page.value.current)
     showPage(page.value.current, remote.pageVo)
     // Re-anchor after hydration requests rather than counting their transport time as capture.
     const current = await readDetail()
@@ -311,7 +332,7 @@ export default function usePageSubmission({ id, trainData, page, loading, countD
     window.addEventListener('focus', refreshClock)
   })
   const timer = setInterval(() => {
-    trainData.value.duration = elapsed()
+    updateMetrics()
     const remaining = trainData.value.status === 2 ? pausedRemaining : deadlineOffset === null ? null : Math.max(0, deadlineOffset - serverNow())
     countDown.value?.autoSetTimeAdd(remaining === null ? elapsed() : Math.ceil(remaining / 1000))
     if (remaining !== null && remaining <= 0 && trainData.value.status === 1) {

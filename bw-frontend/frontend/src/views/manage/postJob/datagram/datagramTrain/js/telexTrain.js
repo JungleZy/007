@@ -69,8 +69,6 @@ export default function (countDown, loading) {
     }
     pageCodes.value[page.value.current - 1] = (pageCodes.value[page.value.current - 1] || '').toUpperCase()
     acceptedText.set(page.value.current, pageCodes.value[page.value.current - 1])
-    const characters = pageCodes.value.reduce((sum, text) => sum + Array.from(text || '').filter(value => !/\s|\//.test(value)).length, 0)
-    trainData.value.speed = flow.elapsed() > 0 ? Number((characters * 60 / flow.elapsed()).toFixed(1)) : 0
     if (enterCount >= 2) {
       enterCount = 0
       flow.next()

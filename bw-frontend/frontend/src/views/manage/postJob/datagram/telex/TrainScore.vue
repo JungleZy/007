@@ -56,7 +56,7 @@
                 <template v-if="scoreData.deductInfo">
                   <div class="row">
                     <div class="item lab full">码率</div>
-                    <div class="item">{{ scoreData.speed || 0 }} {{ scoreData.protocolVersion === 1 ? '字符/分' : '（历史原口径）' }}</div>
+                    <div class="item">{{ scoreData.speed || 0 }} {{ scoreData.protocolVersion === 1 ? '码/分' : '（历史原口径）' }}</div>
                     <div class="item">{{ scoreData.deductInfo.speedScore?scoreData.deductInfo.speedScore*1:'--' }} 分</div>
                   </div>
                   <div class="row">

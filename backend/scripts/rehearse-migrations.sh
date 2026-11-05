@@ -86,6 +86,7 @@ MIGRATIONS=(
   "$PROJECT_ROOT/database/migrations/2026-09-14-02-classic-telex-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-14-03-classic-receive-clock.sql"
   "$PROJECT_ROOT/database/migrations/2026-09-15-01-entering-exercise-clock.sql"
+  "$PROJECT_ROOT/database/migrations/2026-11-03-01-post-telex-page-indexes.sql"
 )
 STATISTICS_MIGRATION="$PROJECT_ROOT/database/migrations/2026-09-15-02-electronic-statistics-time.sql"
 

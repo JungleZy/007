@@ -24,7 +24,7 @@
             trainData.status == 0 ? '请点击下方[开始练习]按钮开启训练' : trainData.status == 1 ? '本次练习正在进行' : trainData.status == 2 ? '训练已显式暂停，恢复后继续采集' : '本次练习已结束'
             }}
           </div>
-          <count-down class="width-100-per layout-center" color="#70c9ff" ref="countDown" style="height: 55px"/>
+          <CountDown class="width-100-per layout-center" color="#70c9ff" ref="countDownRef" style="height: 55px"/>
         </template>
         <template v-slot:bottom>
           <div class="stateBox" style="display: flex; align-items: center"></div>
@@ -49,8 +49,8 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico"/>
                   <div>
-                    <div class="title">预估速度</div>
-                    <div class="tags nobr">{{ trainData.speed }}字符/分</div>
+                    <div class="title">速率</div>
+                    <div class="tags nobr">{{ trainData.speed }}码/分</div>
                   </div>
                 </div>
               </div>
@@ -142,6 +142,7 @@
 <script setup>
   import {ref} from 'vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
+  import CountDown from '../../../../../components/common/CountDown.vue'
   import telexTrain from './js/telexTrain.js'
   import NipMagicSpace from "../../../../../components/common/NipMagicSpace.vue";
 
@@ -153,7 +154,7 @@
   const prevIMG = imgs.prev
   const nextIMG = imgs.next
   const loading = ref(true)
-  const countDown = ref(null)
+  const countDownRef = ref(null)
   const {
     failure, busy, authBlocked, retry, inputLocked, ready, expired, pauseTest, resumeTest, resetTest, checkResult,
     trainData,
@@ -171,7 +172,7 @@
     beforeInput,
     getFocus,
     lackFocus
-  } = telexTrain(countDown, loading)
+  } = telexTrain(countDownRef, loading)
 </script>
 
 <style scoped lang="less">
