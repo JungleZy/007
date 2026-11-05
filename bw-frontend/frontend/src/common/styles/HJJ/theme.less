@@ -557,19 +557,19 @@ li.ant-calendar-time-picker-select-option-selected,
   .ant-empty-normal {
     color: #e2f2ff;
   }
-  .ant-table-thead > tr{
+  // 背景绘制在表头容器上，避免行背景只在hover触发重绘时可见。
+  .ant-table-thead {
     background-image: url("../../../assets/HJJ/tab-header.png");
     background-repeat: no-repeat;
-    height: 52px;
     background-size: 100% 100%;
   }
-  .ant-table-thead > tr:hover{
-    background-image: url("../../../assets/HJJ/tab-header.png") !important;
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
+  .ant-table-thead > tr {
+    height: 52px;
   }
 
-  .ant-table-thead > tr > th {
+  .ant-table-thead > tr > th,
+  .ant-table-thead > tr > th.ant-table-column-sort,
+  .ant-table-thead > tr > th.ant-table-column-has-sorters:hover {
     padding: 12px;
     background-color: rgba(0,0,0,0);
     color: #e2f2ff;
