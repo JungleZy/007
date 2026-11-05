@@ -20,8 +20,8 @@
             <template #isAverage="{ text }">
               {{ text ? '平均报底' : '乱码报底' }}
             </template>
-            <template #messageType="{ text }">
-              {{ text == 0 ? '数码' : text == 1 ? '字码' : text == 2 ? '混合报' : '--' }}
+            <template #type="{ text }">
+              {{ text === 0 ? '数码报' : text === 1 ? '字码报' : text === 2 ? '混合报' : '--' }}
             </template>
             <template #totalNumber="{ text }"> {{ text }} 组</template>
             <template #user="{ record }">
@@ -107,9 +107,9 @@
           <div class="rowItem">
             <div class="lab">人员选择：</div>
             <div class="item item_box" style="align-items: center;flex-direction: row;display: flex;width: 100%">
-              <a-select v-model:value="checkUser" @change="changeUserList" placeholder="请选择参训人员" style="width: 350px"
-                        mode="multiple">
-                <a-select-option v-for="(item, index) in userList" :key="item.id" :value="item.userName + index">
+              <a-select v-model:value="checkUser" @change="changeUserList" placeholder="请输入姓名搜索并选择参训人员" style="width: 350px"
+                        mode="multiple" show-search option-filter-prop="label">
+                <a-select-option v-for="(item, index) in userList" :key="item.id" :value="item.userName + index" :label="item.userName">
                   {{ item.userName }}
                 </a-select-option>
               </a-select>

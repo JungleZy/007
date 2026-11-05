@@ -27,10 +27,10 @@ export default function broaddcastTeacheing(selectCable) {
     },
     {
       title: '报文类型',
-      dataIndex: 'messageType',
-      key: 'messageType',
+      dataIndex: 'type',
+      key: 'type',
       align: 'center',
-      slots: {customRender: 'messageType'}
+      slots: {customRender: 'type'}
     },
     {
       title: '报文组数',
