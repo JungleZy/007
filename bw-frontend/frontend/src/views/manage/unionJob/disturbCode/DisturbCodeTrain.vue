@@ -280,7 +280,7 @@
       <template #footer>
         <div class="w-full layout-center"></div>
       </template>
-      <div class="resBox overflow-auto relative" v-if="trainData" style="max-height: calc(100vh - 280px)">
+      <div class="resBox relative" v-if="trainData" style="height: min(760px, calc(100vh - 280px))">
         <TrainResult :result="trainResult.res[trainResult.curr + '']" :curr="trainResult.curr" :all="trainResult.existPage" @switchPage="modelPageTurn"></TrainResult>
       </div>
     </a-modal>

@@ -34,11 +34,15 @@ public class SimulationRoomAccess {
     boolean teacher = manages(room, user.getId(), member);
     if (!teacher && member == null) throw new ForbiddenException("无权查看该训练");
     if (targetUserId != null) {
-      if (!teacher && !Objects.equals(user.getId(), targetUserId)) {
+      SimulationRouterRoomUserEntity target = members.findByUserIdAndRoomId(targetUserId, roomId);
+      boolean senderReview = Objects.equals(room.getRoomType(), 0) && Objects.equals(room.getStats(), 2)
+          && member != null && Objects.equals(member.getUserType(), 0)
+          && target != null && Objects.equals(target.getUserType(), 1);
+      if (!teacher && !Objects.equals(user.getId(), targetUserId) && !senderReview) {
         throw new ForbiddenException("无权查看其他学员答案");
       }
       if (!Objects.equals(room.getCreateUserId(), targetUserId)
-          && members.findByUserIdAndRoomId(targetUserId, roomId) == null) {
+          && target == null) {
         throw new IllegalArgumentException("该人员不属于此训练");
       }
     }

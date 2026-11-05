@@ -75,6 +75,10 @@ public class SimulationRouterRoomUserEntity {
    */
   private String contentValue;
 
+  /** 线路通报拍发人员的原始按键时长记录，不参与收报评分。 */
+  @Column(columnDefinition = "longtext")
+  private String patCodeLog;
+
   /**
    * 发报人状态 0 未完成 1 已完成
    */

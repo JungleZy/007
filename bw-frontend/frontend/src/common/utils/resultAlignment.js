@@ -1,4 +1,4 @@
-// Display-only, page-local edit alignment. Never use these operations as a score.
+// Display-only character alignment within each original form cell. Never use as a score.
 const MAX_ALIGNMENT_CELLS = 65536
 
 function alignSequence(expected, actual) {
@@ -35,19 +35,22 @@ function alignSequence(expected, actual) {
 }
 
 export function alignResultPage(result) {
-  const expected = (Array.isArray(result?.pageVos) ? result.pageVos : [])
-    .map((group, index) => ({ text: String(group?.key ?? ''), index }))
-    .filter(group => group.text !== '' && group.text !== '--')
-  // Empty form cells are not telegram groups; retain original indices for display.
-  const actual = (Array.isArray(result?.value) ? result.value : [])
-    .map((text, index) => ({ text: String(text ?? ''), index }))
-    .filter(group => group.text !== '')
-  const groups = alignSequence(expected.map(group => group.text), actual.map(group => group.text))
-    .map(group => ({
-      ...group,
-      expectedIndex: group.expectedIndex === null ? null : expected[group.expectedIndex].index,
-      actualIndex: group.actualIndex === null ? null : actual[group.actualIndex].index,
-      characters: alignSequence(Array.from(group.expected), Array.from(group.actual))
-    }))
-  return { groups, extraPage: expected.length === 0 && Array.isArray(result?.value) && result.value.length > 0 }
+  const expected = Array.isArray(result?.pageVos) ? result.pageVos : []
+  const actual = Array.isArray(result?.value) ? result.value : []
+  // 上传的数组下标就是填写格位置，空白格也必须保留；不能跨格重排答案。
+  const groups = Array.from({length: Math.max(expected.length, actual.length)}, (_, index) => {
+    const key = String(expected[index]?.key ?? '')
+    const expectedText = key === '--' ? '' : key
+    const actualText = String(actual[index] ?? '')
+    const type = !expectedText && !actualText ? 'empty'
+      : !expectedText ? 'insert' : !actualText ? 'delete'
+        : expectedText === actualText ? 'equal' : 'replace'
+    return {
+      type, expected: expectedText, actual: actualText,
+      expectedIndex: expectedText ? index : null,
+      actualIndex: actualText ? index : null,
+      characters: alignSequence(Array.from(expectedText), Array.from(actualText))
+    }
+  })
+  return {groups, extraPage: !groups.some(group => group.expected) && groups.some(group => group.actual)}
 }

@@ -142,6 +142,13 @@ export const apiSimulationRouterFindPage = (data) => {
   })
 }
 
+export const getLinePatRecord = (roomId, userId) => axios({
+  method: 'get', url: '/api/simulation/router/patRecord', data: {roomId, userId}
+})
+export const saveLinePatRecord = (roomId, strokes) => axios({
+  method: 'post', url: `/api/simulation/router/patRecord?roomId=${encodeURIComponent(roomId)}`, data: strokes
+})
+
 export const deleteTrain = (data) => {
   return axios({
     method: "get",

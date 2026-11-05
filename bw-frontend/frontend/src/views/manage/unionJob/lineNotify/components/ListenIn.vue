@@ -18,7 +18,8 @@
             <div class="title">发送人分组</div>
             <div class="user_list">
               <div class="send_list">
-                <div class="pd_user_infor" v-for="item in sendUserList" :key="item.id">
+                <template v-for="item in sendUserList" :key="item.id">
+                 <div class="pd_user_infor">
                   <strong style="width: 30px; font-size: 16px">{{ item.channel + 1 }}</strong>
                   <div class="image"><img :src="`${url}${item.userImg}`" alt="" /></div>
                   <div class="name">{{ item.userName }}</div>
@@ -27,8 +28,10 @@
                   <div class="state" style="color: #40a9ff" v-else-if="item.socketStatus == 1 && roomDetails.stats == 0">在线</div>
                   <div class="state" style="color: #52c41a" v-else-if="item.socketStatus > 0 && roomDetails.stats == 1">进行中</div>
                   <div class="state" style="color: #52c41a" v-else-if="item.socketStatus == 2 && roomDetails.stats == 0">准备</div>
-                  <div class="room_state" style="color: #4ca7f5" v-if="item.status == 1"><FileTextOutlined /></div>
-                </div>
+                   <div class="room_state" style="color: #4ca7f5" v-if="item.status == 1"><FileTextOutlined /></div>
+                 </div>
+                 <a-button v-if="roomDetails.stats == 2" size="small" class="w-full" @click="viewSenderRecord(item)">查看{{ item.userName }}的拍发记录</a-button>
+                </template>
               </div>
             </div>
           </div>
@@ -77,6 +80,7 @@
         </template>
       </TrainLeft>
     </div>
+    <PatRecordDialog ref="patRecordDialog" :room-id="route.query.id" :bw-type="Number(roomDetails.bwType || 1)" />
   </div>
 </template>
 
@@ -93,6 +97,7 @@ import SocketConnection from '../../../../../common/ws/SocketConnection.js'
 import {message} from 'ant-design-vue'
 import FillInResult from '../../disturbCode/FillInResult.vue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
+import PatRecordDialog from './PatRecordDialog.vue'
 import {useRoute} from 'vue-router'
 import {FileTextOutlined} from '@ant-design/icons-vue'
 import {uploadUnionTrainResult, apiSimulationRouterFindPage} from '../../../../../common/api/UnionApi'
@@ -115,6 +120,11 @@ const trainData = ref(0)
 const trainTimeRef = ref(null)
 const isEnd = ref(true)
 const roomDetails = ref({ stats: 0 })
+const patRecordDialog = ref(null)
+const viewSenderRecord = sender => {
+  if (!sender || roomDetails.value.stats != 2) return
+  return patRecordDialog.value?.open(sender)
+}
 const details = ref(null)
 const all = ref(0)
 const curr = ref(1)

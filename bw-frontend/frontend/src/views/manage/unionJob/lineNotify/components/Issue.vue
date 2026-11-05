@@ -3,8 +3,11 @@
     <div class="room_box" :style="{ width: roomValue }">
       <TrainLeft :trainData="trainData">
         <template v-slot:bottom>
+          <div class="sender-sidebar">
           <div role="status" v-if="connectionState !== 'open'">{{ connectionState === 'offline' ? '连接已断开，正在重连' : '正在连接训练服务' }}</div>
           <div role="alert" v-if="recoveryError">{{ recoveryError }} <a-button size="small" @click="getApiRoomUserList">重试</a-button></div>
+          <div role="alert" v-if="recordError">{{ recordError }} <a-button size="small" @click="savePatRecord">重试保存</a-button></div>
+          <a-button v-if="route.query.roomState === 'send'" class="w-full" @click="showOwnRecord">查看我的拍发记录（{{ trainData.patCodeLog.length }}）</a-button>
           <div class="title">参训时间</div>
           <div class="time_cont_box">
             <count-down class="width-100-per layout-center" color="#70c9ff" ref="trainTimeRef" style="height: 55px" />
@@ -15,7 +18,7 @@
               <p v-for="(item, index) in sendLessudTextList" :key="index">{{ item }}</p>
             </div>
           </div>
-          <div class="user_list_box" :style="{ height: 'calc(100% - ' + (route.query.roomState == 'send' ? 296 : 156) + 'px)' }">
+          <div class="user_list_box">
             <div class="title">接收人分组</div>
             <div class="user_list">
               <div class="send_list">
@@ -36,6 +39,7 @@
             </div>
           </div>
           <div class="item_group btn layout-center" style="width: 100%; margin-top: 5px" @click="handleStartTrain" v-if="buttonState && trainData.userStatus != 1 && trainData.stats == 0 && route.query.roomState != 'createUser'">准备训练</div>
+          </div>
         </template>
       </TrainLeft>
     </div>
@@ -60,22 +64,9 @@
         <div class="startBtn end" @click="handleEndTrain" style="top: 50%">结束训练</div>
       </div>
     </div>
-    <template v-if="(trainData.stats == 2 && !activePutAway) || route.query.roomState == 'send'">
+    <template v-if="!activePutAway && (trainData.stats == 2 || route.query.roomState == 'send')">
       <div class="trainCenter_box">
-        <div class="_top">
-          <img :src="topBg" class="bg" />
-          <div class="cont">
-            <div class="scale"></div>
-            <div class="vals overflow-auto" id="patValBoxRef">
-              <template v-for="(code, i) in trainData.patCodeLog" :key="i">
-                <div class="gap" :style="{ width: code.gap / 10 + 'px' }">
-                  {{ code.gap > 5000 ? Math.round(code.gap) + 'ms' : '' }}
-                </div>
-                <div class="val" :style="{ width: code.diff / 10 + 'px' }"></div>
-              </template>
-            </div>
-          </div>
-        </div>
+        <PatRecordPanel v-if="route.query.roomState === 'send'" :strokes="trainData.patCodeLog" :bw-type="Number(trainData.type)" follow-latest />
         <div class="_main">
           <div class="cont">
             <div class="patTelegraphBox">
@@ -146,8 +137,8 @@
       </div>
     </template>
 
-    <div class="trainCenter_box" v-if="activePutAway && trainData.stats == 2">
-      <TrainResult v-if="a" style="margin-left: 20px" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all" :details="details"></TrainResult>
+    <div class="trainCenter_box receive-result-box" v-if="activePutAway && trainData.stats == 2">
+      <TrainResult v-if="a" :result="a" :curr="curr" @switchPage="handlePageTurn" :all="all" :details="details"></TrainResult>
     </div>
     <div class="room_box" :style="{ width: roomValue }">
       <TrainLeft :trainData="trainData">
@@ -163,7 +154,8 @@
             <div class="title">发送人分组</div>
             <div class="user_list">
               <div class="send_list">
-                <div class="pd_user_info" v-for="item in sendUserList" :key="item.id">
+                <template v-for="item in sendUserList" :key="item.id">
+                <div class="pd_user_info">
                   <strong style="width: 30px; font-size: 16px">{{ item.channel + 1 }}</strong>
                   <div class="image"><img :src="`${url}${item.userImg}`" alt="" /></div>
                   <div class="name">{{ item.userName }}</div>
@@ -174,12 +166,15 @@
                   <div class="state" style="color: #52c41a" v-else-if="item.socketStatus == 2 && trainData.stats == 0">准备</div>
                   <div class="room_state" style="color: #4ca7f5" v-if="item.status == 1"><FileTextOutlined /></div>
                 </div>
+                <a-button v-if="route.query.roomState === 'createUser' && trainData.stats == 2" size="small" class="w-full" @click="viewSenderRecord(item)">查看{{ item.userName }}的拍发记录</a-button>
+                </template>
               </div>
             </div>
           </div>
         </template>
       </TrainLeft>
     </div>
+    <PatRecordDialog ref="patRecordDialog" :room-id="route.query.id" :bw-type="Number(trainData.type)" />
   </div>
 </template>
 
@@ -199,8 +194,8 @@ import next from '../../../../../assets/HJ/postTrain/next.png'
 
 import issue from '../js/Issue'
 import TrainResult from '../../disturbCode/TrainResult.vue'
-import iconImage from "../../../postJob/js/iconImage";
-const {topBg} = iconImage()
+import PatRecordPanel from './PatRecordPanel.vue'
+import PatRecordDialog from './PatRecordDialog.vue'
 
 const route = useRoute()
 const roomValue = ref('280px')
@@ -208,6 +203,11 @@ const printShow = ref(false)
 const url = window.fileUrl
 const trainTimeRef = ref(0)
 const userInfo = JSON.parse(window.localStorage.getItem('userInfo'))
+const patRecordDialog = ref(null)
+const viewSenderRecord = sender => {
+  if (route.query.roomState !== 'createUser' || trainData.value.stats != 2) return
+  return patRecordDialog.value?.open(sender)
+}
 
 const trainData = ref({
   trainId: '',
@@ -252,6 +252,9 @@ const {
   activePutAway,
   
   handleActivePutAway,
+  showOwnRecord,
+  recordError,
+  savePatRecord,
   handlePageTurn,
   a,
   all,
@@ -345,6 +348,19 @@ const {
   height: 100%;
   overflow: hidden;
   transition: all 0.2s linear;
+  .sender-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    > * { flex-shrink: 0; }
+    > .user_list_box {
+      flex: 1;
+      min-height: 0;
+      height: auto;
+      overflow: auto;
+    }
+  }
   .user_list_box {
     height: calc(100% - 156px);
     overflow: auto;
@@ -444,6 +460,15 @@ const {
 .trainCenter_box {
   flex: 1;
   width: 0px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  > ._main { flex: 1; min-height: 240px; height: auto; }
+}
+.receive-result-box {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 0 20px;
 }
 .create_user_box {
   flex: 1;

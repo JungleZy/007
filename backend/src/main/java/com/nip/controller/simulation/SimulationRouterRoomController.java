@@ -9,6 +9,8 @@ import com.nip.dto.vo.simulation.SimulationRouterRoomPageInfoVO;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomUserVO;
 import com.nip.dto.vo.simulation.router.SimulationRouterRoomVO;
 import com.nip.service.simulation.SimulationRouterRoomService;
+import com.nip.service.simulation.SimulationRouterPatRecordService;
+import com.nip.service.simulation.SimulationRouterPatRecordService.Stroke;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,6 +35,7 @@ import static com.nip.common.constants.BaseConstants.*;
 public class SimulationRouterRoomController {
   private final SimulationRouterRoomService roomService;
   @Inject com.nip.service.simulation.SimulationRoomAccess roomAccess;
+  @Inject SimulationRouterPatRecordService patRecords;
 
   @Inject
   public SimulationRouterRoomController(SimulationRouterRoomService roomService) {
@@ -100,6 +103,22 @@ public class SimulationRouterRoomController {
       @RestQuery(USER_ID) String userId, HttpServerRequest request) {
     roomAccess.requireAnswer(request, roomId, userId);
     return ResponseResult.success(roomService.findPage(userId, roomId, pageNumber));
+  }
+
+  @GET
+  @Path("/patRecord")
+  @Operation(summary = "查询线路通报拍发记录")
+  public Response<List<Stroke>> patRecord(HttpServerRequest request, @RestQuery(ROOM_ID) Integer roomId,
+      @RestQuery(USER_ID) String userId) {
+    return ResponseResult.success(patRecords.find(request, roomId, userId));
+  }
+
+  @POST
+  @Path("/patRecord")
+  @Operation(summary = "保存本人的线路通报拍发记录")
+  public Response<List<Stroke>> savePatRecord(@RestHeader(TOKEN) String token, @RestQuery(ROOM_ID) Integer roomId,
+      List<Stroke> strokes) {
+    return ResponseResult.success(patRecords.save(token, roomId, strokes));
   }
 
   @GET

@@ -45,6 +45,82 @@ class SimulationRestAuthorizationTest {
   @Inject SimulationRouterRoomUserDao memberDao;
   @Inject SimulationRouterRoomContentDao contentDao;
   @Test
+  void routerSenderCanReviewAllReceiversAfterTrainingButCannotControlThem() {
+    int roomId = room(0);
+    addContent(roomId);
+    addMember(roomId, outsider, 1, 9, 1);
+    for (UserEntity target : List.of(receiver, outsider)) {
+      request(sender).queryParam("roomId", roomId).queryParam("pageNumber", 2).queryParam("userId", target.getId())
+          .get("/api/simulation/router/findPage").then().statusCode(200).body("code", is(207));
+    }
+    QuarkusTransaction.requiringNew().run(() -> roomDao.findById(roomId).setStats(2));
+    for (UserEntity target : List.of(receiver, outsider)) {
+      request(sender).queryParam("roomId", roomId).queryParam("pageNumber", 2).queryParam("userId", target.getId())
+          .get("/api/simulation/router/findPage").then().statusCode(200).body("code", is(200));
+    }
+    request(receiver).queryParam("roomId", roomId).queryParam("pageNumber", 2).queryParam("userId", outsider.getId())
+        .get("/api/simulation/router/findPage").then().statusCode(200).body("code", is(207));
+    request(user()).queryParam("roomId", roomId).queryParam("pageNumber", 2).queryParam("userId", receiver.getId())
+        .get("/api/simulation/router/findPage").then().statusCode(200).body("code", is(207));
+    change(sender, roomId, receiver, 9, 207);
+  }
+
+  @Test
+  void receiverCanReadAllSenderRecordsAfterTrainingWithoutWriteAccess() {
+    int roomId = room(0);
+    UserEntity otherSender = user();
+    addMember(roomId, otherSender, 0, 9, 0);
+    var strokes = List.of(Map.of("diff", 60.5, "gap", 0, "pageNumber", 1));
+    for (UserEntity actor : List.of(sender, otherSender)) {
+      request(actor).queryParam("roomId", roomId).body(strokes)
+          .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(200));
+    }
+    request(receiver).queryParam("roomId", roomId).queryParam("userId", sender.getId())
+        .get("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(207));
+    QuarkusTransaction.requiringNew().run(() -> roomDao.findById(roomId).setStats(2));
+    for (UserEntity actor : List.of(receiver, owner, admin)) {
+      for (UserEntity target : List.of(sender, otherSender)) {
+        request(actor).queryParam("roomId", roomId).queryParam("userId", target.getId())
+            .get("/api/simulation/router/patRecord").then().statusCode(200)
+            .body("code", is(200), "data[0].diff", is(60.5F));
+      }
+    }
+    request(receiver).queryParam("roomId", roomId).queryParam("userId", sender.getId()).body(strokes)
+        .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(207));
+    request(outsider).queryParam("roomId", roomId).queryParam("userId", sender.getId())
+        .get("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(207));
+    request(receiver).queryParam("roomId", roomId).queryParam("userId", outsider.getId())
+        .get("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(202));
+  }
+
+  @Test
+  void senderPatRecordsPersistIdempotentlyAndAreScopedToAuthenticatedSender() {
+    int roomId = room(0);
+    var first = Map.of("diff", 60, "gap", 0, "pageNumber", 1);
+    var second = Map.of("diff", 180, "gap", 60, "pageNumber", 1);
+    request(sender).queryParam("roomId", roomId).body(List.of(first, second))
+        .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(200), "data.size()", is(2));
+    // 迟到的旧快照不会截断服务器记录。
+    request(sender).queryParam("roomId", roomId).body(List.of(first))
+        .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(200), "data.size()", is(2));
+    request(sender).queryParam("roomId", roomId).get("/api/simulation/router/patRecord")
+        .then().statusCode(200).body("code", is(200), "data[1].diff", is(180.0F));
+    request(sender).queryParam("roomId", roomId).body(List.of(second))
+        .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(202));
+    request(sender).queryParam("roomId", roomId).body(List.of(Map.of("diff", -1, "gap", 0, "pageNumber", 1)))
+        .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(202));
+    for (UserEntity actor : List.of(receiver, outsider, owner)) {
+      request(actor).queryParam("roomId", roomId).queryParam("userId", sender.getId())
+          .get("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(207));
+      request(actor).queryParam("roomId", roomId).body(List.of(first))
+          .post("/api/simulation/router/patRecord").then().statusCode(200).body("code", is(207));
+    }
+    int otherRoom = room(0);
+    request(sender).queryParam("roomId", otherRoom).get("/api/simulation/router/patRecord")
+        .then().statusCode(200).body("code", is(200), "data.size()", is(0));
+  }
+
+  @Test
   void sendFinishCompletesOnlySenderAndReceiversOnTheirChannel() {
     int roomId = room(0);
     addMember(roomId, outsider, 1, 9, 0);

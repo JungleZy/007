@@ -350,6 +350,7 @@ CREATE TABLE `simulation_router_room_user`  (
   `user_type` int(0) NULL DEFAULT NULL COMMENT '类型 0 发报 1 收报',
   `channel` int(0) NULL DEFAULT NULL COMMENT '频道 如果是发报人员对应发报频道 0   如果是收报人员对应收报频道 1',
   `content_value` longtext CHARACTER SET utf8 COLLATE utf8_general_ci NULL COMMENT '收报人员报文',
+  `pat_code_log` longtext NULL COMMENT '线路通报拍发记录',
   `user_status` int(0) NULL DEFAULT NULL COMMENT '0 未完成 1已完成（线路通报房间使用）',
   PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;

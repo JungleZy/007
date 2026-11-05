@@ -1,39 +1,25 @@
 import {ref, onMounted, nextTick, onUnmounted} from 'vue'
 import useTraffic from '../../../../../common/mixin/useTraffic'
-import {deepClone} from '../../../../../common/utils/Utils.js'
 import {useRoute} from 'vue-router'
 import {message, Modal} from 'ant-design-vue'
 import {apiSimulationRouterRoomDetail, apiSimulationRouterSendFinish, getRoomUserList, apiSimulationRouterFindPage} from '../../../../../common/api/UserApi'
 import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
+import usePatRecord from './usePatRecord'
+import {createLineHandControl} from './handControl.js'
+import {decodePatRecord} from './decodePatRecord.js'
 
 export default function issue(trainData, trainTimeRef) {
   onMounted(() => {
     init()
     getApiRoomUserList()
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    const dom = document.getElementById('patValBoxRef')
-    if (dom) {
-      dom.addEventListener('mousewheel', e => {
-        if (e.deltaY > 0) {
-          dom.scrollLeft += 100
-        } else {
-          dom.scrollLeft -= 100
-        }
-      })
-      dom.addEventListener('mousewheel', e => {
-        if (e.deltaY > 0) {
-          dom.scrollLeft += 100
-        } else {
-          dom.scrollLeft -= 100
-        }
-      })
-    }
   })
   onUnmounted(() => {
     disposed = true
     clearTimeout(recoveryTimer)
     clearInterval(autoTime.value)
+    handControl.reset()
     document.removeEventListener('visibilitychange', handleVisibilityChange)
     ws.close()
   })
@@ -45,6 +31,13 @@ export default function issue(trainData, trainTimeRef) {
   const buttonState = ref(true)
 
   const userId = JSON.parse(localStorage.getItem('userInfo'))
+  const patRecord = usePatRecord(trainData, route.query.id, userId.id)
+  let capturePage = Number(trainData.value.telegraph.prev) || 1
+  const handControl = createLineHandControl({
+    getPage: () => capturePage,
+    onStroke: stroke => patRecord.append(stroke),
+    onControl: action => handleHandControl(action)
+  })
   const sendLessudTextList = ref([])
   const disturbVolume = ref(60)
   const checkedDisturb = ref([])
@@ -154,6 +147,7 @@ export default function issue(trainData, trainTimeRef) {
       }
       else if (newData.topic == 'end') {
         clearInterval(autoTime.value)
+        handControl.reset()
         trainData.value.currPatKeyIndex = -1
         getApiRoomUserList()
       }
@@ -173,50 +167,49 @@ export default function issue(trainData, trainTimeRef) {
     })
   }
 
-  //分页
-  const switchTelegram = num => {
-    if (num == 1) {
-      if (trainData.value.telegraph.prev == trainData.value.telegraph.allPage) {
-        message.error('已经是最后一页了')
-        return
-      }
-      trainData.value.telegraph.prev++
-      trainData.value.telegraph.preCurr = deepClone(trainData.value.telegraph.curr)
-      trainData.value.telegraph.curr = deepClone(trainData.value.telegraph.nextCurr)
-    } else {
-      if (trainData.value.telegraph.prev == 1) {
-        message.error('已经是第一页了')
-        return
-      }
-      trainData.value.telegraph.prev--
-      trainData.value.telegraph.nextCurr = deepClone(trainData.value.telegraph.curr)
-      trainData.value.telegraph.curr = deepClone(trainData.value.telegraph.preCurr)
-    }
-    getSimulationRouterFindPage(num)
+  const pageCache = new Map()
+  const pageRequests = new Map()
+  let pageTarget = null
+  let pageRequest = 0
+  const fetchTelegramPage = (page, user) => {
+    const key = `${user}:${page}`
+    if (pageCache.has(key)) return Promise.resolve(pageCache.get(key))
+    if (pageRequests.has(key)) return pageRequests.get(key)
+    const request = apiSimulationRouterFindPage({pageNumber: page, roomId: route.query.id, userId: user})
+      .then(response => {
+        const data = requireData(response)
+        if (!Array.isArray(data.pageVos)) throw new Error('报底数据格式错误')
+        pageCache.set(key, data)
+        return data
+      }).finally(() => pageRequests.delete(key))
+    pageRequests.set(key, request)
+    return request
   }
-
-  //获取指定分页低报
-  const getSimulationRouterFindPage = num => {
-    let number = trainData.value.telegraph.prev + num
-    if (number > trainData.value.telegraph.allPage || number < 1) return
-    let user
-    if (route.query.roomState == 'createUser') {
-      user = sendUserList.value[0].id
-    } else {
-      user = userId.id
+  const showTelegramPage = async page => {
+    const user = route.query.roomState == 'createUser' ? sendUserList.value[0]?.id : userId.id
+    if (!user || page < 1 || page > Math.max(1, trainData.value.telegraph.allPage)) return
+    pageTarget = page
+    const request = ++pageRequest
+    const data = await fetchTelegramPage(page, user)
+    if (disposed || request !== pageRequest) return
+    trainData.value.telegraph.prev = page
+    trainData.value.telegraph.curr = data.pageVos
+    trainData.value.telegraph.preCurr = pageCache.get(`${user}:${page - 1}`)?.pageVos || []
+    trainData.value.telegraph.nextCurr = pageCache.get(`${user}:${page + 1}`)?.pageVos || []
+    if (page < trainData.value.telegraph.allPage) {
+      fetchTelegramPage(page + 1, user).then(next => {
+        if (!disposed && request === pageRequest) trainData.value.telegraph.nextCurr = next.pageVos
+      }).catch(() => { /* 预取失败不影响当前页，需要翻页时会重新请求并显示失败原因。 */ })
     }
-    apiSimulationRouterFindPage({
-      pageNumber: number,
-      roomId: route.query.id,
-      userId: user
-    }).then(res => {
-      if (res.code != 200) return
-      if (num == 1) {
-        trainData.value.telegraph.nextCurr = res.data.pageVos
-      } else {
-        trainData.value.telegraph.preCurr = res.data.pageVos
-      }
-    })
+  }
+  const switchTelegram = async num => {
+    const page = (pageTarget ?? trainData.value.telegraph.prev) + num
+    if (page < 1 || page > trainData.value.telegraph.allPage) {
+      message.error(num > 0 ? '已经是最后一页了' : '已经是第一页了')
+      return
+    }
+    try { await showTelegramPage(page) }
+    catch (error) { recoveryError.value = error.message; scheduleRecovery() }
   }
 
   const getApiRoomUserList = async () => {
@@ -231,6 +224,8 @@ export default function issue(trainData, trainTimeRef) {
       const roster = requireData(await getRoomUserList(route.query.id))
       if (disposed) return
       sendUserList.value = roster.sendUserList || []
+      if (sendUserList.value.some(item => item.id === userId.id)) await patRecord.restore()
+      handControl.seed(trainData.value.patCodeLog)
       putAwayUserList.value = (roster.receiveUserList || []).map(item => ({ ...item, activeState: activePutAway.value && item.id == sendId.value }))
       await getRoomDetails()
       if (disposed) return
@@ -275,19 +270,6 @@ export default function issue(trainData, trainTimeRef) {
     }
   }
 
-  let gap, diff
-  let time1 = null //按下
-  let time2 = null //抬起
-
-  const patStandard = ref({
-    dot: 60,
-    line: 160,
-    codeGap: 60,
-    wordGap: 160,
-    groupGap: 5000
-  })
-  const initFloat = ref(50) // 计算拍发基准值的浮动百分比
-
   //下发文书
   const sendLessudText = () => {
     const obj = {
@@ -312,6 +294,12 @@ export default function issue(trainData, trainTimeRef) {
     trainData.value.trainId = data.currentUserId
     trainData.value.stats = data.stats
     trainData.value.telegraph.allPage = data.isCable == 1 ? Number(data.pageCount || 0) : Math.ceil(Number(data.bwCount || 0) / 100)
+    if (data.stats != 1 || data.currentUserStatus == 1) handControl.reset()
+    if (!loaded && data.stats == 1 && trainData.value.patCodeLog.length) {
+      const last = decodePatRecord(trainData.value.patCodeLog, {bwType: data.bwType}).at(-1)
+      capturePage = Math.min(Math.max(1, trainData.value.telegraph.allPage), (last?.pageNumber || 1) + (last?.control === 'turn' ? 1 : 0))
+      pageTarget = capturePage
+    }
     trainData.value.totalTime = data.totalTime
     clearInterval(autoTime.value)
     trainData.value.duration = Number(data.totalTime || 0)
@@ -332,17 +320,7 @@ export default function issue(trainData, trainTimeRef) {
       await loadResultPage(Math.min(curr.value, Math.max(1, all.value)), selected.id)
       return
     }
-    const user = route.query.roomState == 'createUser' ? sendUserList.value[0]?.id : userId.id
-    if (!user) return
-    const page = Math.min(trainData.value.telegraph.prev, Math.max(1, trainData.value.telegraph.allPage))
-    const current = requireData(await apiSimulationRouterFindPage({ pageNumber: page, roomId: route.query.id, userId: user }))
-    if (disposed) return
-    trainData.value.telegraph.prev = page
-    trainData.value.telegraph.curr = current.pageVos
-    if (page < trainData.value.telegraph.allPage) {
-      const next = requireData(await apiSimulationRouterFindPage({ pageNumber: page + 1, roomId: route.query.id, userId: user }))
-      if (!disposed) trainData.value.telegraph.nextCurr = next.pageVos
-    }
+    await showTelegramPage(Math.min(pageTarget ?? trainData.value.telegraph.prev, Math.max(1, trainData.value.telegraph.allPage)))
   }
 
   // 训练用时
@@ -399,12 +377,21 @@ export default function issue(trainData, trainTimeRef) {
     }
   }
   const handleActivePutAway = async item => {
-    if (route.query.roomState != 'createUser' || item.status != 1) return
+    if (trainData.value.stats != 2 || item.status != 1) return
     sendId.value = item.id
     curr.value = 1
     a.value = null
     activePutAway.value = true
     putAwayUserList.value.forEach(user => { user.activeState = user.id == item.id })
+    await getApiRoomUserList()
+  }
+
+  const showOwnRecord = async () => {
+    ++resultRequest
+    sendId.value = null
+    activePutAway.value = false
+    a.value = null
+    putAwayUserList.value.forEach(user => { user.activeState = false })
     await getApiRoomUserList()
   }
 
@@ -444,7 +431,9 @@ export default function issue(trainData, trainTimeRef) {
   const finishSending = async showSuccess => {
     if (finishPending) return
     finishPending = true
+    handControl.reset()
     try {
+      if (!await patRecord.flush()) throw new Error(patRecord.recordError.value || '拍发记录尚未保存，请重试')
       const res = await apiSimulationRouterSendFinish(route.query.id)
       if (res?.code != 200 || !res.data) throw new Error(res?.message || '结束训练失败，请重试')
       clearInterval(autoTime.value)
@@ -474,42 +463,27 @@ export default function issue(trainData, trainTimeRef) {
     })
   }
 
-  //开始发报
+  const handleHandControl = action => {
+    if (disposed || finishPending || trainData.value.stats != 1 || trainData.value.userStatus == 1) return
+    if (action === 'turn') {
+      if (capturePage < trainData.value.telegraph.allPage) {
+        capturePage++
+        trainData.value.currPatKeyIndex = 0
+        showTelegramPage(capturePage).catch(error => {
+          recoveryError.value = error.message || '下一页报底读取失败，请重试'
+          scheduleRecovery()
+        })
+      } else finishSending(true)
+    } else if (action === 'end') finishSending(true)
+  }
+
+  // 原始边沿持续转发，分页符识别和报底请求不会阻塞下一页的采集。
   const handleHandKeysData = data => {
+    if (!Number.isFinite(data.d) || (data.k != 0 && data.k != 1)) return
+    if (finishPending || trainData.value.userStatus == 1 || trainData.value.stats != 1
+        || !sendUserList.value.some(item => item.id === userId.id) || !patRecord.recordReady.value) return
+    handControl.receive(data)
     if (finishPending || trainData.value.userStatus == 1) return
-    if (trainData.value.currPatKeyIndex == -1) {
-      if (trainData.value.stats != 1) {
-        return
-      }
-      trainData.value.currPatKeyIndex++
-    }
-    if (time2 != null) {
-      gap = data.d - time2
-    }
-    if (data.k == 0) {
-      time1 = data.d
-      time2 = null
-    } else {
-      time2 = data.d
-    }
-    if (data.k == 0) {
-      time1 = data.d
-      if (gap > patStandard.value.wordGap * (1 + initFloat.value / 100)) {
-        trainData.value.currPatKeyIndex++
-        if (trainData.value.currPatKeyIndex == trainData.value.telegraph.curr.length) {
-          if (trainData.value.telegraph.prev < trainData.value.telegraph.allPage) {
-            trainData.value.currPatKeyIndex = -1
-            switchTelegram(1)
-          } else {
-            trainData.value.currPatKeyIndex--
-            finishSending(true)
-            return
-          }
-        }
-      }
-    } else if (data.k == 1) {
-      // time2=data.d
-    }
     if (data.k == 0) {
       const obj = {
         topic: 'play',
@@ -528,19 +502,6 @@ export default function issue(trainData, trainTimeRef) {
         }
       }
       ws.send(JSON.stringify(obj)) //抬起事件
-    }
-
-    if (time1 !== null && time2 != null && data.k == 1) {
-      diff = time2 - time1
-      trainData.value.patCodeLog.push({
-        code: 0,
-        diff: diff,
-        gap: gap
-      })
-      nextTick(() => {
-        const dom = document.getElementById('patValBoxRef')
-        dom.scrollLeft = dom.scrollWidth
-      })
     }
   }
   useTraffic(true, handleHandKeysData)
@@ -566,6 +527,9 @@ export default function issue(trainData, trainTimeRef) {
     activePutAway,
     activeSend,
     handleActivePutAway,
+    showOwnRecord,
+    recordError: patRecord.recordError,
+    savePatRecord: patRecord.flush,
     handlePageTurn,
     a,
     all,

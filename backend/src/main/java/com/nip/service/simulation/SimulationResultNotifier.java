@@ -26,7 +26,7 @@ public class SimulationResultNotifier {
 
   public void publish(Integer roomId, String userId, Integer roomType) {
     Set<String> recipients = members.findByRoomId(roomId).stream()
-        .filter(member -> !Objects.equals(roomType, 0) && Objects.equals(member.getUserType(), 0))
+        .filter(member -> Objects.equals(member.getUserType(), 0))
         .map(member -> member.getUserId()).collect(Collectors.toSet());
     String creator = rooms.findById(roomId).getCreateUserId();
     if (creator != null) recipients.add(creator);
