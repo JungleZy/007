@@ -1,5 +1,10 @@
 version: 3.1.1
 nip:
+  database:
+    # 显式配置优先；未配置时自动查找项目随附工具，最后使用 PATH。
+    mysql-path: ${NIP_DATABASE_MYSQL_PATH:}
+    mysqldump-path: ${NIP_DATABASE_MYSQLDUMP_PATH:}
+    ssl-mode: ${NIP_DATABASE_SSL_MODE:REQUIRED}
   security:
     password:
       iterations: 600000
@@ -13,8 +18,8 @@ quarkus:
     host: 0.0.0.0
     port: 18001
     limits:
-      # 10 MiB 文件 + multipart 边界与表单字段；文件本身由解析端点限制到 10 MiB。
-      max-body-size: 11M
+      # 数据库 SQL 文件最多 512 MiB；其他解析端点仍自行限制文件到 10 MiB。
+      max-body-size: 513M
     cors:
       ~: true
       headers: '*'

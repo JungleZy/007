@@ -3,6 +3,7 @@ import ExcessPage from '../../components/ExcessPage.vue';
 import TransitionPage from '../../components/TransitionPage.vue';
 import skipGuards from "./skipGuards.js";
 import { filterMenusByInterface } from '../menuStyle.js';
+import { withLocalMenus } from './localMenus.js';
 
 const modules = import.meta.glob('../../views/**/*.vue');
 let getRouter = undefined;
@@ -59,7 +60,10 @@ function handleSkip(next, replace, to, from) {
 function handleRouter() {
   if (router.options.routes[0].children[0].children.length === 0) {
     const routerData = filterMenusByInterface(
-      JSON.parse(window.localStorage.getItem("userRouter")),
+      withLocalMenus(
+        JSON.parse(window.localStorage.getItem("userRouter")),
+        JSON.parse(window.localStorage.getItem("userRole"))
+      ),
       window.interfaceStyle
     );
     window.localStorage.setItem("userRouter", JSON.stringify(routerData));

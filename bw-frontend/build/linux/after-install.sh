@@ -16,6 +16,12 @@ chmod 4755 '/opt/${sanitizedProductName}/chrome-sandbox' || true
 update-mime-database /usr/share/mime || true
 update-desktop-database /usr/share/applications || true
 
+# 跨平台构建时源目录可能未保留 POSIX 执行位；安装时恢复随包客户端的执行权限。
+MYSQL_TOOLS='/opt/${sanitizedProductName}/bin/file/tools/mysql'
+if [ -d "$MYSQL_TOOLS" ]; then
+  find "$MYSQL_TOOLS" -mindepth 2 -maxdepth 2 -type f \( -name mysql -o -name mysqldump \) -exec chmod 0755 {} +
+fi
+
 # ---------------------------------------------------------------------------
 # 授权信息的机器级副本目录（跨 OS 账户 / 跨提权共享）。
 #

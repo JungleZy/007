@@ -4,6 +4,7 @@ const context = require("../core/node_core_ctx");
 const path = require("node:path");
 const {tryUsePort} = require("../utils/utils");
 const {BACKEND_PORT} = require("../shared/ports");
+const {backendEnvironment} = require('./mysql-tools');
 
 function onHttpService() {
 	context.httpService = fork(
@@ -32,6 +33,7 @@ function onBackendService() {
 				return
 			}
 			context.backendService = spawn(serverPath, [], {
+				env: backendEnvironment(context.appPath),
 				windowsHide: true,
 				detached: true
 			})

@@ -2,6 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
 const {verifyManifest} = require('./artifact-manifest.cjs');
+const {verifyMysqlTools} = require('./bundle-mysql-tools.cjs');
+const {mysqlTarget} = require('../electron/shared/mysql-platforms');
+const {Arch} = require('builder-util');
 
 const projectDirectory = path.resolve(__dirname, '..');
 const frontendDirectory = path.join(projectDirectory, 'frontend');
@@ -24,6 +27,9 @@ function buildFrontend() {
 }
 
 module.exports = function prepareDesktop(context) {
+    // 必须取打包目标架构，不能取构建机的 process.arch（交叉打包时可能不同）。
+    const arch = typeof context.arch === 'number' ? Arch[context.arch] : context.arch;
+    verifyMysqlTools(projectDirectory, mysqlTarget(context.electronPlatformName, arch));
     // One frontend build per builder invocation, shared by all requested architectures.
     const packager = context.packager.info;
     if (preparedPackagers.has(packager)) return;

@@ -6,6 +6,8 @@ public class BaseConstants {
   }
 
   public static final String ID = "id";
+  public static final String FILE = "file";
+  public static final String CONFIRMATION = "confirmation";
   public static final String DEVICE_ID = "deviceId";
   public static final String USER_ID = "userId";
   public static final String EXAM_ID = "examId";

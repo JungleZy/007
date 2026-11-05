@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "target": "windows-x64",
+  "runtime": {
+    "clientFamily": "mysql",
+    "clientVersion": "8.0.46"
+  },
+  "files": {
+    "mysqldump.exe": "20d58b68349d01482a4417a93812d015a6b223baee0f80895f45ea6dc019f431",
+    "mysql.exe": "85d3616677438b18f7c79fc534d5f28c086c2e337fcbcc412a643d397e81e6a8",
+    "libcrypto-3-x64.dll": "75c781e14e5042fb77099664fa619ba2e5f4ec62be5d54c4d754800c92710a4c",
+    "libssl-3-x64.dll": "26963f9ed10eaaae9874bf1f69751d9c2d474e96c5ee39dd89d04ca1f6b1a736",
+    "LICENSE.mysql": "5f2c74db593738abc15dc9c4a5a56737f93aca31a6a89ca82b638dd544510e18",
+    "README.mysql": "4f8f901666dfdc5dbd307ff90248eac8c3da030249b630019d982a4e57ba91d5"
+  }
+}

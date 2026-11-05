@@ -11,6 +11,13 @@ pnpm-lock.yaml
 .history/
 file/
 
+# 随 Windows 安装包发布的数据库客户端工具；其他文件服务资产仍忽略。
+!bin/file/
+bin/file/*
+!bin/file/tools/
+bin/file/tools/*
+!bin/file/tools/mysql/
+
 # 后端 native 构建产物（体积超 GitHub 单文件上限，走发布渠道分发）
 bin/server/
 
