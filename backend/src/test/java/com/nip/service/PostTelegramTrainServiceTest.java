@@ -78,6 +78,24 @@ class PostTelegramTrainServiceTest {
   }
 
   @Test
+  void beginningAfterPagePreviewUsesPersistedOriginForFirstSubmission() {
+    String token = token();
+    PostTelegramTrainEntity train = train(token, 100);
+    io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() -> {
+      var entity = trainDao.findById(train.getId());
+      entity.setStatus(0).setStartTime(null);
+    });
+    var begun = service.begin(train.getId(), 0, token);
+    var origin = trainDao.findById(train.getId()).getStartTime();
+    assertEquals(0, origin.getNano(), "计时原点在旧整秒库与高精度库中一致");
+    var upload = page(train, 1, begun.getServerElapsedMs(), begun.getServerElapsedMs());
+    upload.setMessageBody(List.of());
+    upload.setCaptureIntervals(begun.getServerElapsedMs() > 0
+        ? List.of(new CaptureInterval(0, begun.getServerElapsedMs())) : List.of());
+    assertDoesNotThrow(() -> service.saveContentValue(upload, token));
+  }
+
+  @Test
   void duplicateIsIdempotentAndOverlappingPagesAreRejectedRegardlessOfArrivalOrder() {
     String token = token();
     PostTelegramTrainEntity train = train(token, 300);

@@ -516,9 +516,11 @@ public class PostTelegramTrainService {
     ScoringRuleValidation.handkey(entity.getRuleContent());
     if (entity.getFullScore() == null || entity.getFullScore() < 0) throw new IllegalArgumentException("训练满分快照无效，请新建训练");
     if (Objects.equals(entity.getStatus(), NOT_STARTED.getStatus())) {
-      entity.setStartTime(LocalDateTime.now());
+      entity.setStartTime(CaptureTimeline.persistedOrigin(LocalDateTime.now()));
       entity.setStatus(UNDERWAY.getStatus());
       postTelegramTrainDao.saveAndFlush(entity);
+      // 开始响应与后续翻页请求都以持久化后的原点计算 serverElapsedMs。
+      postTelegramTrainDao.getEntityManager().refresh(entity);
     }
     return trainingView(entity);
   }
@@ -601,7 +603,19 @@ public class PostTelegramTrainService {
     if (!Objects.equals(dto.getAttempt(), trainEntity.getAttempt())) {
       throw new TerminalStateException("训练轮次已变化，请重新加载训练");
     }
-    long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), elapsed(trainEntity, receivedAt));
+    long maximumEndMs = elapsed(trainEntity, receivedAt);
+    long duration;
+    try {
+      duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), maximumEndMs);
+    } catch (IllegalArgumentException invalidTimeline) {
+      // 保留失败现场的时钟差，区分取整误差、时钟漂移与真正的乱序，不放宽服务器边界。
+      var submittedIntervals = dto.getCaptureIntervals();
+      log.warn("手键采集区间校验失败 trainId={} page={} attempt={} maximumEndMs={} intervalCount={} lastInterval={}",
+          dto.getTrainId(), dto.getFloorNumber(), dto.getAttempt(), maximumEndMs,
+          submittedIntervals == null ? 0 : submittedIntervals.size(),
+          submittedIntervals == null || submittedIntervals.isEmpty() ? null : submittedIntervals.getLast());
+      throw invalidTimeline;
+    }
     long characters = countCharacters(dto.getMessageBody());
     if (characters > 0 && duration == 0) throw new IllegalArgumentException("拍发正文缺少有效采集区间");
     if (dto.getStandard() == null || (characters > 0 && dto.getStandard().isEmpty())) throw new IllegalArgumentException("点划基准记录不能为空");

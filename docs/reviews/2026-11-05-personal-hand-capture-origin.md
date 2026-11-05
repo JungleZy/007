@@ -1,0 +1,9 @@
+# 个人岗位手键首次翻页采集上界偏差
+
+本轮现场日志：trainId=58e9730f-c870-4c69-abdd-11f8c626dd09，第一页，attempt=0；maximumEndMs=186759，提交区间[4,187151]，超出392ms。不是1ms取整误差，也不是区间乱序。
+
+开始接口原先以LocalDateTime.now()写入startTime，saveAndFlush后直接用内存实体返回serverElapsedMs；后续上传通过新请求读取数据库startTime。仓库原始表定义为datetime(0)，采集迁移要求datetime(6)。若现场仍使用整秒精度，.608秒写库进位造成392ms原点偏移，与本次日志完全吻合。此次未直接查询现场information_schema，数据库精度属于由代码、快照和日志支持的诊断，不能声称已经完成现场schema核验。
+
+修复：首次开始时先以整秒规范计时原点，再flush/refresh读取持久化实体返回时间轴。兼容旧库精度且避免数据库进位；相对区间从返回serverElapsedMs开始计，实际时长仍为区间差，不增加有效采集时间。现有已开始训练不改写原点，已绑定旧时间轴的页面需在提交成功、无未保存内容后重新进入同步。没有扩大服务端时间上界。
+
+验证：CaptureOriginPrecisionTest复现旧逻辑392ms偏差及等待后成功，覆盖5种小数秒起点，新逻辑首次提交通过、上界+1ms仍拒绝；连同PostTelegramTrainScoreTest共9项通过。增加了PostTelegramTrainServiceTest开始到首次提交的集成回归并通过编译；Docker数据库集成尚未执行。需要后端加载新代码后对新训练做实际翻页验收。

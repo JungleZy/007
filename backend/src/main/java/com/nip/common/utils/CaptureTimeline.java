@@ -9,6 +9,11 @@ import java.util.List;
 public final class CaptureTimeline {
   private CaptureTimeline() {}
 
+  /** 兼容 datetime(0) 的旧库：计时原点先落在整秒上，避免写库四舍五入改变相对区间。 */
+  public static java.time.LocalDateTime persistedOrigin(java.time.LocalDateTime now) {
+    return now.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+  }
+
   public static long durationMillis(List<CaptureInterval> intervals, long maximumEndMs) {
     if (intervals == null || maximumEndMs < 0) {
       throw new IllegalArgumentException("采集时间轴缺失或训练尚未开始");

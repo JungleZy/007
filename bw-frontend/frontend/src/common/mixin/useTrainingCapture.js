@@ -44,7 +44,8 @@ export default function useTrainingCapture() {
   }
   const close = () => {
     if (opened === null) return
-    const endedMs = Math.ceil(metadata.value.serverElapsedMs + performance.now() - anchor)
+    // 服务端 Duration.toMillis() 向下取整，结束边界也必须向下取整，避免本机低延迟请求越界1ms。
+    const endedMs = Math.floor(metadata.value.serverElapsedMs + performance.now() - anchor)
     if (endedMs > opened) intervals.push({startedMs: opened, endedMs})
     opened = null
   }
@@ -57,7 +58,7 @@ export default function useTrainingCapture() {
     if (!metadata.value) throw new Error('尚未同步采集时间轴')
     return Object.freeze({
       startedMs: Math.max(0, Math.floor(metadata.value.serverElapsedMs + startedAt - anchor)),
-      endedMs: Math.max(0, Math.ceil(metadata.value.serverElapsedMs + receivedAt - anchor))
+      endedMs: Math.max(0, Math.floor(metadata.value.serverElapsedMs + receivedAt - anchor))
     })
   }
   const recordQueued = span => {
