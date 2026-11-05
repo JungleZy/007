@@ -13,6 +13,7 @@ pub mod attachd;
 pub mod browser;
 pub mod console;
 pub mod faults;
+mod hand_script;
 pub mod install;
 pub mod kernel;
 pub mod keying;

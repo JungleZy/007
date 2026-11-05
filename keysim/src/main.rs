@@ -33,6 +33,7 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
 通用选项
   --key hand|electron   键型（hand/electron 子命令已隐含）
   --text <报文>         组间空格分隔；也可用 --random <组数> 现生成
+                         手键可输入 ? 改错当前组、/ 改错前一组，符后填写重发报文
   --alphabet <名>       letter | short | long | mix（默认 letter）
   --rate <n>            手键 字符/分（默认 120），电子键 组/分（默认 30，等价 120 字/分）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
@@ -41,6 +42,8 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
   --style <名>          machine 机械等长（默认）| human 真人手感（±12% 信封，带疲劳-休息-恢复循环）
   --tail <名>           手键 turn|end|none；电子键 page|end|none
   --no-preamble         不发开始符（默认发）
+  --correct-current     自动插入当前组改错符并重发
+  --correct-previous    自动插入前一组改错符并重发前一组及当前组
   --force               明知开始符/成字过不了也发（乱拍对抗测试用）
   --fault <列表>        dupDown,missingUp,microPress,unknownByte（逗号分隔，整页随机分布）
   --sink <名>           frames（默认）| bytes | payload
@@ -81,7 +84,7 @@ impl Args {
             let value = inline.or_else(|| {
                 if matches!(
                     name.as_str(),
-                    "no-autostart" | "no-preamble" | "force" | "hold" | "help" | "json"
+                    "no-autostart" | "no-preamble" | "force" | "hold" | "help" | "json" | "correct-current" | "correct-previous"
                 ) {
                     None
                 } else {
@@ -135,6 +138,8 @@ fn params_of(args: &Args, key: &str) -> Result<Value, String> {
         "style": args.text("style").unwrap_or("machine"),
         "preamble": !args.has("no-preamble"),
         "force": args.has("force"),
+        "correctCurrent": args.has("correct-current"),
+        "correctPrevious": args.has("correct-previous"),
         "faults": args.text("fault").map(|list| list.split(',').filter(|item| !item.is_empty()).collect::<Vec<_>>()).unwrap_or_default()
     });
     if let Some(rate) = args.number("rate") {

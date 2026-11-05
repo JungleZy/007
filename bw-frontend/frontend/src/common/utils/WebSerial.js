@@ -87,15 +87,20 @@ export default class WebSerial {
 
   handleData(bytes, callback) {
     // The documented wire framing has a 2-byte down and 3-byte up frame.
-    // These frames carry no decoded device timestamp: timing is JS receipt only.
+    // 真实串口帧不携带时间戳。注入端可在保留原始字节的同时提供独立发送时刻，
+    // 以免页面忙碌时把点划长度误算成 JS 消息处理间隔。
     const receivedAt = performance.now()
+    const timing = this.port?.getFrameTiming?.(bytes)
+    const sourceTimed = Number.isFinite(timing?.at) && typeof timing?.timeSource === 'string'
+    const timestamp = sourceTimed ? timing.at : receivedAt
+    const timeSource = sourceTimed ? timing.timeSource : 'js-receive'
     this.pending.push(...bytes)
     let offset = 0
     while (offset < this.pending.length) {
       const code = this.pending[offset]
       if (CODES.includes(code)) {
         callback(Object.freeze({code: 'Message', data: Object.freeze({
-          t: 1, k: 0, d: Object.freeze([code]), receivedAt, timeSource: 'js-receive'
+          t: 1, k: 0, d: Object.freeze([code]), receivedAt, timeSource
         })}))
         offset++
         continue
@@ -109,7 +114,7 @@ export default class WebSerial {
       if (this.pending.length - offset < length) break
       PubSub.publishSync('receiveSendData', {type: 'pressed', data: code === 1})
       callback(Object.freeze({code: 'Message', data: Object.freeze({
-        t: 0, k: code === 1 ? 0 : 1, d: receivedAt, receivedAt, timeSource: 'js-receive'
+        t: 0, k: code === 1 ? 0 : 1, d: timestamp, receivedAt, timeSource
       })}))
       offset += length
     }

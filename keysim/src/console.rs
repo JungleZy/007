@@ -65,6 +65,8 @@ fn hand_options(params: &Value) -> Result<HandOptions, String> {
         low_rate: params["lowRate"].as_bool().unwrap_or(false),
         force: params["force"].as_bool().unwrap_or(false),
         style: text_of(params, "style", &defaults.style),
+        correct_current: params["correctCurrent"].as_bool().unwrap_or(false),
+        correct_previous: params["correctPrevious"].as_bool().unwrap_or(false),
     })
 }
 
@@ -195,11 +197,21 @@ impl Console {
                         "duration": timeline.duration(),
                         "events": timeline.events.len(),
                         "chars": timeline.body_chars().count(),
+                        "pageBreaks": timeline.chars.iter().filter(|item| item.value == "翻页").count() / 3,
+                        "corrections": {
+                            "current": timeline.chars.iter().filter(|item| item.value == "改错当前组").count(),
+                            "previous": timeline.chars.iter().filter(|item| item.value == "改错前一组").count()
+                        },
                         "plan": plan_json(&timeline),
                         "rate": (keying::measured_rate(&timeline, per_unit) * 100.0).round() / 100.0,
                         "rateUnit": if timeline.key == "hand" { "字/分" } else { "组/分" },
                         "captureWindow": (keying::capture_window(&timeline) * 1000.0).round() / 1000.0,
                         "marks": marks,
+                        "characters": timeline.chars.iter().map(|item| json!({
+                            "text": item.value, "group": item.group.map(|g| g + 1),
+                            "control": item.control, "start": item.started_at, "end": item.ended_at,
+                            "codes": item.codes
+                        })).collect::<Vec<_>>(),
                         "marksTruncated": timeline.events.len() > MARK_LIMIT,
                         "faults": injected
                             .iter()

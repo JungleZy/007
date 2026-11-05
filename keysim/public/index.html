@@ -316,6 +316,14 @@
     <span id="mProgress"></span>
     <span class="paddle" id="keyPaddle" title="电键手柄：正在拍的那一笔会压下"><i class="base"></i><i class="arm"></i></span>
   </div>
+  <div class="row" style="margin:8px 0;flex-wrap:wrap">
+    <label for="locateMode">定位波形</label>
+    <select id="locateMode"><option value="text">报文内容</option><option value="group">组号</option></select>
+    <input id="locateQuery" type="text" placeholder="输入报文，如 7025" style="width:160px" />
+    <button id="btnLocate">定位</button><button id="btnLocatePrev">上一个</button><button id="btnLocateNext">下一个</button>
+    <span id="locateNote" class="inline" role="status"></span>
+  </div>
+  <div id="locateChars" class="row" style="margin-bottom:8px;flex-wrap:wrap"></div>
 </div>
 
 <div class="stage">
@@ -345,6 +353,7 @@
       </div>
     </div>
     <p class="note" id="msgNote"></p>
+    <p class="note" id="handCorrectionHint">手键输入：? 改错当前组，/ 改错前一组；符后填写重发报文，如 ABCD ? EFGH。</p>
 
     <h2 style="margin-top:12px">拍发</h2>
     <div class="row">
@@ -376,6 +385,7 @@
       <button id="btnSend" class="key go">开始拍发</button>
       <button id="btnStop" class="key halt">停止</button>
       <span class="inline" id="sendNote"></span>
+      <span class="inline" id="pageBreakNote"></span>
     </div>
     <span class="subhead">节拍与故障</span>
     <div class="row">
@@ -384,8 +394,7 @@
       <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
       <div class="field">
         <label for="tail">收尾</label>
-        <select id="tail" title="翻页符 / 句号都会提交本页；结束符是整训结束；只留静默则靠客户端 800ms 超时">
-          <option value="turn">手键翻页符</option>
+        <select id="tail" title="手键翻页只由编辑器中的句号触发">
           <option value="end">结束符</option>
           <option value="page">电子键句号</option>
           <option value="none">只留静默</option>
@@ -393,6 +402,13 @@
       </div>
       <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
     </div>
+    <p class="note">手键仅在手动输入的「。」或「.」处拍发翻页符，例如「…6023 。7025…」。后面有正文时自动接开始符；满100组和文本结尾都不自动翻页。</p>
+    <div class="row" id="handCorrections">
+      <label>自动改错</label>
+      <label class="field"><input type="checkbox" id="correctCurrent"/> 当前组改错并重发</label>
+      <label class="field"><input type="checkbox" id="correctPrevious"/> 前一组改错并重发</label>
+    </div>
+    <p class="note" id="correctionNote"></p>
     <div class="row" style="margin-top:6px">
       <label>故障</label>
       <label class="field"><input type="checkbox" class="fault" value="dupDown"/> 重复按下</label>
@@ -563,6 +579,8 @@ const params = () => ({
   preamble: $('preamble').checked,
   tail: $('tail').value,
   style: $('style').value,
+  correctCurrent: $('key').value === 'hand' && $('correctCurrent').checked,
+  correctPrevious: $('key').value === 'hand' && $('correctPrevious').checked,
   faults: faults(),
   speed: Number($('speed').value) || 1
 })
@@ -821,6 +839,69 @@ const drawTape = () => {
     pen.lineWidth = 1.5
     pen.beginPath(); pen.moveTo(x, top - 8); pen.lineTo(x, base + 4); pen.stroke()
   }
+  if (tape.selection) {
+    const left = xOf(tape.selection.start), right = xOf(tape.selection.end)
+    pen.fillStyle = 'rgba(64,133,210,.2)'
+    pen.fillRect(left, 18, Math.max(3, right-left), 45)
+    pen.strokeStyle = '#2867a1'
+    pen.strokeRect(left, 18, Math.max(3, right-left), 45)
+  }
+}
+
+let locatedGroups = [], locateMatches = [], locateIndex = 0, previewText = ''
+const indexCharacters = characters => {
+  const groups = []
+  for (const item of characters || []) {
+    const last = groups.at(-1)
+    if (!item.control && last && !last.control && last.group === item.group) {
+      last.text += item.text; last.end = item.end; last.characters.push(item)
+    } else groups.push({...item, characters: [item]})
+  }
+  return groups
+}
+const jumpToWave = item => {
+  if (tape.truncated && item.end > (tape.marks.at(-1)?.[0] ?? 0)) {
+    setNote('locateNote', '该位置超出波形预览上限，请缩短报文后定位'); return
+  }
+  tape.selection = item
+  tape.follow = false
+  tape.track.style.width = tapeWidth() + 'px'
+  tape.view.scrollLeft = Math.max(0, 10 + item.start * tape.pxPerMs - tape.view.clientWidth / 4)
+  syncFollowButton(); drawTape()
+}
+const showLocated = () => {
+  const item = locateMatches[locateIndex]
+  if (!item) return
+  jumpToWave(item)
+  setNote('locateNote', `${locateIndex + 1}/${locateMatches.length} · ${item.control ? item.text : '第' + item.group + '组 ' + item.text} · ${(item.start/1000).toFixed(3)}s`)
+  $('locateChars').replaceChildren()
+  for (const [index, character] of item.characters.entries()) {
+    const button = document.createElement('button')
+    const code = (character.codes || []).map(value => value === 1 ? '−' : '·').join('')
+    button.textContent = `${character.text} ${code}`
+    button.title = `第${index + 1}字，${character.start.toFixed(1)}—${character.end.toFixed(1)}ms`
+    button.onclick = () => {
+      jumpToWave(character)
+      setNote('locateNote', `第${item.group || '—'}组 · 第${index + 1}字 ${character.text} ${code} · ${character.start.toFixed(1)}—${character.end.toFixed(1)}ms`)
+    }
+    $('locateChars').appendChild(button)
+  }
+}
+const locateWave = () => {
+  if (previewText !== $('message').value.trim()) { setNote('locateNote', '报文正在重新生成，请稍后定位'); return }
+  const query = $('locateQuery').value.trim()
+  locateMatches = locatedGroups.filter(item => $('locateMode').value === 'group'
+    ? /^\d+$/.test(query) && !item.control && item.group === Number(query)
+    : query && item.text.includes(query))
+  locateIndex = 0
+  if (!locateMatches.length) { $('locateChars').replaceChildren(); tape.selection = null; drawTape(); setNote('locateNote', '未找到对应报文或组号'); return }
+  showLocated()
+}
+$('btnLocate').addEventListener('click', locateWave)
+$('locateQuery').addEventListener('keydown', event => { if(event.key === 'Enter') locateWave() })
+$('locateMode').addEventListener('change', () => { $('locateQuery').placeholder = $('locateMode').value === 'group' ? '输入组号，从1开始' : '输入报文，如 7025' })
+for (const [id, direction] of [['btnLocatePrev', -1], ['btnLocateNext', 1]]) {
+  $(id).addEventListener('click', () => {if(!locateMatches.length) return;locateIndex = (locateIndex + direction + locateMatches.length) % locateMatches.length;showLocated()})
 }
 
 /// 脱离跟随时把「回到播放头」露出来；跟随中或没在拍发就收起。
@@ -902,6 +983,8 @@ const clearTape = note => {
   // follow 一并复位：纸带清空后「回到播放头」按钮不该还挂着
   tape.marks = []; tape.duration = 0; tape.playhead = null; tape.truncated = false; tape.follow = true
   tape.spans = []; tape.ticks = null
+  tape.selection = null; locatedGroups = []; locateMatches = []; previewText = ''
+  $('locateChars').replaceChildren(); setNote('locateNote', '')
   tape.track.style.width = '1px'
   syncFollowButton()
   drawTape()
@@ -910,21 +993,32 @@ const clearTape = note => {
 }
 
 let previewTimer = null
+let previewGeneration = 0
 const previewSoon = () => {
+  previewGeneration++
+  previewText = ''
+  tape.selection = null; locateMatches = []; $('locateChars').replaceChildren(); setNote('locateNote', '')
   clearTimeout(previewTimer)
   previewTimer = setTimeout(runPreview, 260)
 }
 const runPreview = async () => {
+  const generation = ++previewGeneration
   const text = $('message').value.trim()
-  if (!text) { clearTape(''); setNote('msgNote', '输入或随机生成一页报文'); setDisabled('btnSend', true, '报文为空'); return }
+  if (!text) { clearTape(''); setNote('pageBreakNote', ''); setNote('correctionNote', ''); setNote('msgNote', '输入或随机生成一页报文'); setDisabled('btnSend', true, '报文为空'); return }
   const result = await api('/api/preview', params())
+  if (generation !== previewGeneration) return
   if (!result.ok) {
     clearTape('')
+    setNote('pageBreakNote', '')
+    setNote('correctionNote', '')
     setNote('msgNote', result.error, 'warn')
     setDisabled('btnSend', true, result.error)
     return
   }
   tape.marks = Array.isArray(result.marks) ? result.marks : []
+  previewText = text
+  locatedGroups = indexCharacters(result.characters)
+  tape.selection = null; locateMatches = []; $('locateChars').replaceChildren()
   tape.duration = Number(result.duration) || 0
   tape.key = $('key').value
   tape.truncated = result.marksTruncated === true
@@ -944,6 +1038,12 @@ const runPreview = async () => {
   setText('mPlan', plan.dot ? [plan.dot, plan.dash, plan.gap].map(ms).join(' / ') : (plan.perChar ? ms(plan.perChar) + '/字' : '--'))
   setText('mGap', plan.word ? ms(plan.word) + ' / ' + ms(plan.group) : '--')
   setNote('msgNote', '')
+  setNote('pageBreakNote', $('key').value === 'hand' ? '分页符 ' + (result.pageBreaks || 0) + ' 次' : '')
+  const corrections = result.corrections || {}
+  const correctionCount = Number(corrections.current || 0) + Number(corrections.previous || 0)
+  setNote('correctionNote', correctionCount
+    ? ('当前组改错 ×' + (corrections.current || 0) + ' · 前一组改错 ×' + (corrections.previous || 0))
+    : ($('key').value === 'hand' && $('correctPrevious').checked ? '本段没有可回退的前一组' : ''))
   // 故障注入：勾了却 0 次也要看得见（例如电子键没有按下/抬起）
   const injected = Array.isArray(result.faults) ? result.faults : []
   setNote('faultNote', injected.length
@@ -1097,8 +1197,11 @@ $('key').onchange = () => {
   const hand = $('key').value === 'hand'
   setText('rateUnit', hand ? '字符/分' : '组/分')
   $('rate').value = hand ? 120 : 30
-  $('tail').value = hand ? 'turn' : 'page'
-  log('键型切到' + (hand ? '手键：120 字符/分，收尾用翻页符' : '电子键：30 组/分，收尾用句号'), 'info')
+  $('tail').value = hand ? 'none' : 'page'
+  setShown('handCorrections', hand)
+  setShown('handCorrectionHint', hand)
+  setNote('correctionNote', '')
+  log('键型切到' + (hand ? '手键：120 字符/分，手动输入句号翻页' : '电子键：30 组/分，收尾用句号'), 'info')
   previewSoon()
 }
 // 显式改参数记一行；打字不记，否则一行一条刷屏
@@ -1113,7 +1216,7 @@ for (const [id, name] of Object.entries(labels)) {
 for (const box of document.querySelectorAll('.fault')) {
   box.addEventListener('change', () => log('故障注入 ' + box.parentElement.textContent.trim() + (box.checked ? ' 已开' : ' 已关'), box.checked ? 'warn' : 'info'))
 }
-for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble']) {
+for (const id of ['message', 'alphabet', 'rate', 'style', 'jitter', 'seed', 'skew', 'tail', 'preamble', 'correctCurrent', 'correctPrevious']) {
   const node = $(id)
   if (!node) continue
   // textarea 与文本/数字 input 都要听 input：只听 change 的话失焦才刷新，边打字纸带不动

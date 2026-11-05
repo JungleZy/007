@@ -11,6 +11,7 @@
 //! 所以整页只有最后一个字可能付这 800ms。
 
 use crate::morse::{self, Ratio, Timing};
+use crate::hand_script::{self, Correction, Step};
 use crate::timeline::{check_hand_plan, Builder, Slot, Style, Timeline};
 
 /// 页尾单笔字的提交超时，取值同 handKeyTrain.js:39 的 pauseDuration
@@ -26,13 +27,15 @@ pub struct HandOptions {
     pub jitter: f64,
     pub seed: u32,
     pub preamble: bool,
-    /// "turn" 翻页符 | "end" 结束符 | "none"
+    /// "end" 结束符 | "none"；翻页仅由正文中的句号触发。
     pub tail: String,
     pub low_rate: bool,
     /// "machine" 机械等长 | "human" 真人手感 | "fatigue" 疲劳模式
     pub style: String,
     /// 对抗测试：明知开始符/成字过不了也要发（乱拍场景用；正常拍发不要开）
     pub force: bool,
+    pub correct_current: bool,
+    pub correct_previous: bool,
 }
 
 impl Default for HandOptions {
@@ -46,10 +49,12 @@ impl Default for HandOptions {
             jitter: 0.0,
             seed: 1,
             preamble: true,
-            tail: "turn".into(),
+            tail: "none".into(),
             force: false,
             low_rate: false,
             style: "machine".into(),
+            correct_current: false,
+            correct_previous: false,
         }
     }
 }
@@ -175,7 +180,7 @@ where
 {
     let mut factor = 1.0;
     let mut timeline = build(factor)?;
-    for _ in 0..8 {
+    for _ in 0..16 {
         let actual = measured_rate(&timeline, characters_per_unit);
         if actual <= 0.0 {
             return Ok(timeline);
@@ -183,7 +188,8 @@ where
         if (actual / target - 1.0).abs() < 0.001 {
             return Ok(timeline);
         }
-        factor *= actual / target;
+        // 疲劳节拍存在离散切换；减小修正幅度，避免多页控制符加入后在两种节拍之间振荡。
+        factor *= (actual / target).sqrt();
         timeline = build(factor)?;
     }
     Ok(timeline)
@@ -196,7 +202,7 @@ pub fn hand_plan(options: &HandOptions) -> Result<Timing, String> {
     Ok(plan)
 }
 
-/// 手键时间轴：开始符校准 + 正文 + 收尾符 + 末字静默。
+/// 手键时间轴：开始符校准 + 显式句号页界的正文 + 可选结束符 + 末字静默。
 /// 节拍按实测码率口径反算（wpm 单位除外，那是节拍约定而不是实测口径）。
 pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
     let nominal = hand_plan(options)?;
@@ -212,49 +218,56 @@ pub fn hand_timeline(options: &HandOptions) -> Result<Timeline, String> {
 }
 
 fn build_hand_timeline(options: &HandOptions, plan: Timing) -> Result<Timeline, String> {
-    let groups = validate(&options.text, &options.alphabet)?;
+    let program = hand_script::add_automatic(hand_script::parse(&options.text, &options.alphabet)?,
+        options.correct_current, options.correct_previous, options.seed);
     let (style, envelope) = resolve_style(&options.style, options.jitter)?;
     let mut builder = Builder::styled("hand", plan, envelope, options.seed, style);
     let mut leading_gap: Option<f64> = None;
+    let mut pending_gap = None;
 
     if options.preamble {
         emit_hand_char(&mut builder, "开始", morse::CONTROL_START, None, true, &mut leading_gap);
         // 开始符校验在第 5 次抬起即触发，但正文首字仍要一个组间隔把它与开始符分开
-        leading_gap = Some(builder.wait_slot(Slot::Group));
+        pending_gap = Some(Slot::Group);
     }
 
-    let group_count = groups.len();
-    for (group_index, group) in groups.iter().enumerate() {
-        let characters: Vec<char> = group.chars().collect();
-        for (char_index, character) in characters.iter().enumerate() {
-            let elements = morse::elements_of(&options.alphabet, *character)?;
-            emit_hand_char(
-                &mut builder,
-                &character.to_string(),
-                elements,
-                Some(group_index),
-                false,
-                &mut leading_gap,
-            );
-            if char_index + 1 < characters.len() {
-                leading_gap = Some(builder.wait_slot(Slot::Word));
-            }
+    let step_count = program.steps.len();
+    for (step_index, step) in program.steps.into_iter().enumerate() {
+        if let Some(slot) = pending_gap.take() {
+            leading_gap = Some(builder.wait_slot(slot));
         }
-        if group_index + 1 < group_count {
-            leading_gap = Some(builder.wait_slot(Slot::Group));
+        match step {
+            Step::Text { text, group, end_group } => {
+                let characters: Vec<char> = text.chars().collect();
+                for (index, character) in characters.iter().enumerate() {
+                    emit_hand_char(&mut builder, &character.to_string(),
+                        morse::elements_of(&options.alphabet, *character)?, Some(group), false, &mut leading_gap);
+                    if index + 1 < characters.len() {
+                        leading_gap = Some(builder.wait_slot(Slot::Word));
+                    }
+                }
+                pending_gap = Some(if end_group { Slot::Group } else { Slot::Word });
+            }
+            Step::Correct { kind, group } => {
+                let (name, code) = match kind {
+                    Correction::Current => ("改错当前组", morse::CONTROL_ALTER),
+                    Correction::Previous => ("改错前一组", morse::CONTROL_NEXT),
+                };
+                emit_hand_char(&mut builder, name, code, Some(group), true, &mut leading_gap);
+                pending_gap = Some(Slot::Group);
+            }
+            Step::Page => {
+                emit_hand_turn(&mut builder, &mut leading_gap);
+                if step_index + 1 < step_count {
+                    leading_gap = Some(builder.wait_slot(Slot::Group));
+                    emit_hand_char(&mut builder, "开始", morse::CONTROL_START, None, true, &mut leading_gap);
+                }
+                pending_gap = Some(Slot::Group);
+            }
         }
     }
 
     match options.tail.as_str() {
-        "turn" => {
-            leading_gap = Some(builder.wait(plan.group));
-            for (index, elements) in morse::CONTROL_TURN.iter().enumerate() {
-                emit_hand_char(&mut builder, "翻页", elements, None, true, &mut leading_gap);
-                if index + 1 < morse::CONTROL_TURN.len() {
-                    leading_gap = Some(builder.wait_slot(Slot::Group));
-                }
-            }
-        }
         "end" => {
             leading_gap = Some(builder.wait_slot(Slot::Group));
             emit_hand_char(&mut builder, "结束", morse::CONTROL_END, None, true, &mut leading_gap);
@@ -264,7 +277,16 @@ fn build_hand_timeline(options: &HandOptions, plan: Timing) -> Result<Timeline, 
 
     // 末字要靠客户端的静默定时器（handKeyTrain.js:309-324）编译，实时回放必须留足这段静默
     builder.wait_exact(plan.group);
-    Ok(builder.build(&options.alphabet, groups))
+    Ok(builder.build(&options.alphabet, program.groups))
+}
+
+fn emit_hand_turn(builder: &mut Builder, leading_gap: &mut Option<f64>) {
+    for (index, elements) in morse::CONTROL_TURN.iter().enumerate() {
+        emit_hand_char(builder, "翻页", elements, None, true, leading_gap);
+        if index + 1 < morse::CONTROL_TURN.len() {
+            *leading_gap = Some(builder.wait_slot(Slot::Group));
+        }
+    }
 }
 
 fn emit_hand_char(
@@ -398,6 +420,24 @@ fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timel
     let mut target = builder.cursor();
     let group_count = groups.len();
     for (group_index, group) in groups.iter().enumerate() {
+        if group_index > 0 && group_index % hand_script::GROUPS_PER_PAGE == 0 {
+            if mode != Some(morse::FN_F1) {
+                press(&mut builder, morse::FN_F1);
+                mode = Some(morse::FN_F1);
+            }
+            // 句号提交上一页；给客户端翻页留出间隔，再从开始符进入下一页。
+            press(&mut builder, morse::FN_PERIOD);
+            builder.wait_exact(PAUSE_DURATION);
+            if options.preamble {
+                let started_at = builder.cursor();
+                press(&mut builder, morse::FN_START);
+                let mut item = builder.char_at("开始", started_at);
+                item.control = true;
+                item.keys = vec![morse::FN_START];
+                builder.push_char(item);
+            }
+            target = builder.cursor();
+        }
         for character in group.chars() {
             target += per_char;
             let started_at = builder.cursor();

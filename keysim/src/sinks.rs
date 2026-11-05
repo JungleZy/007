@@ -100,13 +100,14 @@ pub fn hand_upload_payload(
     off_size: i64,
 ) -> Value {
     let mut groups: Vec<(Vec<String>, Vec<Vec<u8>>, Vec<Vec<f64>>, Vec<Value>)> = Vec::new();
-    for item in timeline.body_chars() {
+    for item in timeline.chars.iter().filter(|item| !item.control
+        || matches!(item.value.as_str(), "改错当前组" | "改错前一组")) {
         let index = item.group.unwrap_or(0);
         while groups.len() <= index {
             groups.push((Vec::new(), Vec::new(), Vec::new(), Vec::new()));
         }
         let slot = &mut groups[index];
-        slot.0.push(item.value.clone());
+        slot.0.push(if item.control { "?".into() } else { item.value.clone() });
         slot.1.push(item.codes.clone());
         slot.2.push(item.durations.iter().map(|value| round3(value * scale)).collect());
 

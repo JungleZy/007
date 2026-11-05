@@ -56,6 +56,63 @@ pub struct VirtualSerial {
 /// 桌面壳只认 /dev/ttyUSBn（nativeSerialPort.js:45），这是手动接入时用的名字
 pub const SYSTEM_LINK: &str = "/dev/ttyUSB0";
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::{TcpListener, TcpStream};
+    use crate::timeline::{Event, Kind};
+
+    #[test]
+    fn delayed_replay_preserves_edge_spacing_and_sends_timing_with_each_byte_frame() {
+        let delayed = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&delayed);
+        let serial = VirtualSerial::new(Vec::new(), Arc::new(move |event| {
+            if event["type"] == "progress" && !flag.swap(true, Ordering::SeqCst) {
+                thread::sleep(Duration::from_millis(180));
+            }
+        }));
+        *serial.opened.lock() = true;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut reader = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        reader.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        serial.attach_inject(listener.accept().unwrap().0);
+        let mut timeline = keying::hand_timeline(&keying::HandOptions {
+            text: "0".into(), alphabet: "short".into(), preamble: false, tail: "none".into(),
+            ..Default::default()
+        }).unwrap();
+        timeline.chars.clear();
+        timeline.groups.clear();
+        timeline.events = (0..6).map(|index| Event {
+            at: index as f64 * 80.0, kind: if index % 2 == 0 { Kind::Down } else { Kind::Up }, fault: None
+        }).collect();
+        serial.send(&timeline, 1.0, "timing-test").unwrap();
+        let mut parser = crate::ws::Parser::default();
+        let mut messages = Vec::new();
+        let mut bytes = [0; 4096];
+        while messages.len() < 12 {
+            let size = reader.read(&mut bytes).unwrap();
+            assert!(size > 0);
+            messages.extend(parser.push(&bytes[..size]));
+        }
+        let mut times = Vec::new();
+        let mut clock = None;
+        for (index, pair) in messages.chunks_exact(2).enumerate() {
+            assert_eq!(pair[0].opcode, crate::ws::OP_TEXT);
+            let timing: Value = serde_json::from_slice(&pair[0].payload).unwrap();
+            assert_eq!(timing["type"], "serial-timing");
+            if let Some(expected) = &clock { assert_eq!(&timing["clock"], expected); }
+            else { clock = Some(timing["clock"].clone()); }
+            times.push(timing["at"].as_f64().unwrap());
+            assert_eq!(pair[1].opcode, crate::ws::OP_BINARY);
+            assert_eq!(pair[1].payload, if index % 2 == 0 { sinks::DOWN.to_vec() } else { sinks::UP.to_vec() });
+        }
+        assert!(delayed.load(Ordering::SeqCst));
+        assert!(times.windows(2).all(|pair| pair[1] - pair[0] >= 79.0), "late delivery must not squeeze later edges: {times:?}");
+        serial.stop();
+    }
+}
+
 impl VirtualSerial {
     pub fn new(device_links: Vec<PathBuf>, sink: Sink) -> Arc<Self> {
         #[cfg(not(unix))]
@@ -402,22 +459,26 @@ impl VirtualSerial {
             chunks.into_iter().map(|chunk| (chunk.at, chunk.bytes)).collect();
         thread::spawn(move || {
             let started = Instant::now();
+            let clock_id = format!("keysim-{}", std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos());
             let mut last_report = Instant::now();
             let mut index = 0usize;
             let mut next_milestone = 0usize;
+            let mut actual_origin = None;
+            let mut last_sent_at = 0.0;
             // 通道写失败只报一次，避免一页刷几千条
             let mut kernel_failed = false;
             #[cfg(unix)]
             let mut device_failed = false;
             let total = items.len();
+            let mut next_due = items[0].0 / speed;
             while index < total {
                 if cancel.load(Ordering::SeqCst) {
                     break;
                 }
                 let elapsed = started.elapsed().as_secs_f64() * 1000.0;
-                let due = items[index].0 / speed;
-                if due > elapsed + 1.0 {
-                    thread::sleep(Duration::from_micros(((due - elapsed) * 1000.0).min(50_000.0) as u64));
+                if next_due > elapsed {
+                    thread::sleep(Duration::from_micros(((next_due - elapsed) * 1000.0).min(50_000.0) as u64));
                     continue;
                 }
                 let (at, bytes) = &items[index];
@@ -438,8 +499,16 @@ impl VirtualSerial {
                         }
                     }
                 }
+                let sent_at = started.elapsed().as_secs_f64() * 1000.0;
+                if *at >= origin && actual_origin.is_none() { actual_origin = Some(sent_at); }
+                last_sent_at = sent_at;
                 {
-                    let frame = crate::ws::encode(crate::ws::OP_BINARY, bytes);
+                    // 浏览器处理消息可能延迟；在字节前附实际发送端时刻，不能用计划时刻伪装实际发送。
+                    // 旧注入器忽略文本帧，真实串口仍使用原始字节协议。
+                    let timing = json!({"type": "serial-timing", "at": sent_at,
+                        "clock": clock_id}).to_string();
+                    let mut frame = crate::ws::encode(crate::ws::OP_TEXT, timing.as_bytes());
+                    frame.extend(crate::ws::encode(crate::ws::OP_BINARY, bytes));
                     let mut clients = manager.inject.lock();
                     let before = clients.len();
                     clients.retain_mut(|client| std::io::Write::write_all(client, &frame).is_ok());
@@ -459,8 +528,8 @@ impl VirtualSerial {
                 }
                 // 走过一组就报一行：组号、这组的报文、到此为止的实测码率
                 while next_milestone < milestones.len() && *at >= milestones[next_milestone].0 {
-                    let (mark_at, number, group, chars_done) = &milestones[next_milestone];
-                    let window = (mark_at - origin).max(1.0);
+                    let (_, number, group, chars_done) = &milestones[next_milestone];
+                    let window = (sent_at - actual_origin.unwrap_or(sent_at)).max(1.0);
                     let rate = *chars_done as f64 * 60000.0 / (window * per_unit);
                     manager.log(
                         "info",
@@ -472,6 +541,11 @@ impl VirtualSerial {
                         ),
                     );
                     next_milestone += 1;
+                }
+                if index < total {
+                    // 延迟不能靠突发补发追回，否则点划/字间隔会被挤成零。
+                    next_due = started.elapsed().as_secs_f64() * 1000.0
+                        + (items[index].0 - *at).max(0.0) / speed;
                 }
             }
             let aborted = index < total;
@@ -491,7 +565,7 @@ impl VirtualSerial {
                 (manager.sink)(json!({"type": "progress", "sent": index, "total": total, "at": ended_at, "speed": speed}));
             } else {
                 let sent_chars = milestones.last().map(|item| item.3).unwrap_or(0);
-                let window = (items.last().map(|item| item.0).unwrap_or(0.0) - origin).max(1.0);
+                let window = (last_sent_at - actual_origin.unwrap_or(last_sent_at)).max(1.0);
                 let rate = sent_chars as f64 * 60000.0 / (window * per_unit);
                 manager.log(
                     "ok",

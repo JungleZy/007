@@ -18,7 +18,7 @@
     window.dispatchEvent(new Event('keysim-serial-ready'))
   }
 
-  if (window.__keysimSerial) {
+  if (window.__keysimSerial?.version === 2) {
     console.info('[keysim] 虚拟串口已注入，重连中')
     window.__keysimSerial.reconnect()
     notifyReady()
@@ -26,10 +26,12 @@
   }
 
   // 保留原生接口，页面可以随时从模拟器切回真实设备。
-  const nativeSerial = navigator.serial
+  const nativeSerial = window.__keysimSerial?.nativeSerial || navigator.serial
+  window.__keysimSerial?.detach()
   let controller = null
   let stream = null
   const pending = []
+  const timings = new WeakMap()
   let opened = false
 
   const port = {
@@ -44,6 +46,7 @@
     get readable() { return stream },
     writable: null,
     getInfo: () => ({usbVendorId: 0x4b53, usbProductId: 0x494d}),
+    getFrameTiming: bytes => timings.get(bytes),
     addEventListener() {}, removeEventListener() {}
   }
 
@@ -80,18 +83,31 @@
   let socket = null
   let closed = false
   let reconnectTimer = null
+  let timing = null
   const connect = () => {
     if (closed || (socket && socket.readyState <= WebSocket.OPEN)) return
     socket = new WebSocket(wsUrl)
     socket.binaryType = 'arraybuffer'
     socket.onopen = () => console.info('[keysim] 虚拟串口已连上', wsUrl)
     socket.onmessage = event => {
-      if (typeof event.data === 'string') return
+      if (typeof event.data === 'string') {
+        timing = null
+        try {
+          const data = JSON.parse(event.data)
+          if (data.type === 'serial-timing' && Number.isFinite(data.at) && data.at >= 0 && typeof data.clock === 'string') {
+            timing = Object.freeze({at: data.at, timeSource: data.clock})
+          }
+        } catch {}
+        return
+      }
       const bytes = new Uint8Array(event.data)
+      if (timing) timings.set(bytes, timing)
+      timing = null
       if (controller) controller.enqueue(bytes)
       else if (!opened) pending.push(bytes)
     }
     socket.onclose = () => {
+      timing = null
       if (closed) return
       console.warn('[keysim] 虚拟串口断开，2s 后重连')
       reconnectTimer = setTimeout(connect, 2000)
@@ -101,6 +117,7 @@
   connect()
 
   window.__keysimSerial = {
+    version: 2,
     port,
     serial,
     nativeSerial,
