@@ -242,9 +242,11 @@ class GeneralCaptureContractTest {
 
     JsonNode before = ok(page(room, 2, alice, alice)).path("data");
     assertTrue(before.path("submitted").asBoolean());
-    assertEquals(mapper.valueToTree(List.of(interval(5000, 8000))), before.path("savedCaptureIntervals"));
+    // Compare the JSON contract; valueToTree(Long) differs from parsed IntNode for the same wire value.
+    assertEquals(mapper.readTree("[{\"startedMs\":5000,\"endedMs\":8000}]"), before.path("savedCaptureIntervals"));
     assertEquals(reference, before.path("messageVO"), "An empty submitted page must still display its reference");
-    assertTrue(before.path("messageVO").get(0).path("value").isNull());
+    assertEquals("[]", before.path("messageVO").get(0).path("value").asText(),
+        "Reference groups retain the empty serialized key sequence, not fabricated answers");
 
     ok(post(room, "finish", alice, control(room, 0)));
     JsonNode after = ok(page(room, 2, alice, alice)).path("data");
