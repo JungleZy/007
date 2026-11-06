@@ -23,17 +23,19 @@ async function readSelectedPortName() {
 	}
 }
 
-// 先按用户选定的串口名精确匹配，未命中再退回任意 USB 串口。
+// 已保存的选择必须精确命中；不能在设备拔出后悄悄连接其他串口。
 function pickPort(portList, savedPortName) {
 	const devices = Array.isArray(portList) ? portList : [];
+	const sameName = (actual, expected) => typeof actual === 'string'
+		&& (actual === expected || (/^COM\d+$/i.test(actual) && actual.toUpperCase() === expected.toUpperCase()));
 	const matched = savedPortName
 		? devices.find((device) => device
-			&& (device.portName === savedPortName || device.displayName === savedPortName))
+			&& (sameName(device.portName, savedPortName) || sameName(device.displayName, savedPortName)))
 		: undefined;
-	if (matched) return matched;
-	return devices.find((device) => device
-		&& typeof device.portName === 'string'
-		&& device.portName.indexOf('USB') > -1);
+	if (savedPortName) return matched;
+	const usb = devices.filter(device => device && typeof device.portName === 'string'
+		&& (device.vendorId || device.usbVendorId || /USB/i.test(device.portName) || /USB|CH34[01]/i.test(device.displayName || '')));
+	return usb.length === 1 ? usb[0] : undefined;
 }
 
 async function onSelectSerialPort(event, portList, webContents, callback) {
@@ -43,7 +45,9 @@ async function onSelectSerialPort(event, portList, webContents, callback) {
 	if (!selectedPort) {
 		showSerialNotice('未找到可用串口', savedPortName
 			? `未找到已选串口「${savedPortName}」，请检查设备连接后在串口列表中重新选择。`
-			: '未检测到可用的 USB 串口设备，请连接设备后在串口列表中选择。');
+			: (Array.isArray(portList) && portList.length
+				? '请在串口列表中选择设备对应的端口；多个串口并存时不会自动猜选。'
+				: '未检测到可用的 USB 串口设备，请连接设备后在串口列表中选择。'));
 		// 传空串表示放弃本次选择；传 undefined 或设备对象都会让 Electron 端取值失败。
 		callback('');
 		return;

@@ -1,6 +1,6 @@
-const {exec, execFileSync} = require('child_process');
+const {exec, execFile, execFileSync} = require('child_process');
 const {readdirSync, realpathSync, statSync} = require('fs');
-const {posix} = require('path');
+const {posix, join} = require('path');
 const {platform} = process;
 
 class NativeSerialPort {
@@ -22,17 +22,20 @@ class NativeSerialPort {
 	// Windows 实现
 	static _listWindowsPorts() {
 		return new Promise((resolve, reject) => {
-			exec('powershell -command "Get-PnpDevice -Class Ports | Where-Object {$_.FriendlyName -like \'*COM*\'} | Select-Object FriendlyName"', (error, stdout) => {
-				if (error) return reject(new Error('未检测到串口设备（尝试以管理员运行）'));
-      
-        const ports = stdout
-					.toString()
-					.split('\n')
-					.filter(line => line.trim().startsWith('通信端口') || line.includes('COM'))
-					.map(line => (/COM\d+/).exec(line)?.[0])
-					.filter(Boolean);
-				resolve(ports);
-			});
+            // SERIALCOMM contains currently registered ports, including CH340, onboard and Bluetooth.
+            // Avoid an unbounded Win32_PnPEntity query on old Win7 WMI providers.
+            const registry = join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'reg.exe');
+            execFile(registry, ['query', 'HKLM\\HARDWARE\\DEVICEMAP\\SERIALCOMM'],
+                {windowsHide: true, timeout: 8000, maxBuffer: 1024 * 1024}, (error, stdout) => {
+                    const ports = [...new Set(String(stdout || '').split(/\r?\n/)
+                        .map(line => /\bREG_SZ\s+(COM\d+)\s*$/i.exec(line)?.[1].toUpperCase())
+                        .filter(Boolean))].sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)));
+                    if (error && (error.killed || error.code !== 1)) {
+                        return reject(new Error(error.killed ? '读取串口列表超时，请刷新重试' : '读取系统串口列表失败，请提供串口诊断报告'));
+                    }
+                    // reg query exits 1 when no SERIALCOMM key exists (no registered serial devices).
+                    resolve(ports);
+                });
 		});
 	}
 
