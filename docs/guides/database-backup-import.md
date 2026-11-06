@@ -4,7 +4,7 @@
 
 ## 部署
 
-1. Windows x64 客户端工具已经放入项目文件服务目录 `bw-frontend/bin/file/tools/mysql/windows-x64/`，包含 MySQL 8.0.46 的 `mysqldump.exe`、`mysql.exe`、两个 OpenSSL DLL、原始许可说明和 SHA-256 清单。现有 `extraFiles: ["./bin"]` 会将此目录复制到安装目录；Windows 打包前自动校验清单，缺失或被修改时中止打包。工具运行需要 Windows 的 Visual C++ 2015–2022 x64 运行库（当前机器已具备）；尚未在纯净 Windows 系统上验收。
+1. Windows x64、Linux x64 和 Linux ARM64 客户端工具已经放入项目文件服务目录 `bw-frontend/bin/file/tools/mysql/`。版本固定为 MySQL 8.0.46，包含备份/导入客户端、必要的 OpenSSL/终端库、许可说明和 SHA-256 清单。`extraFiles` 排除整个工具库，`afterPack` 只复制当前打包目标对应的一套；打包前后均校验清单。Windows 仍需 Visual C++ 2015–2022 x64 运行库，Linux 使用目标系统的 glibc、libstdc++ 与 libgcc；ARM64 尚未实机运行验收。
 2. Electron 启动本机后端时按操作系统和 CPU 架构注入工具路径。直接在仓库根目录、`backend/` 或 `bw-frontend/` 启动 Windows/Linux 后端时，也会自动查找对应架构的随附工具。显式环境配置优先；独立服务器可安装兼容的官方 MySQL 客户端，加入 PATH 或配置以下属性（Windows 路径可包含空格，不要额外加命令行引号）：
 
    ```properties
@@ -28,8 +28,9 @@
 | 系统/CPU | 目标目录 | 当前二进制交付状态 |
 | --- | --- | --- |
 | Windows x86_64 | `windows-x64` | 已随项目提供，已验证实际导出 |
-| Linux x86_64（海光、兆芯等） | `linux-x64` | 待提供目标发行版兼容工具包 |
-| Linux ARM64（飞腾、鲲鹏等） | `linux-arm64` | 待提供目标发行版兼容工具包 |
+| Windows x86 32位 | `windows-ia32` | 已提供 MySQL5.7.44 Win32 工具，32位服务链与备份恢复往返通过；见32位整合部署指南 |
+| Linux x86_64（海光、兆芯等） | `linux-x64` | 官方包已预置，glibc ≥ 2.17；Ubuntu 24.04 WSL 启动验证通过，国产系统待实测 |
+| Linux ARM64（飞腾、鲲鹏等） | `linux-arm64` | 官方包已预置，glibc ≥ 2.28；静态校验通过，实机待测 |
 | Linux LoongArch64（新款龙芯） | `linux-loong64` | 待提供目标发行版兼容工具包 |
 | Linux MIPS64 小端（部分旧款龙芯） | `linux-mips64el` | 待提供目标发行版兼容工具包 |
 | Linux SW64（申威） | `linux-sw64` | 待提供目标发行版兼容工具包 |
@@ -63,6 +64,8 @@ Linux `runtime.json` 必须如实填写兼容要求；下面仅说明字段格�
 }
 ```
 
+预下载时 `testedOn` 允许为空数组，明确表示尚无运行验收，不能填入没有验证过的系统。文件校验通过仅代表工具库可按架构组装进安装包。
+
 在 `bw-frontend/` 执行，例如：
 
 ```sh
@@ -77,6 +80,24 @@ node scripts/bundle-mysql-tools.cjs /path/to/prepared-mysql linux-loong64
 Windows 和 Linux 打包均按 **electron-builder 的目标架构**检查工具包，缺少对应目标、二进制架构不符、文件被修改或依赖清单不符都会中止打包，不会拿构建机的 x64 工具替代 ARM64 等目标。
 
 完整桌面交付还有独立前提：当前 Electron 30 / electron-builder 22.14.13 的常规构建流程可识别 x64、ARM64，但没有官方覆盖本表所有国产架构。LoongArch、MIPS、SW64、RISC-V 的桌面包还需要相应的 Electron/Node 发行版和打包工具链；后端 native 二进制也要匹配目标架构，或使用该架构 JDK 21 运行 JVM 后端。这里新增的工具选择与 ELF 校验不能代替这些工作。
+
+## 一次预下载，打包时自动选择
+
+在 `bw-frontend/` 下执行：
+
+```sh
+npm run prepare:mysql                 # 准备所有已有核验下载源的平台，现有包只做校验
+npm run check:mysql                   # 列出已就绪及缺失的平台、glibc 条件与执行验证状态
+npm run build-e-w -- --x64            # 只把 windows-x64 工具放入 Windows 安装包
+npm run build-e-l -- --x64            # 只把 linux-x64 工具放入 Linux x64 安装包
+npm run build-e-l -- --arm64          # 只把 linux-arm64 工具放入 Linux ARM64 安装包
+```
+
+来源锁定在 `bw-frontend/scripts/mysql-tool-sources.json`。MySQL 官方 CDN 提供 x64 glibc2.17 minimal 和 ARM64 glibc2.28 原始包；本轮通过 HTTPS 下载并核对官方 `.md5`，再将本地计算的 SHA-256 固定入清单供后续校验。终端库来自 Debian 官方归档，并固定下载文件 SHA-256、随附 copyright。原始下载缓存默认位于 `bw-frontend/.cache/mysql-tools/`（不入库），可通过 `NIP_MYSQL_CACHE_DIR` 改位置；需要系统提供 `curl`、支持 xz 的 `tar` 和 Node.js。打包只消费预置工具库，不会临时联网下载。
+
+Linux x64 随包包括 `libncurses.so.5` / `libtinfo.so.5`；ARM64 包括 `.so.6` 版本。它们与 OpenSSL 库一起放在各自的 `lib/`，不会安装或替换操作系统全局库。
+
+运行 `node scripts/prepare-mysql-tools.cjs --all` 会尝试清单中的全部平台；四个尚无核验来源的平台会报告原因并返回非零退出码，已准备的平台仍保留。不能将“下载命令支持所有条目”当作“已获得所有国产架构的二进制文件”。后续取得可信供应商原生包后，可使用前述本地工具包导入命令补齐；打包时仍自动选择。
 
 ## 使用与恢复语义
 
@@ -111,4 +132,6 @@ Windows 和 Linux 打包均按 **electron-builder 的目标架构**检查工具�
 - 随包工具接入验证：`DatabaseTransferServiceTest` 共 5 个测试通过；`node --test electron/test/mysql-tools.test.cjs` 共 2 个测试通过，含安装目录迁移、显式配置优先、清单损坏拒绝及移动后两个工具实际启动。移除机器路径配置后，备份服务自动选择项目 `bin/file/tools/mysql/windows-x64/mysqldump.exe`，再次成功生成 404,992,784 字节完整 SQL，验证文件已删除。尚未生成和验收新的完整 Windows 安装包。
 - 多架构改造后的最终检查：`DatabaseTransferServiceTest` 共 6 个测试通过，`node --test electron/test/mysql-tools.test.cjs electron/test/mysql-bundle-targets.test.cjs` 共 5 个测试通过；覆盖六种 Linux 架构的定位/ELF 门禁、大小端拒绝、glibc 需求与清单检查。Linux 架构测试使用最小 ELF 头夹具，不能视为国产实机运行证据。直接调用打包钩子验证 x64 构建机打 ARM64 包时会检查 `linux-arm64` 并因缺包阻断。Linux 安装脚本 `bash -n` 通过，已固定 LF 换行。
 - WSL Ubuntu 24.04 x86_64 的真实 `mysql` / `mysqldump` 8.0.46 通过 ELF 架构校验及 `--version` 启动检查，最高引用 glibc 符号为 2.38。这些文件未作为国产系统通用工具包加入仓库。国产目标工具包、系统版本/ABI 兼容性及完整安装包实机验收仍待补齐。
+- 预下载工具库：改用 MySQL 官方 glibc2.17 x64 / glibc2.28 ARM64 发行包，两者 SHA-256 和官方 MD5 均已核对；只提取客户端、OpenSSL 依赖和许可，并补充 Debian 官方归档中的终端库。项目内 Linux x64 两个客户端已在 WSL Ubuntu 24.04 启动，`ldd` 确认全部依赖解析成功，OpenSSL/ncurses/tinfo 来自项目目录。ARM64 已完成静态校验，未实际执行。
+- `node --test electron/test/mysql-tools.test.cjs electron/test/mysql-bundle-targets.test.cjs electron/test/mysql-prefetch.test.cjs` 共 9 个测试通过，新增覆盖缓存摘要、Debian 二进制提取、Windows/x64/ARM64 分别只复制所选工具、缺失 SW64 明确失败。`npm run check:mysql` 报告 3 个已预置平台和 4 个缺失平台。只验证了打包钩子的工具分发，没有生成/安装完整桌面安装包。
 - 菜单改为前端本地定义后，已删除当前开发库中原先添加的 1 条菜单及 1 条角色菜单关联，核实残留为 0；移除了对应新增迁移脚本与快照插入语句。`node --test test/localMenus.test.mjs test/databaseBackup.test.mjs` 共 5 个测试通过，覆盖无数据库菜单、重复加载、旧缓存替换及普通用户隐藏入口。

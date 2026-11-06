@@ -24,6 +24,14 @@
 | 当前整改规格 / 计划 | [`specs/2026-09-15-full-project-fix-spec.md`](specs/2026-09-15-full-project-fix-spec.md) + [`plans/2026-09-15-full-project-fix-plan.md`](plans/2026-09-15-full-project-fix-plan.md) |
 | 历史核心训练专项复核 | [`reviews/2026-09-14-core-training-review.md`](reviews/2026-09-14-core-training-review.md) |
 | **发布与迁移执行** | [`guides/2026-09-12-release-runbook.md`](guides/2026-09-12-release-runbook.md)（持续更新至本轮） |
+| **桌面软件打包前必读：跨平台检查清单** | [`guides/desktop-packaging-checklist.md`](guides/desktop-packaging-checklist.md)（Git忽略设备资源补齐、HJ/版本、CH340与多COM、WebGL、deb目录及最终产物验收） |
+| HJ风格3.1.2与Win7 CH340驱动整合 | [`guides/2026-11-06-hj-desktop-release.md`](guides/2026-11-06-hj-desktop-release.md)（本轮清理、重建、驱动安装及验收记录） |
+| **Win7 HJ 3.1.3串口修复完整包** | [`guides/2026-11-06-win7-hj-3.1.3-release.md`](guides/2026-11-06-win7-hj-3.1.3-release.md)（合入现场确认有效的串口补丁，重新构建完整安装器） |
+| 桌面整合改动提交前验证 | [`reviews/2026-11-06-desktop-pre-push-verification.md`](reviews/2026-11-06-desktop-pre-push-verification.md)（本轮源码验证、隔离Docker测试与提交范围） |
+| **Win7 相同环境打包：compat2（用户已确认Win7 64位安装使用成功）** | [`guides/win7-installer-system-dll.md`](guides/win7-installer-system-dll.md)（完整构建顺序、固定组件、System.dll规避和现场反馈） |
+| Windows ia32 整合运行与初始化 | [`guides/windows-ia32-install.md`](guides/windows-ia32-install.md) + [`guides/initial-business-data.md`](guides/initial-business-data.md) |
+| Win7 功能页 WebGL 不可用 | [`guides/win7-webgl.md`](guides/win7-webgl.md)（图形启动参数、SwiftShader兼容、现有安装补丁与验证范围） |
+| 银河麒麟V10桌面版ARM64整合包 | [`guides/kylin-v10-arm64-install.md`](guides/kylin-v10-arm64-install.md)（组件、交叉构建、系统依赖、安装步骤与验证边界） |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
 | 追溯09-12复核整改 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |
