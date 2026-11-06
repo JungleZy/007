@@ -34,12 +34,6 @@ ipcMain.handle("controller.system.getLocalIP", async () => {
 })
 
 ipcMain.handle("controller.system.closeApp", async (event) => {
-  if(context.httpService){
-    context.httpService.kill()
-  }
-  if (context.backendService){
-    context.backendService.kill()
-  }
   app.quit()
 })
 

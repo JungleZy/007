@@ -1,0 +1,32 @@
+{
+  "target": "linux-arm64",
+  "minimumGlibc": "2.28",
+  "electron": {
+    "version": "30.5.1",
+    "url": "https://github.com/electron/electron/releases/download/v30.5.1/electron-v30.5.1-linux-arm64.zip",
+    "sha256": "eb31470c0d7cd6e23e7ce0d89cc93a2356c9dac8bcc997e335353b8aa995afa0"
+  },
+  "java": {
+    "version": "21.0.12.1+1",
+    "url": "https://download.bell-sw.com/java/21.0.12.1+1/bellsoft-jre21.0.12.1+1-linux-aarch64.tar.gz",
+    "sha256": "cec2cc84eac4d8b4b7313f537ea2109eb88bd0fd91adf2dbe011614d3548ce24",
+    "vendorSha1": "d10a8f43814add863434060a4bb482a49a040a9b"
+  },
+  "mysql": {
+    "version": "8.0.46",
+    "url": "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.46-linux-glibc2.28-aarch64.tar.xz",
+    "sha256": "49cda0de886b021df1c2e3e382164ca3c61e93e7e5c4ee90849e13862e30dd7f"
+  },
+  "libraries": [
+    {
+      "url": "https://archive.debian.org/debian/pool/main/liba/libaio/libaio1_0.3.112-9_arm64.deb",
+      "sha256": "df38e10cfbfc98b7bf0a1738577ce3c92206f46a2e08a983102ce28d64463516",
+      "soname": "libaio.so.1"
+    },
+    {
+      "url": "https://archive.debian.org/debian/pool/main/n/numactl/libnuma1_2.0.12-1+b1_arm64.deb",
+      "sha256": "4eda519ae1f36f6376380fb2798ca0f50e104930845d8c51561ec455e98c57fc",
+      "soname": "libnuma.so.1"
+    }
+  ]
+}

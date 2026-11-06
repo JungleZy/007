@@ -15,10 +15,8 @@ const requiredWebFiles = ['index.html', 'processor.js', 'runtime-config.js'];
 const desktopRoot = path.join(repoRoot, 'bw-frontend');
 const desktopUnpacked = path.join(desktopRoot, 'out/linux-unpacked');
 const desktopManifest = 'desktop-linux-manifest.json';
-// 桌面包的可运行性依赖这四个文件：后端二进制（service/index.js 按
-// `<appPath>/bin/server/server` 启动）、asar 主体，以及 extraFiles 带入的
-// bin/config.json（缺失会让 loadConfig 走 catch，全部 ipc 处理器失效）与 bin/nip.db。
-const requiredDesktopFiles = ['bin/config.json', 'bin/nip.db', 'bin/server/server', 'resources/app.asar'];
+// 桌面包需包含 asar、默认配置及按目标平台准备的整合运行组件清单。
+const requiredDesktopFiles = ['bin/config.json', 'bin/nip.db', 'resources/app.asar'];
 const nativeTargets = {
   'linux-amd64': { platform: 'linux', architecture: 'x86_64', extension: '' },
   'linux-arm64': { platform: 'linux', architecture: 'arm64', extension: '' },
@@ -128,6 +126,7 @@ function verifyManifest(directory, options = {}) {
   }
   if (component === 'desktop') {
     for (const file of requiredDesktopFiles) assert(actual.some(entry => entry.path === file && entry.size > 0), `Missing desktop artifact: ${file}`);
+    assert(actual.some(entry => /^bin\/integrated\/[^/]+\/manifest\.json$/.test(entry.path)), 'Missing integrated database/backend/runtime manifest');
   }
   if (target) {
     const filename = `quarkus-${manifest.version}-${target}${nativeTargets[target].extension}`;

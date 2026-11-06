@@ -5,6 +5,7 @@ nip:
     mysql-path: ${NIP_DATABASE_MYSQL_PATH:}
     mysqldump-path: ${NIP_DATABASE_MYSQLDUMP_PATH:}
     ssl-mode: ${NIP_DATABASE_SSL_MODE:REQUIRED}
+    client-major: ${NIP_DATABASE_CLIENT_MAJOR:8}
   security:
     password:
       iterations: 600000

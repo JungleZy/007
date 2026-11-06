@@ -53,6 +53,18 @@ class DatabaseTransferServiceTest {
   }
 
   @Test
+  void mysql57BackupOmitsMysql8OnlyStatisticsOption() {
+    var config = new SmallRyeConfigBuilder()
+        .withDefaultValue("quarkus.datasource.username", "backup-user")
+        .withDefaultValue("nip.database.client-major", "5").build();
+    var command = new DatabaseTransferService(config).command(new DatabaseTransferService.Target("localhost", 6912, "project006"), true);
+    assertFalse(command.contains("--column-statistics=0"));
+    assertTrue(command.contains("--single-transaction"));
+    assertTrue(command.contains("--routines"));
+    assertEquals("windows-ia32", DatabaseTransferService.bundledTarget("Windows 7", "x86"));
+  }
+
+  @Test
   void targetUsesActualJdbcDatabaseAndPort() {
     var target = DatabaseTransferService.parseTarget("jdbc:mysql://db.example:3307/project006?useSSL=true");
     assertEquals("db.example", target.host());

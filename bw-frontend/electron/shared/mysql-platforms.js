@@ -1,4 +1,5 @@
 const architectureAliases = {
+    ia32: 'ia32', x86: 'ia32', i386: 'ia32', i586: 'ia32', i686: 'ia32',
     x64: 'x64', amd64: 'x64', x86_64: 'x64',
     arm64: 'arm64', aarch64: 'arm64',
     loong64: 'loong64', loongarch64: 'loong64',
@@ -11,7 +12,7 @@ const linuxArchitectures = ['x64', 'arm64', 'loong64', 'mips64el', 'sw64', 'risc
 function mysqlTarget(platform, architecture) {
     const os = platform === 'win32' || platform === 'windows' ? 'windows' : platform;
     const arch = architectureAliases[String(architecture).toLowerCase()];
-    if ((os === 'windows' && arch === 'x64') || (os === 'linux' && linuxArchitectures.includes(arch))) {
+    if ((os === 'windows' && ['x64', 'ia32'].includes(arch)) || (os === 'linux' && linuxArchitectures.includes(arch))) {
         return `${os}-${arch}`;
     }
     throw new Error(`Unsupported MySQL tools target: ${platform}/${architecture}`);

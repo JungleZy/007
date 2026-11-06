@@ -16,10 +16,15 @@ const HTTP_HOST = '127.0.0.1'
 /** 随包后端（bin/server）的监听端口，与 backend/src/main/resources/application.yml 的 quarkus.http.port 一致。 */
 const BACKEND_PORT = 18001
 const BACKEND_HOST = 'localhost'
+const DATABASE_PORT = 6912
+// 仅用于升级已有实例配置，不再作为新实例的监听端口。
+const PREVIOUS_DATABASE_PORT = 13306
 
 module.exports = {
   HTTP_PORT,
   HTTP_HOST,
   BACKEND_PORT,
-  BACKEND_HOST
+  BACKEND_HOST,
+  DATABASE_PORT,
+  PREVIOUS_DATABASE_PORT
 }

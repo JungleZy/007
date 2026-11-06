@@ -1,6 +1,6 @@
 {
   "name": "nip-traffic-system",
-  "version": "3.1.1",
+  "version": "3.1.3",
   "productName": "多功能报务综合训练系统",
   "description": "多功能报务综合训练系统",
   "main": "main.js",
@@ -10,7 +10,12 @@
     "dev-e": "electron .",
     "build-f": " cd ./frontend && npm run build",
     "build-e-w": "electron-builder --win",
-    "build-e-l": "electron-builder --linux"
+    "build-e-win7-32": "electron-builder --config build/windows-ia32.cjs --win --ia32",
+    "prepare:win7-32": "node scripts/prepare-win7-ia32.cjs",
+    "build-e-l": "electron-builder --linux",
+    "build-e-kylin-arm64": "electron-builder --config build/kylin-v10-arm64.cjs --linux --arm64 --dir",
+    "prepare:mysql": "node scripts/prepare-mysql-tools.cjs --available",
+    "check:mysql": "node scripts/prepare-mysql-tools.cjs --status"
   },
   "keywords": [
     "Electron"
@@ -21,6 +26,7 @@
     },
     "asar": true,
     "beforePack": "scripts/prepare-desktop.cjs",
+    "afterPack": "scripts/stage-mysql-tools.cjs",
     "files": [
       "main.js",
       "electron/**/*",
@@ -31,7 +37,11 @@
       "LICENSE"
     ],
     "extraFiles": [
-      "./bin"
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": ["**/*", "!file/tools/mysql/**/*", "!integrated/**/*", "!server/**/*"]
+      }
     ],
     "win": {
       "icon": "build/icons/icon.ico",

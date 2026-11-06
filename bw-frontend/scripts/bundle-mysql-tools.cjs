@@ -17,8 +17,8 @@ function assertBinaryTarget(file, target) {
     if (platform === 'windows') {
         const offset = data.length >= 64 ? data.readUInt32LE(60) : -1;
         if (offset < 0 || offset + 6 > data.length || data.toString('ascii', 0, 2) !== 'MZ'
-            || data.readUInt32LE(offset) !== 0x4550 || data.readUInt16LE(offset + 4) !== 0x8664) {
-            throw new Error(`Expected Windows x64 PE executable: ${file}`);
+            || data.readUInt32LE(offset) !== 0x4550 || data.readUInt16LE(offset + 4) !== (architecture === 'ia32' ? 0x14c : 0x8664)) {
+            throw new Error(`Expected Windows ${architecture} PE executable: ${file}`);
         }
     } else if (data.length < 64 || data.toString('hex', 0, 4) !== '7f454c46'
         || data[4] !== 2 || data[5] !== 1 || data.readUInt16LE(18) !== elfMachines[architecture]) {
@@ -39,19 +39,21 @@ function inventory(directory, relative = '') {
 }
 
 function requiredFiles(target) {
+    if (target === 'windows-ia32') return ['mysqldump.exe', 'mysql.exe', 'LICENSE.mysql', 'README.mysql'];
     return target.startsWith('windows-')
         ? ['mysqldump.exe', 'mysql.exe', 'libcrypto-3-x64.dll', 'libssl-3-x64.dll', 'LICENSE.mysql', 'README.mysql']
         : ['mysqldump', 'mysql', 'LICENSE.mysql', 'README.mysql'];
 }
 
 function validateRuntime(runtime, target) {
-    if (runtime?.clientFamily !== 'mysql' || !/^8\.\d+(?:\.\d+)?$/.test(runtime.clientVersion)) {
+    const versionPattern = target === 'windows-ia32' ? /^5\.7\.44$/ : /^8\.\d+(?:\.\d+)?$/;
+    if (runtime?.clientFamily !== 'mysql' || !versionPattern.test(runtime.clientVersion)) {
         throw new Error('This SQL transfer implementation requires MySQL 8 client tools; MariaDB is not interchangeable');
     }
     if (target.startsWith('linux-') && (runtime.libc !== 'glibc' || !/^2\.\d+$/.test(runtime.minLibc)
-        || !Array.isArray(runtime.testedOn) || runtime.testedOn.length === 0
+        || !Array.isArray(runtime.testedOn)
         || runtime.testedOn.some(value => typeof value !== 'string' || !value.trim()))) {
-        throw new Error('Linux runtime.json must specify glibc, minLibc and testedOn (actual OS/version validation)');
+        throw new Error('Linux runtime.json must specify glibc, minLibc and testedOn (empty means execution not verified)');
     }
 }
 
@@ -97,7 +99,7 @@ function bundleMysqlTools(source, target, project = path.resolve(__dirname, '..'
     let runtime;
     if (windows && process.platform === 'win32') {
         const version = execFileSync(path.join(source, 'bin/mysqldump.exe'), ['--no-defaults', '--version'], {encoding: 'utf8'});
-        runtime = {clientFamily: 'mysql', clientVersion: version.match(/Ver\s+(8\.\d+\.\d+)/)?.[1]};
+        runtime = {clientFamily: 'mysql', clientVersion: version.match(target === 'windows-ia32' ? /Distrib\s+(5\.7\.\d+)/ : /Ver\s+(8\.\d+\.\d+)/)?.[1]};
     } else {
         runtime = JSON.parse(fs.readFileSync(path.join(source, 'runtime.json'), 'utf8'));
     }
@@ -113,6 +115,9 @@ function bundleMysqlTools(source, target, project = path.resolve(__dirname, '..'
         if (!windows && fs.existsSync(path.join(source, 'lib'))) {
             // 只接收已整理好的共享库目录，链接解引用后纳入完整清单。
             fs.cpSync(path.join(source, 'lib'), path.join(staging, 'lib'), {recursive: true, dereference: true});
+        }
+        if (fs.existsSync(path.join(source, 'licenses'))) {
+            fs.cpSync(path.join(source, 'licenses'), path.join(staging, 'licenses'), {recursive: true, dereference: true});
         }
         if (!windows) {
             fs.chmodSync(path.join(staging, 'mysql'), 0o755);

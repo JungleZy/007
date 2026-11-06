@@ -1,0 +1,55 @@
+{
+  "version": "8.0.46",
+  "targets": {
+    "windows-x64": { "bundled": true },
+    "windows-ia32": { "bundled": true },
+    "linux-x64": {
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.46-linux-glibc2.17-x86_64-minimal.tar.xz",
+      "archiveRoot": "mysql-8.0.46-linux-glibc2.17-x86_64-minimal",
+      "sha256": "e2777d490fcaadc5a4be06db89b6935c78909bd9c3382af859ab284af0c950b0",
+      "upstreamMd5": "d8ec6c48d02e88759eef61c51a6da07d",
+      "minLibc": "2.17",
+      "dependencies": [
+        {
+          "url": "https://archive.debian.org/debian/pool/main/n/ncurses/libncurses5_6.2+20201114-2+deb11u2_amd64.deb",
+          "sha256": "29de4956385179ef68e6795230950aeb24d548c10e5f2cd78b90aa177d5cd81d",
+          "member": "./lib/x86_64-linux-gnu/libncurses.so.5.9",
+          "soname": "libncurses.so.5"
+        },
+        {
+          "url": "https://archive.debian.org/debian/pool/main/n/ncurses/libtinfo5_6.2+20201114-2+deb11u2_amd64.deb",
+          "sha256": "69e131ce3f790a892ca1b0ae3bfad8659daa2051495397eee1b627d9783a6797",
+          "member": "./lib/x86_64-linux-gnu/libtinfo.so.5.9",
+          "soname": "libtinfo.so.5",
+          "license": "./usr/share/doc/libtinfo5/copyright"
+        }
+      ]
+    },
+    "linux-arm64": {
+      "url": "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-8.0.46-linux-glibc2.28-aarch64.tar.xz",
+      "archiveRoot": "mysql-8.0.46-linux-glibc2.28-aarch64",
+      "sha256": "49cda0de886b021df1c2e3e382164ca3c61e93e7e5c4ee90849e13862e30dd7f",
+      "upstreamMd5": "62376634565907ec31b74da3bc645b2b",
+      "minLibc": "2.28",
+      "dependencies": [
+        {
+          "url": "https://archive.debian.org/debian/pool/main/n/ncurses/libncurses6_6.2+20201114-2+deb11u2_arm64.deb",
+          "sha256": "039b71b8839538a92988003e13c29e7cf1149cdc6a77d3de882f1d386a5f3a5c",
+          "member": "./lib/aarch64-linux-gnu/libncurses.so.6.2",
+          "soname": "libncurses.so.6"
+        },
+        {
+          "url": "https://archive.debian.org/debian/pool/main/n/ncurses/libtinfo6_6.2+20201114-2+deb11u2_arm64.deb",
+          "sha256": "58027c991756930a2abb2f87a829393d3fdbfb76f4eca9795ef38ea2b0510e27",
+          "member": "./lib/aarch64-linux-gnu/libtinfo.so.6.2",
+          "soname": "libtinfo.so.6",
+          "license": "./usr/share/doc/libtinfo6/copyright"
+        }
+      ]
+    },
+    "linux-loong64": { "unavailableReason": "尚未核验可信的 LoongArch64 MySQL 8 工具发行包；需要对应 ABI 的供应商包或原生构建产物" },
+    "linux-mips64el": { "unavailableReason": "尚未核验可信的 MIPS64EL MySQL 8 工具发行包；需要对应 ABI 的供应商包或原生构建产物" },
+    "linux-sw64": { "unavailableReason": "尚未核验可信的 SW64 MySQL 8 工具发行包；需要供应商包或原生构建产物" },
+    "linux-riscv64": { "unavailableReason": "尚未核验可信的 RISC-V 64 MySQL 8 工具发行包；需要供应商包或原生构建产物" }
+  }
+}

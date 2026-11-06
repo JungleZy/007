@@ -3,20 +3,27 @@ const fs = require("node:fs");
 const context = require("../core/node_core_ctx");
 const path = require("node:path");
 const {tryUsePort} = require("../utils/utils");
-const {BACKEND_PORT} = require("../shared/ports");
+const {BACKEND_PORT, HTTP_PORT} = require("../shared/ports");
 const {backendEnvironment} = require('./mysql-tools');
 
-function onHttpService() {
+function onHttpService(port = HTTP_PORT) {
+	return new Promise((resolve, reject) => {
+	if (!Number.isInteger(port) || port < 1 || port > 65535) { reject(new Error('文件服务端口无效')); return }
 	context.httpService = fork(
 		require.resolve('./http/index.js'),
-		[context.appPath],
+		[context.dataPath ? path.join(context.dataPath, 'files') : path.join(context.appPath, 'bin', 'file'), path.join(context.appPath, 'bin', 'file'), String(port)],
 		{}
 	)
+	const timer = setTimeout(() => reject(new Error('文件服务启动超时')), 15000)
 	context.httpService.on('message', (m) => {
-		console.log(`[HTTP] ${m}`)
+		if (m?.type === 'ready') { clearTimeout(timer); resolve() }
+		else console.log(`[HTTP] ${m}`)
 	})
+	context.httpService.once('error', error => { clearTimeout(timer); reject(error) })
 	context.httpService.on('close', (code) => {
-		console.log(`[HTTP] unexpected shutdown`)
+		clearTimeout(timer)
+		reject(new Error(`文件服务已退出 (${code})，请检查端口是否被占用`))
+	})
 	})
 }
 

@@ -35,6 +35,7 @@ class NodeServer {
     this.httpServer = app.listen(this.port, this.host, () => {
       process.send(` Startup complete. Listen ports: ${this.host}:${this.port}`)
       process.send(` Server file directory: ${context.appPath}`)
+      process.send({type: 'ready', port: this.port})
     })
   }
 }

@@ -239,6 +239,14 @@
 
   <profiles>
     <profile>
+      <id>windows-ia32</id>
+      <properties>
+        <!-- 32位整合包使用独立的 MySQL5.7/JRE21 运行目录，避免改变 MySQL8 产物。 -->
+        <quarkus.datasource.db-version>5.7.0</quarkus.datasource.db-version>
+        <quarkus.package.output-directory>quarkus-app-win32</quarkus.package.output-directory>
+      </properties>
+    </profile>
+    <profile>
       <id>native</id>
       <activation>
         <property>

@@ -13,6 +13,7 @@ let config = {}
 
 module.exports = {
 	appPath,
+	dataPath: null,
 	mainWindow,
 	cmdSessions,
 	sessions,

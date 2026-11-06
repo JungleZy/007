@@ -128,6 +128,7 @@ public class DatabaseTransferService {
     String os = osName.toLowerCase(Locale.ROOT);
     String arch = switch (architecture.toLowerCase(Locale.ROOT)) {
       case "x64", "amd64", "x86_64" -> "x64";
+      case "x86", "ia32", "i386", "i586", "i686" -> "ia32";
       case "arm64", "aarch64" -> "arm64";
       case "loong64", "loongarch64" -> "loong64";
       case "mips64el", "mips64le" -> "mips64el";
@@ -136,7 +137,8 @@ public class DatabaseTransferService {
       default -> null;
     };
     if (arch == null) return null;
-    if (os.startsWith("windows")) return arch.equals("x64") ? "windows-x64" : null;
+    if (os.startsWith("windows")) return arch.equals("x64") || arch.equals("ia32") ? "windows-" + arch : null;
+    if (arch.equals("ia32")) return null;
     return os.equals("linux") ? "linux-" + arch : null;
   }
 
@@ -161,7 +163,10 @@ public class DatabaseTransferService {
         "--ssl-mode=" + config.getOptionalValue("nip.database.ssl-mode", String.class).orElse("REQUIRED")));
     if (backup) {
       args.addAll(List.of("--single-transaction", "--quick", "--hex-blob", "--no-tablespaces",
-          "--set-gtid-purged=OFF", "--column-statistics=0", "--routines", "--events", "--triggers"));
+          "--set-gtid-purged=OFF", "--routines", "--events", "--triggers"));
+      int clientMajor = config.getOptionalValue("nip.database.client-major", Integer.class).orElse(8);
+      if (clientMajor != 5 && clientMajor != 8) throw new IllegalStateException("不支持的 MySQL 客户端版本");
+      if (clientMajor >= 8) args.add("--column-statistics=0");
     } else {
       // 批处理二进制模式禁用 source / system 等客户端命令；不使用 --force，首个错误即停止。
       args.addAll(List.of("--binary-mode=1", "--local-infile=0", "--connect-timeout=15"));

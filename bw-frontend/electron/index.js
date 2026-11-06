@@ -1,43 +1,92 @@
-const {BrowserWindow, app, dialog} = require("electron");
+const {BrowserWindow, app, dialog, clipboard} = require("electron");
 const path = require("node:path");
 const context = require("./core/node_core_ctx");
 const {serialApiHandle} = require("./serial");
 const {loadConfig} = require("./core");
 const {onBackendService, onHttpService} = require("./service");
+const {IntegratedRuntime} = require('./service/integrated-runtime');
 require('./controller/index')
 
 class Index {
 	constructor() {
-		loadConfig()
-		onBackendService()
-		onHttpService()
     const gotTheLock = app.requestSingleInstanceLock()
     if(!gotTheLock){
       app.quit()
+      return
     }else {
       app.on("second-instance",(event,commandLine,workingDirectory)=>{
-        if(context.mainWindow){
+        if(context.mainWindow && !context.mainWindow.isDestroyed()){
           if(context.mainWindow.isMinimized()) context.mainWindow.restore()
           context.mainWindow.focus()
         }
       })
     }
-		app.whenReady().then(() => {
+		app.whenReady().then(async () => {
+      this.integrated = app.isPackaged || process.env.NIP_INTEGRATED_DEV === '1'
+      // MySQL5.7 不能打开 MySQL8 的物理数据目录，32位安装使用独立持久目录。
+      context.dataPath = this.integrated ? path.join(app.getPath('userData'), process.arch === 'ia32' ? 'system-win32-mysql57' : 'system') : null
+      if (this.integrated) {
+        this.startupWindow = new BrowserWindow({width: 560, height: 300, resizable: false, autoHideMenuBar: true,
+          webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}})
+        await this.startupWindow.loadFile(path.join(__dirname, 'startup.html'))
+        this.startupWindow.on('closed', () => { if (!this.started) app.quit() })
+      }
+      const settings = await loadConfig()
+      if (this.quitting) return
+      const localAddress = value => {
+        try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(String(value).includes('://') ? value : `http://${value}`).hostname) }
+        catch { return false }
+      }
+      let initialAdmin
+      if (this.integrated && localAddress(settings.text.dataUrl.url)) {
+        this.runtime = new IntegratedRuntime({appPath: context.appPath, dataPath: context.dataPath,
+          backendPort: Number(settings.text.dataUrl.port) || undefined,
+          onProgress: message => {
+            if (this.startupWindow && !this.startupWindow.isDestroyed()) {
+              this.startupWindow.webContents.executeJavaScript(`document.getElementById('progress').textContent=${JSON.stringify(message)}`).catch(() => {})
+            }
+          }})
+        initialAdmin = await this.runtime.start()
+        context.backendService = this.runtime.backend
+      } else if (!this.integrated) {
+        onBackendService()
+      }
+      if (this.quitting) return
+      if (localAddress(settings.text.fileUrl.url)) await onHttpService(Number(settings.text.fileUrl.port) || undefined)
+      this.started = true
 			this.createWindow()
+      this.startupWindow?.close()
+      this.startupWindow = null
+      if (initialAdmin) {
+        const result = await dialog.showMessageBox(context.mainWindow, {type: 'info', title: '初始化完成',
+          message: '已创建初始管理员账号，请保存登录信息。',
+          detail: `账号：${initialAdmin.account}\n初始密码：${initialAdmin.password}\n登录后可在系统中修改密码。`,
+          buttons: ['复制登录信息', '我已保存'], defaultId: 0, cancelId: 1})
+        if (result.response === 0) clipboard.writeText(`账号：${initialAdmin.account}\n密码：${initialAdmin.password}`)
+        this.runtime.acknowledgeInitialAdmin()
+      }
 
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
       })
-		})
-		app.on('will-quit', () => {
-			// 关闭所有子进程
-			if (context.backendService) {
-				context.backendService.kill()
-			}
-			if (context.httpService) {
-				context.httpService.kill()
-			}
-		});
+		}).catch(error => {
+      if (!this.quitting) dialog.showErrorBox('系统启动失败', `${error.message}\n${context.dataPath ? `日志目录：${path.join(context.dataPath, 'logs')}` : ''}`)
+      app.quit()
+    })
+    app.on('before-quit', event => {
+      if (this.closed) return
+      event.preventDefault()
+      if (this.quitting) return
+      this.quitting = true
+      Promise.resolve().then(async () => {
+        if (this.runtime) await this.runtime.stop()
+        else context.backendService?.kill()
+      }).catch(error => dialog.showErrorBox('关闭服务失败', error.message)).finally(() => {
+        context.httpService?.kill()
+        this.closed = true
+        app.quit()
+      })
+    })
 		app.on('window-all-closed', function () {
 			if (process.platform !== 'darwin') app.quit()
 		})

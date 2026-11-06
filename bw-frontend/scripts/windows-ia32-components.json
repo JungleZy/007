@@ -1,0 +1,21 @@
+{
+  "target": "windows-ia32",
+  "electron": {
+    "version": "22.3.27",
+    "url": "https://github.com/electron/electron/releases/download/v22.3.27/electron-v22.3.27-win32-ia32.zip",
+    "sha256": "1119ac7112590cb9c10a8c9b0bb5be65c0e11648a4f1311e6b7a5a00e497c2ce"
+  },
+  "java": {
+    "vendor": "BellSoft Liberica",
+    "version": "21.0.12.1+1",
+    "url": "https://download.bell-sw.com/java/21.0.12.1+1/bellsoft-jre21.0.12.1+1-windows-i586.zip",
+    "sha256": "5dfc687e12cc9d00a55542cdf9eb1e8b7abb26b0bf43ea929d49d9f0be6106e4",
+    "vendorSha1": "a07891b379a8708e9d8aecbbac705e42fd1cb27b"
+  },
+  "mysql": {
+    "version": "5.7.44",
+    "url": "https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.44-win32.zip",
+    "sha256": "c5e4cc0c12b517a9f84679c68700e50e5938840882ac93c33fdfd8d1e1fc9666",
+    "vendorMd5": "89dd517f2e293f940ec52267972d5d2e"
+  }
+}

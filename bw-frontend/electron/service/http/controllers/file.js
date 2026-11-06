@@ -6,9 +6,8 @@ const context = require('../core/node_core_ctx')
 
 // 文件服务的根目录。
 // 注意：这里的 context 是 service/http/core/node_core_ctx.js —— fork 出来的文件服务
-// **子进程自己**的上下文模块，其 appPath 由 service/http/index.js:9 设为
-// `<安装目录>/bin/file`，比 Electron 主进程的 appPath（main.js:12 的 dirname(exe)）
-// 窄一层。绝不可改用主进程的 appPath：那会把可读写范围扩大到包含 bin/server（后端
+// **子进程自己**的上下文模块，其 appPath 指向用户文件目录，bundledPath 指向 bin/file。
+// 绝不可改用主进程的 appPath：那会把可读写范围扩大到包含数据库、bin/server（后端
 // 原生二进制）、bin/nip.db（授权与地址库）和 resources/app.asar。
 // appPath 在本模块被 require 之后才赋值，因此只能惰性求值。
 let rootPath = null
@@ -55,6 +54,22 @@ function resolveWithinRoot(requestPath) {
   return isWithin(getRealRoot(), realTarget) ? realTarget : null
 }
 
+// 用户上传目录优先，未找到时读取安装包内的只读基础资源；两个根目录均校验真实路径。
+function resolveReadableFile(requestPath) {
+  const mutable = resolveWithinRoot(requestPath)
+  if (!mutable) return null
+  if (fs.existsSync(mutable)) return mutable
+  if (!context.bundledPath) return mutable
+  const base = path.resolve(context.bundledPath)
+  const target = path.resolve(base, requestPath || '')
+  if (!isWithin(base, target)) return null
+  try {
+    return isWithin(fs.realpathSync(base), fs.realpathSync(target)) ? target : null
+  } catch {
+    return mutable
+  }
+}
+
 // 上传目录的非法段：空段由 split 过滤，`.`/`..` 与盘符段直接丢弃。
 const INVALID_SEGMENT = /^(?:\.\.?|[A-Za-z]:)$/
 
@@ -73,7 +88,7 @@ function file(req, res, next) {
 }
 
 function getFile(req, res, next) {
-  const realPath = resolveWithinRoot(req.params['0']) // 根目录内的物理路径
+  const realPath = resolveReadableFile(req.params['0'])
   if (!realPath) {
     return res.sendStatus(404)
   }
@@ -83,7 +98,7 @@ function getFile(req, res, next) {
 //视频流播放
 // 前端请求 /api/file/getReadStream/file/doc/knowledge/video/16-06-26.mp4
 function getReadStream(req, res, next) {
-  const realPath = resolveWithinRoot(req.params[0])
+  const realPath = resolveReadableFile(req.params[0])
   if (!realPath) {
     return res.sendStatus(404)
   }
