@@ -1,5 +1,7 @@
 node_modules
 out/
+.cache/
+__pycache__/
 logs/
 run/
 .idea/
@@ -7,6 +9,9 @@ data/
 .vscode/
 public/electron/
 public/dist/
+# 本地设备资源，不纳入 Git。
+/frontend/public/equipment/
+/frontend/public/J210-742/
 pnpm-lock.yaml
 .history/
 file/
@@ -17,9 +22,18 @@ bin/file/*
 !bin/file/tools/
 bin/file/tools/*
 !bin/file/tools/mysql/
+# 下载/组装的目标平台客户端，通过准备脚本恢复，不新增二进制入库。
+/bin/file/tools/mysql/*/
+
+# 现场诊断输出，只在本地用于排障。
+/installed-runtime-report.json
+/repair-result.txt
+/serial-report.json
+/kylin-install-report.txt
 
 # 后端 native 构建产物（体积超 GitHub 单文件上限，走发布渠道分发）
 bin/server/
+bin/integrated/
 
 # 本地开发证书（mkcert 生成，私钥不入库）
 public/ssl/
