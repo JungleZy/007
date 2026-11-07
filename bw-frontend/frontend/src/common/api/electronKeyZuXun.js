@@ -33,6 +33,14 @@ export const updateElectronKeyPatTrainDetails = (data) => {
     data
   })
 }
+/** 学员某页已提交的拍发值（组训人可读他人，见 GeneralKeyPatService.requireReadableTarget） */
+export const getElectronKeyZuXunPatValue = (data) => {
+  return axios({
+    method: "post",
+    url: "/api/generalKeyPat/getPatValue",
+    data
+  })
+}
 export const getElectronKeyZuXunDetails = (data) => {
   return axios({
     method: "post",

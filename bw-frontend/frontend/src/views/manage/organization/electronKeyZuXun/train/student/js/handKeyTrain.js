@@ -276,6 +276,10 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
         lastRow.push([]);
         currPatKeyIndex.value++
         isModify.value = false;
+        // 换组标记：组训人查看学员实时报文时据此分组（教员进度条显示为空白）
+        patWsData.value.log.key = ' '
+        patWsData.value.log.time = 0
+        sendMessage(patWsData.value)
       }
       goScrollBottom()
       return false;

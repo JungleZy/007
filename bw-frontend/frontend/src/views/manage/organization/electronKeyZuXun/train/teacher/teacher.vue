@@ -60,6 +60,7 @@
             <div class="userLogs" v-for="(user, u) in userPatData" :key="u">
               <div class="user">
                 <div class="name">{{user.name}}</div>
+                <StudentMessageDialog :name="user.name" :load-submitted-pages="() => loadSubmittedPages(user)" :live="() => liveMessage(user)" />
               </div>
               <div class="logs _top">
                 <img :src="topBg" class="bg" />
@@ -122,11 +123,13 @@
 <script setup>
   import StudentScore from '../student/score.vue';
   import CountDown from '../../../../../../components/common/CountDown.vue';
+  import StudentMessageDialog from '../../../../../../components/common/StudentMessageDialog.vue';
   import iconImage from "../../../../postJob/js/iconImage";
   const {topBg} = iconImage()
   import teacher from './js/teacher.js'
 
   const {
+    loadSubmittedPages,liveMessage,
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     statisticsLoading,statisticsError,hasStatistics,refreshStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement

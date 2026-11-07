@@ -1,8 +1,9 @@
 import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
 import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
+import {formatGroupLines, electronicPageGroups, replayElectronicLogs} from '../../../../../../../common/utils/studentMessageFormat.js'
 import {message} from "ant-design-vue";
 import {
-  getElectronKeyZuXunDetails,resetElectronKeyZuXunStatistics,updateElectronKeyTrainStatus
+  getElectronKeyZuXunDetails,resetElectronKeyZuXunStatistics,updateElectronKeyTrainStatus,getElectronKeyZuXunPatValue
 } from "../../../../../../../common/api/electronKeyZuXun.js";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {PubSub} from "../../../../../../../common/utils/PubSub.js";
@@ -600,7 +601,26 @@ export default function () {
     })
   };
 
+  /**
+   * 学员已提交页：getPatValue 只读、不加锁，逐页读取，没有拍发值的页即未提交
+   */
+  const loadSubmittedPages = async user => {
+    const pageCount = Math.ceil((Number(trainData.value.totalNumber) || 0) / 100)
+    const pages = []
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+      const res = await getElectronKeyZuXunPatValue({trainId: trainId.value, pageNumber, userId: user.id})
+      if (res.code !== 200) throw new Error(res.message || `读取第 ${pageNumber} 页失败`)
+      if (!res.data?.length) continue
+      pages.push({pageNumber, text: formatGroupLines(electronicPageGroups(res.data))})
+    }
+    return pages
+  }
+
+  /** 当前页实时：按推送字符与换组标记重放 */
+  const liveMessage = user => formatGroupLines(replayElectronicLogs(user.log))
+
   return {
+    loadSubmittedPages, liveMessage,
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     statisticsLoading,statisticsError,hasStatistics,refreshStatistics: trainStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails

@@ -37,3 +37,20 @@ test('手键：只按最新详情的 existNumber 读取已提交页，未提交�
   assert.deepEqual(requested, [1, 2])
   assert.deepEqual(JSON.parse(JSON.stringify(pages)), [{pageNumber: 1, text: '1234'}, {pageNumber: 2, text: '2234'}])
 })
+
+test('电子键：逐页读取 getPatValue，跳过空页；实时按换组标记分组、句号后只留新一页', async () => {
+  const requested = []
+  const state = teacher('../src/views/manage/organization/electronKeyZuXun/train/teacher/js/teacher.js', {
+    getElectronKeyZuXunPatValue: async ({pageNumber, userId}) => {
+      requested.push([pageNumber, userId])
+      return {code: 200, data: pageNumber === 1
+        ? [{sort: 1, value: '["5","6","7","8"]'}, {sort: 0, value: '["开始","1","2","3","4"]'}] : []}
+    }
+  })
+  state.trainData.value = {totalNumber: 150}
+  const pages = await state.loadSubmittedPages({id: 's1'})
+  assert.deepEqual(JSON.parse(JSON.stringify(requested)), [[1, 's1'], [2, 's1']])
+  assert.deepEqual(JSON.parse(JSON.stringify(pages)), [{pageNumber: 1, text: '1234 5678'}])
+  const log = ['1', '2', ' ', '句号', '开始', '9', '0', ' ', 'A'].map(key => ({key, time: 0}))
+  assert.equal(state.liveMessage({log}), '90 A')
+})
