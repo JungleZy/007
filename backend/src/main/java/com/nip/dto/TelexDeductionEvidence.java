@@ -17,8 +17,8 @@ public record TelexDeductionEvidence(Integer pageNumber, String kind, Integer re
       case "lessPage" -> rule.getOther().getLessPage();
       case "errorPage" -> rule.getOther().getErrorPage();
       case "nonStandart" -> rule.getOther().getNonStandart();
-      case "correctMistakes" -> rule.getOther().getAlterError() == null
-          ? rule.getOther().getCorrectMistakes() : rule.getOther().getAlterError();
+      // 数据报改错单价只取评分规则页配置的 correctMistakes；alterError 是手键/电子键字段，数据报不读
+      case "correctMistakes" -> rule.getOther().getCorrectMistakes();
       default -> throw new IllegalArgumentException("未知数据报扣分项目: " + kind);
     };
     return new TelexDeductionEvidence(pageNumber, kind, referenceGroup, reference, captured, count,

@@ -128,7 +128,7 @@ class TelexPatDeductionEvidenceTest {
   }
 
   @Test
-  void pricedUsesFrozenRuleAndAlterErrorFallback() {
+  void pricedUsesFrozenRuleAndCorrectMistakesUnit() {
     PostTelexPatTrainRuleDto.Other other = new PostTelexPatTrainRuleDto.Other();
     other.setErrorCode(new BigDecimal("7"));
     other.setMuchLessGroups(new BigDecimal("3"));
@@ -149,10 +149,11 @@ class TelexPatDeductionEvidenceTest {
 
     TelexDeductionEvidence mistakes = new TelexDeductionEvidence(1, "correctMistakes", null, "1234", "123/", 1, null, null);
     assertEquals(0, new BigDecimal("2").compareTo(mistakes.priced(rule).unitDeduction()),
-        "alterError 为空时回退 correctMistakes 单价");
-    other.setAlterError(new BigDecimal("13"));
-    assertEquals(0, new BigDecimal("13").compareTo(mistakes.priced(rule).unitDeduction()),
-        "alterError 存在时优先使用，与结算分支同口径");
+        "改错按评分规则页配置的 correctMistakes 单价");
+    // 库中历史数据报规则同时存有 "alterError":0，不得因此把改错扣成 0
+    other.setAlterError(BigDecimal.ZERO);
+    assertEquals(0, new BigDecimal("2").compareTo(mistakes.priced(rule).unitDeduction()),
+        "数据报不读手键/电子键的 alterError");
 
     assertEquals(0, new BigDecimal("6").compareTo(
         new TelexDeductionEvidence(1, "muchLessLine", 1, "0000", "", 1, null, null).priced(rule).unitDeduction()));

@@ -948,8 +948,9 @@ public class GeneralTelexPatService {
     deductMap.put("nonStandartNumber", ks.getNonStandartNumber());
     deductMap.put("nonStandartScore", minus + nonStandartScore);
 
+    // 改错单价取评分规则页配置的 correctMistakes（与个人训练、TelexDeductionEvidence.priced 同口径）
     BigDecimal correctMistakesScore = new BigDecimal(ks.getCorrectMistakesNumber())
-        .multiply(rule.getOther().getAlterError());
+        .multiply(rule.getOther().getCorrectMistakes());
     deductMap.put("correctMistakesNumber", ks.getCorrectMistakesNumber());
     deductMap.put("correctMistakesScore", minus + correctMistakesScore);
 
