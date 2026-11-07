@@ -92,8 +92,8 @@ public class TelexPatUtils {
         // 添加非空行到结果
         if (!currentLine.isEmpty()) {
           result.add(currentLine);
+          // groupNumber 仅作页标判断阈值，沿用原口径；拍发组数（正确率分母）只计实际拍发的组，换行不是一组
           groupNumber++;
-          ks.setPatGroup(ks.getPatGroup() + 1);
           currentLine = new ArrayList<>();
         }
 

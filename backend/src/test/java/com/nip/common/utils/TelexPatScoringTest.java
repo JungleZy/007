@@ -87,4 +87,11 @@ class TelexPatScoringTest {
     assertEquals(1, oneError.getErrorCodeNumber(), "末页不足一行时的错码仍按错码计");
     assertEquals(0, oneError.getMuchLessGroupsNumber());
   }
+
+  @Test
+  void capturedGroupCountExcludesLineBreaks() {
+    assertEquals(100, settle(100, lines -> { }).getPatGroup(), "十行一百组按一百组计，换行不计组");
+    assertEquals(99, settle(100, lines -> lines.get(1).remove(2)).getPatGroup());
+    assertEquals(55, settle(55, lines -> { }).getPatGroup());
+  }
 }
