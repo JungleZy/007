@@ -94,4 +94,40 @@ class TelexPatScoringTest {
     assertEquals(99, settle(100, lines -> lines.get(1).remove(2)).getPatGroup());
     assertEquals(55, settle(55, lines -> { }).getPatGroup());
   }
+
+  @Test
+  void missingLineBreakSplitsAtTheReferenceNextLineWhereverItHappens() {
+    for (int line = 0; line < 9; line++) {
+      int merged = line;
+      TelexPatStatisticalDto ks = settle(100, lines -> lines.get(merged).addAll(lines.remove(merged + 1)));
+      assertEquals(1, ks.getLessReturnLineNumber(), "第" + (merged + 1) + "、" + (merged + 2) + "行合并只计一次少回行");
+      assertEquals(0, ks.getErrorCodeNumber(), "拆行后后续行不应错位");
+      assertEquals(0, ks.getMuchLessGroupsNumber());
+      assertEquals(0, ks.getMuchLessLineNumber());
+      assertEquals((merged + 1) * 10 + 1, ks.getEvidence().getFirst().referenceGroup(), "依据定位到下一行首组");
+    }
+  }
+
+  @Test
+  void threeLinesMergedCountTwoMissingLineBreaks() {
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      lines.get(3).addAll(lines.remove(4));
+      lines.get(3).addAll(lines.remove(4));
+    });
+    assertEquals(2, ks.getLessReturnLineNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+    assertEquals(0, ks.getMuchLessGroupsNumber());
+    assertEquals(0, ks.getMuchLessLineNumber());
+  }
+
+  @Test
+  void missingLineBreakWithMissingGroupStillSplits() {
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      lines.get(2).remove(4);
+      lines.get(2).addAll(lines.remove(3));
+    });
+    assertEquals(1, ks.getLessReturnLineNumber());
+    assertEquals(1, ks.getMuchLessGroupsNumber(), "合并行里漏的一组仍按多少组计");
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
 }

@@ -305,35 +305,30 @@ public class TelexPatUtils {
       }
     }
 
-    // 少回行
+    // 少回行：一行拍发里出现了报底下一行的首组，说明漏拍换行，在该处拆成两行。
+    // 报底行号取已拆出的行数，不能用拍发行下标 i（i+10 只在第1、2行合并时恰好等于下一行首组）；
+    // 同一行连续漏多个回行时逐次拆分。报底相邻十组不重复，下一行首组不会出现在本行正常内容中。
+    removeEmptyLists(neatenResult);
     List<List<String>> newResult = new ArrayList<>();
-    for (int i = 0; i < neatenResult.size(); i++) {
-      if (neatenResult.get(i).size() > 10) {
-        int flag = 0;
-        for (int j = 10; j < neatenResult.get(i).size(); j++) {
-          if (Objects.equals(userPages.get(i + 10).getKey(), neatenResult.get(i).get(j))) {
-            flag = j;
-            break;
-          }
+    for (List<String> row : neatenResult) {
+      List<String> rest = row;
+      while (rest.size() > 10) {
+        int nextLineStart = (newResult.size() + 1) * 10;
+        if (nextLineStart >= userPages.size()) {
+          break;
         }
-        if (flag > 0) {
-          List<String> s = neatenResult.get(i).subList(0, flag);
-          newResult.add(s);
-          List<String> s1 = neatenResult.get(i).subList(flag, neatenResult.get(i).size());
-          newResult.add(s1);
-          recordDeduction(ks, "lessReturnLine", 1, pageNumber, (i + 1) * 10 + 1, null,
-              String.join(" ", neatenResult.get(i)));
-        } else {
-          newResult.add(neatenResult.get(i));
+        int flag = rest.subList(1, rest.size()).indexOf(userPages.get(nextLineStart).getKey()) + 1;
+        if (flag == 0) {
+          break;
         }
-      } else {
-        newResult.add(neatenResult.get(i));
+        newResult.add(new ArrayList<>(rest.subList(0, flag)));
+        rest = new ArrayList<>(rest.subList(flag, rest.size()));
+        recordDeduction(ks, "lessReturnLine", 1, pageNumber, nextLineStart + 1, null, String.join(" ", row));
       }
+      newResult.add(rest);
     }
     neatenResult.clear();
     neatenResult.addAll(newResult);
-
-    removeEmptyLists(neatenResult);
     int rowNum = 0;
     int colNum = 0;
     for (int j = 0; j < userPages.size(); j++) {
