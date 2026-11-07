@@ -136,15 +136,18 @@
             </div>
           </div>
           <div class="_bottom">
-            <div class="pag" v-if="trainData.process == 0 || trainData.process == 2">
-              <div class="curr">
-                当前：<span class="num">{{ trainData.floorNow }}</span>
-              </div>
-              <div class="line"></div>
-              <div class="total">
-                总数：<span class="num">{{ trainData.pag }}</span>
-              </div>
-              <CopyReferenceButton class="ml-4" :groups="(trainData.telegraph?.[trainData.floorNow - 1] || []).map(item => item.key)" :disabled="loading || submissionBusy" />
+            <!-- 页码框常驻：复制报底在试机、正式拍发等各阶段都保留，只有页码信息沿用原显示条件 -->
+            <div class="pag">
+              <template v-if="trainData.process == 0 || trainData.process == 2">
+                <div class="curr">
+                  当前：<span class="num">{{ trainData.floorNow }}</span>
+                </div>
+                <div class="line"></div>
+                <div class="total">
+                  总数：<span class="num">{{ trainData.pag }}</span>
+                </div>
+              </template>
+              <CopyReferenceButton :class="{'ml-4': trainData.process == 0 || trainData.process == 2}" :groups="(trainData.telegraph?.[trainData.floorNow - 1] || []).map(item => item.key)" :disabled="loading || submissionBusy" />
             </div>
           </div>
         </div>
