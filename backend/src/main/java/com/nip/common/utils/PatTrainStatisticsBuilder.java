@@ -73,6 +73,10 @@ public class PatTrainStatisticsBuilder<U, E> {
     public PatTrainStatisticsBuilder<U, E> calculateScoreDistribution() {
         for (U user : trainUserEntities) {
             BigDecimal score = scoreExtractor.apply(user);
+            // 收尾补交期间仍有未结算学员（score 为空）：与手键组训同口径不计入分布，占比分母仍为全体学员
+            if (score == null) {
+                continue;
+            }
             if (score.compareTo(PatTrainStatisticsUtil.SCORE_EXCELLENT) >= 0) {
                 goodCount++;
             } else if (score.compareTo(PatTrainStatisticsUtil.SCORE_GOOD) >= 0) {
@@ -101,6 +105,10 @@ public class PatTrainStatisticsBuilder<U, E> {
         for (U user : trainUserEntities) {
             String userId = userIdExtractor.apply(user);
             BigDecimal thisScore = scoreExtractor.apply(user);
+            // 未结算学员没有本次成绩，不进入成绩趋势（与手键组训同口径）
+            if (thisScore == null) {
+                continue;
+            }
             LocalDateTime createTime = createTimeExtractor != null ? createTimeExtractor.apply(user) : null;
 
             UserInfo userInfo = userInfoProvider.getUserInfo(userId);
