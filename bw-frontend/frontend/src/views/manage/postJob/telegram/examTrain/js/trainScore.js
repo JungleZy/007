@@ -132,7 +132,18 @@ export default function telegramList(showChart) {
       item.time = JSON.parse(item.time)
       item.value = item.value==''?[]:JSON.parse(item.value)
       if(item.value!==null){
-        if(item.value.join().indexOf("?")>-1){
+       if(item.key===null){
+         moreLine.value.push(item)
+       }else if(item.value[0] === 'bunchGroup'){
+         item.bunchGroup = true
+         item.value.shift()
+       }else if(item.value[0] === 'more'){
+         item.moreCode = true
+         item.value.shift()
+       }else if(item.value[0] === 'lack'){
+         item.lackCode = true
+         item.value.shift()
+       }else if(item.value.join().indexOf("?")>-1){
           let str = ""
           item.value.forEach(item=>{
             str+=item
@@ -150,24 +161,6 @@ export default function telegramList(showChart) {
           }else {
             item.error = true
           }
-        }
-        else if(item.key===null){
-          moreLine.value.push(item)
-        }
-        else if(item.value.join().indexOf("bunchGroup")>-1){
-          //串组
-          item.bunchGroup = true
-          item.value.shift()
-        }
-        else if(item.value.join().indexOf("more")>-1){
-          //多码
-          item.moreCode = true
-          item.value.shift()
-        }
-        else if(item.value.join().indexOf("lack")>-1){
-          //少码
-          item.lackCode = true
-          item.value.shift()
         }
         else if(item.value.join()!==item.key.join()&&item.time.length>0){
           item.error = true

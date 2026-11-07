@@ -155,8 +155,9 @@ public class PostTelegraphKeyPatTrainService {
     if (entity.getFullScore() == null || entity.getFullScore().signum() < 0) throw new IllegalArgumentException("训练满分快照无效，请新建训练");
     if (Objects.equals(entity.getStatus(), NOT_STARTED.getStatus())) {
       entity.setStatus(UNDERWAY.getStatus());
-      entity.setBeginTime(LocalDateTime.now());
-      patTrainDao.save(entity);
+      entity.setBeginTime(CaptureTimeline.persistedOrigin(LocalDateTime.now()));
+      patTrainDao.saveAndFlush(entity);
+      patTrainDao.getEntityManager().refresh(entity);
     } else if (!Objects.equals(entity.getStatus(), UNDERWAY.getStatus())) {
       throw new TerminalStateException("训练已结束，请重置或新建训练");
     }
@@ -397,7 +398,18 @@ public class PostTelegraphKeyPatTrainService {
       CaptureTimeline.requireExtension(intervals(existing), dto.getCaptureIntervals());
     }
     requireUnderway(entity);
-    long duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), elapsedAt(entity, receivedAt));
+    long maximumEndMs = elapsedAt(entity, receivedAt);
+    long duration;
+    try {
+      duration = CaptureTimeline.durationMillis(dto.getCaptureIntervals(), maximumEndMs);
+    } catch (IllegalArgumentException invalidTimeline) {
+      var submittedIntervals = dto.getCaptureIntervals();
+      log.warn("电子键采集区间校验失败 trainId={} page={} attempt={} maximumEndMs={} intervalCount={} lastInterval={}",
+          dto.getId(), dto.getPageNumber(), dto.getAttempt(), maximumEndMs,
+          submittedIntervals == null ? 0 : submittedIntervals.size(),
+          submittedIntervals == null || submittedIntervals.isEmpty() ? null : submittedIntervals.getLast());
+      throw invalidTimeline;
+    }
     if (duration == 0 && values.stream().anyMatch(value -> !stringArray(value.getValue()).isEmpty())) {
       throw new IllegalArgumentException("非空原始事件必须提供有效采集时长");
     }
@@ -408,7 +420,7 @@ public class PostTelegraphKeyPatTrainService {
     timeline.add(dto.getCaptureIntervals());
     CaptureTimeline.requireNoOverlap(timeline);
     // Ensure lazy source pages exist under the same parent lock before accepting raw data.
-    getPage(dto.getId(), dto.getPageNumber(), token);
+    PostTelegraphKeyPatTrainPageVO ensured = getPage(dto.getId(), dto.getPageNumber(), token);
     PostTelegraphKeyPatTrainRawPageEntity raw = existing == null
         ? new PostTelegraphKeyPatTrainRawPageEntity() : existing;
     raw.setTrainId(entity.getId());
@@ -420,7 +432,13 @@ public class PostTelegraphKeyPatTrainService {
     if (existing == null) {
       rawPageDao.persist(raw);
     }
-    return getPage(dto.getId(), dto.getPageNumber(), token);
+    ensured.setMessageVO(values);
+    if (ensured.getResolverMessage() == null || ensured.getResolverMessage().isEmpty()) {
+      ensured.setResolverMessage(pageDao.findByTrainIdAndPageNumberOrderBySort(dto.getId(), dto.getPageNumber())
+          .stream().map(PostTelegraphKeyPatTrainPageEntity::getValue).toList());
+    }
+    setPageMetadata(entity, raw, ensured);
+    return ensured;
   }
 
 
@@ -450,14 +468,17 @@ public class PostTelegraphKeyPatTrainService {
     KeyPatStatisticalDto ks = new KeyPatStatisticalDto();
     // 得到已存在的页
     List<Integer> pageNumbers = rawPages.stream().map(PostTelegraphKeyPatTrainRawPageEntity::getPageNumber).toList();
+    Map<Integer, List<KeyPatPageTransferDto>> sourcePages = pageNumbers.isEmpty() ? Map.of()
+        : PojoUtils.convert(pageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumbers),
+            KeyPatPageTransferDto.class).stream()
+            .collect(Collectors.groupingBy(KeyPatPageTransferDto::getPageNumber, LinkedHashMap::new, Collectors.toList()));
     // Build derived alignment independently; immutable raw pages remain untouched.
     List<KeyPatValueTransferDto> pageValueResult = new ArrayList<>();
     // P1-1：pageValueResult/ks 为共享可变状态，parallelStream 并发累加有竞态——改串行流
     rawPages.forEach(raw -> {
       Integer pageNumber = raw.getPageNumber();
       // 根据page获取目标数据
-      List<KeyPatPageTransferDto> userPages = PojoUtils.convert(
-          pageDao.findByTrainIdAndPageNumberOrderBySort(entity.getId(), pageNumber), KeyPatPageTransferDto.class);
+      List<KeyPatPageTransferDto> userPages = sourcePages.getOrDefault(pageNumber, List.of());
       // 根据page获取拍发数据
       List<KeyPatValueTransferDto> userPageValues = PojoUtils.convert(
           rawValues(raw), KeyPatValueTransferDto.class);
@@ -488,15 +509,13 @@ public class PostTelegraphKeyPatTrainService {
     int totalPages = fullPages + (lastPageGroups > 0 ? 1 : 0);
     int missingPages = totalPages - pageNumbers.size();
     if (missingPages > 0) {
-      int missingGroups = 0;
       Set<Integer> submittedPages = new HashSet<>(pageNumbers);
       for (int pageNumber = 1; pageNumber <= totalPages; pageNumber++) {
         if (!submittedPages.contains(pageNumber)) {
-          missingGroups += pageNumber == totalPages && lastPageGroups > 0 ? lastPageGroups : 100;
+          com.nip.common.utils.KeyPatUtils.recordMissingPage(ks, pageNumber,
+              pageNumber == totalPages && lastPageGroups > 0 ? lastPageGroups : 100);
         }
       }
-      ks.setLackGroup(ks.getLackGroup() + missingGroups);
-      ks.setLackLine(ks.getLackLine() + missingPages * 10);
     }
 
     // Divide by four in the denominator, before the sole final rate rounding.
@@ -506,9 +525,9 @@ public class PostTelegraphKeyPatTrainService {
 
     // 错误个数
     entity.setErrorNumber(ks.getError());
-    // 正确组扣除同源解析的错码、串组、少码和多码，由 ScoreMath 钳制并统一精度。
+    // 直接使用对齐后正确组数；串组按一对扣分，但其两端都不计入正确组。
     BigDecimal accuracy = ScoreMath.accuracy(
-        (long) ks.getPatGroup() - ks.getError() - ks.getBunchGroup() - ks.getLack() - ks.getMore(), ks.getPatGroup());
+        ks.getCorrectGroup(), ks.getPatGroup());
     entity.setAccuracy(accuracy.doubleValue());
 
     // 得到要扣的分
@@ -569,12 +588,18 @@ public class PostTelegraphKeyPatTrainService {
         .subtract(lackGapScore);
 
     deductInfo.put("speedNumber", speed.toString());
+    BigDecimal scoringSpeed = rule.getRateUnit().rate(characters, duration);
+    deductInfo.put("speedCharacters", TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(characters, duration));
+    deductInfo.put("scoringSpeedNumber", scoringSpeed);
+    deductInfo.put("scoringRateUnit", rule.getRateUnit());
     BigDecimal speedScore = ScoreMath.wpmScore(rule.getWpm().getBase(),
-        rule.getWpm().getR(), rule.getWpm().getL(), speed.intValueExact());
+        rule.getWpm().getR(), rule.getWpm().getL(), scoringSpeed.intValueExact());
     score = score.add(speedScore);
     deductInfo.put("speedScore", speedScore.signum() > 0 ? "+" + speedScore : speedScore.toString());
 
     entity.setScore(score);
+    deductInfo.put("evidenceVersion", 1);
+    deductInfo.put("evidence", ks.getEvidence().stream().map(item -> item.priced(rule)).toList());
     // 保存扣分详情
     entity.setDeductInfo(JSONUtils.toJson(deductInfo));
 

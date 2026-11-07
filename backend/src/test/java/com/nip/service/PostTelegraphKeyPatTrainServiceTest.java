@@ -43,6 +43,22 @@ class PostTelegraphKeyPatTrainServiceTest {
   @Inject UserDao userDao;
 
   @Test
+  void characterRateAbove150AddsPointsWithoutDividingByFour() {
+    String token = token();
+    PostTelegraphKeyPatTrainEntity train = seed(token, 1);
+    train.setRuleContent(RULE.replace("FOUR_CHARACTER_GROUPS_PER_MINUTE", "CHARACTERS_PER_MINUTE")
+        .replace("\"base\":4,\"r\":2,\"l\":3", "\"base\":150,\"r\":1,\"l\":1"));
+    trainDao.save(train);
+    service.finishPage(page(train, 1, 0, 1000, "1", "2", "3", "4"), token);
+    var result = service.finish(action(train), token);
+    var deductions = JSONUtils.fromJson(result.getDeductInfo(), com.google.gson.JsonObject.class);
+    assertEquals("CHARACTERS_PER_MINUTE", deductions.get("scoringRateUnit").getAsString());
+    assertEquals(240, deductions.get("scoringSpeedNumber").getAsInt());
+    assertEquals(240, deductions.get("speedCharacters").getAsInt());
+    assertEquals("+90", deductions.get("speedScore").getAsString());
+  }
+
+  @Test
   void finishOnFinishedLegacyTrainReturnsWithoutRecountButStillChecksOwner() {
     String token = token();
     PostTelegraphKeyPatTrainEntity train = seed(token, 1);
@@ -157,7 +173,8 @@ class PostTelegraphKeyPatTrainServiceTest {
   void sparseDeliveryChargesActualMissingFullPageRatherThanSubmittedPartialLastPage() {
     String token = token();
     PostTelegraphKeyPatTrainEntity train = seed(token, 250);
-    train.setRuleContent(RULE.replace("\"muchLessGroups\":0", "\"muchLessGroups\":1"));
+    train.setRuleContent(RULE.replace("\"muchLessGroups\":0", "\"muchLessGroups\":1")
+        .replace("\"muchLessLine\":0", "\"muchLessLine\":1"));
     trainDao.save(train);
     PostTelegraphKeyPatTrainPageDto lastPage = page(train, 3, 2000, 3000);
     lastPage.setValue(List.of());
@@ -166,9 +183,11 @@ class PostTelegraphKeyPatTrainServiceTest {
     service.finishPage(lastPage, token);
     service.finishPage(firstPage, token);
     PostTelegraphKeyPatTrainVO result = service.finish(action(train), token);
-    assertEquals(100, com.google.gson.JsonParser.parseString(result.getDeductInfo())
+    assertEquals(0, com.google.gson.JsonParser.parseString(result.getDeductInfo())
         .getAsJsonObject().get("lackGroupNumber").getAsInt());
-    assertEquals(0, new BigDecimal("-12").compareTo(result.getScore()));
+    assertEquals(25, com.google.gson.JsonParser.parseString(result.getDeductInfo())
+        .getAsJsonObject().get("lackLineNumber").getAsInt());
+    assertEquals(0, new BigDecimal("63").compareTo(result.getScore()));
     assertEquals("2", result.getDuration());
   }
 
@@ -243,6 +262,20 @@ class PostTelegraphKeyPatTrainServiceTest {
   }
 
   @Test
+  void firstBeginPublishesTheSameOriginUsedByFollowingPageRequests() {
+    String token = token();
+    var train = seed(token, 100);
+    io.quarkus.narayana.jta.QuarkusTransaction.requiringNew().run(() ->
+        trainDao.findById(train.getId()).setStatus(NOT_STARTED.getStatus()).setBeginTime(null));
+    var begun = service.begin(action(train), token);
+    assertEquals(0, trainDao.findById(train.getId()).getBeginTime().getNano());
+    var upload = page(train, 1, 0, begun.getServerElapsedMs());
+    upload.setValue(List.of());
+    if (begun.getServerElapsedMs() == 0) upload.setCaptureIntervals(List.of());
+    assertDoesNotThrow(() -> service.finishPage(upload, token));
+  }
+
+  @Test
   void beginResumeKeepsOriginalAnchorAndAttempt() {
     String token = token();
     PostTelegraphKeyPatTrainEntity train = seed(token, 1);
@@ -254,11 +287,28 @@ class PostTelegraphKeyPatTrainServiceTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"123", "12345"})
+  @ValueSource(strings = {"123", "12345", "134", "124", "12934", "12394"})
   void missingOrExtraCodeCannotCountAsACorrectGroup(String value) {
     PostTelegraphKeyPatTrainVO result = finishGroups(value);
     assertEquals(0d, result.getAccuracy());
     assertEquals(0, new BigDecimal("98").compareTo(result.getScore()));
+    var deductions = com.google.gson.JsonParser.parseString(result.getDeductInfo()).getAsJsonObject();
+    assertEquals(1, deductions.get("evidenceVersion").getAsInt());
+    var evidence = deductions.getAsJsonArray("evidence");
+    assertEquals(1, evidence.size());
+    assertEquals(1, evidence.get(0).getAsJsonObject().get("pageNumber").getAsInt());
+    assertEquals(0, new BigDecimal("2").compareTo(evidence.get(0).getAsJsonObject().get("deduction").getAsBigDecimal()));
+  }
+
+  @Test
+  void wrongCodeAfterCorrectionDoesNotAlsoDeductCorrection() {
+    var failed = finishGroups("9999?1294");
+    assertEquals(0, new BigDecimal("97").compareTo(failed.getScore()));
+    var deductions = com.google.gson.JsonParser.parseString(failed.getDeductInfo()).getAsJsonObject();
+    assertEquals(1, deductions.get("errorNumber").getAsInt());
+    assertEquals(0, deductions.get("alterErrorNumber").getAsInt());
+    var corrected = finishGroups("9999?1234");
+    assertEquals(0, new BigDecimal("95").compareTo(corrected.getScore()));
   }
 
   @Test
@@ -268,11 +318,42 @@ class PostTelegraphKeyPatTrainServiceTest {
     assertEquals(0, new BigDecimal("93").compareTo(result.getScore()));
   }
 
+  @Test
+  void finishPageReturnsSubmittedRawSnapshot() {
+    String token = token();
+    PostTelegraphKeyPatTrainEntity train = seed(token, 1);
+    PostTelegraphKeyPatTrainPageDto upload = page(train, 1, 0, 1000, "5", "6");
+    var response = service.finishPage(upload, token);
+    assertTrue(response.isSubmitted());
+    assertEquals(upload.getCaptureIntervals(), response.getSavedCaptureIntervals());
+    assertEquals(upload.getValue().getFirst().getValue(), response.getMessageVO().getFirst().getValue());
+    assertEquals(response.getMessageVO().getFirst().getValue(),
+        service.getPage(train.getId(), 1, token).getMessageVO().getFirst().getValue());
+  }
+
+  @Test
+  void finishSettlesOutOfOrderPagesAgainstTheirOwnSourcePage() {
+    String token = token();
+    PostTelegraphKeyPatTrainEntity train = seed(token, 200);
+    source(train, 1, "[\"1\"]");
+    source(train, 2, "[\"2\"]");
+    service.finishPage(rawPage(train, 2, 2000, 3000, "[\"2\"]"), token);
+    service.finishPage(rawPage(train, 1, 0, 1000, "[\"1\"]"), token);
+    PostTelegraphKeyPatTrainVO result = service.finish(action(train), token);
+    assertEquals(100d, result.getAccuracy());
+    assertEquals(0, result.getErrorNumber());
+    var rows = valueDao.findByTrainIdOrderByPageNumberAscSortAsc(train.getId());
+    assertEquals(List.of(1, 2), rows.stream().map(PostTelegraphKeyPatTrainPageValueEntity::getPageNumber).toList());
+    assertEquals("[\"1\"]", rows.get(0).getValue());
+    assertEquals("[\"2\"]", rows.get(1).getValue());
+  }
+
   private PostTelegraphKeyPatTrainVO finishGroups(String... values) {
     String token = token();
     PostTelegraphKeyPatTrainEntity train = seed(token, values.length);
     train.setRuleContent(RULE.replace("\"r\":2", "\"r\":0").replace("\"l\":3", "\"l\":0")
-        .replace("\"muchLessCode\":0", "\"muchLessCode\":2").replace("\"errorCode\":0", "\"errorCode\":3"));
+        .replace("\"muchLessCode\":0", "\"muchLessCode\":2").replace("\"errorCode\":0", "\"errorCode\":3")
+        .replace("\"alterError\":0", "\"alterError\":5"));
     trainDao.save(train);
     List<PostTelegraphKeyPatTrainPageMessageVO> groups = new java.util.ArrayList<>();
     for (int i = 0; i < values.length; i++) {
@@ -293,6 +374,29 @@ class PostTelegraphKeyPatTrainServiceTest {
     upload.setValue(groups);
     service.finishPage(upload, token);
     return service.finish(action(train), token);
+  }
+
+  private void source(PostTelegraphKeyPatTrainEntity train, int pageNumber, String key) {
+    PostTelegraphKeyPatTrainPageEntity source = new PostTelegraphKeyPatTrainPageEntity();
+    source.setTrainId(train.getId());
+    source.setPageNumber(pageNumber);
+    source.setSort(0);
+    source.setKey(key);
+    source.setValue("[]");
+    source.setTime("[]");
+    pageDao.save(source);
+  }
+
+  private static PostTelegraphKeyPatTrainPageDto rawPage(PostTelegraphKeyPatTrainEntity train,
+      int pageNumber, long start, long end, String value) {
+    PostTelegraphKeyPatTrainPageMessageVO group = new PostTelegraphKeyPatTrainPageMessageVO();
+    group.setSort(0);
+    group.setKey(value);
+    group.setValue(value);
+    group.setTime("[10]");
+    return new PostTelegraphKeyPatTrainPageDto().setId(train.getId()).setPageNumber(pageNumber)
+        .setProtocolVersion(1).setAttempt(train.getAttempt()).setValue(List.of(group))
+        .setCaptureIntervals(List.of(new CaptureInterval(start, end)));
   }
 
   private String token() {

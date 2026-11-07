@@ -57,7 +57,7 @@
                   <template v-if="scoreData.deductInfo">
                     <div class="row">
                       <div class="item lab full">码率</div>
-                      <div class="item">{{ Number(scoreData.deductInfo.speedNumber) * 4 }} {{ speedUnit }}</div>
+                      <div class="item">{{ scoreData.deductInfo.speedCharacters ?? Number(scoreData.deductInfo.speedNumber) * 4 }} {{ speedUnit }}</div>
                       <div class="item">{{ scoreData.deductInfo.speedScore*1 }} 分</div>
                     </div>
                     <div class="row">
@@ -134,6 +134,7 @@
               <div class="total">
                 报底数：<span class="num">{{ scoreData.pag }}</span>
               </div>
+              <ElectronicKeyDeductionDetails :summary="scoreData.deductInfo" :rule="scoreData.ruleContent" />
               <div class="total">
                 错误数：<span class="num">{{ scoreData.errorNumber }}</span>
               </div>
@@ -347,6 +348,7 @@
   }
 </script>
 <script setup>
+import ElectronicKeyDeductionDetails from '../../../../../components/common/ElectronicKeyDeductionDetails.vue'
   import {ref} from 'vue'
   import trainScore from './js/trainScore.js'
   import scoreSuperb from '../../../../../assets/HJ/postTrain/score-superb.png'

@@ -72,7 +72,7 @@
                 <div class="item relative">
                   <img :src="labSpeed" class="ico" />
                   <div>
-                    <div class="title">速率</div>
+                    <div class="title">累计码率</div>
                     <div class="tags nobr">{{ trainData.speed * 4 }}码/分</div>
                   </div>
                 </div>

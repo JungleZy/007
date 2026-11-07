@@ -10,10 +10,12 @@ import {getPostExamTrainDetails, startPostExamTrainInfo, endPostExamTrainInfo, a
 import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 import {audioOperation} from '../../../../../../common/utils/MorseVoice'
 import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'
+import {createElectronicAudioTempo} from '../../../../../../common/utils/electronicAudioTempo.js'
 
 export default function () {
   const submission = useConfirmedSubmission()
   const capture = useTrainingCapture()
+  const audioTempo = createElectronicAudioTempo()
   const snapshotKey = () => `personal-electron:pending:${trainData.value.id}`
   const patKeyBoxRef = ref(null)
   const patValBoxRef = ref(null)
@@ -153,15 +155,11 @@ export default function () {
   onKey(({code, receivedAt}) => {
     if (code && trainData.value.status === 1) {
       handlePatKeyCodeLogs(code, receivedAt)
-      if (Number(trainData.value.speed) > 0) {
-        playSpeed.value = Number(trainData.value.speed) * 4
-        changePlaySpeed()
-      }
     }
   })
   //改变电子键播报码率
   const changePlaySpeed = ()=>{
-    changeCriterion(playSpeed.value / 4, trainData.value.messageType == 1 ? 'letter' : trainData.value.messageType == 2 ? 'mix' : 'short')
+    changeCriterion(Number(playSpeed.value), trainData.value.messageType == 1 ? 'letter' : trainData.value.messageType == 2 ? 'mix' : 'short', 'characters')
   }
   /**
    * 训练用时
@@ -271,6 +269,7 @@ export default function () {
     }
 
     if (Number(code) === 44 && progress.value === 0 && (isPatF1.value||isPatF3.value)) {
+      audioTempo.reset()
       if(startTime===0){
         startTime = Date.now()
       }
@@ -418,15 +417,21 @@ export default function () {
   const patKeyAssignmentInfo = (lastKey, k_v, at,type=false) => {
     const time = capture.between(lastCharacterAt ?? at, at)
     lastCharacterAt = Math.max(lastCharacterAt ?? at, at)
+    let bodyCharacter = false
     if (k_v !== '开始' && k_v !== '句号' && k_v !== '结束' && k_v !== '?' && k_v !== '/') {
       for (const character of k_v) {
-        if (!/[\s\p{Cc}]/u.test(character)) patNumber.value++
+        if (!/[\s\p{Cc}]/u.test(character)) { patNumber.value++; bodyCharacter = true }
       }
     }
     if (capture.elapsed() > 0) {
       trainData.value.speed = Number((patNumber.value * 60000 / 4 / capture.elapsed()).toFixed(1))
-      playSpeed.value = trainData.value.speed * 4
-      changePlaySpeed()
+    }
+    if (bodyCharacter) {
+      const rate = audioTempo.record(at)
+      if (rate !== null) {
+        playSpeed.value = Number(rate.toFixed(1))
+        changePlaySpeed()
+      }
     }
     lastKey.push(k_v);
     patCodeLogs.value.push({key: k_v, time});

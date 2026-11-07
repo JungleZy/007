@@ -40,7 +40,7 @@ public final class ScoringRuleValidation {
   }
 
   public static PostKeyPatTrainRuleDto electronic(String content) {
-    JsonObject root = root(content, TrainingRateUnit.FOUR_CHARACTER_GROUPS_PER_MINUTE);
+    JsonObject root = root(content, TrainingRateUnit.CHARACTERS_PER_MINUTE, TrainingRateUnit.FOUR_CHARACTER_GROUPS_PER_MINUTE);
     decimalSpeed(root);
     JsonObject other = object(root, "other", "other");
     requiredDecimals(other, "errorCode", "muchLessCode", "muchLessLine", "muchLessGroups", "alterError", "bunchGroup", "lessGap");
@@ -64,7 +64,7 @@ public final class ScoringRuleValidation {
     return rule;
   }
 
-  private static JsonObject root(String content, TrainingRateUnit expected) {
+  private static JsonObject root(String content, TrainingRateUnit expected, TrainingRateUnit... historicalUnits) {
     JsonElement parsed;
     try {
       parsed = JSONUtils.fromJson(content, JsonElement.class);
@@ -75,7 +75,8 @@ public final class ScoringRuleValidation {
     JsonObject root = parsed.getAsJsonObject();
     JsonElement unit = root.get("rateUnit");
     if (unit == null || !unit.isJsonPrimitive() || !unit.getAsJsonPrimitive().isString()
-        || !expected.name().equals(unit.getAsString())) {
+        || !(expected.name().equals(unit.getAsString())
+            || java.util.Arrays.stream(historicalUnits).anyMatch(value -> value.name().equals(unit.getAsString())))) {
       throw invalid("rateUnit", "必须明确为" + expected.name() + "，请核对单位后重新保存");
     }
     return root;

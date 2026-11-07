@@ -8,10 +8,12 @@ import {finishElectronKeyZuXun, getElectronKeyZuXunPageNumber, uploadElectronKey
 import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
 import {audioOperation} from '../../../../../../../common/utils/MorseVoice'
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'
+import {createElectronicAudioTempo} from '../../../../../../../common/utils/electronicAudioTempo.js'
 
 export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,changeCriterion) {
   const submission = useConfirmedSubmission()
   const capture = useTrainingCapture()
+  const audioTempo = createElectronicAudioTempo()
   let closingAt = null
   let resetting = false
   const snapshotKey = () => `electron:pending:${userInfo.id}:${trainData.value.trainId}`
@@ -216,6 +218,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
       return false;
     }
     if (Number(val)===44&&trainData.value.process===1&&isPatF1.value) {
+      audioTempo.reset()
       logsPatKeyTime.value = curr_t;
       lastCharacterAt = curr_t
       trainData.value.patKeyVal.push([['开始']]);
@@ -367,10 +370,14 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
     const time = capture.between(lastCharacterAt ?? at, at)
     lastCharacterAt = Math.max(lastCharacterAt ?? at, at)
     let currData = trainData.value.telegraph[trainData.value.floorNow - 1]
-    if (k_v.trim() && k_v !== '?' && k_v !== '/') patNumber.value++;
+    const bodyCharacter = k_v.trim() && k_v !== '?' && k_v !== '/' && !['开始', '句号', '结束'].includes(k_v)
+    if (bodyCharacter) patNumber.value++;
     if (capture.elapsed() > 0) {
       trainData.value.speed = Number((patNumber.value * 60000 / 4 / capture.elapsed()).toFixed(1))
-      changeCriterion(trainData.value.speed, trainData.value.messageType === 1 ? 'letter' : trainData.value.messageType === 2 ? 'mix' : 'short')
+    }
+    if (bodyCharacter) {
+      const rate = audioTempo.record(at)
+      if (rate !== null) changeCriterion(rate, trainData.value.messageType === 1 ? 'letter' : trainData.value.messageType === 2 ? 'mix' : 'short', 'characters')
     }
     lastKey.push(k_v);
     trainData.value.patCodeLog.push({key: k_v, time});
@@ -594,6 +601,7 @@ export default function (trainData,wsOnline,devOnline,loading,emits,voiceCode,ch
       pagePatStandard.value = []
       finishPatLogs.value = []
       patNumber.value = 0
+      audioTempo.reset()
       isFirstKey = true
       patUser.value.isFinish = 0
       startStatus.value = false

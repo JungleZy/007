@@ -1,0 +1,9 @@
+# 电子键手动句号翻页与采集原点
+
+现场info.log确认个人岗位PostTelegraphKeyPatTrainService.finishPage在采集上界校验失败。原开始接口与手键之前的问题相同：写入LocalDateTime.now后直接返回内存中的时间基准。现采用CaptureTimeline.persistedOrigin，saveAndFlush后refresh，再下发serverElapsedMs，避免旧datetime(0)库改变开始原点。增加受限诊断日志：训练/页/轮次、服务端上界、区间数和末段，不输出正文与token。本次现场原日志没有实际上界差，不能断言该请求必然由数据库精度导致；修复了已确认代码风险，仍需现场提交验证。新增首次开始/取页时间一致的数据库集成用例，通过编译，Docker不可用未运行。
+
+模拟器电子键改为仅正文中的中文句号或英文句点触发FN_PERIOD；下一页正文前固定发送FN_F1、FN_START。不会按100组或tail=page自动添加句号；末尾手动句号不追加无正文开始符。开头是否发开始符仍由preamble控制。预览的characters索引增加句号控制项，pageBreaks支持两种键型，定位功能可以查询句号。
+
+验证：后端CaptureOriginPrecisionTest、ElectronicKeyClassificationTest共28项通过；模拟器分页7项与keying模块11项通过。已重启release并调用运行中preview：1234.5678.返回pageBreaks=2，控制项为开始、句号、开始、句号。没有自动发送报文，没有改写当前训练快照，未完成真实浏览器到数据库翻页验收。
+
+新开始训练才使用规范化原点。当前失败提交需保留内容，先重试成功再退出重进同步；不应通过延长采集时间或放宽校验掩盖时钟差。

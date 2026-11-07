@@ -4,6 +4,7 @@ import com.google.gson.reflect.TypeToken;
 import com.nip.dto.KeyPatPageTransferDto;
 import com.nip.dto.KeyPatStatisticalDto;
 import com.nip.dto.KeyPatValueTransferDto;
+import com.nip.dto.ElectronicKeyDeductionEvidence;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,19 +14,19 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class KeyPatUtils {
-  final int MAX_LOOKAHEAD = 4;
-  final int GROUP_SIZE = 10;
-  final int LARGE_THRESHOLD = 100;
 
   public static void handle(String userId,
       List<KeyPatValueTransferDto> pageValueResult,
       List<KeyPatPageTransferDto> userPages,
       List<KeyPatValueTransferDto> userPageValuesOld,
       KeyPatStatisticalDto ks) {
+    if (userPages.isEmpty() && !userPageValuesOld.isEmpty()) {
+      throw new IllegalStateException("该页报底缺失，无法结算拍发记录");
+    }
     List<List<String>> precomputedValues = userPageValuesOld.stream()
         .map(kp -> {
           String s = convert2String(kp.getValue());
-          return s.length() >= 8 && !s.contains("?") ? groupValue(s) : null;
+          return !s.contains("?") && matchesJoinedReference(s, userPages) ? groupValue(s) : null;
         })
         .toList();
 
@@ -49,204 +50,189 @@ public class KeyPatUtils {
           ks.setLackGap(ks.getLackGap() + 1);
         }
         ks.setLackGap(ks.getLackGap() - 1);
-        cumsum += values.size();
+        evidence(ks, kp.getPageNumber(), null, null, kp.getSort() + 1, kp.getSort() + 1,
+            String.join(" ", values), convert2String(kp.getValue()), "lackGap", values.size() - 1, null);
+        cumsum += values.size() - 1;
       } else {
-        kp.setSort(kp.getSort() + cumsum);
-        userPageValues.add(kp);
+        if (!convert2String(kp.getValue()).isEmpty()) userPageValues.add(new KeyPatValueTransferDto(
+            kp.getUserId(), kp.getTrainId(), kp.getPageNumber(), kp.getKey(), kp.getValue(), kp.getTime(), kp.getSort() + cumsum));
       }
     }
     // ---- 结束重新组装拍发内容 ----
 
-    if (!userPages.isEmpty()) {
-      // 记录已处理的拍发数据下标
-      int sSign = 0;
-      int lackLineBase = 0;
-      // 比对每组报文
-      for (int j = 0; j < userPages.size(); j++) {
-        KeyPatPageTransferDto keyEntity = userPages.get(j);
-        String groupKey = convert2String(keyEntity.getKey());
-
-        // ---- 开始多少行判断 ----
-        // 判断少行
-        if (sSign >= userPageValues.size()) {
-          lackLineBase += 1;
-          add(pageValueResult, userId, keyEntity, null, null);
-          continue;
-        }
-        // ---- 结束多少行判断 ----
-
-        KeyPatValueTransferDto valueEntity = userPageValues.get(sSign);
-        if (StringUtils.isEmpty(valueEntity)) {
-          valueEntity = new KeyPatValueTransferDto();
-        }
-        String groupValue = convert2String(valueEntity.getValue());
-        ks.setPat(ks.getPat() + groupValue.length());
-
-        // 累加解析后的时间总和到总时间
-        ks.setPatTime(ks.getPatTime() + convert2Int(valueEntity.getTime()));
-
-        // 如果存在？则说明该结果是改错，取最后一个？后的内容
-        if (groupValue.contains("?")) {
-          groupValue = alterErrorMethod(groupValue);
-          // 改错++
-          ks.setAlterError(ks.getAlterError() + 1);
-        }
-
-        // 目标数据与拍发数据不一致
-        if (!Objects.equals(groupKey, groupValue)) {
-          // 跳过标识符，默认不跳过
-          boolean isGoon = true;
-
-          // ---- 开始多少组判断 ----
-          boolean isMoreGroup = true;
-          // 多组标识符，默认无多组
-          if (sSign > 0) {
-            List<KeyPatValueTransferDto> moreGroupTemp = new ArrayList<>();
-            moreGroupTemp.add(valueEntity);
-            // 判断是否多组: 拍发报文后4组 与当前报文对比，某组报文与目标报文相同，则中间的报文判定为多组
-            for (int k = 1; k <= 4; k++) {
-              int tempIndex = sSign + k;
-              if (tempIndex < userPageValues.size()) {
-                KeyPatValueTransferDto nextPageValue = userPageValues.get(tempIndex);
-                String nextPageValueValue = convert2String(nextPageValue.getValue());
-                if (nextPageValueValue.contains("?")) {
-                  nextPageValueValue = alterErrorMethod(nextPageValueValue);
-                }
-                // 当找到时，则多组结束，并把多组数据加入结果中
-                if (Objects.equals(nextPageValueValue, groupKey)) {
-                  int gs = 0;
-                  for (KeyPatValueTransferDto mg : moreGroupTemp) {
-                    add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(mg.getValue(), gs)),
-                        mg.getTime());
-                    gs++;
-                  }
-                  add(pageValueResult, userId, keyEntity, JSONUtils.toJson(convert2List(nextPageValue.getValue(), gs)),
-                      nextPageValue.getTime());
-                  // 已处理的目标数据下标++
-                  sSign = tempIndex;
-                  // 增加多组个数
-                  ks.setMoreGroup(ks.getMoreGroup() + k);
-                  // moreGroup += k;
-                  // 多组标识符，设为有多组
-                  isMoreGroup = false;
-                  // 跳过标识符，设为跳过
-                  isGoon = false;
-                  break;
-                }
-                moreGroupTemp.add(nextPageValue);
-              }
-            }
-          }
-          // 判断是否少组，用目标数据以及之后的所有报文与当前拍发报文进行比对，某组报文与目标报文相同，则中间判定为少组
-          if (isMoreGroup) {
-            for (int k = j + 1; k < userPages.size(); k++) {
-              KeyPatPageTransferDto nextUserPages = userPages.get(k);
-              String nextKey = convert2String(nextUserPages.getKey());
-              if (Objects.equals(groupValue, nextKey)) {
-                boolean isNotBunchGroup = true;
-                if (k - j == 10) {
-                  boolean isOk = false;
-                  for (int l = 1; l < 5; l++) {
-                    int sl = sSign + l;
-                    int jl = j + l;
-                    if (sl < userPageValues.size() && jl < userPages.size()) {
-                      KeyPatValueTransferDto key = userPageValues.get(sl);
-                      KeyPatPageTransferDto value = userPages.get(jl);
-                      if (Objects.equals(key.getValue(), value.getKey())) {
-                        isOk = true;
-                        break;
-                      }
-                    }
-                  }
-                  if (isOk) {
-                    add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "bunchGroup"),
-                        valueEntity.getTime());
-                    ks.setBunchGroup(ks.getBunchGroup() + 1);
-                    isNotBunchGroup = false;
-                    isGoon = false;
-                  }
-                }
-                if (isNotBunchGroup) {
-                  // 增加漏拍个数
-                  int lackNum = k - j;
-                  ks.setLackGroup(ks.getLackGroup() + lackNum);
-                  for (int i1 = 0; i1 < lackNum; i1++) {
-                    add(pageValueResult, userId, userPages.get(j + i1), "[]", "[]", keyEntity.getSort() + i1);
-                  }
-                  add(pageValueResult, userId, nextUserPages, valueEntity);
-                  // 索引同步
-                  j += lackNum;
-                  // 跳过标识符，设为跳过
-                  isGoon = false;
-                  break;
-                }
-              }
-            }
-          }
-          // ---- 结束多少组判断 ----
-
-          // ---- 开始多少码判断 ----
-          if (isGoon) {
-            // 多码
-            if (groupValue.length() > 4) {
-              if (groupValue.contains(groupKey)) {
-                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "more"),
-                    valueEntity.getTime());
-                ks.setMore(ks.getMore() + 1);
-                isGoon = false;
-              }
-            }
-            // 少码
-            if (groupValue.length() < 4) {
-              if (groupKey.contains(groupValue)) {
-                add(pageValueResult, userId, keyEntity, encapsulateErrorInformation(valueEntity, "lack"),
-                    valueEntity.getTime());
-                ks.setLack(ks.getLack() + 1);
-                isGoon = false;
-              }
-            }
-          }
-          // ---- 结束多少码判断 ----
-
-          // ---- 开始错码判断 ----
-          if (isGoon) {
-            add(pageValueResult, userId, keyEntity, valueEntity);
-            ks.setError(ks.getError() + 1);
-          }
-          // ---- 结束错码判断 ----
-
-        }
-        // 目标数据与拍发数据一致
-        else {
-          add(pageValueResult, userId, keyEntity, valueEntity);
-        }
-        // 已处理的目标数据下标++
-        sSign++;
-        // 拍发组数++
-        ks.setPatGroup(ks.getPatGroup() + 1);
-        // ---- 开始多少行判断 ----
-        // 判断多行
-        if (j == userPages.size() - 1 && sSign < userPageValues.size()) {
-          int remaining = userPageValues.size() - sSign;
-          ks.setMoreLine(ks.getMoreLine() + (remaining / 10));
-          if (remaining % 10 > 0) {
-            ks.setMoreLine(ks.getMoreLine() + 1);
-          }
-          int flag = 1;
-          for (int k = sSign; k < userPageValues.size(); k++) {
-            add(pageValueResult, userId, userPageValues.get(k), j + flag, null);
-            flag++;
-          }
-        }
-        // ---- 结束多少行判断 ----
-      }
-      ks.setLackLine(lackLineBase / 10);
-    } else {
-      ks.setMoreLine(ks.getMoreLine() + userPageValues.size() / 10);
-      if (userPageValues.size() % 10 > 0) {
-        ks.setMoreLine(ks.getMoreLine() + 1);
-      }
+    List<String> sources = userPages.stream().map(p -> convert2String(p.getKey())).toList();
+    List<String> answers = userPageValues.stream().map(p -> alterErrorMethod(convert2String(p.getValue()))).toList();
+    java.util.Map<Integer, Integer> paired = new java.util.HashMap<>();
+    ks.setPatGroup(ks.getPatGroup() + userPageValues.size());
+    for (var value : userPageValues) {
+      ks.setPat(ks.getPat() + convert2String(value.getValue()).length());
+      ks.setPatTime(ks.getPatTime() + convert2Int(value.getTime()));
     }
+    int source = 0, captured = 0;
+    while (source < sources.size() && captured < answers.size()) {
+      var reference = userPages.get(source);
+      var value = userPageValues.get(captured);
+      String expected = sources.get(source), actual = answers.get(captured);
+      if (expected.equals(actual)) {
+        ks.setCorrectGroup(ks.getCorrectGroup() + 1);
+        if (convert2String(value.getValue()).contains("?")) {
+          ks.setAlterError(ks.getAlterError() + 1);
+          evidence(ks, reference.getPageNumber(), source + 1, source + 1, captured + 1, captured + 1,
+              expected, convert2String(value.getValue()), "alterError", 1, null);
+        }
+        add(pageValueResult, userId, reference, value);
+        source++; captured++; continue;
+      }
+      boolean bunch = paired.containsKey(captured) && actual.equals(sources.get(paired.get(captured)));
+      int bunchCount = 0;
+      Integer partner = bunch ? paired.get(captured) + 1 : null;
+      if (!bunch) {
+        for (int offset = 1; source + offset < sources.size() && captured + offset < answers.size(); offset++) {
+          if (!paired.containsKey(captured + offset) && actual.equals(sources.get(source + offset))
+              && expected.equals(answers.get(captured + offset))) {
+            paired.put(captured + offset, source);
+            ks.setBunchGroup(ks.getBunchGroup() + 1);bunch = true;bunchCount = 1;
+            partner = source + offset + 1;break;
+          }
+        }
+      }
+      if (bunch) {
+        evidence(ks, reference.getPageNumber(), source + 1, source + 1, captured + 1, captured + 1,
+            expected, convert2String(value.getValue()), "bunchGroup", bunchCount, partner);
+        add(pageValueResult, userId, reference, encapsulateErrorInformation(value, "bunchGroup"), value.getTime());
+        source++; captured++; continue;
+      }
+      boolean nextAligned = source + 1 < sources.size() && captured + 1 < answers.size()
+          && sources.get(source + 1).equals(answers.get(captured + 1));
+      int extra = -1, missing = -1;
+      if (!nextAligned) {
+        extra = findAlignment(answers, captured, sources, source);
+        missing = findAlignment(sources, source, answers, captured);
+      }
+      if (extra > 0 && (missing < 0 || extra <= missing)) {
+        recordExtraGroups(ks, extra);
+        rangeEvidence(ks, reference.getPageNumber(), "more", source + 1, captured + 1, extra,
+            expected, rawText(userPageValues, captured, captured + extra));
+        for (int index = 0; index < extra; index++) {
+          var inserted = userPageValues.get(captured + index);
+          add(pageValueResult, userId, reference, JSONUtils.toJson(convert2List(inserted.getValue(), index)), inserted.getTime());
+        }
+        var matched = userPageValues.get(captured + extra);
+        add(pageValueResult, userId, reference, JSONUtils.toJson(convert2List(matched.getValue(), extra)), matched.getTime());
+        ks.setCorrectGroup(ks.getCorrectGroup() + 1);
+        if (convert2String(matched.getValue()).contains("?")) {
+          ks.setAlterError(ks.getAlterError() + 1);
+          evidence(ks, reference.getPageNumber(), source + 1, source + 1, captured + extra + 1, captured + extra + 1,
+              expected, convert2String(matched.getValue()), "alterError", 1, null);
+        }
+        captured += extra + 1;source++;continue;
+      }
+      if (missing > 0) {
+        recordMissingGroups(ks, missing);
+        rangeEvidence(ks, reference.getPageNumber(), "lack", source + 1, null, missing,
+            String.join(" ", sources.subList(source, source + missing)), "");
+        for (int index = 0; index < missing; index++) add(pageValueResult, userId, userPages.get(source + index), "[]", "[]");
+        source += missing;continue;
+      }
+      String marker = null;
+      if (!actual.isEmpty() && actual.length() < expected.length() && isSubsequence(actual, expected)) {
+        ks.setLack(ks.getLack() + 1); marker = "lack";
+      } else if (actual.length() > expected.length() && isSubsequence(expected, actual)) {
+        ks.setMore(ks.getMore() + 1); marker = "more";
+      } else ks.setError(ks.getError() + 1);
+      evidence(ks, reference.getPageNumber(), source + 1, source + 1, captured + 1, captured + 1,
+          expected, convert2String(value.getValue()), marker == null ? "error" : marker, 1, null);
+      if (marker == null) add(pageValueResult, userId, reference, value);
+      else add(pageValueResult, userId, reference, encapsulateErrorInformation(value, marker), value.getTime());
+      source++; captured++;
+    }
+    recordMissingGroups(ks, sources.size() - source);
+    if (source < sources.size()) rangeEvidence(ks, userPages.get(source).getPageNumber(), "lack", source + 1, null,
+        sources.size() - source, String.join(" ", sources.subList(source, sources.size())), "");
+    while (source < sources.size()) add(pageValueResult, userId, userPages.get(source++), "[]", "[]");
+    recordExtraGroups(ks, answers.size() - captured);
+    if (captured < answers.size()) rangeEvidence(ks, userPageValues.get(captured).getPageNumber(), "more", null,
+        captured + 1, answers.size() - captured, "", rawText(userPageValues, captured, answers.size()));
+    int extraSort = sources.size();
+    while (captured < answers.size()) add(pageValueResult, userId, userPageValues.get(captured++), extraSort++, null);
+  }
+
+  /** 连续缺失按完整10组计行，余数计组，二者互斥并跨页累计。 */
+  public static void recordMissingGroups(KeyPatStatisticalDto score, int groups) {
+    score.setLackLine(score.getLackLine() + groups / 10);
+    score.setLackGroup(score.getLackGroup() + groups % 10);
+  }
+
+  public static void recordMissingPage(KeyPatStatisticalDto score, int page, int groups) {
+    recordMissingGroups(score, groups);
+    rangeEvidence(score, page, "lack", 1, null, groups, "本页报底 " + groups + " 组", "整页未提交");
+  }
+
+  private static void rangeEvidence(KeyPatStatisticalDto score, int page, String prefix,
+      Integer reference, Integer captured, int groups, String expected, String actual) {
+    int complete = groups / 10 * 10;
+    if (complete > 0) evidence(score, page, reference,
+        reference == null ? null : reference + (prefix.equals("lack") ? complete - 1 : 0),
+        captured, captured == null ? null : captured + complete - 1,
+        segment(expected, 0, complete, groups), segment(actual, 0, complete, groups), prefix + "Line", groups / 10, null);
+    if (groups % 10 > 0) evidence(score, page,
+        reference == null ? null : reference + (prefix.equals("lack") ? complete : 0),
+        reference == null ? null : reference + (prefix.equals("lack") ? groups - 1 : 0),
+        captured == null ? null : captured + complete, captured == null ? null : captured + groups - 1,
+        segment(expected, complete, groups % 10, groups), segment(actual, complete, groups % 10, groups), prefix + "Group", groups % 10, null);
+  }
+
+  private static String segment(String text, int start, int length, int groups) {
+    String[] words = text.split(" ");
+    return words.length == groups ? String.join(" ", java.util.Arrays.copyOfRange(words, start, start + length)) : text;
+  }
+
+  private static String rawText(List<KeyPatValueTransferDto> values, int start, int end) {
+    return values.subList(start, end).stream().map(value -> convert2String(value.getValue())).collect(Collectors.joining(" "));
+  }
+
+  private static void evidence(KeyPatStatisticalDto score, int page, Integer reference, Integer referenceEnd,
+      Integer captured, Integer capturedEnd, String expected, String actual, String kind, int count, Integer partner) {
+    score.getEvidence().add(new ElectronicKeyDeductionEvidence(page, reference, referenceEnd, captured, capturedEnd,
+        expected, actual, kind, count, partner, null, null));
+  }
+
+  private static void recordExtraGroups(KeyPatStatisticalDto score, int groups) {
+    score.setMoreLine(score.getMoreLine() + groups / 10);
+    score.setMoreGroup(score.getMoreGroup() + groups % 10);
+  }
+
+  private static int findAlignment(List<String> shifted, int start, List<String> fixed, int anchor) {
+    for (int offset = 1; start + offset < shifted.size(); offset++) {
+      if (!shifted.get(start + offset).equals(fixed.get(anchor))) continue;
+      if (start + offset + 1 < shifted.size() && anchor + 1 < fixed.size()
+          && !shifted.get(start + offset + 1).equals(fixed.get(anchor + 1))) continue;
+      return offset;
+    }
+    return -1;
+  }
+
+  private static boolean isSubsequence(String shorter, String longer) {
+    int matched = 0;
+    for (int index = 0; index < longer.length() && matched < shorter.length(); index++) {
+      if (shorter.charAt(matched) == longer.charAt(index)) matched++;
+    }
+    return matched == shorter.length();
+  }
+
+  private static boolean matchesJoinedReference(String value, List<KeyPatPageTransferDto> references) {
+    if (value.length() < 8 || value.length() % 4 != 0) return false;
+    List<String> parts = groupValue(value);
+    for (int start = 0; start + parts.size() <= references.size(); start++) {
+      boolean matches = true;
+      for (int index = 0; index < parts.size(); index++) {
+        if (!parts.get(index).equals(convert2String(references.get(start + index).getKey()))) {
+          matches = false;break;
+        }
+      }
+      if (matches) return true;
+    }
+    return false;
   }
 
   /**

@@ -885,9 +885,7 @@ public class GeneralKeyPatService {
       tp = trainPageDao.find("trainId", entity.getId()).list().size();
     }
     int totalPageNumber = tp / 100;
-    int remaining = 0;
     if (tp % 100 > 0) {
-      remaining = tp % 100;
       totalPageNumber++;
     }
     List<Integer> totalPageNumberList = new ArrayList<>();
@@ -896,31 +894,9 @@ public class GeneralKeyPatService {
     }
     if (pageNumbers.size() < totalPageNumber) {
       totalPageNumberList.removeAll(pageNumbers);
-      for (int i = 0; i < totalPageNumberList.size(); i++) {
-        if (i == totalPageNumberList.size() - 1) {
-          if (tp % 100 == 0) {
-            keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + 10);
-          } else {
-            // 余数
-            int clout = tp % 100;
-            keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + clout / 10);
-            if (clout % 10 > 0) {
-              keyPatStatistics.setMoreGroup(keyPatStatistics.getMoreGroup() + clout % 10);
-            }
-          }
-        } else {
-          keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + 10);
-        }
-      }
-      if (remaining > 0) {
-        keyPatStatistics.setLackGroup(keyPatStatistics.getLackGroup() + (totalPageNumber - 1 - pageNumbers.size()) * 100 + remaining);
-        keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() +
-            (totalPageNumber - 1 - pageNumbers.size()) *
-                10
-            + (remaining / 10) - (keyPatStatistics.getPatGroup() / 10 + 1));
-      } else {
-        keyPatStatistics.setLackGroup(keyPatStatistics.getLackGroup() + (totalPageNumber - pageNumbers.size()) * 100);
-        keyPatStatistics.setLackLine(keyPatStatistics.getLackLine() + (totalPageNumber - pageNumbers.size()) * 10 - (keyPatStatistics.getPatGroup() / 10 + 1));
+      for (Integer missingPage : totalPageNumberList) {
+        com.nip.common.utils.KeyPatUtils.recordMissingPage(keyPatStatistics, missingPage,
+            Math.min(100, tp - (missingPage - 1) * 100));
       }
     }
 
@@ -937,7 +913,7 @@ public class GeneralKeyPatService {
     // 错误个数
     kehPatUserEntity.setErrorNumber(keyPatStatistics.getError());
 
-    int errorTotal = keyPatStatistics.getPatGroup() - keyPatStatistics.getError() - keyPatStatistics.getBunchGroup() - keyPatStatistics.getLack() - keyPatStatistics.getMore();
+    int errorTotal = keyPatStatistics.getCorrectGroup();
     BigDecimal accuracy = ScoreMath.accuracy(errorTotal, keyPatStatistics.getPatGroup());
 
     kehPatUserEntity.setAccuracy(accuracy.toString());
@@ -1001,14 +977,20 @@ public class GeneralKeyPatService {
     // 速率加减分：高于基准按 R 加分、低于基准按 L 扣分，走全仓唯一实现 ScoreMath.wpmScore
     deductInfo.put("speedNumber", speed.toString());
     int wpmBase = rule.getWpm().getBase();
+    BigDecimal scoringSpeed = rule.getRateUnit().rate(characters, activeMillis);
+    deductInfo.put("speedCharacters", TrainingRateUnit.CHARACTERS_PER_MINUTE.rate(characters, activeMillis));
+    deductInfo.put("scoringSpeedNumber", scoringSpeed);
+    deductInfo.put("scoringRateUnit", rule.getRateUnit());
     BigDecimal speedScore = ScoreMath.wpmScore(wpmBase, rule.getWpm().getR(),
-        rule.getWpm().getL(), speed.intValue());
+        rule.getWpm().getL(), scoringSpeed.intValueExact());
     score = score.add(speedScore);
     // 码率项与个人电子键同一口径：始终输出 speedScore，正值补 "+"，等于基准输出 "0"；
     // 缺 key 会让成绩页把码率扣分渲染成 NaN，违反“显示与扣分同源”。
     deductInfo.put("speedScore", speedScore.signum() > 0 ? "+" + speedScore : speedScore.toString());
 
     kehPatUserEntity.setScore(score);
+    deductInfo.put("evidenceVersion", 1);
+    deductInfo.put("evidence", keyPatStatistics.getEvidence().stream().map(item -> item.priced(rule)).toList());
     // 保存扣分详情
     kehPatUserEntity.setDeductInfo(JSONUtils.toJson(deductInfo));
 

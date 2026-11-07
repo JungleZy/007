@@ -25,10 +25,10 @@
     </div>
     <div class="h-full grading-list overflow-auto relative" style="width: calc(100% - 200px)">
       <div class="w-full pl-1 pr-1 layout-left-center" v-if="pickRuleIndex > -1">
-        <a-alert v-if="ruleList[pickRuleIndex].content.rateUnit !== 'FOUR_CHARACTER_GROUPS_PER_MINUTE'" class="w-full" type="warning" show-icon message="旧规则单位未确认或不匹配。请逐项核对速度及每单位加扣分，必要时手动修改数值，再确认单位并提交；系统不会自动乘除4。" />
+        <a-alert v-if="ruleList[pickRuleIndex].content.rateUnit !== 'CHARACTERS_PER_MINUTE'" class="w-full" type="warning" show-icon message="旧规则采用四码组/分钟或单位未确认。请核对基准及每码/分加扣分后确认单位并提交；例如150码/分请填写150。保存后用于新训练，历史成绩不重算。" />
         <a-row class="w-full">
-          <a-checkbox :checked="ruleList[pickRuleIndex].content.rateUnit === 'FOUR_CHARACTER_GROUPS_PER_MINUTE'" @change="event => ruleList[pickRuleIndex].content.rateUnit = event.target.checked ? 'FOUR_CHARACTER_GROUPS_PER_MINUTE' : undefined">
-            已核对速度及每单位加扣分，确认使用四码组/分钟（提交规则后生效）
+          <a-checkbox :checked="ruleList[pickRuleIndex].content.rateUnit === 'CHARACTERS_PER_MINUTE'" @change="event => ruleList[pickRuleIndex].content.rateUnit = event.target.checked ? 'CHARACTERS_PER_MINUTE' : undefined">
+            已核对速度及每单位加扣分，确认使用码/分（提交规则后生效）
           </a-checkbox>
         </a-row>
         <a-row class="w-full">
@@ -53,7 +53,7 @@
           <a-col :span="3" class="layout-left-center">
             <a-input-number :min="1" :step="1" :precision="0" v-model:value="ruleList[pickRuleIndex].content.wpm.base"/>
           </a-col>
-          <a-col :span="2" class="layout-left-center">&nbsp;&nbsp;四码组/分钟</a-col>
+          <a-col :span="2" class="layout-left-center">&nbsp;&nbsp;码/分</a-col>
           <a-col :span="3" class="layout-right-center pr-1">低于扣</a-col>
           <a-col :span="3" class="layout-left-center">
             <a-input-number :min="0" :max="100" :step="1" :precision="0"
@@ -246,7 +246,7 @@
       status: 0,
       isDefault: false, //是否为默认规则
       content: {
-        rateUnit: 'FOUR_CHARACTER_GROUPS_PER_MINUTE',
+        rateUnit: 'CHARACTERS_PER_MINUTE',
         wpm: {
           base: 50, //设定速度
           r: 0, //低于扣分
@@ -283,8 +283,8 @@
   }
   const handleSubmit = () => {
     let data = deepClone(ruleList.value[pickRuleIndex.value])
-    if (data.content.rateUnit !== 'FOUR_CHARACTER_GROUPS_PER_MINUTE') {
-      message.warning('请先核对速度及每单位加扣分，并确认四码组/分钟单位后重新提交规则')
+    if (data.content.rateUnit !== 'CHARACTERS_PER_MINUTE') {
+      message.warning('请先核对速度及每码/分加扣分，并确认码/分单位后重新提交规则')
       return
     }
     data.isDefault = data.isDefault ? 0 : 1

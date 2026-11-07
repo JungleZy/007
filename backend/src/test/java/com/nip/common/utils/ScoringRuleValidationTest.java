@@ -40,6 +40,25 @@ class ScoringRuleValidationTest {
   }
 
   @Test
+  void electronicCharacterBaselineUsesCharactersAndPreservesFrozenGroupRules() {
+    String content = """
+        {"rateUnit":"CHARACTERS_PER_MINUTE","wpm":{"base":150,"r":1,"l":1},
+         "other":{"errorCode":35,"muchLessCode":10,"muchLessLine":10,"muchLessGroups":10,"alterError":1,"bunchGroup":10,"lessGap":10}}
+        """;
+    var rule = ScoringRuleValidation.electronic(content);
+    // 236码/分高于150码/分；不能先除以4后再与150比较。
+    assertEquals(new BigDecimal("86"), ScoreMath.wpmScore(rule.getWpm().getBase(),
+        rule.getWpm().getR(), rule.getWpm().getL(), rule.getRateUnit().rate(236, 60000)));
+    assertEquals(BigDecimal.ZERO, ScoreMath.wpmScore(150, BigDecimal.ONE, BigDecimal.ONE,
+        rule.getRateUnit().rate(150, 60000)));
+    assertEquals(new BigDecimal("-1"), ScoreMath.wpmScore(150, BigDecimal.ONE, BigDecimal.ONE,
+        rule.getRateUnit().rate(149, 60000)));
+    var historical = ScoringRuleValidation.electronic(content.replace("CHARACTERS_PER_MINUTE", "FOUR_CHARACTER_GROUPS_PER_MINUTE"));
+    assertEquals(new BigDecimal("-91"), ScoreMath.wpmScore(150, BigDecimal.ONE, BigDecimal.ONE,
+        historical.getRateUnit().rate(236, 60000)));
+  }
+
+  @Test
   void partialNegativeAndWrongUnitRulesCannotReachScoring() {
     assertThrows(IllegalArgumentException.class, () -> ScoringRuleValidation.handkey(
         "{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":70},\"skew\":51}"));

@@ -40,7 +40,7 @@ public class PostTelegraphKeyPatTrainPageDao extends BaseRepository<PostTelegrap
     return find("trainId = ?1 and pageNumber = ?2 order by sort", trainId, pageNumber).list();
   }
   public List<PostTelegraphKeyPatTrainPageEntity> findByTrainIdAndPageNumberOrderBySort(String trainId,
-                                                                                        List<Integer> pageNumber) {
-    return find("trainId = ?1 and pageNumber in (?2) order by sort", trainId, pageNumber).list();
+                                                                                         List<Integer> pageNumber) {
+    return find("trainId = ?1 and pageNumber in (?2) order by pageNumber, sort", trainId, pageNumber).list();
   }
 }

@@ -8,6 +8,8 @@ import lombok.Data;
 public class KeyPatStatisticalDto {
   private int pat = 0;              // 拍发码数
   private int patGroup = 0;         // 拍发组数
+  private int correctGroup = 0;     // 正确对齐的组数（串组两端都不计正确）
+  private transient java.util.List<ElectronicKeyDeductionEvidence> evidence = new java.util.ArrayList<>();
   private int patTime = 0;          // 拍发时长（毫秒）
   private int lack = 0;             // 少码
   private int more = 0;             // 多码
