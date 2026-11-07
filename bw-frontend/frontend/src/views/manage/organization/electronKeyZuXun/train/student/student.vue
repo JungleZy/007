@@ -144,6 +144,7 @@
               <div class="total">
                 总数：<span class="num">{{ trainData.pag }}</span>
               </div>
+              <CopyReferenceButton class="ml-4" :groups="(trainData.telegraph?.[trainData.floorNow - 1] || []).map(item => item.key)" :disabled="loading || submissionBusy" />
             </div>
           </div>
         </div>
@@ -196,6 +197,7 @@
   import {ref, onMounted, onUnmounted, defineEmits} from 'vue'
   import {useRoute} from 'vue-router'
   import CountDown from '../../../../../../components/common/CountDown.vue'
+  import CopyReferenceButton from '../../../../../../components/common/CopyReferenceButton.vue'
   import {PubSub} from '../../../../../../common/utils/PubSub.js'
   import {getElectronKeyZuXunDetails} from "../../../../../../common/api/electronKeyZuXun.js"
   import useControl from './js/useControl.js'
