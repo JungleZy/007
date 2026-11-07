@@ -70,6 +70,8 @@ pub const FN_F2: u8 = 13;
 pub const FN_F3: u8 = 14;
 pub const FN_ENTER: u8 = 41;
 pub const FN_START: u8 = 44;
+pub const FN_CORRECT_CURRENT: u8 = 42;
+pub const FN_CORRECT_PREVIOUS: u8 = 43;
 pub const FN_PERIOD: u8 = 45;
 
 /// 电子键 F2 装配表：点划串 -> 字母（keyCode.js 的 codeOnKey）。

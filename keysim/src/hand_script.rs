@@ -3,10 +3,6 @@ use std::collections::HashMap;
 
 use crate::{keying, timeline::Rng};
 
-/// 一页十行，一行十组；与控制台随机报文的排版宽度共用同一常量。
-const LINES_PER_PAGE: usize = 10;
-pub(crate) const GROUPS_PER_PAGE: usize = keying::GROUPS_PER_LINE * LINES_PER_PAGE;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Correction {
     Current,

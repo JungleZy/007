@@ -88,7 +88,7 @@ impl Default for ElectronOptions {
             jitter: 0.0,
             seed: 1,
             preamble: true,
-            tail: "page".into(),
+            tail: "none".into(),
             style: "machine".into(),
         }
     }
@@ -374,7 +374,8 @@ pub fn electron_timeline(options: &ElectronOptions) -> Result<Timeline, String> 
 }
 
 fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timeline, String> {
-    let groups = validate(&options.text, &options.alphabet)?;
+    let program = hand_script::parse(&options.text, &options.alphabet)?;
+    let groups = program.groups;
     if !(options.rate.is_finite() && options.rate > 0.0) {
         return Err("码率必须大于零".into());
     }
@@ -418,26 +419,9 @@ fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timel
     }
 
     let mut target = builder.cursor();
-    let group_count = groups.len();
-    for (group_index, group) in groups.iter().enumerate() {
-        if group_index > 0 && group_index % hand_script::GROUPS_PER_PAGE == 0 {
-            if mode != Some(morse::FN_F1) {
-                press(&mut builder, morse::FN_F1);
-                mode = Some(morse::FN_F1);
-            }
-            // 句号提交上一页；给客户端翻页留出间隔，再从开始符进入下一页。
-            press(&mut builder, morse::FN_PERIOD);
-            builder.wait_exact(PAUSE_DURATION);
-            if options.preamble {
-                let started_at = builder.cursor();
-                press(&mut builder, morse::FN_START);
-                let mut item = builder.char_at("开始", started_at);
-                item.control = true;
-                item.keys = vec![morse::FN_START];
-                builder.push_char(item);
-            }
-            target = builder.cursor();
-        }
+    for (step_index, step) in program.steps.iter().enumerate() {
+      match step {
+        Step::Text { text: group, group: group_index, end_group } => {
         for character in group.chars() {
             target += per_char;
             let started_at = builder.cursor();
@@ -461,7 +445,7 @@ fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timel
                 press(&mut builder, *code);
             }
             let mut item = builder.char_at(character.to_string(), started_at);
-            item.group = Some(group_index);
+            item.group = Some(*group_index);
             item.keys = keys;
             builder.push_char(item);
             if target > builder.cursor() {
@@ -470,20 +454,53 @@ fn build_electron_timeline(options: &ElectronOptions, rate: f64) -> Result<Timel
             }
         }
         // 回车推进到下一组报底槽位（handKeyTrain.js:277-296）
-        press(&mut builder, morse::FN_ENTER);
-        if group_index + 1 < group_count && target > builder.cursor() {
-            let remaining = target - builder.cursor();
-            builder.wait_exact(remaining);
+        if *end_group { press(&mut builder, morse::FN_ENTER); }
         }
+        Step::Correct { kind, group } => {
+            if mode != Some(morse::FN_F1) {
+                press(&mut builder, morse::FN_F1);
+                mode = Some(morse::FN_F1);
+            }
+            let (code, label) = match kind {
+                Correction::Current => (morse::FN_CORRECT_CURRENT, "改错当前组"),
+                Correction::Previous => (morse::FN_CORRECT_PREVIOUS, "改错前一组"),
+            };
+            let started_at = builder.cursor();
+            press(&mut builder, code);
+            let mut item = builder.char_at(label, started_at);
+            item.control = true;
+            item.group = Some(*group);
+            item.keys = vec![code];
+            builder.push_char(item);
+            target = builder.cursor();
+        }
+        Step::Page => {
+            if mode != Some(morse::FN_F1) {
+                press(&mut builder, morse::FN_F1);
+                mode = Some(morse::FN_F1);
+            }
+            let started_at = builder.cursor();
+            press(&mut builder, morse::FN_PERIOD);
+            let mut period = builder.char_at("句号", started_at);
+            period.control = true;
+            period.keys = vec![morse::FN_PERIOD];
+            builder.push_char(period);
+            if step_index + 1 < program.steps.len() {
+                builder.wait_exact(PAUSE_DURATION);
+                press(&mut builder, morse::FN_F1);
+                let started_at = builder.cursor();
+                press(&mut builder, morse::FN_START);
+                let mut start = builder.char_at("开始", started_at);
+                start.control = true;
+                start.keys = vec![morse::FN_START];
+                builder.push_char(start);
+            }
+            target = builder.cursor();
+        }
+      }
     }
 
     match options.tail.as_str() {
-        "page" => {
-            if mode != Some(morse::FN_F1) {
-                press(&mut builder, morse::FN_F1);
-            }
-            press(&mut builder, morse::FN_PERIOD);
-        }
         "end" => {
             press(&mut builder, morse::FN_F3);
             press(&mut builder, morse::FN_ENTER);

@@ -197,7 +197,9 @@ impl Console {
                         "duration": timeline.duration(),
                         "events": timeline.events.len(),
                         "chars": timeline.body_chars().count(),
-                        "pageBreaks": timeline.chars.iter().filter(|item| item.value == "翻页").count() / 3,
+                        "pageBreaks": if timeline.key == "hand" {
+                            timeline.chars.iter().filter(|item| item.value == "翻页").count() / 3
+                        } else { timeline.chars.iter().filter(|item| item.value == "句号").count() },
                         "corrections": {
                             "current": timeline.chars.iter().filter(|item| item.value == "改错当前组").count(),
                             "previous": timeline.chars.iter().filter(|item| item.value == "改错前一组").count()

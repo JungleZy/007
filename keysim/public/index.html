@@ -353,7 +353,7 @@
       </div>
     </div>
     <p class="note" id="msgNote"></p>
-    <p class="note" id="handCorrectionHint">手键输入：? 改错当前组，/ 改错前一组；符后填写重发报文，如 ABCD ? EFGH。</p>
+    <p class="note" id="handCorrectionHint">手键、电子键均支持 ? 改错当前组、/ 改错前一组；符后填写重发报文，如 ABCD ? EFGH。电子键对应开始符左侧的42（?）、43（/）键。</p>
 
     <h2 style="margin-top:12px">拍发</h2>
     <div class="row">
@@ -394,15 +394,14 @@
       <div class="field"><label for="skew">规则偏移</label><input id="skew" type="number" min="1" max="99" value="51"/></div>
       <div class="field">
         <label for="tail">收尾</label>
-        <select id="tail" title="手键翻页只由编辑器中的句号触发">
+        <select id="tail" title="翻页只由编辑器中的句号触发">
           <option value="end">结束符</option>
-          <option value="page">电子键句号</option>
-          <option value="none">只留静默</option>
+          <option value="none" selected>只留静默</option>
         </select>
       </div>
       <label class="field"><input type="checkbox" id="preamble" checked/> 发开始符</label>
     </div>
-    <p class="note">手键仅在手动输入的「。」或「.」处拍发翻页符，例如「…6023 。7025…」。后面有正文时自动接开始符；满100组和文本结尾都不自动翻页。</p>
+    <p class="note">手键、电子键都只在手动输入的「。」或「.」处翻页，例如「…6023 。7025…」。后面有正文时自动接对应开始符；满100组和文本结尾都不自动翻页。</p>
     <div class="row" id="handCorrections">
       <label>自动改错</label>
       <label class="field"><input type="checkbox" id="correctCurrent"/> 当前组改错并重发</label>
@@ -1038,7 +1037,7 @@ const runPreview = async () => {
   setText('mPlan', plan.dot ? [plan.dot, plan.dash, plan.gap].map(ms).join(' / ') : (plan.perChar ? ms(plan.perChar) + '/字' : '--'))
   setText('mGap', plan.word ? ms(plan.word) + ' / ' + ms(plan.group) : '--')
   setNote('msgNote', '')
-  setNote('pageBreakNote', $('key').value === 'hand' ? '分页符 ' + (result.pageBreaks || 0) + ' 次' : '')
+  setNote('pageBreakNote', '分页符 ' + (result.pageBreaks || 0) + ' 次')
   const corrections = result.corrections || {}
   const correctionCount = Number(corrections.current || 0) + Number(corrections.previous || 0)
   setNote('correctionNote', correctionCount
@@ -1197,11 +1196,11 @@ $('key').onchange = () => {
   const hand = $('key').value === 'hand'
   setText('rateUnit', hand ? '字符/分' : '组/分')
   $('rate').value = hand ? 120 : 30
-  $('tail').value = hand ? 'none' : 'page'
+  $('tail').value = 'none'
   setShown('handCorrections', hand)
-  setShown('handCorrectionHint', hand)
+  setShown('handCorrectionHint', true)
   setNote('correctionNote', '')
-  log('键型切到' + (hand ? '手键：120 字符/分，手动输入句号翻页' : '电子键：30 组/分，收尾用句号'), 'info')
+  log('键型切到' + (hand ? '手键：120 字符/分，手动输入句号翻页' : '电子键：30 组/分，手动输入句号翻页'), 'info')
   previewSoon()
 }
 // 显式改参数记一行；打字不记，否则一行一条刷屏

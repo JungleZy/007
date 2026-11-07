@@ -33,14 +33,14 @@ keysim —— 手键/电子键拍发模拟器与虚拟串口台（单文件）
 通用选项
   --key hand|electron   键型（hand/electron 子命令已隐含）
   --text <报文>         组间空格分隔；也可用 --random <组数> 现生成
-                         手键可输入 ? 改错当前组、/ 改错前一组，符后填写重发报文
+                          手键、电子键可输入 ? 改错当前组、/ 改错前一组，符后填写重发报文
   --alphabet <名>       letter | short | long | mix（默认 letter）
   --rate <n>            手键 字符/分（默认 120），电子键 组/分（默认 30，等价 120 字/分）
   --jitter <0..1>       节拍抖动比例（默认 0，必须 ≤ 评分规则 skew/100）
   --seed <n>            随机种子（默认 1）
   --skew <n>            评分规则偏移量，手键可行性校验用（默认 51）
   --style <名>          machine 机械等长（默认）| human 真人手感（±12% 信封，带疲劳-休息-恢复循环）
-  --tail <名>           手键 turn|end|none；电子键 page|end|none
+  --tail <名>           end|none；两种键型都由报文中的 。或 . 手动翻页
   --no-preamble         不发开始符（默认发）
   --correct-current     自动插入当前组改错符并重发
   --correct-previous    自动插入前一组改错符并重发前一组及当前组
