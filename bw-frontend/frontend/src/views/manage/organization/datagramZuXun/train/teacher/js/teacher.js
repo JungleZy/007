@@ -1,8 +1,9 @@
 import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
 import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
+import {datagramPageText, replayDatagramKeys} from '../../../../../../../common/utils/studentMessageFormat.js'
 import {message} from "ant-design-vue";
 import {
-  getDatagramDetail,getDatagramStatistics,updateTrainStatus
+  getDatagramDetail,getDatagramStatistics,updateTrainStatus,getPatValue
 } from "../../../../../../../common/api/datagramZuXun";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {PubSub} from "../../../../../../../common/utils/PubSub.js";
@@ -588,7 +589,27 @@ export default function () {
     })
   };
 
+  /**
+   * 学员已提交页：getPatValue 只读、不加锁，逐页读取原始提交行（sort = -1，整页原文）
+   */
+  const loadSubmittedPages = async user => {
+    const pageCount = Math.ceil((Number(trainData.value.totalNumber) || 0) / 100)
+    const pages = []
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+      const res = await getPatValue({trainId: trainId.value, pageNumber, userId: user.id})
+      if (res.code !== 200) throw new Error(res.message || `读取第 ${pageNumber} 页失败`)
+      const raw = (res.data || []).find(row => row.sort === -1)
+      if (!raw) continue
+      pages.push({pageNumber, text: datagramPageText(raw.value)})
+    }
+    return pages
+  }
+
+  /** 当前页实时：按推送的键盘按键重放 */
+  const liveMessage = user => replayDatagramKeys(user.log)
+
   return {
+    loadSubmittedPages, liveMessage,
     trainTimeRef,loading,trainData,fileUrl,activeUserId,chartTabIndex,isFinish,userPatData,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     startTrain,endTrain,seeStudentScore,getChartDataSource
   }

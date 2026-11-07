@@ -54,3 +54,15 @@ test('电子键：逐页读取 getPatValue，跳过空页；实时按换组标�
   const log = ['1', '2', ' ', '句号', '开始', '9', '0', ' ', 'A'].map(key => ({key, time: 0}))
   assert.equal(state.liveMessage({log}), '90 A')
 })
+
+test('数据报：逐页读取原始提交行，保留学员换行；实时按按键重放', async () => {
+  const state = teacher('../src/views/manage/organization/datagramZuXun/train/teacher/js/teacher.js', {
+    getPatValue: async ({pageNumber}) => ({code: 200, data: pageNumber === 2
+      ? [{sort: -1, value: 'ab12  cd34\nef56-2'}, {sort: 0, key: 'AB12', value: 'AB12'}] : []})
+  })
+  state.trainData.value = {totalNumber: 200}
+  const pages = await state.loadSubmittedPages({id: 's1'})
+  assert.deepEqual(JSON.parse(JSON.stringify(pages)), [{pageNumber: 2, text: 'AB12 CD34\nEF56-2'}])
+  const log = ['1', '2', ' ', '3', 'Enter', '4'].map(key => ({key, time: 0}))
+  assert.equal(state.liveMessage({log}), '12 3\n4')
+})
