@@ -62,7 +62,11 @@ class TelexPatScoringTest {
 
   static TelexPatStatisticalDto settle(int size, Consumer<List<List<String>>> mutation,
       List<TelexPatValueTransferDto> out) {
-    List<TelexPatPageTransferDto> page = page(size);
+    return settle(page(size), mutation, out);
+  }
+
+  static TelexPatStatisticalDto settle(List<TelexPatPageTransferDto> page, Consumer<List<List<String>>> mutation,
+      List<TelexPatValueTransferDto> out) {
     List<List<String>> lines = lines(page);
     mutation.accept(lines);
     StringBuilder text = new StringBuilder();
@@ -265,6 +269,32 @@ class TelexPatScoringTest {
       last.set(9, last.get(9) + "-1");
     });
     assertEquals(1, ks.getMuchLessLineNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
+
+  /** 组训报底各组独立随机：第43组与下一行首组（第51组）相同。 */
+  private static List<TelexPatPageTransferDto> pageWithRepeatedNextLineFirst() {
+    List<TelexPatPageTransferDto> page = page(100);
+    page.get(42).setKey(page.get(50).getKey());
+    return page;
+  }
+
+  @Test
+  void extraGroupIsNotMistakenForMissingLineBreakWhenKeysRepeat() {
+    TelexPatStatisticalDto ks = settle(pageWithRepeatedNextLineFirst(),
+        lines -> lines.get(4).add(5, "ZZZZ"), new ArrayList<>());
+    assertEquals(0, ks.getLessReturnLineNumber(), "本行重复出现下一行首组不构成少回行");
+    assertEquals(1, ks.getMuchLessGroupsNumber());
+    assertEquals(0, ks.getMuchLessLineNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
+
+  @Test
+  void missingLineBreakSplitsAtTheVerifiedPositionWhenKeysRepeat() {
+    TelexPatStatisticalDto ks = settle(pageWithRepeatedNextLineFirst(),
+        lines -> lines.get(4).addAll(lines.remove(5)), new ArrayList<>());
+    assertEquals(1, ks.getLessReturnLineNumber());
+    assertEquals(0, ks.getMuchLessGroupsNumber());
     assertEquals(0, ks.getErrorCodeNumber());
   }
 }

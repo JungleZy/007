@@ -306,7 +306,7 @@ public class TelexPatUtils {
 
     // 少回行：一行拍发里出现了报底下一行的首组，说明漏拍换行，在该处拆成两行。
     // 报底行号取已拆出的行数，不能用拍发行下标 i（i+10 只在第1、2行合并时恰好等于下一行首组）；
-    // 同一行连续漏多个回行时逐次拆分。报底相邻十组不重复，下一行首组不会出现在本行正常内容中。
+    // 同一行连续漏多个回行时逐次拆分。组训报底各组独立随机、可能重复，拆点须经后续组验证（见 findLineBreak）。
     removeEmptyLists(neatenResult);
     List<List<String>> newResult = new ArrayList<>();
     for (List<String> row : neatenResult) {
@@ -316,8 +316,8 @@ public class TelexPatUtils {
         if (nextLineStart >= userPages.size()) {
           break;
         }
-        int flag = rest.subList(1, rest.size()).indexOf(userPages.get(nextLineStart).getKey()) + 1;
-        if (flag == 0) {
+        int flag = findLineBreak(rest, userPages, nextLineStart);
+        if (flag < 0) {
           break;
         }
         newResult.add(new ArrayList<>(rest.subList(0, flag)));
@@ -329,6 +329,32 @@ public class TelexPatUtils {
     neatenResult.clear();
     neatenResult.addAll(newResult);
     compareLines(userId, pageNumber, pageValueResult, userPages, neatenResult, ks);
+  }
+
+  /**
+   * 在超长拍发行中找报底下一行的起点：该位置等于下一行首组，且其后各组与下一行按位相同至少 5 组
+   * （下一行不足时按其实有组数降低要求，同 LineDetector 的整行判据）；多个候选取最靠近第 11 组者。
+   * 未找到返回 -1。
+   */
+  private static int findLineBreak(List<String> row, List<TelexPatPageTransferDto> userPages, int nextLineStart) {
+    int nextLineSize = Math.min(10, userPages.size() - nextLineStart);
+    int required = Math.min(MIN_MATCHING_GROUPS, nextLineSize - 1);
+    int best = -1;
+    for (int p = 1; p < row.size(); p++) {
+      if (!stripPageTag(row.get(p)).equals(userPages.get(nextLineStart).getKey())) {
+        continue;
+      }
+      int matched = 0;
+      for (int k = 1; k < nextLineSize && p + k < row.size(); k++) {
+        if (stripPageTag(row.get(p + k)).equals(userPages.get(nextLineStart + k).getKey())) {
+          matched++;
+        }
+      }
+      if (matched >= required && (best < 0 || Math.abs(p - 10) < Math.abs(best - 10))) {
+        best = p;
+      }
+    }
+    return best;
   }
 
   /** 多组、少组向后搜索的组数，与手键 GroupDetector 一致：常规 4 组，出现多少行后放宽到 10 组。 */
