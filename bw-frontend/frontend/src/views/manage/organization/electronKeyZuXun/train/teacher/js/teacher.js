@@ -17,6 +17,9 @@ export default function () {
   const trainTimeRef = ref(null);
   const trainTimer = ref(null);
   const loading = ref(true)
+  const statisticsLoading = ref(false)
+  const statisticsError = ref('')
+  const hasStatistics = ref(false)
   const trainId = ref(0)
   const scoreloading = ref(false)//结算加载
   let updateUserStatus = []
@@ -73,7 +76,7 @@ export default function () {
 
   /** 获取训练详情 */
   const getZuXunTrainDetails = () => {
-    getElectronKeyZuXunDetails({
+    return getElectronKeyZuXunDetails({
       trainId: trainId.value
     }).then(res => {
       loading.value = false;
@@ -105,7 +108,8 @@ export default function () {
         } else {
           trainData.value.userInfoList = trainData.value.userInfoList.sort((x,y)=>y.isFinish-x.isFinish);
           timeAreaShow(trainData.value.validTime * 1000);
-          if (trainData.value.status === 2) trainStatistics()
+          // 收尾补交（3）与已结算（2）都展示已出成绩，与手键组训一致
+          return trainStatistics()
         }
       }
     })
@@ -200,15 +204,21 @@ export default function () {
     }
   }
   /** 获取训练统计信息 */
-  const trainStatistics = () => {
-    let obj = {};
-    resetElectronKeyZuXunStatistics({trainId:trainId.value}).then(res => {
-      if (res.code === 200) {
+  const trainStatistics = async () => {
+    statisticsLoading.value = true
+    statisticsError.value = ''
+    try {
+      let obj = {};
+      const res = await resetElectronKeyZuXunStatistics({trainId:trainId.value})
+      if (res.code !== 200) throw new Error(res.message || '成绩统计加载失败')
         chartData.value.pie = [
           {name: "70分以下", value:res.data.schoolReport.belowStandard.peopleNumber},
           {name: "70分-90分", value: res.data.schoolReport.nice.peopleNumber},
           {name: "90分以上", value: res.data.schoolReport.good.peopleNumber}
         ]
+        hasStatistics.value = chartData.value.pie.some(item => item.value > 0)
+        // 刷新结算状态会重复拉取统计，趋势数据须先清空再填，避免累加
+        chartData.value.line = {xAxis: [], prevPrev: [], prev: [], curr: []}
         chartData.value.column.val = [
           res.data.errorCollect.errorNumber,
           res.data.errorCollect.lackNumber,
@@ -233,11 +243,14 @@ export default function () {
           obj[item.userId] = item.thisScore
         })
         trainData.value.userInfoList.map(user => {
-          user.score = obj[user.userId]
+          if (Object.hasOwn(obj, user.userId)) user.score = obj[user.userId]
         })
-        getChartDataSource(1);
-      }
-    })
+        if (hasStatistics.value && activeUserId.value == null) getChartDataSource(chartTabIndex.value);
+    } catch (error) {
+      statisticsError.value = error.message || '成绩统计加载失败，请重试'
+    } finally {
+      statisticsLoading.value = false
+    }
   }
 
   /**
@@ -342,6 +355,7 @@ export default function () {
   /** 统计图表切换显示 */
   const getChartDataSource = (type) => {
     chartTabIndex.value = type
+    if (!hasStatistics.value || statisticsError.value) return
     if (type === 1) {
       applyPieChart()
     } else if (type == 2) {
@@ -588,6 +602,7 @@ export default function () {
 
   return {
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
+    statisticsLoading,statisticsError,hasStatistics,refreshStatistics: trainStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails
   }
 }

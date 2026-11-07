@@ -80,15 +80,24 @@
             </div>
           </div>
           <div class="chartBox w-full h-full" v-else>
+            <div v-if="trainData.status === 3" role="status" style="padding: 12px">
+              训练正在收尾补交，当前展示已出成绩；全部结算后可刷新查看完整统计。
+            </div>
             <div class="chartHead">
               <div :class="{tabItem:true, on: chartTabIndex == 1}" @click="getChartDataSource(1)">成绩分布</div>
               <div :class="{tabItem:true, on: chartTabIndex == 2}" @click="getChartDataSource(2)">错情统计</div>
               <div :class="{tabItem:true, on: chartTabIndex == 3}" @click="getChartDataSource(3)">训练态势</div>
             </div>
             <div class="chartCont">
-              <div class="w-full h-full" id="scoreChart" v-show="chartTabIndex == 1"></div>
-              <div class="w-full h-full" id="columnChart" v-show="chartTabIndex == 2"></div>
-              <div class="w-full h-full" id="lineChart" v-show="chartTabIndex == 3"></div>
+              <div v-if="statisticsLoading" class="w-full h-full layout-center"><a-spin tip="正在加载成绩统计..." /></div>
+              <div v-else-if="statisticsError" class="w-full h-full layout-center">
+                <span>{{statisticsError}}</span>
+                <a-button @click="refreshStatistics">重新加载</a-button>
+              </div>
+              <div v-else-if="!hasStatistics" class="w-full h-full layout-center">暂无已结算成绩，可选择左侧人员查看参训状态。</div>
+              <div class="w-full h-full" id="scoreChart" v-show="hasStatistics && !statisticsError && chartTabIndex == 1"></div>
+              <div class="w-full h-full" id="columnChart" v-show="hasStatistics && !statisticsError && chartTabIndex == 2"></div>
+              <div class="w-full h-full" id="lineChart" v-show="hasStatistics && !statisticsError && chartTabIndex == 3"></div>
             </div>
           </div>
         </div>
@@ -119,6 +128,7 @@
 
   const {
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
+    statisticsLoading,statisticsError,hasStatistics,refreshStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement
   } = teacher()
 
