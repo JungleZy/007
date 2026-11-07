@@ -376,7 +376,9 @@ public class TelexPatUtils {
             }
             // 少组
             if (isMoreGroup) {
-              for (int k = j + 1; k < j / 10 * 10 + 10; k++) {
+              // 末页可能不足整行，搜索上界同时受行尾与本页报底数约束
+              int lineEnd = Math.min(j / 10 * 10 + 10, userPages.size());
+              for (int k = j + 1; k < lineEnd; k++) {
                 TelexPatPageTransferDto nextUserPages = userPages.get(k);
                 if (nextUserPages.getKey().equals(groupValue)) {
                   int lackNum = k - j;
