@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -332,18 +331,26 @@ public class TelexPatUtils {
     compareLines(userId, pageNumber, pageValueResult, userPages, neatenResult, ks);
   }
 
-  /** 多组、少组向后搜索的组数，与手键 GroupDetector 的标准搜索范围一致。 */
+  /** 多组、少组向后搜索的组数，与手键 GroupDetector 一致：常规 4 组，出现多少行后放宽到 10 组。 */
   private static final int GROUP_SEARCH_RANGE = 4;
+  private static final int EXTENDED_GROUP_SEARCH_RANGE = 10;
+  /** 多行、少行判定需要的后续相同组数，与手键 LineDetector 一致。 */
+  private static final int MIN_MATCHING_GROUPS = 5;
+  /** 少行向后探测的最大行数，与手键 LineDetector 一致。 */
+  private static final int MAX_LESS_LINE_ROWS = 2;
 
   /**
    * 按报底逐行与拍发行比对。拍发以换行分行，第 r 个拍发行对应当前报底行；
-   * 同名扣分项（错码、多少码、多少组）的判定与手键检测器一致。
+   * 同名扣分项（错码、多少码、多少组、多少行）的判定与手键检测器一致。
    */
   private static void compareLines(String userId, Integer pageNumber, List<TelexPatValueTransferDto> pageValueResult,
       List<TelexPatPageTransferDto> userPages, List<List<String>> rows, TelexPatStatisticalDto ks) {
     int total = userPages.size();
+    int extraSort = total;
+    boolean lineMode = false;
     int r = 0;
-    for (int lineStart = 0; lineStart < total; lineStart += 10) {
+    int lineStart = 0;
+    while (lineStart < total) {
       int lineEnd = Math.min(lineStart + 10, total);
       if (r >= rows.size()) {
         // 拍发行已用完：本行整行漏拍
@@ -352,34 +359,109 @@ public class TelexPatUtils {
         }
         TelexPatPageTransferDto first = userPages.get(lineStart);
         recordDeduction(ks, "muchLessLine", 1, pageNumber, first.getSort() + 1, first.getKey(), "");
+        lineStart = lineEnd;
         continue;
       }
-      compareLine(userId, pageNumber, pageValueResult, userPages, lineStart, lineEnd, rows.get(r), ks);
+      List<String> row = stripPageTags(rows.get(r));
+      if (!row.getFirst().equals(userPages.get(lineStart).getKey())) {
+        if (isMoreLine(row, userPages, lineStart)) {
+          // 多行：本拍发行重复了上一行报底，整行计一次多行，报底行不前进
+          TelexPatPageTransferDto anchor = userPages.get(lineStart - 1);
+          for (String value : row) {
+            add(userId, pageValueResult, anchor, "", value, extraSort++);
+          }
+          recordDeduction(ks, "muchLessLine", 1, pageNumber, lineStart + 1, null, String.join(" ", row));
+          lineMode = true;
+          r++;
+          continue;
+        }
+        int lessLines = lessLines(row, userPages, lineStart);
+        if (lessLines > 0) {
+          // 少行：本拍发行对上的是之后第 lessLines 行报底，中间各行整行漏拍
+          int nextLineStart = lineStart + lessLines * 10;
+          List<String> missingFirsts = new ArrayList<>();
+          for (int j = lineStart; j < nextLineStart; j++) {
+            add(userId, pageValueResult, userPages.get(j), "");
+            if (j % 10 == 0) {
+              missingFirsts.add(userPages.get(j).getKey());
+            }
+          }
+          recordDeduction(ks, "muchLessLine", lessLines, pageNumber, lineStart + 1, String.join(" ", missingFirsts), "");
+          lineMode = true;
+          lineStart = nextLineStart;
+          lineEnd = Math.min(lineStart + 10, total);
+        }
+      }
+      compareLine(userId, pageNumber, pageValueResult, userPages, lineStart, lineEnd, row,
+          lineMode ? EXTENDED_GROUP_SEARCH_RANGE : GROUP_SEARCH_RANGE, ks);
       r++;
+      lineStart = lineEnd;
     }
-    // 报底比完仍有拍发行：多行
+    // 报底比完仍有拍发行：每行计一次多行
     if (r < rows.size() && total > 0) {
       TelexPatPageTransferDto last = userPages.get(total - 1);
       List<String> extraRows = new ArrayList<>();
-      int sort = total;
       for (int k = r; k < rows.size(); k++) {
-        extraRows.add(String.join(" ", rows.get(k)));
-        for (String value : rows.get(k)) {
-          add(userId, pageValueResult, last, "", stripPageTag(value), sort++);
+        List<String> row = stripPageTags(rows.get(k));
+        extraRows.add(String.join(" ", row));
+        for (String value : row) {
+          add(userId, pageValueResult, last, "", value, extraSort++);
         }
       }
-      recordDeduction(ks, "muchLessLine", rows.size() - r + 1, pageNumber, last.getSort() + 1, null,
+      recordDeduction(ks, "muchLessLine", rows.size() - r, pageNumber, last.getSort() + 1, null,
           String.join(" / ", extraRows));
     }
   }
 
-  private static void compareLine(String userId, Integer pageNumber, List<TelexPatValueTransferDto> pageValueResult,
-      List<TelexPatPageTransferDto> userPages, int lineStart, int lineEnd, List<String> rawRow,
-      TelexPatStatisticalDto ks) {
-    List<String> row = new ArrayList<>(rawRow.size());
-    for (String value : rawRow) {
-      row.add(stripPageTag(value));
+  /** 同 LineDetector.detectMoreLine：首组等于上一行报底首组，且其后各组在上一行报底中命中至少 5 组。 */
+  private static boolean isMoreLine(List<String> row, List<TelexPatPageTransferDto> userPages, int lineStart) {
+    int previous = lineStart - 10;
+    if (previous < 0 || !row.getFirst().equals(userPages.get(previous).getKey())) {
+      return false;
     }
+    int matched = 0;
+    for (int j = 1; j < Math.min(row.size(), 10); j++) {
+      for (int k = 1; k < 10 && previous + k < userPages.size(); k++) {
+        if (row.get(j).equals(userPages.get(previous + k).getKey())) {
+          matched++;
+          break;
+        }
+      }
+    }
+    return matched >= MIN_MATCHING_GROUPS;
+  }
+
+  /** 同 LineDetector.detectLessLine：首组等于之后 1-2 行报底首组，且其后各组按位命中至少 5 组；返回缺行数。 */
+  private static int lessLines(List<String> row, List<TelexPatPageTransferDto> userPages, int lineStart) {
+    for (int offset = 1; offset <= MAX_LESS_LINE_ROWS; offset++) {
+      int next = lineStart + offset * 10;
+      if (next >= userPages.size() || !row.getFirst().equals(userPages.get(next).getKey())) {
+        continue;
+      }
+      int matched = 0;
+      for (int k = 1; k < 10 && k < row.size() && next + k < userPages.size(); k++) {
+        if (row.get(k).equals(userPages.get(next + k).getKey())) {
+          matched++;
+        }
+      }
+      if (matched >= MIN_MATCHING_GROUPS) {
+        return offset;
+      }
+    }
+    return 0;
+  }
+
+  private static List<String> stripPageTags(List<String> row) {
+    List<String> stripped = new ArrayList<>(row.size());
+    for (String value : row) {
+      stripped.add(stripPageTag(value));
+    }
+    return stripped;
+  }
+
+  private static void compareLine(String userId, Integer pageNumber, List<TelexPatValueTransferDto> pageValueResult,
+      List<TelexPatPageTransferDto> userPages, int lineStart, int lineEnd, List<String> row, int searchRange,
+      TelexPatStatisticalDto ks) {
     int c = 0;
     for (int j = lineStart; j < lineEnd; j++) {
       TelexPatPageTransferDto entity = userPages.get(j);
@@ -402,7 +484,7 @@ public class TelexPatUtils {
       if (!nextInPlace) {
         // 多组：本组之后若干组内出现当前报底，中间各组均为多组，按实际组数计
         int more = 0;
-        for (int k = 1; k <= GROUP_SEARCH_RANGE && c + k < row.size(); k++) {
+        for (int k = 1; k <= searchRange && c + k < row.size(); k++) {
           if (row.get(c + k).equals(key)) {
             more = k;
             break;
@@ -420,7 +502,7 @@ public class TelexPatUtils {
         }
         // 少组：当前拍发组与之后若干组报底之一相同，中间报底均为少组
         int less = 0;
-        for (int k = 1; k <= GROUP_SEARCH_RANGE && j + k < lineEnd; k++) {
+        for (int k = 1; k <= searchRange && j + k < lineEnd; k++) {
           if (userPages.get(j + k).getKey().equals(value)) {
             less = k;
             break;

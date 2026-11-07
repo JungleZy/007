@@ -202,4 +202,69 @@ class TelexPatScoringTest {
     assertEquals(2, ks.getMuchLessGroupsNumber());
     assertEquals(0, ks.getErrorCodeNumber());
   }
+
+  @Test
+  void missingLinesInTheMiddleCountOnlyTheLines() {
+    TelexPatStatisticalDto one = settle(100, lines -> lines.remove(3));
+    assertEquals(1, one.getMuchLessLineNumber(), "中间漏一行只计一次多少行（同手键）");
+    assertEquals(0, one.getErrorCodeNumber(), "漏行之后各行不应错位成错码");
+    assertEquals(0, one.getMuchLessGroupsNumber());
+    assertEquals(31, one.getEvidence().getFirst().referenceGroup());
+
+    TelexPatStatisticalDto two = settle(100, lines -> {
+      lines.remove(3);
+      lines.remove(3);
+    });
+    assertEquals(2, two.getMuchLessLineNumber());
+    assertEquals(0, two.getErrorCodeNumber());
+  }
+
+  @Test
+  void missingLineWithLaterErrorsKeepsErrorsAsErrorCodes() {
+    // 对应手键训练116：缺一行之后另有两处错码，不应借远处重复组制造多少组
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      lines.remove(3);
+      lines.get(6).set(8, KEYS[89]);
+      lines.get(7).set(8, "ZZZZ");
+    });
+    assertEquals(1, ks.getMuchLessLineNumber());
+    assertEquals(0, ks.getMuchLessGroupsNumber());
+    assertEquals(2, ks.getErrorCodeNumber());
+  }
+
+  @Test
+  void repeatedLineInTheMiddleCountsOneExtraLine() {
+    List<TelexPatValueTransferDto> out = new ArrayList<>();
+    TelexPatStatisticalDto ks = settle(100, lines -> lines.add(3, new ArrayList<>(lines.get(2))), out);
+    assertEquals(1, ks.getMuchLessLineNumber(), "中间重复一行只计一次多少行（同手键）");
+    assertEquals(0, ks.getErrorCodeNumber());
+    assertEquals(0, ks.getMuchLessGroupsNumber());
+    assertEquals(100, out.stream().filter(v -> v.getSort() < 100).map(TelexPatValueTransferDto::getSort)
+        .distinct().count(), "报底每组仍各有一个展示位置");
+    assertEquals(10, out.stream().filter(v -> v.getSort() >= 100).count(), "多出的一行附加在报底之后");
+  }
+
+  @Test
+  void extraLinesAfterTheLastLineCountEachLineOnce() {
+    TelexPatStatisticalDto one = settle(100, lines -> lines.add(new ArrayList<>(List.of("ZZZZ", "YYYY"))));
+    assertEquals(1, one.getMuchLessLineNumber(), "末尾多一行计一次");
+    assertEquals(0, one.getErrorCodeNumber());
+
+    TelexPatStatisticalDto two = settle(100, lines -> {
+      lines.add(new ArrayList<>(List.of("ZZZZ")));
+      lines.add(new ArrayList<>(List.of("YYYY")));
+    });
+    assertEquals(2, two.getMuchLessLineNumber());
+  }
+
+  @Test
+  void missingTrailingLineCountsOnce() {
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      lines.remove(9);
+      List<String> last = lines.getLast();
+      last.set(9, last.get(9) + "-1");
+    });
+    assertEquals(1, ks.getMuchLessLineNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
 }
