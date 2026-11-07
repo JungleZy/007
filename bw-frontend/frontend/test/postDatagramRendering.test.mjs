@@ -50,13 +50,14 @@ const text = target => target.text + target.children.map(text).join('')
 const CountDown = component('../src/components/common/CountDown.vue')
 const TrainLeft = {setup: (_, {slots}) => () => Vue.h('aside', [slots.top?.(), slots.bottom?.()])}
 const NipMagicSpace = {setup: (_, {slots}) => () => Vue.h('main', [slots.one?.(), slots.two?.()])}
+const CopyReferenceButton = {setup: (_, {slots}) => () => Vue.h('div', slots.default?.())}
 
 for (const kind of ['datagramTrain', 'telexTrain']) {
   test(`个人岗位${kind === 'datagramTrain' ? '数据报' : '电传'}：计时器可挂载和更新，数据回填不产生空组件警告`, async t => {
     const trainData = Vue.ref({status: 0, content: [], speed: 0, duration: 0, groupNumber: 100})
     let clock
     const page = component(`../src/views/manage/postJob/datagram/${kind}/Index.vue`, {
-      CountDown, TrainLeft, NipMagicSpace, iconImage: () => ({}),
+      CountDown, TrainLeft, NipMagicSpace, CopyReferenceButton, iconImage: () => ({}),
       telexTrain(countDown, loading) {
         clock = countDown
         loading.value = false

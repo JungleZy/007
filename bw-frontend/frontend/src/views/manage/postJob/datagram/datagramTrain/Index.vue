@@ -14,6 +14,7 @@
             <a-popconfirm title="重置将清除本轮已提交和未提交内容，并开启新轮次，是否继续？" @confirm="resetTest">
               <a-button :disabled="!ready || busy || authBlocked">重置本轮</a-button>
             </a-popconfirm>
+            <CopyReferenceButton :groups="(trainData.content || []).filter(item => item.pageNumber === page.current).map(item => item.key)" :disabled="loading || busy" />
             <a-button v-if="expired || failure || trainData.status === 3" :disabled="busy || authBlocked" @click="checkResult">核对结果</a-button>
           </div>
     <div class="w-full trainBoxs content-mask-bg" style="flex: 1; min-height: 0">
@@ -143,6 +144,7 @@
   import {ref} from 'vue'
   import TrainLeft from '../../../../../components/postJob/trainLeft/TrainLeft.vue'
   import CountDown from '../../../../../components/common/CountDown.vue'
+  import CopyReferenceButton from '../../../../../components/common/CopyReferenceButton.vue'
   import telexTrain from './js/telexTrain.js'
   import NipMagicSpace from "../../../../../components/common/NipMagicSpace.vue";
 

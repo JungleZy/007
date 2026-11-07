@@ -3,7 +3,10 @@
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
-    <a-button style="position: absolute; right: 16px; top: 8px; z-index: 2" :disabled="loading" @click="loadScore">重新加载</a-button>
+    <div style="position: absolute; right: 16px; top: 8px; z-index: 2; display: flex; gap: 8px">
+      <DatagramDeductionDetails v-if="scoreReady" :summary="scoreData.deductInfo" />
+      <a-button :disabled="loading" @click="loadScore">重新加载</a-button>
+    </div>
     <div v-if="scoreReady" class="main w-full h-full">
       <div class="main_t">
         <div class="dataBox">
@@ -223,6 +226,7 @@
 <script setup>
   import {ref} from 'vue'
   import trainScore from './js/trainScore.js'
+  import DatagramDeductionDetails from '../../../../../components/common/DatagramDeductionDetails.vue'
   import scoresuffice from '../../../../../assets/HJ/postTrain/score-suffice.png'
   import scorefailed from '../../../../../assets/HJ/postTrain/score-failed.png'
   import resaccuracy from '../../../../../assets/HJ/postTrain/check.png'

@@ -1237,6 +1237,9 @@ public class PostTelexPatTrainService {
       entity.setSpeed(String.valueOf(avgSpeed));
       entity.setScore(String.valueOf(score));
       entity.setAccuracy(String.valueOf(accuracy));
+      // 逐项扣分依据：结算时用冻结规则定价后随 deductInfo 落库，历史成绩不被新规则改写
+      deductMap.put("evidenceVersion", 1);
+      deductMap.put("evidence", ks.getEvidence().stream().map(item -> item.priced(rule)).toList());
       entity.setDeductInfo(JSONUtils.toJson(deductMap));
       entity.setEndTime(LocalDateTime.now());
       entity.setStatus(PostTelexPatTrainStatusEnum.FINISH.getStatus());

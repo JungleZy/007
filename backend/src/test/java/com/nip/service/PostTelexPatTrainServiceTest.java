@@ -127,6 +127,78 @@ class PostTelexPatTrainServiceTest {
     assertEquals(result.getDeductInfo(), persisted.getDeductInfo());
   }
 
+  /**
+   * 结算必须把逐项扣分依据（evidenceVersion=1 + 定价后的 evidence）随 deductInfo 落库，
+   * 依据条数与聚合计数一致、单价取自冻结规则，前端展示不再重算。
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  void finishStoresPricedDeductionEvidence() {
+    String token = "telex-evidence-" + UUID.randomUUID();
+    Fixtures.user(userDao, token);
+    GradingRuleEntity rule = new GradingRuleEntity();
+    rule.setType(2);
+    rule.setTitle("telex-evidence");
+    rule.setScore(100);
+    rule.setContent("{\"rateUnit\":\"CHARACTERS_PER_MINUTE\",\"wpm\":{\"base\":10,\"r\":1,\"l\":2},\"other\":{\"errorCode\":7,"
+        + "\"muchLessGroups\":3,\"correctMistakes\":2,\"lessPage\":4,\"lessReturnLine\":5,"
+        + "\"muchLessLine\":6,\"muchLessCode\":3,\"errorPage\":4,\"nonStandart\":2}}");
+    rule = gradingRuleDao.save(rule);
+
+    PostTelexPatTrainDto dto = new PostTelexPatTrainDto();
+    dto.setName("telex-evidence");
+    dto.setRuleId(rule.getId());
+    dto.setTrainType(1);
+    dto.setType(0);
+    dto.setPatType(0);
+    dto.setGroupNumber(10);
+    String trainId = service.save(dto, token).getId();
+    PostTelexPatTrainParam trainParam = new PostTelexPatTrainParam();
+    trainParam.setId(trainId);
+    trainParam.setAttempt(0);
+    service.begin(trainParam, token);
+    PostTelexPatTrainEntity started = trainDao.findById(trainId);
+    started.setStartTime(LocalDateTime.now().minusSeconds(241));
+    trainDao.save(started);
+
+    List<String> groups = new ArrayList<>(pageDao.findByTrainIdOrderBySort(trainId).stream()
+        .map(PostTelexPatTrainPageEntity::getKey).toList());
+    String firstReference = groups.get(0);
+    groups.set(0, "AAAA");
+    PostTelexPatTrainPageValueVO page = new PostTelexPatTrainPageValueVO();
+    page.setTrainId(trainId);
+    page.setPageNumber(1);
+    page.setPatValue(String.join(" ", groups));
+    page.setAttempt(0);
+    page.setCaptureIntervals(List.of(new CaptureInterval(0, 240000)));
+    service.finishPage(page, token);
+
+    PostTelexPatTrainFinishParam finishParam = new PostTelexPatTrainFinishParam();
+    finishParam.setId(trainId);
+    finishParam.setAttempt(0);
+    PostTelexPatTrainVO result = service.finish(finishParam, token);
+
+    Map<String, Object> deductions = JSONUtils.fromJson(result.getDeductInfo(),
+        new TypeToken<Map<String, Object>>() {});
+    assertEquals(1.0, deductions.get("evidenceVersion"), "结算必须写入证据版本标记");
+    List<Map<String, Object>> evidence = (List<Map<String, Object>>) deductions.get("evidence");
+    assertEquals(1, evidence.size(), "只有一处错码，证据只能有一条");
+    Map<String, Object> entry = evidence.get(0);
+    assertEquals("errorCode", entry.get("kind"));
+    assertEquals(1.0, entry.get("pageNumber"));
+    assertEquals(1.0, entry.get("referenceGroup"), "组号按 1 起始展示");
+    assertEquals(firstReference, entry.get("reference"));
+    assertEquals("AAAA", entry.get("captured"));
+    assertEquals(1.0, entry.get("count"));
+    assertEquals(7.0, entry.get("unitDeduction"), "单价必须取自训练冻结的规则");
+    assertEquals(7.0, entry.get("deduction"));
+    double counted = evidence.stream()
+        .filter(item -> "errorCode".equals(item.get("kind")))
+        .mapToDouble(item -> (Double) item.get("count")).sum();
+    assertEquals(Double.parseDouble(String.valueOf(deductions.get("errorCodeNumber"))), counted,
+        "证据数量合计必须与聚合扣分数一致");
+  }
+
   @ParameterizedTest
   @CsvSource({"0,5", "0,10", "0,20", "4,5", "4,10", "4,20"})
   void omittedWpmCoefficientsSettleBothScoringBranches(int trainType, int base) {

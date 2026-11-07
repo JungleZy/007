@@ -1,5 +1,6 @@
 package com.nip.common.utils;
 
+import com.nip.dto.TelexDeductionEvidence;
 import com.nip.dto.TelexPatPageTransferDto;
 import com.nip.dto.TelexPatStatisticalDto;
 import com.nip.dto.TelexPatValueTransferDto;
@@ -59,7 +60,7 @@ public class TelexPatUtils {
               groupNumber++;
               ks.setPatGroup(ks.getPatGroup() + 1);
             }
-            ks.setNonStandartNumber(ks.getNonStandartNumber() + (strings.size() - 1));
+            recordDeduction(ks, "nonStandart", strings.size() - 1, pageNumber, null, null, substring);
           } else {
             currentLine.add(userPageValues.substring(start, pos));
             groupNumber++;
@@ -80,7 +81,7 @@ public class TelexPatUtils {
               groupNumber++;
               ks.setPatGroup(ks.getPatGroup() + 1);
             }
-            ks.setNonStandartNumber(ks.getNonStandartNumber() + (strings.size() - 1));
+            recordDeduction(ks, "nonStandart", strings.size() - 1, pageNumber, null, null, substring);
           } else {
             currentLine.add(userPageValues.substring(start, pos));
             groupNumber++;
@@ -115,7 +116,7 @@ public class TelexPatUtils {
           groupNumber++;
           ks.setPatGroup(ks.getPatGroup() + 1);
         }
-        ks.setNonStandartNumber(ks.getNonStandartNumber() + (strings.size() - 1));
+        recordDeduction(ks, "nonStandart", strings.size() - 1, pageNumber, null, null, substring);
       } else {
         currentLine.add(userPageValues.substring(start, pos));
         groupNumber++;
@@ -130,9 +131,9 @@ public class TelexPatUtils {
     if (groupNumber >= 100) {
       String lastAfterDash = removeAfterDigits(getLastAfterDash(userPageValues));
       if (StringUtils.isEmpty(lastAfterDash)) {
-        ks.setLessPageNumber(ks.getLessPageNumber() + 1);
+        recordDeduction(ks, "lessPage", 1, pageNumber, null, pageNumber + "", "");
       } else if (!lastAfterDash.equals(pageNumber + "")) {
-        ks.setErrorPageNumber(ks.getErrorPageNumber() + 1);
+        recordDeduction(ks, "errorPage", 1, pageNumber, null, pageNumber + "", lastAfterDash);
       }
     }
 
@@ -156,38 +157,38 @@ public class TelexPatUtils {
             if (containsPattern(group)) {
               String s = transformString(group);
               row.add(s);
-              ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+              recordDeduction(ks, "correctMistakes", 1, pageNumber, null, s, group);
             } else if (isOnlySlashes(group) && j > 0) {
               if (group.length() != 4) {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group);
               }
               row.removeLast();
               row.add(result.get(i).get(j + 1));
               j++;
-              ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+              recordDeduction(ks, "correctMistakes", 1, pageNumber, null, result.get(i).get(j), group);
             } else if (isValidFormat(group)) {
               if (!isValid(group)) {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group);
               }
               row.add(result.get(i).get(j + 1));
               j++;
-              ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+              recordDeduction(ks, "correctMistakes", 1, pageNumber, null, result.get(i).get(j), group);
             } else if (hasMiddleSlash(group)) {
               String value = result.get(i).get(j);
               int index = value.lastIndexOf("/") + 1;
               value = value.substring(index);
               row.add(value);
-              ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+              recordDeduction(ks, "correctMistakes", 1, pageNumber, null, value, group);
             } else {
               row.add(group);
-              ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+              recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group);
             }
           }
           // 隔页修改
           else if (isPageModification(group)) {
             if (j + 2 < result.get(i).size()) {
               if (!neatenResult.get(i - 1).contains("-")) {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group);
               }
               int alterPageNumber = extractPageNumber(group);
               int alterPageGroup = Integer.parseInt(result.get(i).get(j + 1));
@@ -196,12 +197,12 @@ public class TelexPatUtils {
               pageValueResult.forEach(t -> {
                 if (t.getPageNumber().equals(alterPageNumber) && t.getSort().equals(alterPageGroup - 1)) {
                   t.setValue(alterPageValue);
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, alterPageNumber, alterPageGroup, alterPageValue, group);
                   isOk.set(true);
                 }
               });
               if (!isOk.get()) {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group);
               }
               j = j + 2;
             }
@@ -215,9 +216,9 @@ public class TelexPatUtils {
                 List<Integer> integers = extractNumbersAroundHyphens(nextValue);
                 for (int k = integers.getFirst(); k < integers.getLast() + 1; k++) {
                   if (deleteElement(neatenResult, (k - 1) / 10, integers.getFirst() % 10 - 1)) {
-                    ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                    recordDeduction(ks, "correctMistakes", 1, pageNumber, k, null, group + " " + nextValue);
                   } else {
-                    ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                    recordDeduction(ks, "nonStandart", 1, pageNumber, k, null, group + " " + nextValue);
                   }
                 }
                 j = j + integers.size();
@@ -225,19 +226,19 @@ public class TelexPatUtils {
                 int i1 = Integer.parseInt(nextValue);
                 if (i < 10 && isBetweenOneAndTen(nextValue)) {
                   row.remove(i1 - 1);
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, pageNumber, i1, null, group + " " + nextValue);
                   j++;
                 } else if (i >= 10 && isBetweenOneAndHundred(nextValue)) {
                   deleteElement(neatenResult, (i1 - 1) / 10, i1 % 10 - 1);
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, pageNumber, i1, null, group + " " + nextValue);
                   j++;
                 } else {
                   j++;
-                  ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                  recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group + " " + nextValue);
                 }
               } else {
                 j++;
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group + " " + nextValue);
               }
             } else {
               row.add(group);
@@ -254,7 +255,8 @@ public class TelexPatUtils {
                 List<String> addRow = new ArrayList<>();
                 for (int k = integers.getFirst(); k < integers.getLast() + 1; k++) {
                   insertElement(addRow, (k - 1) % 10, result.get(i).get(j + flag));
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, pageNumber, k, result.get(i).get(j + flag),
+                      group + " " + nextValue);
                   flag++;
                 }
                 insertList(neatenResult, (integers.getFirst() - 1) / 10, addRow);
@@ -263,17 +265,19 @@ public class TelexPatUtils {
                 int i1 = Integer.parseInt(nextValue);
                 if (i < 10 && isBetweenOneAndTen(nextValue)) {
                   insertElement(row, i1 - 1, result.get(i).get(j + 2));
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, pageNumber, i1, result.get(i).get(j + 2),
+                      group + " " + nextValue);
                   j = j + 2;
                 } else if (i >= 10 && isBetweenOneAndHundred(nextValue)) {
                   insertElement(neatenResult, i1 / 10, i1 % 10 - 1, result.get(i).get(j + 2));
-                  ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+                  recordDeduction(ks, "correctMistakes", 1, pageNumber, i1, result.get(i).get(j + 2),
+                      group + " " + nextValue);
                   j = j + 2;
                 } else {
-                  ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                  recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group + " " + nextValue);
                 }
               } else {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, null, null, group + " " + nextValue);
               }
 
             } else {
@@ -284,10 +288,11 @@ public class TelexPatUtils {
           else if (isBetweenOneAndTen(group)) {
             if (j + 1 < result.get(i).size()) {
               if (row.size() < 10) {
-                ks.setNonStandartNumber(ks.getNonStandartNumber() + 1);
+                recordDeduction(ks, "nonStandart", 1, pageNumber, Integer.parseInt(group), null, group);
               }
               row = replaceElement(row, Integer.parseInt(group) - 1, result.get(i).get(j + 1));
-              ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + 1);
+              recordDeduction(ks, "correctMistakes", 1, pageNumber, Integer.parseInt(group),
+                  result.get(i).get(j + 1), group);
               j++;
             }
           } else {
@@ -316,7 +321,8 @@ public class TelexPatUtils {
           newResult.add(s);
           List<String> s1 = neatenResult.get(i).subList(flag, neatenResult.get(i).size());
           newResult.add(s1);
-          ks.setLessReturnLineNumber(ks.getLessReturnLineNumber() + 1);
+          recordDeduction(ks, "lessReturnLine", 1, pageNumber, (i + 1) * 10 + 1, null,
+              String.join(" ", neatenResult.get(i)));
         } else {
           newResult.add(neatenResult.get(i));
         }
@@ -359,7 +365,8 @@ public class TelexPatUtils {
                   }
                   add(userId, pageValueResult, groupKeyEntity, gs + "," + nextGroupValue);
                   colNum = tempIndex;
-                  ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + 1);
+                  recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
+                      String.join(" ", moreGroupTemp));
                   isMoreGroup = false;
                   isGoon = false;
                   break;
@@ -373,10 +380,13 @@ public class TelexPatUtils {
                 TelexPatPageTransferDto nextUserPages = userPages.get(k);
                 if (nextUserPages.getKey().equals(groupValue)) {
                   int lackNum = k - j;
-                  ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + lackNum);
+                  List<String> missingKeys = new ArrayList<>();
                   for (int i1 = 0; i1 < lackNum; i1++) {
+                    missingKeys.add(userPages.get(j + i1).getKey());
                     add(userId, pageValueResult, userPages.get(j + i1), "", groupKeyEntity.getSort() + i1);
                   }
+                  recordDeduction(ks, "muchLessGroups", lackNum, pageNumber, groupKeyEntity.getSort() + 1,
+                      String.join(" ", missingKeys), "");
                   add(userId, pageValueResult, nextUserPages, groupValue);
                   j += lackNum;
                   // 跳过标识符，设为跳过
@@ -399,7 +409,8 @@ public class TelexPatUtils {
               if (groupValue.length() > 4) {
                 if (groupValue.contains(groupKey)) {
                   add(userId, pageValueResult, groupKeyEntity, groupValue);
-                  ks.setMuchLessCodeNumber(ks.getMuchLessCodeNumber() + 1);
+                  recordDeduction(ks, "muchLessCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
+                      groupValue);
                   isGoon = false;
                 }
               }
@@ -407,7 +418,8 @@ public class TelexPatUtils {
               if (groupValue.length() < 4) {
                 if (groupKey.contains(groupValue)) {
                   add(userId, pageValueResult, groupKeyEntity, groupValue);
-                  ks.setMuchLessCodeNumber(ks.getMuchLessCodeNumber() + 1);
+                  recordDeduction(ks, "muchLessCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
+                      groupValue);
                   isGoon = false;
                 }
               }
@@ -416,26 +428,31 @@ public class TelexPatUtils {
             // 错码
             if (isGoon) {
               add(userId, pageValueResult, groupKeyEntity, groupValue);
-              ks.setErrorCodeNumber(ks.getErrorCodeNumber() + 1);
+              recordDeduction(ks, "errorCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, groupValue);
             }
           }
         } else {
           // 少行
           add(userId, pageValueResult, groupKeyEntity, "");
-          ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + 1);
+          recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, "");
         }
       }
       // 少行
       else {
         add(userId, pageValueResult, groupKeyEntity, "");
         if (colNum == 0) {
-          ks.setMuchLessLineNumber(ks.getMuchLessLineNumber() + 1);
+          recordDeduction(ks, "muchLessLine", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, "");
         }
       }
       // 多行
       if (j == userPages.size() - 1) {
         if (rowNum < neatenResult.size() - 1) {
-          ks.setMuchLessLineNumber(ks.getMuchLessLineNumber() + neatenResult.size() - rowNum);
+          List<String> extraRows = new ArrayList<>();
+          for (int k = rowNum; k < neatenResult.size(); k++) {
+            extraRows.add(String.join(" ", neatenResult.get(k)));
+          }
+          recordDeduction(ks, "muchLessLine", neatenResult.size() - rowNum, pageNumber,
+              groupKeyEntity.getSort() + 1, null, String.join(" / ", extraRows));
           int flag = 1;
           for (int k = rowNum; k < neatenResult.size(); k++) {
             for (int l = 0; l < neatenResult.get(k).size(); l++) {
@@ -451,7 +468,8 @@ public class TelexPatUtils {
         if (rowNum < neatenResult.size()) {
           for (int k = colNum + 1; k < neatenResult.get(rowNum).size(); k++) {
             log.debug("行尾多组: {}", neatenResult.get(rowNum).get(k));
-            ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + 1);
+            recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
+                neatenResult.get(rowNum).get(k));
             flag++;
           }
         }
@@ -1240,6 +1258,30 @@ public class TelexPatUtils {
    */
   public static Optional<BigDecimal> calculateAverage(List<BigDecimal> numbers) {
     return calculateAverage(numbers, 0, RoundingMode.HALF_UP);
+  }
+
+  /**
+   * 累计某类扣分并同步落一条定位证据，证据条数与聚合计数天然一致。
+   * kind 取值与 {@link TelexDeductionEvidence#priced} 的定价分支一一对应。
+   */
+  private static void recordDeduction(TelexPatStatisticalDto ks, String kind, int number, Integer pageNumber,
+      Integer referenceGroup, String reference, String captured) {
+    switch (kind) {
+      case "errorCode" -> ks.setErrorCodeNumber(ks.getErrorCodeNumber() + number);
+      case "correctMistakes" -> ks.setCorrectMistakesNumber(ks.getCorrectMistakesNumber() + number);
+      case "nonStandart" -> ks.setNonStandartNumber(ks.getNonStandartNumber() + number);
+      case "muchLessLine" -> ks.setMuchLessLineNumber(ks.getMuchLessLineNumber() + number);
+      case "muchLessGroups" -> ks.setMuchLessGroupsNumber(ks.getMuchLessGroupsNumber() + number);
+      case "muchLessCode" -> ks.setMuchLessCodeNumber(ks.getMuchLessCodeNumber() + number);
+      case "lessReturnLine" -> ks.setLessReturnLineNumber(ks.getLessReturnLineNumber() + number);
+      case "lessPage" -> ks.setLessPageNumber(ks.getLessPageNumber() + number);
+      case "errorPage" -> ks.setErrorPageNumber(ks.getErrorPageNumber() + number);
+      default -> throw new IllegalArgumentException("未知数据报扣分项目: " + kind);
+    }
+    if (number > 0) {
+      ks.getEvidence().add(new TelexDeductionEvidence(pageNumber, kind, referenceGroup, reference, captured,
+          number, null, null));
+    }
   }
 
   private static void add(String userId, List<TelexPatValueTransferDto> pageValueResult, TelexPatPageTransferDto key,

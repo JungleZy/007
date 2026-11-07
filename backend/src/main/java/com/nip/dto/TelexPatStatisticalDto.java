@@ -29,4 +29,5 @@ public class TelexPatStatisticalDto {
   private int lessPageNumber = 0;
   @Schema(title = "标页错")
   private int errorPageNumber = 0;
+  private transient java.util.List<TelexDeductionEvidence> evidence = new java.util.ArrayList<>();
 }
