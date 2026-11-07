@@ -48,6 +48,15 @@ public class GroupDetector {
       return DetectionResult.FAILED;
     }
 
+    // 下一组仍在原位置正确匹配，说明当前差异没有造成连续位移。
+    // 不应仅因远处恰好出现当前报底就把中间正确内容判为多组，再连锁判少组。
+    List<String> captured = context.getResolverVO().getResolverMessage();
+    int nextSource = context.getSourceIndex() + 1;
+    if (currentIndex + 1 < captured.size() && nextSource < context.getSources().size()
+        && Objects.equals(captured.get(currentIndex + 1), context.getSources().get(nextSource))) {
+      return DetectionResult.FAILED;
+    }
+
     // 先检测多组
     DetectionResult moreGroupResult = detectMoreGroup(context, currentIndex, patKey, source, resultBuilder);
     if (moreGroupResult == DetectionResult.SUCCESS) {

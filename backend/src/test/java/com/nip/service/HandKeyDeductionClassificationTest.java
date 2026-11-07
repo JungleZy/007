@@ -66,6 +66,23 @@ class HandKeyDeductionClassificationTest {
   }
 
   @Test
+  void missingLineFollowedByIsolatedWrongGroupsDoesNotCreateTwentyFalseGroupErrors() throws Exception {
+    var rule = TickerPatUtils.parseContent(RULE);
+    List<String> sources = new ArrayList<>(java.util.stream.IntStream.range(0, 100)
+        .mapToObj(i -> String.format("%04d", i)).toList());
+    sources.set(78, "6419"); sources.set(79, "1897"); sources.set(80, "6893"); sources.set(88, "6047");
+    List<String> answers = new ArrayList<>(sources);
+    answers.set(78, "6407"); answers.set(88, "6419");
+    answers.subList(30, 40).clear();
+    var score = compare(sources, answers, rule);
+    assertEquals(1, score.getMoreOrLackLine());
+    assertEquals(0, score.getMoreGroup());
+    assertEquals(0, score.getLackGroup());
+    assertEquals(0, score.getBunchGroup());
+    assertDeductions(score, rule, 2, 0, 77);
+  }
+
+  @Test
   void missingMiddleLineIsNotChargedAgainAsTrailingLine() throws Exception {
     var rule = TickerPatUtils.parseContent(RULE);
     List<String> sources = java.util.stream.IntStream.range(0, 40)
