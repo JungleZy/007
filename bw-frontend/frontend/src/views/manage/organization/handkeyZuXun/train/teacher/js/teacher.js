@@ -1,8 +1,9 @@
 import {onMounted, ref, computed, onUnmounted, onBeforeUnmount, nextTick} from "vue";
 import {hasTrainingSubmission} from '../../../../../../../common/utils/trainingParticipation.js'
+import {formatGroupLines, handPageGroups, decodeHandLogs, handAlphabet} from '../../../../../../../common/utils/studentMessageFormat.js'
 import {message} from "ant-design-vue";
 import {
-  getHandKeyZuXunDetails,resetHandKeyZuXunStatistics,updateHandKeyTrainStatus
+  getHandKeyZuXunDetails,resetHandKeyZuXunStatistics,updateHandKeyTrainStatus,getHandKeyZuXunPageNumber
 } from "../../../../../../../common/api/handkeyZuXun.js";
 import PublicSocket from '../../../../../../../common/ws/PublicSocket.js'
 import {PubSub} from "../../../../../../../common/utils/PubSub.js";
@@ -627,7 +628,29 @@ export default function () {
     })
   };
 
+  /**
+   * 学员已提交页：按最新详情的 existNumber 逐页读取（findPage 会锁训练并可能生成报底，只读已提交页）
+   */
+  const loadSubmittedPages = async user => {
+    const detail = await getHandKeyZuXunDetails({id: trainId.value})
+    if (detail.code !== 200) throw new Error(detail.message || '读取训练详情失败')
+    const member = detail.data?.userInfoList?.find(item => item.userId === user.id)
+    const pageNumbers = [...new Set(member?.existNumber || [])].sort((a, b) => a - b)
+    const pages = []
+    for (const floorNumber of pageNumbers) {
+      const res = await getHandKeyZuXunPageNumber({id: trainId.value, userId: user.id, floorNumber})
+      if (res.code !== 200) throw new Error(res.message || `读取第 ${floorNumber} 页失败`)
+      if (res.data?.submitted === false) continue
+      pages.push({pageNumber: floorNumber, text: formatGroupLines(handPageGroups(res.data?.messageBody))})
+    }
+    return pages
+  }
+
+  /** 当前页实时：按学员端同口径识别推送的点划 */
+  const liveMessage = user => formatGroupLines(decodeHandLogs(user.log, handAlphabet(trainData.value)))
+
   return {
+    loadSubmittedPages, liveMessage,
     trainTimeRef,loading,trainData,fileUrl,userPatData,activeUserId,chartTabIndex,isFinish,scoreloading,selectedHasSubmission,hasTrainingSubmission,
     statisticsLoading,statisticsError,hasStatistics,refreshStatistics: trainStatistics,
     startTrain,endTrain,seeStudentScore,getChartDataSource,refreshSettlement: getZuXunTrainDetails
