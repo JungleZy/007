@@ -896,10 +896,9 @@ public class GeneralTelexPatService {
           TelexPatPageTransferDto.class);
       List<GeneralTelexPatUserValueEntity> userValue = trainUserValueDao
           .findRawByTrainIdAndPageNumberAndUserId(entity.getId(), pageNumber, userId);
-      if (!userValue.isEmpty()) {
-        handle(userId, pageNumber, pageValueResult, userPages, userValue.getFirst().getValue(), ks,
-            pageNumber == pageNumbers.size() - 1);
-      }
+      // 未提交的页按整页漏拍计（与个人训练一致），不再跳过不扣分；countScore 只在最终结算时调用
+      handle(userId, pageNumber, pageValueResult, userPages,
+          userValue.isEmpty() ? null : userValue.getFirst().getValue(), ks, pageNumber == pageNumbers.size() - 1);
     });
     List<GeneralTelexPatUserValueEntity> convert = PojoUtils.convert(pageValueResult,
         GeneralTelexPatUserValueEntity.class);

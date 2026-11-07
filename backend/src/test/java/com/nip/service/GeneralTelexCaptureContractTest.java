@@ -176,6 +176,25 @@ class GeneralTelexCaptureContractTest {
     assertEquals(100, QuarkusTransaction.requiringNew().call(() -> trains.findById(room.id).getRuleScore()));
   }
 
+  /**
+   * 未提交的页与个人训练一致按整页漏拍计：200 组两页只交第 1 页（一行两组），
+   * 第 1 页缺 9 行、第 2 页缺 10 行；少于 5 组的拍发行不会触发多少行判定，计数确定为 19。
+   */
+  @Test
+  void unsubmittedPageCountsAsMissingLines() throws Exception {
+    Room room = create(FLAT_RULE.replace("\"muchLessLine\":0", "\"muchLessLine\":1"), 150, 200);
+    ok(post("uploadResult", alice, upload(room, 1, 0, PAGE, List.of(interval(0, 4000)))));
+    ok(post("finish", alice, control(room, 0)));
+
+    GeneralTelexPatUserEntity settled = member(room, alice);
+    assertEquals(19, mapper.readTree(settled.getDeductInfo()).path("muchLessLineNumber").asInt());
+    decimal("131", settled.getScore());
+    List<GeneralTelexPatUserValueEntity> secondPage = QuarkusTransaction.requiringNew().call(() -> values
+        .findByTrainIdAndPageNumberAndUserIdOrderBySort(room.id, 2, alice.getId()));
+    assertEquals(100, secondPage.size(), "未提交页也产出逐组分析行，成绩页按漏拍展示");
+    assertTrue(secondPage.stream().allMatch(row -> "".equals(row.getValue())));
+  }
+
   @Test
   void missingLegacyDeductionCoefficientIsTreatedAsZero() throws Exception {
     Room room = create(LEGACY_RULE_WITHOUT_NON_STANDARD, 150, 100);
