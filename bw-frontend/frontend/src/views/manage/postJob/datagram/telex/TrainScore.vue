@@ -3,10 +3,8 @@
     <div class="loading" v-show="loading">
       <a-spin size="large" tip="正在努力加载..." />
     </div>
-    <div style="position: absolute; right: 16px; top: 8px; z-index: 2; display: flex; gap: 8px">
-      <DatagramDeductionDetails v-if="scoreReady" :summary="scoreData.deductInfo" />
-      <a-button :disabled="loading" @click="loadScore">重新加载</a-button>
-    </div>
+    <!-- 成绩未就绪时没有统计栏，重新加载浮在右上角；就绪后随统计栏排布，避免遮挡分页 -->
+    <a-button v-if="!scoreReady" style="position: absolute; right: 16px; top: 8px; z-index: 10" :disabled="loading" @click="loadScore">重新加载</a-button>
     <div v-if="scoreReady" class="main w-full h-full">
       <div class="main_t">
         <div class="dataBox">
@@ -121,6 +119,11 @@
               <div class="layout-left-center w-full">
                 <div class="total">
                   电报纸数：<span class="num">{{ page.pageAll }}</span>
+                </div>
+                <!-- 与手键成绩页一致放在统计栏内，避免右上角浮层遮挡分页按钮 -->
+                <div class="score-actions">
+                  <DatagramDeductionDetails :summary="scoreData.deductInfo" />
+                  <a-button size="small" :disabled="loading" @click="loadScore">重新加载</a-button>
                 </div>
                 <!--                <div class="total">-->
                 <!--                  错误总数：<span class="num">{{ scoreData.errorNumber }}</span>-->
@@ -273,6 +276,14 @@
   const { scoreData, loading, loadScore, scoreReady, page, pageTurn, changeChart, showChart, strCode } = trainScore(patHairTrendBoxRef)
 </script>
 <style scoped lang="less">
+.score-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  margin-left: 3%;
+  flex-shrink: 0;
+}
   .textColor{
     color: white!important;
   }
