@@ -102,11 +102,11 @@
                     ? 'cursor-not-allowed'
                     : ''
                 ]"
-                  accept=".docx,.xlsx"
+                   accept=".xlsx,.xls,.docx"
                   :customRequest="uploadChange"
               >
                 <a-button class="layout-center btns">
-                  上传题库
+                   导入题库
                   <IconFont
                       type="icon-upload"
                       class="btnIco"
@@ -115,11 +115,11 @@
                 </a-button>
               </a-upload>
               <a-button class="layout-center btns" @click="exportTemplate(0)">
-                导出模板
+                 Excel模板
                 <IconFont type="icon-download" style="font-size: 18px"></IconFont>
               </a-button>
               <a-button class="layout-center btns" @click="exportTemplate(1)">
-                导出题库
+                 导出Excel
                 <IconFont type="icon-download" style="font-size: 18px"></IconFont>
               </a-button>
             </template>
@@ -304,8 +304,8 @@ const beforeUpload = file => {
     message.error('请先选择需要上传题库的二级知识节点！')
     return false
   }
-  if (!/\.(docx|xlsx)$/i.test(file.name || '')) {
-    message.error('仅支持 DOCX 或 XLSX 题库文件')
+   if (!/\.(docx|xlsx|xls)$/i.test(file.name || '')) {
+     message.error('请选择 Excel（.xlsx/.xls）或 DOCX 题库文件')
     return false
   }
   if (!isUploadSizeAllowed(file)) {

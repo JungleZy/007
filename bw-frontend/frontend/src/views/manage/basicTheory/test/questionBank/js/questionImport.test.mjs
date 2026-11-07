@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {parseSpreadsheetRows, parseWordQuestions} from './questionImport.js'
+import * as XLSX from 'xlsx'
+import {createQuestionWorkbook, createQuestionTemplateWorkbook} from './questionExport.js'
+
+test('template needs no bank and provides importable examples for every question type', () => {
+  const columns = ['type', 'topic', 'options', 'answer', 'analysis', 'levelId'].map(field => ({field, title: field}))
+  const workbook = createQuestionTemplateWorkbook(columns)
+  const restored = XLSX.read(XLSX.write(workbook, {type: 'buffer', bookType: 'xlsx'}), {type: 'buffer'})
+  const rows = XLSX.utils.sheet_to_json(restored.Sheets['题库模板'], {defval: ''})
+  assert.equal(rows.length, 5)
+  assert.ok(rows.every(row => !Object.hasOwn(row, 'levelId')))
+  assert.equal(rows[2]['正确答案'], '对')
+  assert.equal(rows[0]['选项B'], '3')
+  for (const bankId of ['bank-a', 'bank-b']) {
+    const questions = parseSpreadsheetRows(rows, bankId)
+    assert.deepEqual(questions.map(question => question.type), [1, 2, 3, 4, 5])
+    assert.ok(questions.every(question => question.levelId === bankId))
+    assert.deepEqual(questions.map(question => JSON.parse(question.answer)), ['1', ['0', '2'], '1', ['12', '7'], ['有线通信、无线通信。']])
+  }
+})
 
 const choice = {
   type: 2,
@@ -47,4 +66,29 @@ test('numeric object option identifiers still match normalized choice answers', 
   const answer = JSON.parse(question.answer)
   const selected = JSON.parse(question.options).filter(option => answer.includes(option.value))
   assert.deepEqual(selected.map(option => option.label), ['甲'])
+})
+
+test('Excel export can be reimported with all five question types and analyses intact', () => {
+  const options = JSON.stringify([{value: '0', label: '甲'}, {value: '1', label: '乙'}])
+  const questions = [
+    {type: 1, topic: '单选', options, answer: '"0"'},
+    {type: 2, topic: '多选', options, answer: '["0","1"]'},
+    {type: 3, topic: '判断', options: '[]', answer: '"2"'},
+    {type: 4, topic: '填写$_$及$_$', options: '[]', answer: '["甲；乙","[0,1]"]'},
+    {type: 5, topic: '=这是题干文本', options: '[]', answer: '["第一行\\n第二行\\n001"]'}
+  ].map(question => ({...question, analysis: '解析\n保留换行', levelId: '00123'}))
+  const original = structuredClone(questions)
+  const workbook = createQuestionWorkbook(questions)
+  const bytes = XLSX.write(workbook, {type: 'buffer', bookType: 'xlsx'})
+  const restored = XLSX.read(bytes, {type: 'buffer'})
+  const sheet = restored.Sheets[restored.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json(sheet, {defval: ''})
+  assert.deepEqual(parseSpreadsheetRows(rows, '00123'), original)
+  assert.deepEqual(questions, original)
+  assert.equal(sheet.B6.t, 's')
+  assert.equal(sheet.B6.f, undefined)
+  assert.equal(rows[2]['正确答案'], '错')
+  assert.equal(rows[1]['正确答案'], 'A、B')
+  assert.ok(parseSpreadsheetRows(rows.map(row => ({...row, levelId: ''})), 'another-bank')
+    .every(question => question.levelId === 'another-bank'))
 })

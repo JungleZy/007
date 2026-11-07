@@ -97,6 +97,19 @@ export const parseSpreadsheetRows = (rows, selectedLevelId) => {
     const rowNumber = Number.isInteger(row?.__rowNum__) ? row.__rowNum__ + 1 : index + 2
     try {
       if (!row || typeof row !== 'object') throw new Error('题目行为空')
+      if (Object.hasOwn(row, '题型')) {
+        const typeNames = ['单选题', '多选题', '判断题', '填空题', '简答题']
+        const options = []
+        for (let i = 0; i < 26; i++) {
+          const label = String(row[`选项${String.fromCharCode(65 + i)}`] ?? '').trim()
+          if (label) options.push({value: String(i), label})
+        }
+        const type = typeNames.indexOf(String(row['题型']).trim()) + 1
+        const answer = String(row['正确答案'] ?? '')
+        row = {type, topic: type === 4 ? String(row['题目'] ?? '').replace(/（___）|\(___\)/g, '$_$') : row['题目'], options, analysis: row['解析'],
+          answer: type === 4 ? JSON.stringify(answer.split(/\r?\n/))
+            : type === 5 ? JSON.stringify([answer]) : answer.replace(/[,，、\s]/g, '')}
+      }
       const type = Number(row.type)
       const topic = String(row.topic ?? '').trim()
       const fileBankId = String(row.levelId ?? '').trim()
@@ -118,8 +131,8 @@ export const parseSpreadsheetRows = (rows, selectedLevelId) => {
           !option || typeof option.label !== 'string' || !option.label.trim() || String(option.value) !== String(optionIndex))) {
           throw new Error('选择题选项须为非空JSON数组；对象选项的value必须从0连续编号')
         }
-        const indexes = /^[A-D]+$/i.test(answer)
-          ? answerIndexes(answer, optionObjects.length, topic)
+        const indexes = /^[A-Z]+$/i.test(answer)
+          ? [...answer.toUpperCase()].map(letter => letter.charCodeAt(0) - 65)
           : answer.split(/[,，\s]+/).filter(Boolean).map(Number)
         if (!indexes.length || indexes.some(value => !Number.isInteger(value) || value < 0 || value >= optionObjects.length)) {
           throw new Error('选择题答案必须是有效选项字母或从0开始的整数编号')
