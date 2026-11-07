@@ -119,10 +119,11 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * 获取电报纸的报文内容
    * @param page
    */
-  const getPostTrainKeyInfo = page => submission.run(async request => {
+  const getPostTrainKeyInfo = (page, selectPage = false) => submission.run(async request => {
     const response = await request(config => getHandKeyZuXunPageNumber({id: trainData.value.trainId, userId: userInfo.id, floorNumber: page}, config))
+    if (selectPage || page === trainData.value.floorNow) capture.bind(response.data)
     trainData.value.telegraph[page - 1] = response.data.messageKey
-    if (page === trainData.value.floorNow) capture.bind(response.data)
+    if (selectPage) trainData.value.floorNow = page
   })
 
   /**
@@ -162,18 +163,11 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
    * @param type
    */
   const switchTelegram = (type) => {
-    if ([1, 3].includes(trainData.value.status)) return
-    if ((type === 'prev' && trainData.value.floorNow <= 1) ||
-        (type === 'next' && trainData.value.floorNow >= trainData.value.pag)) return false;
-    if (type === 'prev') {
-      trainData.value.floorNow --;
-    }
-    if (type === 'next') {
-      trainData.value.floorNow ++;
-    }
-    if (!trainData.value.telegraph[trainData.value.floorNow + 1] && trainData.value.floorNow < trainData.value.pag) {
-      getPostTrainKeyInfo(trainData.value.floorNow + 1);
-    }
+    if ([1, 3].includes(trainData.value.status) || submission.pending()) return false
+    if (type !== 'prev' && type !== 'next') return false
+    const targetPage = trainData.value.floorNow + (type === 'next' ? 1 : -1)
+    if (targetPage < 1 || targetPage > trainData.value.pag) return false
+    return getPostTrainKeyInfo(targetPage, true)
   };
 
   /**
