@@ -130,4 +130,76 @@ class TelexPatScoringTest {
     assertEquals(1, ks.getMuchLessGroupsNumber(), "合并行里漏的一组仍按多少组计");
     assertEquals(0, ks.getErrorCodeNumber());
   }
+
+  @Test
+  void consecutiveExtraGroupsCountEachExtraGroup() {
+    for (int extra = 1; extra <= 4; extra++) {
+      int count = extra;
+      TelexPatStatisticalDto ks = settle(100, lines -> {
+        for (int k = 0; k < count; k++) {
+          lines.get(1).add(3, "ZZZ" + k);
+        }
+      });
+      assertEquals(count, ks.getMuchLessGroupsNumber(), "连续多" + count + "组按" + count + "组计（同手键）");
+      assertEquals(0, ks.getErrorCodeNumber());
+    }
+  }
+
+  @Test
+  void extraGroupsAreRenderedInTheReferenceSlot() {
+    List<TelexPatValueTransferDto> out = new ArrayList<>();
+    settle(100, lines -> {
+      lines.get(1).add(3, "ZZZ1");
+      lines.get(1).add(4, "ZZZ2");
+    }, out);
+    List<String> slot = out.stream().filter(v -> v.getSort() == 13).map(TelexPatValueTransferDto::getValue).toList();
+    assertEquals(List.of("0,ZZZ1", "1,ZZZ2", "2," + KEYS[13]), slot, "多组与对上的报底并入同一报底位置展示");
+    assertEquals(100, out.stream().map(TelexPatValueTransferDto::getSort).distinct().count());
+  }
+
+  @Test
+  void missingGroupsCountEachMissingGroup() {
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      lines.get(1).remove(2);
+      lines.get(1).remove(2);
+    });
+    assertEquals(2, ks.getMuchLessGroupsNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
+
+  @Test
+  void wrongGroupFollowedByInPlaceGroupIsErrorCodeEvenIfItRepeatsALaterKey() {
+    // 第13组误拍成本行第16组的报底，但第14组原位对上：不判少组（同手键原位保护）
+    TelexPatStatisticalDto ks = settle(100, lines -> lines.get(1).set(2, KEYS[15]));
+    assertEquals(1, ks.getErrorCodeNumber());
+    assertEquals(0, ks.getMuchLessGroupsNumber());
+  }
+
+  @Test
+  void moreOrLessCodeAcceptsAMissingOrExtraCharacterAnywhere() {
+    String key = KEYS[12];
+    TelexPatStatisticalDto lackMiddle = settle(100, lines -> lines.get(1).set(2, key.charAt(0) + key.substring(2)));
+    assertEquals(1, lackMiddle.getMuchLessCodeNumber(), "缺中间一码按多少码计（同手键）");
+    assertEquals(0, lackMiddle.getErrorCodeNumber());
+
+    TelexPatStatisticalDto extraMiddle = settle(100, lines -> lines.get(1).set(2, key.substring(0, 2) + "9" + key.substring(2)));
+    assertEquals(1, extraMiddle.getMuchLessCodeNumber());
+
+    TelexPatStatisticalDto wrongAndShort = settle(100, lines -> lines.get(1).set(2, "ZZZ"));
+    assertEquals(1, wrongAndShort.getErrorCodeNumber(), "长度不同且含错码按错码计");
+    assertEquals(0, wrongAndShort.getMuchLessCodeNumber());
+  }
+
+  @Test
+  void swappedAdjacentGroupsHaveNoBunchItemInDatagram() {
+    // 数据报评分项没有串组：互换按多少组判定，一多一少
+    TelexPatStatisticalDto ks = settle(100, lines -> {
+      List<String> row = lines.get(1);
+      String first = row.get(2);
+      row.set(2, row.get(3));
+      row.set(3, first);
+    });
+    assertEquals(2, ks.getMuchLessGroupsNumber());
+    assertEquals(0, ks.getErrorCodeNumber());
+  }
 }

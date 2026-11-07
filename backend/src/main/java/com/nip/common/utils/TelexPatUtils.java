@@ -329,156 +329,156 @@ public class TelexPatUtils {
     }
     neatenResult.clear();
     neatenResult.addAll(newResult);
-    int rowNum = 0;
-    int colNum = 0;
-    for (int j = 0; j < userPages.size(); j++) {
-      TelexPatPageTransferDto groupKeyEntity = userPages.get(j);
-      String groupKey = groupKeyEntity.getKey();
-      if (rowNum < neatenResult.size()) {
-        List<String> row = neatenResult.get(rowNum);
-        if (colNum < row.size()) {
-          String groupValue = row.get(colNum);
-          if (groupValue.equals(groupKey)) {
-            add(userId, pageValueResult, groupKeyEntity, groupValue);
-          } else {
-            // 跳过标识符，默认不跳过
-            boolean isGoon = true;
-            // 多组
-            boolean isMoreGroup = true;
-            List<String> moreGroupTemp = new ArrayList<>();
-            moreGroupTemp.add(groupValue);
-            // 判断是否多组: 拍发报文后4组 与当前报文对比，某组报文与目标报文相同，则中间的报文判定为多组
-            for (int k = 1; k <= 4; k++) {
-              int tempIndex = colNum + k;
-              if (tempIndex < row.size()) {
-                String nextGroupValue = row.get(tempIndex);
-                if (Objects.equals(nextGroupValue, groupKey)) {
-                  int gs = 0;
-                  for (String mg : moreGroupTemp) {
-                    add(userId, pageValueResult, groupKeyEntity, gs + "," + mg);
-                    gs++;
-                  }
-                  add(userId, pageValueResult, groupKeyEntity, gs + "," + nextGroupValue);
-                  colNum = tempIndex;
-                  recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
-                      String.join(" ", moreGroupTemp));
-                  isMoreGroup = false;
-                  isGoon = false;
-                  break;
-                }
-                moreGroupTemp.add(nextGroupValue);
-              }
-            }
-            // 少组
-            if (isMoreGroup) {
-              // 末页可能不足整行，搜索上界同时受行尾与本页报底数约束
-              int lineEnd = Math.min(j / 10 * 10 + 10, userPages.size());
-              for (int k = j + 1; k < lineEnd; k++) {
-                TelexPatPageTransferDto nextUserPages = userPages.get(k);
-                if (nextUserPages.getKey().equals(groupValue)) {
-                  int lackNum = k - j;
-                  List<String> missingKeys = new ArrayList<>();
-                  for (int i1 = 0; i1 < lackNum; i1++) {
-                    missingKeys.add(userPages.get(j + i1).getKey());
-                    add(userId, pageValueResult, userPages.get(j + i1), "", groupKeyEntity.getSort() + i1);
-                  }
-                  recordDeduction(ks, "muchLessGroups", lackNum, pageNumber, groupKeyEntity.getSort() + 1,
-                      String.join(" ", missingKeys), "");
-                  add(userId, pageValueResult, nextUserPages, groupValue);
-                  j += lackNum;
-                  // 跳过标识符，设为跳过
-                  isGoon = false;
-                  break;
-                }
-              }
-            }
+    compareLines(userId, pageNumber, pageValueResult, userPages, neatenResult, ks);
+  }
 
-            // 多少码
-            if (isGoon) {
-              // 多码
-              if (groupValue.contains("-")) {
-                groupValue = groupValue.split("-")[0];
-                if (groupValue.contains(groupKey)) {
-                  add(userId, pageValueResult, groupKeyEntity, groupValue);
-                  isGoon = false;
-                }
-              }
-              if (groupValue.length() > 4) {
-                if (groupValue.contains(groupKey)) {
-                  add(userId, pageValueResult, groupKeyEntity, groupValue);
-                  recordDeduction(ks, "muchLessCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
-                      groupValue);
-                  isGoon = false;
-                }
-              }
-              // 少码
-              if (groupValue.length() < 4) {
-                if (groupKey.contains(groupValue)) {
-                  add(userId, pageValueResult, groupKeyEntity, groupValue);
-                  recordDeduction(ks, "muchLessCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
-                      groupValue);
-                  isGoon = false;
-                }
-              }
-            }
+  /** 多组、少组向后搜索的组数，与手键 GroupDetector 的标准搜索范围一致。 */
+  private static final int GROUP_SEARCH_RANGE = 4;
 
-            // 错码
-            if (isGoon) {
-              add(userId, pageValueResult, groupKeyEntity, groupValue);
-              recordDeduction(ks, "errorCode", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, groupValue);
-            }
-          }
-        } else {
-          // 少行
-          add(userId, pageValueResult, groupKeyEntity, "");
-          recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, "");
+  /**
+   * 按报底逐行与拍发行比对。拍发以换行分行，第 r 个拍发行对应当前报底行；
+   * 同名扣分项（错码、多少码、多少组）的判定与手键检测器一致。
+   */
+  private static void compareLines(String userId, Integer pageNumber, List<TelexPatValueTransferDto> pageValueResult,
+      List<TelexPatPageTransferDto> userPages, List<List<String>> rows, TelexPatStatisticalDto ks) {
+    int total = userPages.size();
+    int r = 0;
+    for (int lineStart = 0; lineStart < total; lineStart += 10) {
+      int lineEnd = Math.min(lineStart + 10, total);
+      if (r >= rows.size()) {
+        // 拍发行已用完：本行整行漏拍
+        for (int j = lineStart; j < lineEnd; j++) {
+          add(userId, pageValueResult, userPages.get(j), "");
+        }
+        TelexPatPageTransferDto first = userPages.get(lineStart);
+        recordDeduction(ks, "muchLessLine", 1, pageNumber, first.getSort() + 1, first.getKey(), "");
+        continue;
+      }
+      compareLine(userId, pageNumber, pageValueResult, userPages, lineStart, lineEnd, rows.get(r), ks);
+      r++;
+    }
+    // 报底比完仍有拍发行：多行
+    if (r < rows.size() && total > 0) {
+      TelexPatPageTransferDto last = userPages.get(total - 1);
+      List<String> extraRows = new ArrayList<>();
+      int sort = total;
+      for (int k = r; k < rows.size(); k++) {
+        extraRows.add(String.join(" ", rows.get(k)));
+        for (String value : rows.get(k)) {
+          add(userId, pageValueResult, last, "", stripPageTag(value), sort++);
         }
       }
-      // 少行
-      else {
-        add(userId, pageValueResult, groupKeyEntity, "");
-        if (colNum == 0) {
-          recordDeduction(ks, "muchLessLine", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey, "");
+      recordDeduction(ks, "muchLessLine", rows.size() - r + 1, pageNumber, last.getSort() + 1, null,
+          String.join(" / ", extraRows));
+    }
+  }
+
+  private static void compareLine(String userId, Integer pageNumber, List<TelexPatValueTransferDto> pageValueResult,
+      List<TelexPatPageTransferDto> userPages, int lineStart, int lineEnd, List<String> rawRow,
+      TelexPatStatisticalDto ks) {
+    List<String> row = new ArrayList<>(rawRow.size());
+    for (String value : rawRow) {
+      row.add(stripPageTag(value));
+    }
+    int c = 0;
+    for (int j = lineStart; j < lineEnd; j++) {
+      TelexPatPageTransferDto entity = userPages.get(j);
+      String key = entity.getKey();
+      if (c >= row.size()) {
+        // 本行拍发组已用完：行尾漏拍
+        add(userId, pageValueResult, entity, "");
+        recordDeduction(ks, "muchLessGroups", 1, pageNumber, entity.getSort() + 1, key, "");
+        continue;
+      }
+      String value = row.get(c);
+      if (value.equals(key)) {
+        add(userId, pageValueResult, entity, value);
+        c++;
+        continue;
+      }
+
+      // 紧接的一组仍在原位对上，说明当前差异没有造成位移，不判多组/少组（同 GroupDetector）
+      boolean nextInPlace = c + 1 < row.size() && j + 1 < lineEnd && row.get(c + 1).equals(userPages.get(j + 1).getKey());
+      if (!nextInPlace) {
+        // 多组：本组之后若干组内出现当前报底，中间各组均为多组，按实际组数计
+        int more = 0;
+        for (int k = 1; k <= GROUP_SEARCH_RANGE && c + k < row.size(); k++) {
+          if (row.get(c + k).equals(key)) {
+            more = k;
+            break;
+          }
+        }
+        if (more > 0) {
+          for (int k = 0; k < more; k++) {
+            add(userId, pageValueResult, entity, k + "," + row.get(c + k));
+          }
+          add(userId, pageValueResult, entity, more + "," + key);
+          recordDeduction(ks, "muchLessGroups", more, pageNumber, entity.getSort() + 1, key,
+              String.join(" ", row.subList(c, c + more)));
+          c += more + 1;
+          continue;
+        }
+        // 少组：当前拍发组与之后若干组报底之一相同，中间报底均为少组
+        int less = 0;
+        for (int k = 1; k <= GROUP_SEARCH_RANGE && j + k < lineEnd; k++) {
+          if (userPages.get(j + k).getKey().equals(value)) {
+            less = k;
+            break;
+          }
+        }
+        if (less > 0) {
+          List<String> missingKeys = new ArrayList<>();
+          for (int k = 0; k < less; k++) {
+            missingKeys.add(userPages.get(j + k).getKey());
+            add(userId, pageValueResult, userPages.get(j + k), "", entity.getSort() + k);
+          }
+          recordDeduction(ks, "muchLessGroups", less, pageNumber, entity.getSort() + 1,
+              String.join(" ", missingKeys), "");
+          add(userId, pageValueResult, userPages.get(j + less), value);
+          j += less;
+          c++;
+          continue;
         }
       }
-      // 多行
-      if (j == userPages.size() - 1) {
-        if (rowNum < neatenResult.size() - 1) {
-          List<String> extraRows = new ArrayList<>();
-          for (int k = rowNum; k < neatenResult.size(); k++) {
-            extraRows.add(String.join(" ", neatenResult.get(k)));
-          }
-          recordDeduction(ks, "muchLessLine", neatenResult.size() - rowNum, pageNumber,
-              groupKeyEntity.getSort() + 1, null, String.join(" / ", extraRows));
-          int flag = 1;
-          for (int k = rowNum; k < neatenResult.size(); k++) {
-            for (int l = 0; l < neatenResult.get(k).size(); l++) {
-              add(userId, pageValueResult, groupKeyEntity, "", neatenResult.get(k).get(l), j + flag);
-              flag++;
-            }
-          }
-        }
-      }
-      // 行尾多组
-      if (9 == groupKeyEntity.getSort() % 10) {
-        int flag = 1;
-        if (rowNum < neatenResult.size()) {
-          for (int k = colNum + 1; k < neatenResult.get(rowNum).size(); k++) {
-            log.debug("行尾多组: {}", neatenResult.get(rowNum).get(k));
-            recordDeduction(ks, "muchLessGroups", 1, pageNumber, groupKeyEntity.getSort() + 1, groupKey,
-                neatenResult.get(rowNum).get(k));
-            flag++;
-          }
-        }
-        colNum += flag;
+
+      // 多少码：长度不同且跳过缺失/多余位置后其余码与报底一致（同 ErrorCodeDetector）；否则错码
+      add(userId, pageValueResult, entity, value);
+      if (isMoreOrLessCode(value, key)) {
+        recordDeduction(ks, "muchLessCode", 1, pageNumber, entity.getSort() + 1, key, value);
       } else {
-        colNum++;
+        recordDeduction(ks, "errorCode", 1, pageNumber, entity.getSort() + 1, key, value);
       }
-      if (rowNum != (j + 1) / 10) {
-        colNum = 0;
-        rowNum++;
+      c++;
+    }
+    // 行尾多组：报底本行已比完，拍发行仍有剩余组，每组计一次
+    TelexPatPageTransferDto lineLast = userPages.get(lineEnd - 1);
+    for (int k = c; k < row.size(); k++) {
+      recordDeduction(ks, "muchLessGroups", 1, pageNumber, lineLast.getSort() + 1, lineLast.getKey(), row.get(k));
+    }
+  }
+
+  /** 去掉页标（如 1234-1 取 1234），页标本身由页标判断单独计分。 */
+  private static String stripPageTag(String value) {
+    int dash = value.indexOf('-');
+    return dash < 0 ? value : value.substring(0, dash);
+  }
+
+  static boolean isMoreOrLessCode(String captured, String reference) {
+    if (captured.isEmpty() || reference.isEmpty() || captured.length() == reference.length()) {
+      return false;
+    }
+    return captured.length() < reference.length() ? isSubsequence(captured, reference)
+        : isSubsequence(reference, captured);
+  }
+
+  private static boolean isSubsequence(String shorter, String longer) {
+    int matched = 0;
+    for (int index = 0; index < longer.length() && matched < shorter.length(); index++) {
+      if (shorter.charAt(matched) == longer.charAt(index)) {
+        matched++;
       }
     }
+    return matched == shorter.length();
   }
 
   public static List<Integer> calculate(int n) {
