@@ -8,6 +8,7 @@ import Voice from '../../../../../common/utils/MorseVoice'
 import useMorse from '../../../../../common/mixin/useMorse'
 import operationMorseVoice from "../../../../../common/utils/voice/operationMorseVoice";
 import {PubSub} from "../../../../../common/utils/PubSub"
+import {releaseDisturbAudio} from '../../../../../common/utils/disturbAudio.js'
 
 export default function train() {
   const trainTimeRef = ref(null)
@@ -192,15 +193,7 @@ export default function train() {
       }
     }
     ws.close()
-    disturbList.value.map(item => {
-      if (item.gain != null) {
-        item.source.stop(0)
-        item.source = null
-        item.gain = null
-      }
-      item.ctx = null
-      item.xhr = null
-    })
+    releaseDisturbAudio(disturbList.value)
   })
   const beforeUnload = () => {
     disposed = true

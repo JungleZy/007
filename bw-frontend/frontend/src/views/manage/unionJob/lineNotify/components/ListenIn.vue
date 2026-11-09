@@ -91,6 +91,7 @@ export default {
 </script>
 <script setup>
 import {ref, onUnmounted, onMounted, nextTick} from 'vue'
+import {releaseDisturbAudio} from '../../../../../common/utils/disturbAudio.js'
 import {apiSimulationRouterRoomChannels, apiSimulationRouterChangeChannel, apiSimulationRouterRoomDetail, getRoomUserList} from '../../../../../common/api/UserApi'
 import {wsUrl} from '../../../../../common/http/endpoint.js'
 import SocketConnection from '../../../../../common/ws/SocketConnection.js'
@@ -571,18 +572,12 @@ onUnmounted(() => {
   clearInterval(autoTime.value)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
   clearVoice()
+  audio?.close().catch(() => {})
+  audio = null
   if (ws) {
     ws.close()
   }
-  disturbList.value.map(item => {
-    if (item.gain != null) {
-      item.source.stop(0)
-      item.source = null
-      item.gain = null
-    }
-    item.ctx = null
-    item.xhr = null
-  })
+  releaseDisturbAudio(disturbList.value)
 })
 </script>
 

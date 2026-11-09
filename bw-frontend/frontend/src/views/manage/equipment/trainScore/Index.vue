@@ -81,6 +81,7 @@ import {getDetails, addTrain, generalGroupNetRuleFindAll} from '../../../../comm
 import play from '../../../../assets/HJ/term/play-ico.png'
 import pause from '../../../../assets/HJ/term/pause-ico.png'
 import {useRoute} from 'vue-router'
+import {startDisturbAudio, stopDisturbAudio} from '../../../../common/utils/disturbAudio.js'
 
 const route = useRoute()
 const disturbList = ref([
@@ -401,32 +402,13 @@ const changeAudioPlay = (item, status) => {
   item.play = status
   if (status) {
     item.loading = true
-    item.ctx = new (AudioContext || window.webkitAudioContext)()
-    item.xhr = new XMLHttpRequest()
-    item.xhr.open('GET', fileUrl.value + item.url, true)
-    item.xhr.responseType = 'arraybuffer'
-    item.xhr.onload = () => {
+    startDisturbAudio(item, {url: fileUrl.value + item.url, volume: Number(item.playVolume / 100), onStarted: () => {
       item.volume = item.playVolume
-      item.ctx.decodeAudioData(item.xhr.response, buffer => {
-        item.source = item.ctx.createBufferSource()
-        item.source.buffer = buffer
-        item.source.loop = true
-        item.gain = item.ctx.createGain()
-        item.gain.gain.value = Number(item.playVolume / 100)
-        item.gain.connect(item.ctx.destination)
-        item.source.connect(item.gain)
-        item.source.start(0)
-        item.loading = false
-      })
-    }
-    item.xhr.send()
+      item.loading = false
+    }})
   } else {
     item.volume = 0
-    item.source.stop(0)
-    item.ctx = null
-    item.xhr = null
-    item.source = null
-    item.gain = null
+    stopDisturbAudio(item)
   }
 }
 

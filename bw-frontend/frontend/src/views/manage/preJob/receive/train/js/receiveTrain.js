@@ -7,6 +7,7 @@ import {
 import {PubSub} from "../../../../../../common/utils/PubSub";
 import operationMorseVoice from "../../../../../../common/utils/voice/operationMorseVoice";
 import {receiveTiming} from '../../../../../../common/utils/voice/MorseVoiceHighPerformance'
+import {startDisturbAudio, stopDisturbAudio} from '../../../../../../common/utils/disturbAudio.js'
 
 export default function telegramList(wpmTOmm) {
   const receiveBgRef = ref(null);
@@ -477,29 +478,9 @@ export default function telegramList(wpmTOmm) {
    */
   const changeAudioPlay = (item, status) => {
     if (status) {
-      item.ctx = new (AudioContext || window.webkitAudioContext)();
-      item.xhr = new XMLHttpRequest();
-      item.xhr.open("GET",window.fileUrl+item.url,true);
-      item.xhr.responseType = "arraybuffer";
-      item.xhr.onload = ()=>{
-        item.ctx.decodeAudioData(item.xhr.response,buffer=>{
-          item.source = item.ctx.createBufferSource();
-          item.source.buffer = buffer;
-          item.source.loop = true;
-          item.gain = item.ctx.createGain();
-          item.gain.gain.value = Number(disturbVol.value/100);
-          item.gain.connect(item.ctx.destination);
-          item.source.connect(item.gain);
-          item.source.start(0);
-        })
-      };
-      item.xhr.send();
+      startDisturbAudio(item, {url: window.fileUrl+item.url, volume: Number(disturbVol.value/100)})
     } else {
-      item.source.stop(0);
-      item.ctx = null;
-      item.xhr = null;
-      item.source = null;
-      item.gain = null;
+      stopDisturbAudio(item)
     }
   };
 
