@@ -95,6 +95,8 @@ watch(() => route.fullPath, () => {
   routeName.value = route.name
   morseVoice.stop()
   changeMode()
+  // 收报↔手键切换会按新缓冲策略重建context；桌面端无需手势，直接恢复，免得多点一次。
+  if (ipc.value && maskShow.value) maskBG()
 })
 onMounted(() => {
   routeName.value = route.name

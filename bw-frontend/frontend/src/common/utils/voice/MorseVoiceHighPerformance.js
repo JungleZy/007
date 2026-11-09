@@ -188,6 +188,10 @@ export function receiveTiming(data, rate = data.rate, unit = 'characters') {
 	return calculateTiming({rate, unit, type: Number(data.type) === 0 ? 'letter' : Number(data.type) === 2 ? 'mix' : Number(data.codeShort) === 1 ? 'short' : 'long', lowRate: Number(data.isLowRate) === 1, ratio: {...DEFAULT_RATIO, dash: data.ratio ?? 3}})
 }
 
+// 收报连续播放优先保证不欠载：弱CPU上最小缓冲一旦漏供就会插入静音，听感是点划长短突变或卡顿。
+// 手键侧音必须按下即响，保持最低延迟。context创建后无法改缓冲，模式切换时需重建。
+export const LATENCY_HINT = Object.freeze({playback: 'playback', sidetone: 'interactive'})
+
 export default class MorseVoice extends EventEmitter {
 	constructor(obj = {}) {
 		super()
@@ -201,7 +205,10 @@ export default class MorseVoice extends EventEmitter {
 		this.type = 'none'
 		this.initializing = null
 		this.generation = 0
+		this.contextLatencyHint = null
 	}
+
+	latencyHint() { return this.model ? LATENCY_HINT.playback : LATENCY_HINT.sidetone }
 
 	async init() {
 		// Electron may request resume before a user gesture; another click must retry it.
@@ -214,7 +221,10 @@ export default class MorseVoice extends EventEmitter {
 			try {
 				const Context = globalThis.AudioContext || globalThis.webkitAudioContext
 				if (!Context || !globalThis.AudioWorkletNode) throw new Error('当前环境不支持AudioWorklet，请使用支持音频的安全上下文')
-				if (!this.audioContext || this.audioContext.state === 'closed') this.audioContext = new Context()
+				if (!this.audioContext || this.audioContext.state === 'closed') {
+					this.contextLatencyHint = this.latencyHint()
+					this.audioContext = new Context({latencyHint: this.contextLatencyHint})
+				}
 				const context = this.audioContext
 				if (!context.audioWorklet) throw new Error('音频工作线程不可用，请使用HTTPS或本机环境')
 				if (context.state !== 'running') await context.resume()
@@ -245,6 +255,8 @@ export default class MorseVoice extends EventEmitter {
 				this.emit('message', {type: 'ready', status: 'initialized'})
 				return true
 			} catch (error) {
+				// 初始化途中已因模式切换被销毁：失败属于被取代的旧context，不提示用户。
+				if (generation !== this.generation) return false
 				this.type = 'failure'
 				this.emit('message', {type: 'failure', message: error.message})
 				return false
@@ -260,6 +272,11 @@ export default class MorseVoice extends EventEmitter {
 	configure(state) {
 		for (const key of ['criterion', 'ratio', 'frequency', 'volume', 'model']) {
 			if (state[key] !== undefined) this[key] = key === 'ratio' ? {...DEFAULT_RATIO, ...state[key]} : state[key]
+		}
+		// 收报与手键页面切换时缓冲策略不同，销毁旧context，由下一次init按新模式重建。
+		if (this.audioContext && this.contextLatencyHint !== this.latencyHint()) {
+			this.destroy()
+			return
 		}
 		this.pushState()
 	}
@@ -317,6 +334,7 @@ export default class MorseVoice extends EventEmitter {
 			this.audioContext.close().catch(error => this.emit('message', {type: 'failure', message: error.message}))
 		}
 		this.audioContext = null
+		this.contextLatencyHint = null
 		this.type = 'none'
 	}
 	updateParam(type, value) { this.configure({[type]: value}) }
