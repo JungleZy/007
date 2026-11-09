@@ -7,6 +7,7 @@ import useMorse from '../src/common/mixin/useMorse.js'
 import {handKeyThresholds} from '../src/common/utils/handKeyTiming.js'
 import {HAND_KEY_CONTROL_PATTERNS} from '../src/common/utils/handKeyControlCodes.js'
 import {createHandKeyDecoder} from '../src/common/utils/handKeyDecoder.js'
+import {PAT_WAVE_KEEP_WIDTH, patWaveWidth, trimPatWave} from '../src/common/utils/patWave.js'
 
 const strip = text => text.replace(/import\s+[\s\S]*?from\s+['"][^'"]+['"];?/g, '')
 const source = strip(readFileSync(new URL('../src/views/manage/postJob/telegram/train/js/details.js', import.meta.url), 'utf8'))
@@ -17,7 +18,7 @@ const standardSource = strip(readFileSync(new URL('../src/views/manage/postJob/t
 function setup() {
   const frames = new Map(), timers = new Map(), unmount = []
   let id = 0, clock = 0, reads = 0
-  const context = vm.createContext({ref, shallowRef, useMorse, handKeyThresholds, HAND_KEY_CONTROL_PATTERNS,
+  const context = vm.createContext({ref, shallowRef, useMorse, handKeyThresholds, HAND_KEY_CONTROL_PATTERNS, trimPatWave,
     sum: a => a.reduce((x, y) => x + y, 0),
     onMounted() {}, onUnmounted: fn => unmount.push(fn), nextTick: fn => fn(),
     useRouter: () => ({getRoutes: () => []}), PubSub: {subscribe() {}, unsubscribe() {}},
@@ -73,7 +74,9 @@ test('个人岗位手键渲染暂停时仍完整解码，恢复显示后波形�
   assert.equal(h.reads(), 0, '采集处理不能同步读取滚动布局')
   h.flush()
   assert.equal(h.reads(), 2)
-  assert.equal(h.state.showPatCodeLog.value.length, 70)
+  const wave = h.state.showPatCodeLog.value
+  const width = list => list.reduce((total, code) => total + patWaveWidth(code), 0)
+  assert.ok(width(wave) >= PAT_WAVE_KEEP_WIDTH && width(wave.slice(1)) < PAT_WAVE_KEEP_WIDTH, '码条按绘制宽度保留最近记录')
   assert.equal(h.state.patValBoxRef.value.scrollLeft, 100)
   assert.equal(h.state.patKeyBoxRef.value.scrollTop, 200)
   h.unmount()

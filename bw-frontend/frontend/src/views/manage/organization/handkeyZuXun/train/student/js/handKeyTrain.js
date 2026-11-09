@@ -9,6 +9,7 @@ import {getHandKeyZuXunPageNumber, saveHandKeyZuXunData, finishHandKeyZuXunTrain
 import countPatStandard from "./patStandard.js";
 import useConfirmedSubmission from '../../../../../../../common/mixin/useConfirmedSubmission'
 import useTrainingCapture from '../../../../../../../common/mixin/useTrainingCapture'
+import {trimPatWave} from '../../../../../../../common/utils/patWave.js'
 
 export default function (trainData,patStandard,initFloat,wsOnline,devOnline,loading,emits) {
   const submission = useConfirmedSubmission()
@@ -263,10 +264,8 @@ export default function (trainData,patStandard,initFloat,wsOnline,devOnline,load
         diff: diff,
         gap: 0
       });
-      //取出需要展示的拍发记录
-      if(trainData.value.patCodeLog.length>70){
-        trainData.value.patCodeLog.shift()
-      }
+      // 按绘制宽度保留展示记录，快速拍发时码条也能铺满
+      trimPatWave(trainData.value.patCodeLog)
       showPatCodeLog.value = trainData.value.patCodeLog
       patWsData.value.log.code = val
       patWsData.value.log.diff = diff

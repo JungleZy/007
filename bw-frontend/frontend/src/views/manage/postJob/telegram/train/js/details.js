@@ -12,6 +12,7 @@ import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedS
 import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'
 import {handKeyThresholds} from '../../../../../../common/utils/handKeyTiming.js'
 import {HAND_KEY_CONTROL_PATTERNS} from '../../../../../../common/utils/handKeyControlCodes.js'
+import {trimPatWave} from '../../../../../../common/utils/patWave.js'
 
 export default function (trainData, patStandard, initFloat, wsOnline, devOnline, loading,messageBodyList) {
   const submission = useConfirmedSubmission()
@@ -297,10 +298,8 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
         diff: diff,
         gap: 0
       })
-      //取出需要展示的拍发记录
-      if(trainData.value.patCodeLog.length>70){
-         trainData.value.patCodeLog.shift()
-      }
+      // 按绘制宽度保留展示记录，快速拍发时码条也能铺满
+      trimPatWave(trainData.value.patCodeLog)
       // 记录还没编译成字码的电码数据
       cachePatCode.value.push({
         code: val,
