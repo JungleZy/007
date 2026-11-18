@@ -6,7 +6,7 @@ const path = require('node:path');
 const {EventEmitter} = require('node:events');
 const net = require('node:net');
 const crypto = require('node:crypto');
-const {IntegratedRuntime} = require('../service/integrated-runtime');
+const {IntegratedRuntime, backendJvmArgs} = require('../service/integrated-runtime');
 const {cleanSeed, businessSeed, seedInventory} = require('../../scripts/prepare-integrated-runtime.cjs');
 
 test('初始化只保留 schema 和基础配置，不复制用户、会话或训练记录', () => {
@@ -114,4 +114,14 @@ test('新实例admin使用123456a的密码摘要，重启不重置账户密码',
     stubDatabase(restarted);
     assert.equal(await restarted.initialize(), null);
     assert.equal(statements.some(statement => /(?:INSERT|UPDATE).*t_user/.test(statement)), false);
+});
+
+test('本机后端JVM限制堆上限并使用SerialGC，32位或≤4GB内存用512MB', () => {
+    const GiB = 1024 ** 3;
+    for (const options of [{ia32: true, totalMemory: 16 * GiB}, {ia32: false, totalMemory: 4 * GiB}]) {
+        const args = backendJvmArgs(options);
+        assert.ok(args.includes('-Xmx512m'));
+        assert.ok(args.includes('-XX:+UseSerialGC'));
+    }
+    assert.ok(backendJvmArgs({ia32: false, totalMemory: 8 * GiB}).includes('-Xmx1024m'));
 });

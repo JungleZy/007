@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
 const http = require('node:http');
@@ -12,6 +13,13 @@ const {windowsRuntimePaths} = require('./windows-runtime-paths');
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const sqlString = value => "'" + String(value).replace(/\\/g, '\\\\').replace(/'/g, "''") + "'";
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
+
+// 本机后端与MySQL、Electron同机运行：不设上限时JVM默认占物理内存1/4并启用G1，低配机器容易换页、抢CPU。
+// 单用户本地服务用SerialGC足够；32位进程或≤4GB内存机器用512MB堆（与原32位配置一致），其余1GB。
+function backendJvmArgs({ia32 = process.arch === 'ia32', totalMemory = os.totalmem()} = {}) {
+    const small = ia32 || totalMemory <= 4 * 1024 ** 3;
+    return ['-Xms64m', small ? '-Xmx512m' : '-Xmx1024m', '-XX:MaxMetaspaceSize=192m', '-XX:+UseSerialGC'];
+}
 
 function atomicJson(file, data) {
     const temporary = file + '.tmp';
@@ -307,7 +315,7 @@ INSERT IGNORE INTO t_user_role (id,user_id,role_id) VALUES ('desktop-admin','des
                 QUARKUS_DATASOURCE_JDBC_URL: `jdbc:mysql://127.0.0.1:${this.databasePort}/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true`,
                 QUARKUS_HTTP_PORT: String(this.backendPort), QUARKUS_HTTP_HOST: '0.0.0.0'});
             if (this.mysql57) Object.assign(env, {NIP_DATABASE_CLIENT_MAJOR: '5', QUARKUS_DATASOURCE_DB_VERSION: '5.7'});
-            this.backend = spawn(this.java, [...(this.mysql57 ? ['-Xms64m', '-Xmx512m', '-XX:MaxMetaspaceSize=192m'] : []), '-jar', path.join(this.assets, 'backend/quarkus-run.jar')], {
+            this.backend = spawn(this.java, [...backendJvmArgs({ia32: this.mysql57}), '-jar', path.join(this.assets, 'backend/quarkus-run.jar')], {
                 cwd: this.dataPath, windowsHide: true, env: this.environment(this.java, env), stdio: ['ignore', 'pipe', 'pipe']
             });
             this.backend.stdout.on('data', data => this.log(data));
@@ -382,4 +390,4 @@ INSERT IGNORE INTO t_user_role (id,user_id,role_id) VALUES ('desktop-admin','des
     }
 }
 
-module.exports = {IntegratedRuntime, passwordHash, portFree, backendReady};
+module.exports = {IntegratedRuntime, passwordHash, portFree, backendReady, backendJvmArgs};
