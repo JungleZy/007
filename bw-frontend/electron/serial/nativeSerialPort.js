@@ -45,7 +45,7 @@ class NativeSerialPort {
 			exec('ls /dev/tty*', async (error, stdout) => {
 				if (error) return reject(new Error('无法访问设备目录'));
 				const devices = stdout.split('\n')
-					.filter(path => path && /USB\d+/.test(path));
+					.filter(path => /^\/dev\/tty(?:USB|ACM)\d+$/.test(path));
 
 				const devicePromises = devices.map(async device => {
 					try {
