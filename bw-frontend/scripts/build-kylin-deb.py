@@ -116,9 +116,10 @@ def write_ar(destination, members):
             with file.open('rb') as stream: shutil.copyfileobj(stream, output, 1024 * 1024)
             if size % 2: output.write(b'\n')
 
-def build(project, source, output):
+def build(project, source, output, revision='1', compression=4):
     metadata = json.loads((project / 'package.json').read_text(encoding='utf-8'))
-    version = metadata['version'] + '-1'
+    if not re.fullmatch(r'[1-9][0-9]*', revision): raise ValueError('Invalid Debian revision')
+    version = metadata['version'] + '-' + revision
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+.][A-Za-z0-9.]+)?', version): raise ValueError('Invalid package version')
     verify_manifest(source / 'bin/integrated/linux-arm64')
     verify_manifest(source / 'bin/file/tools/mysql/linux-arm64')
@@ -167,7 +168,7 @@ Description: Integrated traffic training system for Kylin V10 desktop ARM64
         temp = Path(temp)
         data_tar = temp / 'data.tar.xz'
         print('Writing ARM64 Debian payload with explicit executable permissions...', flush=True)
-        with lzma.open(data_tar, 'wb', preset=4) as compressed, tarfile.open(fileobj=compressed, mode='w|', format=tarfile.GNU_FORMAT) as archive:
+        with lzma.open(data_tar, 'wb', preset=compression) as compressed, tarfile.open(fileobj=compressed, mode='w|', format=tarfile.GNU_FORMAT) as archive:
             add_parent_directories(archive, [INSTALL + '/' + relative for relative, _, _ in files] + [
                 'usr/bin/' + PACKAGE,
                 'usr/share/applications/' + PACKAGE + '.desktop',

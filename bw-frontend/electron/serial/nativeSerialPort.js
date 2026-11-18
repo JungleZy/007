@@ -2,6 +2,8 @@ const {exec, execFile, execFileSync} = require('child_process');
 const {readdirSync, realpathSync, statSync} = require('fs');
 const {posix, join} = require('path');
 const {platform} = process;
+// WCH Linux drivers also expose names such as ttyCH341USB0 and ttyCH9344USB0.
+const linuxSerialPath = /^\/dev\/tty(?:(?:USB|ACM)\d+|CH[A-Za-z0-9]*\d)$/;
 
 class NativeSerialPort {
 	static list() {
@@ -45,7 +47,7 @@ class NativeSerialPort {
 			exec('ls /dev/tty*', async (error, stdout) => {
 				if (error) return reject(new Error('无法访问设备目录'));
 				const devices = stdout.split('\n')
-					.filter(path => /^\/dev\/tty(?:USB|ACM)\d+$/.test(path));
+					.filter(path => linuxSerialPath.test(path));
 
 				const devicePromises = devices.map(async device => {
 					try {
@@ -107,7 +109,7 @@ class NativeSerialPort {
       const devices = new Set(readdirSync('/dev'));
       const targets = requested.map(port => {
         const path = typeof port === 'string' ? port : port?.path;
-        if (typeof path !== 'string' || !/^\/dev\/tty(?:USB|ACM)\d+$/.test(path)
+        if (typeof path !== 'string' || !linuxSerialPath.test(path)
           || posix.normalize(path) !== path || !devices.has(posix.basename(path))) {
           throw new Error('无效串口设备路径');
         }
