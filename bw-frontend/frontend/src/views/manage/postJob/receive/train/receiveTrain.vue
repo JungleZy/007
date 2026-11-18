@@ -164,9 +164,10 @@
       </TrainLeft>
       <div class="trainCenter">
         <div class="w-full h-full relative">
-          <video :src="receiveBgMP4" ref="receiveBgRef" loop muted
+          <!-- 背景视频受「特效」开关控制；关闭时用静态图，低配机器训练时不再额外解码全屏视频 -->
+          <video v-if="cool" :src="receiveBgMP4" ref="receiveBgRef" loop muted
                  style="object-fit: fill; width: 100%; height: 100%"></video>
-          <!--          <img :src="receiveBgPng" v-else style="width: 100%; height: 100%" />-->
+          <img v-else :src="receiveBgPng" style="object-fit: fill; width: 100%; height: 100%" alt=""/>
           <div class="w-full h-full absolute" style="top: 0"></div>
           <div class="tipsBoxs" v-if="broadcastFinished || receiveData.status == 2">
             <div class="tipsCont">
@@ -271,6 +272,7 @@ const openMessageModel = ()=>{
 const {labType, labNum, labSpeed} = iconImage()
 const trainDeploy = ref(0)
 const wpmTOmm = inject('wpmTOmm')
+const cool = inject('cool')
 const {
   receiveBgRef,
   receiveData,
