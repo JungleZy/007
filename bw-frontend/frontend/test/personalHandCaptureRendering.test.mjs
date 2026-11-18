@@ -5,7 +5,7 @@ import vm from 'node:vm'
 import {ref, shallowRef} from 'vue'
 import useMorse from '../src/common/mixin/useMorse.js'
 import {handKeyThresholds} from '../src/common/utils/handKeyTiming.js'
-import {HAND_KEY_CONTROL_PATTERNS} from '../src/common/utils/handKeyControlCodes.js'
+import {CONTROL_CANDIDATE_LIMIT, matchGroupedTurn, matchHandKeyControl} from '../src/common/utils/handKeyControlMatch.js'
 import {createHandKeyDecoder} from '../src/common/utils/handKeyDecoder.js'
 import {PAT_WAVE_KEEP_WIDTH, patWaveWidth, trimPatWave} from '../src/common/utils/patWave.js'
 
@@ -18,7 +18,7 @@ const standardSource = strip(readFileSync(new URL('../src/views/manage/postJob/t
 function setup() {
   const frames = new Map(), timers = new Map(), unmount = []
   let id = 0, clock = 0, reads = 0
-  const context = vm.createContext({ref, shallowRef, useMorse, handKeyThresholds, HAND_KEY_CONTROL_PATTERNS, trimPatWave,
+  const context = vm.createContext({ref, shallowRef, useMorse, handKeyThresholds, matchHandKeyControl, matchGroupedTurn, CONTROL_CANDIDATE_LIMIT, trimPatWave,
     sum: a => a.reduce((x, y) => x + y, 0),
     onMounted() {}, onUnmounted: fn => unmount.push(fn), nextTick: fn => fn(),
     useRouter: () => ({getRoutes: () => []}), PubSub: {subscribe() {}, unsubscribe() {}},

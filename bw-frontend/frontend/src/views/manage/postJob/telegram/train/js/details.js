@@ -11,7 +11,7 @@ import countPatStandard from './patStandard.js'
 import useConfirmedSubmission from '../../../../../../common/mixin/useConfirmedSubmission'
 import useTrainingCapture from '../../../../../../common/mixin/useTrainingCapture'
 import {handKeyThresholds} from '../../../../../../common/utils/handKeyTiming.js'
-import {HAND_KEY_CONTROL_PATTERNS} from '../../../../../../common/utils/handKeyControlCodes.js'
+import {CONTROL_CANDIDATE_LIMIT, matchGroupedTurn, matchHandKeyControl} from '../../../../../../common/utils/handKeyControlMatch.js'
 import {trimPatWave} from '../../../../../../common/utils/patWave.js'
 
 export default function (trainData, patStandard, initFloat, wsOnline, devOnline, loading,messageBodyList) {
@@ -584,25 +584,18 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
    */
   let controlCandidates = []
   let correctionResume = null
-      // 多截控制符的每一截都必须独立成组（组间隔分隔，句号=三截'00'的协议语义）；
-      // 两截变体（如 H='0000' 与 I='00'、F='0010' 与 M='11'）与字母报正文必然碰撞，
-      // 2026-09-16 keysim e2e 实测：字码报 H→I 跨组被误判翻页符导致训练提前 autoEnd。
-       const patterns = HAND_KEY_CONTROL_PATTERNS
   const codeCompileKeyInfo = type => {
     if (submission.busy.value || submission.error.value) return
     const code = cachePatCode.value.map(item => item.code).join('')
     const alphabet = trainData.value.type === 1 ? 'letter' : trainData.value.type === 2 ? 'mix' : trainData.value.codeSort ? 'long' : 'short'
     if (type === 'word' && code) {
-      const match = patterns.find(([, parts]) => {
-        if (parts[parts.length - 1] !== code || parts.length > controlCandidates.length + 1) return false
-        return parts.slice(0, -1).every((part, i) => {
-          const candidate = controlCandidates[controlCandidates.length - parts.length + 1 + i]
-          return candidate.code === part && candidate.groupEnd === true
-        })
-      })
+      // 多截控制符的每一截须独立成组（字母报H/I等正文不会被误判换页）；改错与句号对按压时长和断字有容错。
+      const match = matchHandKeyControl({code, signal: cachePatCode.value, candidates: controlCandidates,
+        isCharacter: value => (codeKey[alphabet][value] ?? '#') !== '#',
+        threshold: handKeyThresholds(patStandard.value, initFloat.value).dotDash})
       if (match) {
-        const [action, parts] = match
-        const prior = controlCandidates.slice(controlCandidates.length - parts.length + 1)
+        const {action, used} = match
+        const prior = used ? controlCandidates.slice(-used) : []
         const correctionSignal = prior.flatMap(item => item.signal).concat(cachePatCode.value)
         const correctionLogs = prior.flatMap(item => item.logs).concat(cachePatLogs.value)
         for (let i = prior.length - 1; i >= 0; i--) prior[i].undo()
@@ -661,15 +654,25 @@ export default function (trainData, patStandard, initFloat, wsOnline, devOnline,
       if (!row) { row = []; trainData.value.patKeyVal.push(row) }
       const rowIndex = keyIndex === 0 ? row.length : row.length - 1
       row[rowIndex] = keys.join('')
-      controlCandidates.push({code, groupIndex, signal, logs, undo: () => {
+      controlCandidates.push({code, groupIndex, signal, logs, invalid: key === '#', undo: () => {
         // Remove only this token's own provisional entry, never unrelated '#'.
         for (const field of ['patKeys', 'moresValue', 'moresTime', 'patLogs']) item[field].splice(valueIndex, 1)
         patNumber.value -= characters
         keys.splice(keyIndex, 1)
         row[rowIndex] = keys.join('')
       }})
-      if (controlCandidates.length > 2) controlCandidates.shift()
+      if (controlCandidates.length > CONTROL_CANDIDATE_LIMIT) controlCandidates.shift()
     } else if (type === 'group' && startStatus.value && cacheKey.value.length) {
+      // 句号习惯拍法“.. .. ..”（三截只隔字间隔、自成一组），断组时确认后翻页
+      const groupedTurn = matchGroupedTurn(controlCandidates, cacheKey.value.length)
+      if (groupedTurn) {
+        for (let i = groupedTurn.length - 1; i >= 0; i--) groupedTurn[i].undo()
+        currPatKeyIndex.value = groupedTurn[0].groupIndex
+        controlCandidates = []
+        correctionResume = null
+        statisticsTelegraphData(trainData.value.floorNow === trainData.value.pag ? 'autoEnd' : 'turn')
+        return
+      }
       pageResetPatStandard()
       // 该组最后一个字码的候选标记为"独立成组"：多截控制符只允许由这样的候选拼出，
       // 正文里的字母（I='00' 出现在组中间）不会被误判成控制符
