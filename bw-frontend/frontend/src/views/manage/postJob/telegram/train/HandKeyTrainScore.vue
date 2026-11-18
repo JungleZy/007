@@ -326,7 +326,7 @@
           </div>
           <div class="patHairTrend" ref="patHairTrendBoxRef">
             <template v-for="(group, g) in trendLogKeyData[scoreData.currPage-1]" :key="g">
-              <div class="groupLog" v-if="group.moresKey" :id="'ht_'+scoreData.currPage+'_'+(g+1)+'_'+(group.moresKey=='#'?'#':group.moresKey.join(''))">
+              <div class="groupLog" v-if="group.moresKey" :id="group.slot==null?null:'ht_'+scoreData.currPage+'_'+(group.slot+1)">
                 <div class="codeContLog">
                   <template v-for="(word, w) in group.patLog" :key="w">
                     <div :class="{key: true, omiss: (group.patKeys.length - group.patLog.length) > 0}">
@@ -338,6 +338,7 @@
                                       gap: code.key==2}"
                                :style="{width: parseInt(code.value/2)+'px',minWidth: '15px'}"
                                >
+                            <div class="nimi" v-if="group.extra && code.key!=2"></div>
                             <div class="num">{{ Math.round(code.value) }}</div>
                           </div>
                         </template>
@@ -345,7 +346,7 @@
                       <div class="times" v-else>
                         <div class="time" style="width: 20px;background-color: rgba(209,29,29,.6);height: 22px"></div>
                       </div>
-                      <div :class="{keyName:true, err:group.patKeys[w]!=group.moresKey[w]}">
+                      <div :class="{keyName:true, err:group.patErr?group.patErr[w]:group.patKeys[w]!=group.moresKey[w]}">
                         {{group.patKeys[w]}}
                       </div>
                     </div>
@@ -354,8 +355,8 @@
                         <template v-for="(gap, gapIndex) in group.wordGap[w]" :key="gapIndex">
                           <div class="time gap" :style="{width:parseInt(gap.value/2)+'px'}">
                             <div class="num">{{ Math.round(gap.value) }}</div>
-                            <div class="abno" v-if="gap.value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"
-                                 :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].wordGap"></div>
+                            <div class="abno" v-if="gap.value > trendStandard(group).wordGap"
+                                 :title="'标准值：'+trendStandard(group).wordGap"></div>
                           </div>
                         </template>
                       </div>
@@ -373,19 +374,19 @@
                     </template>
                   </template>
                 </div>
-                <div class="name" v-if="group.patLog.length>0 || group.moresKey != '#'">{{group.moresKey=='#'?'#':group.moresKey.join('')}}</div>
+                <div class="name" v-if="group.patLog.length>0 || group.moresKey != '#'">{{group.extra?'多拍':group.moresKey=='#'?'#':group.moresKey.join('')}}</div>
               </div>
               <div class="sep" v-if="g < (trendLogKeyData[scoreData.currPage-1].length - 1) && group.groupGap && group.groupGap.length > 0">
                 <div class="times">
                   <template v-for="(gap, gapIndex) in group.groupGap" :key="gapIndex">
                     <div class="time gap"
-                         :style="{maxWidth: (scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2>800?800:
-                                  scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap/2)+'px',
+                         :style="{maxWidth: (trendStandard(group).groupGap/2>800?800:
+                                  trendStandard(group).groupGap/2)+'px',
                                   width:parseInt(gap.value/2)+'px'}">
                       <div class="num">{{ Math.round(gap.value) }}</div>
                       <div class="abno"
-                           v-if="gap.value > scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"
-                           :title="'标准值：'+scoreData.standards[scoreData.currPage-1][parseInt(g/10)].groupGap"></div>
+                           v-if="gap.value > trendStandard(group).groupGap"
+                           :title="'标准值：'+trendStandard(group).groupGap"></div>
                     </div>
                   </template>
                 </div>
@@ -426,7 +427,7 @@
     return data ?? '--'
   }
 
-  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, successResolver, switchTelegram, seeCurrKeysHairTrend } = trainScore(showChart);
+  const { speedUnit, scoreData, loading, patHairTrendBoxRef, trendLogKeyData, successResolver, switchTelegram, seeCurrKeysHairTrend, trendStandard } = trainScore(showChart);
 
 </script>
 

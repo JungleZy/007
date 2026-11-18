@@ -2,7 +2,7 @@ import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import {partTimeFormatInfo} from "../../../../../../../common/utils/Utils.js"
 import {getHandKeyZuXunPageNumber, getHandKeyZuXunDetails} from "../../../../../../../common/api/handkeyZuXun.js"
-import {normalizeTelegramTrendGroups} from "../../../../../../../common/utils/telegramTrend.js"
+import {alignTelegramTrendGroups, normalizeTelegramTrendGroups} from "../../../../../../../common/utils/telegramTrend.js"
 import * as echarts from "echarts"
 
 export default function telegramList(showChart,selfId) {
@@ -152,7 +152,7 @@ export default function telegramList(showChart,selfId) {
         })
       }
       successResolver.value[page - 1] = obj
-      let result = resDataHandle(res.data.messageBody)
+      let result = resDataHandle(res.data.messageBody, obj)
       scoreData.value.messageBody.push(result)
       scoreData.value.standards.push(JSON.parse(res.data.standard))
       if (page == 1 && scoreData.value.messageBody.length == 1 && scoreData.value.pag > 1) {
@@ -161,7 +161,11 @@ export default function telegramList(showChart,selfId) {
     }
   };
 
-  const resDataHandle = leaf => {
+  /**
+   * 报文展示区与拍发记录共用结算比对后的对位结果，漏行、漏组、多组后两处仍指向同一组拍发。
+   * 返回按报底位置排列的各组，拍发记录另存入 trendLogKeyData。
+   */
+  const resDataHandle = (leaf, resolver) => {
     leaf = JSON.parse(leaf).map(item => {
       item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
       item.patKeys = JSON.parse(item.patKeys);
@@ -171,9 +175,17 @@ export default function telegramList(showChart,selfId) {
       item.patLog = item.patLogs;
       return item
     });
-    leaf = normalizeTelegramTrendGroups(leaf);
-    trendLogKeyData.value.push(leaf);
-    return leaf
+    const {slots, trend} = alignTelegramTrendGroups(leaf, resolver);
+    trendLogKeyData.value.push(normalizeTelegramTrendGroups(trend));
+    return slots
+  }
+
+  /**
+   * 拍发记录中某组所在行的间隔标准；多拍会让记录多于报底，取不到时不标异常。
+   */
+  const trendStandard = group => {
+    const rows = scoreData.value.standards?.[scoreData.value.currPage - 1];
+    return (Array.isArray(rows) ? rows[Math.floor(group.rawIndex / 10)] : null) ?? {}
   }
 
   /**
@@ -485,17 +497,17 @@ export default function telegramList(showChart,selfId) {
    * @param i
    */
   const seeCurrKeysHairTrend = (key,i) => {
-    let idTxt = 'ht_'+scoreData.value.currPage+'_'+(i+1)+'_'+key.moresKey.join('');
+    let idTxt = 'ht_'+scoreData.value.currPage+'_'+(i+1);
     nextTick(() => {
-      let ht = ref(document.getElementById(idTxt));
-      patHairTrendBoxRef.value.scrollTo({left: ht.value.offsetLeft-80, behavior: 'smooth'});
+      let ht = document.getElementById(idTxt);
+      if (ht) patHairTrendBoxRef.value.scrollTo({left: ht.offsetLeft-80, behavior: 'smooth'});
     });
 
   };
 
 
   return {
-    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend,trendStandard
   }
 }
 

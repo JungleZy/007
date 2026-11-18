@@ -2,7 +2,7 @@ import {ref, computed, onMounted, onUnmounted, watch, nextTick} from "vue"
 import {useRoute} from "vue-router"
 import {partTimeFormatInfo} from "../../../../../../common/utils/Utils.js"
 import {getPostTelegramTrainById, getPostTelegramMsgBody} from "../../../../../../common/api/TelegramApi.js"
-import {normalizeTelegramTrendGroups} from "../../../../../../common/utils/telegramTrend.js"
+import {alignTelegramTrendGroups, normalizeTelegramTrendGroups} from "../../../../../../common/utils/telegramTrend.js"
 import * as echarts from "echarts"
 
 export default function telegramList(showChart) {
@@ -66,7 +66,6 @@ export default function telegramList(showChart) {
           scoreData.value.validTime = scoreData.value.validTime.replace(/：/g, ':');
           short.value = (scoreData.value.type===1?'letter':scoreData.value.type===2?'mix':scoreData.value.codeSort?'long':'short');
           trendLogKeyData.value = [];
-          scoreData.value.messageBody = scoreData.value.messageBody.map(leaf => resDataHandle(leaf));
           successResolver.value = scoreData.value.resolver.map(leaf => {
             leaf = leaf ? JSON.parse(leaf) : null;
             if (!leaf) return null;
@@ -80,6 +79,7 @@ export default function telegramList(showChart) {
             }
             return leaf
           });
+          scoreData.value.messageBody = scoreData.value.messageBody.map((leaf, page) => resDataHandle(leaf, successResolver.value[page]));
           totalTelegraghMsg();
           if (scoreData.value.statisticInfo) {
             handleKeyTrendData(scoreData.value.statisticInfo);
@@ -135,11 +135,11 @@ export default function telegramList(showChart) {
   const getPostTrainKeyInfo = (res) => {
     if (res.code === 200) {
       const finishInfo = JSON.parse(res.data.finishInfo);
-      let result = resDataHandle(res.data.messageBody)
+      let obj = res.data.resolver ? JSON.parse(res.data.resolver) : null;
+      let result = resDataHandle(res.data.messageBody, obj)
       scoreData.value.messageBody.push(result)
       scoreData.value.finishInfo.push(finishInfo)
       scoreData.value.standards.push(JSON.parse(res.data.standard))
-      let obj = res.data.resolver ? JSON.parse(res.data.resolver) : null;
       if (obj) {
         obj['moreObj'] = {}
         if (obj.moreGroups) {
@@ -155,7 +155,11 @@ export default function telegramList(showChart) {
     }
   };
 
-  const resDataHandle = leaf => {
+  /**
+   * 报文展示区与拍发记录共用结算比对后的对位结果，漏行、漏组、多组后两处仍指向同一组拍发。
+   * 返回按报底位置排列的各组，拍发记录另存入 trendLogKeyData。
+   */
+  const resDataHandle = (leaf, resolver) => {
     leaf = JSON.parse(leaf).map(item => {
       item.moresKey = item.moresKey=='#'?'#':JSON.parse(item.moresKey);
       item.patKeys = JSON.parse(item.patKeys);
@@ -165,9 +169,17 @@ export default function telegramList(showChart) {
       item.patLog = item.patLogs;
       return item
     });
-    leaf = normalizeTelegramTrendGroups(leaf);
-    trendLogKeyData.value.push(leaf);
-    return leaf
+    const {slots, trend} = alignTelegramTrendGroups(leaf, resolver);
+    trendLogKeyData.value.push(normalizeTelegramTrendGroups(trend));
+    return slots
+  }
+
+  /**
+   * 拍发记录中某组所在行的间隔标准；多拍会让记录多于报底，取不到时不标异常。
+   */
+  const trendStandard = group => {
+    const rows = scoreData.value.standards?.[scoreData.value.currPage - 1];
+    return (Array.isArray(rows) ? rows[Math.floor(group.rawIndex / 10)] : null) ?? {}
   }
 
   /**
@@ -487,17 +499,17 @@ export default function telegramList(showChart) {
    * @param i
    */
   const seeCurrKeysHairTrend = (key,i) => {
-    let idTxt = 'ht_'+scoreData.value.currPage+'_'+(i+1)+'_'+key.moresKey.join('');
+    let idTxt = 'ht_'+scoreData.value.currPage+'_'+(i+1);
     nextTick(() => {
-      let ht = ref(document.getElementById(idTxt));
-      patHairTrendBoxRef.value.scrollTo({left: ht.value.offsetLeft-80, behavior: 'smooth'});
+      let ht = document.getElementById(idTxt);
+      if (ht) patHairTrendBoxRef.value.scrollTo({left: ht.offsetLeft-80, behavior: 'smooth'});
     });
 
   };
 
 
   return {
-    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend
+    speedUnit,scoreData,loading,patHairTrendBoxRef,trendLogKeyData,short,successResolver,switchTelegram,seeCurrKeysHairTrend,trendStandard
   }
 }
 
