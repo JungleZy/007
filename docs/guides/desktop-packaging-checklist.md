@@ -87,7 +87,7 @@ foreach ($entry in $entries) {
 ### WebGL必须检查最终包
 
 - `bw-frontend/main.js` 在应用就绪前调用 `configureGraphics(app)`。不要恢复 `disableHardwareAcceleration()`、`disable-gpu`、`disable-software-rasterizer` 这组旧配置。
-- 当前 `bw-frontend/electron/core/graphics.js` 对Win7和Linux ARM64默认选择ANGLE/SwiftShader；`NIP_GRAPHICS_MODE=auto`可显式选择自动模式。其他平台默认行为按当前源码核对。
+- 当前 `bw-frontend/electron/core/graphics.js` 对所有平台默认自动渲染，WebGL不可用或GPU进程崩溃时写 `userData/graphics-fallback.json` 回退到ANGLE/SwiftShader；`NIP_GRAPHICS_MODE=software|auto` 可显式指定。Win7、麒麟ARM64须实机确认自动模式画面正常、3D页面WebGL可用。
 - 麒麟应用目录保留 `libEGL.so`、`libGLESv2.so`、`libvk_swiftshader.so` 及完整Electron分发资源。不能为了缩包随意删掉软件渲染组件。
 - 从最终包的app.asar提取 `main.js`、`electron/core/graphics.js`，与本轮源码逐字节比较；包中缺少graphics模块或仍含旧禁用参数时不得交付。
 - 在目标系统打开实际使用WebGL的功能页，检查页面无提示，WebGL上下文创建成功并可绘制/读回像素。启动窗口正常、配置单测通过或`--version`成功均不能替代此项。

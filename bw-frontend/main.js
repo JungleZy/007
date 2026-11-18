@@ -3,9 +3,9 @@ const {app, BrowserWindow} = require('electron')
 const path = require('node:path')
 const context = require("./electron/core/node_core_ctx");
 const Index = require("./electron/index");
-const {configureGraphics} = require('./electron/core/graphics');
+const {configureGraphics, watchGraphics} = require('./electron/core/graphics');
 
-configureGraphics(app);
+context.graphics = watchGraphics(app, {graphicsMode: configureGraphics(app)});
 app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 context.appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : __dirname
 

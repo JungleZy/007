@@ -169,4 +169,6 @@ sudo bash ./repair-webgl.sh
 
 出现 `WEBGL_PATCH_OK` 或 `WEBGL_PATCH_ALREADY_INSTALLED` 后，以普通用户运行 `nip-traffic-system-kylin-arm64`。若软件渲染仍失败，可尝试 `NIP_GRAPHICS_MODE=auto nip-traffic-system-kylin-arm64` 并提供终端输出。
 
+> 2026-11-17后的新构建默认自动渲染，WebGL不可用时自动回退SwiftShader（见 `docs/guides/win7-webgl.md`）；若自动模式出现黑屏/花屏但未自动回退，用 `NIP_GRAPHICS_MODE=software nip-traffic-system-kylin-arm64` 启动。
+
 验证：3个图形配置测试通过；补丁ZIP校验通过；WSL隔离目录实际安装、备份、重复执行、未知版本拒绝和损坏补丁拒绝均通过，证据为 `kylin-webgl-install-test.json`。尚未在麒麟ARM64实机确认WebGL实际渲染。当前3.1.1-1完整deb本身尚未集成此补丁，安装后需要执行补丁；后续完整构建须重新运行 `npm run build-e-kylin-arm64` 更新应用归档，再封装deb。

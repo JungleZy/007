@@ -130,6 +130,12 @@ class Index {
 		}
 
 		context.mainWindow.on('ready-to-show', () => {
+			// 自动渲染下本机没有可用WebGL时，记住改用软件渲染并重启一次；before-quit 会先正常停止本地服务。
+			if (context.graphics?.needsSoftwareRelaunch()) {
+				app.relaunch()
+				app.quit()
+				return
+			}
 			context.mainWindow.maximize();
 			context.mainWindow.show()
 		})

@@ -5,8 +5,8 @@
 ## 当前实现
 
 - 已移除上述全局禁用参数。
-- 新增 `bw-frontend/electron/core/graphics.js`，Win7（Windows内核6.1）默认使用 Electron 自带的 ANGLE/SwiftShader 软件渲染，支持WebGL；正常新版Windows/Linux保留自动选择。
-- 可由部署环境设置 `NIP_GRAPHICS_MODE=software` 强制软件兼容，或 `NIP_GRAPHICS_MODE=auto` 让Electron自动选择。软件模式性能取决于CPU，仍需实机验证具体3D场景与驱动交互。
+- `bw-frontend/electron/core/graphics.js` 现对所有平台默认自动选择渲染（2026-11-17调整：强制SwiftShader会让整页合成落到CPU，低配机器明显卡顿）。自动模式下若主窗口就绪时WebGL不可用，或GPU进程异常退出，会在 `userData/graphics-fallback.json` 写回退标记并改用 ANGLE/SwiftShader（WebGL不可用时立即重启一次）。删除该文件即恢复自动检测。
+- 可由部署环境设置 `NIP_GRAPHICS_MODE=software` 强制软件兼容，或 `NIP_GRAPHICS_MODE=auto` 强制自动选择（忽略回退标记、不做自动回退）。软件模式性能取决于CPU，仍需实机验证具体3D场景与驱动交互。
 - 不使用 `ignore-gpu-blocklist` 等强行忽略驱动限制的参数，不需要用户安装所谓WebGL浏览器插件。
 
 ## 已安装 compat2 的修复
