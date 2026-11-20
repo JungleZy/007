@@ -11,7 +11,7 @@
 - **版本目录**：升级包解到 `<用户数据目录>/system/releases/<版本>/`，安装目录不被改动。32 位 Windows 的数据目录是 `system-win32-mysql57`。
 - **运行时基线**：`bw-frontend/electron/shared/update-keys.js` 的 `RUNTIME_BASELINE`。升级包只能装到基线相同的机器上。
 
-存量机器（3.1.3 及更早）没有升级功能，必须先人工安装一次带升级功能的完整安装包。
+带升级功能的版本从 **4.0.0** 开始（2026-11-20 定）。存量机器（3.1.3 及更早）没有升级功能，必须先人工安装一次 4.0.0 或更高版本的完整安装包；`build/update-release.json` 的 `minFromVersion` 相应为 4.0.0。
 
 ## 2. 签名密钥
 

@@ -175,6 +175,7 @@ T08、T10 → T11 → T12 → T13
 - 本机风格与基线取自出厂 `app.asar`，不写入运行组件 manifest（运行组件三种风格共用）。
 - 入口拆成 `main.js`（引导）+ `electron/app-main.js`（原入口）。**存量的 webgl 专项补丁脚本只向旧包拷入 `main.js` 与 `graphics.js`，按当前源码再跑会产出缺少 `electron/bootstrap` 的坏包**；这些脚本针对的是已交付的旧版本，不应再对新源码使用。
 - 后端 `pom.xml` 版本由 3.1.1 改为 3.1.3，`application.yml` 的 `version` 改为引用构建版本。
+- 2026-11-20：产品版本统一提升到 4.0.0，作为首个带升级功能的版本；`minFromVersion` 同步为 4.0.0。
 - 签名密钥对已生成：私钥在 `~/.config/nip-update-signing/ed25519-private.pem`（仓库外），公钥已写入 `electron/shared/update-keys.js`。**T12 之前可以随时重新生成；一旦随完整安装包发出，更换公钥就需要再发完整安装包。**
 
 ## 6. 每个任务的交付检查
