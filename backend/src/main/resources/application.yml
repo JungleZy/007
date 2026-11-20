@@ -10,6 +10,9 @@ nip:
   security:
     password:
       iterations: 600000
+  update:
+    # 留存升级包的目录，由桌面外壳启动后端时注入；未配置时版本端点照常返回、留存包列表为空。
+    directory: ${NIP_UPDATE_DIR:}
 quarkus:
   analytics:
     disabled: true
@@ -84,6 +87,9 @@ quarkus:
         background-validation-interval: 2M
         validation-query-sql: SELECT 1
 "%test":
+  nip:
+    update:
+      directory: target/update-store-test
   quarkus:
     datasource:
       devservices:
