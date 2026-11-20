@@ -32,6 +32,7 @@
                   @click="confirmImport">导入 SQL</a-button>
       </a-card>
     </a-spin>
+    <software-update v-if="desktop" />
   </div>
 </template>
 
@@ -40,6 +41,8 @@ import { onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { Modal } from 'ant-design-vue'
 import { backupDatabase, getDatabaseStatus, importDatabase } from '../../../../common/api/DatabaseApi.js'
+import SoftwareUpdate from '../../../../components/common/SoftwareUpdate.vue'
+import { isEE as desktop } from '../../../../electron/ipcRenderer.js'
 
 const router = useRouter()
 const status = ref(null)

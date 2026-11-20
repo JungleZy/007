@@ -15,6 +15,12 @@ const ipcApiRoute = {
   licenseWrite: 'controller.license.write',
   licenseClear: 'controller.license.clear',
   licenseFingerprint: 'controller.license.fingerprint',
+  // 软件升级：版本状态、组网版本检查、导入与下载升级包
+  updateStatus: 'controller.update.status',
+  updateCheck: 'controller.update.check',
+  updateImport: 'controller.update.import',
+  updateDownload: 'controller.update.download',
+  updateRestart: 'controller.update.restart',
 }
 
 export {ipcApiRoute}

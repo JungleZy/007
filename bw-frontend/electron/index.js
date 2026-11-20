@@ -5,6 +5,10 @@ const {serialApiHandle} = require("./serial");
 const {loadConfig} = require("./core");
 const {onBackendService, onHttpService} = require("./service");
 const {IntegratedRuntime} = require('./service/integrated-runtime');
+const {dataDirectory, localAddress} = require('./shared/locations');
+const {UpdateService} = require('./update/service');
+const {storeRoot} = require('./update/installer');
+const releases = require('./update/releases');
 require('./controller/index')
 
 class Index {
@@ -23,8 +27,11 @@ class Index {
     }
 		app.whenReady().then(async () => {
       this.integrated = app.isPackaged || process.env.NIP_INTEGRATED_DEV === '1'
-      // MySQL5.7 不能打开 MySQL8 的物理数据目录，32位安装使用独立持久目录。
-      context.dataPath = this.integrated ? path.join(app.getPath('userData'), process.arch === 'ia32' ? 'system-win32-mysql57' : 'system') : null
+      context.dataPath = this.integrated ? dataDirectory(app.getPath('userData')) : null
+      const boot = this.integrated ? context.boot : null
+      this.boot = boot
+      context.update = new UpdateService({boot, dataPath: context.dataPath, dialog,
+        getSettings: async () => (await context.db.findOne({_id: 2})).text})
       if (this.integrated) {
         this.startupWindow = new BrowserWindow({width: 560, height: 300, resizable: false, autoHideMenuBar: true,
           webPreferences: {nodeIntegration: false, contextIsolation: true, sandbox: true}})
@@ -33,14 +40,16 @@ class Index {
       }
       const settings = await loadConfig()
       if (this.quitting) return
-      const localAddress = value => {
-        try { return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(String(value).includes('://') ? value : `http://${value}`).hostname) }
-        catch { return false }
-      }
+      if (boot?.broken && !(await this.resolveBrokenRelease(boot.broken))) return
       let initialAdmin
       if (this.integrated && localAddress(settings.text.dataUrl.url)) {
         this.runtime = new IntegratedRuntime({appPath: context.appPath, dataPath: context.dataPath,
           backendPort: Number(settings.text.dataUrl.port) || undefined,
+          releaseRoot: boot?.releaseRoot || undefined,
+          updateDirectory: storeRoot(context.dataPath),
+          restoreBackup: releases.pendingRestore(context.dataPath),
+          onMigrationsStarting: backup => releases.markMigrated(context.dataPath, backup),
+          onRestored: () => releases.clearRestore(context.dataPath),
           onProgress: message => {
             if (this.startupWindow && !this.startupWindow.isDestroyed()) {
               this.startupWindow.webContents.executeJavaScript(`document.getElementById('progress').textContent=${JSON.stringify(message)}`).catch(() => {})
@@ -57,6 +66,10 @@ class Index {
 			this.createWindow()
       this.startupWindow?.close()
       this.startupWindow = null
+      // 本机服务就绪且主窗口已创建：新版本确认可用，此后不再回退。
+      if (boot?.pending) releases.confirm(context.dataPath)
+      if (boot?.notice) dialog.showMessageBox(context.mainWindow, {type: 'warning', title: '软件升级', message: boot.notice,
+        detail: `日志目录：${path.join(context.dataPath, 'logs')}`})
       if (initialAdmin) {
         const result = await dialog.showMessageBox(context.mainWindow, {type: 'info', title: '初始化完成',
           message: '已创建初始管理员账号，请保存登录信息。',
@@ -70,7 +83,8 @@ class Index {
         if (BrowserWindow.getAllWindows().length === 0) this.createWindow()
       })
 		}).catch(error => {
-      if (!this.quitting) dialog.showErrorBox('系统启动失败', `${error.message}\n${context.dataPath ? `日志目录：${path.join(context.dataPath, 'logs')}` : ''}`)
+      this.failed = true
+      if (!this.quitting) this.reportStartupFailure(error)
       app.quit()
     })
     app.on('before-quit', event => {
@@ -78,6 +92,10 @@ class Index {
       event.preventDefault()
       if (this.quitting) return
       this.quitting = true
+      // 新版本尚未确认时用户主动退出，不算一次失败的启动。
+      if (!this.started && !this.failed && this.boot?.pending) {
+        try { releases.abortAttempt(context.dataPath) } catch { /* 不影响退出 */ }
+      }
       Promise.resolve().then(async () => {
         if (this.runtime) await this.runtime.stop()
         else context.backendService?.kill()
@@ -90,6 +108,57 @@ class Index {
 		app.on('window-all-closed', function () {
 			if (process.platform !== 'darwin') app.quit()
 		})
+	}
+
+	/**
+	 * 启动失败的处理（规格 U05）。新版本首次启动失败时：
+	 * 还没动过数据库就自动回到升级前的版本；已开始迁移则不自动回退，由用户决定是否恢复备份。
+	 */
+	reportStartupFailure(error) {
+		const logs = context.dataPath ? `日志目录：${path.join(context.dataPath, 'logs')}` : ''
+		const pointer = this.boot?.pending ? releases.readPointer(context.dataPath) : null
+		if (!pointer || pointer.version !== this.boot.version) {
+			dialog.showErrorBox('系统启动失败', `${error.message}\n${logs}`)
+			return
+		}
+		if (!pointer.migrated) {
+			releases.rollback(context.dataPath, error.message)
+			dialog.showMessageBoxSync({type: 'error', title: '升级未成功',
+				message: `升级到 ${pointer.version} 未成功，已恢复到升级前的版本，软件将重新启动。`,
+				detail: `${error.message}\n${logs}`})
+			app.relaunch()
+			return
+		}
+		const choice = dialog.showMessageBoxSync({type: 'error', title: '升级未成功',
+			message: `升级到 ${pointer.version} 后启动失败。数据库已开始更新，不能自动回退。`,
+			detail: `${error.message}\n\n${logs}\n升级前的数据库备份：${pointer.backup}\n\n`
+				+ '可以退出后再次启动重试。选择“恢复备份并回退”会用上述备份覆盖当前数据库，并回到升级前的版本。',
+			buttons: ['退出', '恢复备份并回退'], defaultId: 0, cancelId: 0})
+		if (choice === 1) {
+			releases.requestRestore(context.dataPath, pointer.backup)
+			releases.rollback(context.dataPath, error.message)
+			app.relaunch()
+		}
+	}
+
+	/**
+	 * 指针所指版本的文件损坏且不能自动回退时，当前运行的是出厂版本。
+	 * 返回 false 表示已安排重启或退出，不再继续启动。
+	 */
+	async resolveBrokenRelease(broken) {
+		const result = await dialog.showMessageBox(this.startupWindow, {type: 'error', title: '程序文件损坏',
+			message: `版本 ${broken.version} 的程序文件已损坏，无法加载。`,
+			detail: `${broken.reason}\n\n请重新导入该版本或更高版本的升级包。也可以先用出厂版本 ${this.boot.identity.version} 启动；`
+				+ '如果数据库已被新版本更新过，出厂版本会拒绝使用它。',
+			buttons: ['导入升级包', `以 ${this.boot.identity.version} 启动`, '退出'], defaultId: 0, cancelId: 2})
+		if (result.response === 1) return true
+		if (result.response === 0) {
+			const imported = await context.update.importFromDialog(this.startupWindow)
+			if (imported.ok && imported.action === 'installed') app.relaunch()
+			else if (!imported.ok) dialog.showErrorBox('导入升级包失败', imported.message)
+		}
+		app.quit()
+		return false
 	}
 
 	createWindow() {
@@ -117,7 +186,8 @@ class Index {
 			}
 		})
 		if (app.isPackaged) {
-			const indexPath = path.join(app.getAppPath(), 'public', 'dist', 'index.html');
+			// 不用 app.getAppPath()：升级后本文件来自版本目录里的 app.asar，而它恒指向安装目录。
+			const indexPath = path.join(__dirname, '..', 'public', 'dist', 'index.html');
 			context.mainWindow.loadFile(indexPath).catch((err) => {
 				console.error(`Failed to load packaged frontend: ${indexPath}`, err);
 				dialog.showErrorBox('应用启动失败', `无法加载应用资源：\n${indexPath}\n\n${err.message}`);

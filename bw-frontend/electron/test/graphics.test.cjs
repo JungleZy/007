@@ -22,8 +22,12 @@ test('默认自动渲染，入口不得恢复全局禁用GPU的旧参数', () =>
     const app = fakeApp();
     assert.equal(configureGraphics(app, {mode: undefined}), 'auto');
     assert.deepEqual(app.switches, []);
-    const entry = fs.readFileSync(path.resolve(__dirname, '../../main.js'), 'utf8');
-    assert.doesNotMatch(entry, /disableHardwareAcceleration|disable-gpu|disable-software-rasterizer/);
+    // main.js 是启动引导，图形配置在它加载的应用入口 electron/app-main.js 里。
+    for (const name of ['../../main.js', '../app-main.js']) {
+        const entry = fs.readFileSync(path.resolve(__dirname, name), 'utf8');
+        assert.doesNotMatch(entry, /disableHardwareAcceleration|disable-gpu|disable-software-rasterizer/);
+    }
+    assert.match(fs.readFileSync(path.resolve(__dirname, '../app-main.js'), 'utf8'), /configureGraphics\(app\)/);
 });
 
 test('部署环境可显式选择软件渲染', () => {

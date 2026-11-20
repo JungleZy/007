@@ -51,7 +51,8 @@ async function build() {
     verifyDependencyClosure(path.join(payload, 'resources/app.asar'));
     // Refuse stale unpacked output: rebuilding the installer alone cannot pick up source fixes.
     const asar = require('asar');
-    for (const name of ['main.js', 'electron/core/graphics.js', 'electron/service/integrated-runtime.js',
+    for (const name of ['main.js', 'electron/app-main.js', 'electron/bootstrap/index.js', 'electron/shared/update-keys.js',
+        'electron/core/graphics.js', 'electron/service/integrated-runtime.js',
         'electron/serial/nativeSerialPort.js', 'electron/serial/index.js']) {
         if (!asar.extractFile(path.join(payload, 'resources/app.asar'), path.normalize(name))
             .equals(fs.readFileSync(path.join(project, name)))) {

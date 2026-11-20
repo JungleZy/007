@@ -20,6 +20,9 @@ Module._resolveFilename = function (request, ...args) {
     for (const dependency of Object.keys(metadata.dependencies || {})) load(dependency);
     load('./electron/core/index.js');
     load('./electron/service/integrated-runtime.js');
+    // 升级相关模块必须只依赖包内文件与 Node 内置能力；启动引导本身需要 Electron，不在此加载。
+    load('./electron/update/service.js');
+    load('./electron/update/releases.js');
     load('./electron/service/http/node_server.js');
     const Datastore = load('nedb-promises');
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'nip-packaged-runtime-'));
