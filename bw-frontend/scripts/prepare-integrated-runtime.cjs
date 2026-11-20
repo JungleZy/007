@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const {parseTarget} = require('../electron/shared/mysql-platforms');
 const {assertBinaryTarget} = require('./bundle-mysql-tools.cjs');
 const {mysql57Sql} = require('./mysql57-bootstrap.cjs');
+const {checkProductVersion} = require('./check-product-version.cjs');
 
 const project = path.resolve(__dirname, '..');
 const backend = path.resolve(project, '../backend');
@@ -87,6 +88,8 @@ function verifyIntegratedRuntime(root, target) {
 
 function prepareIntegratedRuntime(mysqlHome, javaHome, target) {
     parseTarget(target);
+    // 运行组件里的后端与外壳必须是同一产品版本。
+    checkProductVersion();
     const suffix = target.startsWith('windows-') ? '.exe' : '';
     assertBinaryTarget(path.join(mysqlHome, `bin/mysqld${suffix}`), target);
     assertBinaryTarget(path.join(javaHome, `bin/java${suffix}`), target);

@@ -8,6 +8,8 @@ const {Arch} = require('builder-util');
 const {verifyIntegratedRuntime} = require('./prepare-integrated-runtime.cjs');
 const {assertDependencyLayout} = require('./verify-packaged-runtime.cjs');
 
+const {checkProductVersion} = require('./check-product-version.cjs');
+
 const projectDirectory = path.resolve(__dirname, '..');
 const frontendDirectory = path.join(projectDirectory, 'frontend');
 const sourceDirectory = path.join(frontendDirectory, 'dist');
@@ -30,6 +32,7 @@ function buildFrontend() {
 
 module.exports = function prepareDesktop(context) {
     assertDependencyLayout(projectDirectory);
+    checkProductVersion();
     // 必须取打包目标架构，不能取构建机的 process.arch（交叉打包时可能不同）。
     const arch = typeof context.arch === 'number' ? Arch[context.arch] : context.arch;
     if (context.electronPlatformName === 'win32' && arch === 'ia32'
