@@ -265,7 +265,8 @@ function verifyRelease(artifactsDirectory, outputDirectory, expectedCommit, rele
 function main(args) {
   const [command, ...parameters] = args;
   if (command === 'frontend' && parameters.length === 0) {
-    writeManifest(path.join(frontendRoot, 'dist'), 'frontend', frontendVersion());
+    // 界面风格在构建时固化进前端（vite.config.js 同一环境变量）；桌面端据此识别本机风格并校验升级包。
+    writeManifest(path.join(frontendRoot, 'dist'), 'frontend', frontendVersion(), { interfaceStyle: process.env.NIP_INTERFACE_STYLE || 'HJJ' });
   } else if (command === 'verify' && parameters.length >= 1 && parameters.length <= 2) {
     verifyManifest(path.resolve(parameters[0]), parameters.length === 2 ? { expectedCommit: parameters[1] } : { allowDirty: true });
     console.log('Artifact manifest verified');
