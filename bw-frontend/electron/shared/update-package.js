@@ -4,9 +4,12 @@
  * 构建脚本、启动引导和运行期导入共用本模块，因此只依赖 Node 内置能力。
  *
  * 容器布局：
- *   8 字节标识 | u32 manifest 长度 | manifest(JSON) | u32 签名长度 | 签名 | gzip(按 manifest.files 顺序拼接的文件内容)
- * manifest 在最前，签名只覆盖 manifest 原始字节；各文件的大小和 sha256 都在 manifest 里，
- * 所以验签通过后才开始解任何文件，解出的每个文件再逐一比对摘要。
+ *   8 字节标识 | u32 manifest 长度 | manifest(JSON) | manifest 的 sha256（32 字节） | gzip(按 manifest.files 顺序拼接的文件内容)
+ * manifest 在最前，其后的摘要用于发现清单本身的损坏；各文件的大小和 sha256 都在 manifest 里，
+ * 解出的每个文件再逐一比对摘要。
+ *
+ * 升级包不签名（2026-11-20 决定：仅内部人员在内网制作和使用）。这些摘要只防传输与存储损坏，
+ * 不能证明包的来源：能把文件放到机器上或服务端的人，就能让机器运行其中的程序。
  */
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -22,7 +25,7 @@ const PRODUCT = 'nip-traffic-system';
 const STYLES = ['HJ', 'HJJ', 'LJ'];
 const PACKAGE_EXTENSION = '.nipupd';
 const MAX_MANIFEST_BYTES = 16 * 1024 * 1024;
-const MAX_SIGNATURE_BYTES = 1024;
+const DIGEST_BYTES = 32;
 const REQUIRED_FILES = ['app.asar', 'backend/quarkus-run.jar', 'bootstrap/seed.sql'];
 
 class UpdateError extends Error {
@@ -83,7 +86,7 @@ function validateManifest(manifest) {
         if (typeof file.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(file.sha256)) fail(`文件摘要无效：${file.path}`);
         // Windows 文件系统不区分大小写，大小写不同的同名条目会互相覆盖。
         const key = file.path.toLowerCase();
-        if (seen.has(key) || key === 'manifest.json' || key === 'manifest.sig') fail(`文件重复或占用保留名：${file.path}`);
+        if (seen.has(key) || key === 'manifest.json') fail(`文件重复或占用保留名：${file.path}`);
         seen.add(key);
     }
     for (const required of [...REQUIRED_FILES, ...manifest.migrations.map(name => `bootstrap/migrations/${name}`)]) {
@@ -92,15 +95,8 @@ function validateManifest(manifest) {
     return manifest;
 }
 
-function verifySignature(manifestBytes, signature, publicKeys) {
-    for (const key of publicKeys) {
-        try { if (crypto.verify(null, manifestBytes, key, signature)) return; } catch { /* 换下一把公钥 */ }
-    }
-    throw new UpdateError('signature', '升级包签名校验失败，文件可能已损坏或来源不可信');
-}
-
-/** 读取并验签包头；返回值里的 manifest 已通过结构校验。 */
-function readHeader(file, publicKeys) {
+/** 读取包头并核对清单摘要；返回值里的 manifest 已通过结构校验。 */
+function readHeader(file) {
     let fd;
     try { fd = fs.openSync(file, 'r'); } catch { throw new UpdateError('format', '无法读取升级包文件'); }
     try {
@@ -114,13 +110,11 @@ function readHeader(file, publicKeys) {
         const manifestLength = exact(4, offset).readUInt32BE(0);
         if (!manifestLength || manifestLength > MAX_MANIFEST_BYTES) throw new UpdateError('format', '升级包文件不完整');
         const manifestBytes = exact(manifestLength, offset += 4);
-        const signatureLength = exact(4, offset += manifestLength).readUInt32BE(0);
-        if (!signatureLength || signatureLength > MAX_SIGNATURE_BYTES) throw new UpdateError('format', '升级包文件不完整');
-        const signature = exact(signatureLength, offset += 4);
-        verifySignature(manifestBytes, signature, publicKeys);
+        const digest = exact(DIGEST_BYTES, offset += manifestLength);
+        if (!crypto.createHash('sha256').update(manifestBytes).digest().equals(digest)) throw new UpdateError('corrupt', '升级包已损坏：清单校验失败');
         let manifest;
         try { manifest = JSON.parse(manifestBytes.toString('utf8')); } catch { throw new UpdateError('manifest', '升级包清单无效：无法解析'); }
-        return {manifest: validateManifest(manifest), manifestBytes, signature, payloadOffset: offset + signatureLength};
+        return {manifest: validateManifest(manifest), manifestBytes, payloadOffset: offset + DIGEST_BYTES};
     } finally { fs.closeSync(fd); }
 }
 
@@ -175,7 +169,6 @@ async function extractPayload(file, header, destination) {
         if (active) throw new UpdateError('corrupt', '升级包内容不完整');
         if (stage) {
             fs.writeFileSync(path.join(stage, 'manifest.json'), header.manifestBytes);
-            fs.writeFileSync(path.join(stage, 'manifest.sig'), header.signature);
             fs.rmSync(destination, {recursive: true, force: true});
             fs.renameSync(stage, destination);
         }
@@ -189,14 +182,11 @@ async function extractPayload(file, header, destination) {
     }
 }
 
-/** 校验已解出的版本目录：签名、清单结构以及清单内每个文件的大小与摘要。 */
-function verifyReleaseDirectory(directory, publicKeys) {
-    let manifestBytes, signature;
-    try {
-        manifestBytes = fs.readFileSync(path.join(directory, 'manifest.json'));
-        signature = fs.readFileSync(path.join(directory, 'manifest.sig'));
-    } catch { throw new UpdateError('corrupt', '版本目录缺少清单或签名'); }
-    verifySignature(manifestBytes, signature, publicKeys);
+/** 校验已解出的版本目录：清单结构以及清单内每个文件的大小与摘要。 */
+function verifyReleaseDirectory(directory) {
+    let manifestBytes;
+    try { manifestBytes = fs.readFileSync(path.join(directory, 'manifest.json')); }
+    catch { throw new UpdateError('corrupt', '版本目录缺少清单'); }
     let manifest;
     try { manifest = validateManifest(JSON.parse(manifestBytes.toString('utf8'))); }
     catch (error) { throw error instanceof UpdateError ? error : new UpdateError('manifest', '版本目录清单无法解析'); }
@@ -214,7 +204,7 @@ function verifyReleaseDirectory(directory, publicKeys) {
 /**
  * 生成升级包。entries 为 [{path, source}]，顺序即包内顺序；fields 为除 files 外的清单字段。
  */
-async function createPackage({output, fields, entries, privateKey}) {
+async function createPackage({output, fields, entries}) {
     const files = entries.map(entry => {
         const stat = fs.lstatSync(entry.source);
         if (!stat.isFile()) throw new UpdateError('manifest', `升级包只能包含普通文件：${entry.path}`);
@@ -222,11 +212,11 @@ async function createPackage({output, fields, entries, privateKey}) {
     });
     const manifest = validateManifest({formatVersion: FORMAT_VERSION, product: PRODUCT, ...fields, files});
     const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
-    const signature = crypto.sign(null, manifestBytes, privateKey);
+    const digest = crypto.createHash('sha256').update(manifestBytes).digest();
     const length = value => { const buffer = Buffer.alloc(4); buffer.writeUInt32BE(value); return buffer; };
     const temporary = `${output}.tmp-${crypto.randomBytes(6).toString('hex')}`;
     try {
-        fs.writeFileSync(temporary, Buffer.concat([MAGIC, length(manifestBytes.length), manifestBytes, length(signature.length), signature]), {flag: 'wx'});
+        fs.writeFileSync(temporary, Buffer.concat([MAGIC, length(manifestBytes.length), manifestBytes, digest]), {flag: 'wx'});
         const gzip = zlib.createGzip({level: 6});
         const sink = fs.createWriteStream(temporary, {flags: 'a'});
         const done = new Promise((resolve, reject) => {
@@ -263,6 +253,6 @@ function packageFileName(manifest) {
 
 module.exports = {
     FORMAT_VERSION, PRODUCT, STYLES, PACKAGE_EXTENSION, UpdateError,
-    parseVersion, compareVersions, sha256File, safeRelativePath, validateManifest, verifySignature,
+    parseVersion, compareVersions, sha256File, safeRelativePath, validateManifest,
     readHeader, extractPayload, verifyReleaseDirectory, createPackage, packageFileName
 };

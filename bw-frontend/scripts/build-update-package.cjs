@@ -1,7 +1,6 @@
 /**
  * 生成升级包（升级规格 U02）。每个 target 与风格的组合出一个包。
  *
- *   NIP_UPDATE_SIGNING_KEY=<仓库外的私钥路径> \
  *   node scripts/build-update-package.cjs --target <target> --style <HJ|HJJ|LJ> --app-asar <app.asar> [--runtime <运行组件目录>] [--output <目录>]
  *
  * --app-asar 取本轮完整构建产物里的 resources/app.asar；--runtime 默认 bin/integrated/<target>。
@@ -15,7 +14,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {execFileSync} = require('node:child_process');
 const {createPackage, readHeader, extractPayload, packageFileName, sha256File, compareVersions, STYLES} = require('../electron/shared/update-package');
-const {PUBLIC_KEYS, RUNTIME_BASELINE} = require('../electron/shared/update-keys');
+const {RUNTIME_BASELINE} = require('../electron/shared/update-baseline');
 const {parseTarget} = require('../electron/shared/mysql-platforms');
 const {checkProductVersion} = require('./check-product-version.cjs');
 
@@ -48,7 +47,7 @@ function walk(root, relative = '') {
     });
 }
 
-async function buildUpdatePackage({target, style, appAsar, runtime, output, privateKey, policy, sourceCommit, publicKeys = PUBLIC_KEYS,
+async function buildUpdatePackage({target, style, appAsar, runtime, output, policy, sourceCommit,
     runtimeBaseline = RUNTIME_BASELINE, productVersion, releasedSource = currentMigrations()}) {
     parseTarget(target);
     if (!STYLES.includes(style)) throw new Error(`风格必须是 ${STYLES.join('、')}`);
@@ -80,10 +79,10 @@ async function buildUpdatePackage({target, style, appAsar, runtime, output, priv
     fs.mkdirSync(output, {recursive: true});
     const fields = {version, target, style, runtimeBaseline, minFromVersion: policy.minFromVersion, migrations: runtimeManifest.migrations, sourceCommit};
     const file = path.join(output, packageFileName(fields));
-    const manifest = await createPackage({output: file, fields, entries, privateKey});
-    // 用内置公钥把刚出的包完整验一遍：私钥与公钥不配对时在这里就失败，而不是到现场才发现。
-    try { await extractPayload(file, readHeader(file, publicKeys), null); }
-    catch (error) { fs.rmSync(file, {force: true}); throw new Error(`升级包未通过内置公钥校验（签名私钥是否与 update-keys.js 配对？）：${error.message}`); }
+    const manifest = await createPackage({output: file, fields, entries});
+    // 把刚出的包按现场导入的方式完整读一遍：写盘出错在这里就失败，而不是到现场才发现。
+    try { await extractPayload(file, readHeader(file), null); }
+    catch (error) { fs.rmSync(file, {force: true}); throw new Error(`升级包未通过自检：${error.message}`); }
     const report = {file: path.basename(file), bytes: fs.statSync(file).size, sha256: sha256File(file), version, target, style,
         runtimeBaseline, minFromVersion: policy.minFromVersion, migrations: manifest.migrations.length, files: manifest.files.length, sourceCommit};
     fs.writeFileSync(`${file}.json`, `${JSON.stringify(report, null, 2)}\n`);
@@ -113,14 +112,10 @@ async function main(args) {
         return;
     }
     for (const required of ['target', 'style', 'app-asar']) if (!parsed[required]) throw new Error(`缺少参数 --${required}`);
-    const keyFile = process.env.NIP_UPDATE_SIGNING_KEY;
-    if (!keyFile) throw new Error('未设置 NIP_UPDATE_SIGNING_KEY（签名私钥路径，必须在仓库之外），不产出未签名的升级包');
-    if (!path.relative(repository, path.resolve(keyFile)).startsWith('..')) throw new Error('签名私钥不能放在仓库目录内');
-    const privateKey = crypto.createPrivateKey(fs.readFileSync(keyFile));
     const report = await buildUpdatePackage({
         target: parsed.target, style: parsed.style, appAsar: path.resolve(parsed['app-asar']),
         runtime: path.resolve(parsed.runtime || path.join(project, 'bin/integrated', parsed.target)),
-        output: path.resolve(parsed.output || path.join(project, 'out/updates')), privateKey, policy,
+        output: path.resolve(parsed.output || path.join(project, 'out/updates')), policy,
         productVersion: checkProductVersion(),
         sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], {cwd: repository, encoding: 'utf8'}).trim()
     });

@@ -9,17 +9,15 @@
 - **完整安装包**：含 Electron、JRE、MySQL。新装机器、运行环境变更时使用。
 - **升级包**（`.nipupd`）：只含外壳与前端（`app.asar`）、后端、数据库迁移。每个平台与风格的组合一个文件，例如 `nip-update-3.2.0-windows-ia32-HJ.nipupd`。
 - **版本目录**：升级包解到 `<用户数据目录>/system/releases/<版本>/`，安装目录不被改动。32 位 Windows 的数据目录是 `system-win32-mysql57`。
-- **运行时基线**：`bw-frontend/electron/shared/update-keys.js` 的 `RUNTIME_BASELINE`。升级包只能装到基线相同的机器上。
+- **运行时基线**：`bw-frontend/electron/shared/update-baseline.js` 的 `RUNTIME_BASELINE`。升级包只能装到基线相同的机器上。
 
 带升级功能的版本从 **4.0.0** 开始（2026-11-20 定）。存量机器（3.1.3 及更早）没有升级功能，必须先人工安装一次 4.0.0 或更高版本的完整安装包；`build/update-release.json` 的 `minFromVersion` 相应为 4.0.0。
 
-## 2. 签名密钥
+## 2. 升级包不签名
 
-- 私钥放在仓库之外，出包时通过环境变量 `NIP_UPDATE_SIGNING_KEY` 指定路径。
-- 公钥在 `bw-frontend/electron/shared/update-keys.js` 的 `PUBLIC_KEYS`，随完整安装包进入现场机器，**不随升级包更新**。
-- 生成新密钥：`node scripts/update-signing-key.cjs <仓库外的私钥路径>`，把输出的公钥加入 `PUBLIC_KEYS`。
-- 私钥丢失或泄露后，只能发新的完整安装包更换公钥。请离线备份。
-- 轮换：新安装包的 `PUBLIC_KEYS` 同时保留新旧两把，待现场都装过后再移除旧的。
+2026-11-20 决定：升级包只由内部人员在内网制作和使用，不做签名，出包不需要任何密钥。
+
+包内带有清单和每个文件的 sha256，导入、下载和每次启动时都会核对，能发现传输或存储造成的损坏。但这些校验**不能证明包的来源**：能把 `.nipupd` 文件放到机器上或导入服务端的人，就能让机器运行其中的程序。请只使用内部出的包，并控制好服务端的导入操作。
 
 ## 3. 发布一个版本
 
@@ -30,12 +28,12 @@
 3. 对每个平台与风格的组合出升级包：
 
    ```bash
-   NIP_UPDATE_SIGNING_KEY=<私钥路径> node scripts/build-update-package.cjs \
+   node scripts/build-update-package.cjs \
      --target <windows-x64|windows-ia32|linux-arm64|linux-loong64> --style <HJ|HJJ|LJ> \
      --app-asar <本轮构建产物>/resources/app.asar
    ```
 
-   产物在 `out/updates/`，旁边的 `.json` 是构建报告（字节数、sha256、提交）。脚本会核对：`app.asar` 的版本与风格、运行组件的平台与版本、已发布迁移未被改动，并用内置公钥把成品完整验一遍。
+   产物在 `out/updates/`，旁边的 `.json` 是构建报告（字节数、sha256、提交）。脚本会核对：`app.asar` 的版本与风格、运行组件的平台与版本、已发布迁移未被改动，并把成品按现场导入的方式完整读一遍。
 4. 发布完成后记录已发布的迁移：`node scripts/build-update-package.cjs --record-release`，并提交 `build/update-release.json`。
 
 需要改 `build/update-release.json` 里 `minFromVersion` 的情况：新版本不再支持从某个旧版本直接升级时，把它提到仍受支持的最低版本。
@@ -43,7 +41,7 @@
 ### 必须发完整安装包并把基线加一的改动
 
 - 更换 Electron、JRE 或 MySQL。
-- 改动 `main.js`、`electron/bootstrap/`、`electron/shared/update-keys.js`（它们只从安装目录加载，升级包里的副本不生效）。
+- 改动 `main.js`、`electron/bootstrap/`、`electron/shared/update-baseline.js`（它们只从安装目录加载，升级包里的副本不生效）。
 - 改动升级包格式或版本指针的读取方式，使旧引导读不懂。
 
 ## 4. 现场升级
@@ -79,7 +77,7 @@
 
 | 情况 | 行为 |
 |---|---|
-| 升级包签名不对、被改动、平台或风格不符、版本不高于当前、基线不符 | 导入时拒绝并说明原因，当前版本不受影响 |
+| 升级包损坏、平台或风格不符、版本不高于当前、基线不符 | 导入时拒绝并说明原因，当前版本不受影响 |
 | 新版本首次启动失败，数据库还没开始更新 | 自动回到升级前的版本并重启。需重新导入升级包 |
 | 新版本首次启动失败，数据库已开始更新 | 不自动回退。可退出后重试；或选「恢复备份并回退」，用升级前的备份覆盖数据库并回到旧版本 |
 | 已在使用的版本文件损坏 | 启动时提示，可重新导入升级包，或暂以出厂版本启动 |

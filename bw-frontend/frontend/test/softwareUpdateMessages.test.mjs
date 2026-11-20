@@ -17,5 +17,5 @@ test('只有在本机安装成功才提示重启；仅留存、取消和失败�
   assert.equal(stored.restart, false)
   assert.match(stored.text, /未在本机安装/)
   assert.equal(updateResultMessage({ok: true, action: 'canceled'}), null)
-  assert.deepEqual(updateResultMessage({ok: false, code: 'signature', message: '签名校验失败'}), {type: 'error', text: '签名校验失败', restart: false})
+  assert.deepEqual(updateResultMessage({ok: false, code: 'corrupt', message: '升级包已损坏'}), {type: 'error', text: '升级包已损坏', restart: false})
 })

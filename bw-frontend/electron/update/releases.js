@@ -86,7 +86,7 @@ function assertMatchesMachine(manifest, identity) {
  * 启动时决定运行哪个版本。返回 root 为 null 表示使用安装目录里的出厂版本。
  * notice 是需要在界面上告知用户的情况（已自动回退、当前版本文件损坏等）。
  */
-function selectRelease({dataPath, identity, publicKeys, log = () => {}}) {
+function selectRelease({dataPath, identity, log = () => {}}) {
     const factory = extra => ({root: null, version: identity.version, pending: false, notice: null, ...extra});
     let notice = null;
     for (let round = 0; round < 3; round++) {
@@ -107,7 +107,7 @@ function selectRelease({dataPath, identity, publicKeys, log = () => {}}) {
         }
         const directory = releaseDirectory(dataPath, pointer.version);
         try {
-            const manifest = verifyReleaseDirectory(directory, publicKeys);
+            const manifest = verifyReleaseDirectory(directory);
             if (manifest.version !== pointer.version) throw new UpdateError('corrupt', '版本目录与指针版本不一致');
             assertMatchesMachine(manifest, identity);
         } catch (error) {

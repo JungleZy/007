@@ -8,7 +8,7 @@ const {buildUpdatePackage, assertMigrationsAppendOnly, currentMigrations} = requ
 const {checkProductVersion} = require('../../scripts/check-product-version.cjs');
 const {installPackage} = require('../update/installer');
 const {selectRelease} = require('../update/releases');
-const {keys, workspace, identity} = require('./update-fixture.cjs');
+const {workspace, identity} = require('./update-fixture.cjs');
 
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
 
@@ -34,28 +34,26 @@ async function buildInputs(root, {version = '3.2.0', style = 'HJ'} = {}) {
 }
 
 test('出包只含外壳、后端与迁移，不含运行时；产物可被安装并在启动时选中', async t => {
-    const root = workspace(t), signing = keys(), inputs = await buildInputs(root);
+    const root = workspace(t), inputs = await buildInputs(root);
     const policy = {minFromVersion: '3.1.3', releasedMigrations: {'01-first.sql': 'x'}};
-    const report = await buildUpdatePackage({...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'), policy,
-        privateKey: signing.privateKey, publicKeys: signing.publicKeys, productVersion: '3.2.0', sourceCommit: 'abc', releasedSource: {'01-first.sql': 'x'}});
+    const report = await buildUpdatePackage({...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'), policy, productVersion: '3.2.0', sourceCommit: 'abc', releasedSource: {'01-first.sql': 'x'}});
     assert.equal(report.file, 'nip-update-3.2.0-linux-x64-HJ.nipupd');
     assert.equal(report.files, 5);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'out', `${report.file}.json`), 'utf8')), report);
     const dataPath = path.join(root, 'data');
-    await installPackage({file: path.join(root, 'out', report.file), dataPath, identity: identity(), running: {version: '3.1.3', release: false}, publicKeys: signing.publicKeys});
-    const selected = selectRelease({dataPath, identity: identity(), publicKeys: signing.publicKeys});
-    assert.deepEqual(fs.readdirSync(selected.root).sort(), ['app.asar', 'backend', 'bootstrap', 'manifest.json', 'manifest.sig']);
+    await installPackage({file: path.join(root, 'out', report.file), dataPath, identity: identity(), running: {version: '3.1.3', release: false}});
+    const selected = selectRelease({dataPath, identity: identity()});
+    assert.deepEqual(fs.readdirSync(selected.root).sort(), ['app.asar', 'backend', 'bootstrap', 'manifest.json']);
 });
 
 test('版本、风格、平台或运行组件与产物不一致时拒绝出包', async t => {
-    const root = workspace(t), signing = keys(), inputs = await buildInputs(root);
-    const base = {...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'), privateKey: signing.privateKey, publicKeys: signing.publicKeys,
+    const root = workspace(t), inputs = await buildInputs(root);
+    const base = {...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'),
         productVersion: '3.2.0', sourceCommit: 'abc', releasedSource: {}, policy: {minFromVersion: '3.1.3', releasedMigrations: {}}};
     await assert.rejects(buildUpdatePackage({...base, productVersion: '3.2.1'}), /与源码版本/);
     await assert.rejects(buildUpdatePackage({...base, style: 'LJ'}), /界面风格/);
     await assert.rejects(buildUpdatePackage({...base, target: 'linux-arm64'}), /运行组件目录属于/);
     await assert.rejects(buildUpdatePackage({...base, policy: {minFromVersion: '3.3.0', releasedMigrations: {}}}), /最低起始版本/);
-    await assert.rejects(buildUpdatePackage({...base, publicKeys: keys().publicKeys}), /未通过内置公钥校验/);
     fs.writeFileSync(path.join(inputs.runtime, 'backend/quarkus-run.jar'), 'changed');
     await assert.rejects(buildUpdatePackage(base), /与其清单不符/);
     assert.deepEqual(fs.existsSync(path.join(root, 'out')) ? fs.readdirSync(path.join(root, 'out')) : [], []);
@@ -66,9 +64,8 @@ test('已发布的迁移被删除或改动时拒绝出包，新增迁移允许',
     assertMigrationsAppendOnly(released, {...released, '03.sql': 'c'});
     assert.throws(() => assertMigrationsAppendOnly(released, {'01.sql': 'a'}), /被删除或改名：02\.sql/);
     assert.throws(() => assertMigrationsAppendOnly(released, {'01.sql': 'a', '02.sql': 'changed'}), /内容被改动：02\.sql/);
-    const root = workspace(t), signing = keys(), inputs = await buildInputs(root);
-    await assert.rejects(buildUpdatePackage({...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'), privateKey: signing.privateKey,
-        publicKeys: signing.publicKeys, productVersion: '3.2.0', sourceCommit: 'abc', releasedSource: {'01-first.sql': 'x'},
+    const root = workspace(t), inputs = await buildInputs(root);
+    await assert.rejects(buildUpdatePackage({...inputs, target: 'linux-x64', style: 'HJ', output: path.join(root, 'out'), productVersion: '3.2.0', sourceCommit: 'abc', releasedSource: {'01-first.sql': 'x'},
         policy: {minFromVersion: '3.1.3', releasedMigrations: {'01-first.sql': 'x', '00-gone.sql': 'y'}}}), /被删除或改名/);
 });
 

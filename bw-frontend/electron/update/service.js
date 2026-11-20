@@ -49,7 +49,7 @@ class UpdateService {
     }
 
     install(file) {
-        return installPackage({file, dataPath: this.dataPath, identity: this.boot.identity, running: this.running(), publicKeys: this.boot.publicKeys});
+        return installPackage({file, dataPath: this.dataPath, identity: this.boot.identity, running: this.running()});
     }
 
     /** 让用户选择升级包并安装。 */

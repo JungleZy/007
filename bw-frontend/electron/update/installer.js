@@ -60,14 +60,14 @@ function storePackage(file, manifest, dataPath) {
 /**
  * 校验并安装升级包。
  * - 与本机 target、风格一致：解到版本目录，指针置为待确认，重启后生效。
- * - 不一致：只验签和校验内容，留存用于组网分发。
+ * - 不一致：只校验内容，留存用于组网分发。
  * 任何一步失败都不改指针，已解出的目录会被清理。
  *
  * @param running {version, release} 当前运行的版本，以及它是否来自版本目录
  */
-async function installPackage({file, dataPath, identity, running, publicKeys}) {
+async function installPackage({file, dataPath, identity, running}) {
     if (!identity.style) throw new UpdateError('identity', '无法识别本机的界面风格，不能安装升级包');
-    const header = readHeader(file, publicKeys);
+    const header = readHeader(file);
     const manifest = header.manifest;
     if (manifest.product !== identity.product) throw new UpdateError('product', '该升级包不属于本软件');
     const foreign = manifest.target !== identity.target || manifest.style !== identity.style;

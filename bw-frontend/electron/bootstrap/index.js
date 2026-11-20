@@ -6,13 +6,13 @@
  */
 const path = require('node:path');
 const fs = require('node:fs');
-const {PUBLIC_KEYS, RUNTIME_BASELINE} = require('../shared/update-keys');
+const {RUNTIME_BASELINE} = require('../shared/update-baseline');
 const {dataDirectory} = require('../shared/locations');
 const {machineIdentity, selectRelease, rollback, readPointer} = require('../update/releases');
 
 function prepare(app, factoryRoot) {
     const identity = machineIdentity(factoryRoot, RUNTIME_BASELINE);
-    const boot = {identity, publicKeys: PUBLIC_KEYS, releaseRoot: null, version: identity.version, pending: false, notice: null, broken: null};
+    const boot = {identity, releaseRoot: null, version: identity.version, pending: false, notice: null, broken: null};
     if (!app.isPackaged && process.env.NIP_INTEGRATED_DEV !== '1') return boot;
     const dataPath = dataDirectory(app.getPath('userData'));
     const log = message => {
@@ -22,7 +22,7 @@ function prepare(app, factoryRoot) {
         } catch { /* 日志写不了不影响启动 */ }
     };
     try {
-        const selected = selectRelease({dataPath, identity, publicKeys: PUBLIC_KEYS, log});
+        const selected = selectRelease({dataPath, identity, log});
         Object.assign(boot, {releaseRoot: selected.root, version: selected.version, pending: selected.pending,
             notice: selected.notice, broken: selected.broken || null});
     } catch (error) {

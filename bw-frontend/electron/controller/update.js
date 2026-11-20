@@ -1,7 +1,7 @@
 const {ipcMain, BrowserWindow, app} = require("electron");
 const context = require("../core/node_core_ctx");
 
-// 升级包的可信边界是签名而不是登录角色：这些通道在登录前的版本提示里也要可用。
+// 升级包不签名、也不按登录角色限制（内部内网使用）：这些通道在登录前的版本提示里也要可用。
 const service = () => context.update
 
 ipcMain.handle("controller.update.status", async () => service()?.status() || {available: false})
