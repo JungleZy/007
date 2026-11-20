@@ -10,6 +10,7 @@
       </a-config-provider>
     </div>
     <net-setting v-show="isOpen" ref="childRef" @changeChecked="changeChecked"/>
+    <version-gate v-if="ipc"/>
     <GlobalStyle></GlobalStyle>
     <NipPagePermission />
     <!--    <net-status/>-->
@@ -32,6 +33,7 @@ import {ref, onMounted, provide} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import VerifyLicense from './components/common/VerifyLicense.vue'
 import NetSetting from './components/common/NetSetting.vue'
+import VersionGate from './components/common/VersionGate.vue'
 import GlobalStyle from "./components/GlobalStyle.vue";
 import localforage from 'localforage'
 import {ipcRenderer} from './electron/index'

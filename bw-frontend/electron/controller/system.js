@@ -1,6 +1,7 @@
 const {ipcMain, app} = require('electron')
 const os = require('os')
 const context = require('../core/node_core_ctx')
+const {localAddress} = require('../shared/locations')
 
 // 全部走 invoke/handle：渲染侧只用 ipc.invoke 取值，主进程 return 即返回。
 // 2026-09-19 之前 getConfig 同时注册了 on（回填 event.returnValue + event.reply）与 handle 两套，
@@ -16,7 +17,14 @@ ipcMain.handle("controller.system.getConfig", async () => {
 ipcMain.handle("controller.system.changeConfig", async (event, args) => {
   // db.update 返回的是 numAffected（数字），原实现对它取 .text 恒得 undefined，
   // 渲染侧因此永远拿不到写入结果。这里回布尔成功标志，NetSetting 据此决定是否重载。
+  const previous = (await context.db.findOne({_id: 2}))?.text
   const numAffected = await context.db.update({_id: 2}, {$set: {text: args}})
+  // 本机后端、数据库与文件服务只在启动时按当时的地址决定是否拉起；
+  // 本机/远端发生切换时必须重启程序，否则服务的启停与新设置不一致。
+  const switched = name => !!previous && localAddress(previous[name]?.url) !== localAddress(args?.[name]?.url)
+  if (numAffected > 0 && context.dataPath && (switched('dataUrl') || switched('fileUrl'))) {
+    setImmediate(() => { app.relaunch(); app.quit() })
+  }
   return numAffected > 0
 })
 
