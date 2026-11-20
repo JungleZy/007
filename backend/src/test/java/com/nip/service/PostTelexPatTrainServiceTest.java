@@ -108,13 +108,13 @@ class PostTelexPatTrainServiceTest {
     assertEquals("10", result.getSpeed());
     assertEquals(result.getSpeed(), result.getTotalSpeed());
     assertEquals(240, result.getValidTime());
-    Map<String, String> deductions = JSONUtils.fromJson(result.getDeductInfo(),
-        new TypeToken<Map<String, String>>() {});
-    assertEquals("1", deductions.get("errorCodeNumber"));
+    Map<String, Object> deductions = JSONUtils.fromJson(result.getDeductInfo(),
+        new TypeToken<Map<String, Object>>() {});
+    assertEquals("1", String.valueOf(deductions.get("errorCodeNumber")));
     assertEquals("-7", deductions.get("errorCodeScore"));
     BigDecimal adjustment = deductions.entrySet().stream()
         .filter(entry -> entry.getKey().endsWith("Score"))
-        .map(entry -> new BigDecimal(entry.getValue()))
+        .map(entry -> new BigDecimal(String.valueOf(entry.getValue())))
         .reduce(BigDecimal.ZERO, BigDecimal::add);
     assertEquals(0, BigDecimal.valueOf(fullScore).add(adjustment)
         .compareTo(new BigDecimal(result.getScore())), "最终分必须与返回的扣分明细一致");
@@ -180,21 +180,21 @@ class PostTelexPatTrainServiceTest {
 
     Map<String, Object> deductions = JSONUtils.fromJson(result.getDeductInfo(),
         new TypeToken<Map<String, Object>>() {});
-    assertEquals(1.0, deductions.get("evidenceVersion"), "结算必须写入证据版本标记");
+    assertEquals(1, ((Number) deductions.get("evidenceVersion")).intValue(), "结算必须写入证据版本标记");
     List<Map<String, Object>> evidence = (List<Map<String, Object>>) deductions.get("evidence");
     assertEquals(1, evidence.size(), "只有一处错码，证据只能有一条");
     Map<String, Object> entry = evidence.get(0);
     assertEquals("errorCode", entry.get("kind"));
-    assertEquals(1.0, entry.get("pageNumber"));
-    assertEquals(1.0, entry.get("referenceGroup"), "组号按 1 起始展示");
+    assertEquals(1, ((Number) entry.get("pageNumber")).intValue());
+    assertEquals(1, ((Number) entry.get("referenceGroup")).intValue(), "组号按 1 起始展示");
     assertEquals(firstReference, entry.get("reference"));
     assertEquals("AAAA", entry.get("captured"));
-    assertEquals(1.0, entry.get("count"));
-    assertEquals(7.0, entry.get("unitDeduction"), "单价必须取自训练冻结的规则");
-    assertEquals(7.0, entry.get("deduction"));
+    assertEquals(1, ((Number) entry.get("count")).intValue());
+    assertEquals(7.0, ((Number) entry.get("unitDeduction")).doubleValue(), "单价必须取自训练冻结的规则");
+    assertEquals(7.0, ((Number) entry.get("deduction")).doubleValue());
     double counted = evidence.stream()
         .filter(item -> "errorCode".equals(item.get("kind")))
-        .mapToDouble(item -> (Double) item.get("count")).sum();
+        .mapToDouble(item -> ((Number) item.get("count")).doubleValue()).sum();
     assertEquals(Double.parseDouble(String.valueOf(deductions.get("errorCodeNumber"))), counted,
         "证据数量合计必须与聚合扣分数一致");
   }
@@ -214,12 +214,12 @@ class PostTelexPatTrainServiceTest {
     assertEquals(FINISH.getStatus(), result.getStatus());
     assertEquals(0, new BigDecimal("100").compareTo(new BigDecimal(result.getScore())));
     assertEquals(0, BigDecimal.TEN.compareTo(new BigDecimal(result.getSpeed())));
-    Map<String, String> deductions = JSONUtils.fromJson(result.getDeductInfo(), new TypeToken<Map<String, String>>() {});
+    Map<String, Object> deductions = JSONUtils.fromJson(result.getDeductInfo(), new TypeToken<Map<String, Object>>() {});
     if (trainType == 4) {
-      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedLowScore"))));
-      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedOverTopScore"))));
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(String.valueOf(deductions.get("speedLowScore")))));
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(String.valueOf(deductions.get("speedOverTopScore")))));
     } else if (base != 10) {
-      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(deductions.get("speedScore"))));
+      assertEquals(0, BigDecimal.ZERO.compareTo(new BigDecimal(String.valueOf(deductions.get("speedScore")))));
     }
   }
 
