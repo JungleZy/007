@@ -31,7 +31,7 @@
 | Windows x86 32位 | `windows-ia32` | 已提供 MySQL5.7.44 Win32 工具，32位服务链与备份恢复往返通过；见32位整合部署指南 |
 | Linux x86_64（海光、兆芯等） | `linux-x64` | 官方包已预置，glibc ≥ 2.17；Ubuntu 24.04 WSL 启动验证通过，国产系统待实测 |
 | Linux ARM64（飞腾、鲲鹏等） | `linux-arm64` | 官方包已预置，glibc ≥ 2.28；静态校验通过，实机待测 |
-| Linux LoongArch64（新款龙芯） | `linux-loong64` | 待提供目标发行版兼容工具包 |
+| Linux LoongArch64（新款龙芯） | `linux-loong64` | 麒麟 V10 SP1 旧 ABI 见[专用打包流程](kylin-loongarch64-packaging.md)，其他系统另行核验 |
 | Linux MIPS64 小端（部分旧款龙芯） | `linux-mips64el` | 待提供目标发行版兼容工具包 |
 | Linux SW64（申威） | `linux-sw64` | 待提供目标发行版兼容工具包 |
 | Linux RISC-V 64 | `linux-riscv64` | 待提供目标发行版兼容工具包 |

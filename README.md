@@ -46,6 +46,11 @@ npm run dev-e      # 仅起 Electron；dev-f 仅起 Vite；build-e-w / build-e-l
 ```
 > 详见当前综合评审 [`docs/reviews/2026-09-12-full-project-review.md`](docs/reviews/2026-09-12-full-project-review.md)。
 
+桌面打包先阅读 [跨平台打包检查清单](docs/guides/desktop-packaging-checklist.md)。
+麒麟龙芯旧 ABI 的 HJ、HJJ、LJ 三风格构建与配置见
+[龙芯打包指南](docs/guides/kylin-loongarch64-packaging.md)。最终交付目录为 `bw-frontend/out/releases/`，
+验证完成后只保留 `.deb`、`.exe` 安装包，报告、校验清单及日志按指南另行归档。
+
 ---
 
 ## 目录结构

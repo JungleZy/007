@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import json
 import tarfile
 from pathlib import Path
 import struct
@@ -11,6 +12,40 @@ package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 
 class KylinPackageTests(unittest.TestCase):
+    def test_style_mismatch_is_rejected_before_packaging(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'package.json').write_text(json.dumps({'version': '3.1.3', 'productName': 'Training'}))
+            resources = root / 'source/resources'
+            resources.mkdir(parents=True)
+            (resources / 'app.asar').write_bytes(b'application')
+            marker = {'interfaceStyle': 'HJ', 'appAsarSha256': package.sha256(resources / 'app.asar')}
+            (resources / 'interface-style.json').write_text(json.dumps(marker))
+            with self.assertRaisesRegex(ValueError, 'Interface style or ASAR checksum mismatch'):
+                package.build(root, root / 'source', root / 'out', architecture='loongarch64', style='LJ')
+            (resources / 'app.asar').write_bytes(b'changed application')
+            with self.assertRaisesRegex(ValueError, 'Interface style or ASAR checksum mismatch'):
+                package.build(root, root / 'source', root / 'out', architecture='loongarch64', style='HJ')
+            self.assertFalse((root / 'out').exists())
+
+    def test_loongarch_package_rejects_arm_and_new_abi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / 'electron'
+            data = bytearray(64)
+            data[:6] = b'\x7fELF\x02\x01'
+            struct.pack_into('<H', data, 18, 258)
+            struct.pack_into('<I', data, 48, 3)
+            file.write_bytes(data)
+            self.assertEqual(package.file_mode('electron', file, 'loongarch64'), (0o755, True))
+            struct.pack_into('<I', data, 48, 0x43)
+            file.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, 'old-ABI'):
+                package.file_mode('electron', file, 'loongarch64')
+            struct.pack_into('<H', data, 18, 183)
+            file.write_bytes(data)
+            with self.assertRaisesRegex(ValueError, 'Non-LOONGARCH64'):
+                package.file_mode('electron', file, 'loongarch64')
+
     def test_every_parent_exists_before_unpacking_files(self):
         names = ['opt/app/bin/config.json', 'opt/app/bin/java/bin/java',
                  'usr/bin/app', 'usr/share/applications/app.desktop']

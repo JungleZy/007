@@ -1,3 +1,4 @@
+/* global __NIP_INTERFACE_STYLE__ */
 import localforage from 'localforage'
 import {endpointUrl} from '../common/http/endpoint.js'
 import {ipc, isEE} from '../electron/ipcRenderer.js'
@@ -73,7 +74,7 @@ export async function configureRuntime() {
   window.iconUrl = endpointUrl(window.fileUrl, 'icon/font/iconfont.js')
 
   localforage.config({name: 'WisdomJ233'})
-  window.interfaceStyle = 'HJJ'
+  window.interfaceStyle = typeof __NIP_INTERFACE_STYLE__ === 'undefined' ? 'HJJ' : __NIP_INTERFACE_STYLE__
   window.cool = false
   if (localStorage.getItem('cool') === null) localStorage.setItem('cool', 'false')
   document.body.classList.add(window.interfaceStyle)

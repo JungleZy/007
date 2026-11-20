@@ -1,83 +1,43 @@
-## 一个入门简单、跨平台、企业级桌面软件开发框架
+# 桌面端（Electron + Vue）
 
-### 分支说明
-* 该分支为模板分支，新项目可以在此基础上拉取新分支后进行相关功能开发；
-* 该分支只会更新基础功能与示例；
-* 不建议新功能开发时在此分支上进行，而是新建功能分支进行开发，开发完毕后合并至该分支；
-* 该模板可进行WEB、DESKTOP两类程序开发，可根据项目类型进行选择；
-  * WEB：只用关注 ``` ./frontend ``` 文件夹下的内容，与传统WEB开发无区别；
-  * DESKTOP：除 ``` ./frontend ``` 文件夹下的WEB开发传统内容以外，还需要关注 ``` ./frontend/src/electron ``` 文件夹与 
-  ``` ./frontend/src/ToolsBar.vue ``` 文件；
+主进程入口为 `bw-frontend/main.js`，桌面业务代码在 `bw-frontend/electron/`，Vue 工程在 `bw-frontend/frontend/`。
+详细工程文档统一位于仓库根 `docs/`；本页仅提供当前命令和文档入口。
 
-### 开发说明
-* 环境安装
-  * 解压根目录下 ``` Local.zip ``` 至 ``` C:\Users\{当前用户}\AppData\Local ``` 文件夹下;
-  * 解压根目录下 ``` node_modules.zip ``` 与 ``` frontend ``` 文件下 ``` node_modules.zip ``` 至当前目录;
+## 开发入口
 
-* 配置文件
-  * ``` ./electron/config ``` 目录下是所有配置文件
-  ```
-  bin.json          // 开发配置
-  config.default.js // 默认配置文件，开发环境和生产环境都会加载
-  config.local.js   // 开发环境配置文件，追加和覆盖default配置文件
-  config.prod.js    // 生产环境配置文件，追加和覆盖default配置文件
-  encrypt.js        // 代码加密的配置
-  nodemon.json      // 开发环境，代码（监控）热加载
-  builder.json      // 打包配置
-  ```
+先分别在 `bw-frontend/` 和 `bw-frontend/frontend/` 安装锁定依赖（`npm ci`）。在 `bw-frontend/` 的两个终端分别执行：
 
-* 修改名称
-  * ``` ./package.json ```
-    * name:项目名称
-  * ``` ./electron/config/builder.json ```
-    * productName:可执行程序名称（不能中文）
-    * appId:软件id
-    * shortcutName:桌面快捷方式名称
+```text
+npm run dev-f
+npm run dev-e
+```
 
-* 程序运行
-  * 检查 ``` ./build/extraResources ``` 文件夹下是否有运行所需资源文件;
-  * 根目录下打开命令行;
-  * 运行 ``` npm run dev ``` ;
+前端开发端口为 18000；后端、数据库和设备资源准备见相应指南。
 
-* 程序打包
-  * 根目录下打开命令行
-  * 运行 ``` npm run build-frontend ``` 打包前端文件至 ``` ./public/dist ``` 文件夹下;
-  * 运行 ``` npm run encrypt ``` 进行electron代码加密;
-  * 根据当前操作系统平台运行下方指令进行打包;
-    ``` 
-      #打包 （windows版）
-      npm run build-w
-      npm run build-w-32 (32位)
-      npm run build-w-64 (64位)
-      npm run build-w-arm64 (arm64)
-  
-      # 打包 （windows 免安装版）
-      npm run build-wz
-      npm run build-wz-32 (32位)
-      npm run build-wz-64 (64位)
-      npm run build-wz-arm64 (arm64)
-    
-      # 打包 （mac版）
-      npm run build-m
-      npm run build-m-arm64 (m1芯片架构)
-    
-      # 打包 （linux版）
-      npm run build-l (32位 deb包)
-      npm run build-l-64 (64位 deb包)
-      npm run build-l-arm64 (64位 deb包 arm64)
-      npm run build-l-armv7l (64位 deb包 armv7l)
-      npm run build-lr-64 (64位 rpm包)
-      npm run build-lp-64 (64位 pacman包) 
-  
-      Ubuntu 打deb包
-      UOS统信 打deb包
-      Debian 打deb包
-      Centos 打rpm包
-      银河麒麟v10(sp1) 打deb包
-    ```
-  * 打开根目录 ``` ./out ``` 文件夹查看打包好的程序;
+## 打包入口
 
-* 注意事项
-  * 框架自带文件服务功能，服务端口可修改 ``` ./electron/addon/db/index.js ``` 中的 ``` this.httpPort = 8000 ``` 进行自定义，
-  文件服务指向 ``` ./build/extraResources ``` 路径;
-  * 后端自带基础能力可在 ``` ./electron/controller/* ``` 与 ``` ./electron/service/* ``` 中查看;
+打包前先执行 [docs/guides/desktop-packaging-checklist.md](../docs/guides/desktop-packaging-checklist.md)，
+补齐 Git 忽略的设备资源、目标平台运行时和经验证的后端产物。以下命令在 `bw-frontend/` 执行：
+
+| 目标 | 应用目录 / 安装器构建入口 | 完整流程 |
+| --- | --- | --- |
+| Windows x64 | `npm run build-e-w -- --x64` | [docs/guides/integrated-desktop-install.md](../docs/guides/integrated-desktop-install.md) |
+| Win7 ia32 | `npm run build-e-win7-32 -- --dir`，再执行 compat2 封装 | [docs/guides/win7-installer-system-dll.md](../docs/guides/win7-installer-system-dll.md) |
+| 麒麟 ARM64 | `npm run build-e-kylin-arm64`，再运行 `py -3 scripts/build-kylin-deb.py --arch arm64` | [docs/guides/kylin-v10-arm64-install.md](../docs/guides/kylin-v10-arm64-install.md) |
+| 麒麟龙芯 HJ/HJJ/LJ | `py -3 scripts/build-loongarch-styles.py` | [docs/guides/kylin-loongarch64-packaging.md](../docs/guides/kylin-loongarch64-packaging.md) |
+
+通用 Electron 构建配置与实际 npm scripts 在 `bw-frontend/package.json`；平台覆盖配置在 `bw-frontend/build/`。
+龙芯入口由 `bw-frontend/scripts/build-loongarch-desktop.cjs` 装配目标 Electron，不使用 electron-builder 22 的架构枚举。
+旧模板中的 `build-frontend`、`encrypt`、`build-w`、`build-l` 等命令不适用于当前工程。
+
+前端风格由 `NIP_INTERFACE_STYLE=HJ|HJJ|LJ` 在构建时选择，未设置时默认 HJJ。
+龙芯入口 `npm run build-e-kylin-loongarch64 -- --style HJ` 会设置该变量并生成独立风格目录；
+三风格批量入口负责依次构建前端，避免共享 `frontend/dist/` 相互覆盖。
+
+## 交付目录
+
+最终安装包统一放在 `bw-frontend/out/releases/`，交付时仅保留 `.deb`、`.exe`。
+龙芯批量构建暂时在该目录生成摘要和报告，必须先完成验证，再按指南归档或清理这些非安装包文件。
+未打包应用目录、组件缓存和日志保留在各自构建目录；不要把整个 `out/` 或 `.cache/` 当作安装包交付。
+
+安装包存在、静态校验通过与实机验收是不同状态。平台兼容范围、同版本风格切换、重建前归档要求及验证命令见对应指南。

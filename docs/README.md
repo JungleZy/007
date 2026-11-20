@@ -32,6 +32,7 @@
 | Windows ia32 整合运行与初始化 | [`guides/windows-ia32-install.md`](guides/windows-ia32-install.md) + [`guides/initial-business-data.md`](guides/initial-business-data.md) |
 | Win7 功能页 WebGL 不可用 | [`guides/win7-webgl.md`](guides/win7-webgl.md)（图形启动参数、SwiftShader兼容、现有安装补丁与验证范围） |
 | 银河麒麟V10桌面版ARM64整合包 | [`guides/kylin-v10-arm64-install.md`](guides/kylin-v10-arm64-install.md)（组件、交叉构建、系统依赖、安装步骤与验证边界） |
+| **麒麟 V10 SP1 2403 龙芯三风格安装包** | [docs/guides/kylin-loongarch64-packaging.md](guides/kylin-loongarch64-packaging.md)（旧 ABI、固定组件、HJ/HJJ/LJ、构建参数、验证与 `out/releases/` 仅留安装包的交付流程） |
 | 了解客户报障根因 | [`reviews/2026-09-10-customer-issue-analysis.md`](reviews/2026-09-10-customer-issue-analysis.md) |
 | 追溯09-12复核整改 | [`specs/2026-09-12-current-state-fix-spec.md`](specs/2026-09-12-current-state-fix-spec.md) + [`plans/2026-09-12-current-state-fix-plan.md`](plans/2026-09-12-current-state-fix-plan.md) |
 | 承接客户报障整改（T17 现场交付未完成） | [`specs/2026-09-10-customer-issue-fix-spec.md`](specs/2026-09-10-customer-issue-fix-spec.md) + [`plans/2026-09-10-customer-issue-fix-plan.md`](plans/2026-09-10-customer-issue-fix-plan.md) |

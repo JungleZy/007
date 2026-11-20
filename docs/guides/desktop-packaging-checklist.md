@@ -1,8 +1,10 @@
 # 桌面整合软件打包与交付检查清单
 
-更新日期：2026-11-06。适用于Windows x64、Win7 ia32兼容包、银河麒麟V10桌面ARM64整合包。每次发布从本文开始，再按对应平台指南执行。本文的检查项是发布要求，不表示已全部实现为自动构建门禁。
+更新日期：2026-11-19。适用于Windows x64、Win7 ia32兼容包、银河麒麟V10桌面ARM64及LoongArch64旧ABI整合包。每次发布从本文开始，再按对应平台指南执行。本文的检查项是发布要求，不表示已全部实现为自动构建门禁。
 
-当前交付入口：Win7为 [HJ 3.1.3完整包](2026-11-06-win7-hj-3.1.3-release.md)，麒麟ARM64为 [HJ 3.1.2整合包](2026-11-06-hj-desktop-release.md)。源码当前应用版本3.1.3，不代表磁盘上的旧安装包自动升级。新克隆仓库后，必须先补齐本页列出的Git忽略资源，再构建。
+当前统一交付目录为 `bw-frontend/out/releases/`，最终只保留 `.deb`、`.exe`。2026-11-19目录内为Windows x64、Win7 ia32、ARM64及龙芯各HJ/HJJ/LJ三个安装包，共12个；文件存在不等于每种组合都已实机验收。
+龙芯本轮配置与三风格验证见 [docs/guides/kylin-loongarch64-packaging.md](kylin-loongarch64-packaging.md)。
+Win7与ARM64的早期证据分别见 [HJ 3.1.3完整包](2026-11-06-win7-hj-3.1.3-release.md)、[HJ 3.1.2整合包](2026-11-06-hj-desktop-release.md)，历史验证不能直接覆盖新包。新克隆仓库后，必须先补齐本页列出的Git忽略资源，再构建。
 
 ## 1. 先确定目标和组件组合
 
@@ -11,10 +13,12 @@
 | Windows x64 | 30.5.1 x64 | Java21 x64 / MySQL8.0.46 x64 | `backend/target/quarkus-app` | [整合部署](integrated-desktop-install.md) |
 | Win7兼容版（应用为32位） | 22.3.27 ia32 | Java21 x86 / MySQL5.7.44 Win32 | `backend/target/quarkus-app-win32` | [compat2完整流程](win7-installer-system-dll.md) |
 | 麒麟V10桌面ARM64 | 30.5.1 ARM64 | Java21 AArch64 / MySQL8.0.46 AArch64 | `backend/target/quarkus-app` | [麒麟完整流程](kylin-v10-arm64-install.md) |
+| 麒麟V10 SP1 2403 龙芯旧ABI | 30.5.1 LoongArch64 | 龙芯Java21.0.12+8 / MySQL8.0.21 | `backend/target/quarkus-app` | [龙芯三风格流程](kylin-loongarch64-packaging.md) |
 
 - `aarch64`与Debian的`arm64`对应；不能把Linux ARM64当成Windows ARM64，也不能把麒麟桌面deb流程直接用于服务器RPM系统。
+- 龙芯麒麟旧ABI使用deb架构 `loongarch64`、项目资源目标 `linux-loong64`、ELF flags `0x3`及 `/lib64/ld.so.1`；不能仅凭“LoongArch64”名称混入新ABI或glibc2.34组件。
 - Electron、Java、MySQL服务端/客户端、原生依赖及安装器辅助程序必须核对目标架构；不要只核对主EXE。
-- 固定下载版本和摘要以 `bw-frontend/scripts/windows-ia32-components.json`、`bw-frontend/scripts/kylin-arm64-components.json` 等组件清单为准。升级组件后重新验证，不能沿用旧组合结论。
+- 固定下载版本和摘要以 `bw-frontend/scripts/windows-ia32-components.json`、`bw-frontend/scripts/kylin-arm64-components.json`、`bw-frontend/scripts/kylin-loongarch64-components.json` 为准；龙芯MySQL共享库另锁定在 `bw-frontend/scripts/loongarch-mysql-rpms.json`。升级组件后重新验证，不能沿用旧组合结论。
 - Win7当前现场成功证据来自Win7 **64位操作系统运行ia32应用**；不代表Win7 32位操作系统、全部补丁或外设已验收。Electron30 x64包不能作为Win7兼容包交付。
 
 ## 2. 每次重新构建，避免旧产物混入
@@ -24,9 +28,10 @@
 1. 记录源码提交、工作区未提交改动、目标系统/架构、组件版本及本次版本号。核对Git状态，保留用户工作。
 2. 在 `backend/` 下显式设置JDK21，执行构建测试；Win7使用 `windows-ia32` profile。全量验证需要Docker。标准构建为 `./mvnw -B clean verify`，Win7为 `./mvnw -B -Pwindows-ia32 clean verify`；Windows PowerShell使用 `.\mvnw.cmd`。不能以跳过测试或历史测试计数交付为“全绿”。
 3. 如果后端、迁移、初始化SQL或组件发生变化，将旧 `bw-frontend/bin/integrated/<目标>/` 移出打包资源目录并归档，再准备新资产。已有资产通过摘要校验，不代表它来自最新源码；准备脚本不会自动覆盖旧资产。只处理构建资产，不移动用户数据库。
-4. 按下节补齐Git忽略的设备资源，并确认 `bw-frontend/frontend/src/config/runtime.js` 中 `window.interfaceStyle = 'HJ'`。在 `bw-frontend/` 下按平台指南准备运行组件，重新构建前端及Electron应用目录。检查构建日志，不能把旧 `out/*-unpacked` 当作本轮成功输出。
+4. 按下节补齐Git忽略的设备资源，并通过构建环境变量 `NIP_INTERFACE_STYLE=HJ|HJJ|LJ` 指定风格；缺省为HJJ。在 `bw-frontend/` 下按平台指南准备运行组件，重新构建前端及Electron应用目录。核对包内实际风格，不能仅修改安装包名，也不能把旧 `out/*-unpacked` 当作本轮成功输出。
 5. 从本轮应用目录生成最终安装器；记录最终文件大小、SHA-256和构建退出码。升级版本或Debian修订号，避免新旧文件同名混淆。当前deb脚本将应用版本附加 `-1`，后续仅修正封装时须明确递增修订号。
 6. 从**最终安装器**提取或实际安装，核对安装后的文件，再运行验收。工作区源码正确不等于交付包正确。
+7. 验证完成后将报告、摘要和日志另行归档，按本轮明确清单清理交付目录中的非安装包文件；`bw-frontend/out/releases/` 最终只留 `.deb`、`.exe`。不能在验证脚本仍依赖报告时提前删除。
 
 常用桌面构建命令（工作目录均为 `bw-frontend/`，先完成平台资产准备）：
 
@@ -41,7 +46,16 @@ node scripts/build-win7-compatible-installer.cjs
 # 麒麟ARM64：必须先重新生成应用目录，再封装deb
 npm run build-e-kylin-arm64
 python scripts/build-kylin-deb.py
+
+# 麒麟龙芯旧ABI：三个风格，输出到out/releases
+py -3 scripts/build-loongarch-styles.py
+node scripts/verify-loongarch-styles.cjs
+py -3 scripts/verify-loongarch-styles.py
 ```
+
+Windows中 `py -3` 指已确认的Python 3.11+解释器；其他平台按工具环境使用对应命令。
+龙芯批量脚本串行构建前端再并行压缩各自目录；不要同时运行多个手工前端构建，它们共享 `frontend/dist/` 和 `public/dist/`。
+它当前会在 `out/releases/` 临时写入报告和摘要，交付清理步骤见 [龙芯指南](kylin-loongarch64-packaging.md#交付清理与校验留档)。
 
 `build-kylin-deb.py`与compat2封装器不会重新编译应用。当前Win7封装器会逐字节比较包内 `main.js`、图形配置、初始化模块和两个串口模块与源码，不一致时中止；不要绕过该检查，应重新生成应用目录。该检查不代表所有前端资源或后端资产已经刷新。
 
@@ -87,7 +101,7 @@ foreach ($entry in $entries) {
 ### WebGL必须检查最终包
 
 - `bw-frontend/main.js` 在应用就绪前调用 `configureGraphics(app)`。不要恢复 `disableHardwareAcceleration()`、`disable-gpu`、`disable-software-rasterizer` 这组旧配置。
-- 当前 `bw-frontend/electron/core/graphics.js` 对所有平台默认自动渲染，WebGL不可用或GPU进程崩溃时写 `userData/graphics-fallback.json` 回退到ANGLE/SwiftShader；`NIP_GRAPHICS_MODE=software|auto` 可显式指定。Win7、麒麟ARM64须实机确认自动模式画面正常、3D页面WebGL可用。
+- 当前 `bw-frontend/electron/core/graphics.js` 对所有平台默认自动渲染，WebGL不可用或GPU进程崩溃时写 `userData/graphics-fallback.json` 回退到ANGLE/SwiftShader；`NIP_GRAPHICS_MODE=software|auto` 可显式指定。Win7、麒麟ARM64与龙芯须分别实机确认自动模式画面正常、3D页面WebGL可用。
 - 麒麟应用目录保留 `libEGL.so`、`libGLESv2.so`、`libvk_swiftshader.so` 及完整Electron分发资源。不能为了缩包随意删掉软件渲染组件。
 - 从最终包的app.asar提取 `main.js`、`electron/core/graphics.js`，与本轮源码逐字节比较；包中缺少graphics模块或仍含旧禁用参数时不得交付。
 - 在目标系统打开实际使用WebGL的功能页，检查页面无提示，WebGL上下文创建成功并可绘制/读回像素。启动窗口正常、配置单测通过或`--version`成功均不能替代此项。
@@ -129,7 +143,7 @@ sudo rm -rf -- "$root"
 ## 4. 依赖、初始化资料和用户数据
 
 - 麒麟依赖保留glibc最低要求2.28及桌面库声明。采集 `cat /etc/os-release`、`uname -m`、`dpkg --print-architecture`、`getconf GNU_LIBC_VERSION`；内核版本不能推断glibc。不要通过手工替换系统glibc解决兼容问题。
-- 服务端与客户端工具都要带齐依赖和许可，manifest中平台和逐文件摘要必须匹配。x64/ia32/ARM64资产分别放置，禁止跨目标混装。
+- 服务端与客户端工具都要带齐依赖和许可，manifest中平台和逐文件摘要必须匹配。x64/ia32/ARM64/LoongArch64资产分别放置，禁止跨目标混装。
 - Win7离线包需先运行 `node scripts/prepare-ch340.cjs` 准备经摘要和签名校验的官方CH340驱动；安装器核对驱动清单，交互安装后启动厂商安装程序，开始菜单保留重试入口。厂商Windows驱动包含多架构，不能按应用ia32位数裁掉x64驱动。静默安装需单独安装驱动；目标机用设备管理器和实际收发验收，不能以文件存在代替设备就绪。流程见 [HJ 3.1.2交付记录](2026-11-06-hj-desktop-release.md)。
 - Java使用完整运行目录，Quarkus使用完整fast-jar目录；MySQL包含程序、依赖和基础资源。不能只复制单个jar或EXE。
 - 初始化SQL只取白名单业务资料，不打入开发库用户、token、训练记录、数据库实例配置或真实口令。确认资料来源与附件真实存在；已知题库分类、章节关联和旧附件地址缺项见 [初始化资料说明](initial-business-data.md)，不得标成已补齐。
@@ -155,7 +169,7 @@ node --test electron/test/win7-installer.test.cjs electron/test/windows-serial-d
 
 - [ ] 已记录源码提交/dirty状态、应用版本、安装包修订号和固定组件版本。
 - [ ] `equipment`、`J210-742`已从明确来源恢复并核对完整资源，最终归档包含它们，设备仿真页面实际可加载。
-- [ ] HJ配置及应用/前端/锁文件版本正确，最终安装器版本与报告一致。
+- [ ] HJ/HJJ/LJ目标风格及应用/前端/锁文件版本正确，最终安装器的实际界面配置、版本、文件名与报告一致。
 - [ ] 后端与目标profile正确，相关测试及要求的全量验证通过并保存日志。
 - [ ] 运行组件、SQL及迁移已刷新；本轮应用目录确实由本轮源码生成。
 - [ ] 最终包内app.asar、运行组件摘要已核对；不存在重复依赖树和旧WebGL禁用参数。
@@ -165,11 +179,18 @@ node --test electron/test/win7-installer.test.cjs electron/test/windows-serial-d
 - [ ] Win7 CH340驱动入口可用；多COM枚举、精确选口、失效选择和实际收发分别验证，未把驱动存在当作连接成功。
 - [ ] 升级保留数据、备份恢复、重启、卸载保留数据已验证。
 - [ ] 最终文件名、大小、SHA-256、安装说明与报告一致；没有把失败构建留下的旧文件当成新包。
+- [ ] 校验报告与日志已留档，`bw-frontend/out/releases/`最终只包含安装包，非安装包说明维护在 `docs/`。
 - [ ] 已区分构建机检查、仿真、目标机检查与客户反馈；剩余限制已写入交付说明。
 
-## 6. 当前产物状态，避免误用历史包
+## 6. 本轮龙芯交付与历史验收边界
 
-| 平台 | 当前完整包 | 已包含修复与验收边界 |
+2026-11-19龙芯HJ/HJJ/LJ三个3.1.3-1包已构建并核对实际风格、ASAR依赖、每包1,858个应用文件及195个旧ABI ELF，Debian元数据检查通过。
+三包已集中到 `bw-frontend/out/releases/`，旁挂JSON/TXT文件随后按用户要求删除；大小与摘要保留在 [龙芯指南](kylin-loongarch64-packaging.md#本轮三风格摘要与安装)。
+目标龙芯的安装启动、WebGL、串口、音频和业务验收仍需单独记录。
+
+以下为2026-11-06的历史验证组合，用于追溯；不是 `out/releases/` 当前全部文件的验收结论：
+
+| 平台 | 当时验证包 | 已包含修复与验收边界 |
 | --- | --- | --- |
 | Win7 | HJ 3.1.3 compat2 | 串口、WebGL、CH340离线驱动、固定初始密码；本机实际覆盖升级、登录/重启、WebGL和卸载通过；客户已确认先前同一串口修复补丁可行，见 [3.1.3交付记录](2026-11-06-win7-hj-3.1.3-release.md) |
 | 麒麟V10 ARM64 | HJ 3.1.2-1 deb | 父目录条目、WebGL配置和固定初始密码已合入；实际隔离解包及运行资产摘要通过，原生图形/音频/串口仍需现场验收，见 [3.1.2交付记录](2026-11-06-hj-desktop-release.md) |

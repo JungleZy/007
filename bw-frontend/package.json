@@ -14,6 +14,7 @@
     "prepare:win7-32": "node scripts/prepare-win7-ia32.cjs",
     "build-e-l": "electron-builder --linux",
     "build-e-kylin-arm64": "electron-builder --config build/kylin-v10-arm64.cjs --linux --arm64 --dir",
+    "build-e-kylin-loongarch64": "node scripts/build-loongarch-desktop.cjs",
     "prepare:mysql": "node scripts/prepare-mysql-tools.cjs --available",
     "check:mysql": "node scripts/prepare-mysql-tools.cjs --status"
   },

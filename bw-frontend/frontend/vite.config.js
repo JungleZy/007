@@ -5,7 +5,13 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { AntDesignVueResolver } from 'unplugin-vue-components/resolvers'
 
+const interfaceStyle = process.env.NIP_INTERFACE_STYLE || 'HJJ'
+if (!['HJ', 'HJJ', 'LJ'].includes(interfaceStyle)) {
+  throw new Error(`Unsupported build interface style: ${interfaceStyle}`)
+}
+
 export default defineConfig({
+  define: { __NIP_INTERFACE_STYLE__: JSON.stringify(interfaceStyle) },
   base: './',
   plugins: [
     vue(),

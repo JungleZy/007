@@ -1,0 +1,19 @@
+{
+  "repository": "https://pkg.loongnix.cn/loongnix-server/8.4/",
+  "checksumSource": "Loongnix repository primary metadata retrieved over HTTPS, 2026-11-19",
+  "packages": [
+    ["AppStream", "mysql", "mysql-8.0.21-1.0.1.module+lns8.4.0+10455+8f47a20c.loongarch64.rpm", "e1f0edeb56aab1a9e231992e4a3740f5d91ce4ee93d84402e2c184d2c675d3e9"],
+    ["AppStream", "mysql-common", "mysql-common-8.0.21-1.0.1.module+lns8.4.0+10455+8f47a20c.loongarch64.rpm", "a49731fd91365aaa121718cafaafb15cc960151669ff7b442d45fce67a1aac54"],
+    ["AppStream", "mysql-errmsg", "mysql-errmsg-8.0.21-1.0.1.module+lns8.4.0+10455+8f47a20c.loongarch64.rpm", "deb17d2d98a07a64ec9d6215122d409365597edf225631237818fc5cdd3cebef"],
+    ["AppStream", "mysql-server", "mysql-server-8.0.21-1.0.1.module+lns8.4.0+10455+8f47a20c.loongarch64.rpm", "5781bf6853af063e64cd3662be512cc63d0b191c7573185bfc10014f7b53f2c2"],
+    ["AppStream", "protobuf-lite", "protobuf-lite-3.5.0-13.lns8.loongarch64.rpm", "7b422e80cacbc300540e62b45097441955715ca9bf9d643f6c82573cf4496532"],
+    ["BaseOS", "libaio", "libaio-0.3.112-1.lns8.loongarch64.rpm", "462d3c1bc3baccbde41dae188af73c2ea5fc78e3207e8b79f1ef292bf23a6a48"],
+    ["BaseOS", "libevent", "libevent-2.1.8-5.lns8.loongarch64.rpm", "4b511fc9f78e5c5f5e56285bbfaf04e8380b725526fd4cf030664e5312844ffc"],
+    ["BaseOS", "libedit", "libedit-3.1-23.20170329cvs.lns8.loongarch64.rpm", "8b1859c4fe9927aa777b1f246c4f7013018a82ed79cd2dadd4360008d44efcef"],
+    ["BaseOS", "numactl-libs", "numactl-libs-2.0.12-11.lns8.loongarch64.rpm", "45ba41c4c1d995d62f557027c7f4d13671661052186b6654ff83acbb875dfb53"],
+    ["BaseOS", "openssl-libs", "openssl-libs-1.1.1g-16.7.lns8.loongarch64.rpm", "42ff8cd2c883f58c87836d24ed734dc3b21c3fbf1fdb1421b93d82a51bcc54c4"],
+    ["BaseOS", "lz4-libs", "lz4-libs-1.8.3-2.lns8.loongarch64.rpm", "9e89f638ab45639968c0c6fc2217502479ee63045069ef35024f20ee405f404c"],
+    ["BaseOS", "ncurses-libs", "ncurses-libs-6.1-7.20180224.0.1.lns8.loongarch64.rpm", "ff8a04baddba05a3b1ff07a48abcf9a4e69c01a1bc91baea624606a7ffc5841a"],
+    ["BaseOS", "libxcrypt", "libxcrypt-4.1.1-4.2.lns8.loongarch64.rpm", "c88c0fd36142807a5b26ad029564a4edb55e0aee6a7d404fd2905c182379828d"]
+  ]
+}

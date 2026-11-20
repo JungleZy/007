@@ -47,7 +47,7 @@
         }
       ]
     },
-    "linux-loong64": { "unavailableReason": "尚未核验可信的 LoongArch64 MySQL 8 工具发行包；需要对应 ABI 的供应商包或原生构建产物" },
+    "linux-loong64": { "unavailableReason": "麒麟 V10 SP1 旧 ABI 请使用 scripts/prepare-loongarch-components.py 专用流程；通用下载不混用新旧 ABI，目标机运行验收仍需单独完成" },
     "linux-mips64el": { "unavailableReason": "尚未核验可信的 MIPS64EL MySQL 8 工具发行包；需要对应 ABI 的供应商包或原生构建产物" },
     "linux-sw64": { "unavailableReason": "尚未核验可信的 SW64 MySQL 8 工具发行包；需要供应商包或原生构建产物" },
     "linux-riscv64": { "unavailableReason": "尚未核验可信的 RISC-V 64 MySQL 8 工具发行包；需要供应商包或原生构建产物" }

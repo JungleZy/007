@@ -1,0 +1,24 @@
+{
+  "target": "linux-loong64",
+  "system": "Kylin V10 SP1 2403",
+  "minimumGlibc": "2.28",
+  "elfFlags": 3,
+  "interpreter": "/lib64/ld.so.1",
+  "electron": {
+    "version": "30.5.1",
+    "url": "https://ftp.loongnix.cn/electron/LoongArch/v30.5.1/electron-v30.5.1-linux-loong64.zip",
+    "sha256": "711f8403b8d99ff1f7432838725c2ae71379e9573fe80bde50ffffd6860bac59"
+  },
+  "java": {
+    "version": "21.0.12+8",
+    "url": "https://ftp.loongnix.cn/Java/openjdk21/loongson21.12.26-fx-jdk21.0.12_8-linux-loongarch64.tar.gz",
+    "sha256": "073ddcb8cf9d4bb9f8a0849fcfac1ad5a0c527bb1d1d55931536971a8a78680f",
+    "vendorMd5": "a56ef76eafc9e904d05c1d89b97a6438"
+  },
+  "mysql": {
+    "version": "8.0.21",
+    "repository": "https://pkg.loongnix.cn/loongnix-server/8.4/",
+    "rpmLock": "loongarch-mysql-rpms.json",
+    "status": "Old-ABI ELF and dependency inventory verified; native startup pending"
+  }
+}
