@@ -55,20 +55,20 @@ async function fetchServerInfo(setting, {timeout = 5000} = {}) {
 }
 
 /**
- * 根据服务端应答得出处理结论。blocked 为 true 时不得进入登录与训练。
+ * 根据服务端应答得出结论。mismatch 为 true 时提示用户版本不一致，但不限制使用。
  * 只有版本与服务端一致的包才可用：装上别的版本仍然对不上。
  */
 function evaluate(local, server) {
-    if (server.status === 'unreachable') return {state: 'unreachable', blocked: false, localVersion: local.version};
-    if (server.status === 'legacy') return {state: 'server-legacy', blocked: true, localVersion: local.version, serverVersion: null};
+    if (server.status === 'unreachable') return {state: 'unreachable', mismatch: false, localVersion: local.version};
+    if (server.status === 'legacy') return {state: 'server-legacy', mismatch: true, localVersion: local.version, serverVersion: null};
     const base = {localVersion: local.version, serverVersion: server.version};
     const order = compareVersions(server.version, local.version);
-    if (order === 0) return {state: 'same', blocked: false, ...base};
-    if (order < 0) return {state: 'server-older', blocked: true, ...base};
+    if (order === 0) return {state: 'same', mismatch: false, ...base};
+    if (order < 0) return {state: 'server-older', mismatch: true, ...base};
     const available = server.packages.find(item => item.target === local.target && item.style === local.style && item.version === server.version);
     return available
-        ? {state: 'server-newer', blocked: true, ...base, package: available}
-        : {state: 'server-newer-no-package', blocked: true, ...base};
+        ? {state: 'server-newer', mismatch: true, ...base, package: available}
+        : {state: 'server-newer-no-package', mismatch: true, ...base};
 }
 
 /** 下载升级包到 destinationDirectory，大小或摘要不符则删除并报错。 */

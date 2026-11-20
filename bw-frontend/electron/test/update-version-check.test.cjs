@@ -17,23 +17,23 @@ async function server(t, handler) {
     return {url: '127.0.0.1', port: instance.address().port};
 }
 
-test('版本一致放行，其余不一致情况一律阻断', () => {
+test('只有版本确实不一致才提示，服务端不可达不提示', () => {
     const ok = (version, packages = []) => ({status: 'ok', version, packages});
-    assert.deepEqual(evaluate(local, ok('3.2.0')), {state: 'same', blocked: false, localVersion: '3.2.0', serverVersion: '3.2.0'});
+    assert.deepEqual(evaluate(local, ok('3.2.0')), {state: 'same', mismatch: false, localVersion: '3.2.0', serverVersion: '3.2.0'});
     assert.equal(evaluate(local, ok('3.1.9')).state, 'server-older');
-    assert.equal(evaluate(local, ok('3.1.9')).blocked, true);
+    assert.equal(evaluate(local, ok('3.1.9')).mismatch, true);
     const newer = evaluate(local, ok('3.3.0', [pack()]));
     assert.equal(newer.state, 'server-newer');
-    assert.equal(newer.blocked, true);
+    assert.equal(newer.mismatch, true);
     assert.equal(newer.package.version, '3.3.0');
     // 其他平台、其他风格、或与服务端版本不一致的包都不能用来对齐版本。
     for (const packages of [[], [pack({target: 'windows-ia32'})], [pack({style: 'LJ'})], [pack({version: '3.2.5'})]]) {
         const result = evaluate(local, ok('3.3.0', packages));
         assert.equal(result.state, 'server-newer-no-package');
-        assert.equal(result.blocked, true);
+        assert.equal(result.mismatch, true);
     }
-    assert.deepEqual(evaluate(local, {status: 'legacy'}), {state: 'server-legacy', blocked: true, localVersion: '3.2.0', serverVersion: null});
-    assert.equal(evaluate(local, {status: 'unreachable'}).blocked, false);
+    assert.deepEqual(evaluate(local, {status: 'legacy'}), {state: 'server-legacy', mismatch: true, localVersion: '3.2.0', serverVersion: null});
+    assert.equal(evaluate(local, {status: 'unreachable'}).mismatch, false);
 });
 
 test('服务端应答分为可用、无版本端点的旧版本、不可达三类', async t => {

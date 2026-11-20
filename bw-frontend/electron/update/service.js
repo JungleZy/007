@@ -64,9 +64,9 @@ class UpdateService {
 
     /** 数据服务指向远端时与服务端比对版本；本机模式无需比对。 */
     async check() {
-        if (!this.available) return {state: 'local', blocked: false};
+        if (!this.available) return {state: 'local', mismatch: false};
         const setting = (await this.getSettings()).dataUrl;
-        if (localAddress(setting.url)) return {state: 'local', blocked: false, localVersion: this.boot.version};
+        if (localAddress(setting.url)) return {state: 'local', mismatch: false, localVersion: this.boot.version};
         return evaluate(this.local(), await fetchServerInfo(setting));
     }
 

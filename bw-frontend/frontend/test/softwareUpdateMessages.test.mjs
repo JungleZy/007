@@ -1,14 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { updateResultMessage, versionGateMessage } from '../src/common/utils/softwareUpdate.js'
+import { updateResultMessage, versionMismatchMessage } from '../src/common/utils/softwareUpdate.js'
 
-test('每种阻断状态都给出含双方版本的说明', () => {
+test('每种版本不一致状态都给出含双方版本的说明', () => {
   for (const state of ['server-newer', 'server-newer-no-package', 'server-older']) {
-    const text = versionGateMessage({state, blocked: true, localVersion: '3.1.3', serverVersion: '3.2.0'})
+    const text = versionMismatchMessage({state, mismatch: true, localVersion: '3.1.3', serverVersion: '3.2.0'})
     assert.match(text, /3\.1\.3/, state)
     assert.match(text, /3\.2\.0/, state)
   }
-  assert.match(versionGateMessage({state: 'server-legacy', blocked: true, localVersion: '3.1.3', serverVersion: null}), /旧版本.*3\.1\.3/)
+  assert.match(versionMismatchMessage({state: 'server-legacy', mismatch: true, localVersion: '3.1.3', serverVersion: null}), /旧版本.*3\.1\.3/)
 })
 
 test('只有在本机安装成功才提示重启；仅留存、取消和失败都不提示', () => {
