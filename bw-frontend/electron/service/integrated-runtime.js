@@ -69,7 +69,12 @@ function waitForExit(child, timeout) {
 }
 
 class IntegratedRuntime {
-    constructor({appPath, dataPath, databasePort = DATABASE_PORT, backendPort = BACKEND_PORT, onProgress = () => {}, startBackend = true}) {
+    /**
+     * appPath 是安装根目录：运行时（JRE、mysqld、MySQL 工具）始终取自这里。
+     * releaseRoot 是当前程序版本的内容目录（后端、bootstrap、清单）；未升级时就是安装目录里的出厂组件。
+     */
+    constructor({appPath, dataPath, databasePort = DATABASE_PORT, backendPort = BACKEND_PORT, onProgress = () => {}, startBackend = true,
+        releaseRoot, updateDirectory, restoreBackup, onMigrationsStarting = () => {}, onRestored = () => {}}) {
         this.appPath = appPath;
         this.dataPath = dataPath;
         this.databasePort = databasePort;
@@ -81,6 +86,11 @@ class IntegratedRuntime {
         this.mysql57 = this.target === 'windows-ia32';
         this.collation = this.mysql57 ? 'utf8mb4_general_ci' : 'utf8mb4_0900_ai_ci';
         this.assets = path.join(appPath, 'bin/integrated', this.target);
+        this.release = releaseRoot || this.assets;
+        this.updateDirectory = updateDirectory;
+        this.restoreBackup = restoreBackup;
+        this.onMigrationsStarting = onMigrationsStarting;
+        this.onRestored = onRestored;
         this.tools = path.join(appPath, 'bin/file/tools/mysql', this.target);
         this.suffix = process.platform === 'win32' ? '.exe' : '';
         this.stateFile = path.join(dataPath, 'config/database-instance.json');
@@ -116,7 +126,7 @@ class IntegratedRuntime {
         return env;
     }
 
-    run(executable, args, {input = '', env = {}, timeout = 120000, outputFile, allowStop = false} = {}) {
+    run(executable, args, {input = '', inputFile, env = {}, timeout = 120000, outputFile, allowStop = false} = {}) {
         if (!allowStop) this.active();
         return new Promise((resolve, reject) => {
             let fd;
@@ -143,7 +153,8 @@ class IntegratedRuntime {
                 }
             });
             child.stdin.on('error', () => {});
-            child.stdin.end(input);
+            if (inputFile) fs.createReadStream(inputFile).on('error', () => child.kill()).pipe(child.stdin);
+            else child.stdin.end(input);
         });
     }
 
@@ -203,15 +214,20 @@ class IntegratedRuntime {
     async initialize() {
         for (const name of ['config', 'logs', 'backups', 'files']) fs.mkdirSync(path.join(this.dataPath, name), {recursive: true});
         this.progress('正在检查运行组件');
-        this.manifest = JSON.parse(fs.readFileSync(path.join(this.assets, 'manifest.json'), 'utf8'));
-        if (this.manifest.target !== this.target) throw new Error('运行组件架构不匹配');
-        if (this.mysql57 && this.manifest.databaseVersion !== '5.7.44') throw new Error('32位数据库组件版本不匹配');
+        const runtimeManifest = JSON.parse(fs.readFileSync(path.join(this.assets, 'manifest.json'), 'utf8'));
+        if (runtimeManifest.target !== this.target) throw new Error('运行组件架构不匹配');
+        if (this.mysql57 && runtimeManifest.databaseVersion !== '5.7.44') throw new Error('32位数据库组件版本不匹配');
+        // 出厂清单的 files 是「路径→摘要」，升级包清单是条目数组；统一成前者供 assetText 校验。
+        const releaseManifest = this.release === this.assets ? runtimeManifest : JSON.parse(fs.readFileSync(path.join(this.release, 'manifest.json'), 'utf8'));
+        if (releaseManifest.target !== this.target) throw new Error('程序版本与本机架构不匹配');
+        this.manifest = {migrations: releaseManifest.migrations, files: Array.isArray(releaseManifest.files)
+            ? Object.fromEntries(releaseManifest.files.map(file => [file.path, file.sha256])) : releaseManifest.files};
         this.mysqlPaths = windowsRuntimePaths(this.appPath, this.dataPath);
         this.mysqlAssets = path.join(this.mysqlPaths.appPath, 'bin/integrated', this.target);
         this.tools = path.join(this.mysqlPaths.appPath, 'bin/file/tools/mysql', this.target);
         this.mysqld = path.join(this.mysqlAssets, `database/bin/mysqld${this.suffix}`);
         this.java = path.join(this.assets, `runtime/bin/java${this.suffix}`);
-        for (const file of [this.mysqld, this.java, path.join(this.assets, 'backend/quarkus-run.jar'), path.join(this.tools, `mysql${this.suffix}`)]) fs.accessSync(file);
+        for (const file of [this.mysqld, this.java, path.join(this.release, 'backend/quarkus-run.jar'), path.join(this.tools, `mysql${this.suffix}`)]) fs.accessSync(file);
         if (this.startBackend && !(await portFree(this.backendPort))) throw new Error(`后端端口 ${this.backendPort} 已被其他程序占用`);
         if (fs.existsSync(this.stateFile)) {
             this.state = JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
@@ -276,6 +292,13 @@ class IntegratedRuntime {
             this.progress('正在创建业务表和基础设置');
             await this.sql(this.assetText('bootstrap/seed.sql'), {database: true, timeout: 900000});
         }
+        if (!firstBoot && this.restoreBackup) await this.restoreDatabase();
+        if (!firstBoot) {
+            // 数据库里有当前版本不认识的迁移，说明它已被更高版本更新过；旧程序继续运行会读写不匹配的结构。
+            const recorded = (await this.sql('SELECT id FROM nip_desktop_migrations;', {database: true})).split(/\r?\n/).filter(Boolean);
+            const unknown = recorded.filter(id => !this.manifest.migrations.includes(id));
+            if (unknown.length) throw new Error(`数据库已由更高版本的程序更新（${unknown.length} 项更新不在当前版本内），当前版本不能使用该数据库。请导入对应版本的升级包，或安装更高版本的完整安装包`);
+        }
         const pending = [];
         for (const name of this.manifest.migrations) {
             const sql = this.assetText(`bootstrap/migrations/${name}`);
@@ -290,6 +313,8 @@ class IntegratedRuntime {
             await this.run(path.join(this.tools, `mysqldump${this.suffix}`), ['--no-defaults', '--protocol=TCP', '--host=127.0.0.1',
                 `--port=${this.databasePort}`, '--user=root', '--single-transaction', '--quick', '--hex-blob', '--no-tablespaces', '--set-gtid-purged=OFF', 'project006'],
                 {env: {MYSQL_PWD: this.state.rootPassword}, outputFile: backup, timeout: 900000});
+            // 从这里起数据库可能被改动：升级流程据此不再自动回退程序版本。
+            this.onMigrationsStarting(backup);
         }
         for (const migration of pending) {
             this.log(`Migration: ${migration.name}`);
@@ -314,8 +339,10 @@ INSERT IGNORE INTO t_user_role (id,user_id,role_id) VALUES ('desktop-admin','des
             Object.assign(env, {DB_USER: 'nip_app', DB_PASSWORD: this.state.appPassword,
                 QUARKUS_DATASOURCE_JDBC_URL: `jdbc:mysql://127.0.0.1:${this.databasePort}/project006?rewriteBatchedStatements=true&characterEncoding=utf8&useSSL=true&allowPublicKeyRetrieval=true`,
                 QUARKUS_HTTP_PORT: String(this.backendPort), QUARKUS_HTTP_HOST: '0.0.0.0'});
+            // 留存的升级包由后端的版本端点对组网客户端分发。
+            if (this.updateDirectory) env.NIP_UPDATE_DIR = this.updateDirectory;
             if (this.mysql57) Object.assign(env, {NIP_DATABASE_CLIENT_MAJOR: '5', QUARKUS_DATASOURCE_DB_VERSION: '5.7'});
-            this.backend = spawn(this.java, [...backendJvmArgs({ia32: this.mysql57}), '-jar', path.join(this.assets, 'backend/quarkus-run.jar')], {
+            this.backend = spawn(this.java, [...backendJvmArgs({ia32: this.mysql57}), '-jar', path.join(this.release, 'backend/quarkus-run.jar')], {
                 cwd: this.dataPath, windowsHide: true, env: this.environment(this.java, env), stdio: ['ignore', 'pipe', 'pipe']
             });
             this.backend.stdout.on('data', data => this.log(data));
@@ -330,8 +357,26 @@ INSERT IGNORE INTO t_user_role (id,user_id,role_id) VALUES ('desktop-admin','des
         return this.state.adminPassword ? {account: 'admin', password: this.state.adminPassword} : null;
     }
 
+    /** 用升级前的备份覆盖当前数据库。只接受本应用 backups 目录内的文件。 */
+    async restoreDatabase() {
+        const backup = path.resolve(this.restoreBackup);
+        const relative = path.relative(path.resolve(this.dataPath, 'backups'), backup);
+        if (!relative || relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(backup)) {
+            throw new Error(`升级前的数据库备份不可用，未修改数据库：${backup}`);
+        }
+        this.progress('正在恢复升级前的数据库备份');
+        await this.sql(`DROP DATABASE project006; CREATE DATABASE project006 CHARACTER SET utf8mb4 COLLATE ${this.collation};`);
+        await this.run(path.join(this.tools, `mysql${this.suffix}`), ['--no-defaults', '--protocol=TCP', '--host=127.0.0.1',
+            `--port=${this.databasePort}`, '--user=root', '--default-character-set=utf8mb4', '--binary-mode=1', '--local-infile=0', 'project006'],
+        {inputFile: backup, env: {MYSQL_PWD: this.state.rootPassword}, timeout: 900000});
+        await this.sql('CREATE TABLE IF NOT EXISTS nip_desktop_migrations (id varchar(128) PRIMARY KEY, digest char(64) NOT NULL);', {database: true});
+        this.restoreBackup = null;
+        this.onRestored();
+        this.log(`Restored database from ${backup}`);
+    }
+
     assetText(relative) {
-        const content = fs.readFileSync(path.join(this.assets, relative), 'utf8');
+        const content = fs.readFileSync(path.join(this.release, relative), 'utf8');
         if (hash(content) !== this.manifest.files[relative]) throw new Error(`初始化资源校验失败：${relative}`);
         return content;
     }
