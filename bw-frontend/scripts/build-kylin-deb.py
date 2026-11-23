@@ -131,9 +131,9 @@ def build(project, source, output, revision='1', compression=4, architecture='ar
             raise ValueError('Interface style or ASAR checksum mismatch')
     if not re.fullmatch(r'[1-9][0-9]*', revision): raise ValueError('Invalid Debian revision')
     version = metadata['version'] + '-' + revision
-    filename = (f"{metadata['productName']}-LoongArch64-{style}-{version}_{architecture}.deb" if style
+    platform_name = 'LoongArch64' if architecture == 'loongarch64' else 'ARM64'
+    filename = (f"{metadata['productName']}-{platform_name}-{style}-{version}_{architecture}.deb" if style
                 else f'{package}_{version}_{architecture}.deb')
-    if style and architecture != 'loongarch64': raise ValueError('Style packages currently require LoongArch64')
     if (output / filename).exists(): raise ValueError('Package already exists: ' + filename)
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+.][A-Za-z0-9.]+)?', version): raise ValueError('Invalid package version')
     verify_manifest(source / 'bin/integrated' / target, target)
