@@ -6,7 +6,8 @@ import {ipcRenderer, ipcApi} from '../../electron/index'
  * 外形与原随机 UUID 完全一致：8 组 4 位十六进制（32 个 hex 字符 + 7 个连字符），
  * 因此发号器零改动。内容分为两代：
  *   v1：Math.random() 随机 UUID（存量机器 / 浏览器部署）
- *   v2：4 槽硬件因子（见 electron/controller/fingerprint.js）
+ *   v2：4 槽硬件因子（见 electron/controller/fingerprint.js）；硬件因子不足 2 个时
+ *       由机器级安装标识顶替空槽，外形不变
  *
  * 比对策略（matchMachineCode）：
  *   1. 先做精确匹配 —— 覆盖 v1 存量，以及硬件完全没变的 v2
@@ -86,9 +87,22 @@ export async function readHardwareCode(force) {
 	if (!ipcRenderer.ipc) throw new Error('桌面硬件接口不可用，请重启软件或联系管理员；不会改用浏览器随机标识')
 	const result = await ipcRenderer.ipc.invoke(ipcApi.ipcApiRoute.licenseFingerprint, {force: !!force})
 	if (!result || !result.code) {
-		throw new Error('未能取得足够的本机硬件因子，请检查系统权限并联系管理员；不会改用浏览器随机标识')
+		throw new Error('未能取得足够的本机硬件因子' + describeFactors(result) + '，请检查系统权限并联系管理员；不会改用浏览器随机标识')
 	}
 	return result
+}
+
+const FACTOR_LABELS = {primary: '主机标识', systemUuid: '整机UUID', diskSerial: '磁盘序列号', boardSerial: '整机序列号'}
+
+// 把「取到了哪些、缺哪些、兜底标识为何不可用」带进报错，现场无需再登机排查。
+export function describeFactors(result) {
+	if (!result || !result.factors) return ''
+	const names = Object.keys(FACTOR_LABELS)
+	const got = names.filter((name) => result.factors[name]).map((name) => FACTOR_LABELS[name])
+	const missing = names.filter((name) => !result.factors[name]).map((name) => FACTOR_LABELS[name])
+	const parts = ['已取得：' + (got.join('、') || '无'), '缺少：' + (missing.join('、') || '无')]
+	if (result.installIdError) parts.push('机器级安装标识不可用：' + result.installIdError)
+	return '（' + parts.join('；') + '）'
 }
 
 // 仅在登录时调用；请求仍使用服务器签发会话中的 deviceId。

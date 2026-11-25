@@ -53,4 +53,15 @@ HWID_FILE="$LICENSE_DIR/hwid"
 } > "$HWID_FILE" 2>/dev/null || true
 chmod 0644 "$HWID_FILE" 2>/dev/null || true
 
+# ---------------------------------------------------------------------------
+# 机器级安装标识。硬件因子不足 2 个时（无 DMI 的主板、虚拟机等）由它顶替空槽，
+# 保证设备码稳定。升级 / 重装时保留已有值，否则设备码会变。
+# 应用首次启动发现缺失时也会自行生成，此处只是让它尽早、以机器级身份存在。
+# ---------------------------------------------------------------------------
+INSTALL_ID_FILE="$LICENSE_DIR/install-id"
+if [ ! -s "$INSTALL_ID_FILE" ]; then
+  cat /proc/sys/kernel/random/uuid > "$INSTALL_ID_FILE" 2>/dev/null || rm -f "$INSTALL_ID_FILE"
+fi
+chmod 0644 "$INSTALL_ID_FILE" 2>/dev/null || true
+
 exit 0

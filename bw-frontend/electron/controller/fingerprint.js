@@ -1,9 +1,7 @@
 const {ipcMain} = require('electron')
-const fsp = require('fs').promises
-const path = require('path')
-const crypto = require('crypto')
 const {execFile} = require('child_process')
-const {machineDir} = require('./license')
+const {machineDir, userDir} = require('./license')
+const {MIN_FACTORS, collectLinux, ensureInstallId, assemble} = require('../shared/hardware-factors')
 
 /**
  * 硬件设备指纹。
@@ -18,39 +16,19 @@ const {machineDir} = require('./license')
  *   槽2 整机 UUID  Win: Win32_ComputerSystemProduct.UUID
  *                  Linux: /sys/class/dmi/id/product_uuid（root，或安装时快照）
  *   槽3 磁盘序列号 Win: Win32_DiskDrive.SerialNumber
- *                  Linux: /dev/disk/by-id 首个非可移动物理盘
+ *                  Linux: /dev/disk/by-id 首个非可移动物理盘；没有时读
+ *                  /sys/block 下的序列号，再退到 wwn 条目
  *   槽4 整机序列号 Win: Win32_BIOS.SerialNumber
- *                  Linux: product_serial / board_serial（root，或安装时快照）
+ *                  Linux: product_serial / board_serial（root，或安装时快照）；
+ *                  无 DMI 的设备树主板读 devicetree serial-number
  * 取不到的因子填哨兵 00000000，比对时跳过。
+ * 硬件因子不足 2 个时，用机器级安装标识顶替空槽（见 fingerprint()）。
+ * 因子清洗、Linux 采集与槽位组装在 ../shared/hardware-factors.js。
  *
  * 明确不采集：
  *   - MAC 地址：网卡插拔 / WiFi 开关 / 虚拟网卡都会变（原 system.js:102-127 的坑）
  *   - CPU ID：同批次整机的 ProcessorId 常完全相同，会造成跨机误判
  */
-
-const SENTINEL = '00000000'
-
-// 白牌机 / 组装机的 BIOS 常返回这些占位串，跨机器完全相同，必须剔除，
-// 否则会把大量不同机器判成同一台。
-const JUNK = new Set([
-	'', '0', '00', '000', 'none', 'null', 'n/a', 'na', 'unknown', 'default string',
-	'to be filled by o.e.m.', 'to be filled by o.e.m', 'system serial number',
-	'chassis serial number', 'not specified', 'not available', 'invalid',
-	'0000000000000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff',
-	'00000000-0000-0000-0000-000000000000'
-])
-
-function hash8(value) {
-	if (value == null) return SENTINEL
-	const s = String(value).trim()
-	if (!s || JUNK.has(s.toLowerCase())) return SENTINEL
-	if (/^0+$/.test(s.replace(/[-\s]/g, ''))) return SENTINEL
-	return crypto.createHash('sha256').update(s).digest('hex').slice(0, 8)
-}
-
-function formatCode(hex32) {
-	return hex32.match(/.{1,4}/g).join('-')
-}
 
 function run(cmd, args, timeout) {
 	return new Promise((resolve) => {
@@ -65,15 +43,6 @@ function run(cmd, args, timeout) {
 			resolve(null)
 		}
 	})
-}
-
-async function readText(p) {
-	try {
-		const t = await fsp.readFile(p, 'utf-8')
-		return t.trim() || null
-	} catch (e) {
-		return null
-	}
 }
 
 // -------- Windows --------
@@ -129,51 +98,6 @@ async function collectWindows() {
 	return out
 }
 
-// -------- Linux --------
-
-// 安装时由 deb postinst（root 身份）落盘的 DMI 快照。
-// /sys/class/dmi/id/product_uuid 等在内核中是 0400，普通用户读不到；
-// 有了这份快照，非 root 运行也能拿到槽2 / 槽4，可比对因子从 2 个提升到 4 个。
-async function readHwidSnapshot() {
-	const dir = machineDir()
-	if (!dir) return {}
-	const txt = await readText(path.join(dir, 'hwid'))
-	if (!txt) return {}
-	const out = {}
-	txt.split(/\r?\n/).forEach((line) => {
-		const i = line.indexOf('=')
-		if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim()
-	})
-	return out
-}
-
-async function linuxDiskSerial() {
-	try {
-		const names = await fsp.readdir('/dev/disk/by-id')
-		const cands = names.filter((n) => !n.includes('-part') && !n.startsWith('wwn-') && !n.startsWith('usb-'))
-		for (const prefix of ['nvme-', 'ata-', 'scsi-', 'mmc-']) {
-			const hit = cands.filter((n) => n.startsWith(prefix)).sort()
-			if (hit.length) return hit[0]
-		}
-		const rest = cands.sort()
-		return rest.length ? rest[0] : null
-	} catch (e) {
-		return null
-	}
-}
-
-async function collectLinux() {
-	const snap = await readHwidSnapshot()
-	return {
-		primary: await readText('/etc/machine-id') || await readText('/var/lib/dbus/machine-id'),
-		systemUuid: snap.product_uuid || await readText('/sys/class/dmi/id/product_uuid'),
-		diskSerial: await linuxDiskSerial(),
-		boardSerial: snap.product_serial || snap.board_serial
-			|| await readText('/sys/class/dmi/id/product_serial')
-			|| await readText('/sys/class/dmi/id/board_serial')
-	}
-}
-
 // -------- 对外 --------
 
 let cached = null
@@ -183,20 +107,21 @@ async function fingerprint(force) {
 	let raw = {primary: null, systemUuid: null, diskSerial: null, boardSerial: null}
 	try {
 		if (process.platform === 'win32') raw = await collectWindows()
-		else if (process.platform === 'linux') raw = await collectLinux()
+		else if (process.platform === 'linux') raw = await collectLinux({root: '/', machineDir: machineDir()})
 	} catch (e) {
 		// 采集失败一律降级为哨兵，绝不因此阻塞授权流程
 	}
-	const slots = [hash8(raw.primary), hash8(raw.systemUuid), hash8(raw.diskSerial), hash8(raw.boardSerial)]
-	const available = slots.filter((s) => s !== SENTINEL).length
-	cached = {
-		slots,
-		available,
-		// 至少要有 2 个真实因子才敢用作设备码，避免在采集全失败的机器上
-		// 每次启动都给出不同/无意义的设备码。
-		code: available >= 2 ? formatCode(slots.join('')) : null,
-		platform: process.platform
+	// 至少要有 2 个因子才敢用作设备码。硬件因子不足时（无 DMI 的国产主板、
+	// 虚拟机、未带 hwid 快照的安装包等）用持久化的机器级安装标识顶替空槽，
+	// 保证设备码稳定且不再把用户挡在登录外；它不是浏览器随机标识，重启不变。
+	let result = assemble(raw)
+	let installIdError = null
+	if (result.hardware < MIN_FACTORS) {
+		const install = await ensureInstallId([machineDir(), userDir()])
+		installIdError = install.error
+		result = assemble(raw, install.id)
 	}
+	cached = {...result, installIdError, platform: process.platform}
 	return cached
 }
 

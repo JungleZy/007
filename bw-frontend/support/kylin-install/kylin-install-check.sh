@@ -54,6 +54,23 @@ bounded() {
   fi
   printf '\n%s\n' '=== Free disk space (installed files need about 3.16 GB plus database space) ==='
   df -h / /opt /tmp "$HOME" 2>&1 || true
+  printf '\n%s\n' '=== Device code factors (presence only, as the current user; need >= 2) ==='
+  factors=0
+  probe() {
+    if [ -n "$2" ]; then printf '%s: OK\n' "$1"; factors=$((factors + 1)); else printf '%s: MISSING\n' "$1"; fi
+  }
+  state=/var/lib/nip-traffic-system
+  snapshot() { sed -n "s/^$1=//p" "$state/hwid" 2>/dev/null | head -n 1; }
+  probe 'machine-id' "$(cat /etc/machine-id /var/lib/dbus/machine-id 2>/dev/null | head -n 1)"
+  probe 'system uuid (hwid snapshot or DMI)' "$(snapshot product_uuid)$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)"
+  probe 'disk serial (by-id or /sys/block)' "$(ls /dev/disk/by-id 2>/dev/null | grep -v -e '-part' -e '^usb-' | head -n 1)$(cat /sys/block/*/device/serial /sys/block/*/device/cid /sys/block/*/wwid /sys/block/*/device/wwid 2>/dev/null | head -n 1)"
+  probe 'board serial (hwid snapshot, DMI or device tree)' "$(snapshot product_serial)$(snapshot board_serial)$(cat /sys/class/dmi/id/product_serial /sys/class/dmi/id/board_serial 2>/dev/null | head -n 1)$(cat /sys/firmware/devicetree/base/serial-number 2>/dev/null | tr -d '\0')"
+  if [ -s "$state/install-id" ]; then printf '%s\n' 'install-id fallback: PRESENT'; else printf '%s\n' 'install-id fallback: ABSENT (created by the package postinst or on first start)'; fi
+  if [ "$factors" -ge 2 ]; then
+    printf 'DEVICE_FACTORS_OK (%s of 4)\n' "$factors"
+  else
+    printf 'DEVICE_FACTORS_LOW (%s of 4): the device code will rely on the install-id fallback. Placeholder values such as "Default string" also count as missing in the application.\n' "$factors"
+  fi
   printf '\n%s\n' '=== Local installer ==='
   if [ -n "$package" ] && [ -f "$package" ]; then
     printf 'File: %s\n' "$package"

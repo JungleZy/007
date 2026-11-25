@@ -4,6 +4,7 @@ import json
 import tarfile
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import unittest
 
@@ -100,5 +101,22 @@ class KylinPackageTests(unittest.TestCase):
         self.assertNotIn('rm ', package.POSTRM)
         self.assertNotIn('mysqld', package.POSTINST)
         self.assertIn('libc6 (>= 2.28)', package.DEPENDENCIES)
+
+    def test_postinst_prepares_device_code_factors_for_unprivileged_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / 'state'
+            script = package.POSTINST.replace('/var/lib/nip-traffic-system', str(state))
+            script = script.replace('/sys/class/dmi/id', str(root / 'dmi'))
+            (root / 'dmi').mkdir()
+            (root / 'dmi/product_uuid').write_text('uuid-fixture\n')
+            (root / 'postinst').write_text(script)
+            run = lambda: subprocess.run(['sh', str(root / 'postinst'), 'configure'], check=True)
+            run()
+            self.assertIn('product_uuid=uuid-fixture', (state / 'hwid').read_text())
+            first = (state / 'install-id').read_text().strip()
+            self.assertRegex(first, r'^[0-9a-f-]{16,64}$')
+            run()
+            self.assertEqual((state / 'install-id').read_text().strip(), first)
 
 if __name__ == '__main__': unittest.main()

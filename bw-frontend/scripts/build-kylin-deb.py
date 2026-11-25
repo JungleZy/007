@@ -37,6 +37,20 @@ if [ "$1" = configure ]; then
   if [ -f /var/lib/nip-traffic-system/license.json ]; then
     chmod 0666 /var/lib/nip-traffic-system/license.json
   fi
+  # 设备码因子。DMI 文件是 0400，只有此处（root）能读，落成普通用户可读的快照；
+  # 与 build/linux/after-install.sh 保持一致。缺了它，非 root 运行最多只剩 2 个因子。
+  {
+    echo "product_uuid=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null)"
+    echo "product_serial=$(cat /sys/class/dmi/id/product_serial 2>/dev/null)"
+    echo "board_serial=$(cat /sys/class/dmi/id/board_serial 2>/dev/null)"
+  } > /var/lib/nip-traffic-system/hwid 2>/dev/null || true
+  chmod 0644 /var/lib/nip-traffic-system/hwid 2>/dev/null || true
+  # 机器级安装标识：硬件因子不足时顶替空槽。升级 / 重装时保留已有值，否则设备码会变。
+  if [ ! -s /var/lib/nip-traffic-system/install-id ]; then
+    cat /proc/sys/kernel/random/uuid > /var/lib/nip-traffic-system/install-id 2>/dev/null \
+      || rm -f /var/lib/nip-traffic-system/install-id
+  fi
+  chmod 0644 /var/lib/nip-traffic-system/install-id 2>/dev/null || true
   if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database /usr/share/applications || true
   fi
